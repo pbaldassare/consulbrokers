@@ -175,11 +175,11 @@ export default function RiepilogoAnticipiPage() {
           </div>
           <div>
             <Label className="text-xs">Versato da</Label>
-            <DatePicker date={dataDa || undefined} onSelect={(d) => setDataDa(d || null)} placeholder="Da..." />
+            <DatePicker value={dataDa} onChange={setDataDa} placeholder="Da..." />
           </div>
           <div>
             <Label className="text-xs">Versato al</Label>
-            <DatePicker date={dataAl || undefined} onSelect={(d) => setDataAl(d || null)} placeholder="Al..." />
+            <DatePicker value={dataAl} onChange={setDataAl} placeholder="Al..." />
           </div>
           <div className="flex flex-col">
             <Label className="text-xs">Cerca</Label>
