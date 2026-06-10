@@ -71,12 +71,13 @@ export function exportECClienteXlsx(d: ECClienteData, fileName: string, opts: Ex
     totComp ? Number(totComp.toFixed(2)) : "",
     Number(d.totale.toFixed(2)),
     "",
+    "",
   ]);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"] = [
     { wch: 18 }, { wch: 22 }, { wch: 32 }, { wch: 22 }, { wch: 12 },
-    { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 30 },
+    { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 30 },
   ];
 
   // Intestazione documento in un secondo foglio
@@ -99,8 +100,35 @@ export function exportECClienteXlsx(d: ECClienteData, fileName: string, opts: Ex
   const wsMeta = XLSX.utils.aoa_to_sheet(meta);
   wsMeta["!cols"] = [{ wch: 22 }, { wch: 60 }];
 
+  // Terzo foglio: filtri applicati + riepilogo riconciliazione
+  const f = opts.filtri || {};
+  const filtri: any[][] = [
+    ["Filtri & Riconciliazione"],
+    [],
+    ["Filtri applicati all'export"],
+    ["Periodo dal", f.periodoDal || "—"],
+    ["Periodo al", f.periodoAl || "—"],
+    ["Categoria", f.categoria || "Tutte"],
+    ["Causale (codice)", f.causaleCodice || "Tutte"],
+    ["Causale (descrizione)", f.causaleDescrizione || "—"],
+    [],
+    ["Riepilogo riconciliazione bancaria"],
+    ["Polizze riconciliate", totRiconciliati],
+    ["Polizze non riconciliate", totNonRiconciliati],
+    ["Totale polizze", d.righe.length],
+    [],
+    ["Note"],
+    ["Le righe contrassegnate come 'Riconciliato' risultano abbinate a un movimento bancario rilevato dal sistema."],
+    ["Le righe 'Non riconciliato' richiedono verifica manuale (incasso non ancora abbinato a un movimento bancario)."],
+    ["Le compensazioni contabili sono riportate come sotto-righe indentate nella colonna 'Rischio' del foglio Polizze."],
+  ];
+  const wsFiltri = XLSX.utils.aoa_to_sheet(filtri);
+  wsFiltri["!cols"] = [{ wch: 30 }, { wch: 60 }];
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Polizze");
   XLSX.utils.book_append_sheet(wb, wsMeta, "Intestazione");
+  XLSX.utils.book_append_sheet(wb, wsFiltri, "Filtri & Riconciliazione");
   XLSX.writeFile(wb, fileName);
 }
+
