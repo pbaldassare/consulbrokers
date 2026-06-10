@@ -28,28 +28,34 @@ export interface ExportXlsxOptions {
  * Le compensazioni di segno '+' (riducono il dovuto) sono mostrate negative
  * nella colonna "Compensazioni"; quelle di segno '-' (aumentano) come positive.
  */
-export function exportECClienteXlsx(d: ECClienteData, fileName: string) {
+export function exportECClienteXlsx(d: ECClienteData, fileName: string, opts: ExportXlsxOptions = {}) {
   const aoa: any[][] = [];
   aoa.push([
     "Polizza", "Ramo", "Rischio", "Compagnia", "Effetto",
-    "Premio (€)", "Compensazioni (€)", "Dovuto (€)", "Note",
+    "Premio (€)", "Compensazioni (€)", "Dovuto (€)", "Riconciliazione", "Note",
   ]);
+  let totRiconciliati = 0;
+  let totNonRiconciliati = 0;
   for (const r of d.righe) {
     const comp = r.compensazioni || [];
     const compNet = comp.reduce((s, c) => s + (c.segno === "+" ? -c.importo : c.importo), 0);
     const dovuto = r.premio + compNet;
+    const rec = opts.riconciliazione?.[r.polizza];
+    const recLabel = rec?.stato === "riconciliato" ? "Riconciliato" : "Non riconciliato";
+    if (rec?.stato === "riconciliato") totRiconciliati += 1; else totNonRiconciliati += 1;
     aoa.push([
       r.polizza, r.ramo, r.rischio, r.compagnia, r.effetto,
       Number(r.premio.toFixed(2)),
       compNet ? Number(compNet.toFixed(2)) : "",
       Number(dovuto.toFixed(2)),
-      "",
+      recLabel,
+      rec?.nota || "",
     ]);
     for (const c of comp) {
       const impEff = c.segno === "+" ? -c.importo : c.importo;
       aoa.push([
         "", "", `   ↳ ${c.codice} — ${c.descrizione}`, "", "",
-        "", Number(impEff.toFixed(2)), "", c.note || "",
+        "", Number(impEff.toFixed(2)), "", "", c.note || "",
       ]);
     }
   }
