@@ -746,6 +746,11 @@ const PortafoglioCaricoPage = () => {
         titoli={cassaDialogTitoli}
         onSuccess={() => { setSelectedIds(new Set()); invalidateQueries(); }}
       />
+
+      <AnticipoUtilizziDrawer
+        anticipoId={anticipoDrawerId}
+        onClose={() => setAnticipoDrawerId(null)}
+      />
     </div>
   );
 };
