@@ -2,6 +2,7 @@
 // Invocata dopo l'aggiornamento di titoli.data_messa_cassa.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,7 +33,7 @@ function escapeHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+}
 
 const payloadSchema = z.object({
   titolo_id: z.string().uuid("titolo_id deve essere un UUID valido"),
