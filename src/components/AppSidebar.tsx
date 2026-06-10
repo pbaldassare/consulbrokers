@@ -200,7 +200,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Storico Rimesse", path: "/contabilita/storico-rimesse", icon: Send },
         { label: "E/C Produttori", path: "/contabilita/ec-produttori", icon: Percent },
         { label: "Storico E/C Produttori", path: "/contabilita/ec-produttore/storico", icon: Archive },
-        { label: "Stampa Sospesi", path: "/contabilita/stampa-sospesi", icon: FileOutput },
+        { label: "Riepilogo Anticipi", path: "/contabilita/anticipi-clienti", icon: Wallet },
       ],
     },
   },
