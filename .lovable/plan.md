@@ -1,15 +1,34 @@
-## Fix conteggio badge "Agenzie collegate"
+## Nuova tabella `causali_movimento_contabile`
 
-**File**: `src/pages/CompagnieList.tsx` (~righe 1074-1085, dentro `CompagnieMadriTab` → query `agenzie-madri-list`).
+La tabella esistente `causali_contabili` è già occupata come registro delle tabelle base (codici `TBDS*`), quindi creo una tabella nuova dedicata alle causali contabili operative (ABP, AIN, CAV...).
 
-Aggiungere il filtro `is_principale = false` alla select sui rapporti N:N, così il conteggio esclude i rapporti principali auto-creati dal trigger DB (sono già rappresentati nel conteggio 1:N tramite `compagnie.gruppo_compagnia_id`).
+### Schema
+- `id` uuid PK
+- `codice` text UNIQUE NOT NULL (es. `ABP`)
+- `descrizione` text NOT NULL (es. `ABBUONO PASSIVO`)
+- `segno` text CHECK in (`dare`, `avere`, `entrambi`) DEFAULT `entrambi` — utile per futura logica contabile
+- `attiva` boolean DEFAULT true
+- `note` text NULL
+- `created_at`, `updated_at` timestamptz
 
-```ts
-const { data: rapportiData } = await supabase
-  .from("compagnia_rapporti")
-  .select("compagnia_id, gruppo_compagnia_id")
-  .eq("attivo", true)
-  .eq("is_principale", false);   // ← nuovo
-```
+### Seed iniziale
+| Codice | Descrizione |
+|---|---|
+| ABP | ABBUONO PASSIVO |
+| AIN | ACCONTO SU INCASSI |
+| CAV | ABBUONO ATTIVO |
+| GGC | GIROCONTO |
+| GLP | LIQUIDAZIONE PROVVIGIONI |
+| MEN | MINOR INCASSO |
+| MIN | MAGGIORE INCASSO |
 
-Risultato: CATTOLICA mostra badge **2** (= 2 agenzie 1:N + 0 rapporti N:N veri), coerente col popup "Nessun rapporto N:N registrato".
+### RLS / Grants
+- `GRANT SELECT, INSERT, UPDATE, DELETE … TO authenticated`, `ALL … TO service_role`.
+- Policy lettura: tutti gli utenti autenticati.
+- Policy scrittura (insert/update/delete): solo admin via `has_role(auth.uid(),'admin')`.
+
+### UI
+In questa fase nessuna pagina UI — mi indicherai dopo dove collegarla (es. selettore in prima nota, rimesse, ecc.). Eventuale CRUD in "Tabelle Base" lo aggiungiamo al passo successivo.
+
+### Conferma
+Va bene il nome `causali_movimento_contabile`? In alternativa posso chiamarla `causali_operative` o riservarla diversamente.
