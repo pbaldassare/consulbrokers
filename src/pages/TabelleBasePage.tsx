@@ -1549,9 +1549,9 @@ const TabelleBasePage = () => {
       const results: Record<string, number> = {};
       await Promise.all(
         tabConfig.map(async (t) => {
-          const { count, error } = await (supabase as any)
-            .from(t.tableName)
-            .select("*", { count: "exact", head: true });
+          let q = (supabase as any).from(t.tableName).select("*", { count: "exact", head: true });
+          if (t.custom === "causali_comp") q = q.eq("tipo_tabella", "compensazione_messa_cassa");
+          const { count, error } = await q;
           if (!error) results[t.value] = count ?? 0;
         })
       );
