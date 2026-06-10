@@ -61,6 +61,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
+import logoCbnet from "@/assets/logo-cbnet.svg.asset.json";
 
 interface SidebarItem {
   label: string;
@@ -321,15 +322,11 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
       }}
     >
       {/* Brand */}
-      <div className="px-4 py-5 border-b border-white/10">
-        {!collapsed && (
-          <>
-            <h1 className="text-xl font-bold text-white tracking-tight">CBnet</h1>
-            <p className="text-[10px] text-white/50 uppercase tracking-widest mt-0.5">Gestionale</p>
-          </>
-        )}
-        {collapsed && (
-          <h1 className="text-xl font-bold text-white text-center">C</h1>
+      <div className="px-3 py-4 border-b border-white/10 flex items-center justify-center">
+        {!collapsed ? (
+          <img src={logoCbnet.url} alt="CBnet" className="h-10 w-auto" />
+        ) : (
+          <img src={logoCbnet.url} alt="CBnet" className="h-7 w-auto" />
         )}
       </div>
 

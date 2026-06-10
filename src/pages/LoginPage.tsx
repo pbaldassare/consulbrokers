@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Lock, Mail, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getDefaultRoute } from "@/lib/getDefaultRoute";
+import logoCbnet from "@/assets/logo-cbnet.svg.asset.json";
 
 const LoginPage = () => {
   const { user, profile, loading: authLoading } = useAuth();
@@ -78,14 +79,10 @@ const LoginPage = () => {
     >
       <div className="w-full max-w-sm">
         <div className="bg-card/95 backdrop-blur-sm border border-white/10 rounded-xl p-8 shadow-2xl">
-          <div className="flex items-center justify-center mb-6">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Lock className="w-6 h-6 text-primary" />
-            </div>
+          <div className="flex items-center justify-center mb-4">
+            <img src={logoCbnet.url} alt="CBnet" className="h-16 w-auto" />
           </div>
-          <h1 className="text-xl font-bold text-foreground text-center mb-0.5">CBnet</h1>
-          <p className="text-xs text-muted-foreground text-center mb-1 uppercase tracking-widest">Gestionale</p>
-          <h2 className="text-base font-semibold text-foreground text-center mt-4 mb-1">
+          <h2 className="text-base font-semibold text-foreground text-center mt-2 mb-1">
             {resetMode ? "Recupera Password" : "Accedi"}
           </h2>
           <p className="text-sm text-muted-foreground text-center mb-6">
