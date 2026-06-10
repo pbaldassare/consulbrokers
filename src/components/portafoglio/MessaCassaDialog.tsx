@@ -616,7 +616,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           {/* Compensazioni — single titolo: pannello singolo */}
           {!isMulti && (
             <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
-              <CompensazioniPanel titoloId={titoli[0].id} />
+              {renderCompensazioniPanel(titoli[0].id)}
             </div>
           )}
 
@@ -648,7 +648,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="pt-2 pb-3">
-                        <CompensazioniPanel titoloId={t.id} />
+                        {renderCompensazioniPanel(t.id)}
                       </AccordionContent>
                     </AccordionItem>
                   );
