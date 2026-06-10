@@ -198,7 +198,30 @@ serve(async (req) => {
       },
     });
 
-    if (sendErr) throw sendErr;
+    if (sendErr) {
+      // Non propaghiamo 500: la messa a cassa è già avvenuta, la notifica è best-effort.
+      console.error("send-email failed:", sendErr);
+      await supabase.from("log_attivita").insert({
+        azione: "notifica_messa_cassa_errore",
+        entita_tipo: "titolo",
+        entita_id: titoloId,
+        severity: "warning",
+        dettagli_json: {
+          destinatario: recipient,
+          oggetto: subject,
+          errore: (sendErr as any)?.message ?? String(sendErr),
+        },
+      });
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          fallback: true,
+          recipient,
+          error: (sendErr as any)?.message ?? "send-email failed",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Log attività
     await supabase.from("log_attivita").insert({
@@ -219,9 +242,9 @@ serve(async (req) => {
     );
   } catch (err: any) {
     console.error("notifica-messa-cassa-agenzia error:", err);
-    return new Response(JSON.stringify({ error: err?.message ?? String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: false, fallback: true, error: err?.message ?? String(err) }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });
