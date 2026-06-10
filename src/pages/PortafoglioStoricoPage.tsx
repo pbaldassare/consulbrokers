@@ -17,6 +17,8 @@ import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/Ramo
 import { useRamiAll } from "@/hooks/useRamiLookup";
 import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
 import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
+import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
+import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 const PortafoglioStoricoPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -83,6 +85,8 @@ const PortafoglioStoricoPage = () => {
     [polizze]
   );
   const { data: anticipiMap } = useAnticipiResiduoByClienti(clienteIdsRiga);
+  const titoloIdsRiga = useMemo(() => polizze.map((p: any) => p.id), [polizze]);
+  const { data: compensazioniMap } = useCompensazioniByTitoli(titoloIdsRiga);
   const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
 
 
@@ -253,7 +257,10 @@ const PortafoglioStoricoPage = () => {
                     <TableCell className="text-right">{fmtCurrency(p.provvigioni_quietanza)}</TableCell>
                     <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
                     <TableCell>
-                      <Badge variant={statoBadgeVariant(p.stato)}>{p.stato}</Badge>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <Badge variant={statoBadgeVariant(p.stato)}>{p.stato}</Badge>
+                        <CompensazioneBadge summary={compensazioniMap?.get(p.id)} />
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm">{fmtDate(p.data_sospensione)}</TableCell>
                     <TableCell className="text-sm">{fmtDate(p.limite_riattivazione)}</TableCell>

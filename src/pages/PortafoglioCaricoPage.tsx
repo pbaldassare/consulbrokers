@@ -26,6 +26,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
 import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 import { Wallet } from "lucide-react";
+import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
+import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 
 const PortafoglioCaricoPage = () => {
@@ -175,6 +177,8 @@ const PortafoglioCaricoPage = () => {
     [polizze]
   );
   const { data: anticipiMap } = useAnticipiResiduoByClienti(clienteIdsRiga);
+  const titoloIdsRiga = useMemo(() => polizze.map((p: any) => p.id), [polizze]);
+  const { data: compensazioniMap } = useCompensazioniByTitoli(titoloIdsRiga);
   const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
 
   const { data: totaleData } = useQuery({
@@ -692,7 +696,7 @@ const PortafoglioCaricoPage = () => {
                       <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
                       <TableCell className="text-sm">{p.produttore_nome || "—"}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
                           <Badge variant={statoBadgeVariant(p.stato)}>{p.stato}</Badge>
                           {p.conferimento_gestito && !p.fondi_ricevuti && (
                             <Badge variant="destructive" className="text-[10px] h-5">Att. Fondi</Badge>
@@ -700,6 +704,7 @@ const PortafoglioCaricoPage = () => {
                           {p.conferimento_gestito && p.fondi_ricevuti && (
                             <Badge className="bg-orange-500 text-white text-[10px] h-5 hover:bg-orange-600">Conf.</Badge>
                           )}
+                          <CompensazioneBadge summary={compensazioniMap?.get(p.id)} />
                         </div>
                       </TableCell>
                       <TableCell className="text-center text-xs">

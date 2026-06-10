@@ -19,6 +19,8 @@ import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/Ramo
 import { useRamiAll } from "@/hooks/useRamiLookup";
 import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
 import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
+import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
+import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 const PortafoglioAttivePage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -74,6 +76,8 @@ const PortafoglioAttivePage = () => {
     [polizze]
   );
   const { data: anticipiMap } = useAnticipiResiduoByClienti(clienteIdsRiga);
+  const titoloIdsRiga = useMemo(() => polizze.map((p: any) => p.id), [polizze]);
+  const { data: compensazioniMap } = useCompensazioniByTitoli(titoloIdsRiga);
   const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
 
   const { data: totaleData } = useQuery({
@@ -207,6 +211,7 @@ const PortafoglioAttivePage = () => {
                         {p.stato === "sospeso" && (
                           <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Sospesa</Badge>
                         )}
+                        <CompensazioneBadge summary={compensazioniMap?.get(p.id)} />
                       </div>
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
