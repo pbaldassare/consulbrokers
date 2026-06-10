@@ -1,25 +1,37 @@
-## Anticipi come chip nella tab bar
+## Obiettivo
+Nel dialog "Conferma Messa a Cassa" su `TitoloDetail` il campo **Banca** mostra l'elenco hardcoded di tutte le banche italiane (`bancheItaliane`). Va sostituito con la sola lista dei conti bancari Consulbrokers (tabella `conti_bancari` con `tipo = 'generico'`), coerentemente con il `MessaCassaDialog` del Portafoglio e con la regola già in memoria per "Paga Rimessa".
 
-### Modifiche
+## Modifiche
 
-**1. Nuovo `src/components/clienti/AnticipiChip.tsx`**
-- Pulsante compatto altezza `h-9` (stessa altezza `TabsTrigger`): icona Wallet + label "Anticipi" + Badge con totale `€X,XX`.
-- Click → apre `Dialog` (`sm:max-w-2xl`) con:
-  - header totale disponibile + bottone "+ Nuovo Anticipo"
-  - tabella zebra anticipi attivi (Data, Conto, Importo, Residuo, Stato, elimina)
-  - `<details>` collassabile con storico esauriti
-- Riusa `NuovoAnticipoDialog`, `AnticipoUtilizziDrawer`, hook `useAnticipiCliente`.
+### `src/pages/TitoloDetail.tsx`
+1. Importare `ContoBancarioSelect` da `@/components/anagrafiche/ContoBancarioSelect`.
+2. Sostituire (righe ~1848-1858) il blocco `<Select>` hardcoded con:
+   ```tsx
+   {cassaForm.tipoPagamento === "bonifico" && (
+     <div>
+       <Label className="text-xs">Conto Consulbrokers</Label>
+       <ContoBancarioSelect
+         tipi={["generico"]}
+         value={cassaForm.banca || null}
+         onChange={(id) => setCassaForm(f => ({ ...f, banca: id || "" }))}
+         placeholder="Seleziona conto..."
+         showPreview
+         className="mt-1"
+       />
+     </div>
+   )}
+   ```
+3. In `changeStatoMutation` (riga ~1277), `cassaForm.banca` ora è l'`id` del conto, non una stringa. Prima di salvare risolvere l'etichetta:
+   ```ts
+   if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
+     const { data: conto } = await (supabase.from("conti_bancari") as any)
+       .select("etichetta, banca").eq("id", cassaData.banca).maybeSingle();
+     updatePayload.banca_pagamento = conto?.etichetta || conto?.banca || null;
+   }
+   ```
+4. Rimuovere (o lasciare se usato altrove — da verificare) l'array `bancheItaliane` se non più referenziato.
 
-**2. `src/pages/ClienteDetail.tsx`**
-- Rimuovo `<AnticipiCard clienteId={id!} />` (righe 1869-1870) inserita sotto l'header.
-- Inserisco `<AnticipiChip clienteId={id!} />` nella `TabsList`, subito dopo il `TabsTrigger value="sinistri"` (riga 1885).
-
-**3. `AnticipiCard.tsx`** — resta nel repo ma non più usata (nessun import). Può essere rimossa in seguito.
-
-### Risultato visivo
-
-```text
-[Anagrafica] [Polizze · Quietanze] [⚠ Sinistri] [💰 Anticipi · 0,00 €] [Aziende] [...]
-                                                       │
-                                                       └── click → Dialog (totale + tabella + Nuovo)
-```
+## Note
+- Stesso dialog del `MessaCassaDialog` del Portafoglio: comportamento allineato.
+- Nessuna migrazione DB: `banca_pagamento` resta `text` con l'etichetta del conto.
+- Coerente con memory `rimessa-mittente-napoli` (select conti Consulbrokers `tipo='generico'`).
