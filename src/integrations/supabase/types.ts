@@ -901,6 +901,39 @@ export type Database = {
         }
         Relationships: []
       }
+      causali_movimento_contabile: {
+        Row: {
+          attiva: boolean
+          codice: string
+          created_at: string
+          descrizione: string
+          id: string
+          note: string | null
+          segno: string
+          updated_at: string
+        }
+        Insert: {
+          attiva?: boolean
+          codice: string
+          created_at?: string
+          descrizione: string
+          id?: string
+          note?: string | null
+          segno?: string
+          updated_at?: string
+        }
+        Update: {
+          attiva?: boolean
+          codice?: string
+          created_at?: string
+          descrizione?: string
+          id?: string
+          note?: string | null
+          segno?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       certificazioni_cu: {
         Row: {
           aliquota_ritenuta: number | null
