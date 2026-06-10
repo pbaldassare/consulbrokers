@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { Shield, Search } from "lucide-react";
+import { Shield, Search, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
@@ -17,6 +17,8 @@ import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/RamoSottoramoFilter";
 import { useRamiAll } from "@/hooks/useRamiLookup";
+import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
+import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 const PortafoglioAttivePage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -43,7 +45,7 @@ const PortafoglioAttivePage = () => {
     queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente, filtroTipo],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza",
         { count: "exact" }
       ).in("stato", ["attivo", "sospeso"]).gte("garanzia_a", today);
 
@@ -66,6 +68,13 @@ const PortafoglioAttivePage = () => {
 
   const polizze = result?.data || [];
   const totalCount = result?.count || 0;
+
+  const clienteIdsRiga = useMemo(
+    () => polizze.map((p: any) => p.cliente_anagrafica_id).filter(Boolean),
+    [polizze]
+  );
+  const { data: anticipiMap } = useAnticipiResiduoByClienti(clienteIdsRiga);
+  const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
 
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-attive-totale", search, filterRamoIds, today, escludiMeseCorrente],
@@ -172,6 +181,7 @@ const PortafoglioAttivePage = () => {
                   <TableHead>N° Polizza</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Cliente</TableHead>
+                  <TableHead>Anticipo</TableHead>
                   <TableHead>Agenzia</TableHead>
                   <TableHead>Ramo</TableHead>
                   <TableHead>Targa</TableHead>
@@ -200,6 +210,22 @@ const PortafoglioAttivePage = () => {
                       </div>
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {(() => {
+                        const summary = p.cliente_anagrafica_id ? anticipiMap?.get(p.cliente_anagrafica_id) : null;
+                        if (!summary || summary.totale <= 0) return <span className="text-xs text-muted-foreground">—</span>;
+                        return (
+                          <Badge
+                            className="bg-emerald-600 hover:bg-emerald-700 cursor-pointer gap-1"
+                            title={`${summary.conteggio} anticip${summary.conteggio === 1 ? "o" : "i"} disponibil${summary.conteggio === 1 ? "e" : "i"} — click per dettagli`}
+                            onClick={() => setAnticipoDrawerId(summary.primoAnticipoId)}
+                          >
+                            <Wallet className="h-3 w-3" />
+                            {fmtCurrency(summary.totale)}
+                          </Badge>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>
                     <TableCell>{p.ramo_nome || "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
@@ -219,6 +245,7 @@ const PortafoglioAttivePage = () => {
           <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}
+      <AnticipoUtilizziDrawer anticipoId={anticipoDrawerId} onClose={() => setAnticipoDrawerId(null)} />
     </div>
   );
 };

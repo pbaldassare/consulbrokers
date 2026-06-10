@@ -1,34 +1,49 @@
-## Nuova tabella `causali_movimento_contabile`
+# Anticipi cliente in Portafoglio → Carico
 
-La tabella esistente `causali_contabili` è già occupata come registro delle tabelle base (codici `TBDS*`), quindi creo una tabella nuova dedicata alle causali contabili operative (ABP, AIN, CAV...).
+Obiettivo: collegare visivamente la disponibilità di anticipi del cliente alle righe della pagina **Portafoglio → Carico**, in linea con la card già presente in scheda cliente e con il MessaCassaDialog (stessa fonte dati: `cliente_anticipi.importo_residuo`).
 
-### Schema
-- `id` uuid PK
-- `codice` text UNIQUE NOT NULL (es. `ABP`)
-- `descrizione` text NOT NULL (es. `ABBUONO PASSIVO`)
-- `segno` text CHECK in (`dare`, `avere`, `entrambi`) DEFAULT `entrambi` — utile per futura logica contabile
-- `attiva` boolean DEFAULT true
-- `note` text NULL
-- `created_at`, `updated_at` timestamptz
+## Cosa cambia (solo UI + un hook dati)
 
-### Seed iniziale
-| Codice | Descrizione |
-|---|---|
-| ABP | ABBUONO PASSIVO |
-| AIN | ACCONTO SU INCASSI |
-| CAV | ABBUONO ATTIVO |
-| GGC | GIROCONTO |
-| GLP | LIQUIDAZIONE PROVVIGIONI |
-| MEN | MINOR INCASSO |
-| MIN | MAGGIORE INCASSO |
+1. **Nuovo hook** `useAnticipiResiduoByClienti(clienteIds: string[])`
+   - Fa una query aggregata su `cliente_anticipi` filtrata per `cliente_id IN (...)` e `importo_residuo > 0`.
+   - Ritorna una `Map<cliente_id, { totale: number, conteggio: number }>`.
+   - Chiave query: `["anticipi-residuo-by-clienti", sortedIds]` → si aggancia alle invalidazioni già esistenti aggiungendo questa chiave dove invalidiamo `anticipi-globale` (creazione/eliminazione anticipo, messa a cassa, annulla messa a cassa, annulla polizza).
 
-### RLS / Grants
-- `GRANT SELECT, INSERT, UPDATE, DELETE … TO authenticated`, `ALL … TO service_role`.
-- Policy lettura: tutti gli utenti autenticati.
-- Policy scrittura (insert/update/delete): solo admin via `has_role(auth.uid(),'admin')`.
+2. **PortafoglioCaricoPage** (`src/pages/PortafoglioCaricoPage.tsx`)
+   - Calcolo dei `clienteIds` univoci dalle righe correnti della pagina e passaggio all'hook.
+   - Nuova colonna in tabella **"Anticipo"** dopo "Cliente":
+     - Se residuo > 0 → badge verde cliccabile con importo formattato (es. `€ 300,00`) e tooltip "N anticipi disponibili — clicca per dettagli".
+     - Click sul badge: apre `AnticipoUtilizziDrawer` (il primo anticipo disponibile del cliente) **oppure** naviga a `/contabilita/anticipi-clienti?cliente=<id>` (vedi domanda sotto se preferisci una delle due — di default prendo: click apre il drawer del primo anticipo disponibile + secondary action "Vedi tutti" nel tooltip che porta al riepilogo filtrato).
+     - Se residuo = 0 → trattino `—` muted.
+   - Click sulla cella non deve propagare l'apertura riga (stopPropagation).
 
-### UI
-In questa fase nessuna pagina UI — mi indicherai dopo dove collegarla (es. selettore in prima nota, rimesse, ecc.). Eventuale CRUD in "Tabelle Base" lo aggiungiamo al passo successivo.
+3. **Stessa colonna replicata** in:
+   - `PortafoglioAttivePage.tsx`
+   - `PortafoglioStoricoPage.tsx`
+   (stesso pattern, riusando l'hook — coerenza con il filtro `Polizze + Quietanze`).
 
-### Conferma
-Va bene il nome `causali_movimento_contabile`? In alternativa posso chiamarla `causali_operative` o riservarla diversamente.
+4. **Sincronizzazione**: aggiungo `qc.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] })` in:
+   - `useAnticipiCliente.ts` (create / delete)
+   - `MessaCassaDialog.tsx` (su success)
+   - `lib/annullaMessaACassa.ts`
+   - `lib/annullaPolizza.ts`
+   Così la colonna si aggiorna in tempo reale insieme a `anticipi-globale`.
+
+## File toccati
+
+- nuovo: `src/hooks/useAnticipiResiduoByClienti.ts`
+- modifiche: `src/pages/PortafoglioCaricoPage.tsx`, `src/pages/PortafoglioAttivePage.tsx`, `src/pages/PortafoglioStoricoPage.tsx`, `src/hooks/useAnticipiCliente.ts`, `src/components/portafoglio/MessaCassaDialog.tsx`, `src/lib/annullaMessaACassa.ts`, `src/lib/annullaPolizza.ts`
+
+## Fuori scope (come da tua risposta)
+
+- Niente azione "Nuovo Anticipo" sulla riga.
+- Niente KPI globale anticipi in testata.
+- Nessun cambiamento al MessaCassaDialog (resta nascosto se il cliente non ha anticipi).
+
+## Domanda residua
+
+Sul click del badge "Anticipo" preferisci:
+- (a) aprire il drawer utilizzi del primo anticipo disponibile (più veloce, contestuale), oppure
+- (b) navigare a `/contabilita/anticipi-clienti?cliente=<id>` (riepilogo completo del cliente)?
+
+Se non rispondi vado con (a).

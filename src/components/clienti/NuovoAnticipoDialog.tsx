@@ -55,6 +55,7 @@ export default function NuovoAnticipoDialog({ open, onOpenChange, clienteId }: P
       qc.invalidateQueries({ queryKey: ["cliente-anticipi", vars.cliente_id] });
       qc.invalidateQueries({ queryKey: ["cliente-anticipi-disponibili", vars.cliente_id] });
       qc.invalidateQueries({ queryKey: ["anticipi-globale"] });
+      qc.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
       toast.success("Anticipo creato");
     },
     onError: (e: any) => toast.error(e?.message || "Errore creazione anticipo"),

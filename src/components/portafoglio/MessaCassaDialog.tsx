@@ -198,6 +198,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       queryClient.invalidateQueries({ queryKey: ["cliente-anticipi"] });
       queryClient.invalidateQueries({ queryKey: ["cliente-anticipi-disponibili"] });
       queryClient.invalidateQueries({ queryKey: ["anticipi-globale"] });
+      queryClient.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
       onSuccess?.();
       onOpenChange(false);
     } else {
