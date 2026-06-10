@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -13,6 +13,73 @@ import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import { fmtEuro } from "@/lib/formatCurrency";
+
+/**
+ * Input importo per riga di compensazione contabile.
+ *
+ * Mantiene un buffer locale stringa per consentire la digitazione naturale
+ * (incluso il separatore decimale italiano `,`), senza che il valore venga
+ * riarrotondato a ogni keystroke (cosa che faceva "scattare" il cursore e
+ * costringeva ad inserire un numero alla volta).
+ *
+ * Il parse e la persistenza nello stato globale avvengono solo on blur / Enter.
+ */
+const ImportoCompensazioneInput = ({
+  value,
+  autoFocus,
+  onCommit,
+}: {
+  value: number;
+  autoFocus?: boolean;
+  onCommit: (n: number) => void;
+}) => {
+  const fmt = (n: number) =>
+    !n || Number.isNaN(n) ? "" : n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const [text, setText] = useState<string>(() => fmt(value));
+  const dirty = useRef(false);
+
+  // Riallinea il buffer quando il valore esterno cambia senza che l'utente stia digitando
+  useEffect(() => {
+    if (!dirty.current) setText(fmt(value));
+  }, [value]);
+
+  const commit = () => {
+    dirty.current = false;
+    const norm = text.trim().replace(/\./g, "").replace(",", ".");
+    const n = Number(norm);
+    const safe = Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+    onCommit(safe);
+    setText(fmt(safe));
+  };
+
+  return (
+    <div className="relative">
+      <Input
+        type="text"
+        inputMode="decimal"
+        placeholder="0,00"
+        value={text}
+        autoFocus={autoFocus}
+        onChange={(e) => {
+          dirty.current = true;
+          // accetta solo cifre, separatori . , e spazi (per migliaia)
+          const cleaned = e.target.value.replace(/[^\d.,\s]/g, "");
+          setText(cleaned);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className="w-32 h-8 text-xs text-right pr-5"
+      />
+      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">€</span>
+    </div>
+  );
+};
+
 
 interface TitoloMin {
   id: string;
@@ -65,6 +132,8 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
   const [anticipiSel, setAnticipiSel] = useState<Record<string, number>>({});
   // Compensazioni indicizzate per titolo
   const [compensazioniByTitolo, setCompensazioniByTitolo] = useState<Record<string, CompensazioneRow[]>>({});
+  // Ultima riga compensazione aggiunta (per auto-focus sull'importo)
+  const [lastAddedCompId, setLastAddedCompId] = useState<string | null>(null);
 
   const isMulti = titoli.length > 1;
   const totaleLordo = titoli.reduce((s, t) => s + (Number(t.premio_lordo) || 0), 0);
@@ -126,10 +195,11 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
   const addCompFor = (titoloId: string, causaleId: string, suggestImporto?: number) => {
     const c = causaliComp.find((x) => x.id === causaleId);
     if (!c) return;
+    const tempId = crypto.randomUUID();
     setCompensazioniByTitolo((prev) => {
       const cur = prev[titoloId] || [];
       const row: CompensazioneRow = {
-        tempId: crypto.randomUUID(),
+        tempId,
         causale_id: c.id,
         causale_codice: c.codice,
         causale_descrizione: c.descrizione,
@@ -139,6 +209,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       };
       return { ...prev, [titoloId]: [...cur, row] };
     });
+    setLastAddedCompId(tempId);
   };
 
   const updateCompFor = (titoloId: string, tempId: string, patch: Partial<CompensazioneRow>) => {
@@ -416,7 +487,15 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
   };
 
   // === UI: pannello compensazioni per singolo titolo (riusato in single e bulk) ===
-  const CompensazioniPanel = ({ titoloId }: { titoloId: string }) => {
+  /**
+   * Render del pannello compensazioni per un titolo.
+   *
+   * NB: definito come funzione che ritorna JSX (non come componente React) per
+   * evitare che ad ogni re-render del parent React rimonti gli input figli
+   * (causa del vecchio bug "un numero alla volta"): in quel caso il campo
+   * perdeva il focus a ogni tasto.
+   */
+  const renderCompensazioniPanel = (titoloId: string) => {
     const list = getComp(titoloId);
     return (
       <div className="space-y-2">
@@ -460,11 +539,10 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
                   onChange={(e) => updateCompFor(titoloId, c.tempId, { note: e.target.value })}
                   className="w-32 h-8 text-xs"
                 />
-                <Input
-                  type="number" step="0.01" min="0"
+                <ImportoCompensazioneInput
                   value={c.importo}
-                  onChange={(e) => updateCompFor(titoloId, c.tempId, { importo: round2(Number(e.target.value) || 0) })}
-                  className="w-24 h-8 text-xs text-right"
+                  autoFocus={lastAddedCompId === c.tempId}
+                  onCommit={(n) => updateCompFor(titoloId, c.tempId, { importo: n })}
                 />
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeCompFor(titoloId, c.tempId)}>
                   <Trash2 className="w-3.5 h-3.5 text-destructive" />
@@ -476,6 +554,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       </div>
     );
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -537,7 +616,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           {/* Compensazioni — single titolo: pannello singolo */}
           {!isMulti && (
             <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
-              <CompensazioniPanel titoloId={titoli[0].id} />
+              {renderCompensazioniPanel(titoli[0].id)}
             </div>
           )}
 
@@ -569,7 +648,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="pt-2 pb-3">
-                        <CompensazioniPanel titoloId={t.id} />
+                        {renderCompensazioniPanel(t.id)}
                       </AccordionContent>
                     </AccordionItem>
                   );
