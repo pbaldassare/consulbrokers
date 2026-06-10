@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import PdfPreview from "@/components/PdfPreview";
 import { buildECClientePdf, type ECClienteData, type ECClienteRow } from "@/lib/ec-cliente-pdf";
+import { exportECClienteXlsx } from "@/lib/ec-cliente-xlsx";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 
@@ -250,6 +251,17 @@ const ECClientePdfPage = () => {
     } finally { setBusy(false); }
   };
 
+  const handleEsportaExcel = () => {
+    try {
+      const cli = (cliente?.ragione_sociale || `${cliente?.cognome || ""}_${cliente?.nome || ""}`).replace(/\s+/g, "_") || "cliente";
+      const name = `EC_${cli}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+      exportECClienteXlsx(buildData(), name);
+      toast.success("Excel scaricato");
+    } catch (e: any) {
+      toast.error("Errore export Excel: " + (e?.message || e));
+    }
+  };
+
   const handleSalva = async () => {
     try {
       setBusy(true);
@@ -419,10 +431,11 @@ const ECClientePdfPage = () => {
 
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => navigate(-1)}>Chiudi</Button>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={handleAnteprima} disabled={busy}>Anteprima</Button>
           <Button variant="outline" onClick={handleStampa} disabled={busy}>Stampa</Button>
-          <Button variant="outline" onClick={handleScarica} disabled={busy}>Scarica</Button>
+          <Button variant="outline" onClick={handleScarica} disabled={busy}>Scarica PDF</Button>
+          <Button variant="outline" onClick={handleEsportaExcel} disabled={busy}>Esporta Excel</Button>
           <Button onClick={handleSalva} disabled={busy}>Salva PDF</Button>
         </div>
       </div>

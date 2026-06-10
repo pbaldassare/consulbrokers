@@ -71,23 +71,28 @@ const CruscottoGiornaliero = () => {
     },
   });
 
-  // Estratti non riconciliati
+  // Estratti non riconciliati nel periodo filtrato (coerente con filtro principale)
   const { data: nonRiconciliati = [], refetch: refetchNR } = useQuery({
-    queryKey: ["cruscotto_non_riconciliati", uffId],
+    queryKey: ["cruscotto_non_riconciliati", uffId, filtroDataDa, filtroDataA],
     queryFn: async () => {
-      const q = supabase.from("estratti_conto").select("*").eq("stato", "nuovo");
+      const q = supabase.from("estratti_conto").select("*")
+        .eq("stato", "nuovo")
+        .gte("data_operazione", filtroDataDa)
+        .lte("data_operazione", filtroDataA);
       if (uffId) q.eq("ufficio_id", uffId);
-      const { data, error } = await q.order("data_operazione", { ascending: false }).limit(20);
+      const { data, error } = await q.order("data_operazione", { ascending: false }).limit(50);
       if (error) throw error;
       return data || [];
     },
   });
 
-  // Estratti totali per progress (riconciliati + non)
+  // Estratti totali per progress (riconciliati + non) nel periodo filtrato
   const { data: estrattiTotali = [] } = useQuery({
-    queryKey: ["cruscotto_estratti_totali", uffId, dataStr],
+    queryKey: ["cruscotto_estratti_totali", uffId, filtroDataDa, filtroDataA],
     queryFn: async () => {
-      const q = supabase.from("estratti_conto").select("stato").eq("data_operazione", dataStr);
+      const q = supabase.from("estratti_conto").select("stato")
+        .gte("data_operazione", filtroDataDa)
+        .lte("data_operazione", filtroDataA);
       if (uffId) q.eq("ufficio_id", uffId);
       const { data, error } = await q;
       if (error) throw error;
@@ -110,18 +115,21 @@ const CruscottoGiornaliero = () => {
     },
   });
 
-  // Scadenze fornitore prossimi 7 giorni
+  // Scadenze fornitore nel periodo filtrato (default: prossimi 7 giorni dalla data selezionata)
   const { data: scadenzeFornitori = [], refetch: refetchSF } = useQuery({
-    queryKey: ["cruscotto_scadenze_fornitori", uffId, dataStr],
+    queryKey: ["cruscotto_scadenze_fornitori", uffId, filtroDataDa, filtroDataA, fra7ggStr],
     queryFn: async () => {
+      const dal = filtroDataDa || dataStr;
+      // Se il periodo filtrato è esteso usa quello, altrimenti default a +7gg
+      const al = (filtroDataA && filtroDataA !== dataStr) ? filtroDataA : fra7ggStr;
       const q = supabase
         .from("primanota_generale")
         .select("*, fornitori(nome)")
-        .lte("data_documento", fra7ggStr)
-        .gte("data_documento", dataStr)
+        .lte("data_documento", al)
+        .gte("data_documento", dal)
         .eq("stato", "aperta");
       if (uffId) q.eq("ufficio_id", uffId);
-      const { data, error } = await q.order("data_documento").limit(20);
+      const { data, error } = await q.order("data_documento").limit(50);
       if (error) throw error;
       return data || [];
     },
@@ -191,8 +199,37 @@ const CruscottoGiornaliero = () => {
     },
   });
 
+  // Riepilogo compensazioni del periodo filtrato (aggregato per causale)
+  const { data: riepilogoComp = { righe: [], totaleNetto: 0, totalePositivo: 0, totaleNegativo: 0, count: 0 } } = useQuery({
+    queryKey: ["cruscotto_riepilogo_comp", filtroDataDa, filtroDataA],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("titoli_compensazioni") as any)
+        .select("causale_codice, causale_descrizione, segno, importo, created_at")
+        .gte("created_at", `${filtroDataDa}T00:00:00`)
+        .lte("created_at", `${filtroDataA}T23:59:59`);
+      if (error) throw error;
+      const map = new Map<string, { codice: string; descrizione: string; count: number; totalePos: number; totaleNeg: number; netto: number }>();
+      for (const r of (data || []) as Array<{ causale_codice: string; causale_descrizione: string; segno: "+" | "-"; importo: number }>) {
+        const key = r.causale_codice || "?";
+        const cur = map.get(key) || { codice: key, descrizione: r.causale_descrizione || "", count: 0, totalePos: 0, totaleNeg: 0, netto: 0 };
+        const imp = Number(r.importo) || 0;
+        cur.count += 1;
+        if (r.segno === "+") { cur.totalePos += imp; cur.netto -= imp; }
+        else { cur.totaleNeg += imp; cur.netto += imp; }
+        map.set(key, cur);
+      }
+      const righe = Array.from(map.values()).sort((a, b) => Math.abs(b.netto) - Math.abs(a.netto));
+      const totalePositivo = righe.reduce((s, r) => s + r.totalePos, 0);
+      const totaleNegativo = righe.reduce((s, r) => s + r.totaleNeg, 0);
+      const totaleNetto = righe.reduce((s, r) => s + r.netto, 0);
+      const count = righe.reduce((s, r) => s + r.count, 0);
+      return { righe, totaleNetto, totalePositivo, totaleNegativo, count };
+    },
+  });
+
   // --- CALCULATIONS ---
 
+  // KPI giornaliere (mantengono il giorno selezionato)
   const totEntrate = movOggi.filter(m => m.tipo === "entrata").reduce((s, m) => s + (m.importo || 0), 0);
   const totUscite = movOggi.filter(m => m.tipo === "uscita").reduce((s, m) => s + (m.importo || 0), 0);
   const saldoGiorno = totEntrate - totUscite;
@@ -513,6 +550,64 @@ const CruscottoGiornaliero = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Riepilogo Compensazioni Contabili — totali per causale nel periodo filtrato */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Scale className="w-4 h-4 text-teal-600" /> Riepilogo Compensazioni
+              </CardTitle>
+              <CardDescription>
+                {filtroDataDa === filtroDataA
+                  ? format(new Date(filtroDataDa), "d MMMM yyyy", { locale: it })
+                  : `Dal ${format(new Date(filtroDataDa), "d MMM yyyy", { locale: it })} al ${format(new Date(filtroDataA), "d MMM yyyy", { locale: it })}`}
+                {" · "}{riepilogoComp.count} compensazioni su {riepilogoComp.righe.length} causal{riepilogoComp.righe.length === 1 ? "e" : "i"}
+              </CardDescription>
+            </div>
+            <div className="flex gap-3 text-xs">
+              <span className="text-emerald-600 font-medium">A favore cliente: {fmt(riepilogoComp.totalePositivo)}</span>
+              <span className="text-red-600 font-medium">A carico cliente: {fmt(riepilogoComp.totaleNegativo)}</span>
+              <span className={`font-semibold ${riepilogoComp.totaleNetto >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                Netto: {fmt(riepilogoComp.totaleNetto)}
+              </span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {riepilogoComp.righe.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">Nessuna compensazione registrata nel periodo selezionato.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Causale</TableHead>
+                  <TableHead>Descrizione</TableHead>
+                  <TableHead className="text-right">N.</TableHead>
+                  <TableHead className="text-right text-emerald-700">A favore (€)</TableHead>
+                  <TableHead className="text-right text-red-700">A carico (€)</TableHead>
+                  <TableHead className="text-right">Netto (€)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {riepilogoComp.righe.map((r: any, i: number) => (
+                  <TableRow key={r.codice} className={i % 2 === 0 ? "bg-muted/30" : ""}>
+                    <TableCell className="font-mono text-xs">{r.codice}</TableCell>
+                    <TableCell className="text-sm">{r.descrizione || "—"}</TableCell>
+                    <TableCell className="text-right text-xs">{r.count}</TableCell>
+                    <TableCell className="text-right font-mono text-xs text-emerald-700">{r.totalePos > 0 ? fmt(r.totalePos) : "—"}</TableCell>
+                    <TableCell className="text-right font-mono text-xs text-red-700">{r.totaleNeg > 0 ? fmt(r.totaleNeg) : "—"}</TableCell>
+                    <TableCell className={`text-right font-mono text-xs font-semibold ${r.netto >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                      {fmt(r.netto)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Movimenti Registrati - con filtri periodo/categoria/causale */}
       <Card>
