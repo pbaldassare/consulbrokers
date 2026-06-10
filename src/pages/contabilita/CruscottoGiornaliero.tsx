@@ -71,23 +71,28 @@ const CruscottoGiornaliero = () => {
     },
   });
 
-  // Estratti non riconciliati
+  // Estratti non riconciliati nel periodo filtrato (coerente con filtro principale)
   const { data: nonRiconciliati = [], refetch: refetchNR } = useQuery({
-    queryKey: ["cruscotto_non_riconciliati", uffId],
+    queryKey: ["cruscotto_non_riconciliati", uffId, filtroDataDa, filtroDataA],
     queryFn: async () => {
-      const q = supabase.from("estratti_conto").select("*").eq("stato", "nuovo");
+      const q = supabase.from("estratti_conto").select("*")
+        .eq("stato", "nuovo")
+        .gte("data_operazione", filtroDataDa)
+        .lte("data_operazione", filtroDataA);
       if (uffId) q.eq("ufficio_id", uffId);
-      const { data, error } = await q.order("data_operazione", { ascending: false }).limit(20);
+      const { data, error } = await q.order("data_operazione", { ascending: false }).limit(50);
       if (error) throw error;
       return data || [];
     },
   });
 
-  // Estratti totali per progress (riconciliati + non)
+  // Estratti totali per progress (riconciliati + non) nel periodo filtrato
   const { data: estrattiTotali = [] } = useQuery({
-    queryKey: ["cruscotto_estratti_totali", uffId, dataStr],
+    queryKey: ["cruscotto_estratti_totali", uffId, filtroDataDa, filtroDataA],
     queryFn: async () => {
-      const q = supabase.from("estratti_conto").select("stato").eq("data_operazione", dataStr);
+      const q = supabase.from("estratti_conto").select("stato")
+        .gte("data_operazione", filtroDataDa)
+        .lte("data_operazione", filtroDataA);
       if (uffId) q.eq("ufficio_id", uffId);
       const { data, error } = await q;
       if (error) throw error;
@@ -110,18 +115,21 @@ const CruscottoGiornaliero = () => {
     },
   });
 
-  // Scadenze fornitore prossimi 7 giorni
+  // Scadenze fornitore nel periodo filtrato (default: prossimi 7 giorni dalla data selezionata)
   const { data: scadenzeFornitori = [], refetch: refetchSF } = useQuery({
-    queryKey: ["cruscotto_scadenze_fornitori", uffId, dataStr],
+    queryKey: ["cruscotto_scadenze_fornitori", uffId, filtroDataDa, filtroDataA, fra7ggStr],
     queryFn: async () => {
+      const dal = filtroDataDa || dataStr;
+      // Se il periodo filtrato è esteso usa quello, altrimenti default a +7gg
+      const al = (filtroDataA && filtroDataA !== dataStr) ? filtroDataA : fra7ggStr;
       const q = supabase
         .from("primanota_generale")
         .select("*, fornitori(nome)")
-        .lte("data_documento", fra7ggStr)
-        .gte("data_documento", dataStr)
+        .lte("data_documento", al)
+        .gte("data_documento", dal)
         .eq("stato", "aperta");
       if (uffId) q.eq("ufficio_id", uffId);
-      const { data, error } = await q.order("data_documento").limit(20);
+      const { data, error } = await q.order("data_documento").limit(50);
       if (error) throw error;
       return data || [];
     },
