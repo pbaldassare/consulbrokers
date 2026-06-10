@@ -218,6 +218,8 @@ const PortafoglioCaricoPage = () => {
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-totale"] });
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-pending"] });
+    queryClient.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
+    queryClient.invalidateQueries({ queryKey: ["anticipi-globale"] });
   };
 
   const mettiACassa = useCallback(async (titoloId: string, premioLordo?: number | null) => {
