@@ -126,7 +126,8 @@ serve(async (req) => {
     // Sandbox mode: con onboarding@resend.dev Resend permette invii SOLO al proprietario account.
     // Se il from è il sender di sandbox, dirottiamo TUTTI i destinatari verso SANDBOX_TO
     // e mettiamo gli originali come reply_to per riferimento.
-    const SANDBOX_OWNER = Deno.env.get("RESEND_SANDBOX_TO") || "info@iaconnect.it";
+    // Owner dell'account Resend: solo questo indirizzo è accettato finché il dominio non è verificato.
+    const SANDBOX_OWNER = Deno.env.get("RESEND_SANDBOX_TO") || "noreply@cbnet.it";
     let finalHtml = html;
     let finalFrom = from || "";
     let finalTo: string | string[] = to;
