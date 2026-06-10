@@ -38,10 +38,9 @@ const CruscottoGiornaliero = () => {
   const [filtroCausaleId, setFiltroCausaleId] = useState<string>("__tutte__");
 
   // Sincronizza il periodo del pannello quando l'utente cambia la data del cruscotto
-  useMemo(() => {
+  useEffect(() => {
     setFiltroDataDa(dataStr);
     setFiltroDataA(dataStr);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataStr]);
 
   const fmt = fmtEuro;
