@@ -1,21 +1,24 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, subDays } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { fmtEuro } from "@/lib/formatCurrency";
 import {
   AlertTriangle, ArrowDownLeft, ArrowUpRight, CalendarIcon, CheckCircle, Clock,
-  FileWarning, GitCompare, Receipt, RefreshCw, Scale, TrendingDown, TrendingUp
+  FileWarning, GitCompare, Receipt, RefreshCw, Scale, TrendingDown, TrendingUp, Filter, X
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
