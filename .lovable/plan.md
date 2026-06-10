@@ -1,37 +1,40 @@
-## Obiettivo
-Nel dialog "Conferma Messa a Cassa" su `TitoloDetail` il campo **Banca** mostra l'elenco hardcoded di tutte le banche italiane (`bancheItaliane`). Va sostituito con la sola lista dei conti bancari Consulbrokers (tabella `conti_bancari` con `tipo = 'generico'`), coerentemente con il `MessaCassaDialog` del Portafoglio e con la regola già in memoria per "Paga Rimessa".
+## Problema
 
-## Modifiche
+Creando una nuova **Agenzia** con Compagnia madre (es. `DL ASSISERVICE` → `CATTOLICA`) appare l'errore:
+> *Un'agenzia non può avere un rapporto N:N con la propria Compagnia di appartenenza*
 
-### `src/pages/TitoloDetail.tsx`
-1. Importare `ContoBancarioSelect` da `@/components/anagrafiche/ContoBancarioSelect`.
-2. Sostituire (righe ~1848-1858) il blocco `<Select>` hardcoded con:
-   ```tsx
-   {cassaForm.tipoPagamento === "bonifico" && (
-     <div>
-       <Label className="text-xs">Conto Consulbrokers</Label>
-       <ContoBancarioSelect
-         tipi={["generico"]}
-         value={cassaForm.banca || null}
-         onChange={(id) => setCassaForm(f => ({ ...f, banca: id || "" }))}
-         placeholder="Seleziona conto..."
-         showPreview
-         className="mt-1"
-       />
-     </div>
-   )}
-   ```
-3. In `changeStatoMutation` (riga ~1277), `cassaForm.banca` ora è l'`id` del conto, non una stringa. Prima di salvare risolvere l'etichetta:
-   ```ts
-   if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
-     const { data: conto } = await (supabase.from("conti_bancari") as any)
-       .select("etichetta, banca").eq("id", cassaData.banca).maybeSingle();
-     updatePayload.banca_pagamento = conto?.etichetta || conto?.banca || null;
-   }
-   ```
-4. Rimuovere (o lasciare se usato altrove — da verificare) l'array `bancheItaliane` se non più referenziato.
+## Causa
 
-## Note
-- Stesso dialog del `MessaCassaDialog` del Portafoglio: comportamento allineato.
-- Nessuna migrazione DB: `banca_pagamento` resta `text` con l'etichetta del conto.
-- Coerente con memory `rimessa-mittente-napoli` (select conti Consulbrokers `tipo='generico'`).
+Due trigger DB si pestano i piedi:
+
+1. `tg_compagnie_auto_rapporto_principale` (AFTER INSERT su `compagnie`) crea automaticamente il **rapporto principale** (`is_principale = true`) con `compagnia_id = NEW.id` e `gruppo_compagnia_id = NEW.gruppo_compagnia_id`.
+2. `trg_block_self_referential_rapporto` (BEFORE INSERT su `compagnia_rapporti`) blocca qualunque riga in cui `compagnia.gruppo_compagnia_id = NEW.gruppo_compagnia_id` — pensato per impedire **rapporti N:N** plurimandatari "autoreferenziali", ma colpisce anche il rapporto principale legittimo.
+
+Risultato: ogni nuova agenzia con compagnia madre fallisce.
+
+## Fix
+
+Migrazione SQL: aggiornare `trg_block_self_referential_rapporto` perché salti il controllo quando `NEW.is_principale = true` (il rapporto principale è per definizione 1:1 con la propria Compagnia madre e non è un N:N).
+
+```sql
+CREATE OR REPLACE FUNCTION public.trg_block_self_referential_rapporto()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_gruppo uuid;
+BEGIN
+  -- Il rapporto principale (1:1 con la compagnia madre) è legittimo: skip
+  IF COALESCE(NEW.is_principale, false) = true THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.compagnia_id IS NULL OR NEW.gruppo_compagnia_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+  SELECT gruppo_compagnia_id INTO v_gruppo FROM public.compagnie WHERE id = NEW.compagnia_id;
+  IF v_gruppo IS NOT NULL AND v_gruppo = NEW.gruppo_compagnia_id THEN
+    RAISE EXCEPTION 'Un''agenzia non può avere un rapporto N:N con la propria Compagnia di appartenenza';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+```
+
+Nessuna modifica frontend necessaria. Il controllo anti-autoreferenziale resta attivo per i veri rapporti N:N plurimandatari.
