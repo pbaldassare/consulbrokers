@@ -1539,7 +1539,7 @@ const CompagnieList = () => {
           <h1 className="text-2xl font-bold text-foreground">Compagnie Assicurative / Agenzie</h1>
           <p className="text-muted-foreground">
             Gestione compagnie assicurative, agenzie e provvigioni —{" "}
-            <span className="font-semibold">{compagnie.length}</span> agenzie ·{" "}
+            <span className="font-semibold">{compagnie.filter((c: any) => c.attiva !== false).length}</span> agenzie ·{" "}
             <span className="font-semibold">{Object.keys(gruppiMap).length}</span> compagnie assicurative
           </p>
         </div>
