@@ -1866,9 +1866,6 @@ export default function ClienteDetail() {
         </div>
       </div>
 
-      {/* Anticipi Cliente - card in alto */}
-      <AnticipiCard clienteId={id!} />
-
       {/* Tabs - positioned right after header */}
       <Tabs defaultValue="anagrafica">
 
@@ -1889,8 +1886,10 @@ export default function ClienteDetail() {
             <TabsTrigger value="timeline">Log Attività</TabsTrigger>
             <TabsTrigger value="trattative"><FileText className="w-4 h-4 mr-1" />Trattative</TabsTrigger>
           </TabsList>
+          <AnticipiChip clienteId={id!} />
           <AreaRiservataHeaderButton cliente={cliente} onUpdate={() => queryClient.invalidateQueries({ queryKey: ["cliente", id] })} />
         </div>
+
 
         <TabsContent value="polizze">
           <Card>
