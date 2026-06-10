@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Archive, Search, Eye } from "lucide-react";
+import { Archive, Search, Eye, Wallet } from "lucide-react";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/RamoSottoramoFilter";
 import { useRamiAll } from "@/hooks/useRamiLookup";
+import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
+import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 const PortafoglioStoricoPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
