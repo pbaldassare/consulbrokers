@@ -61,7 +61,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
-import logoCbnet from "@/assets/logo-cbnet-transparent.png.asset.json";
+
 
 interface SidebarItem {
   label: string;
