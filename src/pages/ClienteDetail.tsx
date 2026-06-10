@@ -1866,8 +1866,12 @@ export default function ClienteDetail() {
         </div>
       </div>
 
+      {/* Anticipi Cliente - card in alto */}
+      <AnticipiCard clienteId={id!} />
+
       {/* Tabs - positioned right after header */}
       <Tabs defaultValue="anagrafica">
+
         <div className="flex items-center flex-wrap gap-1">
           <TabsList className="flex-wrap">
             <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
