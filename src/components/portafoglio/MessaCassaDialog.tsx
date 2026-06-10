@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Wallet, Plus, Trash2, Calculator } from "lucide-react";
+import { CheckSquare, Wallet, Plus, Trash2, Calculator, Printer, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
@@ -40,6 +40,14 @@ interface CompensazioneRow {
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const TOLLERANZA_QUADRATURA = 0.01; // soglia massima di delta consentita
+
+interface MovimentoPreview {
+  tipo: "entrata" | "uscita";
+  categoria: string;
+  descrizione: string;
+  importo: number;
+}
 
 export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Props) => {
   const queryClient = useQueryClient();
@@ -122,7 +130,42 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     : round2(Number(form.cashImporto) || 0);
   const coperto = round2(cashEffettivo + totaleAnticipiUsati);
   const delta = round2(dovutoFinale - coperto);
-  const quadrato = Math.abs(delta) < 0.01;
+  const quadrato = Math.abs(delta) < TOLLERANZA_QUADRATURA;
+
+  // === Anteprima scritture contabili che verranno generate al conferma ===
+  const movimentiPreview: MovimentoPreview[] = useMemo(() => {
+    if (isMulti) return [];
+    return compensazioni.map((c) => ({
+      tipo: c.segno === "+" ? "uscita" : "entrata",
+      categoria: "compensazione_titolo",
+      descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
+      importo: c.importo,
+    }));
+  }, [compensazioni, isMulti]);
+
+  const stampaRiepilogo = () => {
+    const t = titoli[0];
+    const rows: string[] = [];
+    rows.push(`<tr><td>Premio lordo</td><td style="text-align:right">${fmtEuro(totaleLordo)}</td></tr>`);
+    compensazioni.forEach((c) => {
+      rows.push(`<tr><td>${c.segno} ${c.causale_codice} — ${c.causale_descrizione}${c.note ? " (" + c.note + ")" : ""}</td><td style="text-align:right">${c.segno === "+" ? "− " : "+ "}${fmtEuro(c.importo)}</td></tr>`);
+    });
+    rows.push(`<tr style="border-top:1px solid #999"><td><strong>Dovuto finale</strong></td><td style="text-align:right"><strong>${fmtEuro(dovutoFinale)}</strong></td></tr>`);
+    if (totaleAnticipiUsati > 0) rows.push(`<tr><td>Anticipi utilizzati</td><td style="text-align:right">− ${fmtEuro(totaleAnticipiUsati)}</td></tr>`);
+    rows.push(`<tr><td>Cash/bonifico (${form.tipoPagamento})</td><td style="text-align:right">− ${fmtEuro(cashEffettivo)}</td></tr>`);
+    rows.push(`<tr style="border-top:2px solid #000"><td><strong>Delta finale</strong></td><td style="text-align:right"><strong>${fmtEuro(delta)}</strong></td></tr>`);
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Riepilogo Messa a Cassa</title>
+<style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;margin:0 0 16px;color:#666;font-weight:normal}table{width:100%;border-collapse:collapse;font-size:13px}td{padding:6px 4px}</style>
+</head><body>
+<h1>Riepilogo Messa a Cassa</h1>
+<h2>Polizza ${t?.numero_titolo || t?.id?.slice(0,8) || ""} — ${form.dataMessaCassa}</h2>
+<table>${rows.join("")}</table>
+<p style="margin-top:24px;font-size:11px;color:#888">Stampato il ${new Date().toLocaleString("it-IT")}</p>
+<script>window.onload=()=>window.print()</script>
+</body></html>`;
+    const w = window.open("", "_blank", "width=700,height=800");
+    if (w) { w.document.write(html); w.document.close(); }
+  };
 
   const toggleAnticipo = (aId: string, residuo: number) => {
     setAnticipiSel((prev) => {
@@ -540,13 +583,41 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
             </div>
           )}
 
+          {/* Anteprima scritture contabili */}
+          {!isMulti && movimentiPreview.length > 0 && (
+            <div className="rounded-md border bg-background p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="w-4 h-4 text-muted-foreground" />
+                Anteprima scritture in Prima Nota ({movimentiPreview.length})
+              </div>
+              <div className="text-xs space-y-1">
+                {movimentiPreview.map((m, i) => (
+                  <div key={i} className="flex justify-between gap-2 border-b last:border-0 pb-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`font-mono px-1.5 py-0.5 rounded text-[10px] ${m.tipo === "entrata" ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"}`}>
+                        {m.tipo}
+                      </span>
+                      <span className="truncate">{m.descrizione}</span>
+                    </div>
+                    <span className="font-mono">{fmtEuro(m.importo)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
             <p className="text-sm font-medium text-destructive">
-              ⚠️ Operazione irreversibile senza privilegi admin.
+              ⚠️ Operazione irreversibile senza privilegi admin. Tolleranza quadratura: {fmtEuro(TOLLERANZA_QUADRATURA)}.
             </p>
           </div>
         </div>
         <DialogFooter>
+          {!isMulti && (
+            <Button variant="outline" onClick={stampaRiepilogo} disabled={loading} title="Stampa riepilogo per l'operatore">
+              <Printer className="w-4 h-4 mr-1" /> Stampa
+            </Button>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Annulla</Button>
           <Button
             className="bg-green-600 hover:bg-green-700 text-white"
