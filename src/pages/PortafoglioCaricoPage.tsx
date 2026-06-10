@@ -23,6 +23,9 @@ import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
+import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
+import { Wallet } from "lucide-react";
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 
 const PortafoglioCaricoPage = () => {
