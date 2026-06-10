@@ -169,6 +169,14 @@ const PortafoglioCaricoPage = () => {
   const polizze = (result?.data || []);
   const totalCount = result?.count || 0;
 
+  // Anticipi disponibili per cliente delle righe correnti
+  const clienteIdsRiga = useMemo(
+    () => polizze.map((p: any) => p.cliente_anagrafica_id).filter(Boolean),
+    [polizze]
+  );
+  const { data: anticipiMap } = useAnticipiResiduoByClienti(clienteIdsRiga);
+  const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
+
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, dateDa, dateA],
     queryFn: async () => {
