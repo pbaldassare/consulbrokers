@@ -251,11 +251,35 @@ const ECClientePdfPage = () => {
     } finally { setBusy(false); }
   };
 
-  const handleEsportaExcel = () => {
+  const handleEsportaExcel = async () => {
     try {
       const cli = (cliente?.ragione_sociale || `${cliente?.cognome || ""}_${cliente?.nome || ""}`).replace(/\s+/g, "_") || "cliente";
       const name = `EC_${cli}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-      exportECClienteXlsx(buildData(), name);
+      // Stato riconciliazione: una polizza si considera "riconciliata" quando ha
+      // movimenti bancari abbinati (incroci_bancari) collegati al titolo.
+      const ids = (titoli || []).map((t: any) => t.id);
+      let riconciliazione: Record<string, { stato: "riconciliato" | "non_riconciliato"; nota?: string }> = {};
+      if (ids.length > 0) {
+        const { data: incroci } = await (supabase.from("incroci_bancari") as any)
+          .select("titolo_id")
+          .in("titolo_id", ids);
+        const riconciliati = new Set((incroci || []).map((r: any) => r.titolo_id));
+        for (const t of titoli || []) {
+          const stato = riconciliati.has(t.id) ? "riconciliato" : "non_riconciliato";
+          riconciliazione[t.numero_titolo || ""] = {
+            stato,
+            nota: stato === "riconciliato" ? "Abbinato a movimento bancario" : "In attesa di abbinamento bancario",
+          };
+        }
+      }
+      exportECClienteXlsx(buildData(), name, {
+        filtri: {
+          periodoDal: periodoDal || undefined,
+          periodoAl: periodoAl || undefined,
+          categoria: "Tutte (export E/C completo)",
+        },
+        riconciliazione,
+      });
       toast.success("Excel scaricato");
     } catch (e: any) {
       toast.error("Errore export Excel: " + (e?.message || e));
