@@ -1483,7 +1483,15 @@ const CompagnieList = () => {
       const { error } = await supabase.from("compagnie").update({ attiva }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenzie"] }),
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["agenzie"] });
+      queryClient.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
+      queryClient.invalidateQueries({ queryKey: ["agenzie-collegate"] });
+      queryClient.invalidateQueries({ queryKey: ["rapporti-per-gruppo"] });
+      queryClient.invalidateQueries({ queryKey: ["rapporti-counts"] });
+      toast.success(vars.attiva ? "Agenzia attivata" : "Agenzia disattivata");
+    },
+    onError: (e: any) => toast.error(e?.message || "Errore aggiornamento stato"),
   });
 
   const deleteCompagniaMutation = useMutation({
