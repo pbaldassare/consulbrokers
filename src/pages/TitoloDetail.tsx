@@ -51,6 +51,7 @@ import { TitoloScopeBanners } from "@/components/titolo/sections/TitoloScopeBann
 import { TitoloQuietanzePanel } from "@/components/titolo/sections/TitoloQuietanzePanel";
 import { TitoloDataPersistenceInfo } from "@/components/titolo/sections/TitoloDataPersistenceInfo";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza } from "@/lib/quietanze";
+import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 // Guard difensivo: garantisce che ogni mutation aggiorni SOLO il record corrente.
 // Lanciare quindi rifiuta qualsiasi update se l'id passato non coincide con il titolo caricato.
