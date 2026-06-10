@@ -514,21 +514,97 @@ const CruscottoGiornaliero = () => {
         </Card>
       )}
 
-      {/* Movimenti di oggi */}
+      {/* Movimenti Registrati - con filtri periodo/categoria/causale */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Movimenti Registrati</CardTitle>
-          <CardDescription>{format(selectedDate, "d MMMM yyyy", { locale: it })}</CardDescription>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Filter className="w-4 h-4" /> Movimenti Registrati
+              </CardTitle>
+              <CardDescription>
+                {filtroDataDa === filtroDataA
+                  ? format(new Date(filtroDataDa), "d MMMM yyyy", { locale: it })
+                  : `Dal ${format(new Date(filtroDataDa), "d MMM yyyy", { locale: it })} al ${format(new Date(filtroDataA), "d MMM yyyy", { locale: it })}`}
+                {" · "}{movFiltrati.length} righe
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => refetchMovF()}>
+              <RefreshCw className="w-3.5 h-3.5 mr-1" /> Aggiorna
+            </Button>
+          </div>
+
+          {/* Filter bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 mt-3">
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground">Dal</Label>
+              <Input type="date" value={filtroDataDa} onChange={(e) => setFiltroDataDa(e.target.value)} className="h-8 text-xs" />
+            </div>
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground">Al</Label>
+              <Input type="date" value={filtroDataA} onChange={(e) => setFiltroDataA(e.target.value)} className="h-8 text-xs" />
+            </div>
+            <div className="lg:col-span-1">
+              <Label className="text-[10px] uppercase text-muted-foreground">Categoria</Label>
+              <Select value={filtroCategoria} onValueChange={(v) => { setFiltroCategoria(v); if (v !== "compensazione_titolo") setFiltroCausaleId("__tutte__"); }}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__tutte__">Tutte</SelectItem>
+                  <SelectItem value="compensazione_titolo">Compensazioni</SelectItem>
+                  <SelectItem value="utilizzo_anticipo">Utilizzo anticipo</SelectItem>
+                  <SelectItem value="incasso_premio">Incasso premio</SelectItem>
+                  <SelectItem value="rimessa">Rimessa</SelectItem>
+                  <SelectItem value="provvigione">Provvigione</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="lg:col-span-1">
+              <Label className="text-[10px] uppercase text-muted-foreground">Causale comp.</Label>
+              <Select value={filtroCausaleId} onValueChange={setFiltroCausaleId} disabled={filtroCategoria !== "compensazione_titolo"}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__tutte__">Tutte le causali</SelectItem>
+                  {causaliCompFiltro.map((c) => (
+                    <SelectItem key={c.id} value={c.id} className="text-xs">{c.codice} — {c.descrizione}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                variant="outline" size="sm" className="h-8 text-xs w-full"
+                onClick={() => { setFiltroDataDa(dataStr); setFiltroDataA(dataStr); setFiltroCategoria("__tutte__"); setFiltroCausaleId("__tutte__"); }}
+              >
+                <X className="w-3.5 h-3.5 mr-1" /> Reset
+              </Button>
+            </div>
+          </div>
+
+          {/* Totali filtrati */}
+          {movFiltrati.length > 0 && (
+            <div className="flex gap-4 mt-2 text-xs">
+              <span className="text-green-600 font-medium">
+                Entrate: {fmt(movFiltrati.filter((m: any) => m.tipo === "entrata").reduce((s: number, m: any) => s + (m.importo || 0), 0))}
+              </span>
+              <span className="text-red-600 font-medium">
+                Uscite: {fmt(movFiltrati.filter((m: any) => m.tipo === "uscita").reduce((s: number, m: any) => s + (m.importo || 0), 0))}
+              </span>
+              <span className="font-semibold">
+                Saldo: {fmt(movFiltrati.reduce((s: number, m: any) => s + (m.tipo === "entrata" ? (m.importo || 0) : -(m.importo || 0)), 0))}
+              </span>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
-          {loadMov ? (
+          {loadMovF ? (
             <p className="text-sm text-muted-foreground">Caricamento...</p>
-          ) : movOggi.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4">Nessun movimento registrato.</p>
+          ) : movFiltrati.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">Nessun movimento per i filtri selezionati.</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Data</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Descrizione</TableHead>
@@ -537,15 +613,18 @@ const CruscottoGiornaliero = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {movOggi.map((m: any) => (
-                  <TableRow key={m.id}>
+                {movFiltrati.map((m: any, i: number) => (
+                  <TableRow key={m.id} className={i % 2 === 0 ? "bg-muted/30" : ""}>
+                    <TableCell className="font-mono text-xs">{m.data_movimento}</TableCell>
                     <TableCell>
                       <Badge variant={m.tipo === "entrata" ? "default" : "destructive"} className="text-[10px]">
                         {m.tipo === "entrata" ? "↓ Entrata" : "↑ Uscita"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{m.categoria || "—"}</TableCell>
-                    <TableCell className="max-w-[250px] truncate text-sm">{m.descrizione || "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      <Badge variant="outline" className="text-[10px] font-normal">{m.categoria || "—"}</Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[260px] truncate text-sm">{m.descrizione || "—"}</TableCell>
                     <TableCell className={`text-right font-mono ${m.tipo === "entrata" ? "text-green-600" : "text-red-600"}`}>
                       {fmt(m.importo)}
                     </TableCell>
