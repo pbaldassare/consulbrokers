@@ -487,7 +487,15 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
   };
 
   // === UI: pannello compensazioni per singolo titolo (riusato in single e bulk) ===
-  const CompensazioniPanel = ({ titoloId }: { titoloId: string }) => {
+  /**
+   * Render del pannello compensazioni per un titolo.
+   *
+   * NB: definito come funzione che ritorna JSX (non come componente React) per
+   * evitare che ad ogni re-render del parent React rimonti gli input figli
+   * (causa del vecchio bug "un numero alla volta"): in quel caso il campo
+   * perdeva il focus a ogni tasto.
+   */
+  const renderCompensazioniPanel = (titoloId: string) => {
     const list = getComp(titoloId);
     return (
       <div className="space-y-2">
@@ -531,11 +539,10 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
                   onChange={(e) => updateCompFor(titoloId, c.tempId, { note: e.target.value })}
                   className="w-32 h-8 text-xs"
                 />
-                <Input
-                  type="number" step="0.01" min="0"
+                <ImportoCompensazioneInput
                   value={c.importo}
-                  onChange={(e) => updateCompFor(titoloId, c.tempId, { importo: round2(Number(e.target.value) || 0) })}
-                  className="w-24 h-8 text-xs text-right"
+                  autoFocus={lastAddedCompId === c.tempId}
+                  onCommit={(n) => updateCompFor(titoloId, c.tempId, { importo: n })}
                 />
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeCompFor(titoloId, c.tempId)}>
                   <Trash2 className="w-3.5 h-3.5 text-destructive" />
@@ -547,6 +554,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       </div>
     );
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
