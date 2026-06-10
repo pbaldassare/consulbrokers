@@ -839,6 +839,7 @@ function AgenzieCollegateDialog({
         .from("compagnie")
         .select("id, codice, nome, nome_sede, comune, provincia, stato, attiva")
         .eq("gruppo_compagnia_id", gruppoId)
+        .eq("attiva", true)
         .order("nome");
       if (error) throw error;
       return data || [];
