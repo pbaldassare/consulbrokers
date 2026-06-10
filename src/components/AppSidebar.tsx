@@ -58,6 +58,7 @@ import {
   LineChart,
   Scale,
   Pencil,
+  Wallet,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
