@@ -305,7 +305,27 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           creato_da: userId,
         }));
         const { error: errU } = await (supabase.from("cliente_anticipi_utilizzi") as any).insert(rows);
-        if (errU) toast.error(`Errore registrazione anticipi su ${t.numero_titolo ?? t.id}: ${errU.message}`);
+        if (errU) {
+          toast.error(`Errore registrazione anticipi su ${t.numero_titolo ?? t.id}: ${errU.message}`);
+        } else {
+          // Scrittura prima nota: utilizzo anticipo come "entrata" che chiude il dovuto cliente
+          const totUtilizzo = round2(utilizziPerTitolo.reduce((s, u: any) => s + Number(u.importo || 0), 0));
+          if (totUtilizzo > 0) {
+            const { error: errMA } = await (supabase.from("movimenti_contabili") as any).insert({
+              ufficio_id: t.ufficio_id || null,
+              tipo: "entrata",
+              categoria: "utilizzo_anticipo",
+              riferimento_tipo: "titolo",
+              riferimento_id: t.id,
+              importo: totUtilizzo,
+              data_movimento: form.dataMessaCassa,
+              descrizione: `Utilizzo anticipo cliente su titolo ${t.numero_titolo ?? t.id}`,
+              stato: "registrato",
+              created_by: userId,
+            });
+            if (errMA) toast.warning(`Anticipo registrato ma prima nota non aggiornata: ${errMA.message}`);
+          }
+        }
       }
 
       // Insert compensazioni + movimenti contabili
