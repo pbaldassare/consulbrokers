@@ -34,6 +34,10 @@ Esempio: lordo 1.200 €, abbuono attivo 50 € → dovuto 1.150 €; cliente bo
 ## Annullamento
 `annullaMessaACassa.ts` ora elimina anche `titoli_compensazioni` (oltre a anticipi_utilizzi e movimenti_contabili già gestiti). Il cascade su annullamento polizza copre tutto via FK ON DELETE CASCADE.
 
-## TODO
-- CRUD "Causali Compensazione" in `/tabelle-base` (oggi gestibili solo via SQL/Supabase Studio).
-- Render righe compensazione in `ec-cliente-pdf.ts`.
+## UI read-only
+- `src/components/titolo/CompensazioniBox.tsx` — pannello mostrato in `TitoloDetail` sotto "Messa a Cassa" quando stato=incassato; si auto-nasconde se non ci sono righe.
+- `ec-cliente-pdf.ts` — `ECClienteRow.compensazioni?` opzionale, rese come sub-rows indentate; il totale dovuto include le compensazioni (segno '-' aumenta, '+' riduce).
+
+## TODO residui
+- Movimento contabile dedicato "utilizzo anticipo" per chiusura partita cliente (oggi le compensazioni sono in prima nota, ma l'utilizzo anticipo è tracciato solo in `cliente_anticipi_utilizzi`).
+- Filtri per causale/periodo sulle righe `compensazione_titolo` in Prima Nota / Movimenti Contabili.
