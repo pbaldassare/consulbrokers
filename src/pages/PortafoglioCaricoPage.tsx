@@ -665,6 +665,22 @@ const PortafoglioCaricoPage = () => {
                         )}
                       </TableCell>
                       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {(() => {
+                          const summary = p.cliente_anagrafica_id ? anticipiMap?.get(p.cliente_anagrafica_id) : null;
+                          if (!summary || summary.totale <= 0) return <span className="text-xs text-muted-foreground">—</span>;
+                          return (
+                            <Badge
+                              className="bg-emerald-600 hover:bg-emerald-700 cursor-pointer gap-1"
+                              title={`${summary.conteggio} anticip${summary.conteggio === 1 ? "o" : "i"} disponibil${summary.conteggio === 1 ? "e" : "i"} — click per dettagli`}
+                              onClick={() => setAnticipoDrawerId(summary.primoAnticipoId)}
+                            >
+                              <Wallet className="h-3 w-3" />
+                              {fmtCurrency(summary.totale)}
+                            </Badge>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
                       <TableCell>{p.ramo_nome || "—"}</TableCell>
                       <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
