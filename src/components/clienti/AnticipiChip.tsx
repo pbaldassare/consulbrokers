@@ -1,0 +1,144 @@
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Wallet, Trash2 } from "lucide-react";
+import { useAnticipiCliente, statoAnticipo, useEliminaAnticipo, type Anticipo } from "@/hooks/useAnticipiCliente";
+import NuovoAnticipoDialog from "./NuovoAnticipoDialog";
+import AnticipoUtilizziDrawer from "./AnticipoUtilizziDrawer";
+import { fmtEuro } from "@/lib/formatCurrency";
+
+interface Props {
+  clienteId: string;
+}
+
+const fmtDate = (s: string) => {
+  try { return new Date(s).toLocaleDateString("it-IT"); } catch { return s; }
+};
+
+const StatoBadge = ({ a }: { a: Anticipo }) => {
+  const s = statoAnticipo(a);
+  if (s === "disponibile") return <Badge className="bg-green-600 hover:bg-green-700">Disponibile</Badge>;
+  if (s === "parziale") return <Badge className="bg-amber-500 hover:bg-amber-600">Parziale</Badge>;
+  return <Badge variant="secondary">Esaurito</Badge>;
+};
+
+export default function AnticipiChip({ clienteId }: Props) {
+  const { data: anticipi = [], isLoading } = useAnticipiCliente(clienteId);
+  const elimina = useEliminaAnticipo(clienteId);
+  const [open, setOpen] = useState(false);
+  const [openNuovo, setOpenNuovo] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const totaleDisponibile = anticipi.reduce((s, a) => s + Number(a.importo_residuo || 0), 0);
+  const attivi = anticipi.filter((a) => a.importo_residuo > 0);
+  const esauriti = anticipi.filter((a) => a.importo_residuo <= 0);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
+        title="Anticipi cliente"
+      >
+        <Wallet className="w-4 h-4 text-primary" />
+        <span>Anticipi</span>
+        <Badge variant="secondary" className="ml-1 font-semibold">{fmtEuro(totaleDisponibile)}</Badge>
+      </button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-primary" /> Anticipi Cliente
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex items-center justify-between rounded-md bg-primary/5 border border-primary/20 px-3 py-2">
+            <div>
+              <div className="text-xs text-muted-foreground">Totale disponibile</div>
+              <div className="text-xl font-semibold text-primary">{fmtEuro(totaleDisponibile)}</div>
+            </div>
+            <Button size="sm" onClick={() => setOpenNuovo(true)}>
+              <Plus className="w-3 h-3 mr-1" /> Nuovo Anticipo
+            </Button>
+          </div>
+
+          {isLoading ? (
+            <div className="text-sm text-muted-foreground py-4 text-center">Caricamento...</div>
+          ) : anticipi.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-6 text-center border-2 border-dashed rounded-md">
+              Nessun anticipo registrato
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Data</TableHead>
+                    <TableHead className="text-xs">Conto</TableHead>
+                    <TableHead className="text-xs text-right">Importo</TableHead>
+                    <TableHead className="text-xs text-right">Residuo</TableHead>
+                    <TableHead className="text-xs">Stato</TableHead>
+                    <TableHead className="text-xs"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {attivi.map((a, i) => (
+                    <TableRow
+                      key={a.id}
+                      className={`cursor-pointer ${i % 2 === 0 ? "bg-muted/30" : ""}`}
+                      onClick={() => setSelectedId(a.id)}
+                    >
+                      <TableCell className="text-xs">{fmtDate(a.data_anticipo)}</TableCell>
+                      <TableCell className="text-xs truncate max-w-[160px]">{a.conto?.etichetta || "—"}</TableCell>
+                      <TableCell className="text-xs text-right">{fmtEuro(a.importo)}</TableCell>
+                      <TableCell className="text-xs text-right font-medium">{fmtEuro(a.importo_residuo)}</TableCell>
+                      <TableCell><StatoBadge a={a} /></TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {a.importo_residuo === a.importo && (
+                          <Button size="icon" variant="ghost" className="h-7 w-7"
+                            onClick={() => {
+                              if (confirm("Eliminare questo anticipo?")) elimina.mutate(a.id);
+                            }}>
+                            <Trash2 className="w-3 h-3 text-destructive" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {esauriti.length > 0 && (
+                <details className="mt-3">
+                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                    Storico anticipi esauriti ({esauriti.length})
+                  </summary>
+                  <Table className="mt-2">
+                    <TableBody>
+                      {esauriti.map((a, i) => (
+                        <TableRow key={a.id} className={`cursor-pointer ${i % 2 === 0 ? "bg-muted/30" : ""}`}
+                          onClick={() => setSelectedId(a.id)}>
+                          <TableCell className="text-xs">{fmtDate(a.data_anticipo)}</TableCell>
+                          <TableCell className="text-xs">{a.conto?.etichetta || "—"}</TableCell>
+                          <TableCell className="text-xs text-right">{fmtEuro(a.importo)}</TableCell>
+                          <TableCell><StatoBadge a={a} /></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </details>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <NuovoAnticipoDialog open={openNuovo} onOpenChange={setOpenNuovo} clienteId={clienteId} />
+      <AnticipoUtilizziDrawer anticipoId={selectedId} onClose={() => setSelectedId(null)} />
+    </>
+  );
+}
