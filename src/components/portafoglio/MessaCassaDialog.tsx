@@ -287,7 +287,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
                 <div>
                   <Label className="text-xs">Conto Consulbrokers</Label>
                   <ContoBancarioSelect
-                    tipi={["generico"]}
+                    tipi={["generico", "incasso_clienti"]}
                     value={form.banca || null}
                     onChange={(id) => setForm(f => ({ ...f, banca: id || "" }))}
                     placeholder="Cerca conto..."

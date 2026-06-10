@@ -1846,7 +1846,7 @@ const TitoloDetail = () => {
               <div>
                 <Label className="text-xs">Conto Consulbrokers</Label>
                 <ContoBancarioSelect
-                  tipi={["generico"]}
+                  tipi={["generico", "incasso_clienti"]}
                   value={cassaForm.banca || null}
                   onChange={(id) => setCassaForm(f => ({ ...f, banca: id || "" }))}
                   placeholder="Seleziona conto..."
