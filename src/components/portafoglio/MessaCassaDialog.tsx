@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -13,6 +13,73 @@ import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import { fmtEuro } from "@/lib/formatCurrency";
+
+/**
+ * Input importo per riga di compensazione contabile.
+ *
+ * Mantiene un buffer locale stringa per consentire la digitazione naturale
+ * (incluso il separatore decimale italiano `,`), senza che il valore venga
+ * riarrotondato a ogni keystroke (cosa che faceva "scattare" il cursore e
+ * costringeva ad inserire un numero alla volta).
+ *
+ * Il parse e la persistenza nello stato globale avvengono solo on blur / Enter.
+ */
+const ImportoCompensazioneInput = ({
+  value,
+  autoFocus,
+  onCommit,
+}: {
+  value: number;
+  autoFocus?: boolean;
+  onCommit: (n: number) => void;
+}) => {
+  const fmt = (n: number) =>
+    !n || Number.isNaN(n) ? "" : n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const [text, setText] = useState<string>(() => fmt(value));
+  const dirty = useRef(false);
+
+  // Riallinea il buffer quando il valore esterno cambia senza che l'utente stia digitando
+  useEffect(() => {
+    if (!dirty.current) setText(fmt(value));
+  }, [value]);
+
+  const commit = () => {
+    dirty.current = false;
+    const norm = text.trim().replace(/\./g, "").replace(",", ".");
+    const n = Number(norm);
+    const safe = Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+    onCommit(safe);
+    setText(fmt(safe));
+  };
+
+  return (
+    <div className="relative">
+      <Input
+        type="text"
+        inputMode="decimal"
+        placeholder="0,00"
+        value={text}
+        autoFocus={autoFocus}
+        onChange={(e) => {
+          dirty.current = true;
+          // accetta solo cifre, separatori . , e spazi (per migliaia)
+          const cleaned = e.target.value.replace(/[^\d.,\s]/g, "");
+          setText(cleaned);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className="w-32 h-8 text-xs text-right pr-5"
+      />
+      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">€</span>
+    </div>
+  );
+};
+
 
 interface TitoloMin {
   id: string;
