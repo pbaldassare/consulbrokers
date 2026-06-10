@@ -1,6 +1,23 @@
 import * as XLSX from "xlsx";
 import type { ECClienteData } from "@/lib/ec-cliente-pdf";
 
+export interface ExportXlsxOptions {
+  /** Filtri applicati al momento dell'export (per audit / tracciabilità). */
+  filtri?: {
+    periodoDal?: string;
+    periodoAl?: string;
+    categoria?: string;
+    causaleCodice?: string;
+    causaleDescrizione?: string;
+  };
+  /**
+   * Note di riconciliazione bancaria per ciascuna polizza inclusa.
+   * Chiave = numero polizza. Se assente la polizza è considerata "Non riconciliata".
+   */
+  riconciliazione?: Record<string, { stato: "riconciliato" | "non_riconciliato"; nota?: string }>;
+}
+
+
 /**
  * Esporta l'E/C cliente in Excel includendo per ogni polizza
  * le eventuali compensazioni contabili applicate.
