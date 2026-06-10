@@ -39,5 +39,7 @@ Esempio: lordo 1.200 €, abbuono attivo 50 € → dovuto 1.150 €; cliente bo
 - `ec-cliente-pdf.ts` — `ECClienteRow.compensazioni?` opzionale, rese come sub-rows indentate; il totale dovuto include le compensazioni (segno '-' aumenta, '+' riduce).
 
 ## TODO residui
-- Movimento contabile dedicato "utilizzo anticipo" per chiusura partita cliente (oggi le compensazioni sono in prima nota, ma l'utilizzo anticipo è tracciato solo in `cliente_anticipi_utilizzi`).
-- Filtri per causale/periodo sulle righe `compensazione_titolo` in Prima Nota / Movimenti Contabili.
+- (nessuno noto — bulk compensazioni e filtri prima nota implementati)
+
+## Filtri prima nota
+- `CruscottoGiornaliero` ha una card "Movimenti Registrati" con filtri: periodo (data Da/A), categoria (Tutte / compensazione_titolo / utilizzo_anticipo / incasso_premio / rimessa / provvigione), causale (visibile solo quando categoria=compensazione_titolo, match via `descrizione ilike '<codice>%'` perché `movimenti_contabili` non ha causale_id). Mostra totali entrate/uscite/saldo dei record filtrati.
