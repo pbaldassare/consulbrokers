@@ -39,7 +39,16 @@ Esempio: lordo 1.200 €, abbuono attivo 50 € → dovuto 1.150 €; cliente bo
 - `ec-cliente-pdf.ts` — `ECClienteRow.compensazioni?` opzionale, rese come sub-rows indentate; il totale dovuto include le compensazioni (segno '-' aumenta, '+' riduce).
 
 ## TODO residui
-- (nessuno noto — bulk compensazioni e filtri prima nota implementati)
+- (nessuno noto — bulk, filtri prima nota, badge liste, export Excel E/C, riepilogo dashboard tutti implementati)
 
-## Filtri prima nota
-- `CruscottoGiornaliero` ha una card "Movimenti Registrati" con filtri: periodo (data Da/A), categoria (Tutte / compensazione_titolo / utilizzo_anticipo / incasso_premio / rimessa / provvigione), causale (visibile solo quando categoria=compensazione_titolo, match via `descrizione ilike '<codice>%'` perché `movimenti_contabili` non ha causale_id). Mostra totali entrate/uscite/saldo dei record filtrati.
+## Filtri prima nota & dashboard
+- `CruscottoGiornaliero` ha una card "Movimenti Registrati" con filtri periodo (Dal/Al), categoria (Tutte / compensazione_titolo / utilizzo_anticipo / incasso_premio / rimessa / provvigione) e causale (visibile solo quando categoria=compensazione_titolo, match via `descrizione ilike '<codice>%'`).
+- Stessa fonte periodo `filtroDataDa/A` guida anche: card "Riepilogo Compensazioni" (aggregato per causale: A favore/A carico/Netto), tabella "Movimenti Bancari da Riconciliare", "Scadenze Fornitori", progress di riconciliazione. KPI giornaliere (entrate/uscite/saldo) restano sul giorno selezionato del cruscotto.
+
+## Badge liste portafoglio
+- `src/hooks/useCompensazioniByTitoli.ts` carica una mappa `titolo_id → {count, totale netto}` per i titoli visibili.
+- `src/components/portafoglio/CompensazioneBadge.tsx` renderizza un badge teal "Comp. ±€X" usato in Carico/Attive/Storico, con tooltip che descrive impatto netto sul dovuto cliente.
+
+## Export Excel E/C
+- `src/lib/ec-cliente-xlsx.ts` produce un XLSX a due fogli (Polizze + Intestazione). Per ogni polizza: colonne Premio, Compensazioni (netto firmato), Dovuto; le compensazioni di dettaglio sono sub-righe indentate con codice/descrizione/note. Riga TOTALE a fondo pagina.
+- Bottone "Esporta Excel" in `ECClientePdfPage` accanto a Stampa/Scarica.
