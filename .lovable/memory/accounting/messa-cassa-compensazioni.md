@@ -20,9 +20,9 @@ Esempio: lordo 1.200 €, abbuono attivo 50 € → dovuto 1.150 €; cliente bo
 
 ## Dialog unificato
 - `src/components/portafoglio/MessaCassaDialog.tsx` è ora usato sia da `PortafoglioCaricoPage` che da `TitoloDetail` (il dialog proprietario è stato rimosso). Risolve la limitazione storica documentata in `mem://accounting/anticipi-cliente`.
-- Sezione "Compensazioni contabili" visibile **solo single-titolo** (bulk → nascosta, messaggio dedicato).
-- Bottone Conferma disabilitato finché `delta ≠ 0`.
-- Auto-quadratura: bottone calcolatrice imposta cash = dovuto − anticipi.
+- Sezione "Compensazioni contabili" disponibile **sia in single che in bulk**: in bulk una Accordion per polizza con sotto-pannello dedicato (stato `compensazioniByTitolo: Record<titoloId, CompensazioneRow[]>`).
+- Bottone Conferma disabilitato finché `delta ≠ 0` (somma su tutti i titoli).
+- Auto-quadratura: bottone calcolatrice imposta cash = dovuto − anticipi (solo single).
 
 ## Persistenza al conferma
 1. UPDATE `titoli` (stato=incassato, importo_incassato = solo parte cash, tipo_pagamento esteso con `compensato`/`misto_compensato`).
