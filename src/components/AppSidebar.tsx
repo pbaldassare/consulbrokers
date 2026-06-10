@@ -321,14 +321,8 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
         background: "linear-gradient(180deg, hsl(var(--sidebar-bg-from)), hsl(var(--sidebar-bg-to)))",
       }}
     >
-      {/* Brand */}
-      <div className="px-2 py-3 border-b border-white/10 flex items-center justify-center">
-        {!collapsed ? (
-          <img src={logoCbnet.url} alt="CBnet" className="w-full max-w-[200px] h-auto" />
-        ) : (
-          <img src={logoCbnet.url} alt="CBnet" className="w-12 h-auto" />
-        )}
-      </div>
+      {/* Brand rimosso */}
+
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 sidebar-scrollbar">
