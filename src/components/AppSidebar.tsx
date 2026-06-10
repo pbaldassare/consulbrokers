@@ -322,11 +322,11 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
       }}
     >
       {/* Brand */}
-      <div className="px-3 py-4 border-b border-white/10 flex items-center justify-center">
+      <div className="px-2 py-3 border-b border-white/10 flex items-center justify-center">
         {!collapsed ? (
-          <img src={logoCbnet.url} alt="CBnet" className="h-10 w-auto" />
+          <img src={logoCbnet.url} alt="CBnet" className="w-full max-w-[200px] h-auto" />
         ) : (
-          <img src={logoCbnet.url} alt="CBnet" className="h-7 w-auto" />
+          <img src={logoCbnet.url} alt="CBnet" className="w-12 h-auto" />
         )}
       </div>
 
