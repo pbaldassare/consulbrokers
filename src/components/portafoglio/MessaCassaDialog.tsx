@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Wallet } from "lucide-react";
+import { CheckSquare, Wallet, Plus, Trash2, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
@@ -18,6 +18,7 @@ interface TitoloMin {
   numero_titolo?: string | null;
   premio_lordo?: number | null;
   cliente_anagrafica_id?: string | null;
+  ufficio_id?: string | null;
 }
 
 interface Props {
@@ -27,7 +28,18 @@ interface Props {
   onSuccess?: () => void;
 }
 
+interface CompensazioneRow {
+  tempId: string;
+  causale_id: string;
+  causale_codice: string;
+  causale_descrizione: string;
+  segno: "+" | "-";
+  importo: number;
+  note: string;
+}
+
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Props) => {
   const queryClient = useQueryClient();
@@ -38,11 +50,16 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     dataDecorrenza: todayISO(),
     tipoPagamento: "contanti",
     banca: "",
+    cashImporto: 0,
   });
   // Map anticipoId -> importoDaUsare
   const [anticipiSel, setAnticipiSel] = useState<Record<string, number>>({});
+  const [compensazioni, setCompensazioni] = useState<CompensazioneRow[]>([]);
 
-  // Single-cliente only: usa anticipi solo se tutti i titoli appartengono allo stesso cliente
+  const isMulti = titoli.length > 1;
+  const totaleLordo = titoli.reduce((s, t) => s + (Number(t.premio_lordo) || 0), 0);
+
+  // Single-cliente only
   const clienteUnico = useMemo(() => {
     const ids = Array.from(new Set(titoli.map((t) => t.cliente_anagrafica_id).filter(Boolean)));
     return ids.length === 1 ? (ids[0] as string) : null;
@@ -62,21 +79,51 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     },
   });
 
+  // Causali compensazione (sempre, solo per single-titolo)
+  const { data: causaliComp = [] } = useQuery({
+    queryKey: ["causali-compensazione-messa-cassa"],
+    enabled: open && !isMulti,
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("causali_contabili") as any)
+        .select("id, codice, descrizione, segno_default")
+        .eq("tipo_tabella", "compensazione_messa_cassa")
+        .eq("attivo", true)
+        .order("codice");
+      if (error) throw error;
+      return data as Array<{ id: string; codice: string; descrizione: string; segno_default: "+" | "-" }>;
+    },
+  });
+
   useEffect(() => {
     if (open) {
       const t = todayISO();
-      setForm({ dataMessaCassa: t, dataPagamento: t, dataDecorrenza: t, tipoPagamento: "contanti", banca: "" });
+      setForm({
+        dataMessaCassa: t,
+        dataPagamento: t,
+        dataDecorrenza: t,
+        tipoPagamento: "contanti",
+        banca: "",
+        cashImporto: round2(totaleLordo),
+      });
       setAnticipiSel({});
+      setCompensazioni([]);
     }
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, titoli.length]);
 
-  const isMulti = titoli.length > 1;
-  const totaleLordo = titoli.reduce((s, t) => s + (Number(t.premio_lordo) || 0), 0);
-  const totaleAnticipiUsati = Object.values(anticipiSel).reduce((s, v) => s + (Number(v) || 0), 0);
-  const daIncassare = Math.max(0, totaleLordo - totaleAnticipiUsati);
-  const totalmenteCoperto = daIncassare === 0 && totaleAnticipiUsati > 0;
+  // === Calcoli quadratura ===
+  const totaleAnticipiUsati = round2(Object.values(anticipiSel).reduce((s, v) => s + (Number(v) || 0), 0));
+  const totaleCompPlus = round2(compensazioni.filter(c => c.segno === "+").reduce((s, c) => s + c.importo, 0));
+  const totaleCompMinus = round2(compensazioni.filter(c => c.segno === "-").reduce((s, c) => s + c.importo, 0));
+  const dovutoFinale = round2(totaleLordo + totaleCompMinus - totaleCompPlus);
+  // In bulk: niente cash field, il "cash" è implicito = lordo - anticipi (logica precedente)
+  const cashEffettivo = isMulti
+    ? round2(Math.max(0, totaleLordo - totaleAnticipiUsati))
+    : round2(Number(form.cashImporto) || 0);
+  const coperto = round2(cashEffettivo + totaleAnticipiUsati);
+  const delta = round2(dovutoFinale - coperto);
+  const quadrato = Math.abs(delta) < 0.01;
 
-  // Toggle selezione anticipo: imposta default = min(residuo, residuoDaCoprire)
   const toggleAnticipo = (aId: string, residuo: number) => {
     setAnticipiSel((prev) => {
       if (prev[aId] !== undefined) {
@@ -84,7 +131,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         return rest;
       }
       const giaUsato = Object.values(prev).reduce((s, v) => s + v, 0);
-      const daCoprire = Math.max(0, totaleLordo - giaUsato);
+      const daCoprire = Math.max(0, dovutoFinale - giaUsato - (isMulti ? 0 : cashEffettivo));
       return { ...prev, [aId]: Math.min(residuo, daCoprire) };
     });
   };
@@ -92,24 +139,62 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
   const setImportoAnticipo = (aId: string, val: string, residuo: number) => {
     const n = Math.max(0, Math.min(residuo, Number(val.replace(",", ".")) || 0));
     setAnticipiSel((prev) => ({ ...prev, [aId]: n }));
+    // Se non in multi, ricalcolo automatico cash per quadrare
+    if (!isMulti) {
+      setForm((f) => {
+        const altriAnticipi = Object.entries(anticipiSel)
+          .filter(([k]) => k !== aId)
+          .reduce((s, [, v]) => s + v, 0);
+        const newCash = round2(Math.max(0, dovutoFinale - altriAnticipi - n));
+        return { ...f, cashImporto: newCash };
+      });
+    }
+  };
+
+  const addCompensazione = (causaleId: string) => {
+    const c = causaliComp.find((x) => x.id === causaleId);
+    if (!c) return;
+    const importo = Math.abs(delta);
+    setCompensazioni((prev) => [
+      ...prev,
+      {
+        tempId: crypto.randomUUID(),
+        causale_id: c.id,
+        causale_codice: c.codice,
+        causale_descrizione: c.descrizione,
+        segno: c.segno_default,
+        importo: round2(importo > 0 ? importo : 0),
+        note: "",
+      },
+    ]);
+  };
+
+  const updateComp = (tempId: string, patch: Partial<CompensazioneRow>) => {
+    setCompensazioni((prev) => prev.map((c) => (c.tempId === tempId ? { ...c, ...patch } : c)));
+  };
+
+  const removeComp = (tempId: string) => {
+    setCompensazioni((prev) => prev.filter((c) => c.tempId !== tempId));
+  };
+
+  const autoQuadra = () => {
+    if (isMulti) return;
+    setForm((f) => ({ ...f, cashImporto: round2(Math.max(0, dovutoFinale - totaleAnticipiUsati)) }));
   };
 
   const handleConferma = async () => {
     if (titoli.length === 0) return;
-    if (daIncassare > 0 && form.tipoPagamento === "bonifico" && !form.banca) {
-      toast.error("Seleziona la banca per il bonifico");
+    if (!quadrato) {
+      toast.error(`Non quadra: delta ${fmtEuro(delta)}`);
       return;
     }
-    if (totaleAnticipiUsati > totaleLordo + 0.01) {
-      toast.error("L'anticipo utilizzato eccede il premio lordo");
+    if (cashEffettivo > 0 && form.tipoPagamento === "bonifico" && !form.banca) {
+      toast.error("Seleziona la banca per il bonifico");
       return;
     }
     setLoading(true);
 
-    // Per multi-titolo: distribuisci l'anticipo proporzionalmente (FIFO sui titoli in ordine).
-    // Calcoliamo per ogni titolo quanto anticipo "logico" lo copre.
     const anticipiOrdered = Object.entries(anticipiSel).filter(([, v]) => v > 0).map(([id, v]) => ({ id, residuo: v }));
-
     const { data: userResp } = await supabase.auth.getUser();
     const userId = userResp.user?.id ?? null;
 
@@ -117,22 +202,34 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
 
     for (const t of titoli) {
       const lordo = Number(t.premio_lordo) || 0;
-      let daCoprireT = lordo;
-      const utilizziPerTitolo: Array<{ anticipo_id: string; importo_utilizzato: number }> = [];
 
+      // Compensazioni applicate solo nel single-titolo
+      const compForThis = !isMulti ? compensazioni : [];
+      const compPlusT = compForThis.filter(c => c.segno === "+").reduce((s, c) => s + c.importo, 0);
+      const compMinusT = compForThis.filter(c => c.segno === "-").reduce((s, c) => s + c.importo, 0);
+      const dovutoT = round2(lordo + compMinusT - compPlusT);
+
+      // Distribuisci anticipi FIFO contro il dovuto del titolo
+      let daCoprireT = dovutoT;
+      const utilizziPerTitolo: Array<{ anticipo_id: string; importo_utilizzato: number }> = [];
       for (const a of anticipiOrdered) {
         if (daCoprireT <= 0 || a.residuo <= 0) continue;
         const usato = Math.min(daCoprireT, a.residuo);
         if (usato > 0) {
-          utilizziPerTitolo.push({ anticipo_id: a.id, importo_utilizzato: Number(usato.toFixed(2)) });
+          utilizziPerTitolo.push({ anticipo_id: a.id, importo_utilizzato: round2(usato) });
           a.residuo -= usato;
           daCoprireT -= usato;
         }
       }
 
-      const usatoTitolo = utilizziPerTitolo.reduce((s, u) => s + u.importo_utilizzato, 0);
-      const residuoCash = lordo - usatoTitolo;
-      const tipoPag = usatoTitolo > 0 ? (residuoCash > 0 ? "anticipo_misto" : "anticipo") : form.tipoPagamento;
+      const usatoTitolo = round2(utilizziPerTitolo.reduce((s, u) => s + u.importo_utilizzato, 0));
+      const residuoCash = round2(dovutoT - usatoTitolo);
+      const haCompensazioni = compForThis.length > 0;
+      const tipoPag = haCompensazioni
+        ? (usatoTitolo > 0 ? "misto_compensato" : "compensato")
+        : usatoTitolo > 0
+          ? (residuoCash > 0 ? "anticipo_misto" : "anticipo")
+          : form.tipoPagamento;
 
       let bancaLabel: string | null = null;
       if (residuoCash > 0 && form.tipoPagamento === "bonifico" && form.banca) {
@@ -148,7 +245,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         data_decorrenza_rinnovo: form.dataDecorrenza,
         data_incasso: form.dataMessaCassa,
         tipo_pagamento: tipoPag,
-        importo_incassato: lordo,
+        importo_incassato: residuoCash, // ciò che realmente è entrato in cassa
         updated_at: new Date().toISOString(),
       };
       if (bancaLabel) payload.banca_pagamento = bancaLabel;
@@ -165,8 +262,40 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           creato_da: userId,
         }));
         const { error: errU } = await (supabase.from("cliente_anticipi_utilizzi") as any).insert(rows);
-        if (errU) {
-          toast.error(`Errore registrazione anticipi su ${t.numero_titolo ?? t.id}: ${errU.message}`);
+        if (errU) toast.error(`Errore registrazione anticipi su ${t.numero_titolo ?? t.id}: ${errU.message}`);
+      }
+
+      // Insert compensazioni + movimenti contabili
+      if (compForThis.length > 0) {
+        const compRows = compForThis.map((c) => ({
+          titolo_id: t.id,
+          causale_id: c.causale_id,
+          causale_codice: c.causale_codice,
+          causale_descrizione: c.causale_descrizione,
+          importo: c.importo,
+          segno: c.segno,
+          note: c.note || null,
+          creato_da: userId,
+        }));
+        const { error: errC } = await (supabase.from("titoli_compensazioni") as any).insert(compRows);
+        if (errC) {
+          toast.error(`Errore registrazione compensazioni: ${errC.message}`);
+        } else {
+          // Scrittura in prima nota: una riga per compensazione
+          const movRows = compForThis.map((c) => ({
+            ufficio_id: t.ufficio_id || null,
+            tipo: c.segno === "+" ? "uscita" : "entrata", // dal punto di vista agenzia: abbuono attivo = costo
+            categoria: "compensazione_titolo",
+            riferimento_tipo: "titolo",
+            riferimento_id: t.id,
+            importo: c.importo,
+            data_movimento: form.dataMessaCassa,
+            descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
+            stato: "registrato",
+            created_by: userId,
+          }));
+          const { error: errM } = await (supabase.from("movimenti_contabili") as any).insert(movRows);
+          if (errM) toast.warning(`Compensazioni salvate ma prima nota non aggiornata: ${errM.message}`);
         }
       }
 
@@ -179,6 +308,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           data_messa_cassa: form.dataMessaCassa,
           tipo_pagamento: tipoPag,
           anticipi_usati: utilizziPerTitolo,
+          compensazioni: compForThis.map(c => ({ codice: c.causale_codice, segno: c.segno, importo: c.importo })),
           residuo_cash: residuoCash,
           bulk: isMulti,
         },
@@ -199,6 +329,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       queryClient.invalidateQueries({ queryKey: ["cliente-anticipi-disponibili"] });
       queryClient.invalidateQueries({ queryKey: ["anticipi-globale"] });
       queryClient.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
+      queryClient.invalidateQueries({ queryKey: ["titoli-compensazioni"] });
       onSuccess?.();
       onOpenChange(false);
     } else {
@@ -208,7 +339,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Conferma Messa a Cassa</DialogTitle>
           <DialogDescription>
@@ -254,27 +385,92 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
                         type="number" step="0.01" min="0" max={Number(a.importo_residuo)}
                         value={anticipiSel[a.id]}
                         onChange={(e) => setImportoAnticipo(a.id, e.target.value, Number(a.importo_residuo))}
-                        className="w-24 h-8 text-xs"
+                        className="w-28 h-8 text-xs"
                       />
                     )}
                   </div>
                 );
               })}
-              <div className="border-t border-primary/20 pt-2 text-xs space-y-0.5">
-                <div className="flex justify-between"><span>Premio lordo:</span><span>{fmtEuro(totaleLordo)}</span></div>
-                <div className="flex justify-between text-primary"><span>Anticipo utilizzato:</span><span>− {fmtEuro(totaleAnticipiUsati)}</span></div>
-                <div className="flex justify-between font-semibold border-t pt-1"><span>Da incassare ora:</span><span>{fmtEuro(daIncassare)}</span></div>
-                {totalmenteCoperto && (
-                  <div className="text-green-700 dark:text-green-400 font-medium text-center pt-1">✅ Coperto interamente da anticipo</div>
-                )}
-              </div>
             </div>
           )}
 
-          {daIncassare > 0 && (
-            <>
+          {/* Compensazioni — solo single titolo */}
+          {!isMulti && (
+            <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                  <Calculator className="w-4 h-4" /> Compensazioni contabili
+                </div>
+                <Select value="" onValueChange={(v) => v && addCompensazione(v)}>
+                  <SelectTrigger className="w-56 h-8 text-xs">
+                    <SelectValue placeholder="+ Aggiungi causale..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {causaliComp.map((c) => (
+                      <SelectItem key={c.id} value={c.id} className="text-xs">
+                        <span className="font-mono mr-2">{c.segno_default}</span>
+                        {c.codice} — {c.descrizione}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {compensazioni.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">
+                  Nessuna compensazione. Usa per abbuoni, sconti, arrotondamenti che fanno quadrare i conti.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {compensazioni.map((c) => (
+                    <div key={c.tempId} className="flex items-center gap-2 bg-background/80 rounded px-2 py-1.5">
+                      <span className={`font-mono text-sm font-bold ${c.segno === "+" ? "text-green-600" : "text-red-600"}`}>
+                        {c.segno}
+                      </span>
+                      <div className="flex-1 text-xs">
+                        <div className="font-medium">{c.causale_codice}</div>
+                        <div className="text-muted-foreground truncate">{c.causale_descrizione}</div>
+                      </div>
+                      <Input
+                        type="text" placeholder="note"
+                        value={c.note}
+                        onChange={(e) => updateComp(c.tempId, { note: e.target.value })}
+                        className="w-32 h-8 text-xs"
+                      />
+                      <Input
+                        type="number" step="0.01" min="0"
+                        value={c.importo}
+                        onChange={(e) => updateComp(c.tempId, { importo: round2(Number(e.target.value) || 0) })}
+                        className="w-24 h-8 text-xs text-right"
+                      />
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeComp(c.tempId)}>
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Cash + tipo pagamento (single titolo) */}
+          {!isMulti && cashEffettivo >= 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Tipo Pagamento {totaleAnticipiUsati > 0 && <span className="text-muted-foreground">(parte residua)</span>}</Label>
+                <Label className="text-xs">Importo cash incassato</Label>
+                <div className="flex gap-1 mt-1">
+                  <Input
+                    type="number" step="0.01" min="0"
+                    value={form.cashImporto}
+                    onChange={(e) => setForm(f => ({ ...f, cashImporto: round2(Number(e.target.value) || 0) }))}
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={autoQuadra} title="Imposta al valore che fa quadrare">
+                    <Calculator className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Tipo Pagamento</Label>
                 <Select value={form.tipoPagamento} onValueChange={(v) => setForm(f => ({ ...f, tipoPagamento: v, banca: "" }))}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -285,26 +481,62 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
                   </SelectContent>
                 </Select>
               </div>
-              {form.tipoPagamento === "bonifico" && (
-                <div>
-                  <Label className="text-xs">Conto Consulbrokers</Label>
-                  <ContoBancarioSelect
-                    tipi={["generico", "incasso_clienti"]}
-                    value={form.banca || null}
-                    onChange={(id) => setForm(f => ({ ...f, banca: id || "" }))}
-                    placeholder="Cerca conto..."
-                    showPreview
-                    className="mt-1"
-                  />
-                </div>
-              )}
-            </>
+            </div>
           )}
+
+          {/* Bulk: tipo pagamento per residuo cash */}
+          {isMulti && cashEffettivo > 0 && (
+            <div>
+              <Label className="text-xs">Tipo Pagamento {totaleAnticipiUsati > 0 && <span className="text-muted-foreground">(parte residua)</span>}</Label>
+              <Select value={form.tipoPagamento} onValueChange={(v) => setForm(f => ({ ...f, tipoPagamento: v, banca: "" }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="contanti">Contanti</SelectItem>
+                  <SelectItem value="pos">POS</SelectItem>
+                  <SelectItem value="bonifico">Bonifico</SelectItem>
+                  <SelectItem value="assegno">Assegno</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {cashEffettivo > 0 && form.tipoPagamento === "bonifico" && (
+            <div>
+              <Label className="text-xs">Conto Consulbrokers</Label>
+              <ContoBancarioSelect
+                tipi={["generico", "incasso_clienti"]}
+                value={form.banca || null}
+                onChange={(id) => setForm(f => ({ ...f, banca: id || "" }))}
+                placeholder="Cerca conto..."
+                showPreview
+                className="mt-1"
+              />
+            </div>
+          )}
+
+          {/* Riepilogo quadratura */}
+          <div className="rounded-md border bg-muted/40 p-3 text-xs space-y-1">
+            <div className="flex justify-between"><span>Premio lordo polizza</span><span>{fmtEuro(totaleLordo)}</span></div>
+            {totaleCompMinus > 0 && (
+              <div className="flex justify-between text-red-600"><span>+ Compensazioni che aumentano dovuto</span><span>+ {fmtEuro(totaleCompMinus)}</span></div>
+            )}
+            {totaleCompPlus > 0 && (
+              <div className="flex justify-between text-green-600"><span>− Compensazioni che riducono dovuto</span><span>− {fmtEuro(totaleCompPlus)}</span></div>
+            )}
+            <div className="flex justify-between font-semibold border-t pt-1"><span>Dovuto finale</span><span>{fmtEuro(dovutoFinale)}</span></div>
+            {totaleAnticipiUsati > 0 && (
+              <div className="flex justify-between text-primary"><span>− Anticipi utilizzati</span><span>− {fmtEuro(totaleAnticipiUsati)}</span></div>
+            )}
+            <div className="flex justify-between"><span>− Cash/bonifico</span><span>− {fmtEuro(cashEffettivo)}</span></div>
+            <div className={`flex justify-between font-bold border-t pt-1 ${quadrato ? "text-green-700" : "text-red-700"}`}>
+              <span>{quadrato ? "✅ Quadrato" : "⚠️ Delta da quadrare"}</span>
+              <span>{fmtEuro(delta)}</span>
+            </div>
+          </div>
 
           {isMulti && (
             <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
-              L'importo incassato di ogni polizza sarà impostato automaticamente al rispettivo premio lordo.
-              {Object.keys(anticipiSel).length > 0 && " Gli anticipi vengono distribuiti FIFO sulle polizze in ordine."}
+              Incasso multiplo: ogni polizza è incassata al proprio premio lordo. Le compensazioni non sono disponibili in modalità multipla — apri la singola polizza per gestirle.
             </div>
           )}
 
@@ -318,7 +550,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Annulla</Button>
           <Button
             className="bg-green-600 hover:bg-green-700 text-white"
-            disabled={loading || (daIncassare > 0 && form.tipoPagamento === "bonifico" && !form.banca)}
+            disabled={loading || !quadrato || (cashEffettivo > 0 && form.tipoPagamento === "bonifico" && !form.banca)}
             onClick={handleConferma}
           >
             <CheckSquare className="w-4 h-4 mr-1" />
