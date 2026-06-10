@@ -69,6 +69,13 @@ const PortafoglioAttivePage = () => {
   const polizze = result?.data || [];
   const totalCount = result?.count || 0;
 
+  const clienteIdsRiga = useMemo(
+    () => polizze.map((p: any) => p.cliente_anagrafica_id).filter(Boolean),
+    [polizze]
+  );
+  const { data: anticipiMap } = useAnticipiResiduoByClienti(clienteIdsRiga);
+  const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
+
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-attive-totale", search, filterRamoIds, today, escludiMeseCorrente],
     queryFn: async () => {
