@@ -1187,6 +1187,168 @@ const TipoDocumentoTab = () => {
   );
 };
 
+/* ────────── Causali Movimento Contabile Tab ────────── */
+
+const CausaliMovTab = () => {
+  const qc = useQueryClient();
+  const queryKey = "causali-movimento-contabile";
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [codice, setCodice] = useState("");
+  const [descrizione, setDescrizione] = useState("");
+  const [segno, setSegno] = useState<"dare" | "avere" | "entrambi">("entrambi");
+  const [note, setNote] = useState("");
+  const [search, setSearch] = useState("");
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: [queryKey],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("causali_movimento_contabile")
+        .select("*")
+        .order("codice");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const codiceUpper = codice.trim().toUpperCase();
+      const payload = { codice: codiceUpper, descrizione: descrizione.trim(), segno, note: note.trim() || null };
+      if (editing) {
+        const { error } = await (supabase as any).from("causali_movimento_contabile").update(payload).eq("id", editing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase as any).from("causali_movimento_contabile").insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [queryKey] });
+      qc.invalidateQueries({ queryKey: ["tabelle-base-counts"] });
+      toast.success(editing ? "Causale aggiornata" : "Causale creata");
+      closeDialog();
+    },
+    onError: (e: any) => toast.error(e?.message?.includes("unique") ? "Codice già esistente" : "Errore salvataggio"),
+  });
+
+  const toggleAttiva = useMutation({
+    mutationFn: async ({ id, attiva }: { id: string; attiva: boolean }) => {
+      const { error } = await (supabase as any).from("causali_movimento_contabile").update({ attiva }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [queryKey] }),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("causali_movimento_contabile").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [queryKey] });
+      qc.invalidateQueries({ queryKey: ["tabelle-base-counts"] });
+      toast.success("Causale eliminata");
+    },
+    onError: () => toast.error("Errore eliminazione"),
+  });
+
+  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setSegno("entrambi"); setNote(""); setOpen(true); };
+  const openEdit = (g: any) => { setEditing(g); setCodice(g.codice); setDescrizione(g.descrizione); setSegno(g.segno || "entrambi"); setNote(g.note || ""); setOpen(true); };
+  const closeDialog = () => { setOpen(false); setEditing(null); };
+
+  const canSave = codice.trim().length >= 2 && codice.trim().length <= 10 && descrizione.trim().length > 0;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-3 gap-3">
+        <CardTitle className="text-lg whitespace-nowrap">Causali Contabili</CardTitle>
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca…" className="h-8 pl-7" />
+          </div>
+          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-32">Codice</TableHead>
+              <TableHead>Descrizione</TableHead>
+              <TableHead className="w-28">Segno</TableHead>
+              <TableHead className="w-24 text-center">Attiva</TableHead>
+              <TableHead className="w-28 text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(() => {
+              const filtered = items.filter((i: any) => matchSearch(search, [i.codice, i.descrizione, i.note]));
+              if (isLoading) return (<TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
+              if (filtered.length === 0) return (<TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessuna causale inserita"}</TableCell></TableRow>);
+              return filtered.map((item: any) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
+                  <TableCell>{item.descrizione}</TableCell>
+                  <TableCell className="capitalize text-muted-foreground">{item.segno}</TableCell>
+                  <TableCell className="text-center">
+                    <Switch checked={item.attiva} onCheckedChange={(v) => toggleAttiva.mutate({ id: item.id, attiva: v })} />
+                  </TableCell>
+                  <TableCell className="text-right space-x-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(item)}><Pencil className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                  </TableCell>
+                </TableRow>
+              ));
+            })()}
+          </TableBody>
+        </Table>
+
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editing ? "Modifica Causale" : "Nuova Causale Contabile"}</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Codice *</Label>
+                <Input value={codice} onChange={(e) => setCodice(e.target.value.toUpperCase())} placeholder="es. ABP" maxLength={10} />
+                <p className="text-xs text-muted-foreground mt-1">2–10 caratteri, maiuscolo, univoco.</p>
+              </div>
+              <div>
+                <Label>Descrizione *</Label>
+                <Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. ABBUONO PASSIVO" maxLength={120} />
+              </div>
+              <div>
+                <Label>Segno</Label>
+                <select
+                  className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  value={segno}
+                  onChange={(e) => setSegno(e.target.value as any)}
+                >
+                  <option value="entrambi">Entrambi</option>
+                  <option value="dare">Dare</option>
+                  <option value="avere">Avere</option>
+                </select>
+              </div>
+              <div>
+                <Label>Note</Label>
+                <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note opzionali" maxLength={250} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDialog}>Annulla</Button>
+              <Button onClick={() => save.mutate()} disabled={!canSave || save.isPending}>
+                {save.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+};
+
 /* ────────── Page ────────── */
 
 const tabConfig: { value: string; label: string; tableName: LookupTableName; queryKey: string; title: string; custom?: string | boolean }[] = [
