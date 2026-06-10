@@ -1276,7 +1276,9 @@ const TitoloDetail = () => {
         updatePayload.data_decorrenza_rinnovo = cassaData.dataDecorrenza;
         updatePayload.tipo_pagamento = cassaData.tipoPagamento;
         if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
-          updatePayload.banca_pagamento = cassaData.banca;
+          const { data: conto } = await (supabase.from("conti_bancari") as any)
+            .select("etichetta, banca").eq("id", cassaData.banca).maybeSingle();
+          updatePayload.banca_pagamento = conto?.etichetta || conto?.banca || cassaData.banca;
         }
         if (isConferimento) {
           updatePayload.conferimento_gestito = true;
