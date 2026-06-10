@@ -132,6 +132,8 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
   const [anticipiSel, setAnticipiSel] = useState<Record<string, number>>({});
   // Compensazioni indicizzate per titolo
   const [compensazioniByTitolo, setCompensazioniByTitolo] = useState<Record<string, CompensazioneRow[]>>({});
+  // Ultima riga compensazione aggiunta (per auto-focus sull'importo)
+  const [lastAddedCompId, setLastAddedCompId] = useState<string | null>(null);
 
   const isMulti = titoli.length > 1;
   const totaleLordo = titoli.reduce((s, t) => s + (Number(t.premio_lordo) || 0), 0);
