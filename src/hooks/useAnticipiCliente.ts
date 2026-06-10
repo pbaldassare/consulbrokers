@@ -107,6 +107,7 @@ export function useCreaAnticipo(clienteId: string) {
       qc.invalidateQueries({ queryKey: ["cliente-anticipi", clienteId] });
       qc.invalidateQueries({ queryKey: ["cliente-anticipi-disponibili", clienteId] });
       qc.invalidateQueries({ queryKey: ["anticipi-globale"] });
+      qc.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
       toast.success("Anticipo creato");
     },
     onError: (e: any) => toast.error(e?.message || "Errore creazione anticipo"),
