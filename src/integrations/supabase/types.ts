@@ -881,6 +881,7 @@ export type Database = {
           created_at: string | null
           descrizione: string
           id: string
+          segno_default: string | null
           tipo_tabella: string
         }
         Insert: {
@@ -889,6 +890,7 @@ export type Database = {
           created_at?: string | null
           descrizione: string
           id?: string
+          segno_default?: string | null
           tipo_tabella: string
         }
         Update: {
@@ -897,6 +899,7 @@ export type Database = {
           created_at?: string | null
           descrizione?: string
           id?: string
+          segno_default?: string | null
           tipo_tabella?: string
         }
         Relationships: []
@@ -7472,6 +7475,70 @@ export type Database = {
             columns: ["ufficio_id"]
             isOneToOne: false
             referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      titoli_compensazioni: {
+        Row: {
+          causale_codice: string
+          causale_descrizione: string
+          causale_id: string
+          created_at: string
+          creato_da: string | null
+          id: string
+          importo: number
+          note: string | null
+          segno: string
+          titolo_id: string
+          updated_at: string
+        }
+        Insert: {
+          causale_codice: string
+          causale_descrizione: string
+          causale_id: string
+          created_at?: string
+          creato_da?: string | null
+          id?: string
+          importo: number
+          note?: string | null
+          segno: string
+          titolo_id: string
+          updated_at?: string
+        }
+        Update: {
+          causale_codice?: string
+          causale_descrizione?: string
+          causale_id?: string
+          created_at?: string
+          creato_da?: string | null
+          id?: string
+          importo?: number
+          note?: string | null
+          segno?: string
+          titolo_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_compensazioni_causale_id_fkey"
+            columns: ["causale_id"]
+            isOneToOne: false
+            referencedRelation: "causali_contabili"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_compensazioni_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_compensazioni_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
         ]

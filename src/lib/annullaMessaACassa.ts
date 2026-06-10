@@ -54,6 +54,11 @@ export async function annullaMessaACassa(titoloId: string): Promise<AnnullaResul
     .delete()
     .eq("titolo_id", titoloId);
 
+  // 3c. Elimina compensazioni contabili applicate (movimenti già rimossi al passo 3)
+  await (supabase.from("titoli_compensazioni") as any)
+    .delete()
+    .eq("titolo_id", titoloId);
+
   // 4. Reset campi titolo
   const { error: errUpd } = await (supabase.from("titoli") as any)
     .update({
