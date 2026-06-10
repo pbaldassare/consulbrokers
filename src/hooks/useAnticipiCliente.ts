@@ -132,6 +132,7 @@ export function useEliminaAnticipo(clienteId: string) {
       qc.invalidateQueries({ queryKey: ["cliente-anticipi", clienteId] });
       qc.invalidateQueries({ queryKey: ["cliente-anticipi-disponibili", clienteId] });
       qc.invalidateQueries({ queryKey: ["anticipi-globale"] });
+      qc.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
       toast.success("Anticipo eliminato");
     },
     onError: (e: any) => toast.error(e?.message || "Impossibile eliminare (potrebbe avere utilizzi associati)"),
