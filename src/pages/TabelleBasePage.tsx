@@ -1349,6 +1349,174 @@ const CausaliMovTab = () => {
   );
 };
 
+/* ────────── Causali Compensazione Messa a Cassa ────────── */
+
+const CausaliCompensazioneTab = () => {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [codice, setCodice] = useState("");
+  const [descrizione, setDescrizione] = useState("");
+  const [segno, setSegno] = useState<"+" | "-">("+");
+  const [search, setSearch] = useState("");
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["causali-compensazione"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("causali_contabili")
+        .select("*")
+        .eq("tipo_tabella", "compensazione_messa_cassa")
+        .order("codice");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const cod = codice.trim().toUpperCase();
+      const desc = descrizione.trim();
+      if (!cod || !desc) throw new Error("Codice e descrizione obbligatori");
+      if (!/^[A-Z0-9_]{2,20}$/.test(cod)) throw new Error("Codice: 2-20 caratteri A-Z, 0-9, _");
+      const dup = (items as any[]).find((i) => i.codice === cod && (!editing || i.id !== editing.id));
+      if (dup) throw new Error("Codice già esistente");
+      const payload = { tipo_tabella: "compensazione_messa_cassa", codice: cod, descrizione: desc, segno_default: segno };
+      if (editing) {
+        const { error } = await supabase.from("causali_contabili").update(payload).eq("id", editing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("causali_contabili").insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["causali-compensazione"] });
+      qc.invalidateQueries({ queryKey: ["causali-compensazione-messa-cassa"] });
+      toast.success(editing ? "Causale aggiornata" : "Causale creata");
+      closeDialog();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Errore"),
+  });
+
+  const toggleAttivo = useMutation({
+    mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
+      const { error } = await supabase.from("causali_contabili").update({ attivo }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["causali-compensazione"] }),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("causali_contabili").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["causali-compensazione"] });
+      toast.success("Causale eliminata");
+    },
+    onError: (e: any) => toast.error(String(e?.message ?? "").includes("foreign key") ? "Causale in uso: impossibile eliminare" : "Errore"),
+  });
+
+  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setSegno("+"); setOpen(true); };
+  const openEdit = (c: any) => { setEditing(c); setCodice(c.codice); setDescrizione(c.descrizione); setSegno((c.segno_default === "-" ? "-" : "+")); setOpen(true); };
+  const closeDialog = () => { setOpen(false); setEditing(null); };
+
+  const filtered = (items as any[]).filter((i) => matchSearch(search, [i.codice, i.descrizione]));
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between pb-3 gap-3">
+        <div>
+          <CardTitle className="text-lg whitespace-nowrap">Causali Compensazione (Messa a Cassa)</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">Usate per quadrare l'incasso (abbuoni, sconti, arrotondamenti). Segno <strong className="font-mono">+</strong> riduce il dovuto cliente, <strong className="font-mono">−</strong> lo aumenta.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca…" className="h-8 pl-7" />
+          </div>
+          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuova Causale</Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-32">Codice</TableHead>
+              <TableHead>Descrizione</TableHead>
+              <TableHead className="w-24 text-center">Segno</TableHead>
+              <TableHead className="w-24 text-center">Attivo</TableHead>
+              <TableHead className="w-28 text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento…</TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessuna causale"}</TableCell></TableRow>
+            ) : (
+              filtered.map((c: any) => (
+                <TableRow key={c.id}>
+                  <TableCell className="font-mono font-semibold">{c.codice}</TableCell>
+                  <TableCell>{c.descrizione}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={c.segno_default === "+" ? "default" : "secondary"} className="font-mono">{c.segno_default ?? "?"}</Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Switch checked={c.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: c.id, attivo: v })} />
+                  </TableCell>
+                  <TableCell className="text-right space-x-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Eliminare la causale ${c.codice}?`)) remove.mutate(c.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editing ? "Modifica Causale" : "Nuova Causale Compensazione"}</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Codice</Label>
+                <Input value={codice} onChange={(e) => setCodice(e.target.value.toUpperCase())} placeholder="es. ABB_ATT" maxLength={20} />
+                <p className="text-xs text-muted-foreground mt-1">2-20 caratteri: A-Z, 0-9, _</p>
+              </div>
+              <div>
+                <Label>Descrizione</Label>
+                <Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. Abbuono attivo" maxLength={200} />
+              </div>
+              <div>
+                <Label>Segno di default</Label>
+                <RadioGroup value={segno} onValueChange={(v) => setSegno(v as "+" | "-")} className="flex flex-col gap-2 mt-2">
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="+" id="seg-plus" />
+                    <Label htmlFor="seg-plus" className="font-normal cursor-pointer"><strong className="font-mono">+</strong> Riduce dovuto cliente (abbuono attivo, sconto)</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="-" id="seg-minus" />
+                    <Label htmlFor="seg-minus" className="font-normal cursor-pointer"><strong className="font-mono">−</strong> Aumenta dovuto cliente (abbuono passivo, spese)</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDialog}>Annulla</Button>
+              <Button onClick={() => save.mutate()} disabled={!codice.trim() || !descrizione.trim() || save.isPending}>
+                {save.isPending ? "Salvataggio…" : "Salva"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+};
+
 /* ────────── Page ────────── */
 
 const tabConfig: { value: string; label: string; tableName: LookupTableName; queryKey: string; title: string; custom?: string | boolean }[] = [
@@ -1370,6 +1538,7 @@ const tabConfig: { value: string; label: string; tableName: LookupTableName; que
   { value: "lookup_tipo_documento", label: "Tipo Documento", tableName: "lookup_tipo_documento", queryKey: "lookup-tipo-documento", title: "Tipo Documento", custom: "tipo_documento" },
   { value: "lookup_conti_incasso", label: "Causali Cassa/Banca", tableName: "lookup_conti_incasso", queryKey: "lookup-conti-incasso", title: "Causali Cassa/Banca (causali contabili — non contiene IBAN, per gli IBAN usa Archivi → Conti Bancari)" },
   { value: "causali_movimento_contabile", label: "Causali Contabili", tableName: "causali_movimento_contabile" as LookupTableName, queryKey: "causali-movimento-contabile", title: "Causale Contabile", custom: "causali_mov" },
+  { value: "causali_compensazione", label: "Causali Compensazione", tableName: "causali_contabili" as LookupTableName, queryKey: "causali-compensazione", title: "Causale Compensazione", custom: "causali_comp" },
 ];
 
 const TabelleBasePage = () => {
