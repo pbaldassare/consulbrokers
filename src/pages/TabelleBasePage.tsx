@@ -1380,7 +1380,7 @@ const TabelleBasePage = () => {
       const results: Record<string, number> = {};
       await Promise.all(
         tabConfig.map(async (t) => {
-          const { count, error } = await supabase
+          const { count, error } = await (supabase as any)
             .from(t.tableName)
             .select("*", { count: "exact", head: true });
           if (!error) results[t.value] = count ?? 0;
