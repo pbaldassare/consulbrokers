@@ -51,6 +51,7 @@ import { TitoloScopeBanners } from "@/components/titolo/sections/TitoloScopeBann
 import { TitoloQuietanzePanel } from "@/components/titolo/sections/TitoloQuietanzePanel";
 import { TitoloDataPersistenceInfo } from "@/components/titolo/sections/TitoloDataPersistenceInfo";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza } from "@/lib/quietanze";
+import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 // Guard difensivo: garantisce che ogni mutation aggiorni SOLO il record corrente.
 // Lanciare quindi rifiuta qualsiasi update se l'id passato non coincide con il titolo caricato.
@@ -290,12 +291,6 @@ const TitoloDetail = () => {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [cassaForm, setCassaForm] = useState({ dataMessaCassa: todayStr, dataPagamento: todayStr, dataDecorrenza: todayStr, tipoPagamento: "contanti", banca: "" });
 
-  const bancheItaliane = [
-    "Intesa Sanpaolo", "UniCredit", "BNL - BNP Paribas", "BPER Banca", "Banco BPM",
-    "Monte dei Paschi di Siena", "Crédit Agricole Italia", "Poste Italiane",
-    "Banca Mediolanum", "Banca Sella", "Fineco Bank", "CheBanca!", "ING Italia",
-    "Deutsche Bank Italia", "Banca Popolare di Sondrio", "Altro",
-  ];
 
   // --- Regolazione edit state ---
   const [editingReg, setEditingReg] = useState(false);
@@ -1275,7 +1270,9 @@ const TitoloDetail = () => {
         updatePayload.data_decorrenza_rinnovo = cassaData.dataDecorrenza;
         updatePayload.tipo_pagamento = cassaData.tipoPagamento;
         if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
-          updatePayload.banca_pagamento = cassaData.banca;
+          const { data: conto } = await (supabase.from("conti_bancari") as any)
+            .select("etichetta, banca").eq("id", cassaData.banca).maybeSingle();
+          updatePayload.banca_pagamento = conto?.etichetta || conto?.banca || cassaData.banca;
         }
         if (isConferimento) {
           updatePayload.conferimento_gestito = true;
@@ -1847,13 +1844,15 @@ const TitoloDetail = () => {
             </div>
             {cassaForm.tipoPagamento === "bonifico" && (
               <div>
-                <Label className="text-xs">Banca</Label>
-                <Select value={cassaForm.banca} onValueChange={(v) => setCassaForm(f => ({ ...f, banca: v }))}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Seleziona banca..." /></SelectTrigger>
-                  <SelectContent>
-                    {bancheItaliane.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs">Conto Consulbrokers</Label>
+                <ContoBancarioSelect
+                  tipi={["generico"]}
+                  value={cassaForm.banca || null}
+                  onChange={(id) => setCassaForm(f => ({ ...f, banca: id || "" }))}
+                  placeholder="Seleziona conto..."
+                  showPreview
+                  className="mt-1"
+                />
               </div>
             )}
             <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
