@@ -1,5 +1,13 @@
 import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "pdf-lib";
 
+export interface ECCompensazioneRow {
+  codice: string;
+  descrizione: string;
+  segno: "+" | "-";  // '+' riduce dovuto, '-' aumenta dovuto
+  importo: number;
+  note?: string;
+}
+
 export interface ECClienteRow {
   polizza: string;       // numero polizza
   ramo: string;          // descrizione ramo
@@ -7,6 +15,7 @@ export interface ECClienteRow {
   compagnia: string;
   effetto: string;       // dd/MM/yyyy
   premio: number;
+  compensazioni?: ECCompensazioneRow[]; // opzionali, mostrate come sub-rows
 }
 
 export interface ECClienteData {
@@ -203,6 +212,32 @@ function drawTabella(ctx: Ctx, d: ECClienteData) {
     });
     ctx.page.drawLine({ start: { x: MARGIN.left, y: yT - maxH }, end: { x: MARGIN.left + CONTENT_W, y: yT - maxH }, thickness: 0.2, color: COLOR.line });
     ctx.y = yT - maxH;
+
+    // Sub-rows: compensazioni contabili applicate (abbuoni, sconti, arrotondamenti)
+    if (r.compensazioni && r.compensazioni.length > 0) {
+      const subSize = 8;
+      const indent = 18;
+      for (const c of r.compensazioni) {
+        ensure(ctx, subSize + 4);
+        const ySub = ctx.y;
+        if (alt) ctx.page.drawRectangle({ x: MARGIN.left, y: ySub - (subSize + 4), width: CONTENT_W, height: subSize + 4, color: COLOR.rowAlt });
+        const segnoMostrato = c.segno === "+" ? "−" : "+"; // effetto su importo dovuto cliente
+        const label = `   ↳ ${c.codice} — ${c.descrizione}${c.note ? ` (${c.note})` : ""}`;
+        const importoStr = `${segnoMostrato} ${fmtEur(c.importo)}`;
+        ctx.page.drawText(label, { x: MARGIN.left + indent, y: ySub - subSize - 1, size: subSize, font: ctx.italic, color: COLOR.muted });
+        const iw = ctx.bold.widthOfTextAtSize(importoStr, subSize);
+        ctx.page.drawText(importoStr, {
+          x: MARGIN.left + CONTENT_W - iw - 4,
+          y: ySub - subSize - 1,
+          size: subSize,
+          font: ctx.bold,
+          color: c.segno === "+" ? rgb(0.0, 0.45, 0.15) : rgb(0.65, 0.1, 0.1),
+        });
+        ctx.y = ySub - (subSize + 4);
+        ctx.page.drawLine({ start: { x: MARGIN.left, y: ctx.y }, end: { x: MARGIN.left + CONTENT_W, y: ctx.y }, thickness: 0.15, color: COLOR.line });
+      }
+    }
+
     alt = !alt;
   }
 

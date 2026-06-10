@@ -19,6 +19,7 @@ import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calenda
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DocumentiTab from "@/components/DocumentiTab";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
+import CompensazioniBox from "@/components/titolo/CompensazioniBox";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
@@ -1672,6 +1673,9 @@ const TitoloDetail = () => {
                     )}
                   </div>
                 )}
+
+                {/* Compensazioni contabili applicate (read-only) */}
+                {t.stato === "incassato" && <CompensazioniBox titoloId={t.id} />}
 
                 {/* Badges Garantito / Fondi */}
                 {t.stato === "incassato" && t.conferimento_gestito && (
