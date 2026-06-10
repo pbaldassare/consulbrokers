@@ -7,7 +7,7 @@ import { Plus, Wallet, Trash2 } from "lucide-react";
 import { useAnticipiCliente, statoAnticipo, useEliminaAnticipo, type Anticipo } from "@/hooks/useAnticipiCliente";
 import NuovoAnticipoDialog from "./NuovoAnticipoDialog";
 import AnticipoUtilizziDrawer from "./AnticipoUtilizziDrawer";
-import { fmtEuro } from "@/lib/fmtEuro";
+import { fmtEuro } from "@/lib/formatCurrency";
 
 interface Props {
   clienteId: string;

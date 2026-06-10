@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAnticipoUtilizzi } from "@/hooks/useAnticipiCliente";
-import { fmtEuro } from "@/lib/fmtEuro";
+import { fmtEuro } from "@/lib/formatCurrency";
 import { useNavigate } from "react-router-dom";
 
 interface Props {
