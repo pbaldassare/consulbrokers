@@ -119,4 +119,61 @@ describe("ImportoCompensazioneInput", () => {
     expect(input.value).toMatch(/56$/);
     expect(input.value).toContain(",");
   });
+
+  it("intero senza decimali viene formattato a 2 decimali su commit", () => {
+    const onCommit = vi.fn();
+    render(<ImportoCompensazioneInput value={0} onCommit={onCommit} />);
+    const input = screen.getByTestId("importo") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "250" } });
+    fireEvent.blur(input);
+    expect(onCommit).toHaveBeenCalledWith(250);
+    expect(input.value).toBe("250,00");
+  });
+
+  it("decimali extra vengono arrotondati a 2 cifre (banker-agnostic)", () => {
+    const onCommit = vi.fn();
+    render(<ImportoCompensazioneInput value={0} onCommit={onCommit} />);
+    const input = screen.getByTestId("importo") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "12,3456" } });
+    fireEvent.blur(input);
+    expect(onCommit).toHaveBeenCalledWith(12.35);
+    expect(input.value).toBe("12,35");
+  });
+
+  it("solo virgola '0,' viene normalizzato a 0 su blur", () => {
+    const onCommit = vi.fn();
+    render(<ImportoCompensazioneInput value={0} onCommit={onCommit} />);
+    const input = screen.getByTestId("importo") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "0," } });
+    expect(input.value).toBe("0,");
+    fireEvent.blur(input);
+    expect(onCommit).toHaveBeenCalledWith(0);
+  });
+
+  it("commit su Enter arrotonda a 2 decimali e mantiene il valore", () => {
+    const onCommit = vi.fn();
+    render(<ImportoCompensazioneInput value={0} onCommit={onCommit} />);
+    const input = screen.getByTestId("importo") as HTMLInputElement;
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    fireEvent.change(input, { target: { value: "99,999" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
+    expect(onCommit).toHaveBeenCalledWith(100);
+    expect(input.value).toBe("100,00");
+  });
+
+  it("blur commit non rimuove il focus in modo anomalo (può essere riportato)", () => {
+    const onCommit = vi.fn();
+    render(<ImportoCompensazioneInput value={0} onCommit={onCommit} />);
+    const input = screen.getByTestId("importo") as HTMLInputElement;
+    input.focus();
+    fireEvent.change(input, { target: { value: "5,5" } });
+    fireEvent.blur(input);
+    expect(onCommit).toHaveBeenCalledWith(5.5);
+    // dopo il commit il campo è riselezionabile senza salti
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe("5,50");
+  });
 });
