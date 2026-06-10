@@ -1063,7 +1063,8 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       const { data: countsData } = await supabase
         .from("compagnie")
         .select("gruppo_compagnia_id")
-        .not("gruppo_compagnia_id", "is", null);
+        .not("gruppo_compagnia_id", "is", null)
+        .eq("attiva", true);
 
       const counts1n: Record<string, number> = {};
       (countsData || []).forEach((row: any) => {
