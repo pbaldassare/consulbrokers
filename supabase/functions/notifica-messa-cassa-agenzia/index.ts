@@ -194,7 +194,8 @@ serve(async (req) => {
         to: recipient,
         subject,
         html,
-        apply_branding: false,
+        from: "ConsulNet <noreply@cbnet.it>",
+        apply_branding: true,
       },
     });
 
