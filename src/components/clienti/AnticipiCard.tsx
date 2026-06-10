@@ -7,7 +7,7 @@ import { Plus, Wallet, Trash2 } from "lucide-react";
 import { useAnticipiCliente, statoAnticipo, useEliminaAnticipo, type Anticipo } from "@/hooks/useAnticipiCliente";
 import NuovoAnticipoDialog from "./NuovoAnticipoDialog";
 import AnticipoUtilizziDrawer from "./AnticipoUtilizziDrawer";
-import { formatCurrency } from "@/lib/formatCurrency";
+import { fmtEuro } from "@/lib/fmtEuro";
 
 interface Props {
   clienteId: string;
@@ -48,7 +48,7 @@ export default function AnticipiCard({ clienteId }: Props) {
       <CardContent className="pt-2">
         <div className="mb-3 rounded-md bg-primary/5 border border-primary/20 px-3 py-2">
           <div className="text-xs text-muted-foreground">Totale disponibile</div>
-          <div className="text-xl font-semibold text-primary">{formatCurrency(totaleDisponibile)}</div>
+          <div className="text-xl font-semibold text-primary">{fmtEuro(totaleDisponibile)}</div>
         </div>
 
         {isLoading ? (
@@ -79,8 +79,8 @@ export default function AnticipiCard({ clienteId }: Props) {
                   >
                     <TableCell className="text-xs">{fmtDate(a.data_anticipo)}</TableCell>
                     <TableCell className="text-xs truncate max-w-[120px]">{a.conto?.etichetta || "—"}</TableCell>
-                    <TableCell className="text-xs text-right">{formatCurrency(a.importo)}</TableCell>
-                    <TableCell className="text-xs text-right font-medium">{formatCurrency(a.importo_residuo)}</TableCell>
+                    <TableCell className="text-xs text-right">{fmtEuro(a.importo)}</TableCell>
+                    <TableCell className="text-xs text-right font-medium">{fmtEuro(a.importo_residuo)}</TableCell>
                     <TableCell><StatoBadge a={a} /></TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {a.importo_residuo === a.importo && (
@@ -109,7 +109,7 @@ export default function AnticipiCard({ clienteId }: Props) {
                         onClick={() => setSelectedId(a.id)}>
                         <TableCell className="text-xs">{fmtDate(a.data_anticipo)}</TableCell>
                         <TableCell className="text-xs">{a.conto?.etichetta || "—"}</TableCell>
-                        <TableCell className="text-xs text-right">{formatCurrency(a.importo)}</TableCell>
+                        <TableCell className="text-xs text-right">{fmtEuro(a.importo)}</TableCell>
                         <TableCell><StatoBadge a={a} /></TableCell>
                       </TableRow>
                     ))}

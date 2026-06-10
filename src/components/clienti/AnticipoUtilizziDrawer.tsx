@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAnticipoUtilizzi } from "@/hooks/useAnticipiCliente";
-import { formatCurrency } from "@/lib/formatCurrency";
+import { fmtEuro } from "@/lib/fmtEuro";
 import { useNavigate } from "react-router-dom";
 
 interface Props {
@@ -40,7 +40,7 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
                   onClick={() => { if (u.titolo?.id) { navigate(`/titoli/${u.titolo.id}`); onClose(); } }}>
                   <TableCell className="text-xs">{fmtDate(u.data_utilizzo)}</TableCell>
                   <TableCell className="text-xs">{u.titolo?.numero_titolo || u.titolo_id.slice(0, 8)}</TableCell>
-                  <TableCell className="text-xs text-right font-medium">{formatCurrency(u.importo_utilizzato)}</TableCell>
+                  <TableCell className="text-xs text-right font-medium">{fmtEuro(u.importo_utilizzato)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
