@@ -1,33 +1,17 @@
+## Problema
+Il logo CBnet attuale (`logo-cbnet.svg`) ha uno sfondo bianco "baked in" nell'SVG: si vede come un rettangolo bianco sia nella sidebar (su gradient scuro) sia nel box del login.
 
-## Obiettivo
-Sostituire/aggiungere il nuovo logo `logo CBNET (1).svg` in 4 punti dell'app.
+## Soluzione
+Generare una versione del logo con sfondo trasparente e sostituirla nei punti d'uso.
 
-## Passi
+### Passi
+1. **Genera logo trasparente**: uso `imagegen--edit_image` sul file SVG attuale per produrre `logo-cbnet-transparent.png` (transparent_background=true, prompt "remove white background, keep only the CB hexagon mark and Consulbrokers wordmark").
+2. **Carica come asset CDN** via `lovable-assets create` → `src/assets/logo-cbnet-transparent.png.asset.json`.
+3. **Aggiorna i 2 punti d'uso** sostituendo l'import:
+   - `src/components/AppSidebar.tsx` (header sidebar, sia espanso che collassato)
+   - `src/pages/LoginPage.tsx` (header della card di login)
+4. **Favicon e email**: lascio invariati (icona PNG già generata e `email_branding` su URL stabile dell'SVG attuale — non hanno il problema dello sfondo perché su sfondo bianco).
 
-**1. Upload del logo come asset CDN**
-- Caricare `user-uploads://logo_CBNET_1.svg` via `lovable-assets` → genera `src/assets/logo-cbnet.svg.asset.json`.
-- Generare anche due varianti PNG (192x192 e 512x512) per favicon/PWA partendo dall'SVG.
-
-**2. Pagina di Login (`src/pages/LoginPage.tsx`)**
-- Sostituire l'attuale riquadro con icona lucchetto + scritta "CBnet" / "Gestionale" con il logo SVG centrato (altezza ~56-64px).
-- Mantenere il sottotitolo "Accedi" / "Recupera Password" e il form invariati.
-
-**3. Sidebar (`src/components/AppSidebar.tsx`)**
-- Nell'header della sidebar (sopra la nav), mostrare il logo SVG.
-- Versione compatta quando `collapsed === true`: solo monogramma/icona ridotta o logo scalato.
-
-**4. Favicon / Apple touch icon (`index.html` + `public/manifest.json`)**
-- Sostituire `/icon-192.png` e `/icon-512.png` con le versioni generate dal nuovo logo.
-- Aggiornare `<link rel="icon">` e `apple-touch-icon` in `index.html` (se serve nuova chiave).
-- Aggiornare `manifest.json` se referenzia le icone.
-
-**5. Email branding (`email_branding` table)**
-- Aggiornare il record esistente in `email_branding` settando `logo_url` = URL CDN del nuovo logo SVG.
-- Non tocchiamo la UI di `EmailBrandingTab` (l'utente potrà comunque cambiarlo da lì in futuro).
-
-## Note tecniche
-- Lo SVG contiene metadati C2PA (manifest Canva) molto pesanti: valutiamo se ripulirli prima dell'upload per ridurre il peso (opzionale, non bloccante).
-- Il colore primario teal/dark petrol resta invariato — il logo si presume leggibile su sfondo chiaro (Login card, Sidebar header con gradient scuro: verifico contrasto e, se necessario, applico un wrapper con bg chiaro o uso una versione monocromatica).
-
-## Domanda residua (sblocco rapido in build)
-Il logo va bene su entrambi gli sfondi (Login bianco + Sidebar gradient scuro)? Se no, mi servirà anche una versione "white/inverted" — altrimenti applico un piccolo background pill chiaro al logo in sidebar.
+### Note
+- Non rimuovo il vecchio asset SVG: resta usato per favicon/email.
+- Nessuna modifica a logica, solo presentazione/asset.
