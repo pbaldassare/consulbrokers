@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Lock, Mail, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getDefaultRoute } from "@/lib/getDefaultRoute";
-import logoCbnet from "@/assets/logo-cbnet.svg.asset.json";
+import logoCbnet from "@/assets/logo-cbnet-transparent.png.asset.json";
 
 const LoginPage = () => {
   const { user, profile, loading: authLoading } = useAuth();
