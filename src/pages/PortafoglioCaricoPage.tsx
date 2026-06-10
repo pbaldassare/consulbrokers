@@ -704,7 +704,7 @@ const PortafoglioCaricoPage = () => {
                           {p.conferimento_gestito && p.fondi_ricevuti && (
                             <Badge className="bg-orange-500 text-white text-[10px] h-5 hover:bg-orange-600">Conf.</Badge>
                           )}
-                          <CompensazioneBadge summary={compensazioniMap?.get(p.id)} />
+                          <CompensazioneBadge summary={compensazioniMap?.get(p.id)} titoloId={p.id} />
                         </div>
                       </TableCell>
                       <TableCell className="text-center text-xs">
