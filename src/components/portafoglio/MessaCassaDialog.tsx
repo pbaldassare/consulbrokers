@@ -130,7 +130,42 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     : round2(Number(form.cashImporto) || 0);
   const coperto = round2(cashEffettivo + totaleAnticipiUsati);
   const delta = round2(dovutoFinale - coperto);
-  const quadrato = Math.abs(delta) < 0.01;
+  const quadrato = Math.abs(delta) < TOLLERANZA_QUADRATURA;
+
+  // === Anteprima scritture contabili che verranno generate al conferma ===
+  const movimentiPreview: MovimentoPreview[] = useMemo(() => {
+    if (isMulti) return [];
+    return compensazioni.map((c) => ({
+      tipo: c.segno === "+" ? "uscita" : "entrata",
+      categoria: "compensazione_titolo",
+      descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
+      importo: c.importo,
+    }));
+  }, [compensazioni, isMulti]);
+
+  const stampaRiepilogo = () => {
+    const t = titoli[0];
+    const rows: string[] = [];
+    rows.push(`<tr><td>Premio lordo</td><td style="text-align:right">${fmtEuro(totaleLordo)}</td></tr>`);
+    compensazioni.forEach((c) => {
+      rows.push(`<tr><td>${c.segno} ${c.causale_codice} — ${c.causale_descrizione}${c.note ? " (" + c.note + ")" : ""}</td><td style="text-align:right">${c.segno === "+" ? "− " : "+ "}${fmtEuro(c.importo)}</td></tr>`);
+    });
+    rows.push(`<tr style="border-top:1px solid #999"><td><strong>Dovuto finale</strong></td><td style="text-align:right"><strong>${fmtEuro(dovutoFinale)}</strong></td></tr>`);
+    if (totaleAnticipiUsati > 0) rows.push(`<tr><td>Anticipi utilizzati</td><td style="text-align:right">− ${fmtEuro(totaleAnticipiUsati)}</td></tr>`);
+    rows.push(`<tr><td>Cash/bonifico (${form.tipoPagamento})</td><td style="text-align:right">− ${fmtEuro(cashEffettivo)}</td></tr>`);
+    rows.push(`<tr style="border-top:2px solid #000"><td><strong>Delta finale</strong></td><td style="text-align:right"><strong>${fmtEuro(delta)}</strong></td></tr>`);
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Riepilogo Messa a Cassa</title>
+<style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;margin:0 0 16px;color:#666;font-weight:normal}table{width:100%;border-collapse:collapse;font-size:13px}td{padding:6px 4px}</style>
+</head><body>
+<h1>Riepilogo Messa a Cassa</h1>
+<h2>Polizza ${t?.numero_titolo || t?.id?.slice(0,8) || ""} — ${form.dataMessaCassa}</h2>
+<table>${rows.join("")}</table>
+<p style="margin-top:24px;font-size:11px;color:#888">Stampato il ${new Date().toLocaleString("it-IT")}</p>
+<script>window.onload=()=>window.print()</script>
+</body></html>`;
+    const w = window.open("", "_blank", "width=700,height=800");
+    if (w) { w.document.write(html); w.document.close(); }
+  };
 
   const toggleAnticipo = (aId: string, residuo: number) => {
     setAnticipiSel((prev) => {
