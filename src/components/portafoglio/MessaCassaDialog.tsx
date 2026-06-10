@@ -583,13 +583,41 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
             </div>
           )}
 
+          {/* Anteprima scritture contabili */}
+          {!isMulti && movimentiPreview.length > 0 && (
+            <div className="rounded-md border bg-background p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="w-4 h-4 text-muted-foreground" />
+                Anteprima scritture in Prima Nota ({movimentiPreview.length})
+              </div>
+              <div className="text-xs space-y-1">
+                {movimentiPreview.map((m, i) => (
+                  <div key={i} className="flex justify-between gap-2 border-b last:border-0 pb-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`font-mono px-1.5 py-0.5 rounded text-[10px] ${m.tipo === "entrata" ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"}`}>
+                        {m.tipo}
+                      </span>
+                      <span className="truncate">{m.descrizione}</span>
+                    </div>
+                    <span className="font-mono">{fmtEuro(m.importo)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
             <p className="text-sm font-medium text-destructive">
-              ⚠️ Operazione irreversibile senza privilegi admin.
+              ⚠️ Operazione irreversibile senza privilegi admin. Tolleranza quadratura: {fmtEuro(TOLLERANZA_QUADRATURA)}.
             </p>
           </div>
         </div>
         <DialogFooter>
+          {!isMulti && (
+            <Button variant="outline" onClick={stampaRiepilogo} disabled={loading} title="Stampa riepilogo per l'operatore">
+              <Printer className="w-4 h-4 mr-1" /> Stampa
+            </Button>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Annulla</Button>
           <Button
             className="bg-green-600 hover:bg-green-700 text-white"
