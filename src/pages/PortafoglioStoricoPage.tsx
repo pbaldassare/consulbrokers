@@ -278,6 +278,7 @@ const PortafoglioStoricoPage = () => {
           <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}
+      <AnticipoUtilizziDrawer anticipoId={anticipoDrawerId} onClose={() => setAnticipoDrawerId(null)} />
     </div>
   );
 };
