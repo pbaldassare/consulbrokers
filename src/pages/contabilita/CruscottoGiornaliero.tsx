@@ -191,8 +191,37 @@ const CruscottoGiornaliero = () => {
     },
   });
 
+  // Riepilogo compensazioni del periodo filtrato (aggregato per causale)
+  const { data: riepilogoComp = { righe: [], totaleNetto: 0, totalePositivo: 0, totaleNegativo: 0, count: 0 } } = useQuery({
+    queryKey: ["cruscotto_riepilogo_comp", filtroDataDa, filtroDataA],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("titoli_compensazioni") as any)
+        .select("causale_codice, causale_descrizione, segno, importo, created_at")
+        .gte("created_at", `${filtroDataDa}T00:00:00`)
+        .lte("created_at", `${filtroDataA}T23:59:59`);
+      if (error) throw error;
+      const map = new Map<string, { codice: string; descrizione: string; count: number; totalePos: number; totaleNeg: number; netto: number }>();
+      for (const r of (data || []) as Array<{ causale_codice: string; causale_descrizione: string; segno: "+" | "-"; importo: number }>) {
+        const key = r.causale_codice || "?";
+        const cur = map.get(key) || { codice: key, descrizione: r.causale_descrizione || "", count: 0, totalePos: 0, totaleNeg: 0, netto: 0 };
+        const imp = Number(r.importo) || 0;
+        cur.count += 1;
+        if (r.segno === "+") { cur.totalePos += imp; cur.netto -= imp; }
+        else { cur.totaleNeg += imp; cur.netto += imp; }
+        map.set(key, cur);
+      }
+      const righe = Array.from(map.values()).sort((a, b) => Math.abs(b.netto) - Math.abs(a.netto));
+      const totalePositivo = righe.reduce((s, r) => s + r.totalePos, 0);
+      const totaleNegativo = righe.reduce((s, r) => s + r.totaleNeg, 0);
+      const totaleNetto = righe.reduce((s, r) => s + r.netto, 0);
+      const count = righe.reduce((s, r) => s + r.count, 0);
+      return { righe, totaleNetto, totalePositivo, totaleNegativo, count };
+    },
+  });
+
   // --- CALCULATIONS ---
 
+  // KPI giornaliere (mantengono il giorno selezionato)
   const totEntrate = movOggi.filter(m => m.tipo === "entrata").reduce((s, m) => s + (m.importo || 0), 0);
   const totUscite = movOggi.filter(m => m.tipo === "uscita").reduce((s, m) => s + (m.importo || 0), 0);
   const saldoGiorno = totEntrate - totUscite;
