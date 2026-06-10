@@ -1428,6 +1428,8 @@ const TabelleBasePage = () => {
               <OrderedLookupTab tableName={t.tableName} title={t.title} queryKey={t.queryKey} />
             ) : t.custom === "tipo_documento" ? (
               <TipoDocumentoTab />
+            ) : t.custom === "causali_mov" ? (
+              <CausaliMovTab />
             ) : (
               <SimpleLookupTab tableName={t.tableName} title={t.title} queryKey={t.queryKey} />
             )}
