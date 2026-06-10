@@ -45,7 +45,7 @@ const PortafoglioAttivePage = () => {
     queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente, filtroTipo],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza",
         { count: "exact" }
       ).in("stato", ["attivo", "sospeso"]).gte("garanzia_a", today);
 
