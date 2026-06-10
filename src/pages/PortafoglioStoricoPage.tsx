@@ -259,7 +259,7 @@ const PortafoglioStoricoPage = () => {
                     <TableCell>
                       <div className="flex items-center gap-1 flex-wrap">
                         <Badge variant={statoBadgeVariant(p.stato)}>{p.stato}</Badge>
-                        <CompensazioneBadge summary={compensazioniMap?.get(p.id)} />
+                        <CompensazioneBadge summary={compensazioniMap?.get(p.id)} titoloId={p.id} />
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">{fmtDate(p.data_sospensione)}</TableCell>

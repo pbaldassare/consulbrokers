@@ -211,7 +211,7 @@ const PortafoglioAttivePage = () => {
                         {p.stato === "sospeso" && (
                           <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Sospesa</Badge>
                         )}
-                        <CompensazioneBadge summary={compensazioniMap?.get(p.id)} />
+                        <CompensazioneBadge summary={compensazioniMap?.get(p.id)} titoloId={p.id} />
                       </div>
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>

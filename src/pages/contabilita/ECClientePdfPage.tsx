@@ -255,7 +255,26 @@ const ECClientePdfPage = () => {
     try {
       const cli = (cliente?.ragione_sociale || `${cliente?.cognome || ""}_${cliente?.nome || ""}`).replace(/\s+/g, "_") || "cliente";
       const name = `EC_${cli}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-      exportECClienteXlsx(buildData(), name);
+      // Stato riconciliazione: in un E/C cliente vengono incluse solo le polizze
+      // non ancora messe a cassa (premio da incassare). Una polizza è
+      // "riconciliata" se ha già `data_messa_cassa` valorizzata (incasso
+      // contabilizzato); le altre sono in attesa di pagamento.
+      const riconciliazione: Record<string, { stato: "riconciliato" | "non_riconciliato"; nota?: string }> = {};
+      for (const t of titoli || []) {
+        const ric = !!t.data_messa_cassa;
+        riconciliazione[t.numero_titolo || ""] = {
+          stato: ric ? "riconciliato" : "non_riconciliato",
+          nota: ric ? "Premio già incassato e messo a cassa" : "Premio in attesa di pagamento",
+        };
+      }
+      exportECClienteXlsx(buildData(), name, {
+        filtri: {
+          periodoDal: periodoDal || undefined,
+          periodoAl: periodoAl || undefined,
+          categoria: "Premi da incassare (E/C cliente)",
+        },
+        riconciliazione,
+      });
       toast.success("Excel scaricato");
     } catch (e: any) {
       toast.error("Errore export Excel: " + (e?.message || e));
