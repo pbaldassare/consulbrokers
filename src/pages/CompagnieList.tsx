@@ -1657,10 +1657,11 @@ const CompagnieList = () => {
                     {filteredAnagrafica.map((c: any) => {
                       const grp = c.gruppo_compagnia_id ? gruppiMap[c.gruppo_compagnia_id] : null;
                       const rc = rapportiCounts[c.id] || { tot: 0, attivi: 0 };
+                      const isAttiva = c.attiva !== false;
                       return (
                         <TableRow
                           key={c.id}
-                          className="cursor-pointer hover:bg-muted/50"
+                          className={`cursor-pointer hover:bg-muted/50 ${!isAttiva ? "opacity-60" : ""}`}
                           onClick={() => openEdit(c)}
                         >
                           <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
@@ -1679,8 +1680,8 @@ const CompagnieList = () => {
                           <TableCell>{grp?.descrizione || "—"}</TableCell>
                           <TableCell>{c.comune || "—"}</TableCell>
                           <TableCell>
-                            <Badge variant={c.stato === "Attivo" ? "default" : "secondary"}>
-                              {c.stato || (c.attiva ? "Attivo" : "Non Operativo")}
+                            <Badge variant={isAttiva ? "default" : "secondary"}>
+                              {isAttiva ? (c.stato || "Attivo") : "Non Operativo"}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
