@@ -1599,6 +1599,8 @@ const TabelleBasePage = () => {
               <TipoDocumentoTab />
             ) : t.custom === "causali_mov" ? (
               <CausaliMovTab />
+            ) : t.custom === "causali_comp" ? (
+              <CausaliCompensazioneTab />
             ) : (
               <SimpleLookupTab tableName={t.tableName} title={t.title} queryKey={t.queryKey} />
             )}
