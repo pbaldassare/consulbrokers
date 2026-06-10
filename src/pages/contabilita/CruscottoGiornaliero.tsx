@@ -31,6 +31,19 @@ const CruscottoGiornaliero = () => {
   const ieriStr = format(subDays(selectedDate, 1), "yyyy-MM-dd");
   const fra7ggStr = format(new Date(selectedDate.getTime() + 7 * 86400000), "yyyy-MM-dd");
 
+  // --- Filtri pannello "Movimenti Registrati" ---
+  const [filtroDataDa, setFiltroDataDa] = useState<string>(dataStr);
+  const [filtroDataA, setFiltroDataA] = useState<string>(dataStr);
+  const [filtroCategoria, setFiltroCategoria] = useState<string>("__tutte__");
+  const [filtroCausaleId, setFiltroCausaleId] = useState<string>("__tutte__");
+
+  // Sincronizza il periodo del pannello quando l'utente cambia la data del cruscotto
+  useMemo(() => {
+    setFiltroDataDa(dataStr);
+    setFiltroDataA(dataStr);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataStr]);
+
   const fmt = fmtEuro;
 
   // --- QUERIES ---
