@@ -40,6 +40,14 @@ interface CompensazioneRow {
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const TOLLERANZA_QUADRATURA = 0.01; // soglia massima di delta consentita
+
+interface MovimentoPreview {
+  tipo: "entrata" | "uscita";
+  categoria: string;
+  descrizione: string;
+  importo: number;
+}
 
 export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Props) => {
   const queryClient = useQueryClient();
