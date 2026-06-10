@@ -1889,34 +1889,30 @@ export default function ClienteDetail() {
         </div>
 
         <TabsContent value="polizze">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Card className="lg:col-span-2">
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">Polizze del cliente</CardTitle>
-                <NuovaPolizzaButton clienteId={id} size="sm" />
-              </CardHeader>
-              <CardContent className="pt-2">
-                {polizze.length === 0 ? (
-                  <div className="flex flex-col items-center gap-4 py-12 border-2 border-dashed border-border rounded-lg bg-muted/20">
-                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                      <FileText className="w-7 h-7 text-primary" />
-                    </div>
-                    <div className="text-center space-y-1">
-                      <p className="font-semibold text-foreground">Nessuna polizza collegata</p>
-                      <p className="text-sm text-muted-foreground">Crea la prima polizza per questo cliente</p>
-                    </div>
-                    <NuovaPolizzaButton clienteId={id} label="Nuova Polizza" />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-base">Polizze del cliente</CardTitle>
+              <NuovaPolizzaButton clienteId={id} size="sm" />
+            </CardHeader>
+            <CardContent className="pt-2">
+              {polizze.length === 0 ? (
+                <div className="flex flex-col items-center gap-4 py-12 border-2 border-dashed border-border rounded-lg bg-muted/20">
+                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                    <FileText className="w-7 h-7 text-primary" />
                   </div>
-                ) : (
-                  <PolizzeClienteTable polizze={polizze} navigate={navigate} />
-                )}
-              </CardContent>
-            </Card>
-            <div className="lg:col-span-1">
-              <AnticipiCard clienteId={id!} />
-            </div>
-          </div>
+                  <div className="text-center space-y-1">
+                    <p className="font-semibold text-foreground">Nessuna polizza collegata</p>
+                    <p className="text-sm text-muted-foreground">Crea la prima polizza per questo cliente</p>
+                  </div>
+                  <NuovaPolizzaButton clienteId={id} label="Nuova Polizza" />
+                </div>
+              ) : (
+                <PolizzeClienteTable polizze={polizze} navigate={navigate} />
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
+
 
           <TabsContent value="sinistri">
             <div className="flex items-center justify-between mb-2">
