@@ -543,6 +543,64 @@ const CruscottoGiornaliero = () => {
         </Card>
       )}
 
+      {/* Riepilogo Compensazioni Contabili — totali per causale nel periodo filtrato */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Scale className="w-4 h-4 text-teal-600" /> Riepilogo Compensazioni
+              </CardTitle>
+              <CardDescription>
+                {filtroDataDa === filtroDataA
+                  ? format(new Date(filtroDataDa), "d MMMM yyyy", { locale: it })
+                  : `Dal ${format(new Date(filtroDataDa), "d MMM yyyy", { locale: it })} al ${format(new Date(filtroDataA), "d MMM yyyy", { locale: it })}`}
+                {" · "}{riepilogoComp.count} compensazioni su {riepilogoComp.righe.length} causal{riepilogoComp.righe.length === 1 ? "e" : "i"}
+              </CardDescription>
+            </div>
+            <div className="flex gap-3 text-xs">
+              <span className="text-emerald-600 font-medium">A favore cliente: {fmt(riepilogoComp.totalePositivo)}</span>
+              <span className="text-red-600 font-medium">A carico cliente: {fmt(riepilogoComp.totaleNegativo)}</span>
+              <span className={`font-semibold ${riepilogoComp.totaleNetto >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                Netto: {fmt(riepilogoComp.totaleNetto)}
+              </span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {riepilogoComp.righe.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">Nessuna compensazione registrata nel periodo selezionato.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Causale</TableHead>
+                  <TableHead>Descrizione</TableHead>
+                  <TableHead className="text-right">N.</TableHead>
+                  <TableHead className="text-right text-emerald-700">A favore (€)</TableHead>
+                  <TableHead className="text-right text-red-700">A carico (€)</TableHead>
+                  <TableHead className="text-right">Netto (€)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {riepilogoComp.righe.map((r: any, i: number) => (
+                  <TableRow key={r.codice} className={i % 2 === 0 ? "bg-muted/30" : ""}>
+                    <TableCell className="font-mono text-xs">{r.codice}</TableCell>
+                    <TableCell className="text-sm">{r.descrizione || "—"}</TableCell>
+                    <TableCell className="text-right text-xs">{r.count}</TableCell>
+                    <TableCell className="text-right font-mono text-xs text-emerald-700">{r.totalePos > 0 ? fmt(r.totalePos) : "—"}</TableCell>
+                    <TableCell className="text-right font-mono text-xs text-red-700">{r.totaleNeg > 0 ? fmt(r.totaleNeg) : "—"}</TableCell>
+                    <TableCell className={`text-right font-mono text-xs font-semibold ${r.netto >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                      {fmt(r.netto)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Movimenti Registrati - con filtri periodo/categoria/causale */}
       <Card>
         <CardHeader>
