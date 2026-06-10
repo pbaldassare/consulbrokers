@@ -26,7 +26,7 @@ Esempio: lordo 1.200 €, abbuono attivo 50 € → dovuto 1.150 €; cliente bo
 
 ## Persistenza al conferma
 1. UPDATE `titoli` (stato=incassato, importo_incassato = solo parte cash, tipo_pagamento esteso con `compensato`/`misto_compensato`).
-2. INSERT `cliente_anticipi_utilizzi` (trigger esistente scala residuo).
+2. INSERT `cliente_anticipi_utilizzi` (trigger esistente scala residuo) + INSERT `movimenti_contabili` `categoria='utilizzo_anticipo'` `tipo='entrata'` con totale utilizzato (chiude il dovuto cliente in prima nota).
 3. INSERT `titoli_compensazioni`.
 4. INSERT `movimenti_contabili` (uno per compensazione, `categoria='compensazione_titolo'`, `riferimento_tipo='titolo'`, `tipo = uscita` se segno '+' (costo per agenzia) / `entrata` se segno '-').
 5. Auto-quietanza trigger DB invariato. `notifica-messa-cassa-agenzia` invariato.
