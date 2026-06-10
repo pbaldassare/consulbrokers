@@ -79,8 +79,8 @@ const LoginPage = () => {
     >
       <div className="w-full max-w-sm">
         <div className="bg-card/95 backdrop-blur-sm border border-white/10 rounded-xl p-8 shadow-2xl">
-          <div className="flex items-center justify-center mb-4">
-            <img src={logoCbnet.url} alt="CBnet" className="h-16 w-auto" />
+          <div className="flex items-center justify-center -mt-2 mb-2">
+            <img src={logoCbnet.url} alt="CBnet" className="w-full max-w-[260px] h-auto" />
           </div>
           <h2 className="text-base font-semibold text-foreground text-center mt-2 mb-1">
             {resetMode ? "Recupera Password" : "Accedi"}
