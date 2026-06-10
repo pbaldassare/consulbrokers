@@ -1674,6 +1674,9 @@ const TitoloDetail = () => {
                   </div>
                 )}
 
+                {/* Compensazioni contabili applicate (read-only) */}
+                {t.stato === "incassato" && <CompensazioniBox titoloId={t.id} />}
+
                 {/* Badges Garantito / Fondi */}
                 {t.stato === "incassato" && t.conferimento_gestito && (
                   <div className="mt-3 flex items-center gap-2 flex-wrap">
