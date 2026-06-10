@@ -1,5 +1,13 @@
 import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "pdf-lib";
 
+export interface ECCompensazioneRow {
+  codice: string;
+  descrizione: string;
+  segno: "+" | "-";  // '+' riduce dovuto, '-' aumenta dovuto
+  importo: number;
+  note?: string;
+}
+
 export interface ECClienteRow {
   polizza: string;       // numero polizza
   ramo: string;          // descrizione ramo
@@ -7,6 +15,7 @@ export interface ECClienteRow {
   compagnia: string;
   effetto: string;       // dd/MM/yyyy
   premio: number;
+  compensazioni?: ECCompensazioneRow[]; // opzionali, mostrate come sub-rows
 }
 
 export interface ECClienteData {
