@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Wallet, Plus, Trash2, Calculator, Printer, FileText } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { CheckSquare, Wallet, Trash2, Calculator, Printer, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
@@ -40,13 +41,14 @@ interface CompensazioneRow {
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const TOLLERANZA_QUADRATURA = 0.01; // soglia massima di delta consentita
+const TOLLERANZA_QUADRATURA = 0.01;
 
 interface MovimentoPreview {
   tipo: "entrata" | "uscita";
   categoria: string;
   descrizione: string;
   importo: number;
+  titolo?: string;
 }
 
 export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Props) => {
@@ -60,14 +62,13 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     banca: "",
     cashImporto: 0,
   });
-  // Map anticipoId -> importoDaUsare
   const [anticipiSel, setAnticipiSel] = useState<Record<string, number>>({});
-  const [compensazioni, setCompensazioni] = useState<CompensazioneRow[]>([]);
+  // Compensazioni indicizzate per titolo
+  const [compensazioniByTitolo, setCompensazioniByTitolo] = useState<Record<string, CompensazioneRow[]>>({});
 
   const isMulti = titoli.length > 1;
   const totaleLordo = titoli.reduce((s, t) => s + (Number(t.premio_lordo) || 0), 0);
 
-  // Single-cliente only
   const clienteUnico = useMemo(() => {
     const ids = Array.from(new Set(titoli.map((t) => t.cliente_anagrafica_id).filter(Boolean)));
     return ids.length === 1 ? (ids[0] as string) : null;
@@ -87,10 +88,10 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     },
   });
 
-  // Causali compensazione (sempre, solo per single-titolo)
+  // Causali compensazione (anche in bulk: ora gestite per-titolo)
   const { data: causaliComp = [] } = useQuery({
     queryKey: ["causali-compensazione-messa-cassa"],
-    enabled: open && !isMulti,
+    enabled: open,
     queryFn: async () => {
       const { data, error } = await (supabase.from("causali_contabili") as any)
         .select("id, codice, descrizione, segno_default")
@@ -114,40 +115,87 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         cashImporto: round2(totaleLordo),
       });
       setAnticipiSel({});
-      setCompensazioni([]);
+      setCompensazioniByTitolo({});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, titoli.length]);
 
+  // === Helpers compensazioni per titolo ===
+  const getComp = (titoloId: string) => compensazioniByTitolo[titoloId] || [];
+
+  const addCompFor = (titoloId: string, causaleId: string, suggestImporto?: number) => {
+    const c = causaliComp.find((x) => x.id === causaleId);
+    if (!c) return;
+    setCompensazioniByTitolo((prev) => {
+      const cur = prev[titoloId] || [];
+      const row: CompensazioneRow = {
+        tempId: crypto.randomUUID(),
+        causale_id: c.id,
+        causale_codice: c.codice,
+        causale_descrizione: c.descrizione,
+        segno: c.segno_default,
+        importo: round2(suggestImporto && suggestImporto > 0 ? suggestImporto : 0),
+        note: "",
+      };
+      return { ...prev, [titoloId]: [...cur, row] };
+    });
+  };
+
+  const updateCompFor = (titoloId: string, tempId: string, patch: Partial<CompensazioneRow>) => {
+    setCompensazioniByTitolo((prev) => ({
+      ...prev,
+      [titoloId]: (prev[titoloId] || []).map((c) => (c.tempId === tempId ? { ...c, ...patch } : c)),
+    }));
+  };
+
+  const removeCompFor = (titoloId: string, tempId: string) => {
+    setCompensazioniByTitolo((prev) => ({
+      ...prev,
+      [titoloId]: (prev[titoloId] || []).filter((c) => c.tempId !== tempId),
+    }));
+  };
+
   // === Calcoli quadratura ===
+  const allCompensazioni = useMemo(
+    () => Object.values(compensazioniByTitolo).flat(),
+    [compensazioniByTitolo]
+  );
   const totaleAnticipiUsati = round2(Object.values(anticipiSel).reduce((s, v) => s + (Number(v) || 0), 0));
-  const totaleCompPlus = round2(compensazioni.filter(c => c.segno === "+").reduce((s, c) => s + c.importo, 0));
-  const totaleCompMinus = round2(compensazioni.filter(c => c.segno === "-").reduce((s, c) => s + c.importo, 0));
+  const totaleCompPlus = round2(allCompensazioni.filter((c) => c.segno === "+").reduce((s, c) => s + c.importo, 0));
+  const totaleCompMinus = round2(allCompensazioni.filter((c) => c.segno === "-").reduce((s, c) => s + c.importo, 0));
   const dovutoFinale = round2(totaleLordo + totaleCompMinus - totaleCompPlus);
-  // In bulk: niente cash field, il "cash" è implicito = lordo - anticipi (logica precedente)
   const cashEffettivo = isMulti
-    ? round2(Math.max(0, totaleLordo - totaleAnticipiUsati))
+    ? round2(Math.max(0, dovutoFinale - totaleAnticipiUsati))
     : round2(Number(form.cashImporto) || 0);
   const coperto = round2(cashEffettivo + totaleAnticipiUsati);
   const delta = round2(dovutoFinale - coperto);
   const quadrato = Math.abs(delta) < TOLLERANZA_QUADRATURA;
 
-  // === Anteprima scritture contabili che verranno generate al conferma ===
+  // === Anteprima scritture contabili ===
   const movimentiPreview: MovimentoPreview[] = useMemo(() => {
-    if (isMulti) return [];
-    return compensazioni.map((c) => ({
-      tipo: c.segno === "+" ? "uscita" : "entrata",
-      categoria: "compensazione_titolo",
-      descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
-      importo: c.importo,
-    }));
-  }, [compensazioni, isMulti]);
+    const rows: MovimentoPreview[] = [];
+    titoli.forEach((t) => {
+      const tag = isMulti ? (t.numero_titolo || t.id.slice(0, 8)) : undefined;
+      getComp(t.id).forEach((c) => {
+        rows.push({
+          tipo: c.segno === "+" ? "uscita" : "entrata",
+          categoria: "compensazione_titolo",
+          descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
+          importo: c.importo,
+          titolo: tag,
+        });
+      });
+    });
+    return rows;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compensazioniByTitolo, titoli, isMulti]);
 
   const stampaRiepilogo = () => {
     const t = titoli[0];
+    const comp = getComp(t?.id || "");
     const rows: string[] = [];
     rows.push(`<tr><td>Premio lordo</td><td style="text-align:right">${fmtEuro(totaleLordo)}</td></tr>`);
-    compensazioni.forEach((c) => {
+    comp.forEach((c) => {
       rows.push(`<tr><td>${c.segno} ${c.causale_codice} — ${c.causale_descrizione}${c.note ? " (" + c.note + ")" : ""}</td><td style="text-align:right">${c.segno === "+" ? "− " : "+ "}${fmtEuro(c.importo)}</td></tr>`);
     });
     rows.push(`<tr style="border-top:1px solid #999"><td><strong>Dovuto finale</strong></td><td style="text-align:right"><strong>${fmtEuro(dovutoFinale)}</strong></td></tr>`);
@@ -158,7 +206,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
 <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;margin:0 0 16px;color:#666;font-weight:normal}table{width:100%;border-collapse:collapse;font-size:13px}td{padding:6px 4px}</style>
 </head><body>
 <h1>Riepilogo Messa a Cassa</h1>
-<h2>Polizza ${t?.numero_titolo || t?.id?.slice(0,8) || ""} — ${form.dataMessaCassa}</h2>
+<h2>Polizza ${t?.numero_titolo || t?.id?.slice(0, 8) || ""} — ${form.dataMessaCassa}</h2>
 <table>${rows.join("")}</table>
 <p style="margin-top:24px;font-size:11px;color:#888">Stampato il ${new Date().toLocaleString("it-IT")}</p>
 <script>window.onload=()=>window.print()</script>
@@ -182,7 +230,6 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
   const setImportoAnticipo = (aId: string, val: string, residuo: number) => {
     const n = Math.max(0, Math.min(residuo, Number(val.replace(",", ".")) || 0));
     setAnticipiSel((prev) => ({ ...prev, [aId]: n }));
-    // Se non in multi, ricalcolo automatico cash per quadrare
     if (!isMulti) {
       setForm((f) => {
         const altriAnticipi = Object.entries(anticipiSel)
@@ -192,32 +239,6 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         return { ...f, cashImporto: newCash };
       });
     }
-  };
-
-  const addCompensazione = (causaleId: string) => {
-    const c = causaliComp.find((x) => x.id === causaleId);
-    if (!c) return;
-    const importo = Math.abs(delta);
-    setCompensazioni((prev) => [
-      ...prev,
-      {
-        tempId: crypto.randomUUID(),
-        causale_id: c.id,
-        causale_codice: c.codice,
-        causale_descrizione: c.descrizione,
-        segno: c.segno_default,
-        importo: round2(importo > 0 ? importo : 0),
-        note: "",
-      },
-    ]);
-  };
-
-  const updateComp = (tempId: string, patch: Partial<CompensazioneRow>) => {
-    setCompensazioni((prev) => prev.map((c) => (c.tempId === tempId ? { ...c, ...patch } : c)));
-  };
-
-  const removeComp = (tempId: string) => {
-    setCompensazioni((prev) => prev.filter((c) => c.tempId !== tempId));
   };
 
   const autoQuadra = () => {
@@ -246,13 +267,11 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     for (const t of titoli) {
       const lordo = Number(t.premio_lordo) || 0;
 
-      // Compensazioni applicate solo nel single-titolo
-      const compForThis = !isMulti ? compensazioni : [];
-      const compPlusT = compForThis.filter(c => c.segno === "+").reduce((s, c) => s + c.importo, 0);
-      const compMinusT = compForThis.filter(c => c.segno === "-").reduce((s, c) => s + c.importo, 0);
+      const compForThis = getComp(t.id);
+      const compPlusT = compForThis.filter((c) => c.segno === "+").reduce((s, c) => s + c.importo, 0);
+      const compMinusT = compForThis.filter((c) => c.segno === "-").reduce((s, c) => s + c.importo, 0);
       const dovutoT = round2(lordo + compMinusT - compPlusT);
 
-      // Distribuisci anticipi FIFO contro il dovuto del titolo
       let daCoprireT = dovutoT;
       const utilizziPerTitolo: Array<{ anticipo_id: string; importo_utilizzato: number }> = [];
       for (const a of anticipiOrdered) {
@@ -288,7 +307,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         data_decorrenza_rinnovo: form.dataDecorrenza,
         data_incasso: form.dataMessaCassa,
         tipo_pagamento: tipoPag,
-        importo_incassato: residuoCash, // ciò che realmente è entrato in cassa
+        importo_incassato: residuoCash,
         updated_at: new Date().toISOString(),
       };
       if (bancaLabel) payload.banca_pagamento = bancaLabel;
@@ -296,7 +315,6 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
       if (error) { ko++; continue; }
 
-      // Insert utilizzi anticipi
       if (utilizziPerTitolo.length > 0) {
         const rows = utilizziPerTitolo.map((u) => ({
           ...u,
@@ -308,8 +326,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         if (errU) {
           toast.error(`Errore registrazione anticipi su ${t.numero_titolo ?? t.id}: ${errU.message}`);
         } else {
-          // Scrittura prima nota: utilizzo anticipo come "entrata" che chiude il dovuto cliente
-          const totUtilizzo = round2(utilizziPerTitolo.reduce((s, u: any) => s + Number(u.importo || 0), 0));
+          const totUtilizzo = round2(utilizziPerTitolo.reduce((s, u: any) => s + Number(u.importo_utilizzato || 0), 0));
           if (totUtilizzo > 0) {
             const { error: errMA } = await (supabase.from("movimenti_contabili") as any).insert({
               ufficio_id: t.ufficio_id || null,
@@ -328,7 +345,6 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         }
       }
 
-      // Insert compensazioni + movimenti contabili
       if (compForThis.length > 0) {
         const compRows = compForThis.map((c) => ({
           titolo_id: t.id,
@@ -342,12 +358,11 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         }));
         const { error: errC } = await (supabase.from("titoli_compensazioni") as any).insert(compRows);
         if (errC) {
-          toast.error(`Errore registrazione compensazioni: ${errC.message}`);
+          toast.error(`Errore registrazione compensazioni su ${t.numero_titolo ?? t.id}: ${errC.message}`);
         } else {
-          // Scrittura in prima nota: una riga per compensazione
           const movRows = compForThis.map((c) => ({
             ufficio_id: t.ufficio_id || null,
-            tipo: c.segno === "+" ? "uscita" : "entrata", // dal punto di vista agenzia: abbuono attivo = costo
+            tipo: c.segno === "+" ? "uscita" : "entrata",
             categoria: "compensazione_titolo",
             riferimento_tipo: "titolo",
             riferimento_id: t.id,
@@ -371,7 +386,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           data_messa_cassa: form.dataMessaCassa,
           tipo_pagamento: tipoPag,
           anticipi_usati: utilizziPerTitolo,
-          compensazioni: compForThis.map(c => ({ codice: c.causale_codice, segno: c.segno, importo: c.importo })),
+          compensazioni: compForThis.map((c) => ({ codice: c.causale_codice, segno: c.segno, importo: c.importo })),
           residuo_cash: residuoCash,
           bulk: isMulti,
         },
@@ -398,6 +413,68 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     } else {
       toast.error("Operazione fallita");
     }
+  };
+
+  // === UI: pannello compensazioni per singolo titolo (riusato in single e bulk) ===
+  const CompensazioniPanel = ({ titoloId }: { titoloId: string }) => {
+    const list = getComp(titoloId);
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
+            <Calculator className="w-4 h-4" /> Compensazioni contabili
+          </div>
+          <Select value="" onValueChange={(v) => v && addCompFor(titoloId, v, isMulti ? 0 : Math.abs(delta))}>
+            <SelectTrigger className="w-56 h-8 text-xs">
+              <SelectValue placeholder="+ Aggiungi causale..." />
+            </SelectTrigger>
+            <SelectContent>
+              {causaliComp.map((c) => (
+                <SelectItem key={c.id} value={c.id} className="text-xs">
+                  <span className="font-mono mr-2">{c.segno_default}</span>
+                  {c.codice} — {c.descrizione}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {list.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">
+            Nessuna compensazione. Usa per abbuoni, sconti, arrotondamenti.
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            {list.map((c) => (
+              <div key={c.tempId} className="flex items-center gap-2 bg-background/80 rounded px-2 py-1.5">
+                <span className={`font-mono text-sm font-bold ${c.segno === "+" ? "text-green-600" : "text-red-600"}`}>
+                  {c.segno}
+                </span>
+                <div className="flex-1 text-xs">
+                  <div className="font-medium">{c.causale_codice}</div>
+                  <div className="text-muted-foreground truncate">{c.causale_descrizione}</div>
+                </div>
+                <Input
+                  type="text" placeholder="note"
+                  value={c.note}
+                  onChange={(e) => updateCompFor(titoloId, c.tempId, { note: e.target.value })}
+                  className="w-32 h-8 text-xs"
+                />
+                <Input
+                  type="number" step="0.01" min="0"
+                  value={c.importo}
+                  onChange={(e) => updateCompFor(titoloId, c.tempId, { importo: round2(Number(e.target.value) || 0) })}
+                  className="w-24 h-8 text-xs text-right"
+                />
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeCompFor(titoloId, c.tempId)}>
+                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -457,62 +534,47 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
             </div>
           )}
 
-          {/* Compensazioni — solo single titolo */}
+          {/* Compensazioni — single titolo: pannello singolo */}
           {!isMulti && (
-            <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                  <Calculator className="w-4 h-4" /> Compensazioni contabili
-                </div>
-                <Select value="" onValueChange={(v) => v && addCompensazione(v)}>
-                  <SelectTrigger className="w-56 h-8 text-xs">
-                    <SelectValue placeholder="+ Aggiungi causale..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {causaliComp.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className="text-xs">
-                        <span className="font-mono mr-2">{c.segno_default}</span>
-                        {c.codice} — {c.descrizione}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
+              <CompensazioniPanel titoloId={titoli[0].id} />
+            </div>
+          )}
 
-              {compensazioni.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">
-                  Nessuna compensazione. Usa per abbuoni, sconti, arrotondamenti che fanno quadrare i conti.
-                </p>
-              ) : (
-                <div className="space-y-1.5">
-                  {compensazioni.map((c) => (
-                    <div key={c.tempId} className="flex items-center gap-2 bg-background/80 rounded px-2 py-1.5">
-                      <span className={`font-mono text-sm font-bold ${c.segno === "+" ? "text-green-600" : "text-red-600"}`}>
-                        {c.segno}
-                      </span>
-                      <div className="flex-1 text-xs">
-                        <div className="font-medium">{c.causale_codice}</div>
-                        <div className="text-muted-foreground truncate">{c.causale_descrizione}</div>
-                      </div>
-                      <Input
-                        type="text" placeholder="note"
-                        value={c.note}
-                        onChange={(e) => updateComp(c.tempId, { note: e.target.value })}
-                        className="w-32 h-8 text-xs"
-                      />
-                      <Input
-                        type="number" step="0.01" min="0"
-                        value={c.importo}
-                        onChange={(e) => updateComp(c.tempId, { importo: round2(Number(e.target.value) || 0) })}
-                        className="w-24 h-8 text-xs text-right"
-                      />
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeComp(c.tempId)}>
-                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
+          {/* Compensazioni — bulk: accordion per titolo */}
+          {isMulti && (
+            <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
+              <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2 mb-2">
+                <Calculator className="w-4 h-4" /> Compensazioni per polizza
+                {allCompensazioni.length > 0 && (
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {allCompensazioni.length} righe su {Object.keys(compensazioniByTitolo).filter(k => (compensazioniByTitolo[k] || []).length > 0).length} polizze
+                  </span>
+                )}
+              </div>
+              <Accordion type="multiple" className="w-full">
+                {titoli.map((t) => {
+                  const n = getComp(t.id).length;
+                  return (
+                    <AccordionItem key={t.id} value={t.id} className="border-b last:border-0">
+                      <AccordionTrigger className="text-xs py-2 hover:no-underline">
+                        <div className="flex items-center gap-2 flex-1">
+                          <span className="font-mono">{t.numero_titolo || t.id.slice(0, 8)}</span>
+                          <span className="text-muted-foreground">— {fmtEuro(Number(t.premio_lordo) || 0)}</span>
+                          {n > 0 && (
+                            <span className="ml-auto mr-2 px-1.5 py-0.5 rounded text-[10px] bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100">
+                              {n} comp.
+                            </span>
+                          )}
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2 pb-3">
+                        <CompensazioniPanel titoloId={t.id} />
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
             </div>
           )}
 
@@ -579,7 +641,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
 
           {/* Riepilogo quadratura */}
           <div className="rounded-md border bg-muted/40 p-3 text-xs space-y-1">
-            <div className="flex justify-between"><span>Premio lordo polizza</span><span>{fmtEuro(totaleLordo)}</span></div>
+            <div className="flex justify-between"><span>Premio lordo {isMulti ? "(totale polizze)" : "polizza"}</span><span>{fmtEuro(totaleLordo)}</span></div>
             {totaleCompMinus > 0 && (
               <div className="flex justify-between text-red-600"><span>+ Compensazioni che aumentano dovuto</span><span>+ {fmtEuro(totaleCompMinus)}</span></div>
             )}
@@ -597,14 +659,8 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
             </div>
           </div>
 
-          {isMulti && (
-            <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
-              Incasso multiplo: ogni polizza è incassata al proprio premio lordo. Le compensazioni non sono disponibili in modalità multipla — apri la singola polizza per gestirle.
-            </div>
-          )}
-
           {/* Anteprima scritture contabili */}
-          {!isMulti && movimentiPreview.length > 0 && (
+          {movimentiPreview.length > 0 && (
             <div className="rounded-md border bg-background p-3 space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <FileText className="w-4 h-4 text-muted-foreground" />
@@ -617,6 +673,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
                       <span className={`font-mono px-1.5 py-0.5 rounded text-[10px] ${m.tipo === "entrata" ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"}`}>
                         {m.tipo}
                       </span>
+                      {m.titolo && <span className="font-mono text-[10px] text-muted-foreground">{m.titolo}</span>}
                       <span className="truncate">{m.descrizione}</span>
                     </div>
                     <span className="font-mono">{fmtEuro(m.importo)}</span>
