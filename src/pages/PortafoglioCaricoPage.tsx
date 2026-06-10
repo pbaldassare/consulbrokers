@@ -48,7 +48,7 @@ const PortafoglioCaricoPage = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [cassaDialogTitoli, setCassaDialogTitoli] = useState<Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null }>>([]);
+  const [cassaDialogTitoli, setCassaDialogTitoli] = useState<Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>>([]);
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
@@ -405,7 +405,7 @@ const PortafoglioCaricoPage = () => {
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
           <span className="text-sm text-muted-foreground">{selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}</span>
           {selectedAttive.length > 0 && (
-            <Button size="sm" onClick={() => { setCassaDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo }))); setCassaDialogOpen(true); }} disabled={bulkLoading} className="gap-1">
+            <Button size="sm" onClick={() => { setCassaDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setCassaDialogOpen(true); }} disabled={bulkLoading} className="gap-1">
               <Banknote className="h-3.5 w-3.5" />
               Incassa ({selectedAttive.length})
             </Button>
@@ -694,7 +694,7 @@ const PortafoglioCaricoPage = () => {
                             size="sm"
                             variant="outline"
                             disabled={isProcessing}
-                            onClick={() => { setCassaDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo }]); setCassaDialogOpen(true); }}
+                            onClick={() => { setCassaDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }]); setCassaDialogOpen(true); }}
                             className="gap-1 h-8 text-xs"
                           >
                             <Banknote className="h-3.5 w-3.5" />
