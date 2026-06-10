@@ -106,6 +106,7 @@ export function useCreaAnticipo(clienteId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cliente-anticipi", clienteId] });
       qc.invalidateQueries({ queryKey: ["cliente-anticipi-disponibili", clienteId] });
+      qc.invalidateQueries({ queryKey: ["anticipi-globale"] });
       toast.success("Anticipo creato");
     },
     onError: (e: any) => toast.error(e?.message || "Errore creazione anticipo"),
@@ -129,6 +130,7 @@ export function useEliminaAnticipo(clienteId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cliente-anticipi", clienteId] });
       qc.invalidateQueries({ queryKey: ["cliente-anticipi-disponibili", clienteId] });
+      qc.invalidateQueries({ queryKey: ["anticipi-globale"] });
       toast.success("Anticipo eliminato");
     },
     onError: (e: any) => toast.error(e?.message || "Impossibile eliminare (potrebbe avere utilizzi associati)"),
