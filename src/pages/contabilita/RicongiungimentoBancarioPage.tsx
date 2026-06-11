@@ -63,7 +63,7 @@ const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio: string
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici-all"],
     enabled: seeAll,
-    queryFn: async () => (await supabase.from("uffici").select("id, nome").order("nome")).data ?? [],
+    queryFn: async () => (await supabase.from("uffici").select("id, nome:nome_ufficio").order("nome_ufficio")).data ?? [],
   });
 
   const { data: movs = [], isLoading } = useQuery({
@@ -392,7 +392,7 @@ const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null;
     queryKey: ["mov-bancari", "storico", profileUfficio, seeAll, dal, al, cliente],
     queryFn: async () => {
       let q = supabase.from("movimenti_bancari" as any)
-        .select("id, data_movimento, importo, ordinante, ufficio_id, cliente:clienti(id, ragione_sociale, nome, cognome), ufficio:uffici(nome)")
+        .select("id, data_movimento, importo, ordinante, ufficio_id, cliente:clienti(id, ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio)")
         .eq("stato", "incassato")
         .order("data_movimento", { ascending: false })
         .limit(500);
