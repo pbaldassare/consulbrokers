@@ -270,6 +270,20 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
     setCassaOpen(true);
   };
 
+  // === Garantito: stessa preload, ma apre GarantitoDialog ===
+  const apriGarantito = async () => {
+    if (!quadra) { toast.error(`Non quadra: delta ${fmtEuro(delta)}`); return; }
+    const titoliIds = Object.entries(selPol).filter(([, v]) => v > 0).map(([id]) => id);
+    if (titoliIds.length === 0) { toast.error("Nessuna polizza selezionata"); return; }
+    const { data: titoli, error } = await supabase
+      .from("titoli")
+      .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id")
+      .in("id", titoliIds);
+    if (error) { toast.error(error.message); return; }
+    setGarantitoTitoli(titoli ?? []);
+    setGarantitoOpen(true);
+  };
+
   // Callback dopo conferma MessaCassaDialog: aggiorna movimenti_bancari + notifica
   const onCassaSuccess = async () => {
     const today = new Date().toISOString().slice(0, 10);
