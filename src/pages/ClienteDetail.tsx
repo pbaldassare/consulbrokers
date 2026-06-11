@@ -1969,9 +1969,11 @@ export default function ClienteDetail() {
                     <AiDocumentScanner documentType="visura_camerale" entityContext={entityContext} onFileReady={handleScanUpload} onExtracted={() => {}} label="Scansiona Visura Camerale" />
                   );
                 })()}
+                <AnalizzaPolizzaCgaDialog clienteId={id!} />
               </div>
             </CardContent>
           </Card>
+          <PolizzeCgaSection clienteId={id!} />
           <DocumentiTab entitaTipo="cliente" entitaId={id!} bucketName="documenti_clienti" />
         </TabsContent>
 
