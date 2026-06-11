@@ -614,7 +614,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           )}
 
           {/* Compensazioni — single titolo: pannello singolo */}
-          {!isMulti && (
+          {!isMulti && titoli[0] && (
             <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
               {renderCompensazioniPanel(titoli[0].id)}
             </div>
