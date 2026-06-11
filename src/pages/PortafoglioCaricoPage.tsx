@@ -776,6 +776,13 @@ const PortafoglioCaricoPage = () => {
         onSuccess={() => { setSelectedIds(new Set()); invalidateQueries(); }}
       />
 
+      <GarantitoDialog
+        open={garantitoDialogOpen}
+        onOpenChange={setGarantitoDialogOpen}
+        titoli={garantitoDialogTitoli}
+        onSuccess={() => { setSelectedIds(new Set()); invalidateQueries(); }}
+      />
+
       <AnticipoUtilizziDrawer
         anticipoId={anticipoDrawerId}
         onClose={() => setAnticipoDrawerId(null)}
