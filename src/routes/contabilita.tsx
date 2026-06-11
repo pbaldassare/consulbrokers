@@ -2,6 +2,9 @@ import { Route } from "react-router-dom";
 import PlaceholderPage from "@/components/PlaceholderPage";
 import ContabilitaUfficio from "@/pages/ContabilitaUfficio";
 import CruscottoGiornaliero from "@/pages/contabilita/CruscottoGiornaliero";
+import CaricamentoMovBancariPage from "@/pages/contabilita/CaricamentoMovBancariPage";
+import RicongiungimentoBancarioPage from "@/pages/contabilita/RicongiungimentoBancarioPage";
+
 
 
 import ECClientiContabPage from "@/pages/contabilita/ECClientiContabPage";
