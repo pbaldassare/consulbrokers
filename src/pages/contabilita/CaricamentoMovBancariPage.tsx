@@ -98,6 +98,8 @@ const Page = () => {
   const [importing, setImporting] = useState(false);
   const [matching, setMatching] = useState(false);
   const [lastBatch, setLastBatch] = useState<string[]>([]);
+  const [manualOpen, setManualOpen] = useState(false);
+
 
 
   const handleFile = useCallback(async (file: File) => {
