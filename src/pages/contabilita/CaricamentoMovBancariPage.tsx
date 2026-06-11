@@ -520,71 +520,186 @@ const MonitorTab = ({ onManualInsert }: { onManualInsert: (p: ManualInsertPayloa
         <Kpi label="Incassati" value={`${kpi.incassato} · ${fmtEuro(kpi.totIncassato)}`} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-end gap-2">
-            <div><Label>Ufficio</Label>
-              <select value={filtroUfficio} onChange={(e) => setFiltroUfficio(e.target.value)} className="h-9 px-2 border rounded-md text-sm bg-background">
-                <option value="">Tutti</option>
-                {(uffici as any[]).map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
-              </select>
+      <div className="grid lg:grid-cols-[1fr_320px] gap-4">
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-end gap-2">
+              <div><Label>Ufficio</Label>
+                <select value={filtroUfficio} onChange={(e) => setFiltroUfficio(e.target.value)} className="h-9 px-2 border rounded-md text-sm bg-background">
+                  <option value="">Tutti</option>
+                  {(uffici as any[]).map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+                </select>
+              </div>
+              <div><Label>Dal</Label><Input type="date" value={dal} onChange={(e) => setDal(e.target.value)} className="w-40" /></div>
+              <div><Label>Al</Label><Input type="date" value={al} onChange={(e) => setAl(e.target.value)} className="w-40" /></div>
+              <Button variant="outline" size="sm" onClick={() => {
+                const rows = (movs as any[]).map((m: any) => {
+                  const cliNome = m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "";
+                  const polizze = (m.movimenti_clienti ?? []).flatMap((mc: any) => mc.movimenti_polizze ?? []);
+                  const aCassa = polizze.filter((p: any) => p.messo_a_cassa).reduce((s: number, p: any) => s + Number(p.importo || 0), 0);
+                  return {
+                    Data: m.data_movimento,
+                    Cliente: cliNome,
+                    Ufficio: m.ufficio?.nome || "",
+                    Totale: Number(m.importo) || 0,
+                    "A cassa": aCassa,
+                    Polizze: polizze.length,
+                    Stato: STATO_LABEL[m.stato]?.label ?? m.stato,
+                  };
+                });
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Monitor");
+                XLSX.writeFile(wb, `monitor-movimenti-${new Date().toISOString().slice(0, 10)}.xlsx`);
+              }}><Download className="w-3 h-3 mr-1" />Export Excel</Button>
             </div>
-            <div><Label>Dal</Label><Input type="date" value={dal} onChange={(e) => setDal(e.target.value)} className="w-40" /></div>
-            <div><Label>Al</Label><Input type="date" value={al} onChange={(e) => setAl(e.target.value)} className="w-40" /></div>
-            <Button variant="outline" size="sm" onClick={() => {
-              const rows = (movs as any[]).map((m: any) => {
-                const cliNome = m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "";
-                const polizze = (m.movimenti_clienti ?? []).flatMap((mc: any) => mc.movimenti_polizze ?? []);
-                const aCassa = polizze.filter((p: any) => p.messo_a_cassa).reduce((s: number, p: any) => s + Number(p.importo || 0), 0);
-                return {
-                  Data: m.data_movimento,
-                  Cliente: cliNome,
-                  Ufficio: m.ufficio?.nome || "",
-                  Totale: Number(m.importo) || 0,
-                  "A cassa": aCassa,
-                  Polizze: polizze.length,
-                  Stato: STATO_LABEL[m.stato]?.label ?? m.stato,
-                };
-              });
-              const ws = XLSX.utils.json_to_sheet(rows);
-              const wb = XLSX.utils.book_new();
-              XLSX.utils.book_append_sheet(wb, ws, "Monitor");
-              XLSX.writeFile(wb, `monitor-movimenti-${new Date().toISOString().slice(0, 10)}.xlsx`);
-            }}><Download className="w-3 h-3 mr-1" />Export Excel</Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader><TableRow>
-              <TableHead>Data</TableHead><TableHead>Cliente</TableHead><TableHead>Ufficio</TableHead>
-              <TableHead className="text-right">Totale</TableHead><TableHead className="text-right">A cassa</TableHead>
-              <TableHead>Polizze</TableHead><TableHead>Stato</TableHead>
-            </TableRow></TableHeader>
-            <TableBody>
-              {movs.map((m: any, i: number) => {
-                const cliNome = m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "—";
-                const polizze = (m.movimenti_clienti ?? []).flatMap((mc: any) => mc.movimenti_polizze ?? []);
-                const aCassa = polizze.filter((p: any) => p.messo_a_cassa).reduce((s: number, p: any) => s + Number(p.importo || 0), 0);
-                return (
-                  <TableRow key={m.id} className={i % 2 ? "bg-muted/30" : ""}>
-                    <TableCell>{m.data_movimento}</TableCell>
-                    <TableCell className="text-sm">{cliNome}</TableCell>
-                    <TableCell className="text-sm">{m.ufficio?.nome ?? "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmtEuro(m.importo)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmtEuro(aCassa)}</TableCell>
-                    <TableCell className="text-sm">{polizze.length || "—"}</TableCell>
-                    <TableCell><Badge variant={STATO_LABEL[m.stato]?.variant ?? "secondary"}>{STATO_LABEL[m.stato]?.label ?? m.stato}</Badge></TableCell>
-                  </TableRow>
-                );
-              })}
-              {movs.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Data</TableHead><TableHead>Cliente</TableHead><TableHead>Ufficio</TableHead>
+                <TableHead className="text-right">Totale</TableHead><TableHead className="text-right">A cassa</TableHead>
+                <TableHead>Polizze</TableHead><TableHead>Stato</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {movs.map((m: any, i: number) => {
+                  const cliNome = m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "—";
+                  const polizze = (m.movimenti_clienti ?? []).flatMap((mc: any) => mc.movimenti_polizze ?? []);
+                  const aCassa = polizze.filter((p: any) => p.messo_a_cassa).reduce((s: number, p: any) => s + Number(p.importo || 0), 0);
+                  return (
+                    <TableRow key={m.id} className={i % 2 ? "bg-muted/30" : ""}>
+                      <TableCell>{m.data_movimento}</TableCell>
+                      <TableCell className="text-sm">{cliNome}</TableCell>
+                      <TableCell className="text-sm">{m.ufficio?.nome ?? "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtEuro(m.importo)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtEuro(aCassa)}</TableCell>
+                      <TableCell className="text-sm">{polizze.length || "—"}</TableCell>
+                      <TableCell><Badge variant={STATO_LABEL[m.stato]?.variant ?? "secondary"}>{STATO_LABEL[m.stato]?.label ?? m.stato}</Badge></TableCell>
+                    </TableRow>
+                  );
+                })}
+                {movs.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <InserimentoManualeCard onSubmit={onManualInsert} />
+      </div>
     </div>
   );
 };
+
+// === Inserimento manuale (card compatta accanto al Monitor) ===
+const InserimentoManualeCard = ({ onSubmit }: { onSubmit: (p: ManualInsertPayload) => Promise<void> }) => {
+  const [clienteId, setClienteId] = useState<string>("");
+  const [clienteLabel, setClienteLabel] = useState<string>("");
+  const [ufficioId, setUfficioId] = useState<string | null>(null);
+  const [dataMov, setDataMov] = useState(todayISO());
+  const [importo, setImporto] = useState("");
+  const [ordinante, setOrdinante] = useState("");
+  const [descrizione, setDescrizione] = useState("");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { data: clienti = [], isLoading: loadingClienti } = useQuery({
+    queryKey: ["clienti-search-mov-manual", debounced],
+    enabled: debounced.length >= 2,
+    queryFn: async () => {
+      const { data } = await supabase.from("clienti")
+        .select("id, ragione_sociale, nome, cognome, ufficio_id")
+        .or(`ragione_sociale.ilike.%${debounced}%,cognome.ilike.%${debounced}%,nome.ilike.%${debounced}%`)
+        .limit(25);
+      return (data as any[]) ?? [];
+    },
+  });
+
+  const importoNum = parseImporto(importo);
+  const canSubmit = !!clienteId && !!dataMov && importoNum > 0 && !saving;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSaving(true);
+    try {
+      await onSubmit({
+        cliente_id: clienteId,
+        ufficio_id: ufficioId,
+        data_movimento: dataMov,
+        importo: importoNum,
+        ordinante: ordinante || clienteLabel || null,
+        descrizione: descrizione || null,
+        note: note || null,
+      });
+      setClienteId(""); setClienteLabel(""); setUfficioId(null);
+      setDataMov(todayISO()); setImporto(""); setOrdinante(""); setDescrizione(""); setNote("");
+      setSearch("");
+    } catch { /* toast handled in caller */ }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Card className="h-fit">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2"><Plus className="w-4 h-4" /> Inserimento manuale</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div>
+          <Label className="text-xs">Cliente *</Label>
+          <SearchableSelect
+            options={(clienti as any[]).map((c) => ({
+              value: c.id,
+              label: c.ragione_sociale || [c.nome, c.cognome].filter(Boolean).join(" "),
+            }))}
+            value={clienteId}
+            onValueChange={(v) => {
+              setClienteId(v);
+              const c = (clienti as any[]).find((x) => x.id === v);
+              if (c) {
+                const lbl = c.ragione_sociale || [c.nome, c.cognome].filter(Boolean).join(" ");
+                setClienteLabel(lbl);
+                setUfficioId(c.ufficio_id ?? null);
+                if (!ordinante) setOrdinante(lbl);
+              }
+            }}
+            onSearchChange={setSearch}
+            placeholder={loadingClienti ? "Caricamento…" : "Cerca cliente…"}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Data *</Label>
+          <Input type="date" value={dataMov} onChange={(e) => setDataMov(e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Importo € *</Label>
+          <Input value={importo} onChange={(e) => setImporto(e.target.value)} placeholder="0,00" />
+        </div>
+        <div>
+          <Label className="text-xs">Ordinante</Label>
+          <Input value={ordinante} onChange={(e) => setOrdinante(e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Descrizione</Label>
+          <Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Note</Label>
+          <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+        </div>
+        <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full" size="sm">
+          <Plus className="w-4 h-4 mr-1" /> {saving ? "Salvataggio…" : "Aggiungi"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
+
 
 const Kpi = ({ label, value }: { label: string; value: number | string }) => (
   <Card><CardContent className="p-3">
