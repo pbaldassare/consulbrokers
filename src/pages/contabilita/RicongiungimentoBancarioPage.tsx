@@ -342,6 +342,37 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
               ) : <span className="text-sm text-muted-foreground">Nessun cliente associato</span>}
             </div>
 
+            {/* Anticipi disponibili cliente */}
+            {anticipoSummary && anticipoSummary.totale > 0 && (
+              <div className="rounded-md border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 p-3 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Wallet className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                  <span className="text-emerald-800 dark:text-emerald-300">
+                    Anticipi disponibili: <strong className="tabular-nums">{fmtEuro(anticipoSummary.totale)}</strong>
+                    {" "}({anticipoSummary.conteggio} anticip{anticipoSummary.conteggio === 1 ? "o" : "i"})
+                  </span>
+                  <Button
+                    size="sm" variant="ghost" className="h-7 text-xs text-emerald-700 dark:text-emerald-400"
+                    onClick={() => setAnticipoDrawerId(anticipoSummary.primoAnticipoId)}
+                  >
+                    Vedi dettagli
+                  </Button>
+                </div>
+                <Button
+                  size="sm" variant="outline"
+                  className="border-emerald-400 text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900"
+                  onClick={() => {
+                    const residuoMov = round2(Math.max(0, (Number(movimento.importo) || 0) - totalePolizze));
+                    const da_usare = round2(Math.min(anticipoSummary.totale, residuoMov));
+                    setAnticipo(da_usare);
+                    if (da_usare <= 0) toast.info("Nessun importo da coprire con l'anticipo");
+                  }}
+                >
+                  Usa nel ricongiungimento
+                </Button>
+              </div>
+            )}
+
             {/* Polizze */}
             <div>
               <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Polizze attive</h4>
