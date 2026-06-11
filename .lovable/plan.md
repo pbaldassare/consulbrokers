@@ -1,28 +1,41 @@
-## Spostare "Inserimento manuale" in alto come tab/azione che apre un popup
+## Problema confermato
 
-### Cosa cambia in `CaricamentoMovBancariPage.tsx`
+L'Excel caricato contiene **107 righe distinte**, ma in `movimenti_bancari` ci sono **428 record = 107 × 4**: l'import è stato eseguito 4 volte (timestamp 13:09, 13:09, 13:18, 13:18) e ogni esecuzione ha re-inserito tutte le righe perché non esiste alcun controllo di deduplica.
 
-1. **Rimuovere la card laterale** `InserimentoManualeCard` dal layout della tab Monitor Real-time. La tabella Monitor torna a piena larghezza (niente più grid `1fr_320px`).
+## Piano di intervento
 
-2. **Aggiungere un bottone "+ Inserimento manuale"** in alto, in linea con le tab `Importazione | Revisione | Monitor Real-time`, sulla destra della `TabsList`. Stile coerente (outline, icona `Plus`, stesso colore primario).
+### 1. Cleanup dei duplicati già presenti (migrazione SQL una tantum)
+- Per ogni gruppo `(data_movimento, importo, ordinante, descrizione)` mantenere **solo la riga più vecchia** (`MIN(created_at)`).
+- Cancellare le altre 3 copie (321 record).
+- Sicuro: tutti i duplicati hanno stesso `cliente_id`/`ufficio_id`/`stato='matchato'`, nessuna distinzione informativa.
 
-3. **Trasformare la card esistente in un Dialog** (`@/components/ui/dialog`) che si apre al click del bottone. Il contenuto del dialog è identico alla card attuale: Cliente (SearchableSelect obbligatorio), Data, Importo, Ordinante, Descrizione, Note, con la validazione inline già implementata (errori rossi sotto i campi, warning se cliente senza sede).
-
-4. **Flusso invariato al salvataggio**: il movimento viene creato con `stato='matchato'`, `cliente_id` e `ufficio_id` (derivato dal cliente). Dopo il salvataggio: toast di successo, chiusura del dialog, reset del form, refresh della query `mov-bancari`.
-
-5. Il bottone resta visibile e cliccabile in tutte e tre le tab (Importazione, Revisione, Monitor) — è un'azione globale della pagina, non legata alla tab attiva.
-
-### Layout risultante
-
-```text
-[Importazione] [Revisione] [Monitor Real-time]            [+ Inserimento manuale]
-─────────────────────────────────────────────────────────────────────────────
-(contenuto della tab attiva, a piena larghezza)
+```sql
+DELETE FROM movimenti_bancari m
+USING (
+  SELECT id, ROW_NUMBER() OVER (
+    PARTITION BY data_movimento, importo, ordinante, descrizione
+    ORDER BY created_at ASC
+  ) AS rn
+  FROM movimenti_bancari
+) d
+WHERE m.id = d.id AND d.rn > 1;
 ```
 
-Al click su "+ Inserimento manuale" → si apre un Dialog centrato con il form.
+### 2. Indice unico per prevenire nuovi duplicati
+Aggiungere un indice unico parziale (o constraint) per bloccare a livello DB futuri re-import:
 
-### File toccati
-- `src/pages/contabilita/CaricamentoMovBancariPage.tsx` (unico file).
+```sql
+CREATE UNIQUE INDEX uq_movimenti_bancari_dedup
+  ON movimenti_bancari (data_movimento, importo, ordinante, md5(descrizione));
+```
 
-Nessuna modifica a edge function, DB o altre pagine.
+### 3. Gestione lato edge function / UI di import
+Nell'edge function che importa l'Excel (o nella query di insert), usare `ON CONFLICT DO NOTHING` sull'indice sopra, così re-import dello stesso file diventa idempotente. Tornare un riepilogo "X righe nuove, Y già presenti".
+
+### 4. Verifica post-cleanup
+- `SELECT COUNT(*)` su `movimenti_bancari` deve tornare 107.
+- Riaprire la pagina Monitor real-time e Caricamento Mov. Bancari per controllare che il conteggio sia corretto.
+
+## Domanda per te
+- Confermi che posso **cancellare i 321 duplicati** mantenendo solo la prima occorrenza?
+- Vuoi che aggiunga anche il vincolo unico + `ON CONFLICT DO NOTHING` nell'import (consigliato), oppure solo il cleanup per ora?
