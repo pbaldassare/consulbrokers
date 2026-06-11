@@ -98,14 +98,6 @@ const Page = () => {
   const [matching, setMatching] = useState(false);
   const [lastBatch, setLastBatch] = useState<string[]>([]);
 
-  // === Form manuale ===
-  const [manual, setManual] = useState({
-    data_movimento: todayISO(),
-    importo: "",
-    ordinante: "",
-    descrizione: "",
-    note: "",
-  });
 
   const handleFile = useCallback(async (file: File) => {
     setImporting(true);
