@@ -42,6 +42,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import AnticipiChip from "@/components/clienti/AnticipiChip";
+import AnalizzaPolizzaCgaDialog from "@/components/cga/AnalizzaPolizzaCgaDialog";
+import PolizzeCgaSection from "@/components/cga/PolizzeCgaSection";
 
 /* ===========================================================
  * Anagrafica form context + module-level field components
