@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
 import PdfPreview from "@/components/PdfPreview";
+import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
 
 interface DocumentiTabProps {
   entitaTipo: string;
