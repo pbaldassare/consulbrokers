@@ -425,10 +425,16 @@ const PortafoglioCaricoPage = () => {
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
           <span className="text-sm text-muted-foreground">{selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}</span>
           {selectedAttive.length > 0 && (
-            <Button size="sm" onClick={() => { setCassaDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setCassaDialogOpen(true); }} disabled={bulkLoading} className="gap-1">
-              <Banknote className="h-3.5 w-3.5" />
-              Incassa ({selectedAttive.length})
-            </Button>
+            <>
+              <Button size="sm" onClick={() => { setCassaDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setCassaDialogOpen(true); }} disabled={bulkLoading} className="gap-1">
+                <Banknote className="h-3.5 w-3.5" />
+                Incassa ({selectedAttive.length})
+              </Button>
+              <Button size="sm" onClick={() => { setGarantitoDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setGarantitoDialogOpen(true); }} disabled={bulkLoading} className="gap-1 bg-orange-500 hover:bg-orange-600 text-white">
+                <Shield className="h-3.5 w-3.5" />
+                Garantito ({selectedAttive.length})
+              </Button>
+            </>
           )}
           {selectedIncassate.length > 0 && isAdmin && (
             <Button size="sm" variant="outline" onClick={bulkAnnullaIncasso} disabled={bulkLoading} className="gap-1">
