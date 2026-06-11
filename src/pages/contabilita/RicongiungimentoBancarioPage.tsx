@@ -233,7 +233,21 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
         statoNuovo: "ricongiunti",
         note: `${Object.keys(selPol).length} polizze`,
       });
-      toast.success("Ricongiungimento salvato");
+      // Toast con dettaglio polizze collegate
+      const numeriCollegati = polizze
+        .filter((p: any) => p.id in selPol && (Number(selPol[p.id]) || 0) > 0)
+        .map((p: any) => p.numero_titolo)
+        .filter(Boolean);
+      if (numeriCollegati.length > 0) {
+        toast.success(
+          numeriCollegati.length === 1
+            ? `Polizza ${numeriCollegati[0]} collegata al movimento`
+            : `${numeriCollegati.length} polizze collegate al movimento`,
+          { description: numeriCollegati.join(", ") }
+        );
+      } else {
+        toast.success("Ricongiungimento salvato");
+      }
       onChanged();
     } catch (e: any) {
       toast.error(e.message ?? "Errore salvataggio");
