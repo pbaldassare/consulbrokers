@@ -538,6 +538,26 @@ const MonitorTab = () => {
             </div>
             <div><Label>Dal</Label><Input type="date" value={dal} onChange={(e) => setDal(e.target.value)} className="w-40" /></div>
             <div><Label>Al</Label><Input type="date" value={al} onChange={(e) => setAl(e.target.value)} className="w-40" /></div>
+            <Button variant="outline" size="sm" onClick={() => {
+              const rows = (movs as any[]).map((m: any) => {
+                const cliNome = m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "";
+                const polizze = (m.movimenti_clienti ?? []).flatMap((mc: any) => mc.movimenti_polizze ?? []);
+                const aCassa = polizze.filter((p: any) => p.messo_a_cassa).reduce((s: number, p: any) => s + Number(p.importo || 0), 0);
+                return {
+                  Data: m.data_movimento,
+                  Cliente: cliNome,
+                  Ufficio: m.ufficio?.nome || "",
+                  Totale: Number(m.importo) || 0,
+                  "A cassa": aCassa,
+                  Polizze: polizze.length,
+                  Stato: STATO_LABEL[m.stato]?.label ?? m.stato,
+                };
+              });
+              const ws = XLSX.utils.json_to_sheet(rows);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "Monitor");
+              XLSX.writeFile(wb, `monitor-movimenti-${new Date().toISOString().slice(0, 10)}.xlsx`);
+            }}><Download className="w-3 h-3 mr-1" />Export Excel</Button>
           </div>
         </CardHeader>
         <CardContent>
