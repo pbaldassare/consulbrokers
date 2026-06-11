@@ -44,6 +44,7 @@ const allNavItems = [
   { to: "/cliente/scadenze", label: "Scadenziario", icon: CalendarClock, tour: "cl-nav-scadenziario" },
   { to: "/cliente/sinistri", label: "Sinistri", icon: AlertTriangle, tour: "cl-nav-sinistri" },
   { to: "/cliente/chat", label: "Chat", icon: MessageSquare, hasBadge: true, tour: "cl-nav-chat" },
+  { to: "/cliente/assistente", label: "Assistente Polizze", icon: Sparkles, tour: "cl-nav-assistente" },
   { to: "/cliente/documenti", label: "Documentazione Ente", icon: FileText, tour: "cl-nav-documenti" },
   { to: "/cliente/notifiche", label: "Notifiche", icon: Bell, tour: "cl-nav-notifiche" },
   { to: "/cliente/anagrafica", label: "Dati Ente", icon: Building2, tour: "cl-nav-dati" },
