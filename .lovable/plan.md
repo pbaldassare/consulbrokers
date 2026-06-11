@@ -1,43 +1,28 @@
-## Modifiche a `CaricamentoMovBancariPage.tsx`
+## Spostare "Inserimento manuale" in alto come tab/azione che apre un popup
 
-### 1. Inserimento manuale: aggiungere cliente obbligatorio
-Nel form di inserimento manuale aggiungere il campo **Cliente** (obbligatorio) usando `SearchableSelect` con ricerca server-side sui clienti (stesso pattern usato altrove — debounce 350ms, limit 25). Il movimento creato manualmente verrà inserito direttamente con `stato = 'matchato'`, `cliente_id` valorizzato e `ufficio_id` derivato dal cliente, così salta la fase di matching AI e va direttamente a Revisione/Ricongiungimento.
+### Cosa cambia in `CaricamentoMovBancariPage.tsx`
 
-Campi del form (in ordine):
-- Cliente (SearchableSelect, **obbligatorio**)
-- Data (obbligatorio)
-- Importo € (obbligatorio)
-- Ordinante (opzionale, prefillato col nome cliente)
-- Descrizione
-- Note
+1. **Rimuovere la card laterale** `InserimentoManualeCard` dal layout della tab Monitor Real-time. La tabella Monitor torna a piena larghezza (niente più grid `1fr_320px`).
 
-Validazione: bottone "Aggiungi" disabilitato finché Cliente + Data + Importo > 0 non sono valorizzati.
+2. **Aggiungere un bottone "+ Inserimento manuale"** in alto, in linea con le tab `Importazione | Revisione | Monitor Real-time`, sulla destra della `TabsList`. Stile coerente (outline, icona `Plus`, stesso colore primario).
 
-### 2. Riorganizzazione del layout
-Spostare l'inserimento manuale **fuori** dal grande riquadro a due colonne nella tab "Importazione". Nuovo layout:
+3. **Trasformare la card esistente in un Dialog** (`@/components/ui/dialog`) che si apre al click del bottone. Il contenuto del dialog è identico alla card attuale: Cliente (SearchableSelect obbligatorio), Data, Importo, Ordinante, Descrizione, Note, con la validazione inline già implementata (errori rossi sotto i campi, warning se cliente senza sede).
 
-- **Tab Importazione**: solo card `Upload Excel` a piena larghezza (o larghezza max contenuta).
-- **Tab Monitor Real-time**: lasciare la tabella a sinistra e affiancare a destra una **card compatta "+ Inserimento manuale"** con i campi sopra elencati impilati verticalmente. Su mobile la card va sotto la tabella.
+4. **Flusso invariato al salvataggio**: il movimento viene creato con `stato='matchato'`, `cliente_id` e `ufficio_id` (derivato dal cliente). Dopo il salvataggio: toast di successo, chiusura del dialog, reset del form, refresh della query `mov-bancari`.
+
+5. Il bottone resta visibile e cliccabile in tutte e tre le tab (Importazione, Revisione, Monitor) — è un'azione globale della pagina, non legata alla tab attiva.
+
+### Layout risultante
 
 ```text
-Monitor Real-time
-┌───────────────────────────────┬──────────────────────┐
-│  Tabella movimenti real-time  │  + Inserim. manuale  │
-│  (filtri, export, ecc.)       │  Cliente   [▼ cerca] │
-│                               │  Data      [______]  │
-│                               │  Importo € [______]  │
-│                               │  Ordinante [______]  │
-│                               │  Descriz.  [______]  │
-│                               │  Note      [______]  │
-│                               │  [   + Aggiungi   ]  │
-└───────────────────────────────┴──────────────────────┘
+[Importazione] [Revisione] [Monitor Real-time]            [+ Inserimento manuale]
+─────────────────────────────────────────────────────────────────────────────
+(contenuto della tab attiva, a piena larghezza)
 ```
 
-### 3. Note tecniche
-- Estrarre il form in un piccolo componente locale `InserimentoManualeCard` per riusarlo nella tab Monitor.
-- Dopo l'inserimento: toast di conferma, refresh della tabella Monitor, reset del form.
-- Log audit + notifica sede coerenti col flusso esistente (`notificaSedeMovimentoBancario` evento `approvato` opzionale — da decidere; per ora solo log standard "inserimento manuale").
-- Nessuna modifica a edge function, schema DB o altre pagine.
+Al click su "+ Inserimento manuale" → si apre un Dialog centrato con il form.
 
 ### File toccati
 - `src/pages/contabilita/CaricamentoMovBancariPage.tsx` (unico file).
+
+Nessuna modifica a edge function, DB o altre pagine.
