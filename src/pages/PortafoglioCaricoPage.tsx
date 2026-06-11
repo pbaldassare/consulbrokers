@@ -734,16 +734,29 @@ const PortafoglioCaricoPage = () => {
                         ) : isIncassato ? (
                           <span className="text-xs text-muted-foreground">—</span>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isProcessing}
-                            onClick={() => { setCassaDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }]); setCassaDialogOpen(true); }}
-                            className="gap-1 h-8 text-xs"
-                          >
-                            <Banknote className="h-3.5 w-3.5" />
-                            Cassa
-                          </Button>
+                          <div className="flex items-center gap-1 justify-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isProcessing}
+                              onClick={() => { setCassaDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }]); setCassaDialogOpen(true); }}
+                              className="gap-1 h-8 text-xs"
+                            >
+                              <Banknote className="h-3.5 w-3.5" />
+                              Cassa
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isProcessing}
+                              onClick={() => { setGarantitoDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }]); setGarantitoDialogOpen(true); }}
+                              className="gap-1 h-8 text-xs border-orange-400 text-orange-700 hover:bg-orange-50"
+                              title="Garantito (incasso senza fondi)"
+                            >
+                              <Shield className="h-3.5 w-3.5" />
+                              Gar.
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
