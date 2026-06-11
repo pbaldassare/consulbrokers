@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Search, FolderPlus, Upload, Home } from "lucide-react";
 import FolderCard from "@/components/documentale/FolderCard";
 import DocumentCard from "@/components/documentale/DocumentCard";
 import CreateFolderDialog from "@/components/documentale/CreateFolderDialog";
 import UploadDocumentDialog from "@/components/documentale/UploadDocumentDialog";
+import LibreriaCgaSection from "@/components/documentale/LibreriaCgaSection";
 
 interface Folder {
   id: string;
@@ -207,104 +209,117 @@ export default function DocumentalePage() {
         )}
       </div>
 
-      {/* Breadcrumb */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          {breadcrumb.map((item, i) => (
-            <BreadcrumbItem key={i}>
-              {i > 0 && <BreadcrumbSeparator />}
-              {i < breadcrumb.length - 1 ? (
-                <BreadcrumbLink className="cursor-pointer" onClick={() => navigateToBreadcrumb(i)}>
-                  {i === 0 ? <Home className="h-4 w-4" /> : item.name}
-                </BreadcrumbLink>
-              ) : (
-                <BreadcrumbPage>{i === 0 ? "Home" : item.name}</BreadcrumbPage>
+      <Tabs defaultValue="archivio" className="w-full">
+        <TabsList>
+          <TabsTrigger value="archivio">Archivio</TabsTrigger>
+          <TabsTrigger value="libreria-cga">Libreria CGA</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="archivio" className="space-y-6 mt-4">
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              {breadcrumb.map((item, i) => (
+                <BreadcrumbItem key={i}>
+                  {i > 0 && <BreadcrumbSeparator />}
+                  {i < breadcrumb.length - 1 ? (
+                    <BreadcrumbLink className="cursor-pointer" onClick={() => navigateToBreadcrumb(i)}>
+                      {i === 0 ? <Home className="h-4 w-4" /> : item.name}
+                    </BreadcrumbLink>
+                  ) : (
+                    <BreadcrumbPage>{i === 0 ? "Home" : item.name}</BreadcrumbPage>
+                  )}
+                </BreadcrumbItem>
+              ))}
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          {/* Search */}
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Cerca cartelle o documenti..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Content */}
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-lg" />)}
+            </div>
+          ) : (
+            <>
+              {/* Folders */}
+              {filteredFolders.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-medium text-muted-foreground mb-3">Cartelle</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {filteredFolders.map((folder) => (
+                      <FolderCard
+                        key={folder.id}
+                        id={folder.id}
+                        name={folder.name}
+                        icon={folder.icon}
+                        folderType={folder.folder_type}
+                        documentCount={folder.doc_count ?? 0}
+                        onClick={() => navigateToFolder(folder.id, folder.name)}
+                        isAdmin={isAdmin}
+                        onEdit={() => {}}
+                        onDelete={() => handleDeleteFolder(folder.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
               )}
-            </BreadcrumbItem>
-          ))}
-        </BreadcrumbList>
-      </Breadcrumb>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Cerca cartelle o documenti..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      {/* Content */}
-      {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-lg" />)}
-        </div>
-      ) : (
-        <>
-          {/* Folders */}
-          {filteredFolders.length > 0 && (
-            <div>
-              <h2 className="text-sm font-medium text-muted-foreground mb-3">Cartelle</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {filteredFolders.map((folder) => (
-                  <FolderCard
-                    key={folder.id}
-                    id={folder.id}
-                    name={folder.name}
-                    icon={folder.icon}
-                    folderType={folder.folder_type}
-                    documentCount={folder.doc_count ?? 0}
-                    onClick={() => navigateToFolder(folder.id, folder.name)}
-                    isAdmin={isAdmin}
-                    onEdit={() => {}}
-                    onDelete={() => handleDeleteFolder(folder.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Documents */}
-          {filteredDocs.length > 0 && (
-            <div>
-              <h2 className="text-sm font-medium text-muted-foreground mb-3">Documenti</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {filteredDocs.map((doc) => (
-                  <DocumentCard
-                    key={doc.id}
-                    id={doc.id}
-                    fileName={doc.file_name}
-                    fileType={doc.file_type}
-                    fileSize={doc.file_size}
-                    description={doc.description}
-                    tags={doc.tags || []}
-                    uploadedAt={doc.uploaded_at}
-                    isAdmin={isAdmin}
-                    onDownload={() => handleDownload(doc)}
-                    onDelete={() => handleDeleteDoc(doc.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {filteredFolders.length === 0 && filteredDocs.length === 0 && (
-            <div className="text-center py-16">
-              <p className="text-muted-foreground">
-                {search ? "Nessun risultato trovato" : currentFolderId ? "Cartella vuota" : "Nessuna cartella disponibile"}
-              </p>
-              {isAdmin && currentFolderId && !search && (
-                <Button variant="outline" className="mt-4" onClick={() => setShowUpload(true)}>
-                  <Upload className="mr-2 h-4 w-4" /> Carica il primo documento
-                </Button>
+              {/* Documents */}
+              {filteredDocs.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-medium text-muted-foreground mb-3">Documenti</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {filteredDocs.map((doc) => (
+                      <DocumentCard
+                        key={doc.id}
+                        id={doc.id}
+                        fileName={doc.file_name}
+                        fileType={doc.file_type}
+                        fileSize={doc.file_size}
+                        description={doc.description}
+                        tags={doc.tags || []}
+                        uploadedAt={doc.uploaded_at}
+                        isAdmin={isAdmin}
+                        onDownload={() => handleDownload(doc)}
+                        onDelete={() => handleDeleteDoc(doc.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
               )}
-            </div>
+
+              {/* Empty state */}
+              {filteredFolders.length === 0 && filteredDocs.length === 0 && (
+                <div className="text-center py-16">
+                  <p className="text-muted-foreground">
+                    {search ? "Nessun risultato trovato" : currentFolderId ? "Cartella vuota" : "Nessuna cartella disponibile"}
+                  </p>
+                  {isAdmin && currentFolderId && !search && (
+                    <Button variant="outline" className="mt-4" onClick={() => setShowUpload(true)}>
+                      <Upload className="mr-2 h-4 w-4" /> Carica il primo documento
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
+        </TabsContent>
+
+        <TabsContent value="libreria-cga" className="mt-4">
+          <LibreriaCgaSection />
+        </TabsContent>
+      </Tabs>
 
       {/* Dialogs */}
       <CreateFolderDialog open={showCreateFolder} onOpenChange={setShowCreateFolder} onSubmit={handleCreateFolder} loading={actionLoading} />
