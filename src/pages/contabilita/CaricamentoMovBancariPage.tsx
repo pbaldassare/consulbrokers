@@ -534,7 +534,7 @@ const MonitorTab = () => {
         <Kpi label="Incassati" value={`${kpi.incassato} · ${fmtEuro(kpi.totIncassato)}`} />
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_320px] gap-4">
+      <div>
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-end gap-2">
