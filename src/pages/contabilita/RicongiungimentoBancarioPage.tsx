@@ -116,13 +116,14 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
     queryKey: ["polizze-cliente", movimento.cliente_id],
     enabled: open && !!movimento.cliente_id,
     queryFn: async () => {
-      const { data } = await supabase.from("titoli")
-        .select("id, numero_titolo, premio_lordo, stato, data_messa_cassa, ramo_label:rami(nome), compagnia:compagnie(nome)" as any)
+      const { data, error } = await supabase.from("titoli")
+        .select("id, numero_titolo, premio_lordo, stato, data_messa_cassa, data_scadenza, ramo:rami(descrizione), compagnia:compagnie(nome)" as any)
         .eq("cliente_anagrafica_id", movimento.cliente_id)
         .is("data_messa_cassa", null)
         .neq("stato", "annullato")
-        .order("data_decorrenza", { ascending: false })
+        .order("data_scadenza", { ascending: true, nullsFirst: false })
         .limit(50);
+      if (error) throw error;
       return (data as any[]) ?? [];
     },
   });
