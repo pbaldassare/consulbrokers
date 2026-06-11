@@ -373,9 +373,7 @@ const RevisioneTab = () => {
     toast.success("Movimento assegnato alla sede");
     qc.invalidateQueries({ queryKey: ["mov-bancari"] });
   };
-    toast.success("Movimento assegnato alla sede");
-    qc.invalidateQueries({ queryKey: ["mov-bancari"] });
-  };
+
 
   const rifiuta = async (m: any) => {
     const { error } = await supabase.from("movimenti_bancari" as any).update({ stato: "importato", cliente_id: null, ufficio_id: null } as any).eq("id", m.id);
