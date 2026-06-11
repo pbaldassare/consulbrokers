@@ -33,9 +33,25 @@ type ExtractedData = {
     codice_modello?: string;
     compagnia_email_servizio_clienti?: string;
     compagnia_url_area_personale?: string;
+    compagnia_ivass_albo?: string;
+    compagnia_gruppo_ivass?: string;
+    compagnia_pec?: string;
+    compagnia_telefono?: string;
+    compagnia_sede_legale?: string;
+    compagnia_sede_operativa?: string;
     forma_copertura?: string;
     periodo_retroattivita_mesi?: number;
     massimale_aggregato_annuo?: number;
+    oggetto_assicurazione?: string;
+    ambito_territoriale?: string;
+    termine_prescrizione_mesi?: number;
+    termini_pagamento_premio_giorni?: number;
+    diritto_recesso_descrizione?: string;
+    foro_competente?: string;
+    regime_fiscale?: string;
+    limiti_eta_assicurato_min?: number;
+    limiti_eta_assicurato_max?: number;
+    clausola_broker?: string;
     note_legali?: string;
     sommario_ai?: string;
   };
@@ -57,6 +73,8 @@ type ExtractedData = {
     rilevante_sinistri?: boolean;
   }>;
   definizioni_prodotto?: Array<{ termine: string; definizione: string }>;
+  articoli_prodotto?: Array<{ sezione?: string; numero?: string; titolo?: string; testo: string; ordine?: number }>;
+  riferimenti_normativi?: Array<{ riferimento: string; contesto?: string }>;
   dati_personali?: {
     sommario_personalizzato?: string;
     numero_polizza?: string;
