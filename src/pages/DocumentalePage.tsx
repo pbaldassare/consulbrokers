@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Search, FolderPlus, Upload, Home } from "lucide-react";
 import FolderCard from "@/components/documentale/FolderCard";
 import DocumentCard from "@/components/documentale/DocumentCard";
 import CreateFolderDialog from "@/components/documentale/CreateFolderDialog";
 import UploadDocumentDialog from "@/components/documentale/UploadDocumentDialog";
+import LibreriaCgaSection from "@/components/documentale/LibreriaCgaSection";
 
 interface Folder {
   id: string;
