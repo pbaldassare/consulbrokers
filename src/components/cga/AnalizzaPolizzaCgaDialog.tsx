@@ -33,9 +33,25 @@ type ExtractedData = {
     codice_modello?: string;
     compagnia_email_servizio_clienti?: string;
     compagnia_url_area_personale?: string;
+    compagnia_ivass_albo?: string;
+    compagnia_gruppo_ivass?: string;
+    compagnia_pec?: string;
+    compagnia_telefono?: string;
+    compagnia_sede_legale?: string;
+    compagnia_sede_operativa?: string;
     forma_copertura?: string;
     periodo_retroattivita_mesi?: number;
     massimale_aggregato_annuo?: number;
+    oggetto_assicurazione?: string;
+    ambito_territoriale?: string;
+    termine_prescrizione_mesi?: number;
+    termini_pagamento_premio_giorni?: number;
+    diritto_recesso_descrizione?: string;
+    foro_competente?: string;
+    regime_fiscale?: string;
+    limiti_eta_assicurato_min?: number;
+    limiti_eta_assicurato_max?: number;
+    clausola_broker?: string;
     note_legali?: string;
     sommario_ai?: string;
   };
@@ -57,6 +73,8 @@ type ExtractedData = {
     rilevante_sinistri?: boolean;
   }>;
   definizioni_prodotto?: Array<{ termine: string; definizione: string }>;
+  articoli_prodotto?: Array<{ sezione?: string; numero?: string; titolo?: string; testo: string; ordine?: number }>;
+  riferimenti_normativi?: Array<{ riferimento: string; contesto?: string }>;
   dati_personali?: {
     sommario_personalizzato?: string;
     numero_polizza?: string;
@@ -183,9 +201,25 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
           codice_modello: p.codice_modello ?? null,
           compagnia_email_servizio_clienti: p.compagnia_email_servizio_clienti ?? null,
           compagnia_url_area_personale: p.compagnia_url_area_personale ?? null,
+          compagnia_ivass_albo: p.compagnia_ivass_albo ?? null,
+          compagnia_gruppo_ivass: p.compagnia_gruppo_ivass ?? null,
+          compagnia_pec: p.compagnia_pec ?? null,
+          compagnia_telefono: p.compagnia_telefono ?? null,
+          compagnia_sede_legale: p.compagnia_sede_legale ?? null,
+          compagnia_sede_operativa: p.compagnia_sede_operativa ?? null,
           forma_copertura: p.forma_copertura ?? null,
           periodo_retroattivita_mesi: p.periodo_retroattivita_mesi ?? null,
           massimale_aggregato_annuo: p.massimale_aggregato_annuo ?? null,
+          oggetto_assicurazione: p.oggetto_assicurazione ?? null,
+          ambito_territoriale: p.ambito_territoriale ?? null,
+          termine_prescrizione_mesi: p.termine_prescrizione_mesi ?? null,
+          termini_pagamento_premio_giorni: p.termini_pagamento_premio_giorni ?? null,
+          diritto_recesso_descrizione: p.diritto_recesso_descrizione ?? null,
+          foro_competente: p.foro_competente ?? null,
+          regime_fiscale: p.regime_fiscale ?? null,
+          limiti_eta_assicurato_min: p.limiti_eta_assicurato_min ?? null,
+          limiti_eta_assicurato_max: p.limiti_eta_assicurato_max ?? null,
+          clausola_broker: p.clausola_broker ?? null,
           note_legali: p.note_legali ?? null,
           sommario_ai: p.sommario_ai ?? null,
           testo_completo: extracted.testo_completo ?? null,
@@ -227,6 +261,27 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
               prodotto_id: prodottoId,
               termine: d.termine,
               definizione: d.definizione,
+            }))
+          );
+        }
+        if (extracted.articoli_prodotto?.length) {
+          await supabase.from("prodotti_articoli" as any).insert(
+            extracted.articoli_prodotto.map((a, i) => ({
+              prodotto_id: prodottoId,
+              sezione: a.sezione ?? null,
+              numero: a.numero ?? null,
+              titolo: a.titolo ?? null,
+              testo: a.testo,
+              ordine: a.ordine ?? i,
+            }))
+          );
+        }
+        if (extracted.riferimenti_normativi?.length) {
+          await supabase.from("prodotti_riferimenti_normativi" as any).insert(
+            extracted.riferimenti_normativi.map(r => ({
+              prodotto_id: prodottoId,
+              riferimento: r.riferimento,
+              contesto: r.contesto ?? null,
             }))
           );
         }
