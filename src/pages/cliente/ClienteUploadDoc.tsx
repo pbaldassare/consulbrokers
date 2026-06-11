@@ -48,7 +48,7 @@ const ClienteUploadDoc = () => {
     if (!file || !clienteId || !user) return;
     setUploading(true);
     try {
-      const path = `${clienteId}/${Date.now()}_${file.name}`;
+      const path = `${clienteId}/${Date.now()}_${sanitizeStorageFileName(file.name)}`;
       const { error: storageErr } = await supabase.storage
         .from("documenti_clienti")
         .upload(path, file);
