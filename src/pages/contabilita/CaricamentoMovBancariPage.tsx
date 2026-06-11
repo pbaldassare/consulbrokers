@@ -361,6 +361,18 @@ const RevisioneTab = () => {
   const approva = async (m: any) => {
     const { error } = await supabase.from("movimenti_bancari" as any).update({ stato: "assegnato" } as any).eq("id", m.id);
     if (error) { toast.error(error.message); return; }
+    const cliNome = m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "—";
+    await notificaSedeMovimentoBancario({
+      evento: "approvato",
+      movimentoId: m.id,
+      ufficioId: m.ufficio_id,
+      importo: Number(m.importo) || 0,
+      clienteLabel: cliNome,
+      statoNuovo: "assegnato",
+    });
+    toast.success("Movimento assegnato alla sede");
+    qc.invalidateQueries({ queryKey: ["mov-bancari"] });
+  };
     toast.success("Movimento assegnato alla sede");
     qc.invalidateQueries({ queryKey: ["mov-bancari"] });
   };
