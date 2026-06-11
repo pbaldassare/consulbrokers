@@ -152,6 +152,15 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
   const [saving, setSaving] = useState(false);
   const [cassaOpen, setCassaOpen] = useState(false);
   const [cassaTitoli, setCassaTitoli] = useState<any[]>([]);
+  const [garantitoOpen, setGarantitoOpen] = useState(false);
+  const [garantitoTitoli, setGarantitoTitoli] = useState<any[]>([]);
+  const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
+
+  // Anticipi residui del cliente (stessa logica di Portafoglio Carico)
+  const { data: anticipiMap } = useAnticipiResiduoByClienti(
+    open && movimento.cliente_id ? [movimento.cliente_id] : []
+  );
+  const anticipoSummary = movimento.cliente_id ? anticipiMap?.get(movimento.cliente_id) : null;
 
   useEffect(() => {
     if (!esistente) return;
