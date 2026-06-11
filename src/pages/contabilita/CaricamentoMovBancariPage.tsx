@@ -672,84 +672,89 @@ const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: bool
   const errClass = (v: string | undefined) => v ? "border-destructive focus-visible:ring-destructive" : "";
 
   return (
-    <Card className="h-fit">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2"><Plus className="w-4 h-4" /> Inserimento manuale</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div>
-          <Label className="text-xs">Cliente *</Label>
-          <SearchableSelect
-            options={(clienti as any[]).map((c) => ({
-              value: c.id,
-              label: c.ragione_sociale || [c.nome, c.cognome].filter(Boolean).join(" "),
-              description: c.ufficio_id ? undefined : "⚠ Senza sede assegnata",
-            }))}
-            value={clienteId}
-            onValueChange={(v) => {
-              setClienteId(v);
-              setTouched((t) => ({ ...t, cliente: true }));
-              const c = (clienti as any[]).find((x) => x.id === v);
-              if (c) {
-                const lbl = c.ragione_sociale || [c.nome, c.cognome].filter(Boolean).join(" ");
-                setClienteLabel(lbl);
-                setUfficioId(c.ufficio_id ?? null);
-                if (!ordinante) setOrdinante(lbl);
-              } else {
-                setUfficioId(null);
-              }
-            }}
-            onSearchChange={setSearch}
-            placeholder={loadingClienti ? "Caricamento…" : "Cerca cliente…"}
-            className={touched.cliente && errors.cliente ? "border-destructive" : ""}
-          />
-          {touched.cliente && errors.cliente && (
-            <p className="text-[11px] text-destructive mt-1">{errors.cliente}</p>
-          )}
-          {clienteId && ufficioId && (
-            <p className="text-[11px] text-muted-foreground mt-1">Sede assegnata automaticamente dal cliente</p>
-          )}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Plus className="w-4 h-4" /> Inserimento manuale movimento</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Cliente *</Label>
+            <SearchableSelect
+              options={(clienti as any[]).map((c) => ({
+                value: c.id,
+                label: c.ragione_sociale || [c.nome, c.cognome].filter(Boolean).join(" "),
+                description: c.ufficio_id ? undefined : "⚠ Senza sede assegnata",
+              }))}
+              value={clienteId}
+              onValueChange={(v) => {
+                setClienteId(v);
+                setTouched((t) => ({ ...t, cliente: true }));
+                const c = (clienti as any[]).find((x) => x.id === v);
+                if (c) {
+                  const lbl = c.ragione_sociale || [c.nome, c.cognome].filter(Boolean).join(" ");
+                  setClienteLabel(lbl);
+                  setUfficioId(c.ufficio_id ?? null);
+                  if (!ordinante) setOrdinante(lbl);
+                } else {
+                  setUfficioId(null);
+                }
+              }}
+              onSearchChange={setSearch}
+              placeholder={loadingClienti ? "Caricamento…" : "Cerca cliente…"}
+              className={touched.cliente && errors.cliente ? "border-destructive" : ""}
+            />
+            {touched.cliente && errors.cliente && (
+              <p className="text-[11px] text-destructive mt-1">{errors.cliente}</p>
+            )}
+            {clienteId && ufficioId && (
+              <p className="text-[11px] text-muted-foreground mt-1">Sede assegnata automaticamente dal cliente</p>
+            )}
+          </div>
+          <div>
+            <Label className="text-xs">Data *</Label>
+            <Input
+              type="date"
+              value={dataMov}
+              onChange={(e) => setDataMov(e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, data: true }))}
+              className={touched.data && errors.data ? errClass(errors.data) : ""}
+            />
+            {touched.data && errors.data && <p className="text-[11px] text-destructive mt-1">{errors.data}</p>}
+          </div>
+          <div>
+            <Label className="text-xs">Importo € *</Label>
+            <Input
+              value={importo}
+              onChange={(e) => setImporto(e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, importo: true }))}
+              placeholder="0,00"
+              className={touched.importo && errors.importo ? errClass(errors.importo) : ""}
+            />
+            {touched.importo && errors.importo && <p className="text-[11px] text-destructive mt-1">{errors.importo}</p>}
+          </div>
+          <div>
+            <Label className="text-xs">Ordinante</Label>
+            <Input value={ordinante} onChange={(e) => setOrdinante(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Descrizione</Label>
+            <Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Note</Label>
+            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1" size="sm">Annulla</Button>
+            <Button onClick={handleSubmit} disabled={!canSubmit} className="flex-1" size="sm">
+              <Plus className="w-4 h-4 mr-1" /> {saving ? "Salvataggio…" : "Aggiungi"}
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground text-center">Il movimento verrà creato come <strong>Matchato</strong> e assegnato al cliente.</p>
         </div>
-        <div>
-          <Label className="text-xs">Data *</Label>
-          <Input
-            type="date"
-            value={dataMov}
-            onChange={(e) => setDataMov(e.target.value)}
-            onBlur={() => setTouched((t) => ({ ...t, data: true }))}
-            className={touched.data && errors.data ? errClass(errors.data) : ""}
-          />
-          {touched.data && errors.data && <p className="text-[11px] text-destructive mt-1">{errors.data}</p>}
-        </div>
-        <div>
-          <Label className="text-xs">Importo € *</Label>
-          <Input
-            value={importo}
-            onChange={(e) => setImporto(e.target.value)}
-            onBlur={() => setTouched((t) => ({ ...t, importo: true }))}
-            placeholder="0,00"
-            className={touched.importo && errors.importo ? errClass(errors.importo) : ""}
-          />
-          {touched.importo && errors.importo && <p className="text-[11px] text-destructive mt-1">{errors.importo}</p>}
-        </div>
-        <div>
-          <Label className="text-xs">Ordinante</Label>
-          <Input value={ordinante} onChange={(e) => setOrdinante(e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Descrizione</Label>
-          <Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Note</Label>
-          <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-        </div>
-        <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full" size="sm">
-          <Plus className="w-4 h-4 mr-1" /> {saving ? "Salvataggio…" : "Aggiungi"}
-        </Button>
-        <p className="text-[10px] text-muted-foreground text-center">Il movimento verrà creato come <strong>Matchato</strong> e assegnato al cliente.</p>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 };
 
