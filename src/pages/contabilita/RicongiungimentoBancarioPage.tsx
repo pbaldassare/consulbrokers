@@ -364,13 +364,19 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
               <Button variant="outline" onClick={salvaRicongiungimento} disabled={saving}>
                 <Save className="w-4 h-4 mr-1" /> Salva Ricongiungimento
               </Button>
-              <Button onClick={mettiACassa} disabled={!quadra || cassing}>
+              <Button onClick={apriMessaCassa} disabled={!quadra}>
                 <Wallet className="w-4 h-4 mr-1" /> Metti a Cassa
               </Button>
             </div>
           </CardContent>
         </CollapsibleContent>
       </Card>
+      <MessaCassaDialog
+        open={cassaOpen}
+        onOpenChange={setCassaOpen}
+        titoli={cassaTitoli}
+        onSuccess={onCassaSuccess}
+      />
     </Collapsible>
   );
 };
