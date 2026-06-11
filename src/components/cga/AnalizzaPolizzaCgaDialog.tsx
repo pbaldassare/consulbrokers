@@ -16,12 +16,27 @@ type Props = {
   trigger?: React.ReactNode;
 };
 
+type PremioRow = {
+  garanzia: string;
+  tipo_rata: "sottoscrizione" | "successiva";
+  imponibile?: number;
+  imposte?: number;
+  lordo?: number;
+};
+
 type ExtractedData = {
   prodotto: {
     nome_prodotto: string;
     compagnia?: string;
     ramo?: string;
     edizione?: string;
+    codice_modello?: string;
+    compagnia_email_servizio_clienti?: string;
+    compagnia_url_area_personale?: string;
+    forma_copertura?: string;
+    periodo_retroattivita_mesi?: number;
+    massimale_aggregato_annuo?: number;
+    note_legali?: string;
     sommario_ai?: string;
   };
   garanzie_prodotto?: Array<{
@@ -29,6 +44,10 @@ type ExtractedData = {
     massimale_standard?: number;
     franchigia_standard?: number;
     scoperto_percentuale?: number;
+    sottolimite?: number;
+    franchigia_temporale_giorni?: number;
+    aggregato_annuo?: number;
+    ambito_territoriale?: string;
     note?: string;
   }>;
   condizioni_prodotto?: Array<{
@@ -37,7 +56,36 @@ type ExtractedData = {
     testo: string;
     rilevante_sinistri?: boolean;
   }>;
-  dati_personali?: { sommario_personalizzato?: string };
+  definizioni_prodotto?: Array<{ termine: string; definizione: string }>;
+  dati_personali?: {
+    sommario_personalizzato?: string;
+    numero_polizza?: string;
+    contraente_ragione_sociale?: string;
+    contraente_piva?: string;
+    contraente_cf?: string;
+    contraente_indirizzo?: string;
+    contraente_cap?: string;
+    contraente_comune?: string;
+    contraente_provincia?: string;
+    contraente_email?: string;
+    assicurato_descrizione?: string;
+    data_decorrenza?: string;
+    data_scadenza?: string;
+    data_emissione?: string;
+    tacito_rinnovo?: boolean;
+    cig?: string;
+    cup?: string;
+    frazionamento?: string;
+    intermediario_nome?: string;
+    intermediario_indirizzo?: string;
+    intermediario_telefono?: string;
+    intermediario_email?: string;
+    premio_imponibile_totale?: number;
+    premio_imposte_totale?: number;
+    premio_lordo_totale?: number;
+    premio_rata_sottoscrizione_lordo?: number;
+    premio_rate_successive_lordo?: number;
+  };
   garanzie_personali?: Array<{
     garanzia: string;
     massimale_personalizzato?: number;
@@ -45,6 +93,7 @@ type ExtractedData = {
     scoperto_personalizzato?: number;
     note_personali?: string;
   }>;
+  premio_per_garanzia?: PremioRow[];
   testo_completo?: string;
 };
 
@@ -59,6 +108,9 @@ function fileToBase64(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+const fmtEur = (n?: number) =>
+  typeof n === "number" ? n.toLocaleString("it-IT", { style: "currency", currency: "EUR" }) : "—";
 
 export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) {
   const [open, setOpen] = useState(false);
@@ -88,7 +140,6 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
       if (!ed?.prodotto?.nome_prodotto) throw new Error("AI non ha riconosciuto il prodotto");
       setExtracted(ed);
 
-      // Dedup prodotto
       const { data: existing } = await supabase
         .from("prodotti_cga")
         .select("id")
@@ -108,6 +159,8 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
     mutationFn: async (stato: "approvato" | "bozza") => {
       if (!extracted || !file) throw new Error("Dati mancanti");
       const { data: { user } } = await supabase.auth.getUser();
+      const p = extracted.prodotto;
+      const dp = extracted.dati_personali ?? {};
 
       // 1. Upload PDF
       const path = `cliente/${clienteId}/cga/${Date.now()}_${file.name}`;
@@ -119,22 +172,28 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
       }).select("id").single();
       if (docErr) throw docErr;
 
-      // 2. Trova o crea prodotto
+      // 2. Trova o crea prodotto + dati generici
       let prodottoId = esiste?.id;
       if (!prodottoId) {
         const { data: newProd, error: prodErr } = await supabase.from("prodotti_cga").insert({
-          nome_prodotto: extracted.prodotto.nome_prodotto,
-          compagnia: extracted.prodotto.compagnia ?? null,
-          ramo: extracted.prodotto.ramo ?? null,
-          edizione: extracted.prodotto.edizione ?? null,
-          sommario_ai: extracted.prodotto.sommario_ai ?? null,
+          nome_prodotto: p.nome_prodotto,
+          compagnia: p.compagnia ?? null,
+          ramo: p.ramo ?? null,
+          edizione: p.edizione ?? null,
+          codice_modello: p.codice_modello ?? null,
+          compagnia_email_servizio_clienti: p.compagnia_email_servizio_clienti ?? null,
+          compagnia_url_area_personale: p.compagnia_url_area_personale ?? null,
+          forma_copertura: p.forma_copertura ?? null,
+          periodo_retroattivita_mesi: p.periodo_retroattivita_mesi ?? null,
+          massimale_aggregato_annuo: p.massimale_aggregato_annuo ?? null,
+          note_legali: p.note_legali ?? null,
+          sommario_ai: p.sommario_ai ?? null,
           testo_completo: extracted.testo_completo ?? null,
           created_by: user?.id,
-        }).select("id").single();
+        } as any).select("id").single();
         if (prodErr) throw prodErr;
         prodottoId = newProd.id;
 
-        // garanzie standard
         if (extracted.garanzie_prodotto?.length) {
           await supabase.from("prodotti_garanzie").insert(
             extracted.garanzie_prodotto.map(g => ({
@@ -143,11 +202,14 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
               massimale_standard: g.massimale_standard ?? null,
               franchigia_standard: g.franchigia_standard ?? null,
               scoperto_percentuale: g.scoperto_percentuale ?? null,
+              sottolimite: g.sottolimite ?? null,
+              franchigia_temporale_giorni: g.franchigia_temporale_giorni ?? null,
+              aggregato_annuo: g.aggregato_annuo ?? null,
+              ambito_territoriale: g.ambito_territoriale ?? null,
               note: g.note ?? null,
-            }))
+            })) as any
           );
         }
-        // condizioni
         if (extracted.condizioni_prodotto?.length) {
           await supabase.from("prodotti_condizioni").insert(
             extracted.condizioni_prodotto.map(c => ({
@@ -159,22 +221,57 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
             }))
           );
         }
+        if (extracted.definizioni_prodotto?.length) {
+          await supabase.from("prodotti_definizioni" as any).insert(
+            extracted.definizioni_prodotto.map(d => ({
+              prodotto_id: prodottoId,
+              termine: d.termine,
+              definizione: d.definizione,
+            }))
+          );
+        }
       }
 
-      // 3. Crea polizza_cga
+      // 3. Crea polizza_cga con tutti i dati personali
       const { data: pc, error: pcErr } = await supabase.from("polizza_cga").insert({
         cliente_id: clienteId,
         prodotto_id: prodottoId,
         documento_id: docRow.id,
-        sommario_personalizzato: extracted.dati_personali?.sommario_personalizzato ?? null,
+        sommario_personalizzato: dp.sommario_personalizzato ?? null,
+        numero_polizza: dp.numero_polizza ?? null,
+        contraente_ragione_sociale: dp.contraente_ragione_sociale ?? null,
+        contraente_piva: dp.contraente_piva ?? null,
+        contraente_cf: dp.contraente_cf ?? null,
+        contraente_indirizzo: dp.contraente_indirizzo ?? null,
+        contraente_cap: dp.contraente_cap ?? null,
+        contraente_comune: dp.contraente_comune ?? null,
+        contraente_provincia: dp.contraente_provincia ?? null,
+        contraente_email: dp.contraente_email ?? null,
+        assicurato_descrizione: dp.assicurato_descrizione ?? null,
+        data_decorrenza: dp.data_decorrenza ?? null,
+        data_scadenza: dp.data_scadenza ?? null,
+        data_emissione: dp.data_emissione ?? null,
+        tacito_rinnovo: dp.tacito_rinnovo ?? null,
+        cig: dp.cig ?? null,
+        cup: dp.cup ?? null,
+        frazionamento: dp.frazionamento ?? null,
+        intermediario_nome: dp.intermediario_nome ?? null,
+        intermediario_indirizzo: dp.intermediario_indirizzo ?? null,
+        intermediario_telefono: dp.intermediario_telefono ?? null,
+        intermediario_email: dp.intermediario_email ?? null,
+        premio_imponibile_totale: dp.premio_imponibile_totale ?? null,
+        premio_imposte_totale: dp.premio_imposte_totale ?? null,
+        premio_lordo_totale: dp.premio_lordo_totale ?? null,
+        premio_rata_sottoscrizione_lordo: dp.premio_rata_sottoscrizione_lordo ?? null,
+        premio_rate_successive_lordo: dp.premio_rate_successive_lordo ?? null,
         stato,
         approvato_da: stato === "approvato" ? user?.id : null,
         approvato_at: stato === "approvato" ? new Date().toISOString() : null,
         created_by: user?.id,
-      }).select("id").single();
+      } as any).select("id").single();
       if (pcErr) throw pcErr;
 
-      // 4. Override personali — match per nome garanzia
+      // 4. Override personali per garanzia
       if (extracted.garanzie_personali?.length) {
         const { data: gp } = await supabase.from("prodotti_garanzie").select("id, garanzia").eq("prodotto_id", prodottoId);
         const byName = new Map((gp ?? []).map((x: any) => [x.garanzia.toLowerCase(), x.id]));
@@ -189,6 +286,20 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
           }))
         );
       }
+
+      // 5. Composizione premio per garanzia
+      if (extracted.premio_per_garanzia?.length) {
+        await supabase.from("polizza_cga_premio_garanzia" as any).insert(
+          extracted.premio_per_garanzia.map(r => ({
+            polizza_cga_id: pc.id,
+            garanzia: r.garanzia,
+            tipo_rata: r.tipo_rata,
+            imponibile: r.imponibile ?? null,
+            imposte: r.imposte ?? null,
+            lordo: r.lordo ?? null,
+          }))
+        );
+      }
     },
     onSuccess: () => {
       toast.success("Polizza CGA salvata");
@@ -198,6 +309,10 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
     },
     onError: (e: any) => toast.error("Errore salvataggio: " + e.message),
   });
+
+  const dp = extracted?.dati_personali ?? {};
+  const premioSott = extracted?.premio_per_garanzia?.filter(r => r.tipo_rata === "sottoscrizione") ?? [];
+  const premioSucc = extracted?.premio_per_garanzia?.filter(r => r.tipo_rata === "successiva") ?? [];
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
@@ -216,7 +331,7 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
             Analizza Polizza CGA
           </DialogTitle>
           <DialogDescription>
-            Carica il PDF delle Condizioni Generali. L'AI estrarrà dati di prodotto e dati personali del cliente.
+            Carica il PDF delle Condizioni Generali. L'AI estrarrà dati di prodotto, anagrafica polizza, intermediario e composizione del premio.
           </DialogDescription>
         </DialogHeader>
 
@@ -233,10 +348,11 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
             </div>
           ) : (
             <div className="space-y-4 py-2">
+              {/* Prodotto */}
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Dati del Prodotto</CardTitle>
+                    <CardTitle className="text-base">Dati del Prodotto (generici)</CardTitle>
                     {esiste ? (
                       <Badge className="bg-green-600">Prodotto già in libreria</Badge>
                     ) : (
@@ -250,6 +366,14 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
                     <div><span className="text-muted-foreground">Compagnia:</span> {extracted.prodotto.compagnia ?? "—"}</div>
                     <div><span className="text-muted-foreground">Ramo:</span> {extracted.prodotto.ramo ?? "—"}</div>
                     <div><span className="text-muted-foreground">Edizione:</span> {extracted.prodotto.edizione ?? "—"}</div>
+                    <div><span className="text-muted-foreground">Modello:</span> {extracted.prodotto.codice_modello ?? "—"}</div>
+                    <div><span className="text-muted-foreground">Forma copertura:</span> {extracted.prodotto.forma_copertura ?? "—"}</div>
+                    {extracted.prodotto.periodo_retroattivita_mesi != null && (
+                      <div><span className="text-muted-foreground">Retroattività:</span> {extracted.prodotto.periodo_retroattivita_mesi} mesi</div>
+                    )}
+                    {extracted.prodotto.massimale_aggregato_annuo != null && (
+                      <div><span className="text-muted-foreground">Massimale annuo:</span> {fmtEur(extracted.prodotto.massimale_aggregato_annuo)}</div>
+                    )}
                   </div>
                   {extracted.prodotto.sommario_ai && (
                     <p className="text-muted-foreground text-xs italic">{extracted.prodotto.sommario_ai}</p>
@@ -275,49 +399,131 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
                     </div>
                   )}
                   {!!extracted.condizioni_prodotto?.length && (
-                    <div>
-                      <div className="font-medium mb-1">Condizioni rilevanti ({extracted.condizioni_prodotto.length})</div>
-                      <ul className="text-xs space-y-1">
-                        {extracted.condizioni_prodotto.slice(0, 5).map((c, i) => (
-                          <li key={i}><Badge variant="outline" className="mr-1 text-[10px]">{c.tipo}</Badge>{c.titolo ?? c.testo.slice(0, 80)}</li>
-                        ))}
-                      </ul>
+                    <div className="text-xs">
+                      <span className="font-medium">Condizioni:</span> {extracted.condizioni_prodotto.length} voci
+                    </div>
+                  )}
+                  {!!extracted.definizioni_prodotto?.length && (
+                    <div className="text-xs">
+                      <span className="font-medium">Definizioni glossario:</span> {extracted.definizioni_prodotto.length}
                     </div>
                   )}
                 </CardContent>
               </Card>
 
+              {/* Anagrafica polizza */}
               <Card className="border-primary/40 bg-primary/5">
-                <CardHeader className="pb-3"><CardTitle className="text-base">Dati Personali Cliente</CardTitle></CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  {extracted.dati_personali?.sommario_personalizzato ? (
-                    <p>{extracted.dati_personali.sommario_personalizzato}</p>
-                  ) : (
-                    <p className="text-muted-foreground italic">Nessuna condizione specifica negoziata rilevata.</p>
-                  )}
-                  {!!extracted.garanzie_personali?.length && (
-                    <div>
-                      <div className="font-medium mb-1">Override personali</div>
-                      <table className="w-full text-xs">
-                        <thead><tr className="text-left text-muted-foreground">
-                          <th>Garanzia</th><th>Massimale</th><th>Franchigia</th><th>Scop.%</th><th>Note</th>
-                        </tr></thead>
-                        <tbody>
-                          {extracted.garanzie_personali.map((g, i) => (
-                            <tr key={i} className="odd:bg-muted/30">
-                              <td>{g.garanzia}</td>
-                              <td>{g.massimale_personalizzato ?? "—"}</td>
-                              <td>{g.franchigia_personalizzata ?? "—"}</td>
-                              <td>{g.scoperto_personalizzato ?? "—"}</td>
-                              <td>{g.note_personali ?? "—"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                <CardHeader className="pb-3"><CardTitle className="text-base">Anagrafica Polizza (personale)</CardTitle></CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><span className="text-muted-foreground">N° polizza:</span> <b>{dp.numero_polizza ?? "—"}</b></div>
+                    <div><span className="text-muted-foreground">CIG:</span> {dp.cig ?? "—"}</div>
+                    <div><span className="text-muted-foreground">Decorrenza:</span> {dp.data_decorrenza ?? "—"}</div>
+                    <div><span className="text-muted-foreground">Scadenza:</span> {dp.data_scadenza ?? "—"}</div>
+                    <div><span className="text-muted-foreground">Emissione:</span> {dp.data_emissione ?? "—"}</div>
+                    <div><span className="text-muted-foreground">Tacito rinnovo:</span> {dp.tacito_rinnovo == null ? "—" : dp.tacito_rinnovo ? "Sì" : "No"}</div>
+                    <div><span className="text-muted-foreground">Frazionamento:</span> {dp.frazionamento ?? "—"}</div>
+                    <div><span className="text-muted-foreground">CUP:</span> {dp.cup ?? "—"}</div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <div className="font-medium text-xs mb-1">Contraente</div>
+                    <div className="text-xs">
+                      <div>{dp.contraente_ragione_sociale ?? "—"} {dp.contraente_piva && `· P.IVA ${dp.contraente_piva}`}</div>
+                      <div className="text-muted-foreground">
+                        {[dp.contraente_indirizzo, dp.contraente_cap, dp.contraente_comune, dp.contraente_provincia].filter(Boolean).join(" · ")}
+                      </div>
+                      {dp.contraente_email && <div className="text-muted-foreground">{dp.contraente_email}</div>}
                     </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
+
+              {/* Intermediario */}
+              {(dp.intermediario_nome || dp.intermediario_email) && (
+                <Card>
+                  <CardHeader className="pb-3"><CardTitle className="text-base">Intermediario</CardTitle></CardHeader>
+                  <CardContent className="text-sm space-y-1">
+                    <div>{dp.intermediario_nome ?? "—"}</div>
+                    <div className="text-muted-foreground text-xs">{dp.intermediario_indirizzo ?? ""}</div>
+                    <div className="text-muted-foreground text-xs">
+                      {[dp.intermediario_telefono, dp.intermediario_email].filter(Boolean).join(" · ")}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Composizione premio */}
+              {(premioSott.length > 0 || premioSucc.length > 0 || dp.premio_lordo_totale != null) && (
+                <Card>
+                  <CardHeader className="pb-3"><CardTitle className="text-base">Composizione Premio</CardTitle></CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div><span className="text-muted-foreground">Imponibile:</span> <b>{fmtEur(dp.premio_imponibile_totale)}</b></div>
+                      <div><span className="text-muted-foreground">Imposte:</span> <b>{fmtEur(dp.premio_imposte_totale)}</b></div>
+                      <div><span className="text-muted-foreground">Lordo:</span> <b>{fmtEur(dp.premio_lordo_totale)}</b></div>
+                    </div>
+                    {premioSott.length > 0 && (
+                      <div>
+                        <div className="font-medium text-xs mb-1">Rata alla sottoscrizione</div>
+                        <table className="w-full text-xs">
+                          <thead><tr className="text-left text-muted-foreground">
+                            <th>Garanzia</th><th>Imponibile</th><th>Imposte</th><th>Lordo</th>
+                          </tr></thead>
+                          <tbody>
+                            {premioSott.map((r, i) => (
+                              <tr key={i} className="odd:bg-muted/30">
+                                <td>{r.garanzia}</td><td>{fmtEur(r.imponibile)}</td><td>{fmtEur(r.imposte)}</td><td>{fmtEur(r.lordo)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {premioSucc.length > 0 && (
+                      <div>
+                        <div className="font-medium text-xs mb-1">Rate successive</div>
+                        <table className="w-full text-xs">
+                          <thead><tr className="text-left text-muted-foreground">
+                            <th>Garanzia</th><th>Imponibile</th><th>Imposte</th><th>Lordo</th>
+                          </tr></thead>
+                          <tbody>
+                            {premioSucc.map((r, i) => (
+                              <tr key={i} className="odd:bg-muted/30">
+                                <td>{r.garanzia}</td><td>{fmtEur(r.imponibile)}</td><td>{fmtEur(r.imposte)}</td><td>{fmtEur(r.lordo)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Override garanzie personali */}
+              {!!extracted.garanzie_personali?.length && (
+                <Card className="border-primary/40 bg-primary/5">
+                  <CardHeader className="pb-3"><CardTitle className="text-base">Override garanzie personali</CardTitle></CardHeader>
+                  <CardContent className="text-sm">
+                    <table className="w-full text-xs">
+                      <thead><tr className="text-left text-muted-foreground">
+                        <th>Garanzia</th><th>Massimale</th><th>Franchigia</th><th>Scop.%</th><th>Note</th>
+                      </tr></thead>
+                      <tbody>
+                        {extracted.garanzie_personali.map((g, i) => (
+                          <tr key={i} className="odd:bg-muted/30">
+                            <td>{g.garanzia}</td>
+                            <td>{g.massimale_personalizzato ?? "—"}</td>
+                            <td>{g.franchigia_personalizzata ?? "—"}</td>
+                            <td>{g.scoperto_personalizzato ?? "—"}</td>
+                            <td>{g.note_personali ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </ScrollArea>
