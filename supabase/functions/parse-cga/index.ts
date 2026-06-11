@@ -298,7 +298,8 @@ Deno.serve(async (req) => {
             content: `Analizza il testo seguente di Condizioni Generali Assicurazione (CGA) ed estrai i dati strutturati richiesti.\n\n--- INIZIO CGA ---\n${trimmed}\n--- FINE CGA ---`,
           },
         ];
-        for (const model of modelChain) {
+        const textModels = ["google/gemini-3-flash-preview", "google/gemini-2.5-flash"];
+        for (const model of textModels) {
           resp = await callGateway(model, textMessages);
           if (resp.ok) break;
           lastStatus = resp.status;
