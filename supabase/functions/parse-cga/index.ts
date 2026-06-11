@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
       },
     ];
 
-    const callGateway = async (model: string) => {
+    const callGateway = async (model: string, msgs: unknown[]) => {
       return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -137,35 +137,68 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           model,
-          messages,
+          messages: msgs,
           tools: [{ type: "function", function: TOOL }],
           tool_choice: { type: "function", function: { name: TOOL.name } },
         }),
       });
     };
 
-    // Modelli in ordine: flash (veloce) → pro (più robusto su PDF grandi/criptati)
+    // Tier 1+2: PDF nativo su flash → pro con retry
     const modelChain = ["google/gemini-2.5-flash", "google/gemini-2.5-pro"];
     let resp: Response | null = null;
     let lastErrText = "";
+    let lastStatus = 0;
     outer: for (const model of modelChain) {
       for (let attempt = 0; attempt < 3; attempt++) {
-        resp = await callGateway(model);
+        resp = await callGateway(model, messages);
         if (resp.ok) break outer;
+        lastStatus = resp.status;
         lastErrText = await resp.text();
-        console.error(`AI gateway ${model} attempt ${attempt + 1} status ${resp.status}`, lastErrText);
+        console.error(`AI gateway ${model} attempt ${attempt + 1} status ${resp.status}`, lastErrText.slice(0, 200));
         if (resp.status === 429 || resp.status === 402) break outer;
         if (resp.status >= 500) {
           await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
           continue;
         }
-        // 4xx non recuperabile → prova prossimo modello
         break;
       }
     }
 
+    // Tier 3 (fallback): estrai testo dal PDF lato server con unpdf e invia text-only.
+    // Funziona anche su PDF cifrati "owner-only" (print:yes, copy:no) e su PDF molto lunghi.
+    if ((!resp || !resp.ok) && mimeType === "application/pdf") {
+      try {
+        console.log("Fallback Tier 3: estrazione testo lato server con unpdf");
+        const { extractText, getDocumentProxy } = await import("https://esm.sh/unpdf@0.12.1");
+        const bin = Uint8Array.from(atob(fileBase64), (c) => c.charCodeAt(0));
+        const pdf = await getDocumentProxy(bin);
+        const { text } = await extractText(pdf, { mergePages: true });
+        const trimmed = String(text ?? "").slice(0, 180_000); // ~180k chars per stare nel context
+        if (trimmed.trim().length < 50) {
+          throw new Error("Estrazione testo vuota (PDF scansionato o protetto)");
+        }
+        const textMessages = [
+          messages[0],
+          {
+            role: "user",
+            content: `Analizza il testo seguente di Condizioni Generali Assicurazione (CGA) ed estrai i dati strutturati richiesti.\n\n--- INIZIO CGA ---\n${trimmed}\n--- FINE CGA ---`,
+          },
+        ];
+        for (const model of modelChain) {
+          resp = await callGateway(model, textMessages);
+          if (resp.ok) break;
+          lastStatus = resp.status;
+          lastErrText = await resp.text();
+          console.error(`Fallback text ${model} status ${resp.status}`, lastErrText.slice(0, 200));
+        }
+      } catch (fbErr) {
+        console.error("Fallback unpdf error", fbErr);
+      }
+    }
+
     if (!resp || !resp.ok) {
-      const status = resp?.status ?? 500;
+      const status = resp?.status ?? lastStatus ?? 500;
       if (status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit AI superato. Riprova tra poco." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -177,7 +210,7 @@ Deno.serve(async (req) => {
         });
       }
       return new Response(JSON.stringify({
-        error: `Il servizio AI è temporaneamente sovraccarico (${status}). Riprova tra qualche secondo. Se il PDF è molto grande (>20 pagine) o protetto da password, prova a ridurlo.`,
+        error: "Impossibile analizzare il PDF: il servizio AI è sovraccarico oppure il PDF è una scansione senza testo. Riprova tra qualche secondo o carica una versione con testo selezionabile.",
         details: lastErrText.slice(0, 300),
       }), {
         status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
