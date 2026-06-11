@@ -603,8 +603,8 @@ const MonitorTab = () => {
   );
 };
 
-// === Inserimento manuale (card compatta accanto al Monitor) ===
-const InserimentoManualeCard = ({ onSubmit }: { onSubmit: (p: ManualInsertPayload) => Promise<void> }) => {
+// === Inserimento manuale (dialog popup) ===
+const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: boolean; onOpenChange: (v: boolean) => void; onSubmit: (p: ManualInsertPayload) => Promise<void> }) => {
   const [clienteId, setClienteId] = useState<string>("");
   const [clienteLabel, setClienteLabel] = useState<string>("");
   const [ufficioId, setUfficioId] = useState<string | null>(null);
