@@ -18,6 +18,8 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
 import * as XLSX from "xlsx";
+import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
+import { notificaSedeMovimentoBancario } from "@/lib/notificheMovimentiBancari";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TOLL = 0.01;
