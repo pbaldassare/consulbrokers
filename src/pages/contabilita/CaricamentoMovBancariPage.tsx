@@ -622,10 +622,22 @@ const InserimentoManualeCard = ({ onSubmit }: { onSubmit: (p: ManualInsertPayloa
   });
 
   const importoNum = parseImporto(importo);
-  const canSubmit = !!clienteId && !!dataMov && importoNum > 0 && !saving;
+  const [touched, setTouched] = useState<{ cliente?: boolean; data?: boolean; importo?: boolean }>({});
+
+  const errors = {
+    cliente: !clienteId ? "Seleziona un cliente dall'elenco" : (!ufficioId ? "Il cliente selezionato non ha una sede associata: assegna una sede al cliente prima di procedere" : ""),
+    data: !dataMov ? "Inserisci la data del movimento" : "",
+    importo: !importo ? "Inserisci l'importo" : (importoNum <= 0 ? "L'importo deve essere maggiore di zero" : ""),
+  };
+  const hasErrors = !!(errors.cliente || errors.data || errors.importo);
+  const canSubmit = !hasErrors && !saving;
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    setTouched({ cliente: true, data: true, importo: true });
+    if (hasErrors) {
+      toast.error(errors.cliente || errors.data || errors.importo);
+      return;
+    }
     setSaving(true);
     try {
       await onSubmit({
@@ -639,10 +651,12 @@ const InserimentoManualeCard = ({ onSubmit }: { onSubmit: (p: ManualInsertPayloa
       });
       setClienteId(""); setClienteLabel(""); setUfficioId(null);
       setDataMov(todayISO()); setImporto(""); setOrdinante(""); setDescrizione(""); setNote("");
-      setSearch("");
+      setSearch(""); setTouched({});
     } catch { /* toast handled in caller */ }
     finally { setSaving(false); }
   };
+
+  const errClass = (v: string | undefined) => v ? "border-destructive focus-visible:ring-destructive" : "";
 
   return (
     <Card className="h-fit">
@@ -656,29 +670,54 @@ const InserimentoManualeCard = ({ onSubmit }: { onSubmit: (p: ManualInsertPayloa
             options={(clienti as any[]).map((c) => ({
               value: c.id,
               label: c.ragione_sociale || [c.nome, c.cognome].filter(Boolean).join(" "),
+              description: c.ufficio_id ? undefined : "⚠ Senza sede assegnata",
             }))}
             value={clienteId}
             onValueChange={(v) => {
               setClienteId(v);
+              setTouched((t) => ({ ...t, cliente: true }));
               const c = (clienti as any[]).find((x) => x.id === v);
               if (c) {
                 const lbl = c.ragione_sociale || [c.nome, c.cognome].filter(Boolean).join(" ");
                 setClienteLabel(lbl);
                 setUfficioId(c.ufficio_id ?? null);
                 if (!ordinante) setOrdinante(lbl);
+              } else {
+                setUfficioId(null);
               }
             }}
             onSearchChange={setSearch}
             placeholder={loadingClienti ? "Caricamento…" : "Cerca cliente…"}
+            className={touched.cliente && errors.cliente ? "border-destructive" : ""}
           />
+          {touched.cliente && errors.cliente && (
+            <p className="text-[11px] text-destructive mt-1">{errors.cliente}</p>
+          )}
+          {clienteId && ufficioId && (
+            <p className="text-[11px] text-muted-foreground mt-1">Sede assegnata automaticamente dal cliente</p>
+          )}
         </div>
         <div>
           <Label className="text-xs">Data *</Label>
-          <Input type="date" value={dataMov} onChange={(e) => setDataMov(e.target.value)} />
+          <Input
+            type="date"
+            value={dataMov}
+            onChange={(e) => setDataMov(e.target.value)}
+            onBlur={() => setTouched((t) => ({ ...t, data: true }))}
+            className={touched.data && errors.data ? errClass(errors.data) : ""}
+          />
+          {touched.data && errors.data && <p className="text-[11px] text-destructive mt-1">{errors.data}</p>}
         </div>
         <div>
           <Label className="text-xs">Importo € *</Label>
-          <Input value={importo} onChange={(e) => setImporto(e.target.value)} placeholder="0,00" />
+          <Input
+            value={importo}
+            onChange={(e) => setImporto(e.target.value)}
+            onBlur={() => setTouched((t) => ({ ...t, importo: true }))}
+            placeholder="0,00"
+            className={touched.importo && errors.importo ? errClass(errors.importo) : ""}
+          />
+          {touched.importo && errors.importo && <p className="text-[11px] text-destructive mt-1">{errors.importo}</p>}
         </div>
         <div>
           <Label className="text-xs">Ordinante</Label>
@@ -695,6 +734,7 @@ const InserimentoManualeCard = ({ onSubmit }: { onSubmit: (p: ManualInsertPayloa
         <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full" size="sm">
           <Plus className="w-4 h-4 mr-1" /> {saving ? "Salvataggio…" : "Aggiungi"}
         </Button>
+        <p className="text-[10px] text-muted-foreground text-center">Il movimento verrà creato come <strong>Matchato</strong> e assegnato al cliente.</p>
       </CardContent>
     </Card>
   );
