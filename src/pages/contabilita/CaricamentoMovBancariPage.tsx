@@ -478,7 +478,7 @@ type ManualInsertPayload = {
   descrizione: string | null;
   note: string | null;
 };
-const MonitorTab = ({ onManualInsert }: { onManualInsert: (p: ManualInsertPayload) => Promise<void> }) => {
+const MonitorTab = () => {
 
   const qc = useQueryClient();
   const [filtroUfficio, setFiltroUfficio] = useState("");
