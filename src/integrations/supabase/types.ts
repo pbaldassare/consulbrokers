@@ -5075,42 +5075,120 @@ export type Database = {
         Row: {
           approvato_at: string | null
           approvato_da: string | null
+          assicurato_descrizione: string | null
+          cig: string | null
           cliente_id: string
+          contraente_cap: string | null
+          contraente_cf: string | null
+          contraente_comune: string | null
+          contraente_email: string | null
+          contraente_indirizzo: string | null
+          contraente_piva: string | null
+          contraente_provincia: string | null
+          contraente_ragione_sociale: string | null
           created_at: string
           created_by: string | null
+          cup: string | null
+          data_decorrenza: string | null
+          data_emissione: string | null
+          data_scadenza: string | null
           documento_id: string | null
+          frazionamento: string | null
           id: string
+          intermediario_email: string | null
+          intermediario_indirizzo: string | null
+          intermediario_nome: string | null
+          intermediario_telefono: string | null
+          numero_polizza: string | null
+          premio_imponibile_totale: number | null
+          premio_imposte_totale: number | null
+          premio_lordo_totale: number | null
+          premio_rata_sottoscrizione_lordo: number | null
+          premio_rate_successive_lordo: number | null
           prodotto_id: string
           sommario_personalizzato: string | null
           stato: string
+          tacito_rinnovo: boolean | null
           titolo_id: string | null
           updated_at: string
         }
         Insert: {
           approvato_at?: string | null
           approvato_da?: string | null
+          assicurato_descrizione?: string | null
+          cig?: string | null
           cliente_id: string
+          contraente_cap?: string | null
+          contraente_cf?: string | null
+          contraente_comune?: string | null
+          contraente_email?: string | null
+          contraente_indirizzo?: string | null
+          contraente_piva?: string | null
+          contraente_provincia?: string | null
+          contraente_ragione_sociale?: string | null
           created_at?: string
           created_by?: string | null
+          cup?: string | null
+          data_decorrenza?: string | null
+          data_emissione?: string | null
+          data_scadenza?: string | null
           documento_id?: string | null
+          frazionamento?: string | null
           id?: string
+          intermediario_email?: string | null
+          intermediario_indirizzo?: string | null
+          intermediario_nome?: string | null
+          intermediario_telefono?: string | null
+          numero_polizza?: string | null
+          premio_imponibile_totale?: number | null
+          premio_imposte_totale?: number | null
+          premio_lordo_totale?: number | null
+          premio_rata_sottoscrizione_lordo?: number | null
+          premio_rate_successive_lordo?: number | null
           prodotto_id: string
           sommario_personalizzato?: string | null
           stato?: string
+          tacito_rinnovo?: boolean | null
           titolo_id?: string | null
           updated_at?: string
         }
         Update: {
           approvato_at?: string | null
           approvato_da?: string | null
+          assicurato_descrizione?: string | null
+          cig?: string | null
           cliente_id?: string
+          contraente_cap?: string | null
+          contraente_cf?: string | null
+          contraente_comune?: string | null
+          contraente_email?: string | null
+          contraente_indirizzo?: string | null
+          contraente_piva?: string | null
+          contraente_provincia?: string | null
+          contraente_ragione_sociale?: string | null
           created_at?: string
           created_by?: string | null
+          cup?: string | null
+          data_decorrenza?: string | null
+          data_emissione?: string | null
+          data_scadenza?: string | null
           documento_id?: string | null
+          frazionamento?: string | null
           id?: string
+          intermediario_email?: string | null
+          intermediario_indirizzo?: string | null
+          intermediario_nome?: string | null
+          intermediario_telefono?: string | null
+          numero_polizza?: string | null
+          premio_imponibile_totale?: number | null
+          premio_imposte_totale?: number | null
+          premio_lordo_totale?: number | null
+          premio_rata_sottoscrizione_lordo?: number | null
+          premio_rate_successive_lordo?: number | null
           prodotto_id?: string
           sommario_personalizzato?: string | null
           stato?: string
+          tacito_rinnovo?: boolean | null
           titolo_id?: string | null
           updated_at?: string
         }
@@ -5148,6 +5226,47 @@ export type Database = {
             columns: ["titolo_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polizza_cga_premio_garanzia: {
+        Row: {
+          created_at: string
+          garanzia: string
+          id: string
+          imponibile: number | null
+          imposte: number | null
+          lordo: number | null
+          polizza_cga_id: string
+          tipo_rata: string
+        }
+        Insert: {
+          created_at?: string
+          garanzia: string
+          id?: string
+          imponibile?: number | null
+          imposte?: number | null
+          lordo?: number | null
+          polizza_cga_id: string
+          tipo_rata: string
+        }
+        Update: {
+          created_at?: string
+          garanzia?: string
+          id?: string
+          imponibile?: number | null
+          imposte?: number | null
+          lordo?: number | null
+          polizza_cga_id?: string
+          tipo_rata?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polizza_cga_premio_garanzia_polizza_cga_id_fkey"
+            columns: ["polizza_cga_id"]
+            isOneToOne: false
+            referencedRelation: "polizza_cga"
             referencedColumns: ["id"]
           },
         ]
@@ -5613,36 +5732,57 @@ export type Database = {
       }
       prodotti_cga: {
         Row: {
+          codice_modello: string | null
           compagnia: string | null
+          compagnia_email_servizio_clienti: string | null
+          compagnia_url_area_personale: string | null
           created_at: string
           created_by: string | null
           edizione: string | null
+          forma_copertura: string | null
           id: string
+          massimale_aggregato_annuo: number | null
           nome_prodotto: string
+          note_legali: string | null
+          periodo_retroattivita_mesi: number | null
           ramo: string | null
           sommario_ai: string | null
           testo_completo: string | null
           updated_at: string
         }
         Insert: {
+          codice_modello?: string | null
           compagnia?: string | null
+          compagnia_email_servizio_clienti?: string | null
+          compagnia_url_area_personale?: string | null
           created_at?: string
           created_by?: string | null
           edizione?: string | null
+          forma_copertura?: string | null
           id?: string
+          massimale_aggregato_annuo?: number | null
           nome_prodotto: string
+          note_legali?: string | null
+          periodo_retroattivita_mesi?: number | null
           ramo?: string | null
           sommario_ai?: string | null
           testo_completo?: string | null
           updated_at?: string
         }
         Update: {
+          codice_modello?: string | null
           compagnia?: string | null
+          compagnia_email_servizio_clienti?: string | null
+          compagnia_url_area_personale?: string | null
           created_at?: string
           created_by?: string | null
           edizione?: string | null
+          forma_copertura?: string | null
           id?: string
+          massimale_aggregato_annuo?: number | null
           nome_prodotto?: string
+          note_legali?: string | null
+          periodo_retroattivita_mesi?: number | null
           ramo?: string | null
           sommario_ai?: string | null
           testo_completo?: string | null
@@ -5688,36 +5828,80 @@ export type Database = {
           },
         ]
       }
-      prodotti_garanzie: {
+      prodotti_definizioni: {
         Row: {
           created_at: string
+          definizione: string
+          id: string
+          prodotto_id: string
+          termine: string
+        }
+        Insert: {
+          created_at?: string
+          definizione: string
+          id?: string
+          prodotto_id: string
+          termine: string
+        }
+        Update: {
+          created_at?: string
+          definizione?: string
+          id?: string
+          prodotto_id?: string
+          termine?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prodotti_definizioni_prodotto_id_fkey"
+            columns: ["prodotto_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti_cga"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prodotti_garanzie: {
+        Row: {
+          aggregato_annuo: number | null
+          ambito_territoriale: string | null
+          created_at: string
           franchigia_standard: number | null
+          franchigia_temporale_giorni: number | null
           garanzia: string
           id: string
           massimale_standard: number | null
           note: string | null
           prodotto_id: string
           scoperto_percentuale: number | null
+          sottolimite: number | null
         }
         Insert: {
+          aggregato_annuo?: number | null
+          ambito_territoriale?: string | null
           created_at?: string
           franchigia_standard?: number | null
+          franchigia_temporale_giorni?: number | null
           garanzia: string
           id?: string
           massimale_standard?: number | null
           note?: string | null
           prodotto_id: string
           scoperto_percentuale?: number | null
+          sottolimite?: number | null
         }
         Update: {
+          aggregato_annuo?: number | null
+          ambito_territoriale?: string | null
           created_at?: string
           franchigia_standard?: number | null
+          franchigia_temporale_giorni?: number | null
           garanzia?: string
           id?: string
           massimale_standard?: number | null
           note?: string | null
           prodotto_id?: string
           scoperto_percentuale?: number | null
+          sottolimite?: number | null
         }
         Relationships: [
           {

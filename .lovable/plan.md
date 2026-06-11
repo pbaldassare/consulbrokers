@@ -1,73 +1,61 @@
-## Libreria CGA — Catalogo condiviso dei dati generici estratti
+## Più dati strutturati dalle CGA
 
-### Principio chiave (separazione dei dati)
+Dal PDF allegato (REVO Cyber Risk – polizza OX00085594) emerge che `parse-cga` oggi cattura solo: nome prodotto, compagnia, ramo, garanzie con massimale/franchigia/scoperto, condizioni e un sommario. Stiamo perdendo dati ad alto valore che il PDF espone in chiaro.
 
-L'analisi AI di un PDF di CGA produce **due famiglie di dati**, che restano separate:
+Il principio di separazione resta: **dati generici** sul prodotto (condivisi) vs **dati personali** sulla singola polizza (per cliente, RLS esistente).
 
-| Tipo | Tabella | Cosa contiene | Visibilità |
-|---|---|---|---|
-| **Generici** (prodotto/compagnia) | `prodotti_cga` (+ `prodotti_garanzie`, `prodotti_condizioni`) | Massimali standard, franchigie, scoperti, garanzie, esclusioni, definizioni, condizioni generali | **Condivisa** tra tutti gli utenti autenticati — non legata al cliente |
-| **Personali** (polizza/cliente) | `polizza_cga`, `polizza_garanzie_personali` | Contraente, assicurato, beneficiari, importi reali, appendici specifiche, oggetto assicurato | **Solo cliente proprietario + utenti con privilegi commerciali su quel cliente** (RLS esistente via `get_my_cliente_ids()` / visibilità commerciale — già in vigore, non si tocca) |
+### Nuovi dati GENERICI (in `prodotti_cga` + tabelle figlie)
 
-La nuova sezione mostra **SOLO la parte generica**. I dati personali restano dove sono già, protetti dalla RLS esistente sulla scheda cliente/polizza.
+Aggiunte a `prodotti_cga`:
+- `codice_modello` (es. `Mod. R040 Ed. 01.2026`)
+- `compagnia_email_servizio_clienti`, `compagnia_url_area_personale`
+- `forma_copertura` (`claims_made` / `loss_occurrence` / `primo_rischio` / `secondo_rischio`)
+- `periodo_retroattivita_mesi`
+- `massimale_aggregato_annuo`
+- `note_legali` (riferimenti normativi rilevanti, es. art. 1917 c.c., L. 136/2010)
 
-### Cosa costruiamo
+Nuova tabella `prodotti_definizioni` (glossario CGA):
+- `prodotto_id`, `termine`, `definizione`
 
-Nuova **tab "Libreria CGA"** dentro `/documentale`, accanto alle tab esistenti.
+Estensione di `prodotti_garanzie`:
+- `sottolimite` (numeric), `franchigia_temporale_giorni` (int), `aggregato_annuo` (numeric), `ambito_territoriale` (text)
 
-#### Vista lista (tabella filtrabile)
+### Nuovi dati PERSONALI (in `polizza_cga` + figlia)
 
-Colonne:
-- Compagnia
-- Ramo / Gruppo Ramo
-- Prodotto (nome)
-- Ultima analisi (data)
-- Versioni (badge numerico se >1)
-- Azioni (Apri dettaglio)
+Aggiunte a `polizza_cga`:
+- `numero_polizza` (dal PDF)
+- `contraente_ragione_sociale`, `contraente_piva`, `contraente_cf`, `contraente_indirizzo`, `contraente_cap`, `contraente_comune`, `contraente_provincia`, `contraente_email`
+- `assicurato_descrizione` (quando ≠ contraente)
+- `data_decorrenza`, `data_scadenza`, `data_emissione`, `tacito_rinnovo` (bool)
+- `cig`, `cup`
+- `frazionamento` (testo: Annuale/Semestrale/…)
+- `intermediario_nome`, `intermediario_indirizzo`, `intermediario_telefono`, `intermediario_email`
+- `premio_imponibile_totale`, `premio_imposte_totale`, `premio_lordo_totale`
+- `premio_rata_sottoscrizione_lordo`, `premio_rate_successive_lordo`
 
-Filtri in alto (debounce 350ms, paginazione server 25/pagina):
-- Compagnia (`SearchableSelect` da `compagnie`)
-- Ramo / Sottoramo (componente `RamoSottoramoSelect` già esistente)
-- Ricerca testuale su nome prodotto
-- Range data analisi
+Nuova tabella `polizza_cga_premio_garanzia` (composizione premio per garanzia, sia "rata sottoscrizione" che "rate successive"):
+- `polizza_cga_id`, `garanzia` (text), `tipo_rata` (`sottoscrizione`/`successiva`), `imponibile`, `imposte`, `lordo`
 
-Deduplica: una riga per coppia **(compagnia_id, prodotto_nome, ramo)** mostrando solo la **versione più recente** di `prodotti_cga`; badge `vN` con cronologia accessibile dal dettaglio.
+### Modifiche tecniche
 
-#### Vista dettaglio (drawer/dialog a sezioni)
+1. **Migration** (4 step):
+   - `ALTER TABLE prodotti_cga ADD …` (nuovi campi)
+   - `ALTER TABLE prodotti_garanzie ADD …`
+   - `ALTER TABLE polizza_cga ADD …`
+   - `CREATE TABLE prodotti_definizioni` + `polizza_cga_premio_garanzia` con `GRANT` e RLS (stesso pattern delle tabelle esistenti)
 
-Apertura su riga → pannello strutturato, **senza JSON raw**, organizzato in sezioni accordion:
+2. **Edge function `parse-cga`**: aggiornare lo schema JSON richiesto a Gemini per emettere i nuovi campi, mantenendo back-compat (tutto opzionale).
 
-1. **Intestazione** — Compagnia, Prodotto, Ramo, data analisi, n° versione corrente, link al PDF sorgente in storage
-2. **Massimali** — tabella garanzia/massimale/sotto-limiti
-3. **Franchigie e scoperti** — tabella garanzia/franchigia/scoperto/minimo
-4. **Garanzie standard** — elenco da `prodotti_garanzie`
-5. **Esclusioni** — elenco testuale
-6. **Condizioni particolari** — da `prodotti_condizioni`
-7. **Definizioni** — glossario
-8. **Cronologia versioni** — lista versioni precedenti con data e operatore; click → confronto/visualizzazione della vecchia versione
+3. **`AnalizzaPolizzaCgaDialog.tsx`**: estendere il tipo `ExtractedData`, mostrare 3 nuove card (Anagrafica Polizza, Intermediario, Composizione Premio) prima del salvataggio, e persistere i nuovi campi nelle insert.
 
-Ogni sezione gestisce graziosamente i campi vuoti (non mostra blocchi vuoti).
+4. **`LibreriaCgaDetailDialog`** + `useLibreriaCga`: aggiungere sezioni accordion *Definizioni/Glossario*, *Forma di copertura*, *Info compagnia*. I dati personali non vengono mostrati qui.
 
-### Implementazione tecnica
-
-**Frontend (nessuna nuova migration richiesta)** — i dati sono già in `prodotti_cga`, `prodotti_garanzie`, `prodotti_condizioni`:
-
-- `src/pages/Documentale.tsx` (o equivalente) → aggiungere nuova tab "Libreria CGA"
-- `src/components/documentale/LibreriaCgaSection.tsx` → contenitore principale + filtri + tabella
-- `src/components/documentale/LibreriaCgaTable.tsx` → tabella zebra con paginazione server-side
-- `src/components/documentale/LibreriaCgaDetailDialog.tsx` → dialog dettaglio a sezioni accordion
-- `src/components/documentale/LibreriaCgaVersioniDialog.tsx` → cronologia versioni
-- `src/hooks/useLibreriaCga.ts` → query paginata con filtri (Compagnia/Ramo/Prodotto/Data) — usa `useServerPagination`, raggruppa per (compagnia_id, prodotto_nome) e ritorna l'ultima versione + count versioni
-- `src/hooks/useCgaVersioni.ts` → query versioni storiche per una coppia (compagnia_id, prodotto_nome)
-- `src/hooks/useCgaDettaglio.ts` → carica una singola riga `prodotti_cga` con join su `prodotti_garanzie` e `prodotti_condizioni`
-
-**RLS** — le tabelle hanno già policy. Verificare che `prodotti_cga`, `prodotti_garanzie`, `prodotti_condizioni` siano leggibili da `authenticated` (sono dati condivisi, non per-cliente). Se manca la SELECT per `authenticated`, aggiungerla con una piccola migration.
-
-**Niente AI, niente edge functions nuove** — leggiamo solo dati già salvati dalle analisi precedenti.
+5. **Scheda cliente — `PolizzeCgaSection`**: aggiungere mini-card di sintesi (numero polizza, decorrenza/scadenza, CIG, premio lordo, intermediario).
 
 ### Cosa NON cambia
+- Logica di dedup prodotti (per `compagnia + nome_prodotto + edizione`).
+- RLS personali (solo cliente + privilegi commerciali).
+- Pipeline fallback Gemini per PDF cifrati introdotta in precedenza.
 
-- `polizza_cga` e `polizza_garanzie_personali` non vengono toccate né mostrate qui
-- Le RLS commerciali esistenti restano invariate
-- L'edge function `parse-cga` non viene modificata
-- I dialog `AnalizzaPolizzaCgaDialog` e la sezione `PolizzeCgaSection` nella scheda cliente restano come sono
+### Domanda
+Conferma di procedere con **tutti** i campi sopra, oppure preferisci un sottoinsieme (es. solo "Composizione premio per garanzia" + "Anagrafica polizza", lasciando glossario/intermediario a una fase 2)?
