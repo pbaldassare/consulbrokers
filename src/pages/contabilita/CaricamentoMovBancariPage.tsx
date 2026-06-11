@@ -12,9 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { Upload, Sparkles, Check, X, RefreshCw, FileSpreadsheet, Plus } from "lucide-react";
+import { Upload, Sparkles, Check, X, RefreshCw, FileSpreadsheet, Plus, Download } from "lucide-react";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { notificaSedeMovimentoBancario } from "@/lib/notificheMovimentiBancari";
 
 const STATO_LABEL: Record<string, { label: string; variant: "secondary" | "default" | "outline" | "destructive" }> = {
   importato: { label: "Importato", variant: "secondary" },
@@ -185,46 +186,16 @@ const Page = () => {
     qc.invalidateQueries({ queryKey: ["mov-bancari"] });
   };
 
-  // === AI Matching ===
+  // === AI Matching via edge function ===
   const runMatching = async () => {
     setMatching(true);
     try {
-      const { data: mov, error: e1 } = await supabase
-        .from("movimenti_bancari" as any)
-        .select("id, ordinante, descrizione, importo")
-        .eq("stato", "importato")
-        .limit(500);
-      if (e1) throw e1;
-      const movs = (mov as any[]) || [];
-      if (movs.length === 0) {
-        toast.info("Nessun movimento da matchare");
-        return;
-      }
-      const { data: clienti, error: e2 } = await supabase
-        .from("clienti")
-        .select("id, ragione_sociale, nome, cognome, ufficio_id" as any)
-        .limit(5000);
-      if (e2) throw e2;
-
-      let matched = 0;
-      for (const m of movs) {
-        const ordinante: string = m.ordinante || extractOrdinante(m.descrizione || "");
-        if (!ordinante) continue;
-        let best = { id: "", score: 0, ufficio_id: null as string | null };
-        for (const c of (clienti as any[])) {
-          const s = matchScore(ordinante, c);
-          if (s > best.score) best = { id: c.id, score: s, ufficio_id: (c as any).ufficio_id ?? null };
-        }
-        if (best.score >= 70 && best.id) {
-          await supabase.from("movimenti_bancari" as any).update({
-            cliente_id: best.id,
-            ufficio_id: best.ufficio_id,
-            stato: "matchato",
-          } as any).eq("id", m.id);
-          matched++;
-        }
-      }
-      toast.success(`${matched} movimenti matchati su ${movs.length}`);
+      const { data, error } = await supabase.functions.invoke("ai-match-movimenti-bancari", {
+        body: { use_ai: true, fuzzy_threshold: 70 },
+      });
+      if (error) throw error;
+      const r = data as { processed: number; matched: number; ai_used: number };
+      toast.success(`${r.matched}/${r.processed} matchati (AI usata su ${r.ai_used})`);
       qc.invalidateQueries({ queryKey: ["mov-bancari"] });
     } catch (e: any) {
       toast.error(`Errore matching: ${e.message ?? e}`);
@@ -390,9 +361,19 @@ const RevisioneTab = () => {
   const approva = async (m: any) => {
     const { error } = await supabase.from("movimenti_bancari" as any).update({ stato: "assegnato" } as any).eq("id", m.id);
     if (error) { toast.error(error.message); return; }
+    const cliNome = m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "—";
+    await notificaSedeMovimentoBancario({
+      evento: "approvato",
+      movimentoId: m.id,
+      ufficioId: m.ufficio_id,
+      importo: Number(m.importo) || 0,
+      clienteLabel: cliNome,
+      statoNuovo: "assegnato",
+    });
     toast.success("Movimento assegnato alla sede");
     qc.invalidateQueries({ queryKey: ["mov-bancari"] });
   };
+
 
   const rifiuta = async (m: any) => {
     const { error } = await supabase.from("movimenti_bancari" as any).update({ stato: "importato", cliente_id: null, ufficio_id: null } as any).eq("id", m.id);
@@ -557,6 +538,26 @@ const MonitorTab = () => {
             </div>
             <div><Label>Dal</Label><Input type="date" value={dal} onChange={(e) => setDal(e.target.value)} className="w-40" /></div>
             <div><Label>Al</Label><Input type="date" value={al} onChange={(e) => setAl(e.target.value)} className="w-40" /></div>
+            <Button variant="outline" size="sm" onClick={() => {
+              const rows = (movs as any[]).map((m: any) => {
+                const cliNome = m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "";
+                const polizze = (m.movimenti_clienti ?? []).flatMap((mc: any) => mc.movimenti_polizze ?? []);
+                const aCassa = polizze.filter((p: any) => p.messo_a_cassa).reduce((s: number, p: any) => s + Number(p.importo || 0), 0);
+                return {
+                  Data: m.data_movimento,
+                  Cliente: cliNome,
+                  Ufficio: m.ufficio?.nome || "",
+                  Totale: Number(m.importo) || 0,
+                  "A cassa": aCassa,
+                  Polizze: polizze.length,
+                  Stato: STATO_LABEL[m.stato]?.label ?? m.stato,
+                };
+              });
+              const ws = XLSX.utils.json_to_sheet(rows);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "Monitor");
+              XLSX.writeFile(wb, `monitor-movimenti-${new Date().toISOString().slice(0, 10)}.xlsx`);
+            }}><Download className="w-3 h-3 mr-1" />Export Excel</Button>
           </div>
         </CardHeader>
         <CardContent>

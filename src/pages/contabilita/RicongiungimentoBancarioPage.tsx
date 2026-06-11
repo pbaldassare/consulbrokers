@@ -18,6 +18,8 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
 import * as XLSX from "xlsx";
+import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
+import { notificaSedeMovimentoBancario } from "@/lib/notificheMovimentiBancari";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TOLL = 0.01;
@@ -144,7 +146,8 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
   const [ammanco, setAmmanco] = useState(0);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
-  const [cassing, setCassing] = useState(false);
+  const [cassaOpen, setCassaOpen] = useState(false);
+  const [cassaTitoli, setCassaTitoli] = useState<any[]>([]);
 
   useEffect(() => {
     if (!esistente) return;
@@ -206,6 +209,17 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
       }
 
       await supabase.from("movimenti_bancari" as any).update({ stato: "ricongiunti" } as any).eq("id", movimento.id);
+
+      const cliNome = movimento.cliente?.ragione_sociale || [movimento.cliente?.nome, movimento.cliente?.cognome].filter(Boolean).join(" ") || "—";
+      await notificaSedeMovimentoBancario({
+        evento: "ricongiunto",
+        movimentoId: movimento.id,
+        ufficioId: movimento.ufficio_id,
+        importo: Number(movimento.importo) || 0,
+        clienteLabel: cliNome,
+        statoNuovo: "ricongiunti",
+        note: `${Object.keys(selPol).length} polizze`,
+      });
       toast.success("Ricongiungimento salvato");
       onChanged();
     } catch (e: any) {
@@ -215,42 +229,47 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
     }
   };
 
-  const mettiACassa = async () => {
+  // === Metti a Cassa: apre il MessaCassaDialog con le polizze selezionate ===
+  const apriMessaCassa = async () => {
     if (!quadra) { toast.error(`Non quadra: delta ${fmtEuro(delta)}`); return; }
-    setCassing(true);
-    try {
-      // Re-fetch movimento_cliente esistente per ottenere id
-      const { data: mc } = await supabase.from("movimenti_clienti" as any)
-        .select("id, movimenti_polizze(id, titolo_id, tipo)")
-        .eq("movimento_id", movimento.id).maybeSingle();
-      if (!mc) { toast.error("Salva prima il ricongiungimento"); return; }
+    const titoliIds = Object.entries(selPol).filter(([, v]) => v > 0).map(([id]) => id);
+    if (titoliIds.length === 0) { toast.error("Nessuna polizza selezionata"); return; }
+    const { data: titoli, error } = await supabase
+      .from("titoli")
+      .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id")
+      .in("id", titoliIds);
+    if (error) { toast.error(error.message); return; }
+    setCassaTitoli(titoli ?? []);
+    setCassaOpen(true);
+  };
 
-      const today = new Date().toISOString().slice(0, 10);
-      const titoliIds = ((mc as any).movimenti_polizze ?? [])
-        .filter((r: any) => r.tipo === "polizza" && r.titolo_id)
-        .map((r: any) => r.titolo_id);
-
-      // Aggiorna titoli: data_messa_cassa + stato incassato
-      if (titoliIds.length > 0) {
-        const { error } = await supabase.from("titoli")
-          .update({ data_messa_cassa: today, stato: "incassato", data_incasso: today } as any)
-          .in("id", titoliIds);
-        if (error) throw error;
-      }
-      // Aggiorna movimenti_polizze
+  // Callback dopo conferma MessaCassaDialog: aggiorna movimenti_bancari + notifica
+  const onCassaSuccess = async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: mc } = await supabase.from("movimenti_clienti" as any)
+      .select("id")
+      .eq("movimento_id", movimento.id).maybeSingle();
+    const mcId = (mc as any)?.id;
+    if (mcId) {
       await supabase.from("movimenti_polizze" as any)
         .update({ messo_a_cassa: true, data_messa_cassa: today } as any)
-        .eq("movimento_cliente_id", (mc as any).id);
-      // Aggiorna movimento bancario
-      await supabase.from("movimenti_bancari" as any).update({ stato: "incassato" } as any).eq("id", movimento.id);
-
-      toast.success(`Messa a cassa completata: ${titoliIds.length} polizze`);
-      onChanged();
-    } catch (e: any) {
-      toast.error(e.message ?? "Errore messa a cassa");
-    } finally {
-      setCassing(false);
+        .eq("movimento_cliente_id", mcId);
     }
+    await supabase.from("movimenti_bancari" as any).update({ stato: "incassato" } as any).eq("id", movimento.id);
+
+    const cliNome = movimento.cliente?.ragione_sociale || [movimento.cliente?.nome, movimento.cliente?.cognome].filter(Boolean).join(" ") || "—";
+    await notificaSedeMovimentoBancario({
+      evento: "messo_a_cassa",
+      movimentoId: movimento.id,
+      ufficioId: movimento.ufficio_id,
+      importo: Number(movimento.importo) || 0,
+      clienteLabel: cliNome,
+      statoNuovo: "incassato",
+      note: `${cassaTitoli.length} polizze`,
+    });
+    toast.success(`Messa a cassa completata: ${cassaTitoli.length} polizze`);
+    setCassaOpen(false);
+    onChanged();
   };
 
   return (
@@ -346,13 +365,19 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
               <Button variant="outline" onClick={salvaRicongiungimento} disabled={saving}>
                 <Save className="w-4 h-4 mr-1" /> Salva Ricongiungimento
               </Button>
-              <Button onClick={mettiACassa} disabled={!quadra || cassing}>
+              <Button onClick={apriMessaCassa} disabled={!quadra}>
                 <Wallet className="w-4 h-4 mr-1" /> Metti a Cassa
               </Button>
             </div>
           </CardContent>
         </CollapsibleContent>
       </Card>
+      <MessaCassaDialog
+        open={cassaOpen}
+        onOpenChange={setCassaOpen}
+        titoli={cassaTitoli}
+        onSuccess={onCassaSuccess}
+      />
     </Collapsible>
   );
 };
