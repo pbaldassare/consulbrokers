@@ -1,61 +1,18 @@
-## Più dati strutturati dalle CGA
+## Problema
 
-Dal PDF allegato (REVO Cyber Risk – polizza OX00085594) emerge che `parse-cga` oggi cattura solo: nome prodotto, compagnia, ramo, garanzie con massimale/franchigia/scoperto, condizioni e un sommario. Stiamo perdendo dati ad alto valore che il PDF espone in chiaro.
+Le 5 polizze nuove caricate per "Comune di Varese" (DEMO-VA-2026-010..014: All Risks, Tutela Legale, Cyber, RCT/O, RC Natanti) NON appaiono nel portale cliente perché sono state salvate sul campo sbagliato.
 
-Il principio di separazione resta: **dati generici** sul prodotto (condivisi) vs **dati personali** sulla singola polizza (per cliente, RLS esistente).
+**Dettaglio tecnico**
+- La pagina `/cliente/polizze` filtra `titoli` su `cliente_anagrafica_id IN (get_my_cliente_ids())`.
+- Le 6 polizze visibili (DEMO-VA-2025-*) hanno correttamente `cliente_anagrafica_id = 94dc5a3c...` (cliente Comune di Varese).
+- Le 5 polizze nuove (DEMO-VA-2026-*) hanno invece `cliente_anagrafica_id = NULL` e `cliente_id = 746c540d...` che è il **profile_id dell'utente**, non un id cliente valido. Bug nell'edge function `seed-comune-varese-polizze`.
 
-### Nuovi dati GENERICI (in `prodotti_cga` + tabelle figlie)
+## Fix
 
-Aggiunte a `prodotti_cga`:
-- `codice_modello` (es. `Mod. R040 Ed. 01.2026`)
-- `compagnia_email_servizio_clienti`, `compagnia_url_area_personale`
-- `forma_copertura` (`claims_made` / `loss_occurrence` / `primo_rischio` / `secondo_rischio`)
-- `periodo_retroattivita_mesi`
-- `massimale_aggregato_annuo`
-- `note_legali` (riferimenti normativi rilevanti, es. art. 1917 c.c., L. 136/2010)
+1. **Migrazione dati**: UPDATE su `titoli` dove `numero_titolo LIKE 'DEMO-VA-2026-%'` per settare `cliente_anagrafica_id = '94dc5a3c-1682-4aea-a9e2-190bf8bf34b1'` e `cliente_id = NULL`.
 
-Nuova tabella `prodotti_definizioni` (glossario CGA):
-- `prodotto_id`, `termine`, `definizione`
+2. **Fix edge function** `supabase/functions/seed-comune-varese-polizze/index.ts`: sostituire `cliente_id: CLIENTE_ID` con `cliente_anagrafica_id: CLIENTE_ID` nell'INSERT, così future esecuzioni del seed funzionano correttamente.
 
-Estensione di `prodotti_garanzie`:
-- `sottolimite` (numeric), `franchigia_temporale_giorni` (int), `aggregato_annuo` (numeric), `ambito_territoriale` (text)
+## Risultato atteso
 
-### Nuovi dati PERSONALI (in `polizza_cga` + figlia)
-
-Aggiunte a `polizza_cga`:
-- `numero_polizza` (dal PDF)
-- `contraente_ragione_sociale`, `contraente_piva`, `contraente_cf`, `contraente_indirizzo`, `contraente_cap`, `contraente_comune`, `contraente_provincia`, `contraente_email`
-- `assicurato_descrizione` (quando ≠ contraente)
-- `data_decorrenza`, `data_scadenza`, `data_emissione`, `tacito_rinnovo` (bool)
-- `cig`, `cup`
-- `frazionamento` (testo: Annuale/Semestrale/…)
-- `intermediario_nome`, `intermediario_indirizzo`, `intermediario_telefono`, `intermediario_email`
-- `premio_imponibile_totale`, `premio_imposte_totale`, `premio_lordo_totale`
-- `premio_rata_sottoscrizione_lordo`, `premio_rate_successive_lordo`
-
-Nuova tabella `polizza_cga_premio_garanzia` (composizione premio per garanzia, sia "rata sottoscrizione" che "rate successive"):
-- `polizza_cga_id`, `garanzia` (text), `tipo_rata` (`sottoscrizione`/`successiva`), `imponibile`, `imposte`, `lordo`
-
-### Modifiche tecniche
-
-1. **Migration** (4 step):
-   - `ALTER TABLE prodotti_cga ADD …` (nuovi campi)
-   - `ALTER TABLE prodotti_garanzie ADD …`
-   - `ALTER TABLE polizza_cga ADD …`
-   - `CREATE TABLE prodotti_definizioni` + `polizza_cga_premio_garanzia` con `GRANT` e RLS (stesso pattern delle tabelle esistenti)
-
-2. **Edge function `parse-cga`**: aggiornare lo schema JSON richiesto a Gemini per emettere i nuovi campi, mantenendo back-compat (tutto opzionale).
-
-3. **`AnalizzaPolizzaCgaDialog.tsx`**: estendere il tipo `ExtractedData`, mostrare 3 nuove card (Anagrafica Polizza, Intermediario, Composizione Premio) prima del salvataggio, e persistere i nuovi campi nelle insert.
-
-4. **`LibreriaCgaDetailDialog`** + `useLibreriaCga`: aggiungere sezioni accordion *Definizioni/Glossario*, *Forma di copertura*, *Info compagnia*. I dati personali non vengono mostrati qui.
-
-5. **Scheda cliente — `PolizzeCgaSection`**: aggiungere mini-card di sintesi (numero polizza, decorrenza/scadenza, CIG, premio lordo, intermediario).
-
-### Cosa NON cambia
-- Logica di dedup prodotti (per `compagnia + nome_prodotto + edizione`).
-- RLS personali (solo cliente + privilegi commerciali).
-- Pipeline fallback Gemini per PDF cifrati introdotta in precedenza.
-
-### Domanda
-Conferma di procedere con **tutti** i campi sopra, oppure preferisci un sottoinsieme (es. solo "Composizione premio per garanzia" + "Anagrafica polizza", lasciando glossario/intermediario a una fase 2)?
+Il portale `/cliente/polizze` per Comune di Varese mostrerà 11 polizze (6 vecchie 2025 + 5 nuove 2026 con i PDF allegati).
