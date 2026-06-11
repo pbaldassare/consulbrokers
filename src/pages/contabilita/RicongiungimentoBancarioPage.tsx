@@ -433,9 +433,18 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
             </div>
 
             {/* Azioni */}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 flex-wrap">
               <Button variant="outline" onClick={salvaRicongiungimento} disabled={saving}>
                 <Save className="w-4 h-4 mr-1" /> Salva Ricongiungimento
+              </Button>
+              <Button
+                variant="outline"
+                onClick={apriGarantito}
+                disabled={!quadra}
+                className="border-orange-400 text-orange-700 hover:bg-orange-50"
+                title="Incasso garantito (senza fondi in cassa)"
+              >
+                <Shield className="w-4 h-4 mr-1" /> Garantito
               </Button>
               <Button onClick={apriMessaCassa} disabled={!quadra}>
                 <Wallet className="w-4 h-4 mr-1" /> Metti a Cassa
@@ -449,6 +458,20 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
         onOpenChange={setCassaOpen}
         titoli={cassaTitoli}
         onSuccess={onCassaSuccess}
+      />
+      <GarantitoDialog
+        open={garantitoOpen}
+        onOpenChange={setGarantitoOpen}
+        titoli={garantitoTitoli}
+        onSuccess={async () => {
+          // Stessa persistenza di onCassaSuccess: marca movimenti_polizze + bancario
+          setCassaTitoli(garantitoTitoli);
+          await onCassaSuccess();
+        }}
+      />
+      <AnticipoUtilizziDrawer
+        anticipoId={anticipoDrawerId}
+        onClose={() => setAnticipoDrawerId(null)}
       />
     </Collapsible>
   );
