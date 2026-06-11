@@ -42,7 +42,10 @@ export const contabilitaRoutes = (
     <Route path="/contabilita/ec-produttore/storico" element={<ECProduttoriStoricoPage />} />
     <Route path="/contabilita/storico-rimesse" element={<StoricoRimessePage />} />
     <Route path="/contabilita/anticipi-clienti" element={<RiepilogoAnticipiPage />} />
+    <Route path="/contabilita/caricamento-mov-bancari" element={<CaricamentoMovBancariPage />} />
+    <Route path="/contabilita/ricongiungimento-bancario" element={<RicongiungimentoBancarioPage />} />
     <Route path="/contabilita/stampa-sospesi" element={<Navigate to="/contabilita/anticipi-clienti" replace />} />
+
 
     <Route path="/rimessa-premi" element={<Navigate to="/contabilita/storico-rimesse" replace />} />
     <Route path="/rimessa-premi/:id" element={<Navigate to="/contabilita/storico-rimesse" replace />} />
