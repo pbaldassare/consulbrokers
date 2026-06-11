@@ -320,7 +320,7 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
                         <TableRow key={p.id} className={i % 2 ? "bg-muted/30" : ""}>
                           <TableCell><Checkbox checked={sel} onCheckedChange={() => togglePol(p.id, lordo)} /></TableCell>
                           <TableCell className="text-sm">{p.numero_titolo}</TableCell>
-                          <TableCell className="text-sm">{p.ramo_label?.nome ?? "—"}</TableCell>
+                          <TableCell className="text-sm">{p.ramo?.descrizione ?? "—"}</TableCell>
                           <TableCell className="text-sm">{p.compagnia?.nome ?? "—"}</TableCell>
                           <TableCell className="text-right tabular-nums text-sm">{fmtEuro(lordo)}</TableCell>
                           <TableCell className="text-right">
