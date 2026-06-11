@@ -45,14 +45,28 @@ const NotificheDropdown = () => {
 
   useEffect(() => {
     fetchNotifiche();
-    // Realtime subscription
-    const channel = supabase
-      .channel("notifiche-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifiche" }, () => {
-        fetchNotifiche();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    let userId: string | null = null;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      userId = user?.id ?? null;
+      channel = supabase
+        .channel("notifiche-realtime")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "notifiche", filter: userId ? `destinatario_id=eq.${userId}` : undefined },
+          (payload) => {
+            const n = payload.new as Notifica;
+            fetchNotifiche();
+            // Toast immediato per eventi movimenti bancari
+            if (n?.tipo?.startsWith("mov_bancario_")) {
+              toast.info(n.titolo, { description: n.messaggio });
+            }
+          },
+        )
+        .subscribe();
+    })();
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, []);
 
   const nonLette = notifiche.filter((n) => !n.letto).length;
