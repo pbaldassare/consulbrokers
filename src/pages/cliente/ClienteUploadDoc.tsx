@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, CheckCircle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
 
 const ClienteUploadDoc = () => {
   const { user } = useAuth();
