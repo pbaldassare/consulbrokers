@@ -116,10 +116,15 @@ Deno.serve(async (req) => {
       },
       {
         role: "user",
-        content: [
-          { type: "text", text: "Analizza queste CGA ed estrai i dati strutturati richiesti." },
-          { type: "image_url", image_url: { url: dataUrl } },
-        ],
+        content: mimeType === "application/pdf"
+          ? [
+              { type: "text", text: "Analizza queste CGA ed estrai i dati strutturati richiesti." },
+              { type: "file", file: { filename: "cga.pdf", file_data: dataUrl } },
+            ]
+          : [
+              { type: "text", text: "Analizza queste CGA ed estrai i dati strutturati richiesti." },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
       },
     ];
 
