@@ -128,37 +128,62 @@ Deno.serve(async (req) => {
       },
     ];
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages,
-        tools: [{ type: "function", function: TOOL }],
-        tool_choice: { type: "function", function: { name: TOOL.name } },
-      }),
-    });
+    const callGateway = async (model: string) => {
+      return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          tools: [{ type: "function", function: TOOL }],
+          tool_choice: { type: "function", function: { name: TOOL.name } },
+        }),
+      });
+    };
 
-    if (!resp.ok) {
-      const t = await resp.text();
-      console.error("AI gateway error", resp.status, t);
-      if (resp.status === 429) {
+    // Modelli in ordine: flash (veloce) → pro (più robusto su PDF grandi/criptati)
+    const modelChain = ["google/gemini-2.5-flash", "google/gemini-2.5-pro"];
+    let resp: Response | null = null;
+    let lastErrText = "";
+    outer: for (const model of modelChain) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        resp = await callGateway(model);
+        if (resp.ok) break outer;
+        lastErrText = await resp.text();
+        console.error(`AI gateway ${model} attempt ${attempt + 1} status ${resp.status}`, lastErrText);
+        if (resp.status === 429 || resp.status === 402) break outer;
+        if (resp.status >= 500) {
+          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+          continue;
+        }
+        // 4xx non recuperabile → prova prossimo modello
+        break;
+      }
+    }
+
+    if (!resp || !resp.ok) {
+      const status = resp?.status ?? 500;
+      if (status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit AI superato. Riprova tra poco." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (resp.status === 402) {
+      if (status === 402) {
         return new Response(JSON.stringify({ error: "Crediti AI esauriti. Aggiungi credito al workspace." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "Errore AI gateway" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({
+        error: `Il servizio AI è temporaneamente sovraccarico (${status}). Riprova tra qualche secondo. Se il PDF è molto grande (>20 pagine) o protetto da password, prova a ridurlo.`,
+        details: lastErrText.slice(0, 300),
+      }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     const json = await resp.json();
     const args = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
