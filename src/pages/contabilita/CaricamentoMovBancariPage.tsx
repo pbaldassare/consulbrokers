@@ -212,11 +212,16 @@ const Page = () => {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="importazione">Importazione</TabsTrigger>
-            <TabsTrigger value="revisione">Revisione</TabsTrigger>
-            <TabsTrigger value="monitor">Monitor Real-time</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <TabsList>
+              <TabsTrigger value="importazione">Importazione</TabsTrigger>
+              <TabsTrigger value="revisione">Revisione</TabsTrigger>
+              <TabsTrigger value="monitor">Monitor Real-time</TabsTrigger>
+            </TabsList>
+            <Button onClick={() => setManualOpen(true)} size="sm" className="gap-1">
+              <Plus className="w-4 h-4" /> Inserimento manuale
+            </Button>
+          </div>
 
           <TabsContent value="importazione" className="space-y-4">
             <Card>
@@ -245,10 +250,16 @@ const Page = () => {
           </TabsContent>
 
           <TabsContent value="monitor">
-            <MonitorTab onManualInsert={handleManualInsert} />
+            <MonitorTab />
           </TabsContent>
 
         </Tabs>
+
+        <InserimentoManualeDialog
+          open={manualOpen}
+          onOpenChange={setManualOpen}
+          onSubmit={async (p) => { await handleManualInsert(p); setManualOpen(false); }}
+        />
       </div>
     </RoleGuard>
   );
