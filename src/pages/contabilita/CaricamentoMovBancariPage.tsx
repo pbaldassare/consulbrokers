@@ -156,27 +156,33 @@ const Page = () => {
     }
   }, [qc]);
 
-  const handleManualInsert = async () => {
-    const importo = parseImporto(manual.importo);
-    if (!importo || !manual.data_movimento) {
-      toast.error("Data e importo sono obbligatori");
-      return;
-    }
+  const handleManualInsert = async (payload: {
+    cliente_id: string;
+    ufficio_id: string | null;
+    data_movimento: string;
+    importo: number;
+    ordinante: string | null;
+    descrizione: string | null;
+    note: string | null;
+  }) => {
     const { data: userResp } = await supabase.auth.getUser();
     const { data, error } = await supabase.from("movimenti_bancari" as any).insert({
-      data_movimento: manual.data_movimento,
-      importo,
-      ordinante: manual.ordinante || null,
-      descrizione: manual.descrizione || null,
-      note: manual.note || null,
+      data_movimento: payload.data_movimento,
+      importo: payload.importo,
+      ordinante: payload.ordinante,
+      descrizione: payload.descrizione,
+      note: payload.note,
+      cliente_id: payload.cliente_id,
+      ufficio_id: payload.ufficio_id,
+      stato: "matchato",
       caricato_da: userResp.user?.id ?? null,
     } as any).select("id").single();
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(error.message); throw error; }
     setLastBatch([(data as any).id]);
-    setManual({ data_movimento: todayISO(), importo: "", ordinante: "", descrizione: "", note: "" });
-    toast.success("Movimento creato");
+    toast.success("Movimento creato e assegnato al cliente");
     qc.invalidateQueries({ queryKey: ["mov-bancari"] });
   };
+
 
   // === AI Matching via edge function ===
   const runMatching = async () => {
