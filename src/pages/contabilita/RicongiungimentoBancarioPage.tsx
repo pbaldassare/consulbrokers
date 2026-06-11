@@ -249,10 +249,11 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
     const { data: mc } = await supabase.from("movimenti_clienti" as any)
       .select("id")
       .eq("movimento_id", movimento.id).maybeSingle();
-    if (mc?.id) {
+    const mcId = (mc as any)?.id;
+    if (mcId) {
       await supabase.from("movimenti_polizze" as any)
         .update({ messo_a_cassa: true, data_messa_cassa: today } as any)
-        .eq("movimento_cliente_id", (mc as any).id);
+        .eq("movimento_cliente_id", mcId);
     }
     await supabase.from("movimenti_bancari" as any).update({ stato: "incassato" } as any).eq("id", movimento.id);
 
