@@ -218,29 +218,13 @@ const Page = () => {
           </TabsList>
 
           <TabsContent value="importazione" className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Upload className="w-4 h-4" /> Upload Excel</CardTitle></CardHeader>
-                <CardContent>
-                  <DropZone disabled={importing} onFile={handleFile} />
-                  <p className="text-xs text-muted-foreground mt-2">Colonne riconosciute: data, importo, descrizione, ordinante (opz).</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Plus className="w-4 h-4" /> Inserimento manuale</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div><Label>Data</Label><Input type="date" value={manual.data_movimento} onChange={(e) => setManual({ ...manual, data_movimento: e.target.value })} /></div>
-                    <div><Label>Importo €</Label><Input value={manual.importo} onChange={(e) => setManual({ ...manual, importo: e.target.value })} placeholder="0,00" /></div>
-                  </div>
-                  <div><Label>Ordinante</Label><Input value={manual.ordinante} onChange={(e) => setManual({ ...manual, ordinante: e.target.value })} /></div>
-                  <div><Label>Descrizione</Label><Input value={manual.descrizione} onChange={(e) => setManual({ ...manual, descrizione: e.target.value })} /></div>
-                  <div><Label>Note</Label><Textarea rows={2} value={manual.note} onChange={(e) => setManual({ ...manual, note: e.target.value })} /></div>
-                  <Button onClick={handleManualInsert} className="w-full"><Plus className="w-4 h-4 mr-1" /> Aggiungi</Button>
-                </CardContent>
-              </Card>
-            </div>
+            <Card>
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Upload className="w-4 h-4" /> Upload Excel</CardTitle></CardHeader>
+              <CardContent>
+                <DropZone disabled={importing} onFile={handleFile} />
+                <p className="text-xs text-muted-foreground mt-2">Colonne riconosciute: data, importo, descrizione, ordinante (opz).</p>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -260,8 +244,9 @@ const Page = () => {
           </TabsContent>
 
           <TabsContent value="monitor">
-            <MonitorTab />
+            <MonitorTab onManualInsert={handleManualInsert} />
           </TabsContent>
+
         </Tabs>
       </div>
     </RoleGuard>
