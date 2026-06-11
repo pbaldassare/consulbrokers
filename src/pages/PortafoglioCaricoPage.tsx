@@ -56,6 +56,8 @@ const PortafoglioCaricoPage = () => {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [cassaDialogTitoli, setCassaDialogTitoli] = useState<Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>>([]);
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
+  const [garantitoDialogTitoli, setGarantitoDialogTitoli] = useState<Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>>([]);
+  const [garantitoDialogOpen, setGarantitoDialogOpen] = useState(false);
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
   const hasActiveFilters = !!dateDa || !!dateA || !!search || filtroPeriodo !== "mese_corrente" || userTouched || filtroTipo !== "tutti";
