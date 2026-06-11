@@ -202,6 +202,9 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "E/C Produttori", path: "/contabilita/ec-produttori", icon: Percent },
         { label: "Storico E/C Produttori", path: "/contabilita/ec-produttore/storico", icon: Archive },
         { label: "Riepilogo Anticipi", path: "/contabilita/anticipi-clienti", icon: Wallet },
+        { label: "Caricamento Mov. Bancari", path: "/contabilita/caricamento-mov-bancari", icon: Import, hideForRoles: ["ufficio","backoffice","contabilita","manager","produttore","corrispondente","cliente","prospect"] },
+        { label: "Ricongiungimento Bancario", path: "/contabilita/ricongiungimento-bancario", icon: ArrowRightLeft, hideForRoles: ["manager","produttore","corrispondente","cliente","prospect"] },
+
       ],
     },
   },

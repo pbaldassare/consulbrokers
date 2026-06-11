@@ -4227,6 +4227,124 @@ export type Database = {
           },
         ]
       }
+      movimenti_bancari: {
+        Row: {
+          caricato_da: string | null
+          cliente_id: string | null
+          created_at: string
+          data_movimento: string
+          descrizione: string | null
+          id: string
+          importo: number
+          note: string | null
+          ordinante: string | null
+          stato: Database["public"]["Enums"]["movimento_bancario_stato"]
+          ufficio_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          caricato_da?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          data_movimento: string
+          descrizione?: string | null
+          id?: string
+          importo: number
+          note?: string | null
+          ordinante?: string | null
+          stato?: Database["public"]["Enums"]["movimento_bancario_stato"]
+          ufficio_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          caricato_da?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          data_movimento?: string
+          descrizione?: string | null
+          id?: string
+          importo?: number
+          note?: string | null
+          ordinante?: string | null
+          stato?: Database["public"]["Enums"]["movimento_bancario_stato"]
+          ufficio_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimenti_bancari_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimenti_bancari_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movimenti_clienti: {
+        Row: {
+          ammanco: number
+          anticipo: number
+          cliente_id: string
+          created_at: string
+          id: string
+          importo_assegnato: number
+          movimento_id: string
+          note: string | null
+          ufficio_id: string | null
+        }
+        Insert: {
+          ammanco?: number
+          anticipo?: number
+          cliente_id: string
+          created_at?: string
+          id?: string
+          importo_assegnato: number
+          movimento_id: string
+          note?: string | null
+          ufficio_id?: string | null
+        }
+        Update: {
+          ammanco?: number
+          anticipo?: number
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          importo_assegnato?: number
+          movimento_id?: string
+          note?: string | null
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimenti_clienti_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimenti_clienti_movimento_id_fkey"
+            columns: ["movimento_id"]
+            isOneToOne: false
+            referencedRelation: "movimenti_bancari"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimenti_clienti_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movimenti_contabili: {
         Row: {
           categoria: string | null
@@ -4427,6 +4545,61 @@ export type Database = {
             columns: ["ufficio_id"]
             isOneToOne: false
             referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movimenti_polizze: {
+        Row: {
+          created_at: string
+          data_messa_cassa: string | null
+          id: string
+          importo: number
+          messo_a_cassa: boolean
+          movimento_cliente_id: string
+          tipo: Database["public"]["Enums"]["movimento_polizza_tipo"]
+          titolo_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data_messa_cassa?: string | null
+          id?: string
+          importo: number
+          messo_a_cassa?: boolean
+          movimento_cliente_id: string
+          tipo?: Database["public"]["Enums"]["movimento_polizza_tipo"]
+          titolo_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data_messa_cassa?: string | null
+          id?: string
+          importo?: number
+          messo_a_cassa?: boolean
+          movimento_cliente_id?: string
+          tipo?: Database["public"]["Enums"]["movimento_polizza_tipo"]
+          titolo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimenti_polizze_movimento_cliente_id_fkey"
+            columns: ["movimento_cliente_id"]
+            isOneToOne: false
+            referencedRelation: "movimenti_clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimenti_polizze_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimenti_polizze_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
         ]
@@ -9166,6 +9339,13 @@ export type Database = {
         | "cliente"
         | "backoffice"
         | "corrispondente"
+      movimento_bancario_stato:
+        | "importato"
+        | "matchato"
+        | "assegnato"
+        | "ricongiunti"
+        | "incassato"
+      movimento_polizza_tipo: "polizza" | "anticipo" | "ammanco"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -9303,6 +9483,14 @@ export const Constants = {
         "backoffice",
         "corrispondente",
       ],
+      movimento_bancario_stato: [
+        "importato",
+        "matchato",
+        "assegnato",
+        "ricongiunti",
+        "incassato",
+      ],
+      movimento_polizza_tipo: ["polizza", "anticipo", "ammanco"],
     },
   },
 } as const
