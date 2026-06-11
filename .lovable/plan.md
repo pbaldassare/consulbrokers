@@ -1,41 +1,33 @@
-## Problema confermato
+## Problema
+Nella pagina **Ricongiungimento Bancario**, espandendo una riga (es. ARS RESTAURI DI TRIBBIA SRL, 647 €), la sezione "Polizze attive" mostra sempre "Nessuna polizza in carico per questo cliente.", anche quando il cliente ha polizze attive. Il DB conferma 1 polizza attiva non messa a cassa per questo cliente.
 
-L'Excel caricato contiene **107 righe distinte**, ma in `movimenti_bancari` ci sono **428 record = 107 × 4**: l'import è stato eseguito 4 volte (timestamp 13:09, 13:09, 13:18, 13:18) e ogni esecuzione ha re-inserito tutte le righe perché non esiste alcun controllo di deduplica.
+## Causa
+La query in `RicongiungimentoBancarioPage.tsx` (`MovimentoCard`, ~ righe 115-128) ha due errori che la fanno fallire silenziosamente (Supabase restituisce errore, il codice ignora `error` e usa `[]`):
 
-## Piano di intervento
+1. `.order("data_decorrenza", ...)` — la colonna non esiste su `titoli` (esistono `data_scadenza`, `data_incasso`, `data_messa_cassa`, ecc.).
+2. `select("... ramo_label:rami(nome) ...")` — la tabella `rami` non ha la colonna `nome`, il campo corretto è `descrizione`.
 
-### 1. Cleanup dei duplicati già presenti (migrazione SQL una tantum)
-- Per ogni gruppo `(data_movimento, importo, ordinante, descrizione)` mantenere **solo la riga più vecchia** (`MIN(created_at)`).
-- Cancellare le altre 3 copie (321 record).
-- Sicuro: tutti i duplicati hanno stesso `cliente_id`/`ufficio_id`/`stato='matchato'`, nessuna distinzione informativa.
+Il render già usa `p.ramo_label?.nome`, quindi va allineato anche lì.
 
-```sql
-DELETE FROM movimenti_bancari m
-USING (
-  SELECT id, ROW_NUMBER() OVER (
-    PARTITION BY data_movimento, importo, ordinante, descrizione
-    ORDER BY created_at ASC
-  ) AS rn
-  FROM movimenti_bancari
-) d
-WHERE m.id = d.id AND d.rn > 1;
-```
+## Fix proposto
+Solo correzioni puntuali nella query e nel render, nessun cambio di logica/DB:
 
-### 2. Indice unico per prevenire nuovi duplicati
-Aggiungere un indice unico parziale (o constraint) per bloccare a livello DB futuri re-import:
+1. **Query polizze attive** — sostituire l'order con un campo esistente (uso `data_scadenza` asc così le più urgenti compaiono per prime) e selezionare `descrizione` da `rami`:
+   ```ts
+   .select("id, numero_titolo, premio_lordo, stato, data_messa_cassa, ramo:rami(descrizione), compagnia:compagnie(nome)")
+   .eq("cliente_anagrafica_id", movimento.cliente_id)
+   .is("data_messa_cassa", null)
+   .neq("stato", "annullato")
+   .order("data_scadenza", { ascending: true, nullsFirst: false })
+   .limit(50);
+   ```
+   Aggiungere anche gestione esplicita dell'errore (throw) per evitare futuri silent fail.
 
-```sql
-CREATE UNIQUE INDEX uq_movimenti_bancari_dedup
-  ON movimenti_bancari (data_movimento, importo, ordinante, md5(descrizione));
-```
+2. **Render** — usare `p.ramo?.descrizione` al posto di `p.ramo_label?.nome`.
 
-### 3. Gestione lato edge function / UI di import
-Nell'edge function che importa l'Excel (o nella query di insert), usare `ON CONFLICT DO NOTHING` sull'indice sopra, così re-import dello stesso file diventa idempotente. Tornare un riepilogo "X righe nuove, Y già presenti".
+## Verifica
+- Riaprire la card del movimento ARS RESTAURI DI TRIBBIA SRL: deve comparire 1 polizza con numero, ramo (descrizione), compagnia e premio, selezionabile via checkbox per il ricongiungimento.
+- Quadratura/Salva/Metti a Cassa restano invariati.
 
-### 4. Verifica post-cleanup
-- `SELECT COUNT(*)` su `movimenti_bancari` deve tornare 107.
-- Riaprire la pagina Monitor real-time e Caricamento Mov. Bancari per controllare che il conteggio sia corretto.
-
-## Domanda per te
-- Confermi che posso **cancellare i 321 duplicati** mantenendo solo la prima occorrenza?
-- Vuoi che aggiunga anche il vincolo unico + `ON CONFLICT DO NOTHING` nell'import (consigliato), oppure solo il cleanup per ora?
+## File modificati
+- `src/pages/contabilita/RicongiungimentoBancarioPage.tsx` (solo `MovimentoCard`: query `polizze-cliente` + cella Ramo della tabella).

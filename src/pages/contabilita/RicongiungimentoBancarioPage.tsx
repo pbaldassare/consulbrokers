@@ -116,13 +116,14 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
     queryKey: ["polizze-cliente", movimento.cliente_id],
     enabled: open && !!movimento.cliente_id,
     queryFn: async () => {
-      const { data } = await supabase.from("titoli")
-        .select("id, numero_titolo, premio_lordo, stato, data_messa_cassa, ramo_label:rami(nome), compagnia:compagnie(nome)" as any)
+      const { data, error } = await supabase.from("titoli")
+        .select("id, numero_titolo, premio_lordo, stato, data_messa_cassa, data_scadenza, ramo:rami(descrizione), compagnia:compagnie(nome)" as any)
         .eq("cliente_anagrafica_id", movimento.cliente_id)
         .is("data_messa_cassa", null)
         .neq("stato", "annullato")
-        .order("data_decorrenza", { ascending: false })
+        .order("data_scadenza", { ascending: true, nullsFirst: false })
         .limit(50);
+      if (error) throw error;
       return (data as any[]) ?? [];
     },
   });
@@ -319,7 +320,7 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
                         <TableRow key={p.id} className={i % 2 ? "bg-muted/30" : ""}>
                           <TableCell><Checkbox checked={sel} onCheckedChange={() => togglePol(p.id, lordo)} /></TableCell>
                           <TableCell className="text-sm">{p.numero_titolo}</TableCell>
-                          <TableCell className="text-sm">{p.ramo_label?.nome ?? "—"}</TableCell>
+                          <TableCell className="text-sm">{p.ramo?.descrizione ?? "—"}</TableCell>
                           <TableCell className="text-sm">{p.compagnia?.nome ?? "—"}</TableCell>
                           <TableCell className="text-right tabular-nums text-sm">{fmtEuro(lordo)}</TableCell>
                           <TableCell className="text-right">
