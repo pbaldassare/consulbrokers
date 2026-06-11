@@ -598,7 +598,6 @@ const MonitorTab = () => {
           </CardContent>
         </Card>
 
-        <InserimentoManualeCard onSubmit={onManualInsert} />
       </div>
     </div>
   );
