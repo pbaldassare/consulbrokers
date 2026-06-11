@@ -146,7 +146,8 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
   const [ammanco, setAmmanco] = useState(0);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
-  const [cassing, setCassing] = useState(false);
+  const [cassaOpen, setCassaOpen] = useState(false);
+  const [cassaTitoli, setCassaTitoli] = useState<any[]>([]);
 
   useEffect(() => {
     if (!esistente) return;
