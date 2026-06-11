@@ -455,7 +455,17 @@ const RevisioneTab = () => {
 };
 
 // === Monitor tab ===
-const MonitorTab = () => {
+type ManualInsertPayload = {
+  cliente_id: string;
+  ufficio_id: string | null;
+  data_movimento: string;
+  importo: number;
+  ordinante: string | null;
+  descrizione: string | null;
+  note: string | null;
+};
+const MonitorTab = ({ onManualInsert }: { onManualInsert: (p: ManualInsertPayload) => Promise<void> }) => {
+
   const qc = useQueryClient();
   const [filtroUfficio, setFiltroUfficio] = useState("");
   const [dal, setDal] = useState("");
