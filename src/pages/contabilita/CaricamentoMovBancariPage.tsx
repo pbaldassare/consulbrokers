@@ -325,14 +325,14 @@ const RevisioneTab = () => {
 
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici-all"],
-    queryFn: async () => (await supabase.from("uffici").select("id, nome").order("nome")).data ?? [],
+    queryFn: async () => (await supabase.from("uffici").select("id, nome:nome_ufficio").order("nome_ufficio")).data ?? [],
   });
 
   const { data: movs = [], isLoading } = useQuery({
     queryKey: ["mov-bancari", "revisione", filtroStato, filtroUfficio, dal, al],
     queryFn: async () => {
       let q = supabase.from("movimenti_bancari" as any)
-        .select("id, data_movimento, importo, ordinante, descrizione, stato, ufficio_id, cliente_id, cliente:clienti(id, ragione_sociale, nome, cognome), ufficio:uffici(nome)")
+        .select("id, data_movimento, importo, ordinante, descrizione, stato, ufficio_id, cliente_id, cliente:clienti(id, ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio)")
         .order("data_movimento", { ascending: false })
         .limit(200);
       if (filtroStato) q = q.eq("stato", filtroStato);
@@ -480,14 +480,14 @@ const MonitorTab = () => {
 
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici-all"],
-    queryFn: async () => (await supabase.from("uffici").select("id, nome").order("nome")).data ?? [],
+    queryFn: async () => (await supabase.from("uffici").select("id, nome:nome_ufficio").order("nome_ufficio")).data ?? [],
   });
 
   const { data: movs = [] } = useQuery({
     queryKey: ["mov-bancari", "monitor", filtroUfficio, dal, al],
     queryFn: async () => {
       let q = supabase.from("movimenti_bancari" as any)
-        .select("id, data_movimento, importo, ordinante, stato, ufficio_id, cliente_id, cliente:clienti(ragione_sociale, nome, cognome), ufficio:uffici(nome), movimenti_clienti(id, importo_assegnato, anticipo, ammanco, movimenti_polizze(id, importo, tipo, messo_a_cassa))")
+        .select("id, data_movimento, importo, ordinante, stato, ufficio_id, cliente_id, cliente:clienti(ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio), movimenti_clienti(id, importo_assegnato, anticipo, ammanco, movimenti_polizze(id, importo, tipo, messo_a_cassa))")
         .order("data_movimento", { ascending: false })
         .limit(500);
       if (filtroUfficio) q = q.eq("ufficio_id", filtroUfficio);
