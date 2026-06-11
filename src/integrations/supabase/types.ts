@@ -5730,61 +5730,150 @@ export type Database = {
           },
         ]
       }
+      prodotti_articoli: {
+        Row: {
+          created_at: string
+          id: string
+          numero: string | null
+          ordine: number | null
+          prodotto_id: string
+          sezione: string | null
+          testo: string
+          titolo: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          numero?: string | null
+          ordine?: number | null
+          prodotto_id: string
+          sezione?: string | null
+          testo: string
+          titolo?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          numero?: string | null
+          ordine?: number | null
+          prodotto_id?: string
+          sezione?: string | null
+          testo?: string
+          titolo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prodotti_articoli_prodotto_id_fkey"
+            columns: ["prodotto_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti_cga"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prodotti_cga: {
         Row: {
+          ambito_territoriale: string | null
+          clausola_broker: string | null
           codice_modello: string | null
           compagnia: string | null
           compagnia_email_servizio_clienti: string | null
+          compagnia_gruppo_ivass: string | null
+          compagnia_ivass_albo: string | null
+          compagnia_pec: string | null
+          compagnia_sede_legale: string | null
+          compagnia_sede_operativa: string | null
+          compagnia_telefono: string | null
           compagnia_url_area_personale: string | null
           created_at: string
           created_by: string | null
+          diritto_recesso_descrizione: string | null
           edizione: string | null
           forma_copertura: string | null
+          foro_competente: string | null
           id: string
+          limiti_eta_assicurato_max: number | null
+          limiti_eta_assicurato_min: number | null
           massimale_aggregato_annuo: number | null
           nome_prodotto: string
           note_legali: string | null
+          oggetto_assicurazione: string | null
           periodo_retroattivita_mesi: number | null
           ramo: string | null
+          regime_fiscale: string | null
           sommario_ai: string | null
+          termine_prescrizione_mesi: number | null
+          termini_pagamento_premio_giorni: number | null
           testo_completo: string | null
           updated_at: string
         }
         Insert: {
+          ambito_territoriale?: string | null
+          clausola_broker?: string | null
           codice_modello?: string | null
           compagnia?: string | null
           compagnia_email_servizio_clienti?: string | null
+          compagnia_gruppo_ivass?: string | null
+          compagnia_ivass_albo?: string | null
+          compagnia_pec?: string | null
+          compagnia_sede_legale?: string | null
+          compagnia_sede_operativa?: string | null
+          compagnia_telefono?: string | null
           compagnia_url_area_personale?: string | null
           created_at?: string
           created_by?: string | null
+          diritto_recesso_descrizione?: string | null
           edizione?: string | null
           forma_copertura?: string | null
+          foro_competente?: string | null
           id?: string
+          limiti_eta_assicurato_max?: number | null
+          limiti_eta_assicurato_min?: number | null
           massimale_aggregato_annuo?: number | null
           nome_prodotto: string
           note_legali?: string | null
+          oggetto_assicurazione?: string | null
           periodo_retroattivita_mesi?: number | null
           ramo?: string | null
+          regime_fiscale?: string | null
           sommario_ai?: string | null
+          termine_prescrizione_mesi?: number | null
+          termini_pagamento_premio_giorni?: number | null
           testo_completo?: string | null
           updated_at?: string
         }
         Update: {
+          ambito_territoriale?: string | null
+          clausola_broker?: string | null
           codice_modello?: string | null
           compagnia?: string | null
           compagnia_email_servizio_clienti?: string | null
+          compagnia_gruppo_ivass?: string | null
+          compagnia_ivass_albo?: string | null
+          compagnia_pec?: string | null
+          compagnia_sede_legale?: string | null
+          compagnia_sede_operativa?: string | null
+          compagnia_telefono?: string | null
           compagnia_url_area_personale?: string | null
           created_at?: string
           created_by?: string | null
+          diritto_recesso_descrizione?: string | null
           edizione?: string | null
           forma_copertura?: string | null
+          foro_competente?: string | null
           id?: string
+          limiti_eta_assicurato_max?: number | null
+          limiti_eta_assicurato_min?: number | null
           massimale_aggregato_annuo?: number | null
           nome_prodotto?: string
           note_legali?: string | null
+          oggetto_assicurazione?: string | null
           periodo_retroattivita_mesi?: number | null
           ramo?: string | null
+          regime_fiscale?: string | null
           sommario_ai?: string | null
+          termine_prescrizione_mesi?: number | null
+          termini_pagamento_premio_giorni?: number | null
           testo_completo?: string | null
           updated_at?: string
         }
@@ -5906,6 +5995,38 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "prodotti_garanzie_prodotto_id_fkey"
+            columns: ["prodotto_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti_cga"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prodotti_riferimenti_normativi: {
+        Row: {
+          contesto: string | null
+          created_at: string
+          id: string
+          prodotto_id: string
+          riferimento: string
+        }
+        Insert: {
+          contesto?: string | null
+          created_at?: string
+          id?: string
+          prodotto_id: string
+          riferimento: string
+        }
+        Update: {
+          contesto?: string | null
+          created_at?: string
+          id?: string
+          prodotto_id?: string
+          riferimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prodotti_riferimenti_normativi_prodotto_id_fkey"
             columns: ["prodotto_id"]
             isOneToOne: false
             referencedRelation: "prodotti_cga"
