@@ -144,13 +144,29 @@ const Page = () => {
         return;
       }
 
+      // Dedup vs DB: scarta righe già presenti (stessa data+importo+ordinante+descrizione)
+      const keyOf = (r: any) => `${r.data_movimento}|${r.importo}|${r.ordinante ?? ""}|${r.descrizione ?? ""}`;
+      const dates = Array.from(new Set(records.map((r: any) => r.data_movimento)));
+      const { data: existing } = await supabase
+        .from("movimenti_bancari" as any)
+        .select("data_movimento, importo, ordinante, descrizione")
+        .in("data_movimento", dates as any);
+      const existingKeys = new Set((existing as any[] | null ?? []).map(keyOf));
+      const toInsert = (records as any[]).filter((r) => !existingKeys.has(keyOf(r)));
+      const skipped = records.length - toInsert.length;
+
+      if (toInsert.length === 0) {
+        toast.info(`Nessun nuovo movimento: ${skipped} già presenti`);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("movimenti_bancari" as any)
-        .insert(records as any)
+        .insert(toInsert as any)
         .select("id");
       if (error) throw error;
       setLastBatch((data as any[]).map((r) => r.id));
-      toast.success(`${records.length} movimenti importati`);
+      toast.success(`${toInsert.length} movimenti importati${skipped ? ` · ${skipped} duplicati ignorati` : ""}`);
       qc.invalidateQueries({ queryKey: ["mov-bancari"] });
     } catch (e: any) {
       toast.error(`Errore import: ${e.message ?? e}`);
