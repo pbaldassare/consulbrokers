@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, CheckCircle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
 
 const ClienteUploadDoc = () => {
   const { user } = useAuth();
@@ -47,7 +48,7 @@ const ClienteUploadDoc = () => {
     if (!file || !clienteId || !user) return;
     setUploading(true);
     try {
-      const path = `${clienteId}/${Date.now()}_${file.name}`;
+      const path = `${clienteId}/${Date.now()}_${sanitizeStorageFileName(file.name)}`;
       const { error: storageErr } = await supabase.storage
         .from("documenti_clienti")
         .upload(path, file);

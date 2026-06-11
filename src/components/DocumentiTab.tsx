@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
 import PdfPreview from "@/components/PdfPreview";
+import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
 
 interface DocumentiTabProps {
   entitaTipo: string;
@@ -107,7 +108,7 @@ export default function DocumentiTab({ entitaTipo, entitaId, entitaIds, bucketNa
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const path = `${entitaTipo}/${uploadEntitaId}/${Date.now()}_${file.name}`;
+      const path = `${entitaTipo}/${uploadEntitaId}/${Date.now()}_${sanitizeStorageFileName(file.name)}`;
       const { error: uploadErr } = await supabase.storage.from(bucket).upload(path, file);
       if (uploadErr) throw uploadErr;
       const { error: insertErr } = await supabase.from("documenti").insert({
