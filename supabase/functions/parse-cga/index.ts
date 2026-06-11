@@ -257,13 +257,13 @@ Deno.serve(async (req) => {
       });
     };
 
-    // Tier 1+2: PDF nativo su flash → pro con retry
-    const modelChain = ["google/gemini-2.5-flash", "google/gemini-2.5-pro"];
+    // Tier 1+2: PDF nativo con modello veloce, poi fallback. Retry brevi per stare entro 150s.
+    const modelChain = ["google/gemini-3-flash-preview", "google/gemini-2.5-flash"];
     let resp: Response | null = null;
     let lastErrText = "";
     let lastStatus = 0;
     outer: for (const model of modelChain) {
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < 2; attempt++) {
         resp = await callGateway(model, messages);
         if (resp.ok) break outer;
         lastStatus = resp.status;
@@ -271,7 +271,7 @@ Deno.serve(async (req) => {
         console.error(`AI gateway ${model} attempt ${attempt + 1} status ${resp.status}`, lastErrText.slice(0, 200));
         if (resp.status === 429 || resp.status === 402) break outer;
         if (resp.status >= 500) {
-          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+          await new Promise((r) => setTimeout(r, 800));
           continue;
         }
         break;
