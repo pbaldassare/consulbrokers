@@ -30,5 +30,6 @@ export const clienteRoutes = (
     <Route path="/cliente/sinistri" element={<ClienteSinistri />} />
     <Route path="/cliente/anagrafica" element={<ClienteAnagrafica />} />
     <Route path="/cliente/ufficio" element={<ClienteUfficio />} />
+    <Route path="/cliente/assistente" element={<ClienteAssistente />} />
   </Route>
 );
