@@ -80,3 +80,9 @@ verify_jwt = false
 
 [functions.ai-match-movimenti-bancari]
 verify_jwt = false
+
+[functions.parse-cga]
+verify_jwt = false
+
+[functions.chiedi-polizza-cga]
+verify_jwt = false

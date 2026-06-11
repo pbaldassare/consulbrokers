@@ -5071,6 +5071,135 @@ export type Database = {
           },
         ]
       }
+      polizza_cga: {
+        Row: {
+          approvato_at: string | null
+          approvato_da: string | null
+          cliente_id: string
+          created_at: string
+          created_by: string | null
+          documento_id: string | null
+          id: string
+          prodotto_id: string
+          sommario_personalizzato: string | null
+          stato: string
+          titolo_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          approvato_at?: string | null
+          approvato_da?: string | null
+          cliente_id: string
+          created_at?: string
+          created_by?: string | null
+          documento_id?: string | null
+          id?: string
+          prodotto_id: string
+          sommario_personalizzato?: string | null
+          stato?: string
+          titolo_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approvato_at?: string | null
+          approvato_da?: string | null
+          cliente_id?: string
+          created_at?: string
+          created_by?: string | null
+          documento_id?: string | null
+          id?: string
+          prodotto_id?: string
+          sommario_personalizzato?: string | null
+          stato?: string
+          titolo_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polizza_cga_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizza_cga_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documenti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizza_cga_prodotto_id_fkey"
+            columns: ["prodotto_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti_cga"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizza_cga_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizza_cga_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polizza_garanzie_personali: {
+        Row: {
+          created_at: string
+          franchigia_personalizzata: number | null
+          id: string
+          massimale_personalizzato: number | null
+          note_personali: string | null
+          polizza_cga_id: string
+          prodotto_garanzia_id: string | null
+          scoperto_personalizzato: number | null
+        }
+        Insert: {
+          created_at?: string
+          franchigia_personalizzata?: number | null
+          id?: string
+          massimale_personalizzato?: number | null
+          note_personali?: string | null
+          polizza_cga_id: string
+          prodotto_garanzia_id?: string | null
+          scoperto_personalizzato?: number | null
+        }
+        Update: {
+          created_at?: string
+          franchigia_personalizzata?: number | null
+          id?: string
+          massimale_personalizzato?: number | null
+          note_personali?: string | null
+          polizza_cga_id?: string
+          prodotto_garanzia_id?: string | null
+          scoperto_personalizzato?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polizza_garanzie_personali_polizza_cga_id_fkey"
+            columns: ["polizza_cga_id"]
+            isOneToOne: false
+            referencedRelation: "polizza_cga"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizza_garanzie_personali_prodotto_garanzia_id_fkey"
+            columns: ["prodotto_garanzia_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti_garanzie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portafoglio_incassi: {
         Row: {
           cliente_id: string | null
@@ -5478,6 +5607,124 @@ export type Database = {
             columns: ["compagnia_id"]
             isOneToOne: false
             referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prodotti_cga: {
+        Row: {
+          compagnia: string | null
+          created_at: string
+          created_by: string | null
+          edizione: string | null
+          id: string
+          nome_prodotto: string
+          ramo: string | null
+          sommario_ai: string | null
+          testo_completo: string | null
+          updated_at: string
+        }
+        Insert: {
+          compagnia?: string | null
+          created_at?: string
+          created_by?: string | null
+          edizione?: string | null
+          id?: string
+          nome_prodotto: string
+          ramo?: string | null
+          sommario_ai?: string | null
+          testo_completo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          compagnia?: string | null
+          created_at?: string
+          created_by?: string | null
+          edizione?: string | null
+          id?: string
+          nome_prodotto?: string
+          ramo?: string | null
+          sommario_ai?: string | null
+          testo_completo?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      prodotti_condizioni: {
+        Row: {
+          created_at: string
+          id: string
+          prodotto_id: string
+          rilevante_sinistri: boolean
+          testo: string
+          tipo: string
+          titolo: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          prodotto_id: string
+          rilevante_sinistri?: boolean
+          testo: string
+          tipo: string
+          titolo?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          prodotto_id?: string
+          rilevante_sinistri?: boolean
+          testo?: string
+          tipo?: string
+          titolo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prodotti_condizioni_prodotto_id_fkey"
+            columns: ["prodotto_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti_cga"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prodotti_garanzie: {
+        Row: {
+          created_at: string
+          franchigia_standard: number | null
+          garanzia: string
+          id: string
+          massimale_standard: number | null
+          note: string | null
+          prodotto_id: string
+          scoperto_percentuale: number | null
+        }
+        Insert: {
+          created_at?: string
+          franchigia_standard?: number | null
+          garanzia: string
+          id?: string
+          massimale_standard?: number | null
+          note?: string | null
+          prodotto_id: string
+          scoperto_percentuale?: number | null
+        }
+        Update: {
+          created_at?: string
+          franchigia_standard?: number | null
+          garanzia?: string
+          id?: string
+          massimale_standard?: number | null
+          note?: string | null
+          prodotto_id?: string
+          scoperto_percentuale?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prodotti_garanzie_prodotto_id_fkey"
+            columns: ["prodotto_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti_cga"
             referencedColumns: ["id"]
           },
         ]
