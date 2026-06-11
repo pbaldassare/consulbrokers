@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
       const { data: titolo, error: tErr } = await supabase
         .from("titoli")
         .insert({
-          cliente_id: CLIENTE_ID,
+          cliente_anagrafica_id: CLIENTE_ID,
           ufficio_id: UFFICIO_ID,
           compagnia_id: p.compagnia_id,
           ramo_id: p.ramo_id,
