@@ -13,13 +13,16 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Save, Wallet, ChevronDown, Download, ExternalLink } from "lucide-react";
+import { Save, Wallet, ChevronDown, Download, ExternalLink, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
 import * as XLSX from "xlsx";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
+import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
 import { notificaSedeMovimentoBancario } from "@/lib/notificheMovimentiBancari";
+import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
+import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TOLL = 0.01;
