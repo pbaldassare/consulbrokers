@@ -22,10 +22,11 @@ import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
+import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
 import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
-import { Wallet } from "lucide-react";
+import { Wallet, Shield } from "lucide-react";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
@@ -55,6 +56,8 @@ const PortafoglioCaricoPage = () => {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [cassaDialogTitoli, setCassaDialogTitoli] = useState<Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>>([]);
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
+  const [garantitoDialogTitoli, setGarantitoDialogTitoli] = useState<Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>>([]);
+  const [garantitoDialogOpen, setGarantitoDialogOpen] = useState(false);
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
   const hasActiveFilters = !!dateDa || !!dateA || !!search || filtroPeriodo !== "mese_corrente" || userTouched || filtroTipo !== "tutti";
@@ -422,10 +425,16 @@ const PortafoglioCaricoPage = () => {
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
           <span className="text-sm text-muted-foreground">{selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}</span>
           {selectedAttive.length > 0 && (
-            <Button size="sm" onClick={() => { setCassaDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setCassaDialogOpen(true); }} disabled={bulkLoading} className="gap-1">
-              <Banknote className="h-3.5 w-3.5" />
-              Incassa ({selectedAttive.length})
-            </Button>
+            <>
+              <Button size="sm" onClick={() => { setCassaDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setCassaDialogOpen(true); }} disabled={bulkLoading} className="gap-1">
+                <Banknote className="h-3.5 w-3.5" />
+                Incassa ({selectedAttive.length})
+              </Button>
+              <Button size="sm" onClick={() => { setGarantitoDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setGarantitoDialogOpen(true); }} disabled={bulkLoading} className="gap-1 bg-orange-500 hover:bg-orange-600 text-white">
+                <Shield className="h-3.5 w-3.5" />
+                Garantito ({selectedAttive.length})
+              </Button>
+            </>
           )}
           {selectedIncassate.length > 0 && isAdmin && (
             <Button size="sm" variant="outline" onClick={bulkAnnullaIncasso} disabled={bulkLoading} className="gap-1">
@@ -725,16 +734,29 @@ const PortafoglioCaricoPage = () => {
                         ) : isIncassato ? (
                           <span className="text-xs text-muted-foreground">—</span>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isProcessing}
-                            onClick={() => { setCassaDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }]); setCassaDialogOpen(true); }}
-                            className="gap-1 h-8 text-xs"
-                          >
-                            <Banknote className="h-3.5 w-3.5" />
-                            Cassa
-                          </Button>
+                          <div className="flex items-center gap-1 justify-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isProcessing}
+                              onClick={() => { setCassaDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }]); setCassaDialogOpen(true); }}
+                              className="gap-1 h-8 text-xs"
+                            >
+                              <Banknote className="h-3.5 w-3.5" />
+                              Cassa
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isProcessing}
+                              onClick={() => { setGarantitoDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }]); setGarantitoDialogOpen(true); }}
+                              className="gap-1 h-8 text-xs border-orange-400 text-orange-700 hover:bg-orange-50"
+                              title="Garantito (incasso senza fondi)"
+                            >
+                              <Shield className="h-3.5 w-3.5" />
+                              Gar.
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
@@ -751,6 +773,13 @@ const PortafoglioCaricoPage = () => {
         open={cassaDialogOpen}
         onOpenChange={setCassaDialogOpen}
         titoli={cassaDialogTitoli}
+        onSuccess={() => { setSelectedIds(new Set()); invalidateQueries(); }}
+      />
+
+      <GarantitoDialog
+        open={garantitoDialogOpen}
+        onOpenChange={setGarantitoDialogOpen}
+        titoli={garantitoDialogTitoli}
         onSuccess={() => { setSelectedIds(new Set()); invalidateQueries(); }}
       />
 

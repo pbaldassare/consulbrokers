@@ -13,13 +13,16 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Save, Wallet, ChevronDown, Download, ExternalLink } from "lucide-react";
+import { Save, Wallet, ChevronDown, Download, ExternalLink, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
 import * as XLSX from "xlsx";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
+import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
 import { notificaSedeMovimentoBancario } from "@/lib/notificheMovimentiBancari";
+import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
+import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TOLL = 0.01;
@@ -149,6 +152,15 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
   const [saving, setSaving] = useState(false);
   const [cassaOpen, setCassaOpen] = useState(false);
   const [cassaTitoli, setCassaTitoli] = useState<any[]>([]);
+  const [garantitoOpen, setGarantitoOpen] = useState(false);
+  const [garantitoTitoli, setGarantitoTitoli] = useState<any[]>([]);
+  const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
+
+  // Anticipi residui del cliente (stessa logica di Portafoglio Carico)
+  const { data: anticipiMap } = useAnticipiResiduoByClienti(
+    open && movimento.cliente_id ? [movimento.cliente_id] : []
+  );
+  const anticipoSummary = movimento.cliente_id ? anticipiMap?.get(movimento.cliente_id) : null;
 
   useEffect(() => {
     if (!esistente) return;
@@ -221,7 +233,21 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
         statoNuovo: "ricongiunti",
         note: `${Object.keys(selPol).length} polizze`,
       });
-      toast.success("Ricongiungimento salvato");
+      // Toast con dettaglio polizze collegate
+      const numeriCollegati = polizze
+        .filter((p: any) => p.id in selPol && (Number(selPol[p.id]) || 0) > 0)
+        .map((p: any) => p.numero_titolo)
+        .filter(Boolean);
+      if (numeriCollegati.length > 0) {
+        toast.success(
+          numeriCollegati.length === 1
+            ? `Polizza ${numeriCollegati[0]} collegata al movimento`
+            : `${numeriCollegati.length} polizze collegate al movimento`,
+          { description: numeriCollegati.join(", ") }
+        );
+      } else {
+        toast.success("Ricongiungimento salvato");
+      }
       onChanged();
     } catch (e: any) {
       toast.error(e.message ?? "Errore salvataggio");
@@ -242,6 +268,20 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
     if (error) { toast.error(error.message); return; }
     setCassaTitoli(titoli ?? []);
     setCassaOpen(true);
+  };
+
+  // === Garantito: stessa preload, ma apre GarantitoDialog ===
+  const apriGarantito = async () => {
+    if (!quadra) { toast.error(`Non quadra: delta ${fmtEuro(delta)}`); return; }
+    const titoliIds = Object.entries(selPol).filter(([, v]) => v > 0).map(([id]) => id);
+    if (titoliIds.length === 0) { toast.error("Nessuna polizza selezionata"); return; }
+    const { data: titoli, error } = await supabase
+      .from("titoli")
+      .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id")
+      .in("id", titoliIds);
+    if (error) { toast.error(error.message); return; }
+    setGarantitoTitoli(titoli ?? []);
+    setGarantitoOpen(true);
   };
 
   // Callback dopo conferma MessaCassaDialog: aggiorna movimenti_bancari + notifica
@@ -301,6 +341,37 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
                 </Link>
               ) : <span className="text-sm text-muted-foreground">Nessun cliente associato</span>}
             </div>
+
+            {/* Anticipi disponibili cliente */}
+            {anticipoSummary && anticipoSummary.totale > 0 && (
+              <div className="rounded-md border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 p-3 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Wallet className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                  <span className="text-emerald-800 dark:text-emerald-300">
+                    Anticipi disponibili: <strong className="tabular-nums">{fmtEuro(anticipoSummary.totale)}</strong>
+                    {" "}({anticipoSummary.conteggio} anticip{anticipoSummary.conteggio === 1 ? "o" : "i"})
+                  </span>
+                  <Button
+                    size="sm" variant="ghost" className="h-7 text-xs text-emerald-700 dark:text-emerald-400"
+                    onClick={() => setAnticipoDrawerId(anticipoSummary.primoAnticipoId)}
+                  >
+                    Vedi dettagli
+                  </Button>
+                </div>
+                <Button
+                  size="sm" variant="outline"
+                  className="border-emerald-400 text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900"
+                  onClick={() => {
+                    const residuoMov = round2(Math.max(0, (Number(movimento.importo) || 0) - totalePolizze));
+                    const da_usare = round2(Math.min(anticipoSummary.totale, residuoMov));
+                    setAnticipo(da_usare);
+                    if (da_usare <= 0) toast.info("Nessun importo da coprire con l'anticipo");
+                  }}
+                >
+                  Usa nel ricongiungimento
+                </Button>
+              </div>
+            )}
 
             {/* Polizze */}
             <div>
@@ -362,9 +433,18 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
             </div>
 
             {/* Azioni */}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 flex-wrap">
               <Button variant="outline" onClick={salvaRicongiungimento} disabled={saving}>
                 <Save className="w-4 h-4 mr-1" /> Salva Ricongiungimento
+              </Button>
+              <Button
+                variant="outline"
+                onClick={apriGarantito}
+                disabled={!quadra}
+                className="border-orange-400 text-orange-700 hover:bg-orange-50"
+                title="Incasso garantito (senza fondi in cassa)"
+              >
+                <Shield className="w-4 h-4 mr-1" /> Garantito
               </Button>
               <Button onClick={apriMessaCassa} disabled={!quadra}>
                 <Wallet className="w-4 h-4 mr-1" /> Metti a Cassa
@@ -378,6 +458,20 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
         onOpenChange={setCassaOpen}
         titoli={cassaTitoli}
         onSuccess={onCassaSuccess}
+      />
+      <GarantitoDialog
+        open={garantitoOpen}
+        onOpenChange={setGarantitoOpen}
+        titoli={garantitoTitoli}
+        onSuccess={async () => {
+          // Stessa persistenza di onCassaSuccess: marca movimenti_polizze + bancario
+          setCassaTitoli(garantitoTitoli);
+          await onCassaSuccess();
+        }}
+      />
+      <AnticipoUtilizziDrawer
+        anticipoId={anticipoDrawerId}
+        onClose={() => setAnticipoDrawerId(null)}
       />
     </Collapsible>
   );
