@@ -755,7 +755,7 @@ export default function SinistroAperturaWizardPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Liquidatore Esterno *</Label>
+                    <Label>Liquidatore Esterno <span className="text-muted-foreground text-xs">(facoltativo)</span></Label>
                     <SearchableSelect
                       value={watch("liquidatore_id")}
                       onValueChange={(val) => setValue("liquidatore_id", val, { shouldValidate: true })}
