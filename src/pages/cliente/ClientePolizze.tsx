@@ -42,12 +42,49 @@ const ClientePolizze = () => {
     const load = async () => {
       const { data: clienteIds } = await supabase.rpc("get_my_cliente_ids");
       if (!clienteIds?.length) { setLoading(false); return; }
-      const { data } = await supabase
-        .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, premio_netto, cig_rif, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, compagnie(nome), rami(descrizione)")
-        .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
-        .order("created_at", { ascending: false });
-      setTitoli(data ?? []);
+      const ids = clienteIds.map((c: any) => c);
+
+      const [titoliRes, cgaRes] = await Promise.all([
+        supabase
+          .from("titoli")
+          .select("id, numero_titolo, stato, premio_lordo, premio_netto, cig_rif, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, compagnie(nome), rami(descrizione)")
+          .in("cliente_anagrafica_id", ids)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("polizza_cga")
+          .select("id, numero_polizza, stato, data_decorrenza, data_scadenza, premio_lordo_totale, premio_imponibile_totale, frazionamento, prodotti_cga(nome_prodotto, compagnia, ramo)")
+          .in("cliente_id", ids)
+          .eq("stato", "approvato")
+          .order("created_at", { ascending: false }),
+      ]);
+
+      const fromTitoli = (titoliRes.data ?? []).map((t: any) => ({
+        ...t,
+        _source: "titoli" as const,
+        _detailPath: `/cliente/polizze/${t.id}`,
+      }));
+
+      const fromCga = (cgaRes.data ?? []).map((p: any) => ({
+        id: p.id,
+        _source: "cga" as const,
+        _detailPath: `/cliente/assistente?polizza=${p.id}`,
+        numero_titolo: p.numero_polizza ?? "—",
+        stato: "attivo",
+        premio_lordo: p.premio_lordo_totale,
+        premio_netto: p.premio_imponibile_totale,
+        cig_rif: null,
+        data_scadenza: p.data_scadenza,
+        durata_da: p.data_decorrenza,
+        periodicita: p.frazionamento,
+        descrizione_polizza: p.prodotti_cga?.ramo ?? null,
+        produttore_nome: null,
+        targa_telaio: null,
+        prodotto_nome: p.prodotti_cga?.nome_prodotto ?? p.prodotti_cga?.ramo ?? null,
+        compagnie: p.prodotti_cga?.compagnia ? { nome: p.prodotti_cga.compagnia } : null,
+        rami: p.prodotti_cga?.ramo ? { descrizione: p.prodotti_cga.ramo } : null,
+      }));
+
+      setTitoli([...fromCga, ...fromTitoli]);
       setLoading(false);
     };
     load();
