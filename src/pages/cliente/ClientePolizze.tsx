@@ -42,12 +42,49 @@ const ClientePolizze = () => {
     const load = async () => {
       const { data: clienteIds } = await supabase.rpc("get_my_cliente_ids");
       if (!clienteIds?.length) { setLoading(false); return; }
-      const { data } = await supabase
-        .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, premio_netto, cig_rif, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, compagnie(nome), rami(descrizione)")
-        .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
-        .order("created_at", { ascending: false });
-      setTitoli(data ?? []);
+      const ids = clienteIds.map((c: any) => c);
+
+      const [titoliRes, cgaRes] = await Promise.all([
+        supabase
+          .from("titoli")
+          .select("id, numero_titolo, stato, premio_lordo, premio_netto, cig_rif, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, compagnie(nome), rami(descrizione)")
+          .in("cliente_anagrafica_id", ids)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("polizza_cga")
+          .select("id, numero_polizza, stato, data_decorrenza, data_scadenza, premio_lordo_totale, premio_imponibile_totale, frazionamento, prodotti_cga(nome_prodotto, compagnia, ramo)")
+          .in("cliente_id", ids)
+          .eq("stato", "approvato")
+          .order("created_at", { ascending: false }),
+      ]);
+
+      const fromTitoli = (titoliRes.data ?? []).map((t: any) => ({
+        ...t,
+        _source: "titoli" as const,
+        _detailPath: `/cliente/polizze/${t.id}`,
+      }));
+
+      const fromCga = (cgaRes.data ?? []).map((p: any) => ({
+        id: p.id,
+        _source: "cga" as const,
+        _detailPath: `/cliente/assistente?polizza=${p.id}`,
+        numero_titolo: p.numero_polizza ?? "—",
+        stato: "attivo",
+        premio_lordo: p.premio_lordo_totale,
+        premio_netto: p.premio_imponibile_totale,
+        cig_rif: null,
+        data_scadenza: p.data_scadenza,
+        durata_da: p.data_decorrenza,
+        periodicita: p.frazionamento,
+        descrizione_polizza: p.prodotti_cga?.ramo ?? null,
+        produttore_nome: null,
+        targa_telaio: null,
+        prodotto_nome: p.prodotti_cga?.nome_prodotto ?? p.prodotti_cga?.ramo ?? null,
+        compagnie: p.prodotti_cga?.compagnia ? { nome: p.prodotti_cga.compagnia } : null,
+        rami: p.prodotti_cga?.ramo ? { descrizione: p.prodotti_cga.ramo } : null,
+      }));
+
+      setTitoli([...fromCga, ...fromTitoli]);
       setLoading(false);
     };
     load();
@@ -225,23 +262,23 @@ const ClientePolizze = () => {
 
                   return (
                     <TableRow key={t.id} className={`cursor-pointer transition-colors hover:bg-teal-50 ${idx % 2 === 0 ? "bg-white" : "bg-muted/30"}`}>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <Badge className={`text-[10px] ${statoBadge[t.stato] ?? "bg-muted text-muted-foreground"}`}>{t.stato}</Badge>
                       </Link></TableCell>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <p className="font-semibold text-sm text-foreground">{compagnia}</p>
                         {t.produttore_nome && <p className="text-xs text-muted-foreground">{t.produttore_nome}</p>}
                       </Link></TableCell>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <p className="text-sm font-medium text-teal-800">{prodotto}</p>
                       </Link></TableCell>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <p className="text-sm font-mono text-foreground">{polizzaTarga}</p>
                       </Link></TableCell>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <p className="text-xs font-mono text-muted-foreground">{t.cig_rif ?? "—"}</p>
                       </Link></TableCell>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <div className="flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                           <span className="text-sm">{t.data_scadenza ? format(new Date(t.data_scadenza), "dd/MM/yyyy", { locale: it }) : "—"}</span>
@@ -250,13 +287,13 @@ const ClientePolizze = () => {
                           <Badge className={`mt-0.5 text-[10px] ${giorni <= 30 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"}`}>{giorni} gg</Badge>
                         )}
                       </Link></TableCell>
-                      <TableCell className="py-2.5 text-center"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5 text-center"><Link to={t._detailPath} className="block">
                         <span className="text-sm">{t.periodicita ?? "—"}</span>
                       </Link></TableCell>
-                      <TableCell className="py-2.5 text-right"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5 text-right"><Link to={t._detailPath} className="block">
                         <span className="text-sm text-foreground">{t.premio_netto ? fmt(t.premio_netto) : "—"}</span>
                       </Link></TableCell>
-                      <TableCell className="py-2.5 text-right"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5 text-right"><Link to={t._detailPath} className="block">
                         <span className="text-sm font-bold text-foreground">{t.premio_lordo ? fmt(t.premio_lordo) : "—"}</span>
                       </Link></TableCell>
                     </TableRow>

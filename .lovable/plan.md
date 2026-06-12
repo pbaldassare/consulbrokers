@@ -1,33 +1,53 @@
-## Aggiornamento Tour Guidato Portale Cliente
+## Obiettivo
+Nel portale cliente del Comune di Varese (`/cliente/polizze`) devono sparire le **11 polizze demo** `DEMO-VA-*` e devono apparire le **6 polizze reali** caricate ieri tramite il parser CGA (tabella `polizza_cga`):
 
-### 1. Aggiungere step per Assistente Polizze
-Inserire nuovi step nel tour `CLIENTE_TOUR_STEPS` (`src/components/tour/AppTourContext.tsx`):
-- **Sidebar "Assistente Polizze"** (selettore `cl-nav-assistente`): introduzione alla nuova feature AI.
-- **Pagina Assistente** (`/cliente/assistente`, selettore `cl-assist-page`): spiegazione della chat AI che interroga tutte le polizze.
-- **Suggerimenti rapidi** (selettore `cl-assist-suggerimenti`): mostra i prompt suggeriti (coperture, sinistri, scadenze).
-- **Badge polizze indicizzate** (selettore `cl-assist-stats`): spiega che indica quante polizze + CGA l'AI sta consultando.
-- **Citazioni fonti**: step che evidenzia come ogni risposta cita la polizza di origine `[Prodotto · n° · Compagnia]`.
+| N° Polizza | Prodotto | Compagnia | Scadenza |
+|---|---|---|---|
+| G00304257 | Incendio/Furto/Kasko veicoli (Lotto IV) | Global Assistance | 30/11/2027 |
+| 50800691 | Infortuni Cumulativa Amm./Dip. | Helvetia | 30/11/2027 |
+| OX00085594 | REVO SpecialtyX Cyber Risk | REVO | 30/04/2028 |
+| (senza n°) | REVO SpecialtyX Cyber Risk | REVO | — |
+| (senza n°) | All Risks | ITAS Mutua | — |
+| (senza n°) | All Risks | ITAS Mutua | — |
 
-Aggiungere i corrispondenti attributi `data-tour="cl-nav-assistente"`, `cl-assist-page`, `cl-assist-suggerimenti`, `cl-assist-stats` rispettivamente in `ClienteLayout.tsx` e `ClienteAssistente.tsx`.
+## Cosa farò
 
-### 2. Disattivare avvio automatico
-In `src/components/tour/TourLauncher.tsx`:
-- Rimuovere l'`useEffect` che invoca `startTour()` dopo 1.2s al primo accesso.
-- Il tour parte **solo** cliccando il bottone "Tour guidato" in basso a destra.
-- Mantenere `hasSeenClienteTour` per eventuale UI futura, ma non usarlo come trigger automatico.
+### 1. Pulizia dati demo (DB)
+Cancello dal cliente `Comune di Varese` (id `94dc5a3c-...`):
+- gli 11 record in `titoli` con `numero_titolo LIKE 'DEMO-VA-%'`
+- a cascata: provvigioni, movimenti, quietanze, rimesse collegate (riuso la stessa logica della cancellazione polizza).
 
-### 3. Popup di conferma all'avvio
-Aggiungere un `AlertDialog` (shadcn) in `TourLauncher.tsx`:
-- Click sul bottone "Tour guidato" → apre dialog di conferma con:
-  - Titolo: "Avvia tour guidato?"
-  - Descrizione: spiega cosa farà il tour (~25 step, naviga tra le sezioni, ~3 minuti).
-  - Pulsanti: **"Annulla"** (chiude) / **"Avvia tour"** (chiama `startTour()` e chiude).
-- Stato locale `showConfirm` per gestire apertura/chiusura.
+I 4 sinistri demo `SIN-VA-*` li lascio: l'utente non ha chiesto di toccarli. Posso eliminarli in un secondo step se vuoi.
 
-### File da modificare
-- `src/components/tour/AppTourContext.tsx` — aggiungere step Assistente Polizze nell'array.
-- `src/components/tour/TourLauncher.tsx` — rimuovere auto-start, aggiungere AlertDialog di conferma.
-- `src/components/ClienteLayout.tsx` — aggiungere `data-tour="cl-nav-assistente"` sulla voce sidebar.
-- `src/pages/cliente/ClienteAssistente.tsx` — aggiungere selettori `cl-assist-page`, `cl-assist-suggerimenti`, `cl-assist-stats`.
+### 2. Frontend `/cliente/polizze` mostra anche le polizze_cga
+Modifico `src/pages/cliente/ClientePolizze.tsx` per fare **due query in parallelo** e fondere i risultati in una sola tabella:
+- `titoli` (come oggi) → polizze "amministrative"
+- `polizza_cga` JOIN `prodotti_cga` filtrate per `cliente_id IN get_my_cliente_ids()` e `stato='approvato'` → polizze "da CGA"
 
-Nessuna modifica al backend, alle edge functions o allo schema DB.
+Normalizzo entrambi gli oggetti in una shape comune:
+```
+{ id, source: 'titoli'|'cga', stato, compagnia, prodotto, numero, data_scadenza, premio_lordo, premio_netto, frazionamento, ... }
+```
+Le righe da `polizza_cga` mostrano:
+- Stato: badge "Approvata" (verde) se `stato='approvato'`
+- Compagnia: `prodotti_cga.compagnia`
+- Prodotto: `prodotti_cga.nome_prodotto` (fallback `ramo`)
+- N° Polizza: `numero_polizza` (o "—" se mancante)
+- Scadenza/Premi: dai campi di `polizza_cga`
+- Click → naviga a `/cliente/assistente?polizza=<id>` (la detail per CGA non esiste ancora nel portale; l'assistente AI ha già il contesto della singola polizza).
+
+Filtri e totali continuano a funzionare su entrambe le sorgenti.
+
+### 3. Nessun cambio a backend/edge function
+`chiedi-mie-polizze` legge già entrambe le sorgenti, quindi resta com'è.
+
+## File toccati
+- migrazione/insert: DELETE su `titoli` (e tabelle correlate) per i DEMO-VA-* del Comune di Varese
+- `src/pages/cliente/ClientePolizze.tsx`: doppia fetch + merge
+
+## Cosa NON farò (per non sforare)
+- Non tocco i sinistri demo `SIN-VA-*` (chiedi e li elimino).
+- Non costruisco una pagina di dettaglio CGA dedicata: per ora il click sulla riga CGA porta all'Assistente.
+- Non rimuovo seed function / memoria demo (resta per altri ambienti); cancellazione solo dati del Comune di Varese.
+
+Confermi e passo in build?
