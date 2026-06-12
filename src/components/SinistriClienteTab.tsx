@@ -5,23 +5,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
+import { getTipoSinistroLabel } from "@/lib/tipiSinistro";
 
 const statoBadge: Record<string, string> = {
+  in_valutazione: "bg-amber-100 text-amber-800",
   aperto: "bg-blue-100 text-blue-800",
   in_lavorazione: "bg-yellow-100 text-yellow-800",
   in_attesa_documenti: "bg-orange-100 text-orange-800",
+  in_liquidazione: "bg-purple-100 text-purple-800",
   chiuso: "bg-green-100 text-green-800",
   respinto: "bg-red-100 text-red-800",
-};
-
-const tipoLabels: Record<string, string> = {
-  incidente_stradale: "Incidente Stradale",
-  furto: "Furto",
-  incendio: "Incendio",
-  danni_acqua: "Danni Acqua",
-  RC_terzi: "RC Terzi",
-  infortunio: "Infortunio",
-  grandine: "Grandine",
 };
 
 export default function SinistriClienteTab({ clienteId }: { clienteId: string }) {
@@ -32,7 +25,7 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sinistri")
-        .select("*, agenzie(nome), titoli(numero_titolo)")
+        .select("*, compagnie(nome), titoli(numero_titolo)")
         .eq("cliente_anagrafica_id", clienteId)
         .order("data_apertura", { ascending: false });
       if (error) throw error;
@@ -47,10 +40,18 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Totale Sinistri</p><p className="text-2xl font-bold">{sinistri.length}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Aperti</p><p className="text-2xl font-bold text-orange-600">{aperti}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Riserva Totale</p><p className="text-2xl font-bold font-mono">€ {totaleRiserva.toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Liquidato Totale</p><p className="text-2xl font-bold font-mono">€ {totaleLiquidato.toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
+        <Card className="border-l-4" style={{ borderLeftColor: "#2563eb" }}>
+          <CardContent className="pt-4"><p className="text-sm text-muted-foreground">Totale Sinistri</p><p className="text-2xl font-bold">{sinistri.length}</p></CardContent>
+        </Card>
+        <Card className="border-l-4" style={{ borderLeftColor: "#ea580c" }}>
+          <CardContent className="pt-4"><p className="text-sm text-muted-foreground">Aperti</p><p className="text-2xl font-bold text-orange-600">{aperti}</p></CardContent>
+        </Card>
+        <Card className="border-l-4" style={{ borderLeftColor: "#dc2626" }}>
+          <CardContent className="pt-4"><p className="text-sm text-muted-foreground">Riserva Totale</p><p className="text-2xl font-bold font-mono">€ {totaleRiserva.toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent>
+        </Card>
+        <Card className="border-l-4" style={{ borderLeftColor: "#0d9488" }}>
+          <CardContent className="pt-4"><p className="text-sm text-muted-foreground">Liquidato Totale</p><p className="text-2xl font-bold font-mono">€ {totaleLiquidato.toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -60,29 +61,33 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/50">
                   <TableHead>N. Sinistro</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Polizza</TableHead>
-                  <TableHead>Agenzia</TableHead>
+                  <TableHead>Compagnia</TableHead>
                   <TableHead>Stato</TableHead>
-                  <TableHead>Costo Prev. €</TableHead>
-                  <TableHead>Costo Eff. €</TableHead>
-                  <TableHead>Liquidato €</TableHead>
+                  <TableHead>Luogo</TableHead>
+                  <TableHead className="text-right">Riserva €</TableHead>
+                  <TableHead className="text-right">Liquidato €</TableHead>
                   <TableHead>Data Apertura</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sinistri.map((s: any) => (
-                  <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/sinistri/${s.id}`)}>
+                {sinistri.map((s: any, idx: number) => (
+                  <TableRow
+                    key={s.id}
+                    className={`cursor-pointer hover:bg-accent/50 ${idx % 2 === 1 ? "bg-muted/20" : ""}`}
+                    onClick={() => navigate(`/sinistri/${s.id}`)}
+                  >
                     <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
-                    <TableCell>{tipoLabels[s.tipo_sinistro] || s.tipo_sinistro || "—"}</TableCell>
+                    <TableCell>{getTipoSinistroLabel(s.tipo_sinistro)}</TableCell>
                     <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
                     <TableCell>{s.compagnie?.nome || "—"}</TableCell>
                     <TableCell><Badge className={statoBadge[s.stato] || ""}>{s.stato?.replace(/_/g, " ")}</Badge></TableCell>
-                    <TableCell className="font-mono">{s.costo_preventivato?.toFixed(2) ?? "—"}</TableCell>
-                    <TableCell className="font-mono">{s.costo_effettivo?.toFixed(2) ?? "—"}</TableCell>
-                    <TableCell className="font-mono">{s.importo_liquidato?.toFixed(2) ?? "—"}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">{s.citta_sinistro || s.luogo_sinistro || "—"}</TableCell>
+                    <TableCell className="font-mono text-right">{s.importo_riserva ? s.importo_riserva.toLocaleString("it-IT", { minimumFractionDigits: 2 }) : "—"}</TableCell>
+                    <TableCell className="font-mono text-right text-emerald-700">{s.importo_liquidato ? s.importo_liquidato.toLocaleString("it-IT", { minimumFractionDigits: 2 }) : "—"}</TableCell>
                     <TableCell>{s.data_apertura ? format(new Date(s.data_apertura), "dd/MM/yyyy") : "—"}</TableCell>
                   </TableRow>
                 ))}

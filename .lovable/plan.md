@@ -1,58 +1,51 @@
-## Obiettivi
+## Diagnosi
 
-1. **Step 4 wizard admin** — togliere obbligatorietà di "Responsabile Interno" (e Liquidatore).
-2. **Visibilità sinistri per cliente/sede** — assicurare che i sinistri aperti da un cliente (es. Comune di Varese) compaiano sia nel suo portale sia in `/sinistri` lato admin/gestore, collegati a `cliente_anagrafica_id` e `ufficio_id`.
-3. **Ciclo di vita stato pratica** — definire stati standard + workflow gestibile da admin/gestore.
-4. **Auto-stato `in_valutazione`** quando un cliente apre il sinistro dal portale.
-5. **Audit log** completo su ogni cambio di stato e su ogni movimento principale.
+Il sinistro **SIN-2026-2403** è correttamente salvato in DB con `cliente_anagrafica_id = 94dc...` (Comune di Varese) e `ufficio_id = 327e92f7...`. Il problema **non è il dato**, è il **componente che lo legge**:
 
-## Stati pratica (standard)
+```ts
+// src/components/SinistriClienteTab.tsx (riga 35)
+.select("*, agenzie(nome), titoli(numero_titolo)")
+```
 
-`in_valutazione` → `aperto` → `in_lavorazione` → `in_attesa_documenti` → `in_liquidazione` → `chiuso` · `respinto`
+`agenzie` non è una relazione di `sinistri` → la query ritorna errore PostgREST → fallback array vuoto → "Nessun sinistro collegato a questo cliente". Inoltre la mappa stati (`statoBadge`) e le label tipo non includono i nuovi valori (`in_valutazione`, `in_liquidazione`, e i 27 nuovi tipi di sinistro).
 
-- Default da portale cliente: `in_valutazione`
-- Default da wizard admin: `aperto`
-- Solo admin / ruoli L2–L4 (cfo, ufficio, backoffice, manager) possono cambiare stato; cliente vede solo lettura.
+Inoltre `SinistroDetail.tsx` ha grafica disallineata rispetto al resto del gestionale (h1 "nudo", card grigie semplici, niente header colorato con icona, niente link al cliente, tipi mostrati con vecchia mappa hard-coded, Select stato senza guardia per ruolo).
 
-## Modifiche
+## Cosa farò
 
-### 1. Wizard admin (`src/pages/SinistroAperturaWizardPage.tsx`)
-- Schema zod: `responsabile_id` e `liquidatore_id` → `.optional()`.
-- Step 4 UI: rimuovere asterisco e label "obbligatorio"; aggiornare descrizione step.
-- `handleSubmit`: passare `null` se vuoti; `stato: 'aperto'`.
+### 1. Bug fix: tab Sinistri nel cliente (Varese vede il suo SIN)
+File: `src/components/SinistriClienteTab.tsx`
+- Sostituire `agenzie(nome)` → `compagnie(nome)` nella `select`.
+- Allineare `statoBadge` ai 7 stati (`in_valutazione` ambra, `in_liquidazione` viola, ecc.).
+- Usare `getTipoSinistroLabel` da `src/lib/tipiSinistro.ts` invece della mappa locale `tipoLabels`.
+- Aggiungere colonna "Luogo" e badge ramo, allineare stile tabella zebrata come altre liste (memory).
 
-### 2. Apertura da portale cliente (`src/components/cliente/NuovaDenunciaSinistroDialog.tsx`)
-- Insert con `stato: 'in_valutazione'`, `aperto_da_cliente: true`, `cliente_anagrafica_id` = id cliente corrente, `ufficio_id` derivato dal cliente (lookup `clienti.ufficio_id` se presente, altrimenti dalla polizza/titolo).
-- Notifica sede + log attività (`logAttivita` con azione `sinistro_aperto_da_cliente`).
+### 2. Restyling `SinistroDetail.tsx` coerente con il design system
+- Header pagina in stile `ClienteDetail` / `ClientePolizzaDetail`: icona rotonda colorata (arancio per sinistri come in `ClienteSinistri`), titolo + sottotitolo, badge stato grosso a destra, breadcrumb Back.
+- **Link cliente cliccabile** → `/archivi/clienti/{cliente_anagrafica_id}` con nome + tipo (Ente/Privato/Azienda).
+- **Link polizza** → `/portafoglio/titoli/{titolo_id}` se presente.
+- KPI cards finanziarie in un'unica griglia con border-left colorato (pattern di `ClienteSinistri`) per uniformità font/colori (font default progetto, niente `text-2xl font-bold` slegato).
+- Rimuovere mappa `tipoLabels` interna, usare `getTipoSinistroLabel`.
+- Sezione "Luogo sinistro" con icona MapPin + indirizzo strutturato (via, CAP, città, prov.).
 
-### 3. Backfill collegamenti mancanti (migration)
-- `UPDATE sinistri SET cliente_anagrafica_id = t.cliente_id, ufficio_id = COALESCE(sinistri.ufficio_id, t.ufficio_id) FROM titoli t WHERE sinistri.titolo_id = t.id AND sinistri.cliente_anagrafica_id IS NULL;`
-- Trigger BEFORE INSERT/UPDATE su `sinistri`: se `cliente_anagrafica_id` o `ufficio_id` nulli ma `titolo_id` presente, auto-popola da `titoli`.
+### 3. Gestione stati pratica (admin / specialist / manager)
+- La card "Cambia Stato" diventa visibile solo se `isAdmin || hasPermission('sinistri')` (esclude cliente/produttore L5/L6).
+- Sostituire i bottoni piatti con un `Select` SearchableSelect-style + bottone "Aggiorna" + textarea "Note cambio stato" opzionale (passata all'edge function `gestione-sinistri` già pronta che logga in `sinistro_eventi` + `log_attivita`).
+- Aggiungere assegnazione **Responsabile** e **Liquidatore** (in-place edit con `SearchableSelect` sui profiles dell'ufficio) — anch'essa role-gated e loggata via `logAttivita`.
 
-### 4. Gestione stato lato admin (`src/pages/SinistroDetail.tsx` + `src/pages/SinistriList.tsx`)
-- In `SinistroDetail`: header con `Select` "Stato pratica" (visibile solo se `isAdmin` o ruolo gestore). Al cambio:
-  - `UPDATE sinistri SET stato = ?, data_chiusura = (CASE WHEN ?='chiuso' THEN now() ELSE null END)`
-  - Inserisce riga in `sinistro_eventi` (tipo `cambio_stato`, descrizione `da X a Y`).
-  - `logAttivita({ azione: 'sinistro_cambio_stato', entita_tipo: 'sinistro', dettagli_json: { da, a } })`.
-  - Notifica cliente + responsabile via `notifiche`.
-- In `SinistriList`: filtro stato già esistente — aggiungere i nuovi valori e badge colorato.
+### 4. Documenti & coerenza struttura
+- Il tab "Documenti" già usa `DocumentiTab entitaTipo="sinistro" bucketName="documenti_sinistri"`: aggiungo solo filtri categoria (`perizia`, `referto_medico`, `denuncia`, `corrispondenza`, `liquidazione`).
+- Tab "Polizza collegata" nuovo: card riassuntiva con numero, compagnia, ramo, scadenza, link a TitoloDetail.
 
-### 5. Portale cliente (`src/pages/cliente/ClienteSinistri.tsx`)
-- Mappa badge per i nuovi stati (`in_valutazione` arancione, `in_liquidazione` viola).
-- Read-only sullo stato (già).
+### 5. SinistriList (vista admin)
+- Allineare colonne / badge stati con i 7 nuovi valori e con `getTipoSinistroLabel`.
+- Filtro stato esteso (`in_valutazione`, `in_liquidazione`).
+- Click riga → SinistroDetail (già presente).
 
-### 6. Logging trasversale
-- Centralizzare in helper `src/lib/logSinistro.ts` (apertura, cambio stato, assegnazione, liquidazione, chiusura) usando `logAttivita` + insert su `sinistro_eventi`.
+### Nessuna modifica DB
+Lo schema (`sinistri`, `sinistro_eventi`, `documenti`, `log_attivita`) è già a posto dopo le migration precedenti. Nessuna nuova migration in questo passo.
 
-## Dettagli tecnici
-
-- Tabella `sinistri` esistente: `stato text`, `aperto_da_cliente boolean`, `ufficio_id`, `cliente_anagrafica_id` — nessun nuovo campo necessario.
-- RLS: policy `sede_scope_sinistri` (`ufficio_id = ANY get_my_ufficio_ids()`) già copre la visibilità per sede una volta valorizzato `ufficio_id` → il backfill è la chiave per vedere i sinistri di Varese.
-- Policy cliente: insert già consentito; la lettura cross-cliente resta vincolata a `get_my_cliente_ids()`.
-- `sinistro_eventi` già presente in schema (verifico struttura in build mode prima dell'insert).
-
-## Fuori scope
-
-- Modifica RLS / ruoli.
-- Refactor wizard oltre allo step 4.
-- Modifica logica liquidazione importi.
+## File modificati
+- `src/components/SinistriClienteTab.tsx` (bug + restyle)
+- `src/pages/SinistroDetail.tsx` (restyle completo + guardia ruoli + assegnazioni)
+- `src/pages/SinistriList.tsx` (badge/tipi allineati)
