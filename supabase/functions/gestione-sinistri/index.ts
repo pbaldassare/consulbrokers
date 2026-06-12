@@ -75,33 +75,57 @@ Deno.serve(async (req) => {
 
     if (azione === "crea") {
       const {
-        numero_sinistro, titolo_id, cliente_id, compagnia_id, responsabile_id, ufficio_id, descrizione, user_id,
-        cliente_anagrafica_id, tipo_sinistro, luogo_sinistro, data_evento
+        numero_sinistro, titolo_id, cliente_id, compagnia_id, responsabile_id, liquidatore_id,
+        ufficio_id, descrizione, user_id,
+        cliente_anagrafica_id, tipo_sinistro, luogo_sinistro, data_evento,
+        data_denuncia, data_apertura, numero_sinistro_compagnia, importo_riserva,
+        stato_iniziale, priorita, note_interne,
       } = parsed.data;
 
+      const numero = numero_sinistro
+        ?? `SIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const stato = stato_iniziale ?? "aperto";
+      const oggi = new Date().toISOString().split("T")[0];
+
       const { data: sinistro, error } = await supabase.from("sinistri").insert({
-        numero_sinistro, titolo_id, cliente_id, compagnia_id, responsabile_id, ufficio_id, descrizione,
-        cliente_anagrafica_id: cliente_anagrafica_id || null,
-        tipo_sinistro: tipo_sinistro || null,
-        luogo_sinistro: luogo_sinistro || null,
-        data_evento: data_evento || null,
+        numero_sinistro: numero,
+        titolo_id: titolo_id ?? null,
+        cliente_id: cliente_id ?? null,
+        compagnia_id: compagnia_id ?? null,
+        responsabile_id: responsabile_id ?? null,
+        liquidatore_id: liquidatore_id ?? null,
+        ufficio_id: ufficio_id ?? null,
+        descrizione: descrizione ?? null,
+        cliente_anagrafica_id: cliente_anagrafica_id ?? null,
+        tipo_sinistro: tipo_sinistro ?? null,
+        luogo_sinistro: luogo_sinistro ?? null,
+        data_evento: data_evento ?? null,
+        data_denuncia: data_denuncia ?? oggi,
+        data_apertura: data_apertura ?? oggi,
+        numero_sinistro_compagnia: numero_sinistro_compagnia ?? null,
+        importo_riserva: importo_riserva ?? null,
+        stato,
+        aperto_da_cliente: stato === "in_valutazione",
       }).select().single();
 
       if (error) throw error;
 
-      // Default checklist
-      const defaultChecklist = [
-        { sinistro_id: sinistro.id, descrizione: "Denuncia sinistro compilata", obbligatorio: true },
-        { sinistro_id: sinistro.id, descrizione: "Documentazione fotografica", obbligatorio: true },
-        { sinistro_id: sinistro.id, descrizione: "Copia polizza allegata", obbligatorio: true },
-        { sinistro_id: sinistro.id, descrizione: "Modulo CID/CAI compilato", obbligatorio: false },
-      ];
-      await supabase.from("sinistro_checklist").insert(defaultChecklist);
+      // Evento timeline apertura
+      await supabase.from("sinistro_eventi").insert({
+        sinistro_id: sinistro.id,
+        tipo_evento: "apertura",
+        data_scadenza: oggi,
+        stato: "completato",
+        note: `Apertura sinistro ${numero}${priorita ? ` · Priorità: ${priorita}` : ""}${note_interne ? ` · ${note_interne}` : ""}`,
+      });
 
       // Log
       if (user_id) {
         await supabase.from("log_attivita").insert({
           user_id, azione: "creazione_sinistro", entita_tipo: "sinistro", entita_id: sinistro.id,
+          ufficio_id: sinistro.ufficio_id ?? null,
+          dettagli_json: { numero, tipo_sinistro, stato },
+          severity: "info",
         });
       }
 
