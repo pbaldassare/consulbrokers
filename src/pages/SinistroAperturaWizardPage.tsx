@@ -350,7 +350,7 @@ export default function SinistroAperturaWizardPage() {
       // 1. Inserimento del sinistro in Supabase
       const payloadSinistro = {
         numero_sinistro: `SIN-${format(new Date(), "yyyy")}-${Math.floor(1000 + Math.random() * 9000)}`, // Generazione codice
-        titolo_id: values.titolo_id || null,
+        titolo_id: values.titolo_id && !values.titolo_id.startsWith("cga:") ? values.titolo_id : null,
         cliente_anagrafica_id: clienteAnagraficaId,
         compagnia_id: compagniaId,
         ufficio_id: ufficioId,
