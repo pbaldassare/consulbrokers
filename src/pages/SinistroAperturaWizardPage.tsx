@@ -333,48 +333,34 @@ export default function SinistroAperturaWizardPage() {
       const clienteAnagraficaId = selectedPolizzaData?.cliente_anagrafica_id || null;
       const ufficioId = selectedPolizzaData?.ufficio_id || null;
 
-      // 1. Inserimento del sinistro in Supabase
-      const payloadSinistro = {
-        numero_sinistro: `SIN-${format(new Date(), "yyyy")}-${Math.floor(1000 + Math.random() * 9000)}`, // Generazione codice
-        titolo_id: values.titolo_id && !values.titolo_id.startsWith("cga:") ? values.titolo_id : null,
-        cliente_anagrafica_id: clienteAnagraficaId,
-        compagnia_id: compagniaId,
-        ufficio_id: ufficioId,
-        tipo_sinistro: values.tipo_sinistro,
-        descrizione: values.descrizione,
-        luogo_sinistro: values.luogo_sinistro,
-        data_evento: values.data_evento,
-        data_denuncia: values.data_denuncia,
-        data_apertura: format(new Date(), "yyyy-MM-dd"),
-        importo_riserva: values.importo_riserva || null,
-        responsabile_id: values.responsabile_id || null,
-        liquidatore_id: values.liquidatore_id || null,
-        stato: "aperto",
-        aperto_da_cliente: false
-      };
+      // 1. Creazione del sinistro tramite edge function unificata
+      //    (checklist di default + log_attivita + evento timeline generati lato server)
+      const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
+        body: {
+          azione: "crea",
+          titolo_id: values.titolo_id && !values.titolo_id.startsWith("cga:") ? values.titolo_id : null,
+          cliente_anagrafica_id: clienteAnagraficaId,
+          compagnia_id: compagniaId,
+          ufficio_id: ufficioId,
+          tipo_sinistro: values.tipo_sinistro,
+          descrizione: values.descrizione,
+          luogo_sinistro: values.luogo_sinistro,
+          data_evento: values.data_evento,
+          data_denuncia: values.data_denuncia,
+          numero_sinistro_compagnia: values.numero_sinistro_compagnia || undefined,
+          importo_riserva: values.importo_riserva ?? null,
+          responsabile_id: values.responsabile_id || null,
+          liquidatore_id: values.liquidatore_id || null,
+          priorita: values.priorita,
+          note_interne: values.note_interne || undefined,
+          user_id: user.id,
+          stato_iniziale: "aperto",
+        },
+      });
+      if (invokeErr) throw invokeErr;
+      if (!invokeRes?.success) throw new Error(invokeRes?.error || "Errore creazione sinistro");
+      const newSinistro = invokeRes.sinistro as { id: string; numero_sinistro: string };
 
-      const { data: newSinistro, error: errorSinistro } = await supabase
-        .from("sinistri")
-        .insert(payloadSinistro)
-        .select("id, numero_sinistro")
-        .single();
-
-      if (errorSinistro) throw errorSinistro;
-
-      // 2. Inserimento evento automatico di apertura
-      const payloadEvento = {
-        sinistro_id: newSinistro.id,
-        tipo_evento: "apertura",
-        data_scadenza: format(new Date(), "yyyy-MM-dd"),
-        stato: "completato",
-        note: `Apertura automatica pratica sinistro ${newSinistro.numero_sinistro}. Priorità: ${values.priorita.toUpperCase()}. Note interne: ${values.note_interne || "Nessuna"}`
-      };
-
-      const { error: errorEvento } = await supabase
-        .from("sinistro_eventi")
-        .insert(payloadEvento);
-
-      if (errorEvento) throw errorEvento;
 
       // 3. Upload documenti se presenti
       if (values.documenti && values.documenti.length > 0) {
