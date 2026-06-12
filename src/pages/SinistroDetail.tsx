@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, CheckCircle } from "lucide-react";
+import { ArrowLeft, Plus, CheckCircle, AlertTriangle, MapPin, User as UserIcon, FileText, Building2 } from "lucide-react";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
@@ -20,6 +20,9 @@ import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
+import { getTipoSinistroLabel } from "@/lib/tipiSinistro";
+import { useAuth } from "@/contexts/AuthContext";
+import { Textarea } from "@/components/ui/textarea";
 
 const statiSinistro = ["in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
 const statoBadge: Record<string, string> = {
@@ -41,10 +44,14 @@ export default function SinistroDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { isAdmin, hasPermission } = useAuth();
+  const canManage = isAdmin || hasPermission("sinistri");
   const [checklistDialog, setChecklistDialog] = useState(false);
   const [eventoDialog, setEventoDialog] = useState(false);
   const [newChecklist, setNewChecklist] = useState({ descrizione: "", obbligatorio: true });
   const [newEvento, setNewEvento] = useState({ tipo_evento: "", data_scadenza: "", note: "" });
+  const [statoTarget, setStatoTarget] = useState<string>("");
+  const [statoNote, setStatoNote] = useState<string>("");
 
   const { data: sinistro } = useQuery({
     queryKey: ["sinistro", id],
@@ -106,15 +113,17 @@ export default function SinistroDetail() {
     invalidate();
   };
 
-  const cambiaStato = async (nuovo: string) => {
+  const cambiaStato = async (nuovo: string, note?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase.functions.invoke("gestione-sinistri", {
-        body: { azione: "cambia_stato", sinistro_id: id, nuovo_stato: nuovo, user_id: user?.id },
+        body: { azione: "cambia_stato", sinistro_id: id, nuovo_stato: nuovo, user_id: user?.id, note: note || undefined },
       });
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
       toast.success(`Stato aggiornato a "${nuovo.replace(/_/g, " ")}"`);
+      setStatoTarget("");
+      setStatoNote("");
       invalidate();
     } catch (e: any) {
       toast.error(e.message);
