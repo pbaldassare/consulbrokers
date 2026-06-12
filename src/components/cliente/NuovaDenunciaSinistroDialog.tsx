@@ -64,16 +64,34 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
     setDinamica(""); setControparte(""); setTarga(""); setFiles([]);
     (async () => {
       const { data: cIds } = await supabase.rpc("get_my_cliente_ids");
-      if (!cIds?.length) return;
-      const { data } = await supabase
-        .from("titoli")
-        .select("id, numero_titolo, ufficio_id, cliente_anagrafica_id, rami(descrizione)")
-        .in("cliente_anagrafica_id", cIds.map((c: any) => c))
-        .eq("stato", "attivo");
-      setPolizze((data ?? []).map((t: any) => ({
-        ...t,
+      const ids = (cIds ?? []).map((c: any) => c);
+      if (!ids.length) return;
+      const [titRes, cgaRes] = await Promise.all([
+        supabase
+          .from("titoli")
+          .select("id, numero_titolo, ufficio_id, cliente_anagrafica_id, rami(descrizione)")
+          .in("cliente_anagrafica_id", ids),
+        supabase
+          .from("polizza_cga")
+          .select("id, numero_polizza, cliente_id, prodotti_cga(ramo)")
+          .in("cliente_id", ids)
+          .eq("stato", "approvato"),
+      ]);
+      const fromTitoli: Polizza[] = (titRes.data ?? []).map((t: any) => ({
+        id: t.id,
+        numero_titolo: t.numero_titolo,
+        ufficio_id: t.ufficio_id,
+        cliente_anagrafica_id: t.cliente_anagrafica_id,
         ramo_descrizione: t.rami?.descrizione,
-      })));
+      }));
+      const fromCga: Polizza[] = (cgaRes.data ?? []).map((c: any) => ({
+        id: `cga:${c.id}`,
+        numero_titolo: c.numero_polizza,
+        ufficio_id: null,
+        cliente_anagrafica_id: c.cliente_id,
+        ramo_descrizione: c.prodotti_cga?.ramo,
+      }));
+      setPolizze([...fromTitoli, ...fromCga]);
     })();
   }, [open]);
 
@@ -81,7 +99,7 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
   const tipoMeta = TIPI_SINISTRO.find(t => t.value === tipoSinistro);
   const showTarga = !!tipoMeta?.isVeicolo;
 
-  const canSubmit = titoloId && tipoSinistro && dataEvento && dinamica.trim().length > 5;
+  const canSubmit = tipoSinistro && dataEvento && dinamica.trim().length > 5;
 
   const submit = async () => {
     if (!user || !polizzaSelezionata) return;
