@@ -44,7 +44,7 @@ const tipoLabels: Record<string, string> = {
 // Schema di validazione Zod
 const wizardSchema = z.object({
   // Step 1
-  titolo_id: z.string().min(1, "Seleziona una polizza collegata"),
+  titolo_id: z.string().optional(),
   
   // Step 2
   data_evento: z.string().min(1, "La data accadimento è obbligatoria"),
@@ -292,7 +292,8 @@ export default function SinistroAperturaWizardPage() {
   const handleNextStep = async () => {
     let fieldsToValidate: any[] = [];
     if (currentStep === 1) {
-      fieldsToValidate = ["titolo_id"];
+      // Polizza opzionale: nessuna validazione bloccante
+      fieldsToValidate = [];
     } else if (currentStep === 2) {
       fieldsToValidate = ["data_evento", "data_denuncia", "tipo_sinistro", "descrizione", "luogo_sinistro", "importo_riserva"];
     } else if (currentStep === 3) {
@@ -335,7 +336,7 @@ export default function SinistroAperturaWizardPage() {
       // 1. Inserimento del sinistro in Supabase
       const payloadSinistro = {
         numero_sinistro: `SIN-${format(new Date(), "yyyy")}-${Math.floor(1000 + Math.random() * 9000)}`, // Generazione codice
-        titolo_id: values.titolo_id,
+        titolo_id: values.titolo_id || null,
         cliente_anagrafica_id: clienteAnagraficaId,
         compagnia_id: compagniaId,
         ufficio_id: ufficioId,
