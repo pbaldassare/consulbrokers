@@ -52,13 +52,13 @@ export default function ClienteAssistente() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-tour="cl-assist-page">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-primary" /> Assistente Polizze
         </h1>
         {stats && (
-          <div className="flex gap-2 text-xs">
+          <div className="flex gap-2 text-xs" data-tour="cl-assist-stats">
             <Badge variant="secondary" className="gap-1">
               <FileSearch className="h-3 w-3" /> {stats.polizze_amministrative} polizze
             </Badge>
@@ -77,7 +77,7 @@ export default function ClienteAssistente() {
         </CardHeader>
         <CardContent className="space-y-3">
           {messaggi.length === 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2" data-tour="cl-assist-suggerimenti">
               <p className="text-xs text-muted-foreground">Prova un esempio:</p>
               <div className="flex flex-wrap gap-2">
                 {ESEMPI.map((e) => (
