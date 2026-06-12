@@ -158,6 +158,23 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
         });
       }
 
+      // Log apertura + evento timeline
+      await supabase.from("sinistro_eventi").insert({
+        sinistro_id: sin.id,
+        tipo_evento: "apertura_cliente",
+        stato: "completato",
+        note: `Denuncia inviata dal cliente — stato iniziale: in valutazione`,
+      });
+      await supabase.from("log_attivita").insert({
+        user_id: user.id,
+        azione: "sinistro_aperto_da_cliente",
+        entita_tipo: "sinistro",
+        entita_id: sin.id,
+        ufficio_id: polizzaSelezionata?.ufficio_id ?? null,
+        dettagli_json: { numero, tipo_sinistro: tipoSinistro, cliente_id: clienteId },
+        severity: "info",
+      });
+
       toast.success("Denuncia inviata all'agenzia");
       onOpenChange(false);
       onCreated?.();
