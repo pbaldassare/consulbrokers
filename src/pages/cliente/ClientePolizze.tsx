@@ -61,7 +61,7 @@ const ClientePolizze = () => {
       const fromTitoli = (titoliRes.data ?? []).map((t: any) => ({
         ...t,
         _source: "titoli" as const,
-        _detailPath: `/cliente/polizze/${t.id}`,
+        _detailPath: t._detailPath,
       }));
 
       const fromCga = (cgaRes.data ?? []).map((p: any) => ({
@@ -262,23 +262,23 @@ const ClientePolizze = () => {
 
                   return (
                     <TableRow key={t.id} className={`cursor-pointer transition-colors hover:bg-teal-50 ${idx % 2 === 0 ? "bg-white" : "bg-muted/30"}`}>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <Badge className={`text-[10px] ${statoBadge[t.stato] ?? "bg-muted text-muted-foreground"}`}>{t.stato}</Badge>
                       </Link></TableCell>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <p className="font-semibold text-sm text-foreground">{compagnia}</p>
                         {t.produttore_nome && <p className="text-xs text-muted-foreground">{t.produttore_nome}</p>}
                       </Link></TableCell>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <p className="text-sm font-medium text-teal-800">{prodotto}</p>
                       </Link></TableCell>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <p className="text-sm font-mono text-foreground">{polizzaTarga}</p>
                       </Link></TableCell>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <p className="text-xs font-mono text-muted-foreground">{t.cig_rif ?? "—"}</p>
                       </Link></TableCell>
-                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5"><Link to={t._detailPath} className="block">
                         <div className="flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                           <span className="text-sm">{t.data_scadenza ? format(new Date(t.data_scadenza), "dd/MM/yyyy", { locale: it }) : "—"}</span>
@@ -287,13 +287,13 @@ const ClientePolizze = () => {
                           <Badge className={`mt-0.5 text-[10px] ${giorni <= 30 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"}`}>{giorni} gg</Badge>
                         )}
                       </Link></TableCell>
-                      <TableCell className="py-2.5 text-center"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5 text-center"><Link to={t._detailPath} className="block">
                         <span className="text-sm">{t.periodicita ?? "—"}</span>
                       </Link></TableCell>
-                      <TableCell className="py-2.5 text-right"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5 text-right"><Link to={t._detailPath} className="block">
                         <span className="text-sm text-foreground">{t.premio_netto ? fmt(t.premio_netto) : "—"}</span>
                       </Link></TableCell>
-                      <TableCell className="py-2.5 text-right"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                      <TableCell className="py-2.5 text-right"><Link to={t._detailPath} className="block">
                         <span className="text-sm font-bold text-foreground">{t.premio_lordo ? fmt(t.premio_lordo) : "—"}</span>
                       </Link></TableCell>
                     </TableRow>
