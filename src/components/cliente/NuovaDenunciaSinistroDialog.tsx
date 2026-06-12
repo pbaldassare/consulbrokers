@@ -186,7 +186,7 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
           {/* Polizza & Tipo */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <Label>Polizza coinvolta *</Label>
+              <Label>Polizza coinvolta (opzionale)</Label>
               <Select value={titoloId} onValueChange={setTitoloId}>
                 <SelectTrigger><SelectValue placeholder="Seleziona polizza" /></SelectTrigger>
                 <SelectContent>
