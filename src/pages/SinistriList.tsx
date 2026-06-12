@@ -15,16 +15,18 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
-const statiSinistro = ["aperto", "in_lavorazione", "in_attesa_documenti", "chiuso", "respinto"];
+const statiSinistro = ["in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
 const tipiSinistro = [
   "incidente_stradale", "furto", "incendio", "danni_acqua", "RC_terzi",
   "infortunio", "grandine", "atti_vandalici", "responsabilita_civile", "altro"
 ];
 
 const statoBadge: Record<string, string> = {
+  in_valutazione: "bg-amber-100 text-amber-800",
   aperto: "bg-blue-100 text-blue-800",
   in_lavorazione: "bg-yellow-100 text-yellow-800",
   in_attesa_documenti: "bg-orange-100 text-orange-800",
+  in_liquidazione: "bg-purple-100 text-purple-800",
   chiuso: "bg-green-100 text-green-800",
   respinto: "bg-red-100 text-red-800",
 };

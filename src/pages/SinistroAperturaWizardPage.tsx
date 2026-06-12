@@ -53,8 +53,8 @@ const wizardSchema = z.object({
   ).optional(),
   
   // Step 4
-  responsabile_id: z.string().min(1, "Il responsabile interno è obbligatorio"),
-  liquidatore_id: z.string().min(1, "Il liquidatore è obbligatorio"),
+  responsabile_id: z.string().optional(),
+  liquidatore_id: z.string().optional(),
   note_interne: z.string().optional(),
   priorita: z.enum(["normale", "alta", "urgente"])
 });
@@ -299,7 +299,7 @@ export default function SinistroAperturaWizardPage() {
     } else if (currentStep === 3) {
       fieldsToValidate = ["documenti"];
     } else if (currentStep === 4) {
-      fieldsToValidate = ["responsabile_id", "liquidatore_id", "priorita"];
+      fieldsToValidate = ["priorita"];
     }
 
     const isValid = await trigger(fieldsToValidate);
@@ -347,8 +347,8 @@ export default function SinistroAperturaWizardPage() {
         data_denuncia: values.data_denuncia,
         data_apertura: format(new Date(), "yyyy-MM-dd"),
         importo_riserva: values.importo_riserva || null,
-        responsabile_id: values.responsabile_id,
-        liquidatore_id: values.liquidatore_id,
+        responsabile_id: values.responsabile_id || null,
+        liquidatore_id: values.liquidatore_id || null,
         stato: "aperto",
         aperto_da_cliente: false
       };
@@ -740,7 +740,7 @@ export default function SinistroAperturaWizardPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Responsabile Interno *</Label>
+                    <Label>Responsabile Interno <span className="text-muted-foreground text-xs">(facoltativo)</span></Label>
                     <SearchableSelect
                       value={watch("responsabile_id")}
                       onValueChange={(val) => setValue("responsabile_id", val, { shouldValidate: true })}
@@ -755,7 +755,7 @@ export default function SinistroAperturaWizardPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Liquidatore Esterno *</Label>
+                    <Label>Liquidatore Esterno <span className="text-muted-foreground text-xs">(facoltativo)</span></Label>
                     <SearchableSelect
                       value={watch("liquidatore_id")}
                       onValueChange={(val) => setValue("liquidatore_id", val, { shouldValidate: true })}

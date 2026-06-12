@@ -25,8 +25,9 @@ const payloadSchema = z.discriminatedUnion("azione", [
   z.object({
     azione: z.literal("cambia_stato"),
     sinistro_id: z.string().uuid(),
-    nuovo_stato: z.enum(['aperto', 'in_lavorazione', 'in_attesa_documenti', 'chiuso', 'respinto']),
+    nuovo_stato: z.enum(['in_valutazione','aperto','in_lavorazione','in_attesa_documenti','in_liquidazione','chiuso','respinto']),
     user_id: z.string().uuid().optional(),
+    note: z.string().optional(),
   }),
   z.object({
     azione: z.literal("aggiorna_scaduti"),
@@ -100,7 +101,15 @@ Deno.serve(async (req) => {
     }
 
     if (azione === "cambia_stato") {
-      const { sinistro_id, nuovo_stato, user_id } = parsed.data;
+      const { sinistro_id, nuovo_stato, user_id, note } = parsed.data;
+
+      // Stato precedente per log
+      const { data: prev } = await supabase
+        .from("sinistri")
+        .select("stato, ufficio_id")
+        .eq("id", sinistro_id)
+        .maybeSingle();
+      const stato_precedente = prev?.stato ?? null;
 
       if (nuovo_stato === "chiuso") {
         const { data: checklistPending } = await supabase
@@ -133,19 +142,29 @@ Deno.serve(async (req) => {
 
       const updateData: Record<string, unknown> = { stato: nuovo_stato, updated_at: new Date().toISOString() };
       if (nuovo_stato === "chiuso") updateData.data_chiusura = new Date().toISOString().split("T")[0];
+      else updateData.data_chiusura = null;
 
       const { error } = await supabase.from("sinistri").update(updateData).eq("id", sinistro_id);
       if (error) throw error;
 
-      if (user_id) {
-        await supabase.from("log_attivita").insert({
-          user_id,
-          azione: nuovo_stato === "chiuso" ? "chiusura_sinistro" : "cambio_stato_sinistro",
-          entita_tipo: "sinistro",
-          entita_id: sinistro_id,
-          dettagli_json: { nuovo_stato },
-        });
-      }
+      // Evento timeline
+      await supabase.from("sinistro_eventi").insert({
+        sinistro_id,
+        tipo_evento: "cambio_stato",
+        stato: "completato",
+        note: `Stato ${stato_precedente ?? "—"} → ${nuovo_stato}${note ? ` · ${note}` : ""}`,
+      });
+
+      // Log attività
+      await supabase.from("log_attivita").insert({
+        user_id: user_id ?? null,
+        azione: nuovo_stato === "chiuso" ? "chiusura_sinistro" : "cambio_stato_sinistro",
+        entita_tipo: "sinistro",
+        entita_id: sinistro_id,
+        ufficio_id: prev?.ufficio_id ?? null,
+        dettagli_json: { stato_precedente, nuovo_stato, note: note ?? null },
+        severity: "info",
+      });
 
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
