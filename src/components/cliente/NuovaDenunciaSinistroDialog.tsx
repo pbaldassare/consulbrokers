@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
 import { Upload, X, MapPin } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { TIPI_SINISTRO as TIPI_SINISTRO_LIB } from "@/lib/tipiSinistro";
 
 interface Props {
   open: boolean;
@@ -25,20 +27,11 @@ interface Polizza {
   cliente_anagrafica_id: string;
 }
 
-const TIPI_SINISTRO = [
-  { value: "rca_collisione", label: "RCA — collisione/tamponamento", isVeicolo: true },
-  { value: "rca_urto", label: "RCA — urto contro ostacolo", isVeicolo: true },
-  { value: "furto_veicolo", label: "Furto/incendio veicolo", isVeicolo: true },
-  { value: "cristalli", label: "Rottura cristalli", isVeicolo: true },
-  { value: "incendio_immobile", label: "Incendio immobile", isVeicolo: false },
-  { value: "furto_immobile", label: "Furto/scippo", isVeicolo: false },
-  { value: "danni_acqua", label: "Danni da acqua", isVeicolo: false },
-  { value: "eventi_atmosferici", label: "Eventi atmosferici", isVeicolo: false },
-  { value: "rc_terzi", label: "Responsabilità verso terzi", isVeicolo: false },
-  { value: "infortunio", label: "Infortunio", isVeicolo: false },
-  { value: "malattia", label: "Malattia", isVeicolo: false },
-  { value: "altro", label: "Altro", isVeicolo: false },
-];
+const TIPI_SINISTRO = TIPI_SINISTRO_LIB.map(t => ({
+  value: t.value,
+  label: t.label,
+  isVeicolo: !!t.isVeicolo,
+}));
 
 export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const { user } = useAuth();
@@ -200,14 +193,13 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
             </div>
             <div>
               <Label>Tipo di sinistro *</Label>
-              <Select value={tipoSinistro} onValueChange={setTipoSinistro}>
-                <SelectTrigger><SelectValue placeholder="Seleziona tipo" /></SelectTrigger>
-                <SelectContent>
-                  {TIPI_SINISTRO.map(t => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
+                value={tipoSinistro}
+                onValueChange={setTipoSinistro}
+                placeholder="Seleziona tipo"
+                searchPlaceholder="Cerca tipo..."
+              />
             </div>
           </div>
 

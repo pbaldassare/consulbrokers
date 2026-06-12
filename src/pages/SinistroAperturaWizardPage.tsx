@@ -20,26 +20,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { FilePlus, Search, ArrowLeft, ArrowRight, Trash2, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import { TIPI_SINISTRO } from "@/lib/tipiSinistro";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const DRAFT_KEY = "sinistri:apertura:bozza";
 
-const tipiSinistro = [
-  "incidente_stradale", "furto", "incendio", "danni_acqua", "RC_terzi",
-  "infortunio", "grandine", "atti_vandalici", "responsabilita_civile", "altro"
-];
-
-const tipoLabels: Record<string, string> = {
-  incidente_stradale: "Incidente Stradale",
-  furto: "Furto",
-  incendio: "Incendio",
-  danni_acqua: "Danni Acqua",
-  RC_terzi: "RC Terzi",
-  infortunio: "Infortunio",
-  grandine: "Grandine",
-  atti_vandalici: "Atti Vandalici",
-  responsabilita_civile: "Responsabilità Civile",
-  altro: "Altro"
-};
+// Tipi sinistro centralizzati in src/lib/tipiSinistro.ts
 
 // Schema di validazione Zod
 const wizardSchema = z.object({
@@ -625,19 +611,13 @@ export default function SinistroAperturaWizardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="tipo_sinistro">Tipo Sinistro *</Label>
-                    <Select 
-                      value={watch("tipo_sinistro")} 
+                    <SearchableSelect
+                      options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
+                      value={watch("tipo_sinistro") || ""}
                       onValueChange={(val) => setValue("tipo_sinistro", val, { shouldValidate: true })}
-                    >
-                      <SelectTrigger id="tipo_sinistro">
-                        <SelectValue placeholder="Seleziona tipo sinistro..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tipiSinistro.map((t) => (
-                          <SelectItem key={t} value={t}>{tipoLabels[t] || t.replace(/_/g, " ")}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Seleziona tipo sinistro..."
+                      searchPlaceholder="Cerca tipo..."
+                    />
                     {errors.tipo_sinistro && <p className="text-xs text-destructive">{errors.tipo_sinistro.message}</p>}
                   </div>
                   <div className="space-y-2">
@@ -649,7 +629,15 @@ export default function SinistroAperturaWizardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="luogo_sinistro">Luogo Accadimento *</Label>
-                    <Input id="luogo_sinistro" placeholder="Città, indirizzo o località..." {...register("luogo_sinistro")} />
+                    <AddressAutocomplete
+                      value={watch("luogo_sinistro") || ""}
+                      onChange={(v) => setValue("luogo_sinistro", v, { shouldValidate: true })}
+                      onSelect={(c) => {
+                        const full = [c.indirizzo, c.cap, c.citta, c.provincia].filter(Boolean).join(", ");
+                        setValue("luogo_sinistro", full, { shouldValidate: true });
+                      }}
+                      placeholder="Inizia a digitare via, piazza, città..."
+                    />
                     {errors.luogo_sinistro && <p className="text-xs text-destructive">{errors.luogo_sinistro.message}</p>}
                   </div>
                   <div className="space-y-2">
@@ -865,7 +853,7 @@ export default function SinistroAperturaWizardPage() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Tipo Sinistro</span>
-                      <p className="font-semibold mt-0.5 capitalize">{tipoLabels[watch("tipo_sinistro")] || watch("tipo_sinistro")?.replace(/_/g, " ") || "—"}</p>
+                      <p className="font-semibold mt-0.5 capitalize">{(TIPI_SINISTRO.find(t => t.value === watch("tipo_sinistro"))?.label) || watch("tipo_sinistro")?.replace(/_/g, " ") || "—"}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Numero Compagnia</span>
