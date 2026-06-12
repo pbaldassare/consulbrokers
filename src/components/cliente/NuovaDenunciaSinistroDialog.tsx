@@ -193,14 +193,13 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
             </div>
             <div>
               <Label>Tipo di sinistro *</Label>
-              <Select value={tipoSinistro} onValueChange={setTipoSinistro}>
-                <SelectTrigger><SelectValue placeholder="Seleziona tipo" /></SelectTrigger>
-                <SelectContent>
-                  {TIPI_SINISTRO.map(t => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
+                value={tipoSinistro}
+                onValueChange={setTipoSinistro}
+                placeholder="Seleziona tipo"
+                searchPlaceholder="Cerca tipo..."
+              />
             </div>
           </div>
 
