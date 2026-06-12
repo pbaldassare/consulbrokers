@@ -29,13 +29,26 @@ const ClienteDashboard = () => {
 
       const ids = clienteIds.map((c: any) => c);
 
-      const [polRes, sinRes, notRes] = await Promise.all([
+      const [polRes, cgaRes, sinRes, notRes] = await Promise.all([
         supabase.from("titoli").select("id, numero_titolo, stato, premio_lordo, data_scadenza, durata_da, compagnia_id, ramo_id, descrizione_polizza, compagnie(nome), rami(descrizione)").in("cliente_anagrafica_id", ids),
+        supabase.from("polizza_cga").select("id, numero_polizza, stato, premio_lordo_totale, data_scadenza, data_decorrenza, prodotti_cga(nome_prodotto, compagnia, ramo)").in("cliente_id", ids).eq("stato", "approvato"),
         supabase.from("sinistri").select("id, numero_sinistro, stato, tipo_sinistro, importo_riserva, importo_liquidato, data_evento, data_apertura, ramo_sinistro, titoli(numero_titolo)").in("cliente_anagrafica_id", ids).order("data_apertura", { ascending: false }),
         supabase.from("notifiche").select("id", { count: "exact" }).eq("letto", false),
       ]);
 
-      setPolizze(polRes.data ?? []);
+      const cgaMapped = (cgaRes.data ?? []).map((c: any) => ({
+        id: c.id,
+        numero_titolo: c.numero_polizza,
+        stato: "attivo",
+        premio_lordo: c.premio_lordo_totale || 0,
+        data_scadenza: c.data_scadenza,
+        durata_da: c.data_decorrenza,
+        descrizione_polizza: c.prodotti_cga?.nome_prodotto,
+        compagnie: { nome: c.prodotti_cga?.compagnia || "—" },
+        rami: { descrizione: c.prodotti_cga?.ramo || "Altro" },
+      }));
+
+      setPolizze([...(polRes.data ?? []), ...cgaMapped]);
       setSinistri(sinRes.data ?? []);
       setNotifiche(notRes.count ?? 0);
       setLoading(false);
