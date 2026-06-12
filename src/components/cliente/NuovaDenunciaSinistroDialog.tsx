@@ -102,9 +102,18 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
   const canSubmit = tipoSinistro && dataEvento && dinamica.trim().length > 5;
 
   const submit = async () => {
-    if (!user || !polizzaSelezionata) return;
+    if (!user) return;
     setSaving(true);
     try {
+      const { data: cIds } = await supabase.rpc("get_my_cliente_ids");
+      const ids = (cIds ?? []).map((c: any) => c);
+      const clienteId = polizzaSelezionata?.cliente_anagrafica_id || ids[0];
+      if (!clienteId) {
+        toast.error("Nessun cliente associato all'utente");
+        setSaving(false);
+        return;
+      }
+      const isCga = polizzaSelezionata?.id.startsWith("cga:");
       const numero = `WEB-${Date.now().toString().slice(-8)}`;
       const luogoCompleto = [indirizzo, cap, citta, provincia].filter(Boolean).join(", ");
       const { data: sin, error } = await supabase
@@ -113,10 +122,10 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
           numero_sinistro: numero,
           stato: "aperto",
           aperto_da_cliente: true,
-          titolo_id: polizzaSelezionata.id,
-          cliente_anagrafica_id: polizzaSelezionata.cliente_anagrafica_id,
-          ufficio_id: polizzaSelezionata.ufficio_id,
-          ramo_sinistro: polizzaSelezionata.ramo_descrizione,
+          titolo_id: polizzaSelezionata && !isCga ? polizzaSelezionata.id : null,
+          cliente_anagrafica_id: clienteId,
+          ufficio_id: polizzaSelezionata?.ufficio_id ?? null,
+          ramo_sinistro: polizzaSelezionata?.ramo_descrizione ?? null,
           tipo_sinistro: tipoSinistro,
           data_evento: dataEvento || null,
           data_apertura: new Date().toISOString().slice(0, 10),
