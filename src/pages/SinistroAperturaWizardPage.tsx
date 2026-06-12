@@ -299,7 +299,7 @@ export default function SinistroAperturaWizardPage() {
     } else if (currentStep === 3) {
       fieldsToValidate = ["documenti"];
     } else if (currentStep === 4) {
-      fieldsToValidate = ["responsabile_id", "liquidatore_id", "priorita"];
+      fieldsToValidate = ["priorita"];
     }
 
     const isValid = await trigger(fieldsToValidate);
