@@ -347,8 +347,8 @@ export default function SinistroAperturaWizardPage() {
         data_denuncia: values.data_denuncia,
         data_apertura: format(new Date(), "yyyy-MM-dd"),
         importo_riserva: values.importo_riserva || null,
-        responsabile_id: values.responsabile_id,
-        liquidatore_id: values.liquidatore_id,
+        responsabile_id: values.responsabile_id || null,
+        liquidatore_id: values.liquidatore_id || null,
         stato: "aperto",
         aperto_da_cliente: false
       };
