@@ -61,7 +61,7 @@ const ClientePolizze = () => {
       const fromTitoli = (titoliRes.data ?? []).map((t: any) => ({
         ...t,
         _source: "titoli" as const,
-        _detailPath: t._detailPath,
+        _detailPath: `/cliente/polizze/${t.id}`,
       }));
 
       const fromCga = (cgaRes.data ?? []).map((p: any) => ({
