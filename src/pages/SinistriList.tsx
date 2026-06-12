@@ -237,7 +237,7 @@ export default function SinistriList() {
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Agenzia</Label>
+                      <Label className="text-xs">Compagnia</Label>
                       <Select
                         value={polizzaSearch.agenzia || "all"}
                         onValueChange={v => setPolizzaSearch({ ...polizzaSearch, agenzia: v === "all" ? "" : v })}
@@ -263,7 +263,7 @@ export default function SinistriList() {
                             <TableHead>N° Polizza</TableHead>
                             <TableHead>Cliente</TableHead>
                             <TableHead>Prodotto</TableHead>
-                            <TableHead>Agenzia</TableHead>
+                            <TableHead>Compagnia</TableHead>
                             <TableHead>Premio</TableHead>
                             <TableHead></TableHead>
                           </TableRow>
@@ -311,7 +311,7 @@ export default function SinistriList() {
                         <span>{getPolizzaClienteName(selectedPolizza)}</span>
                         <span className="text-muted-foreground">Prodotto:</span>
                         <span>{selectedPolizza.prodotti?.nome_prodotto || "—"}</span>
-                        <span className="text-muted-foreground">Agenzia:</span>
+                        <span className="text-muted-foreground">Compagnia:</span>
                         <span>{selectedPolizza.prodotti?.compagnie?.nome || "—"}</span>
                       </div>
                       <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => setStep(1)}>
@@ -374,7 +374,7 @@ export default function SinistriList() {
         <Select value={filtroCompagnia} onValueChange={handleFilterChange(setFiltroCompagnia)}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="tutti">Tutte le agenzie</SelectItem>
+            <SelectItem value="tutti">Tutte le compagnie</SelectItem>
             {compagnie?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -389,7 +389,7 @@ export default function SinistriList() {
               <TableHead>Polizza</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Stato</TableHead>
-              <TableHead>Agenzia</TableHead>
+              <TableHead>Compagnia</TableHead>
               <TableHead>Data Apertura</TableHead>
               <TableHead>Descrizione</TableHead>
             </TableRow>
