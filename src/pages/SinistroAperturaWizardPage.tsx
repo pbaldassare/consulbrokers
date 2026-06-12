@@ -421,19 +421,23 @@ export default function SinistroAperturaWizardPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Header Wizard */}
-      <div className="flex items-center justify-between pb-4 border-b">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FilePlus className="h-6 w-6 text-primary" /> Apertura Nuovo Sinistro
-          </h1>
-          <p className="text-muted-foreground">Procedura guidata per l'apertura di un sinistro su polizza attiva</p>
+    <div className="space-y-6">
+      {/* Header coerente con design system (icona arancio rotonda) */}
+      <div className="flex items-center justify-between pb-4 border-b gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+            <AlertTriangle className="h-5 w-5 text-orange-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold">Apertura Nuovo Sinistro</h1>
+            <p className="text-sm text-muted-foreground">Procedura guidata per l'apertura di un sinistro su polizza attiva</p>
+          </div>
         </div>
-        <Button variant="outline" onClick={() => setCancelDialogOpen(true)} className="text-destructive border-destructive hover:bg-destructive/10">
+        <Button variant="outline" size="sm" onClick={() => setCancelDialogOpen(true)} className="text-destructive border-destructive hover:bg-destructive/10">
           Annulla apertura
         </Button>
       </div>
+
 
       {/* Barra di Progresso */}
       <div className="relative">
