@@ -60,6 +60,13 @@ export const CLIENTE_TOUR_STEPS: TourStep[] = [
   { selector: "cl-nav-chat", title: "Chat con la tua agenzia 💬", description: "Parla direttamente con i tuoi referenti: una conversazione per ogni polizza, sinistro o argomento. Tutto tracciato.", page: "/cliente" },
   { selector: "cl-chat-page", title: "Le tue Conversazioni 💬", description: "Sulla sinistra l'elenco dei canali, a destra la chat. Niente email perse: tutto in un unico posto sicuro.", page: "/cliente/chat", action: { type: "navigate", target: "/cliente/chat", delay: 500 } },
 
+  // Assistente Polizze (AI) — NEW
+  { selector: "cl-nav-assistente", title: "Assistente Polizze ✨", description: "La novità: un assistente AI che conosce TUTTE le tue polizze e risponde alle tue domande in linguaggio naturale.", page: "/cliente" },
+  { selector: "cl-assist-page", title: "Chiedi all'AI 🤖", description: "Interroga il tuo intero portafoglio: coperture, massimali, franchigie, esclusioni, scadenze. L'AI consulta sia i dati amministrativi sia le condizioni contrattuali (CGA) analizzate.", page: "/cliente/assistente", action: { type: "navigate", target: "/cliente/assistente", delay: 500 } },
+  { selector: "cl-assist-stats", title: "Polizze indicizzate 📚", description: "Il badge mostra quante polizze e quanti set di Condizioni Generali l'assistente sta consultando in tempo reale per rispondere alle tue domande.", page: "/cliente/assistente" },
+  { selector: "cl-assist-suggerimenti", title: "Domande di esempio 💡", description: "Non sai da dove iniziare? Clicca uno degli esempi: 'Ho un sinistro: sono coperto?', 'Quali franchigie ho?', 'Ho copertura cyber?' e tante altre.", page: "/cliente/assistente" },
+  { selector: "cl-assist-page", title: "Citazione delle fonti 🔖", description: "Ogni risposta cita SEMPRE la polizza di origine tra parentesi quadre, es: [All Risks Property · n° K24IT018712 · AXA XL]. Così sai esattamente da dove arriva l'informazione.", page: "/cliente/assistente" },
+
   // Documentazione Ente
   { selector: "cl-nav-documenti", title: "Documentazione Ente 📁", description: "L'archivio dei documenti generali del tuo ente: contratti, certificati, allegati. Accesso protetto e privato.", page: "/cliente" },
   { selector: "cl-doc-page", title: "Archivio Documenti 🗂️", description: "Filtra per nome o tipologia, scarica, anteprima e — se l'hai caricato tu — elimina con conferma. Il bucket è privato e cifrato.", page: "/cliente/documenti", action: { type: "navigate", target: "/cliente/documenti", delay: 500 } },

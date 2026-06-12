@@ -1,18 +1,33 @@
-## Problema
+## Aggiornamento Tour Guidato Portale Cliente
 
-Le 5 polizze nuove caricate per "Comune di Varese" (DEMO-VA-2026-010..014: All Risks, Tutela Legale, Cyber, RCT/O, RC Natanti) NON appaiono nel portale cliente perché sono state salvate sul campo sbagliato.
+### 1. Aggiungere step per Assistente Polizze
+Inserire nuovi step nel tour `CLIENTE_TOUR_STEPS` (`src/components/tour/AppTourContext.tsx`):
+- **Sidebar "Assistente Polizze"** (selettore `cl-nav-assistente`): introduzione alla nuova feature AI.
+- **Pagina Assistente** (`/cliente/assistente`, selettore `cl-assist-page`): spiegazione della chat AI che interroga tutte le polizze.
+- **Suggerimenti rapidi** (selettore `cl-assist-suggerimenti`): mostra i prompt suggeriti (coperture, sinistri, scadenze).
+- **Badge polizze indicizzate** (selettore `cl-assist-stats`): spiega che indica quante polizze + CGA l'AI sta consultando.
+- **Citazioni fonti**: step che evidenzia come ogni risposta cita la polizza di origine `[Prodotto · n° · Compagnia]`.
 
-**Dettaglio tecnico**
-- La pagina `/cliente/polizze` filtra `titoli` su `cliente_anagrafica_id IN (get_my_cliente_ids())`.
-- Le 6 polizze visibili (DEMO-VA-2025-*) hanno correttamente `cliente_anagrafica_id = 94dc5a3c...` (cliente Comune di Varese).
-- Le 5 polizze nuove (DEMO-VA-2026-*) hanno invece `cliente_anagrafica_id = NULL` e `cliente_id = 746c540d...` che è il **profile_id dell'utente**, non un id cliente valido. Bug nell'edge function `seed-comune-varese-polizze`.
+Aggiungere i corrispondenti attributi `data-tour="cl-nav-assistente"`, `cl-assist-page`, `cl-assist-suggerimenti`, `cl-assist-stats` rispettivamente in `ClienteLayout.tsx` e `ClienteAssistente.tsx`.
 
-## Fix
+### 2. Disattivare avvio automatico
+In `src/components/tour/TourLauncher.tsx`:
+- Rimuovere l'`useEffect` che invoca `startTour()` dopo 1.2s al primo accesso.
+- Il tour parte **solo** cliccando il bottone "Tour guidato" in basso a destra.
+- Mantenere `hasSeenClienteTour` per eventuale UI futura, ma non usarlo come trigger automatico.
 
-1. **Migrazione dati**: UPDATE su `titoli` dove `numero_titolo LIKE 'DEMO-VA-2026-%'` per settare `cliente_anagrafica_id = '94dc5a3c-1682-4aea-a9e2-190bf8bf34b1'` e `cliente_id = NULL`.
+### 3. Popup di conferma all'avvio
+Aggiungere un `AlertDialog` (shadcn) in `TourLauncher.tsx`:
+- Click sul bottone "Tour guidato" → apre dialog di conferma con:
+  - Titolo: "Avvia tour guidato?"
+  - Descrizione: spiega cosa farà il tour (~25 step, naviga tra le sezioni, ~3 minuti).
+  - Pulsanti: **"Annulla"** (chiude) / **"Avvia tour"** (chiama `startTour()` e chiude).
+- Stato locale `showConfirm` per gestire apertura/chiusura.
 
-2. **Fix edge function** `supabase/functions/seed-comune-varese-polizze/index.ts`: sostituire `cliente_id: CLIENTE_ID` con `cliente_anagrafica_id: CLIENTE_ID` nell'INSERT, così future esecuzioni del seed funzionano correttamente.
+### File da modificare
+- `src/components/tour/AppTourContext.tsx` — aggiungere step Assistente Polizze nell'array.
+- `src/components/tour/TourLauncher.tsx` — rimuovere auto-start, aggiungere AlertDialog di conferma.
+- `src/components/ClienteLayout.tsx` — aggiungere `data-tour="cl-nav-assistente"` sulla voce sidebar.
+- `src/pages/cliente/ClienteAssistente.tsx` — aggiungere selettori `cl-assist-page`, `cl-assist-suggerimenti`, `cl-assist-stats`.
 
-## Risultato atteso
-
-Il portale `/cliente/polizze` per Comune di Varese mostrerà 11 polizze (6 vecchie 2025 + 5 nuove 2026 con i PDF allegati).
+Nessuna modifica al backend, alle edge functions o allo schema DB.

@@ -9,32 +9,55 @@ import {
   ChevronLeft, ChevronRight, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { TourProvider, useTour, hasSeenClienteTour } from "@/components/tour/AppTourContext";
+import { TourProvider, useTour } from "@/components/tour/AppTourContext";
 import AppTour from "@/components/tour/AppTour";
 
 const TourSidebarButton = ({ compact }: { compact?: boolean }) => {
   const { startTour, isActive } = useTour();
-  useEffect(() => {
-    if (!hasSeenClienteTour()) {
-      const t = setTimeout(() => startTour(), 1200);
-      return () => clearTimeout(t);
-    }
-  }, [startTour]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => !isActive && startTour()}
-      title={compact ? "Tour guidato" : undefined}
-      className={cn(
-        "w-full gap-2 text-white hover:bg-white/15 min-h-[40px] bg-white/10 border border-white/15",
-        compact ? "justify-center px-0" : "justify-start"
-      )}
-    >
-      <Sparkles className="h-4 w-4 shrink-0" />
-      {!compact && <span>Tour guidato</span>}
-    </Button>
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => !isActive && setConfirmOpen(true)}
+        title={compact ? "Tour guidato" : undefined}
+        className={cn(
+          "w-full gap-2 text-white hover:bg-white/15 min-h-[40px] bg-white/10 border border-white/15",
+          compact ? "justify-center px-0" : "justify-start"
+        )}
+      >
+        <Sparkles className="h-4 w-4 shrink-0" />
+        {!compact && <span>Tour guidato</span>}
+      </Button>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" /> Avvia tour guidato?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Il tour ti accompagna in tutte le sezioni dell'Area Clienti: Dashboard, Polizze, Scadenze,
+              Sinistri, Chat, <strong>Assistente Polizze AI</strong>, Documenti e Notifiche.
+              Durante il tour navigherai automaticamente tra le pagine. Puoi interrompere quando vuoi.
+              <br /><br />
+              Durata stimata: circa 3 minuti.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={() => startTour()}>
+              Avvia tour
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
