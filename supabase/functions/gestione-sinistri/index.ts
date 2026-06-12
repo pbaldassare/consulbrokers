@@ -9,11 +9,12 @@ const corsHeaders = {
 const payloadSchema = z.discriminatedUnion("azione", [
   z.object({
     azione: z.literal("crea"),
-    numero_sinistro: z.string().min(1),
-    titolo_id: z.string().uuid(),
+    numero_sinistro: z.string().min(1).optional(),
+    titolo_id: z.string().uuid().nullable().optional(),
     cliente_id: z.string().uuid().nullable().optional(),
     compagnia_id: z.string().uuid().nullable().optional(),
     responsabile_id: z.string().uuid().nullable().optional(),
+    liquidatore_id: z.string().uuid().nullable().optional(),
     ufficio_id: z.string().uuid().nullable().optional(),
     descrizione: z.string().optional(),
     user_id: z.string().uuid().optional(),
@@ -21,6 +22,13 @@ const payloadSchema = z.discriminatedUnion("azione", [
     tipo_sinistro: z.string().optional(),
     luogo_sinistro: z.string().optional(),
     data_evento: z.string().optional(),
+    data_denuncia: z.string().optional(),
+    data_apertura: z.string().optional(),
+    numero_sinistro_compagnia: z.string().optional(),
+    importo_riserva: z.number().nullable().optional(),
+    stato_iniziale: z.enum(['in_valutazione','aperto']).optional(),
+    priorita: z.string().optional(),
+    note_interne: z.string().optional(),
   }),
   z.object({
     azione: z.literal("cambia_stato"),
