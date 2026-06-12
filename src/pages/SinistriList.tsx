@@ -15,11 +15,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
+import { TIPI_SINISTRO, getTipoSinistroLabel } from "@/lib/tipiSinistro";
 const statiSinistro = ["in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
-const tipiSinistro = [
-  "incidente_stradale", "furto", "incendio", "danni_acqua", "RC_terzi",
-  "infortunio", "grandine", "atti_vandalici", "responsabilita_civile", "altro"
-];
 
 const statoBadge: Record<string, string> = {
   in_valutazione: "bg-amber-100 text-amber-800",
@@ -332,9 +329,9 @@ export default function SinistriList() {
                       <Label>Tipo Sinistro</Label>
                       <Select value={form.tipo_sinistro} onValueChange={v => setForm({ ...form, tipo_sinistro: v })}>
                         <SelectTrigger><SelectValue placeholder="Seleziona tipo" /></SelectTrigger>
-                        <SelectContent>
-                          {tipiSinistro.map(t => (
-                            <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>
+                        <SelectContent className="max-h-72">
+                          {TIPI_SINISTRO.map(t => (
+                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -403,7 +400,7 @@ export default function SinistriList() {
                 <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
                 <TableCell>{getClienteName(s.clienti)}</TableCell>
                 <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
-                <TableCell className="capitalize">{s.tipo_sinistro?.replace(/_/g, " ") || "—"}</TableCell>
+                <TableCell>{getTipoSinistroLabel(s.tipo_sinistro)}</TableCell>
                 <TableCell>
                   <Badge className={statoBadge[s.stato]}>{s.stato.replace(/_/g, " ")}</Badge>
                 </TableCell>
