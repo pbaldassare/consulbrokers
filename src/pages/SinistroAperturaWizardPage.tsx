@@ -333,48 +333,34 @@ export default function SinistroAperturaWizardPage() {
       const clienteAnagraficaId = selectedPolizzaData?.cliente_anagrafica_id || null;
       const ufficioId = selectedPolizzaData?.ufficio_id || null;
 
-      // 1. Inserimento del sinistro in Supabase
-      const payloadSinistro = {
-        numero_sinistro: `SIN-${format(new Date(), "yyyy")}-${Math.floor(1000 + Math.random() * 9000)}`, // Generazione codice
-        titolo_id: values.titolo_id && !values.titolo_id.startsWith("cga:") ? values.titolo_id : null,
-        cliente_anagrafica_id: clienteAnagraficaId,
-        compagnia_id: compagniaId,
-        ufficio_id: ufficioId,
-        tipo_sinistro: values.tipo_sinistro,
-        descrizione: values.descrizione,
-        luogo_sinistro: values.luogo_sinistro,
-        data_evento: values.data_evento,
-        data_denuncia: values.data_denuncia,
-        data_apertura: format(new Date(), "yyyy-MM-dd"),
-        importo_riserva: values.importo_riserva || null,
-        responsabile_id: values.responsabile_id || null,
-        liquidatore_id: values.liquidatore_id || null,
-        stato: "aperto",
-        aperto_da_cliente: false
-      };
+      // 1. Creazione del sinistro tramite edge function unificata
+      //    (checklist di default + log_attivita + evento timeline generati lato server)
+      const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
+        body: {
+          azione: "crea",
+          titolo_id: values.titolo_id && !values.titolo_id.startsWith("cga:") ? values.titolo_id : null,
+          cliente_anagrafica_id: clienteAnagraficaId,
+          compagnia_id: compagniaId,
+          ufficio_id: ufficioId,
+          tipo_sinistro: values.tipo_sinistro,
+          descrizione: values.descrizione,
+          luogo_sinistro: values.luogo_sinistro,
+          data_evento: values.data_evento,
+          data_denuncia: values.data_denuncia,
+          numero_sinistro_compagnia: values.numero_sinistro_compagnia || undefined,
+          importo_riserva: values.importo_riserva ?? null,
+          responsabile_id: values.responsabile_id || null,
+          liquidatore_id: values.liquidatore_id || null,
+          priorita: values.priorita,
+          note_interne: values.note_interne || undefined,
+          user_id: user.id,
+          stato_iniziale: "aperto",
+        },
+      });
+      if (invokeErr) throw invokeErr;
+      if (!invokeRes?.success) throw new Error(invokeRes?.error || "Errore creazione sinistro");
+      const newSinistro = invokeRes.sinistro as { id: string; numero_sinistro: string };
 
-      const { data: newSinistro, error: errorSinistro } = await supabase
-        .from("sinistri")
-        .insert(payloadSinistro)
-        .select("id, numero_sinistro")
-        .single();
-
-      if (errorSinistro) throw errorSinistro;
-
-      // 2. Inserimento evento automatico di apertura
-      const payloadEvento = {
-        sinistro_id: newSinistro.id,
-        tipo_evento: "apertura",
-        data_scadenza: format(new Date(), "yyyy-MM-dd"),
-        stato: "completato",
-        note: `Apertura automatica pratica sinistro ${newSinistro.numero_sinistro}. Priorità: ${values.priorita.toUpperCase()}. Note interne: ${values.note_interne || "Nessuna"}`
-      };
-
-      const { error: errorEvento } = await supabase
-        .from("sinistro_eventi")
-        .insert(payloadEvento);
-
-      if (errorEvento) throw errorEvento;
 
       // 3. Upload documenti se presenti
       if (values.documenti && values.documenti.length > 0) {
@@ -435,19 +421,23 @@ export default function SinistroAperturaWizardPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Header Wizard */}
-      <div className="flex items-center justify-between pb-4 border-b">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FilePlus className="h-6 w-6 text-primary" /> Apertura Nuovo Sinistro
-          </h1>
-          <p className="text-muted-foreground">Procedura guidata per l'apertura di un sinistro su polizza attiva</p>
+    <div className="space-y-6">
+      {/* Header coerente con design system (icona arancio rotonda) */}
+      <div className="flex items-center justify-between pb-4 border-b gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+            <AlertTriangle className="h-5 w-5 text-orange-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold">Apertura Nuovo Sinistro</h1>
+            <p className="text-sm text-muted-foreground">Procedura guidata per l'apertura di un sinistro su polizza attiva</p>
+          </div>
         </div>
-        <Button variant="outline" onClick={() => setCancelDialogOpen(true)} className="text-destructive border-destructive hover:bg-destructive/10">
+        <Button variant="outline" size="sm" onClick={() => setCancelDialogOpen(true)} className="text-destructive border-destructive hover:bg-destructive/10">
           Annulla apertura
         </Button>
       </div>
+
 
       {/* Barra di Progresso */}
       <div className="relative">
