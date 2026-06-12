@@ -44,7 +44,7 @@ const tipoLabels: Record<string, string> = {
 // Schema di validazione Zod
 const wizardSchema = z.object({
   // Step 1
-  titolo_id: z.string().min(1, "Seleziona una polizza collegata"),
+  titolo_id: z.string().optional(),
   
   // Step 2
   data_evento: z.string().min(1, "La data accadimento è obbligatoria"),
@@ -125,23 +125,37 @@ export default function SinistroAperturaWizardPage() {
         .then(({ data }) => {
           if (data) setPreselectedCliente(data);
         });
-      // fetch polizze for this client
-      supabase.from('titoli')
-        .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id,
-          prodotti(nome_prodotto, compagnie(id, nome)),
-          clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
-        .eq('stato', 'attivo')
-        .eq('cliente_anagrafica_id', preselectedClienteId)
-        .limit(100)
-        .then(({ data, error }) => {
-          if (!error && data) {
-            setPolizzeList(data.slice(0, 25));
-            if (data.length > 0) {
-              const first = data[0];
-              selezionaPolizza(first);
-            }
-          }
-        });
+      // fetch polizze (titoli + CGA) for this client
+      Promise.all([
+        supabase.from('titoli')
+          .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id,
+            prodotti(nome_prodotto, compagnie(id, nome)),
+            clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
+          .eq('stato', 'attivo')
+          .eq('cliente_anagrafica_id', preselectedClienteId)
+          .limit(100),
+        supabase.from('polizza_cga')
+          .select(`id, numero_polizza, data_decorrenza, premio_lordo_totale, cliente_id, prodotti_cga(nome_prodotto, compagnia, ramo)`)
+          .eq('stato', 'approvato')
+          .eq('cliente_id', preselectedClienteId)
+          .limit(100),
+      ]).then(([titRes, cgaRes]) => {
+        const fromTitoli = (titRes.data ?? []).map((t: any) => ({ ...t, _isCga: false }));
+        const fromCga = (cgaRes.data ?? []).map((c: any) => ({
+          id: `cga:${c.id}`,
+          numero_titolo: c.numero_polizza,
+          stato: 'attivo',
+          cliente_anagrafica_id: c.cliente_id,
+          ufficio_id: null,
+          prodotti: {
+            nome_prodotto: c.prodotti_cga?.nome_prodotto,
+            compagnie: { id: null, nome: c.prodotti_cga?.compagnia },
+          },
+          clienti: null,
+          _isCga: true,
+        }));
+        setPolizzeList([...fromTitoli, ...fromCga].slice(0, 50));
+      });
     }
   }, [preselectedClienteId]);
 
@@ -292,7 +306,8 @@ export default function SinistroAperturaWizardPage() {
   const handleNextStep = async () => {
     let fieldsToValidate: any[] = [];
     if (currentStep === 1) {
-      fieldsToValidate = ["titolo_id"];
+      // Polizza opzionale: nessuna validazione bloccante
+      fieldsToValidate = [];
     } else if (currentStep === 2) {
       fieldsToValidate = ["data_evento", "data_denuncia", "tipo_sinistro", "descrizione", "luogo_sinistro", "importo_riserva"];
     } else if (currentStep === 3) {
@@ -335,7 +350,7 @@ export default function SinistroAperturaWizardPage() {
       // 1. Inserimento del sinistro in Supabase
       const payloadSinistro = {
         numero_sinistro: `SIN-${format(new Date(), "yyyy")}-${Math.floor(1000 + Math.random() * 9000)}`, // Generazione codice
-        titolo_id: values.titolo_id,
+        titolo_id: values.titolo_id && !values.titolo_id.startsWith("cga:") ? values.titolo_id : null,
         cliente_anagrafica_id: clienteAnagraficaId,
         compagnia_id: compagniaId,
         ufficio_id: ufficioId,
@@ -493,7 +508,7 @@ export default function SinistroAperturaWizardPage() {
               {currentStep === 5 && "Step 5: Riepilogo e Conferma"}
             </CardTitle>
             <CardDescription>
-              {currentStep === 1 && "Cerca la polizza attiva digitando il numero o il nome del contraente."}
+              {currentStep === 1 && "Cerca la polizza attiva digitando il numero o il nome del contraente. Campo facoltativo: puoi proseguire anche senza collegare una polizza."}
               {currentStep === 2 && "Fornisci tutte le informazioni relative a quando, dove e come si è verificato il sinistro."}
               {currentStep === 3 && "Carica referti, foto o denunce firmate. Questo step è facoltativo."}
               {currentStep === 4 && "Assegna la pratica a un addetto interno e ad un liquidatore di riferimento."}
