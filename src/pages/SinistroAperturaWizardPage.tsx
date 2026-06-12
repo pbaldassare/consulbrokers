@@ -20,26 +20,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { FilePlus, Search, ArrowLeft, ArrowRight, Trash2, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import { TIPI_SINISTRO } from "@/lib/tipiSinistro";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const DRAFT_KEY = "sinistri:apertura:bozza";
 
-const tipiSinistro = [
-  "incidente_stradale", "furto", "incendio", "danni_acqua", "RC_terzi",
-  "infortunio", "grandine", "atti_vandalici", "responsabilita_civile", "altro"
-];
-
-const tipoLabels: Record<string, string> = {
-  incidente_stradale: "Incidente Stradale",
-  furto: "Furto",
-  incendio: "Incendio",
-  danni_acqua: "Danni Acqua",
-  RC_terzi: "RC Terzi",
-  infortunio: "Infortunio",
-  grandine: "Grandine",
-  atti_vandalici: "Atti Vandalici",
-  responsabilita_civile: "Responsabilità Civile",
-  altro: "Altro"
-};
+// Tipi sinistro centralizzati in src/lib/tipiSinistro.ts
 
 // Schema di validazione Zod
 const wizardSchema = z.object({
