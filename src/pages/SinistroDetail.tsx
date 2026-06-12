@@ -134,11 +134,6 @@ export default function SinistroDetail() {
 
   const isChiuso = sinistro.stato === "chiuso" || sinistro.stato === "respinto";
 
-  const tipoLabels: Record<string, string> = {
-    incidente_stradale: "Incidente Stradale", furto: "Furto", incendio: "Incendio",
-    danni_acqua: "Danni Acqua", RC_terzi: "RC Terzi", infortunio: "Infortunio", grandine: "Grandine",
-  };
-
   const clienteNome = sinistro.clienti
     ? sinistro.clienti.tipo_cliente === "azienda"
       ? sinistro.clienti.ragione_sociale
@@ -156,36 +151,65 @@ export default function SinistroDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      {/* Header coerente con design system */}
+      <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/sinistri")}><ArrowLeft className="h-5 w-5" /></Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">Sinistro {sinistro.numero_sinistro || "—"}</h1>
-          <p className="text-muted-foreground">{sinistro.compagnie?.nome} — {tipoLabels[sinistro.tipo_sinistro] || sinistro.tipo_sinistro || "N/D"}</p>
+        <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+          <AlertTriangle className="h-5 w-5 text-orange-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold truncate">Sinistro {sinistro.numero_sinistro || "—"}</h1>
+          <p className="text-sm text-muted-foreground truncate">
+            {getTipoSinistroLabel(sinistro.tipo_sinistro)}
+            {sinistro.compagnie?.nome ? ` · ${sinistro.compagnie.nome}` : ""}
+          </p>
         </div>
         <Badge className={`text-sm px-3 py-1 ${statoBadge[sinistro.stato]}`}>{sinistro.stato.replace(/_/g, " ")}</Badge>
       </div>
 
-      {/* Info Cards Row 1 */}
+      {/* Collegamenti (cliccabili) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Cliente</p><p className="font-semibold">{clienteNome}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Polizza</p><p className="font-semibold">{sinistro.titoli?.numero_titolo || "—"}</p></CardContent></Card>
+        <Card
+          className={sinistro.cliente_anagrafica_id ? "cursor-pointer hover:bg-accent/40 transition-colors" : ""}
+          onClick={() => sinistro.cliente_anagrafica_id && navigate(`/archivi/clienti/${sinistro.cliente_anagrafica_id}`)}
+        >
+          <CardContent className="pt-4">
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><UserIcon className="h-3 w-3" /> Cliente</p>
+            <p className="font-semibold truncate">{clienteNome}</p>
+          </CardContent>
+        </Card>
+        <Card
+          className={sinistro.titolo_id ? "cursor-pointer hover:bg-accent/40 transition-colors" : ""}
+          onClick={() => sinistro.titolo_id && navigate(`/titoli/${sinistro.titolo_id}`)}
+        >
+          <CardContent className="pt-4">
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><FileText className="h-3 w-3" /> Polizza</p>
+            <p className="font-semibold truncate">{sinistro.titoli?.numero_titolo || "—"}</p>
+          </CardContent>
+        </Card>
         <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Data Evento</p><p className="font-semibold">{sinistro.data_evento ? format(new Date(sinistro.data_evento), "dd/MM/yyyy") : "—"}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Responsabile</p><p className="font-semibold">{sinistro.profiles ? `${sinistro.profiles.nome} ${sinistro.profiles.cognome}` : "—"}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Responsabile</p><p className="font-semibold truncate">{sinistro.profiles ? `${sinistro.profiles.nome} ${sinistro.profiles.cognome}` : "—"}</p></CardContent></Card>
       </div>
 
       {/* Financial Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Costo Preventivato</p><p className="font-semibold font-mono">€ {(sinistro.costo_preventivato || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Costo Effettivo</p><p className="font-semibold font-mono">€ {(sinistro.costo_effettivo || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Franchigia</p><p className="font-semibold font-mono">€ {(sinistro.franchigia || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Liquidato</p><p className="font-semibold font-mono text-green-700">€ {(sinistro.importo_liquidato || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Riserva</p><p className="font-semibold font-mono text-orange-600">€ {(sinistro.importo_riserva || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
+        <Card className="border-l-4" style={{ borderLeftColor: "#64748b" }}><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Costo Preventivato</p><p className="font-semibold font-mono">€ {(sinistro.costo_preventivato || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
+        <Card className="border-l-4" style={{ borderLeftColor: "#64748b" }}><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Costo Effettivo</p><p className="font-semibold font-mono">€ {(sinistro.costo_effettivo || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
+        <Card className="border-l-4" style={{ borderLeftColor: "#0284c7" }}><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Franchigia</p><p className="font-semibold font-mono">€ {(sinistro.franchigia || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
+        <Card className="border-l-4" style={{ borderLeftColor: "#059669" }}><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Liquidato</p><p className="font-semibold font-mono text-emerald-700">€ {(sinistro.importo_liquidato || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
+        <Card className="border-l-4" style={{ borderLeftColor: "#ea580c" }}><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Riserva</p><p className="font-semibold font-mono text-orange-600">€ {(sinistro.importo_riserva || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
       </div>
 
       {/* Detail Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {sinistro.luogo_sinistro && (
-          <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Luogo Sinistro</p><p className="font-semibold">{sinistro.luogo_sinistro}</p></CardContent></Card>
+        {(sinistro.luogo_sinistro || sinistro.indirizzo_sinistro || sinistro.citta_sinistro) && (
+          <Card>
+            <CardContent className="pt-4">
+              <p className="text-sm text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Luogo Sinistro</p>
+              <p className="font-semibold">{sinistro.indirizzo_sinistro || sinistro.luogo_sinistro || "—"}</p>
+              <p className="text-sm text-muted-foreground">{[sinistro.cap_sinistro, sinistro.citta_sinistro, sinistro.provincia_sinistro ? `(${sinistro.provincia_sinistro})` : null].filter(Boolean).join(" ")}</p>
+            </CardContent>
+          </Card>
         )}
         {sinistro.targa_veicolo && (
           <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Targa Veicolo</p><p className="font-semibold">{sinistro.targa_veicolo}</p></CardContent></Card>
@@ -204,26 +228,42 @@ export default function SinistroDetail() {
         <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Eventi Attivi</p><p className="font-semibold">{eventi?.filter((e: any) => e.stato === "attivo").length}</p></CardContent></Card>
       </div>
 
-      {/* Stato actions */}
-      {!isChiuso && (
+      {/* Cambio stato — solo admin / gestori sinistri */}
+      {canManage && !isChiuso && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Cambia Stato</CardTitle></CardHeader>
-          <CardContent className="flex gap-2 flex-wrap">
-            {statiSinistro.filter(s => s !== sinistro.stato).map(s => (
-              <Button key={s} variant={s === "chiuso" ? "default" : "outline"} size="sm" onClick={() => cambiaStato(s)}>
-                {s.replace(/_/g, " ")}
-              </Button>
-            ))}
+          <CardHeader><CardTitle className="text-base">Gestione Stato Pratica</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-3 items-end">
+              <div>
+                <Label className="text-xs">Nuovo stato</Label>
+                <Select value={statoTarget} onValueChange={setStatoTarget}>
+                  <SelectTrigger><SelectValue placeholder="Seleziona stato" /></SelectTrigger>
+                  <SelectContent>
+                    {statiSinistro.filter(s => s !== sinistro.stato).map(s => (
+                      <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Note (opzionale)</Label>
+                <Input value={statoNote} onChange={e => setStatoNote(e.target.value)} placeholder="Motivazione cambio stato…" />
+              </div>
+              <Button disabled={!statoTarget} onClick={() => cambiaStato(statoTarget, statoNote)}>Aggiorna stato</Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ogni cambio stato viene registrato nella timeline e nel log attività.
+            </p>
           </CardContent>
         </Card>
       )}
 
       {sinistro.descrizione && (
-        <Card><CardHeader><CardTitle className="text-base">Descrizione</CardTitle></CardHeader><CardContent><p>{sinistro.descrizione}</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-base">Descrizione</CardTitle></CardHeader><CardContent><p className="whitespace-pre-wrap">{sinistro.descrizione}</p></CardContent></Card>
       )}
 
       {sinistro.note_perito && (
-        <Card><CardHeader><CardTitle className="text-base">Note Perito</CardTitle></CardHeader><CardContent><p>{sinistro.note_perito}</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-base">Note Perito</CardTitle></CardHeader><CardContent><p className="whitespace-pre-wrap">{sinistro.note_perito}</p></CardContent></Card>
       )}
 
       <Tabs defaultValue="checklist">
