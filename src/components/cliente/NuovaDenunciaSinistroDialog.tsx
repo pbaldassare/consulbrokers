@@ -159,12 +159,13 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
       }
 
       // Log apertura + evento timeline
-      await supabase.from("sinistro_eventi").insert({
+      await supabase.from("sinistro_eventi").insert([{
         sinistro_id: sin.id,
         tipo_evento: "apertura_cliente",
+        data_scadenza: new Date().toISOString().slice(0, 10),
         stato: "completato",
         note: `Denuncia inviata dal cliente — stato iniziale: in valutazione`,
-      });
+      }]);
       await supabase.from("log_attivita").insert({
         user_id: user.id,
         azione: "sinistro_aperto_da_cliente",
