@@ -64,16 +64,34 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
     setDinamica(""); setControparte(""); setTarga(""); setFiles([]);
     (async () => {
       const { data: cIds } = await supabase.rpc("get_my_cliente_ids");
-      if (!cIds?.length) return;
-      const { data } = await supabase
-        .from("titoli")
-        .select("id, numero_titolo, ufficio_id, cliente_anagrafica_id, rami(descrizione)")
-        .in("cliente_anagrafica_id", cIds.map((c: any) => c))
-        .eq("stato", "attivo");
-      setPolizze((data ?? []).map((t: any) => ({
-        ...t,
+      const ids = (cIds ?? []).map((c: any) => c);
+      if (!ids.length) return;
+      const [titRes, cgaRes] = await Promise.all([
+        supabase
+          .from("titoli")
+          .select("id, numero_titolo, ufficio_id, cliente_anagrafica_id, rami(descrizione)")
+          .in("cliente_anagrafica_id", ids),
+        supabase
+          .from("polizza_cga")
+          .select("id, numero_polizza, cliente_id, prodotti_cga(ramo)")
+          .in("cliente_id", ids)
+          .eq("stato", "approvato"),
+      ]);
+      const fromTitoli: Polizza[] = (titRes.data ?? []).map((t: any) => ({
+        id: t.id,
+        numero_titolo: t.numero_titolo,
+        ufficio_id: t.ufficio_id,
+        cliente_anagrafica_id: t.cliente_anagrafica_id,
         ramo_descrizione: t.rami?.descrizione,
-      })));
+      }));
+      const fromCga: Polizza[] = (cgaRes.data ?? []).map((c: any) => ({
+        id: `cga:${c.id}`,
+        numero_titolo: c.numero_polizza,
+        ufficio_id: null,
+        cliente_anagrafica_id: c.cliente_id,
+        ramo_descrizione: c.prodotti_cga?.ramo,
+      }));
+      setPolizze([...fromTitoli, ...fromCga]);
     })();
   }, [open]);
 
@@ -81,12 +99,21 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
   const tipoMeta = TIPI_SINISTRO.find(t => t.value === tipoSinistro);
   const showTarga = !!tipoMeta?.isVeicolo;
 
-  const canSubmit = titoloId && tipoSinistro && dataEvento && dinamica.trim().length > 5;
+  const canSubmit = tipoSinistro && dataEvento && dinamica.trim().length > 5;
 
   const submit = async () => {
-    if (!user || !polizzaSelezionata) return;
+    if (!user) return;
     setSaving(true);
     try {
+      const { data: cIds } = await supabase.rpc("get_my_cliente_ids");
+      const ids = (cIds ?? []).map((c: any) => c);
+      const clienteId = polizzaSelezionata?.cliente_anagrafica_id || ids[0];
+      if (!clienteId) {
+        toast.error("Nessun cliente associato all'utente");
+        setSaving(false);
+        return;
+      }
+      const isCga = polizzaSelezionata?.id.startsWith("cga:");
       const numero = `WEB-${Date.now().toString().slice(-8)}`;
       const luogoCompleto = [indirizzo, cap, citta, provincia].filter(Boolean).join(", ");
       const { data: sin, error } = await supabase
@@ -95,10 +122,10 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
           numero_sinistro: numero,
           stato: "aperto",
           aperto_da_cliente: true,
-          titolo_id: polizzaSelezionata.id,
-          cliente_anagrafica_id: polizzaSelezionata.cliente_anagrafica_id,
-          ufficio_id: polizzaSelezionata.ufficio_id,
-          ramo_sinistro: polizzaSelezionata.ramo_descrizione,
+          titolo_id: polizzaSelezionata && !isCga ? polizzaSelezionata.id : null,
+          cliente_anagrafica_id: clienteId,
+          ufficio_id: polizzaSelezionata?.ufficio_id ?? null,
+          ramo_sinistro: polizzaSelezionata?.ramo_descrizione ?? null,
           tipo_sinistro: tipoSinistro,
           data_evento: dataEvento || null,
           data_apertura: new Date().toISOString().slice(0, 10),
@@ -159,7 +186,7 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
           {/* Polizza & Tipo */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <Label>Polizza coinvolta *</Label>
+              <Label>Polizza coinvolta (opzionale)</Label>
               <Select value={titoloId} onValueChange={setTitoloId}>
                 <SelectTrigger><SelectValue placeholder="Seleziona polizza" /></SelectTrigger>
                 <SelectContent>
