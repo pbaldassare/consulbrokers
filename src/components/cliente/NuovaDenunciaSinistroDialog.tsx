@@ -113,7 +113,7 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
         .from("sinistri")
         .insert({
           numero_sinistro: numero,
-          stato: "aperto",
+          stato: "in_valutazione",
           aperto_da_cliente: true,
           titolo_id: polizzaSelezionata && !isCga ? polizzaSelezionata.id : null,
           cliente_anagrafica_id: clienteId,
