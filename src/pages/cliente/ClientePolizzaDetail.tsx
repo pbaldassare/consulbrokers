@@ -28,6 +28,7 @@ const ClientePolizzaDetail = () => {
   const { id } = useParams();
   const [titolo, setTitolo] = useState<any>(null);
   const [docs, setDocs] = useState<any[]>([]);
+  const [sinistri, setSinistri] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
@@ -44,9 +45,11 @@ const ClientePolizzaDetail = () => {
     Promise.all([
       supabase.from("titoli").select("*, compagnie(nome), rami(descrizione)").eq("id", id).maybeSingle(),
       supabase.from("documenti").select("*").eq("entita_tipo", "titolo").eq("entita_id", id).order("created_at", { ascending: false }),
-    ]).then(([tRes, dRes]) => {
+      supabase.from("sinistri").select("id, numero_sinistro, stato, data_evento, ramo_sinistro").eq("titolo_id", id).order("data_apertura", { ascending: false }),
+    ]).then(([tRes, dRes, sRes]) => {
       setTitolo(tRes.data);
       setDocs(dRes.data ?? []);
+      setSinistri(sRes.data ?? []);
       setLoading(false);
     });
   }, [id]);
