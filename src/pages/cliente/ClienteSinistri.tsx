@@ -198,7 +198,13 @@ export default function ClienteSinistri() {
                         <TableCell>
                           <Badge variant="outline" className="text-xs font-normal">{s.ramo_sinistro || "—"}</Badge>
                         </TableCell>
-                        <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          {s.titoli?.id ? (
+                            <Link to={`/cliente/polizze/${s.titoli.id}`} className="text-teal-700 hover:underline inline-flex items-center gap-1">
+                              {s.titoli.numero_titolo}<ExternalLink className="h-3 w-3" />
+                            </Link>
+                          ) : "—"}
+                        </TableCell>
                         <TableCell><Badge className={statoBadge[s.stato] || ""}>{s.stato?.replace(/_/g, " ")}</Badge></TableCell>
                         <TableCell className="max-w-[200px] truncate">{s.citta_sinistro || s.luogo_sinistro || "—"}</TableCell>
                         <TableCell className="text-right font-medium">{s.importo_riserva ? fmt(s.importo_riserva) : "—"}</TableCell>
