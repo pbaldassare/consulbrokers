@@ -40,3 +40,17 @@ export const TIPO_SINISTRO_LABELS: Record<string, string> = TIPI_SINISTRO.reduce
 
 export const getTipoSinistroLabel = (v?: string | null) =>
   v ? TIPO_SINISTRO_LABELS[v] || v.replace(/_/g, " ") : "—";
+
+/**
+ * Formatta il tipo di sinistro mostrando il valore personalizzato (se valorizzato)
+ * con prefisso "Personalizzato:", altrimenti la label del tipo predefinito.
+ */
+export const formatTipoSinistro = (
+  s: { tipo_sinistro?: string | null; tipo_sinistro_personalizzato?: string | null } | null | undefined
+): string => {
+  if (!s) return "—";
+  if (s.tipo_sinistro_personalizzato && s.tipo_sinistro_personalizzato.trim()) {
+    return `Personalizzato: ${s.tipo_sinistro_personalizzato.trim()}`;
+  }
+  return getTipoSinistroLabel(s.tipo_sinistro);
+};
