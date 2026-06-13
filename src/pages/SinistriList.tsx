@@ -401,7 +401,7 @@ export default function SinistriList() {
                 <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
                 <TableCell>{getClienteName(s.clienti)}</TableCell>
                 <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
-                <TableCell>{getTipoSinistroLabel(s.tipo_sinistro)}</TableCell>
+                <TableCell>{formatTipoSinistro(s)}</TableCell>
                 <TableCell>
                   <Badge className={statoBadge[s.stato]}>{s.stato.replace(/_/g, " ")}</Badge>
                 </TableCell>
