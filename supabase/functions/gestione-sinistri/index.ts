@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       const {
         numero_sinistro, titolo_id, cliente_id, compagnia_id, responsabile_id, liquidatore_id,
         ufficio_id, descrizione, user_id,
-        cliente_anagrafica_id, tipo_sinistro, luogo_sinistro, data_evento,
+        cliente_anagrafica_id, tipo_sinistro, tipo_sinistro_personalizzato, luogo_sinistro, data_evento,
         data_denuncia, data_apertura, numero_sinistro_compagnia, importo_riserva,
         stato_iniziale, priorita, note_interne,
       } = parsed.data;
@@ -99,6 +99,7 @@ Deno.serve(async (req) => {
         descrizione: descrizione ?? null,
         cliente_anagrafica_id: cliente_anagrafica_id ?? null,
         tipo_sinistro: tipo_sinistro ?? null,
+        tipo_sinistro_personalizzato: tipo_sinistro_personalizzato?.trim() || null,
         luogo_sinistro: luogo_sinistro ?? null,
         data_evento: data_evento ?? null,
         data_denuncia: data_denuncia ?? oggi,
