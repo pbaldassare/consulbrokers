@@ -271,6 +271,14 @@ export default function ClienteSinistri() {
 
                               {/* Documenti del sinistro */}
                               <SinistroDocumentiCliente sinistroId={s.id} />
+
+                              <div className="flex justify-end pt-2 border-t">
+                                <Link to={`/cliente/sinistri/${s.id}`}>
+                                  <Button size="sm" variant="outline" className="gap-1.5">
+                                    Apri dettaglio completo <ChevronRight className="h-4 w-4" />
+                                  </Button>
+                                </Link>
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>
