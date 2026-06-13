@@ -7246,6 +7246,7 @@ export type Database = {
           stato: string
           targa_veicolo: string | null
           tipo_sinistro: string | null
+          tipo_sinistro_personalizzato: string | null
           titolo_id: string | null
           ufficio_id: string | null
           updated_at: string | null
@@ -7286,6 +7287,7 @@ export type Database = {
           stato?: string
           targa_veicolo?: string | null
           tipo_sinistro?: string | null
+          tipo_sinistro_personalizzato?: string | null
           titolo_id?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
@@ -7326,6 +7328,7 @@ export type Database = {
           stato?: string
           targa_veicolo?: string | null
           tipo_sinistro?: string | null
+          tipo_sinistro_personalizzato?: string | null
           titolo_id?: string | null
           ufficio_id?: string | null
           updated_at?: string | null

@@ -1,60 +1,45 @@
-## Problema
+## Obiettivo
+Permettere al cliente, se nessuno dei tipi predefiniti è adatto, di aprire un **sinistro personalizzato** descrivendo a parole il tipo. Il dato viene salvato e gestito anche dall'admin.
 
-Nel portale cliente (`/cliente/sinistri`), il dialog "Apri nuovo sinistro" mostra il dropdown **"Polizza coinvolta" vuoto** per il Comune di Varese, anche se il cliente ha 10 polizze attive.
-
-## Causa diagnosticata
-
-Verifiche sul DB:
-- `clienti` "Comune di Varese" (`94dc5a3c…`) → **0 titoli** linkati (`titoli.cliente_anagrafica_id`)
-- Stessa anagrafica → **10 record in `polizza_cga`** stato `approvato`
-- Policy RLS attuale su `polizza_cga`:
-  ```
-  polizza_cga_read_via_cliente:
-    has_role(admin) OR has_role(cfo)
-    OR (profilo.ufficio_id = clienti.ufficio_id)
-  ```
-  → il ruolo **`cliente` non ha accesso** alle proprie `polizza_cga`. Il dialog le carica con `.in("cliente_id", ids)`, ma RLS le filtra a 0.
-
-Il dialog (`NuovaDenunciaSinistroDialog.tsx`) è già scritto correttamente per supportare le polizze CGA (prefix `cga:`), quindi il fix è solo lato policy.
-
-## Piano
-
-### 1. Migrazione SQL — estendere RLS `polizza_cga`
-Aggiungere ramo "cliente legge proprie polizze" alla policy SELECT, mantenendo i rami esistenti:
-
+## 1. Database — nuova colonna
+Migrazione su `sinistri`:
 ```sql
-DROP POLICY polizza_cga_read_via_cliente ON public.polizza_cga;
-CREATE POLICY polizza_cga_read_via_cliente ON public.polizza_cga
-FOR SELECT TO authenticated
-USING (
-  has_role(auth.uid(), 'admin')
-  OR has_role(auth.uid(), 'cfo')
-  OR EXISTS (
-    SELECT 1 FROM clienti c
-    JOIN profiles p ON p.id = auth.uid()
-    WHERE c.id = polizza_cga.cliente_id
-      AND p.ufficio_id IS NOT NULL
-      AND c.ufficio_id = p.ufficio_id
-  )
-  OR cliente_id IN (SELECT public.get_my_cliente_ids())  -- NEW: cliente owner
-);
+ALTER TABLE public.sinistri
+  ADD COLUMN tipo_sinistro_personalizzato text;
 ```
+Nessuna policy nuova: eredita le RLS esistenti di `sinistri`.
 
-Stesso pattern anche per `polizza_cga_premio_garanzia` e `polizza_garanzie_personali` (se esposte al cliente — verifico nella migrazione e includo solo se servono per il rendering della polizza nel portale).
+## 2. Frontend cliente — `NuovaDenunciaSinistroDialog.tsx`
+- Aggiungere checkbox **"Tipo di sinistro non in elenco — descrivilo"** sopra il campo "Tipo di sinistro".
+- Quando attivo:
+  - nasconde il `SearchableSelect` dei tipi predefiniti
+  - mostra un `Input` "Descrivi il tipo di sinistro" (es. *"Danno da grandine al tetto del comune"*)
+  - `tipoSinistro` non è più obbligatorio; obbligatorio diventa il campo personalizzato (min 3 char)
+- Validazione `canSubmit`:
+  - se personalizzato → `tipo_sinistro_personalizzato.trim().length >= 3 && dataEvento && dinamica >5`
+  - altrimenti → comportamento attuale (`tipoSinistro && dataEvento && dinamica >5`)
+- Insert su `sinistri`: salva sia `tipo_sinistro` (null se personalizzato) sia `tipo_sinistro_personalizzato`.
+- `showTarga` resta legato al tipo predefinito (un personalizzato non è veicolo).
 
-`prodotti_cga` è già leggibile da tutti gli authenticated → OK, il join `prodotti_cga(ramo)` funzionerà.
+## 3. Lato admin — visualizzazione
+- `src/lib/tipiSinistro.ts → getTipoSinistroLabel`: non si tocca; aggiungiamo una piccola util **`formatTipoSinistro(s)`** che ritorna:
+  - `tipo_sinistro_personalizzato` se valorizzato (con prefisso badge "Personalizzato:" davanti al testo)
+  - altrimenti `getTipoSinistroLabel(tipo_sinistro)`.
+- Aggiornare:
+  - `SinistriList.tsx` colonna "Tipo" → usa `formatTipoSinistro(s)`.
+  - `SinistroDetail.tsx` header → stesso.
+- In `SinistroDetail.tsx` aggiungere campo **modificabile** "Tipo personalizzato" nella sezione anagrafica sinistro (visibile solo se valorizzato o se `tipo_sinistro` è null), così admin può correggerlo/riclassificarlo. Salvataggio via update standard su `sinistri`.
 
-### 2. Verifica
-- Aprire `/cliente/sinistri` come utente Varese → dialog "Apri nuovo sinistro" → dropdown popolato con le 10 polizze CGA (con numero polizza e ramo).
-- Selezionare polizza CGA e inviare denuncia → sinistro creato con `titolo_id = null` (corretto, è CGA), `cliente_anagrafica_id` valorizzato.
-- Confermare che il sinistro appare nella lista `/cliente/sinistri`.
+## 4. Wizard admin (`SinistriList.tsx` dialog "Nuovo Sinistro")
+Estendere allo stesso modo (checkbox + campo libero) per coerenza: anche da admin si può aprire un sinistro personalizzato. Il payload passa `tipo_sinistro_personalizzato` all'edge function `gestione-sinistri`.
 
-### 3. Fuori scope
-- Nessuna modifica al frontend: la mapping `cga:` è già implementata.
-- Nessun nuovo campo `polizza_cga_id` su `sinistri` (le polizze CGA sono assicurazioni pre-vendita, il link "soft" tramite numero polizza in descrizione/note è sufficiente per ora).
-- I sinistri esistenti del Comune di Varese hanno tutti `titolo_id = null`: è coerente perché non esistono titoli per Varese.
+## 5. Edge function `gestione-sinistri`
+Aggiungere `tipo_sinistro_personalizzato: z.string().optional().nullable()` allo schema input azione `crea`; passare al record `sinistri`. `tipo_sinistro` resta opzionale (già lo è).
 
-## Note tecniche
+## 6. Verifica
+- Da `/cliente/sinistri`: aprire dialog → flag "personalizzato" → compilare descrizione + data + dinamica → invio → record creato con `tipo_sinistro=null` e `tipo_sinistro_personalizzato` valorizzato.
+- Da `/sinistri` admin: la riga mostra "Personalizzato: …"; aprendo il dettaglio si vede e si può modificare.
 
-- `get_my_cliente_ids()` è `SECURITY DEFINER`, già usata in altre policy cliente — pattern consolidato.
-- La migrazione mantiene completa retro-compatibilità: aggiunge un OR, non rimuove condizioni esistenti.
+## Fuori scope
+- Nessun cambio a checklist/eventi: i trigger esistenti continuano a popolare default.
+- Nessuna catalogazione storica dei tipi personalizzati (eventuale step futuro: promozione a tipo predefinito).

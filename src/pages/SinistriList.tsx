@@ -10,12 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, AlertTriangle, Search, FileText, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
-import { TIPI_SINISTRO, getTipoSinistroLabel } from "@/lib/tipiSinistro";
+import { TIPI_SINISTRO, formatTipoSinistro } from "@/lib/tipiSinistro";
 const statiSinistro = ["in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
 
 const statoBadge: Record<string, string> = {
@@ -49,7 +50,8 @@ export default function SinistriList() {
   const [polizzaLoading, setPolizzaLoading] = useState(false);
   const [selectedPolizza, setSelectedPolizza] = useState<any>(null);
   const [form, setForm] = useState({
-    numero_sinistro: "", descrizione: "", tipo_sinistro: "", luogo_sinistro: "", data_evento: ""
+    numero_sinistro: "", descrizione: "", tipo_sinistro: "", tipo_sinistro_personalizzato: "",
+    luogo_sinistro: "", data_evento: "", is_personalizzato: false,
   });
 
   const { data: sinistriResult, refetch } = useQuery({
@@ -155,7 +157,8 @@ export default function SinistriList() {
           compagnia_id: compagniaId,
           titolo_id: selectedPolizza?.id || null,
           cliente_anagrafica_id: clienteAnagraficaId,
-          tipo_sinistro: form.tipo_sinistro || null,
+          tipo_sinistro: form.is_personalizzato ? null : (form.tipo_sinistro || null),
+          tipo_sinistro_personalizzato: form.is_personalizzato ? form.tipo_sinistro_personalizzato.trim() : null,
           luogo_sinistro: form.luogo_sinistro || null,
           data_evento: form.data_evento || null,
           user_id: user?.id,
@@ -177,7 +180,7 @@ export default function SinistriList() {
     setPolizzaSearch({ cliente: "", numero: "", agenzia: "" });
     setPolizzaResults([]);
     setSelectedPolizza(null);
-    setForm({ numero_sinistro: "", descrizione: "", tipo_sinistro: "", luogo_sinistro: "", data_evento: "" });
+    setForm({ numero_sinistro: "", descrizione: "", tipo_sinistro: "", tipo_sinistro_personalizzato: "", luogo_sinistro: "", data_evento: "", is_personalizzato: false });
   };
 
   const getPolizzaClienteName = (t: any) => {
@@ -327,14 +330,38 @@ export default function SinistriList() {
                     </div>
                     <div>
                       <Label>Tipo Sinistro</Label>
-                      <Select value={form.tipo_sinistro} onValueChange={v => setForm({ ...form, tipo_sinistro: v })}>
-                        <SelectTrigger><SelectValue placeholder="Seleziona tipo" /></SelectTrigger>
-                        <SelectContent className="max-h-72">
-                          {TIPI_SINISTRO.map(t => (
-                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {form.is_personalizzato ? (
+                        <Input
+                          value={form.tipo_sinistro_personalizzato}
+                          onChange={e => setForm({ ...form, tipo_sinistro_personalizzato: e.target.value })}
+                          placeholder="Descrivi il tipo (testo libero)"
+                          maxLength={500}
+                        />
+                      ) : (
+                        <Select value={form.tipo_sinistro} onValueChange={v => setForm({ ...form, tipo_sinistro: v })}>
+                          <SelectTrigger><SelectValue placeholder="Seleziona tipo" /></SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            {TIPI_SINISTRO.map(t => (
+                              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      <label className="flex items-center gap-2 mt-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={form.is_personalizzato}
+                          onCheckedChange={(v) => {
+                            const checked = v === true;
+                            setForm({
+                              ...form,
+                              is_personalizzato: checked,
+                              tipo_sinistro: checked ? "" : form.tipo_sinistro,
+                              tipo_sinistro_personalizzato: checked ? form.tipo_sinistro_personalizzato : "",
+                            });
+                          }}
+                        />
+                        <span>Tipo non in elenco — descrivilo</span>
+                      </label>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -400,7 +427,7 @@ export default function SinistriList() {
                 <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
                 <TableCell>{getClienteName(s.clienti)}</TableCell>
                 <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
-                <TableCell>{getTipoSinistroLabel(s.tipo_sinistro)}</TableCell>
+                <TableCell>{formatTipoSinistro(s)}</TableCell>
                 <TableCell>
                   <Badge className={statoBadge[s.stato]}>{s.stato.replace(/_/g, " ")}</Badge>
                 </TableCell>

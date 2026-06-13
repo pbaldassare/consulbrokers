@@ -20,7 +20,8 @@ import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
-import { getTipoSinistroLabel } from "@/lib/tipiSinistro";
+import { getTipoSinistroLabel, formatTipoSinistro } from "@/lib/tipiSinistro";
+import TipoSinistroPersonalizzatoCard from "@/components/sinistri/TipoSinistroPersonalizzatoCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -160,7 +161,7 @@ export default function SinistroDetail() {
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold truncate">Sinistro {sinistro.numero_sinistro || "—"}</h1>
           <p className="text-sm text-muted-foreground truncate">
-            {getTipoSinistroLabel(sinistro.tipo_sinistro)}
+            {formatTipoSinistro(sinistro)}
             {sinistro.compagnie?.nome ? ` · ${sinistro.compagnie.nome}` : ""}
           </p>
         </div>
@@ -260,6 +261,16 @@ export default function SinistroDetail() {
 
       {sinistro.descrizione && (
         <Card><CardHeader><CardTitle className="text-base">Descrizione</CardTitle></CardHeader><CardContent><p className="whitespace-pre-wrap">{sinistro.descrizione}</p></CardContent></Card>
+      )}
+
+      {(sinistro.tipo_sinistro_personalizzato || !sinistro.tipo_sinistro) && (
+        <TipoSinistroPersonalizzatoCard
+          sinistroId={sinistro.id}
+          tipoSinistro={sinistro.tipo_sinistro}
+          tipoSinistroPersonalizzato={sinistro.tipo_sinistro_personalizzato}
+          canEdit={canManage}
+          onSaved={() => qc.invalidateQueries({ queryKey: ["sinistro", id] })}
+        />
       )}
 
       {sinistro.note_perito && (

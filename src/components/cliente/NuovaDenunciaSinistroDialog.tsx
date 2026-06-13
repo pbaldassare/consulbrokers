@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Upload, X, MapPin } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -40,6 +41,8 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
 
   const [titoloId, setTitoloId] = useState("");
   const [tipoSinistro, setTipoSinistro] = useState("");
+  const [isPersonalizzato, setIsPersonalizzato] = useState(false);
+  const [tipoPersonalizzato, setTipoPersonalizzato] = useState("");
   const [dataEvento, setDataEvento] = useState("");
   const [indirizzo, setIndirizzo] = useState("");
   const [citta, setCitta] = useState("");
@@ -52,7 +55,8 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
 
   useEffect(() => {
     if (!open) return;
-    setTitoloId(""); setTipoSinistro(""); setDataEvento("");
+    setTitoloId(""); setTipoSinistro(""); setIsPersonalizzato(false); setTipoPersonalizzato("");
+    setDataEvento("");
     setIndirizzo(""); setCitta(""); setCap(""); setProvincia("");
     setDinamica(""); setControparte(""); setTarga(""); setFiles([]);
     (async () => {
@@ -90,9 +94,12 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
 
   const polizzaSelezionata = polizze.find(p => p.id === titoloId);
   const tipoMeta = TIPI_SINISTRO.find(t => t.value === tipoSinistro);
-  const showTarga = !!tipoMeta?.isVeicolo;
+  const showTarga = !isPersonalizzato && !!tipoMeta?.isVeicolo;
 
-  const canSubmit = tipoSinistro && dataEvento && dinamica.trim().length > 5;
+  const tipoValido = isPersonalizzato
+    ? tipoPersonalizzato.trim().length >= 3
+    : !!tipoSinistro;
+  const canSubmit = tipoValido && dataEvento && dinamica.trim().length > 5;
 
   const submit = async () => {
     if (!user) return;
@@ -119,7 +126,8 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
           cliente_anagrafica_id: clienteId,
           ufficio_id: polizzaSelezionata?.ufficio_id ?? null,
           ramo_sinistro: polizzaSelezionata?.ramo_descrizione ?? null,
-          tipo_sinistro: tipoSinistro,
+          tipo_sinistro: isPersonalizzato ? null : (tipoSinistro || null),
+          tipo_sinistro_personalizzato: isPersonalizzato ? tipoPersonalizzato.trim() : null,
           data_evento: dataEvento || null,
           data_apertura: new Date().toISOString().slice(0, 10),
           data_denuncia: new Date().toISOString().slice(0, 10),
@@ -211,13 +219,34 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
             </div>
             <div>
               <Label>Tipo di sinistro *</Label>
-              <SearchableSelect
-                options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
-                value={tipoSinistro}
-                onValueChange={setTipoSinistro}
-                placeholder="Seleziona tipo"
-                searchPlaceholder="Cerca tipo..."
-              />
+              {isPersonalizzato ? (
+                <Input
+                  value={tipoPersonalizzato}
+                  onChange={e => setTipoPersonalizzato(e.target.value)}
+                  placeholder="Es. Danno da grandine al tetto"
+                  maxLength={500}
+                />
+              ) : (
+                <SearchableSelect
+                  options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
+                  value={tipoSinistro}
+                  onValueChange={setTipoSinistro}
+                  placeholder="Seleziona tipo"
+                  searchPlaceholder="Cerca tipo..."
+                />
+              )}
+              <label className="flex items-center gap-2 mt-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={isPersonalizzato}
+                  onCheckedChange={(v) => {
+                    const checked = v === true;
+                    setIsPersonalizzato(checked);
+                    if (checked) setTipoSinistro("");
+                    else setTipoPersonalizzato("");
+                  }}
+                />
+                <span>Tipo non in elenco — descrivilo</span>
+              </label>
             </div>
           </div>
 
