@@ -50,7 +50,8 @@ export default function SinistriList() {
   const [polizzaLoading, setPolizzaLoading] = useState(false);
   const [selectedPolizza, setSelectedPolizza] = useState<any>(null);
   const [form, setForm] = useState({
-    numero_sinistro: "", descrizione: "", tipo_sinistro: "", luogo_sinistro: "", data_evento: ""
+    numero_sinistro: "", descrizione: "", tipo_sinistro: "", tipo_sinistro_personalizzato: "",
+    luogo_sinistro: "", data_evento: "", is_personalizzato: false,
   });
 
   const { data: sinistriResult, refetch } = useQuery({
