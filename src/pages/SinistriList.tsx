@@ -180,7 +180,7 @@ export default function SinistriList() {
     setPolizzaSearch({ cliente: "", numero: "", agenzia: "" });
     setPolizzaResults([]);
     setSelectedPolizza(null);
-    setForm({ numero_sinistro: "", descrizione: "", tipo_sinistro: "", luogo_sinistro: "", data_evento: "" });
+    setForm({ numero_sinistro: "", descrizione: "", tipo_sinistro: "", tipo_sinistro_personalizzato: "", luogo_sinistro: "", data_evento: "", is_personalizzato: false });
   };
 
   const getPolizzaClienteName = (t: any) => {
