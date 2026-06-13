@@ -11,6 +11,7 @@ import ClienteNotifiche from "@/pages/cliente/ClienteNotifiche";
 
 import ClienteUploadDoc from "@/pages/cliente/ClienteUploadDoc";
 import ClienteSinistri from "@/pages/cliente/ClienteSinistri";
+import ClienteSinistroDetail from "@/pages/cliente/ClienteSinistroDetail";
 import ClienteAnagrafica from "@/pages/cliente/ClienteAnagrafica";
 import ClienteUfficio from "@/pages/cliente/ClienteUfficio";
 import ClienteAssistente from "@/pages/cliente/ClienteAssistente";
