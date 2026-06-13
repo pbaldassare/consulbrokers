@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
 import { getTipoSinistroLabel, formatTipoSinistro } from "@/lib/tipiSinistro";
+import TipoSinistroPersonalizzatoCard from "@/components/sinistri/TipoSinistroPersonalizzatoCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 
