@@ -20,7 +20,7 @@ import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
-import { getTipoSinistroLabel } from "@/lib/tipiSinistro";
+import { getTipoSinistroLabel, formatTipoSinistro } from "@/lib/tipiSinistro";
 import { useAuth } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 
