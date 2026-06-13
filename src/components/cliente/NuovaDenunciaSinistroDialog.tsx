@@ -94,9 +94,12 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
 
   const polizzaSelezionata = polizze.find(p => p.id === titoloId);
   const tipoMeta = TIPI_SINISTRO.find(t => t.value === tipoSinistro);
-  const showTarga = !!tipoMeta?.isVeicolo;
+  const showTarga = !isPersonalizzato && !!tipoMeta?.isVeicolo;
 
-  const canSubmit = tipoSinistro && dataEvento && dinamica.trim().length > 5;
+  const tipoValido = isPersonalizzato
+    ? tipoPersonalizzato.trim().length >= 3
+    : !!tipoSinistro;
+  const canSubmit = tipoValido && dataEvento && dinamica.trim().length > 5;
 
   const submit = async () => {
     if (!user) return;
