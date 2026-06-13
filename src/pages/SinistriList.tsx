@@ -330,14 +330,38 @@ export default function SinistriList() {
                     </div>
                     <div>
                       <Label>Tipo Sinistro</Label>
-                      <Select value={form.tipo_sinistro} onValueChange={v => setForm({ ...form, tipo_sinistro: v })}>
-                        <SelectTrigger><SelectValue placeholder="Seleziona tipo" /></SelectTrigger>
-                        <SelectContent className="max-h-72">
-                          {TIPI_SINISTRO.map(t => (
-                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {form.is_personalizzato ? (
+                        <Input
+                          value={form.tipo_sinistro_personalizzato}
+                          onChange={e => setForm({ ...form, tipo_sinistro_personalizzato: e.target.value })}
+                          placeholder="Descrivi il tipo (testo libero)"
+                          maxLength={500}
+                        />
+                      ) : (
+                        <Select value={form.tipo_sinistro} onValueChange={v => setForm({ ...form, tipo_sinistro: v })}>
+                          <SelectTrigger><SelectValue placeholder="Seleziona tipo" /></SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            {TIPI_SINISTRO.map(t => (
+                              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      <label className="flex items-center gap-2 mt-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={form.is_personalizzato}
+                          onCheckedChange={(v) => {
+                            const checked = v === true;
+                            setForm({
+                              ...form,
+                              is_personalizzato: checked,
+                              tipo_sinistro: checked ? "" : form.tipo_sinistro,
+                              tipo_sinistro_personalizzato: checked ? form.tipo_sinistro_personalizzato : "",
+                            });
+                          }}
+                        />
+                        <span>Tipo non in elenco — descrivilo</span>
+                      </label>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
