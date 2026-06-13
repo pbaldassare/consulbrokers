@@ -128,6 +128,7 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
           ramo_sinistro: polizzaSelezionata?.ramo_descrizione ?? null,
           tipo_sinistro: isPersonalizzato ? null : (tipoSinistro || null),
           tipo_sinistro_personalizzato: isPersonalizzato ? tipoPersonalizzato.trim() : null,
+          data_evento: dataEvento || null,
           data_apertura: new Date().toISOString().slice(0, 10),
           data_denuncia: new Date().toISOString().slice(0, 10),
           luogo_sinistro: luogoCompleto || null,
