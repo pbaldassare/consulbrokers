@@ -41,6 +41,8 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
 
   const [titoloId, setTitoloId] = useState("");
   const [tipoSinistro, setTipoSinistro] = useState("");
+  const [isPersonalizzato, setIsPersonalizzato] = useState(false);
+  const [tipoPersonalizzato, setTipoPersonalizzato] = useState("");
   const [dataEvento, setDataEvento] = useState("");
   const [indirizzo, setIndirizzo] = useState("");
   const [citta, setCitta] = useState("");
