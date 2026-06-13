@@ -160,7 +160,7 @@ export default function SinistroDetail() {
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold truncate">Sinistro {sinistro.numero_sinistro || "—"}</h1>
           <p className="text-sm text-muted-foreground truncate">
-            {getTipoSinistroLabel(sinistro.tipo_sinistro)}
+            {formatTipoSinistro(sinistro)}
             {sinistro.compagnie?.nome ? ` · ${sinistro.compagnie.nome}` : ""}
           </p>
         </div>
