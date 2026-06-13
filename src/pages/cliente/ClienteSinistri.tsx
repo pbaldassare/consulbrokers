@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus } from "lucide-react";
+import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import NuovaDenunciaSinistroDialog from "@/components/cliente/NuovaDenunciaSinistroDialog";
@@ -40,7 +41,7 @@ export default function ClienteSinistri() {
       if (!clienteIds?.length) return [];
       const { data, error } = await supabase
         .from("sinistri")
-        .select("*, compagnie(nome), titoli(numero_titolo), anagrafiche_professionali!sinistri_perito_id_fkey(nome, cognome, ragione_sociale)")
+        .select("*, compagnie(nome), titoli(id, numero_titolo), anagrafiche_professionali!sinistri_perito_id_fkey(nome, cognome, ragione_sociale)")
         .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
         .order("data_apertura", { ascending: false });
       if (error) throw error;
@@ -197,7 +198,13 @@ export default function ClienteSinistri() {
                         <TableCell>
                           <Badge variant="outline" className="text-xs font-normal">{s.ramo_sinistro || "—"}</Badge>
                         </TableCell>
-                        <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          {s.titoli?.id ? (
+                            <Link to={`/cliente/polizze/${s.titoli.id}`} className="text-teal-700 hover:underline inline-flex items-center gap-1">
+                              {s.titoli.numero_titolo}<ExternalLink className="h-3 w-3" />
+                            </Link>
+                          ) : "—"}
+                        </TableCell>
                         <TableCell><Badge className={statoBadge[s.stato] || ""}>{s.stato?.replace(/_/g, " ")}</Badge></TableCell>
                         <TableCell className="max-w-[200px] truncate">{s.citta_sinistro || s.luogo_sinistro || "—"}</TableCell>
                         <TableCell className="text-right font-medium">{s.importo_riserva ? fmt(s.importo_riserva) : "—"}</TableCell>
@@ -264,6 +271,14 @@ export default function ClienteSinistri() {
 
                               {/* Documenti del sinistro */}
                               <SinistroDocumentiCliente sinistroId={s.id} />
+
+                              <div className="flex justify-end pt-2 border-t">
+                                <Link to={`/cliente/sinistri/${s.id}`}>
+                                  <Button size="sm" variant="outline" className="gap-1.5">
+                                    Apri dettaglio completo <ChevronRight className="h-4 w-4" />
+                                  </Button>
+                                </Link>
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>

@@ -1,45 +1,47 @@
 ## Obiettivo
-Permettere al cliente, se nessuno dei tipi predefiniti è adatto, di aprire un **sinistro personalizzato** descrivendo a parole il tipo. Il dato viene salvato e gestito anche dall'admin.
+Migliorare la UX del portale cliente su `/cliente/sinistri`:
+1. Far funzionare il **caricamento e la lettura dei documenti** allegati a un sinistro (oggi il cliente preme "Carica" ma poi non li vede).
+2. Creare una **pagina di dettaglio sinistro** con navigazione **avanti / indietro** tra i sinistri del cliente e back-link alla lista.
+3. Aggiungere **collegamenti interni** Polizza ↔ Sinistro (dal dettaglio polizza vedo i sinistri collegati; dal dettaglio sinistro torno alla polizza).
 
-## 1. Database — nuova colonna
-Migrazione su `sinistri`:
+## Causa root del bug upload
+La policy RLS `cliente_select_own_documenti` sulla tabella `public.documenti` copre solo `entita_tipo IN ('cliente','titolo')` e **non** `'sinistro'`. Il cliente riesce a fare INSERT (la policy `cliente_insert_documenti` include sinistro) e l'upload va a buon fine sul bucket, ma la successiva SELECT restituisce zero righe — quindi sembra che il caricamento non funzioni. Le policy del bucket `documenti_sinistri` sono già corrette.
+
+## Modifiche
+
+### 1. Migration RLS (`supabase/migrations/...sinistri_cliente_select.sql`)
+Sostituire `cliente_select_own_documenti` aggiungendo il ramo `sinistro`:
 ```sql
-ALTER TABLE public.sinistri
-  ADD COLUMN tipo_sinistro_personalizzato text;
+DROP POLICY "cliente_select_own_documenti" ON public.documenti;
+CREATE POLICY "cliente_select_own_documenti" ON public.documenti
+FOR SELECT USING (
+  visibile_al_cliente = true AND (
+    (entita_tipo='cliente'  AND entita_id IN (SELECT get_my_cliente_ids()))
+ OR (entita_tipo='titolo'   AND entita_id IN (SELECT t.id FROM titoli   t WHERE t.cliente_anagrafica_id IN (SELECT get_my_cliente_ids())))
+ OR (entita_tipo='sinistro' AND entita_id IN (SELECT s.id FROM sinistri s WHERE s.cliente_anagrafica_id IN (SELECT get_my_cliente_ids())))
+  )
+);
 ```
-Nessuna policy nuova: eredita le RLS esistenti di `sinistri`.
 
-## 2. Frontend cliente — `NuovaDenunciaSinistroDialog.tsx`
-- Aggiungere checkbox **"Tipo di sinistro non in elenco — descrivilo"** sopra il campo "Tipo di sinistro".
-- Quando attivo:
-  - nasconde il `SearchableSelect` dei tipi predefiniti
-  - mostra un `Input` "Descrivi il tipo di sinistro" (es. *"Danno da grandine al tetto del comune"*)
-  - `tipoSinistro` non è più obbligatorio; obbligatorio diventa il campo personalizzato (min 3 char)
-- Validazione `canSubmit`:
-  - se personalizzato → `tipo_sinistro_personalizzato.trim().length >= 3 && dataEvento && dinamica >5`
-  - altrimenti → comportamento attuale (`tipoSinistro && dataEvento && dinamica >5`)
-- Insert su `sinistri`: salva sia `tipo_sinistro` (null se personalizzato) sia `tipo_sinistro_personalizzato`.
-- `showTarga` resta legato al tipo predefinito (un personalizzato non è veicolo).
+### 2. Nuova pagina dettaglio sinistro
+- `src/pages/cliente/ClienteSinistroDetail.tsx`: carica il sinistro per `:id` + lista completa id sinistri del cliente (per prev/next) tramite una sola query react-query (riusa la chiave `cliente-sinistri`).
+- Header con bottoni: **← Torna ai sinistri** (link a `/cliente/sinistri`), **‹ Precedente** / **Successivo ›** disabilitati ai bordi.
+- Mostra tutti i campi attualmente nel pannello expanded (dinamica, luogo, soggetti, dettaglio economico, note perito) + sezione **Polizza collegata** con link a `/cliente/polizze/{titolo_id}`.
+- Embed `<SinistroDocumentiCliente sinistroId={id} />` per upload/lista/anteprima/elimina.
+- Nuova route in `src/routes/cliente.tsx`: `/cliente/sinistri/:id`.
 
-## 3. Lato admin — visualizzazione
-- `src/lib/tipiSinistro.ts → getTipoSinistroLabel`: non si tocca; aggiungiamo una piccola util **`formatTipoSinistro(s)`** che ritorna:
-  - `tipo_sinistro_personalizzato` se valorizzato (con prefisso badge "Personalizzato:" davanti al testo)
-  - altrimenti `getTipoSinistroLabel(tipo_sinistro)`.
-- Aggiornare:
-  - `SinistriList.tsx` colonna "Tipo" → usa `formatTipoSinistro(s)`.
-  - `SinistroDetail.tsx` header → stesso.
-- In `SinistroDetail.tsx` aggiungere campo **modificabile** "Tipo personalizzato" nella sezione anagrafica sinistro (visibile solo se valorizzato o se `tipo_sinistro` è null), così admin può correggerlo/riclassificarlo. Salvataggio via update standard su `sinistri`.
+### 3. Lista sinistri (`ClienteSinistri.tsx`)
+- Mantenere l'expand inline ma aggiungere un bottone **"Apri dettaglio"** nel pannello che naviga a `/cliente/sinistri/{id}`.
+- Numero polizza nella colonna "Polizza" cliccabile → `/cliente/polizze/{titolo_id}`.
 
-## 4. Wizard admin (`SinistriList.tsx` dialog "Nuovo Sinistro")
-Estendere allo stesso modo (checkbox + campo libero) per coerenza: anche da admin si può aprire un sinistro personalizzato. Il payload passa `tipo_sinistro_personalizzato` all'edge function `gestione-sinistri`.
+### 4. Dettaglio polizza (`ClientePolizzaDetail.tsx`)
+- Aggiungere card **"Sinistri collegati"**: query `sinistri` filtrata su `titolo_id`, riga cliccabile → `/cliente/sinistri/{id}`.
 
-## 5. Edge function `gestione-sinistri`
-Aggiungere `tipo_sinistro_personalizzato: z.string().optional().nullable()` allo schema input azione `crea`; passare al record `sinistri`. `tipo_sinistro` resta opzionale (già lo è).
+### 5. (Nessuna modifica edge function necessaria — l'upload è fatto direttamente con il client supabase, la fix è solo RLS.)
 
-## 6. Verifica
-- Da `/cliente/sinistri`: aprire dialog → flag "personalizzato" → compilare descrizione + data + dinamica → invio → record creato con `tipo_sinistro=null` e `tipo_sinistro_personalizzato` valorizzato.
-- Da `/sinistri` admin: la riga mostra "Personalizzato: …"; aprendo il dettaglio si vede e si può modificare.
-
-## Fuori scope
-- Nessun cambio a checklist/eventi: i trigger esistenti continuano a popolare default.
-- Nessuna catalogazione storica dei tipi personalizzati (eventuale step futuro: promozione a tipo predefinito).
+## Verifica
+1. Login come cliente Comune di Varese su `/cliente/sinistri`.
+2. Espandere SIN-VA-2026-006 → caricare un PDF: deve comparire nella lista con badge "tuo", scaricabile, eliminabile.
+3. Cliccare **Apri dettaglio** → vedere `/cliente/sinistri/{id}` con bottoni Precedente/Successivo che scorrono i 5+ sinistri.
+4. Dal dettaglio sinistro: link "Polizza N. xxx" → `/cliente/polizze/{titolo_id}`.
+5. Dal dettaglio polizza: card "Sinistri collegati" elenca il sinistro e lo apre.

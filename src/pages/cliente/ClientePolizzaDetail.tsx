@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Shield, Building2, Calendar, CreditCard, FileText, Upload, User, Eye, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Shield, Building2, Calendar, CreditCard, FileText, Upload, User, Eye, Trash2, AlertTriangle, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -28,6 +28,7 @@ const ClientePolizzaDetail = () => {
   const { id } = useParams();
   const [titolo, setTitolo] = useState<any>(null);
   const [docs, setDocs] = useState<any[]>([]);
+  const [sinistri, setSinistri] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
@@ -44,9 +45,11 @@ const ClientePolizzaDetail = () => {
     Promise.all([
       supabase.from("titoli").select("*, compagnie(nome), rami(descrizione)").eq("id", id).maybeSingle(),
       supabase.from("documenti").select("*").eq("entita_tipo", "titolo").eq("entita_id", id).order("created_at", { ascending: false }),
-    ]).then(([tRes, dRes]) => {
+      supabase.from("sinistri").select("id, numero_sinistro, stato, data_evento, ramo_sinistro").eq("titolo_id", id).order("data_apertura", { ascending: false }),
+    ]).then(([tRes, dRes, sRes]) => {
       setTitolo(tRes.data);
       setDocs(dRes.data ?? []);
+      setSinistri(sRes.data ?? []);
       setLoading(false);
     });
   }, [id]);
@@ -164,6 +167,40 @@ const ClientePolizzaDetail = () => {
                     )}
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Sinistri collegati */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-orange-600" /> Sinistri collegati
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {sinistri.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nessun sinistro collegato a questa polizza.</p>
+          ) : (
+            <div className="space-y-2">
+              {sinistri.map((s) => (
+                <Link
+                  key={s.id}
+                  to={`/cliente/sinistri/${s.id}`}
+                  className="flex items-center justify-between py-2 px-3 rounded border hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Badge variant="outline" className="text-xs shrink-0">{s.ramo_sinistro || "—"}</Badge>
+                    <span className="font-medium truncate">{s.numero_sinistro || "—"}</span>
+                    <span className="text-xs text-muted-foreground">{s.stato?.replace(/_/g, " ")}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
+                    {s.data_evento && <span>{format(new Date(s.data_evento), "dd/MM/yyyy")}</span>}
+                    <ChevronRight className="h-4 w-4" />
+                  </div>
+                </Link>
               ))}
             </div>
           )}
