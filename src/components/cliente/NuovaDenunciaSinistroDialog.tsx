@@ -55,7 +55,8 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
 
   useEffect(() => {
     if (!open) return;
-    setTitoloId(""); setTipoSinistro(""); setDataEvento("");
+    setTitoloId(""); setTipoSinistro(""); setIsPersonalizzato(false); setTipoPersonalizzato("");
+    setDataEvento("");
     setIndirizzo(""); setCitta(""); setCap(""); setProvincia("");
     setDinamica(""); setControparte(""); setTarga(""); setFiles([]);
     (async () => {
