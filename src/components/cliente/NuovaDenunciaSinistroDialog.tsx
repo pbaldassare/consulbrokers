@@ -219,13 +219,34 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
             </div>
             <div>
               <Label>Tipo di sinistro *</Label>
-              <SearchableSelect
-                options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
-                value={tipoSinistro}
-                onValueChange={setTipoSinistro}
-                placeholder="Seleziona tipo"
-                searchPlaceholder="Cerca tipo..."
-              />
+              {isPersonalizzato ? (
+                <Input
+                  value={tipoPersonalizzato}
+                  onChange={e => setTipoPersonalizzato(e.target.value)}
+                  placeholder="Es. Danno da grandine al tetto"
+                  maxLength={500}
+                />
+              ) : (
+                <SearchableSelect
+                  options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
+                  value={tipoSinistro}
+                  onValueChange={setTipoSinistro}
+                  placeholder="Seleziona tipo"
+                  searchPlaceholder="Cerca tipo..."
+                />
+              )}
+              <label className="flex items-center gap-2 mt-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={isPersonalizzato}
+                  onCheckedChange={(v) => {
+                    const checked = v === true;
+                    setIsPersonalizzato(checked);
+                    if (checked) setTipoSinistro("");
+                    else setTipoPersonalizzato("");
+                  }}
+                />
+                <span>Tipo non in elenco — descrivilo</span>
+              </label>
             </div>
           </div>
 
