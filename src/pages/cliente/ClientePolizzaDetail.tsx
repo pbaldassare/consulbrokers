@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Shield, Building2, Calendar, CreditCard, FileText, Upload, User, Eye, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Shield, Building2, Calendar, CreditCard, FileText, Upload, User, Eye, Trash2, AlertTriangle, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
