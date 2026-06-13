@@ -262,6 +262,16 @@ export default function SinistroDetail() {
         <Card><CardHeader><CardTitle className="text-base">Descrizione</CardTitle></CardHeader><CardContent><p className="whitespace-pre-wrap">{sinistro.descrizione}</p></CardContent></Card>
       )}
 
+      {(sinistro.tipo_sinistro_personalizzato || !sinistro.tipo_sinistro) && (
+        <TipoSinistroPersonalizzatoCard
+          sinistroId={sinistro.id}
+          tipoSinistro={sinistro.tipo_sinistro}
+          tipoSinistroPersonalizzato={sinistro.tipo_sinistro_personalizzato}
+          canEdit={canManage}
+          onSaved={() => qc.invalidateQueries({ queryKey: ["sinistro", id] })}
+        />
+      )}
+
       {sinistro.note_perito && (
         <Card><CardHeader><CardTitle className="text-base">Note Perito</CardTitle></CardHeader><CardContent><p className="whitespace-pre-wrap">{sinistro.note_perito}</p></CardContent></Card>
       )}
