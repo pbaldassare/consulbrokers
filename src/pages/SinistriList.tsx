@@ -10,12 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, AlertTriangle, Search, FileText, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
-import { TIPI_SINISTRO, getTipoSinistroLabel } from "@/lib/tipiSinistro";
+import { TIPI_SINISTRO, formatTipoSinistro } from "@/lib/tipiSinistro";
 const statiSinistro = ["in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
 
 const statoBadge: Record<string, string> = {
