@@ -1,65 +1,54 @@
-
 ## Obiettivo
 
-Il nuovo Excel (`4464_matched_v2`) contiene già la colonna **`Cliente ID`** (UUID del cliente DB) pre-matchata. Quindi l'upload deve diventare un semplice **load + bind** senza step di matching AI né conferme di assegnazione. Prima però va azzerato lo stato attuale.
+Gestire il caso in cui un unico bonifico (es. **Paolo Baldassarre 3.000 €**) paga polizze di **clienti diversi**. Oggi il ricongiungimento è vincolato al `cliente_id` pre-matchato in Excel; va sbloccato così l'utente può collegare polizze di qualsiasi cliente, e ogni polizza ricorda che è stata **"Pagata da" Baldassarre**.
 
-## Stato attuale
+Lo schema DB supporta già il caso: `movimenti_clienti` non ha unique su `movimento_id`, quindi posso creare **N righe** (una per cliente coinvolto) sotto lo stesso movimento bancario.
 
-- 107 righe in `movimenti_bancari`, 1 in `movimenti_clienti`, 1 in `movimenti_polizze`.
-- L'Excel ha colonne: `Data contabile`, `Data valuta`, `Importo`, `Ordinante`, `Cliente DB`, **`Cliente ID`**, `Match`, `Descrizione`.
-- La pagina `CaricamentoMovBancariPage`:
-  - importa col `stato = 'importato'`,
-  - richiede "Avvia AI Matching",
-  - poi tab Revisione con bottoni Approva / Rifiuta / Assegna manuale per portare a `assegnato`.
+## Cosa cambia per l'utente (UX)
 
-## Azione
+Nella pagina **Ricongiungimento Bancario → card movimento espansa**:
 
-### 1. Reset dati (SQL)
+1. **Sezione "Cliente pre-matchato"** resta in alto (cliente identificato dall'Excel via Ordinante).
+2. Nuova sezione **"Polizze collegate (multi-cliente)"** con:
+   - elenco delle polizze già aggiunte (raggruppate per cliente), con importo modificabile e pulsante "rimuovi";
+   - bottone **"+ Aggiungi polizza di altro cliente"** → apre un dialog con:
+     - `SearchableSelect` cliente (cerca per ragione sociale / cognome / CF / P.IVA);
+     - lista delle polizze attive non incassate di quel cliente (checkbox + importo suggerito = premio_lordo);
+     - conferma → le righe vengono aggiunte alla selezione corrente.
+3. Banner di quadratura aggiornato: `Σ polizze (tutti i clienti) + anticipo + ammanco = Importo movimento ±0,01`.
+4. **"Pagato da"**: in fondo alla card, label informativa "Pagatore: {Ordinante del movimento}" che viene salvata su ogni riga polizza.
 
-```sql
-DELETE FROM movimenti_polizze;
-DELETE FROM movimenti_clienti;
-DELETE FROM movimenti_bancari;
-```
+Anticipi/Ammanchi e i bottoni **Salva ricongiungimento / Metti a cassa / Garantito** restano invariati, ma operano sull'insieme multi-cliente.
 
-(Nessuna FK esterna a `movimenti_bancari` oltre a queste due tabelle; il ricongiungimento esistente — l'unica riga — viene azzerato di proposito.)
+## Modifiche tecniche
 
-### 2. Refactor `src/pages/contabilita/CaricamentoMovBancariPage.tsx`
+### DB (migrazione)
+- `movimenti_polizze`: aggiungere colonne
+  - `cliente_id uuid NULL REFERENCES clienti(id)` — il cliente proprietario della polizza in quella riga (denormalizzato per query veloci);
+  - `pagato_da text NULL` — snapshot del nome ordinante (es. "BALDASSARRE PAOLO").
+- Nessun cambio a `movimenti_clienti` (sfruttiamo la 1:N già esistente).
+- Backfill: per le righe esistenti, `cliente_id` = `movimenti_clienti.cliente_id` del parent; `pagato_da` = `movimenti_bancari.ordinante`.
 
-Nel parser `handleFile`:
-- Riconoscere le colonne del nuovo formato:
-  - `data_movimento` ← `Data contabile` (fallback `Data valuta`)
-  - `importo` ← `Importo`
-  - `ordinante` ← `Ordinante`
-  - `descrizione` ← `Descrizione`
-  - `cliente_id` ← **`Cliente ID`** (UUID; se valido, viene scritto direttamente)
-- Per ogni riga con `Cliente ID` valido:
-  - recuperare in batch `ufficio_id` dal cliente (un'unica `SELECT id, ufficio_id FROM clienti WHERE id IN (...)`),
-  - inserire con `stato = 'assegnato'` e `cliente_id` + `ufficio_id` valorizzati;
-- Righe senza `Cliente ID` (rare con il nuovo file): inserite con `stato = 'importato'` come fallback, così non si perdono.
-- Mantenere la deduplica esistente (data+importo+ordinante+descrizione).
-- Rimuovere dalla UI:
-  - card "Ultimo batch importato" + bottone "Avvia AI Matching" (e funzione `runMatching`);
-  - tab "Revisione" (`RevisioneTab`) e relative azioni Approva/Rifiuta/Assegna.
-- Mantenere:
-  - tab "Importazione" (drop zone Excel),
-  - tab "Monitor Real-time",
-  - bottone "Inserimento manuale" (utile per casi sporadici).
-- Dopo upload mostrare un riepilogo statico: `N movimenti caricati e assegnati · M duplicati · K senza Cliente ID`.
+### Frontend (`RicongiungimentoBancarioPage.tsx`)
+- Lo stato `selPol` diventa una mappa `{ titoloId → { clienteId, importo, numeroTitolo, ragioneSociale } }`.
+- La query `polizze-cliente` viene mantenuta per il cliente pre-matchato + aggiunta una query on-demand per i clienti extra.
+- Nuovo componente `AggiungiPolizzaAltroClienteDialog` (SearchableSelect cliente + lista polizze).
+- `salvaRicongiungimento` ora:
+  - raggruppa `selPol` per cliente;
+  - upsert **una riga `movimenti_clienti` per cliente** sotto lo stesso `movimento_id` (delete + reinsert per semplicità);
+  - inserisce le righe `movimenti_polizze` con `cliente_id` e `pagato_da = movimento.ordinante`.
+- `MessaCassaDialog` riceve tutti i titoli selezionati (multi-cliente) — il dialog già lavora per `titoli.id`, niente da cambiare.
+- Vista: nella card "Storico" e nelle viste E/C Cliente, mostrare il badge **"Pagato da {pagatore}"** quando `pagato_da != cliente intestatario`.
 
-### 3. Pulizia collegata
-
-- Nessuna modifica a `RicongiungimentoBancarioPage.tsx`: continua a leggere `stato IN ('assegnato','ricongiunti')` e ora vede subito tutti i movimenti caricati.
-- Edge function `ai-match-movimenti-bancari` resta in DB ma non viene più invocata dalla UI (non la cancello in questa iterazione per sicurezza; se vuoi la rimuovo).
+### Niente da toccare
+- Excel import (`CaricamentoMovBancariPage`): resta com'è, il `cliente_id` pre-matchato è solo un suggerimento iniziale.
+- RLS, trigger di messa a cassa, auto-quietanza: invariati.
 
 ## Verifica
 
-1. `/contabilita/caricamento-mov-bancari` non mostra più "Avvia AI Matching" né la tab Revisione.
-2. Caricando `4464_matched_v2.xlsx` compaiono toast tipo `108 movimenti caricati e assegnati`.
-3. `/contabilita/ricongiungimento-bancario` elenca i movimenti già abbinati al cliente, pronti per il ricongiungimento polizze.
-4. `SELECT count(*) FROM movimenti_bancari WHERE stato='assegnato'` ≈ 108.
-
-## Note
-
-- L'Excel usa importi numerici (es. `54339` interpretato come `54339.00`): il parser corrente li gestisce.
-- Se vuoi cancellare anche la edge function di AI matching, dimmelo nel prossimo giro.
+1. Caricare un movimento da 3.000 € intestato a Baldassarre.
+2. Espandere la card → aggiungere 1 polizza di Baldassarre (1.200 €) + 1 polizza di Cliente X (900 €) + 1 polizza di Cliente Y (900 €).
+3. Banner deve mostrare quadratura ±0,01.
+4. Salva → in DB devono esserci 3 righe `movimenti_clienti` (3 clienti diversi) e 3 righe `movimenti_polizze` con `pagato_da = "BALDASSARRE PAOLO"`.
+5. "Metti a cassa" deve incassare tutte e 3 le polizze in un colpo solo; stato movimento → `incassato`.
+6. Aprire E/C di Cliente X → la polizza incassata mostra badge "Pagato da BALDASSARRE PAOLO".
