@@ -1,72 +1,49 @@
+## Problema
 
-## Sintomo
+Nella card "Premi per Garanzia — Firma/Quietanza" inserendo `476,50` come Premio Lordo (o Netto) la UI mostra valori sbagliati (`4,11` / `0,66` / `0,43` / `5,20`): il valore digitato viene troncato o frainteso. La causa è il combo `<input type="number">` + `parseFloat`:
 
-Stai compilando la polizza moto in `/portafoglio/immissione?clienteId=…`, modifichi data e premio, e la **pagina si ricarica davvero** (URL refresh), perdendo tutto. Hai confermato che non clicchi "Salva" e ti aspetti che almeno i campi restino lì.
+- `type="number"` con locale italiano gestisce la virgola in modo incoerente fra browser: spesso `e.target.value` torna stringa vuota mentre l'utente digita `476,5`, oppure tiene solo le prime cifre valide.
+- `parseFloat("476,5")` ritorna `476` (perde la parte decimale); `parseFloat("4,76")` ritorna `4`.
+- L'utente vede così numeri "casuali" perché il valore digitato non viene mai parsato per intero.
 
-## Cause individuate
+File interessato: `src/components/polizze/PremiGaranziaCardShell.tsx`
+(stessi input usati sia in card Firma che Quietanza).
 
-Ci sono due meccanismi indipendenti che convergono sullo stesso effetto "ho perso i dati":
+## Cosa fare
 
-1. **AppVersionGuard forza reload del bundle** (`src/components/AppVersionGuard.tsx` + `src/lib/versionCheck.ts`). Polla `/version.json` ogni `POLL_MS` ed esegue `window.location.reload()` se vede un version mismatch (throttle 30s anti-loop). In dev/preview Lovable il `version.json` cambia spesso → la pagina si ricarica davvero mentre compili. Nessuna guardia per "form con bozza non vuota in corso".
+1. **Helper di parsing IT** (in cima al file, o in `src/lib/number.ts` se non esiste già): 
+   - `parseDecimalIt(value: string): number | null` — trim, rimuove spazi e separatore migliaia `.` quando seguono pattern `\d{1,3}(\.\d{3})+,\d+`, sostituisce ultima `,` con `.`, poi `parseFloat`. Ritorna `null` se vuoto o NaN.
+   - `formatDecimalIt(n: number, dec=2)` — `n.toLocaleString("it-IT",{minimumFractionDigits:dec,maximumFractionDigits:dec})` per le celle non editabili (lordo riga / totali) — opzionale, già ok.
 
-2. **Effect di reset righe premio** (`ImmissionePolizzaPage.tsx` linee 981-998, dipendenza `[isRCA]`). Ogni volta che `isRCA` cambia (anche perché `gruppiRamo`/`ramiList` arrivano in due tempi o perché tocchi `polizzaAuto`), azzera `premiFirmaRows`, `premiQuietanzaRows`, e tutti i campi veicolo/conducente — anche se contengono già dati che stavi inserendo. Stesso reset esplicito anche su `RamoSottoramoSelect.onChange` (linea 1887-1888).
+2. **Cambiare gli `<Input>` editabili** (Netto, Tasse, SSN, Lordo riga):
+   - `type="number"` → `type="text"` con `inputMode="decimal"` e `pattern="[0-9.,]*"` (mobile keyboard numerica con virgola).
+   - `value={r.netto}` resta una stringa (già lo è). Mostriamo quello che l'utente ha digitato, senza riformattare a ogni keystroke.
+   - `onBlur`: normalizzare la stringa con `parseDecimalIt` → se valido, riscrivere il campo come `n.toFixed(2)` (formato canonico `.` come separatore decimale, coerente con come è salvato oggi nello state).
 
-3. **Bozza riallineata su key change**. Il `draftKey` (linea 446) è `immissione:v1:${selectedClienteId || preselectedClienteId || "new"}`. Al primo render parte da `new` (perché `selectedClienteId` è vuoto), poi l'effect 706-711 lo allinea a `preselectedClienteId` → il key cambia → l'hydration effect 451 ri-parte (loadDraft dell'altra key) e può sovrascrivere campi già toccati nei primi 200ms. È un piccolo race ma contribuisce al "vedo i campi che si svuotano".
+3. **Aggiornare gli handler** `handleNettoChange`, `handleTasseChange`, `handleLordoChange` (e ricalcoli derivati):
+   - Sostituire ogni `parseFloat(value)` / `parseFloat(r?.netto ?? "0")` con `parseDecimalIt(...) ?? 0`.
+   - Mantenere `value` come stringa originale dell'utente nello state (non sovrascrivere durante la digitazione), così non si "perde" la virgola mentre si scrive.
+   - I ricalcoli automatici di tasse / ssn restano, ma scritti in formato `nnn.nn` (compatibile con tutto il resto del codice che già usa `parseFloat`).
 
-## Fix proposto (frontend only)
+4. **Tot/somme** (`totNetto`, `totTasse`, `totSsn`, riga 128-131) e i punti che fanno `parseFloat(r.netto ?? "0")` dentro lo stesso file: passare a `parseDecimalIt` per essere consistenti se la stringa contiene una virgola transitoria prima del blur.
 
-### A) Mettere il guinzaglio all'AppVersionGuard sulle pagine "form aperto"
-
-- In `src/lib/versionCheck.ts`, dentro `forceReload(...)`, aggiungere una condizione `canReloadNow()` che ritorna `false` se:
-  - `document.visibilityState !== "visible"`, **oppure**
-  - esiste almeno un `<input>/<textarea>/<select>` focusato con `:focus`, **oppure**
-  - una flag globale `window.__lovableFormDirty === true` è attiva.
-- In `ImmissionePolizzaPage.tsx`, settare `window.__lovableFormDirty = true` quando `draftHydrated && !!draftSnapshot.numeroPolizza || …` (basta tenerlo "dirty" finché la pagina è montata e ha un draft attivo). Pulirla in unmount e dopo salvataggio/`clearDraft`.
-- L'aggiornamento resta in coda: appena la pagina viene smontata o l'utente cambia tab, al prossimo poll il reload parte. Niente loop perché il throttle 30s esistente continua a funzionare.
-
-### B) Evitare il reset distruttivo delle righe premio
-
-- Cambiare l'effect 981 in modo che NON azzeri se le righe contengono già dati inseriti. Pseudocodice:
-
-  ```ts
-  useEffect(() => {
-    if (isRCA) return;
-    // reset solo se le righe sono "vuote/default" (nessun netto, nessun sottoramo, nessuna targa, ecc.)
-    const hasUserData =
-      premiFirmaRows.some(r => r.netto || r.tasse || r.sottoramoId) ||
-      premiQuietanzaRows.some(r => r.netto || r.tasse || r.sottoramoId) ||
-      !!vTarga || !!vMarca || !!vModello;
-    if (hasUserData) return;
-    // …reset come oggi…
-  }, [isRCA]);
-  ```
-
-- Stesso ragionamento per `RamoSottoramoSelect.onChange` (linee 1884-1890): mostrare un piccolo `confirm()` (o `toast` con undo) prima di azzerare le righe se contengono importi, invece di buttarle via in silenzio.
-
-### C) Stabilizzare la bozza alla prima entrata con `?clienteId=…`
-
-- Inizializzare `selectedClienteId` direttamente da `preselectedClienteId` in `useState(() => preselectedClienteId ?? "")`, in modo che il `draftKey` sia stabile dal primo render e l'hydration giri una sola volta. Rimuovere (o tenere come fallback) l'effect 706-711.
-
-## File toccati
-
-- `src/lib/versionCheck.ts` — guard `canReloadNow()`.
-- `src/components/AppVersionGuard.tsx` — nessuna modifica funzionale (continua a pollare; il blocco è centralizzato in `versionCheck.ts`).
-- `src/pages/ImmissionePolizzaPage.tsx` —
-  - flag `window.__lovableFormDirty` su mount/unmount;
-  - `useState` iniziale di `selectedClienteId` da query string;
-  - guardia "hasUserData" nell'effect `[isRCA]`;
-  - conferma prima del reset righe premio in `RamoSottoramoSelect.onChange`.
-
-## Cosa NON tocco
-
-- La struttura DB e le RLS.
-- La logica di calcolo provvigioni/IPT/SSN.
-- Le altre pagine (`TitoloDetail`, `PortafoglioDetail`, ecc.).
-- Il debounce di salvataggio bozza (`useDraftPersistence`).
+5. **Non toccare**:
+   - Lo schema DB, le edge functions, gli altri form (StornoTitoloDialog, RegolazionePremioDialog ecc.): la stessa fix andrà eventualmente replicata in seguito, ma è fuori scope per questo bug.
+   - Le righe non editabili che mostrano già `toFixed(2)` (Totali, Premio Lordo): restano com'è.
 
 ## Verifica
 
-1. Aprire `/portafoglio/immissione?clienteId=…`, compilare Ramo + Premio + Data, lasciare la tab aperta più di un minuto: nessun reload finché c'è focus o `formDirty`.
-2. Cambiare Ramo dopo aver inserito un premio: chiede conferma prima di buttare le righe.
-3. Cliccare/togliere "Polizza Auto" su un ramo R.C.A. con premi già compilati: le righe restano.
-4. Refresh manuale (F5): la bozza viene ripristinata e parte dal cliente corretto senza re-hydration in due passi.
+1. `/portafoglio/immissione?clienteId=…`, ramo `ZQ – R.C.A.`, sottoramo `R. C. MOTO`, aliquota 16%.
+2. In Premio Lordo digitare `476,50` → al blur deve mostrare `Netto 410,78 · Tasse 65,72 · Lordo 476,50` (con SSN se attivo: ssn 50,00, lordo totale ~526,50).
+3. Provare gli stessi valori sia con `,` che con `.` come separatore decimale → stesso risultato.
+4. Provare `1.234,56` (separatore migliaia + decimale) → 1234.56.
+5. Mentre digito `476,5` la cifra rimane visibile e non viene sovrascritta a ogni keystroke.
+6. Provvigioni e totali nella riga riepilogo Importi (Totale Netto/Tasse/SSN/Lordo) coerenti.
+
+## Tecnico — riassunto modifiche file
+
+`src/components/polizze/PremiGaranziaCardShell.tsx`:
+- aggiungere `parseDecimalIt` helper (top file)
+- handler `handleNettoChange`, `handleTasseChange`, `handleLordoChange`, `handleSsnChange`: usare helper, NON riformattare la stringa digitata
+- 4 `<Input type="number">`: → `type="text"` + `inputMode="decimal"` + `onBlur` di normalizzazione
+- `parseFloat` interni: sostituiti con `parseDecimalIt`
