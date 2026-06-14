@@ -2229,41 +2229,31 @@ const ImmissionePolizzaPage = () => {
               warningAuto: provvigioneWarning || null,
               onResetAuto: () => setPercentualeProvvigioneAuto(true),
             };
+            // Auto-sync: la Quietanza rispecchia la Firma in tempo reale.
+            // Le righe Quietanza modificate a mano (quietanzaPersonalizzata=true)
+            // si scollegano e smettono di seguire la Firma; il pulsante
+            // "Sincronizza da Firma" le riallinea tutte.
+            const sincronizzata =
+              isQuietanzaSincronizzata(premiQuietanzaRows) &&
+              premiQuietanzaRows.length === premiFirmaRows.length &&
+              addizionaliQuietanza === addizionali;
+            const personalizzati = premiQuietanzaRows.map((r) => !!r.quietanzaPersonalizzata);
             return (
               <>
                 <PremiGaranziaCardShell
                   tipoPremio="firma"
                   gruppoRamoId={selectedGruppoRamoId}
                   rows={premiFirmaRows}
-                  onRowsChange={setPremiFirmaRows}
+                  onRowsChange={(next) => {
+                    setPremiFirmaRows(next);
+                    setPremiQuietanzaRows((prev) => syncQuietanzaFromFirma(next, prev));
+                  }}
                   addizionali={addizionali}
-                  onAddizionaliChange={setAddizionali}
+                  onAddizionaliChange={(v) => {
+                    setAddizionali(v);
+                    setAddizionaliQuietanza(v);
+                  }}
                   provvigioni={provvFirma}
-                  {...commonProvvProps}
-                  headerExtra={
-                    <Button
-                      type="button"
-                      variant="default"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => {
-                        setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
-                        setAddizionaliQuietanza(addizionali);
-                        toast.success("Firma salvata e copiata in Quietanza");
-                      }}
-                    >
-                      Salva e copia in Quietanza
-                    </Button>
-                  }
-                />
-                <PremiGaranziaCardShell
-                  tipoPremio="quietanza"
-                  gruppoRamoId={selectedGruppoRamoId}
-                  rows={premiQuietanzaRows}
-                  onRowsChange={setPremiQuietanzaRows}
-                  addizionali={addizionaliQuietanza}
-                  onAddizionaliChange={setAddizionaliQuietanza}
-                  provvigioni={provvQuietanza}
                   {...commonProvvProps}
                   headerExtra={
                     <Button
@@ -2272,26 +2262,52 @@ const ImmissionePolizzaPage = () => {
                       size="sm"
                       className="h-7 text-xs"
                       onClick={() => {
-                        setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
+                        setPremiQuietanzaRows(mirrorAllFromFirma(premiFirmaRows));
+                        setAddizionaliQuietanza(addizionali);
+                        toast.success("Quietanza riallineata alla Firma");
+                      }}
+                      title="Riallinea l'intera Quietanza alla Firma, azzerando le personalizzazioni"
+                    >
+                      Copia in Quietanza
+                    </Button>
+                  }
+                />
+                <PremiGaranziaCardShell
+                  tipoPremio="quietanza"
+                  gruppoRamoId={selectedGruppoRamoId}
+                  rows={premiQuietanzaRows}
+                  onRowsChange={(next) => {
+                    setPremiQuietanzaRows((prev) => markQuietanzaEdits(prev, next));
+                  }}
+                  addizionali={addizionaliQuietanza}
+                  onAddizionaliChange={setAddizionaliQuietanza}
+                  provvigioni={provvQuietanza}
+                  {...commonProvvProps}
+                  sincronizzata={sincronizzata}
+                  personalizzati={personalizzati}
+                  onResetRow={(idx) =>
+                    setPremiQuietanzaRows((prev) => resetQuietanzaRow(premiFirmaRows, prev, idx))
+                  }
+                  headerExtra={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={sincronizzata}
+                      onClick={() => {
+                        setPremiQuietanzaRows(mirrorAllFromFirma(premiFirmaRows));
                         setAddizionaliQuietanza(addizionali);
                       }}
+                      title="Riallinea tutte le voci alla Firma, azzerando le personalizzazioni"
                     >
                       Sincronizza da Firma
                     </Button>
                   }
-                  sincronizzata={
-                    premiQuietanzaRows.length === premiFirmaRows.length &&
-                    premiQuietanzaRows.every((r, i) =>
-                      r.netto === premiFirmaRows[i]?.netto &&
-                      r.tasse === premiFirmaRows[i]?.tasse &&
-                      (r.codice || "") === (premiFirmaRows[i]?.codice || "") &&
-                      r.descrizione === premiFirmaRows[i]?.descrizione,
-                    ) &&
-                    addizionaliQuietanza === addizionali
-                  }
                 />
               </>
             );
+
           })()}
         </div>
 
