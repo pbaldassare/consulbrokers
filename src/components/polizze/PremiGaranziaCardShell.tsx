@@ -128,6 +128,10 @@ export function PremiGaranziaCardShell({
   onResetRow,
 }: PremiGaranziaCardShellProps) {
   const isQuietanza = tipoPremio === "quietanza";
+  // Draft locale per il campo Lordo: mentre l'utente digita teniamo la stringa
+  // così com'è (es. "4", "47", "476,", "476,5"); il back-solve scatta solo onBlur.
+  const [lordoDrafts, setLordoDrafts] = useState<Record<number, string>>({});
+
   const [totFocus, setTotFocus] = useState(false);
   const [totDraft, setTotDraft] = useState("");
   const [pctFocus, setPctFocus] = useState(false);
