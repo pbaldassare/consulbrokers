@@ -986,9 +986,17 @@ const ImmissionePolizzaPage = () => {
   // Detect RCA: gruppo ramo contiene "RCA" o "Auto" oppure checkbox polizzaAuto
   const isRCA = polizzaAuto || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("RCA") || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("AUTO");
 
-  // Quando il ramo NON è auto, azzeriamo tutti i dati veicolo/conducente per evitare salvataggi sporchi
+  // Quando il ramo NON è auto, azzeriamo i dati veicolo/conducente per evitare
+  // salvataggi sporchi — ma SOLO se non risultano dati già inseriti dall'utente
+  // (altrimenti il toggle di polizzaAuto o il flip di isRCA dovuto al caricamento
+  // asincrono di gruppiRamo cancellerebbe il lavoro in corso).
   useEffect(() => {
     if (isRCA) return;
+    const hasUserData =
+      premiFirmaRows.some((r) => r.netto || r.tasse || r.sottoramoId) ||
+      premiQuietanzaRows.some((r) => r.netto || r.tasse || r.sottoramoId) ||
+      !!vTarga || !!vMarca || !!vModello || !!vTelaio || !!targaTelaio;
+    if (hasUserData) return;
     setTargaTelaio("");
     setVMarca(""); setVModello(""); setVVersione(""); setVTarga(""); setVTelaio("");
     setVDescrizione(""); setVDataImmatricolazione(""); setVAnnoAcquisto("");
@@ -1005,6 +1013,7 @@ const ImmissionePolizzaPage = () => {
     setCTipoPatente(""); setCDataRilascioPatente(""); setCNote("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRCA]);
+
 
   // Provvigione: rimossa lookup automatica per prodotto (prodotto è ora testo libero).
   // L'utente inserisce manualmente la percentuale.
