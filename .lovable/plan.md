@@ -1,47 +1,41 @@
 ## Obiettivo
-Migliorare la UX del portale cliente su `/cliente/sinistri`:
-1. Far funzionare il **caricamento e la lettura dei documenti** allegati a un sinistro (oggi il cliente preme "Carica" ma poi non li vede).
-2. Creare una **pagina di dettaglio sinistro** con navigazione **avanti / indietro** tra i sinistri del cliente e back-link alla lista.
-3. Aggiungere **collegamenti interni** Polizza ↔ Sinistro (dal dettaglio polizza vedo i sinistri collegati; dal dettaglio sinistro torno alla polizza).
 
-## Causa root del bug upload
-La policy RLS `cliente_select_own_documenti` sulla tabella `public.documenti` copre solo `entita_tipo IN ('cliente','titolo')` e **non** `'sinistro'`. Il cliente riesce a fare INSERT (la policy `cliente_insert_documenti` include sinistro) e l'upload va a buon fine sul bucket, ma la successiva SELECT restituisce zero righe — quindi sembra che il caricamento non funzioni. Le policy del bucket `documenti_sinistri` sono già corrette.
+Recepire la regola di dominio:
+
+> Ogni record in `compagnie` di tipo **agenzia / direzione / broker / plurimandataria** rappresenta **già di per sé un rapporto** (il *rapporto principale*). La tabella `compagnia_rapporti` contiene **solo i rapporti aggiuntivi** (plurimandatarie / co-assicurazioni).
+> Conseguenza: il conteggio mostrato nella colonna "Rapporti" della tab **Agenzie** deve essere **`compagnia_rapporti.attivi + 1`** (mai 0). Non vanno mai creati record fittizi in `compagnia_rapporti` per rappresentare il rapporto principale.
 
 ## Modifiche
 
-### 1. Migration RLS (`supabase/migrations/...sinistri_cliente_select.sql`)
-Sostituire `cliente_select_own_documenti` aggiungendo il ramo `sinistro`:
-```sql
-DROP POLICY "cliente_select_own_documenti" ON public.documenti;
-CREATE POLICY "cliente_select_own_documenti" ON public.documenti
-FOR SELECT USING (
-  visibile_al_cliente = true AND (
-    (entita_tipo='cliente'  AND entita_id IN (SELECT get_my_cliente_ids()))
- OR (entita_tipo='titolo'   AND entita_id IN (SELECT t.id FROM titoli   t WHERE t.cliente_anagrafica_id IN (SELECT get_my_cliente_ids())))
- OR (entita_tipo='sinistro' AND entita_id IN (SELECT s.id FROM sinistri s WHERE s.cliente_anagrafica_id IN (SELECT get_my_cliente_ids())))
-  )
-);
-```
+### 1) Memoria di progetto
+Creare `mem://insurance/rapporto-principale-implicito` con la regola, e referenziarla in `mem://index.md` sotto "Memories".
 
-### 2. Nuova pagina dettaglio sinistro
-- `src/pages/cliente/ClienteSinistroDetail.tsx`: carica il sinistro per `:id` + lista completa id sinistri del cliente (per prev/next) tramite una sola query react-query (riusa la chiave `cliente-sinistri`).
-- Header con bottoni: **← Torna ai sinistri** (link a `/cliente/sinistri`), **‹ Precedente** / **Successivo ›** disabilitati ai bordi.
-- Mostra tutti i campi attualmente nel pannello expanded (dinamica, luogo, soggetti, dettaglio economico, note perito) + sezione **Polizza collegata** con link a `/cliente/polizze/{titolo_id}`.
-- Embed `<SinistroDocumentiCliente sinistroId={id} />` per upload/lista/anteprima/elimina.
-- Nuova route in `src/routes/cliente.tsx`: `/cliente/sinistri/:id`.
+Bullet di sintesi:
+> Rapporto principale implicito — Ogni agenzia/direzione in `compagnie` è già il proprio rapporto principale; il conteggio "Rapporti" UI = `compagnia_rapporti.attivi + 1`. Non duplicare in `compagnia_rapporti`.
 
-### 3. Lista sinistri (`ClienteSinistri.tsx`)
-- Mantenere l'expand inline ma aggiungere un bottone **"Apri dettaglio"** nel pannello che naviga a `/cliente/sinistri/{id}`.
-- Numero polizza nella colonna "Polizza" cliccabile → `/cliente/polizze/{titolo_id}`.
+### 2) UI — `src/pages/CompagnieList.tsx` (tab Agenzie)
+Modificare la cella della colonna "Rapporti" (intorno alla linea 1687-1697) per:
+- visualizzare `rc.attivi + 1` (e `(rc.tot + 1)` se ci sono inattivi)
+- aggiornare il `title` del bottone in: *"Gestisci rapporti aggiuntivi (oltre al rapporto principale)"*
+- mantenere lo stile "default" (riempito) quando `rc.attivi >= 1` (cioè quando esiste almeno un rapporto aggiuntivo oltre al principale)
 
-### 4. Dettaglio polizza (`ClientePolizzaDetail.tsx`)
-- Aggiungere card **"Sinistri collegati"**: query `sinistri` filtrata su `titolo_id`, riga cliccabile → `/cliente/sinistri/{id}`.
+Nessuna modifica al DB e nessuna migrazione: il +1 è puramente di presentazione.
 
-### 5. (Nessuna modifica edge function necessaria — l'upload è fatto direttamente con il client supabase, la fix è solo RLS.)
+### 3) Nessun altro touch
+- Non modifico `RapportiCompagniaDialog` (gestisce correttamente solo i rapporti aggiuntivi N:N).
+- Non modifico l'RPC `get_rapporti_counts_per_compagnia`.
+- Lascio invariata la card "Rapporti aggiuntivi (plurimandatarie)" in fondo al dettaglio Compagnia: il testo già dice "aggiuntivi", coerente con la regola.
 
 ## Verifica
-1. Login come cliente Comune di Varese su `/cliente/sinistri`.
-2. Espandere SIN-VA-2026-006 → caricare un PDF: deve comparire nella lista con badge "tuo", scaricabile, eliminabile.
-3. Cliccare **Apri dettaglio** → vedere `/cliente/sinistri/{id}` con bottoni Precedente/Successivo che scorrono i 5+ sinistri.
-4. Dal dettaglio sinistro: link "Polizza N. xxx" → `/cliente/polizze/{titolo_id}`.
-5. Dal dettaglio polizza: card "Sinistri collegati" elenca il sinistro e lo apre.
+- Aprire `/compagnie` → tab **Agenzie** → filtrare "vene" → la riga **Generali Venezia** deve mostrare **1** in Rapporti (non 0).
+- Per un'agenzia plurimandataria con 2 rapporti aggiuntivi in `compagnia_rapporti`, la colonna deve mostrare **3**.
+
+## File toccati
+- `.lovable/memory/insurance/rapporto-principale-implicito.md` (nuovo)
+- `.lovable/memory/index.md` (aggiunta bullet)
+- `src/pages/CompagnieList.tsx` (cella colonna Rapporti)
+
+## Fuori scope (per giro successivo, su tua richiesta)
+- Re-analisi dell'Excel "carico mese giugno napoli" con la nuova regola.
+- Dedup clienti *Santa Marina Salina* e *Consulbrokers*.
+- Verifica esistenza agenzie *AIB All Insurance Broker* (Lloyd's) e *ASSIB Underwriting* (AIG).
