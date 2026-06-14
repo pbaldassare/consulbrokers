@@ -12,6 +12,14 @@ import { Switch } from "@/components/ui/switch";
 
 import { Search, Car, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck } from "lucide-react";
 import { PremiGaranziaCardShell, emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
+import {
+  syncQuietanzaFromFirma,
+  markQuietanzaEdits,
+  mirrorAllFromFirma,
+  resetQuietanzaRow,
+  isQuietanzaSincronizzata,
+} from "@/components/polizze/premiSync";
+
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 
