@@ -1,48 +1,37 @@
-## Obiettivo
+## Problema
 
-In `ImmissionePolizzaPage`, quando si seleziona un Cliente che ha già almeno una polizza, precompilare automaticamente **Compagnia**, **Agenzia/Rapporto** (e per coerenza **Gruppo Compagnia**) con i valori dell'ultima polizza salvata per quel cliente. L'utente resta libero di cambiarli; al salvataggio della nuova polizza i valori diventano automaticamente la nuova "preferenza" (perché la prossima volta si leggerà di nuovo l'ultima polizza).
+Digitando `340,00` in Premio Lordo, il back-solve calcola netto = 340 / 1,265 = 268,7747… → arrotondato a 268,77. Poi:
+- tasse = 268,77 × 16% = 43,0032 → 43,00
+- SSN = 268,77 × 10,5% = 28,2208 → 28,22
+- somma riga = **339,99 €** (perdita 0,01 € da arrotondamento)
 
-## Approccio (no schema changes)
+`lordoRow` viene ricalcolato in UI come `netto + tasse + ssn`, quindi mostra 339,99 invece dei 340,00 richiesti.
 
-Niente nuove colonne / tabella preferenze: la "preferenza" è semplicemente l'ultima polizza del cliente. Si rilegge ogni volta da `titoli` ordinato per `created_at desc limit 1`.
+## Fix
 
-Vantaggi: zero migrazioni, nessun rischio di disallineamento, si aggiorna "in automatico" ad ogni salvataggio come richiesto.
+In `src/components/polizze/PremiGaranziaCardShell.tsx`, dentro `handleLordoChange`: dopo aver calcolato netto/SSN, **non** arrotondare tasse indipendentemente, ma derivarle come differenza per garantire l'invariante `netto + tasse + ssn = lordo` esatto al centesimo.
 
-## Modifiche
+```ts
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const nettoR = round2(nettoCalc);
+const ssnR = r?.ssnAttivo ? round2(ssnCalc) : 0;
+const tasseR = round2(lordo - nettoR - ssnR); // assorbe il residuo
+```
 
-**File: `src/pages/ImmissionePolizzaPage.tsx`**
+Vantaggi:
+- 340,00 resta 340,00 in UI (la riga lordo torna esatta).
+- L'errore di arrotondamento (≤ 0,01 €) finisce sulle tasse, che è la convenzione contabile italiana standard per RCA.
+- Nessuna nuova colonna/stato (`lordoOverride`) né cambiamenti DB.
 
-1. Aggiungere un `useEffect` che si attiva al cambio di `selectedClienteId` (e solo quando i campi compagnia/rapporto sono ancora vuoti — non sovrascrivere scelte già fatte dall'utente né dati ereditati da una trattativa/rinnovo).
-2. Query:
-   ```ts
-   supabase.from("titoli")
-     .select("compagnia_id, compagnia_rapporto_id")
-     .eq("cliente_id", selectedClienteId)
-     .not("compagnia_id", "is", null)
-     .order("created_at", { ascending: false })
-     .limit(1).maybeSingle()
-   ```
-3. Se trovato:
-   - `setSelectedCompagniaId(row.compagnia_id)`
-   - Recupero `gruppo_compagnia_id` e `tipo` da `compagnie` (riuso pattern già presente nel file ai righi ~1820–1830) e `setSelectedGruppoCompagniaId(...)` quando agenzia/direzione.
-   - `setSelectedRapportoId(row.compagnia_rapporto_id)` se presente (broker/plurimandataria).
-4. Mostrare un piccolo hint sotto al campo Compagnia: "Precompilato dall'ultima polizza di questo cliente — modificabile" (badge teal, dismissable o solo finché i valori non vengono cambiati).
-
-## Comportamento atteso
-
-- Primo titolo del cliente → campi vuoti come oggi.
-- Dal secondo in poi → Compagnia + Agenzia/Rapporto precompilati con i valori dell'ultima polizza salvata.
-- L'utente può cambiarli liberamente; al `save` la nuova polizza diventa l'ultima e quindi la nuova preferenza per i successivi inserimenti.
-- Nessun impatto su Rinnovi/Sostituzioni (lì i dati arrivano dal titolo origine; la prefill da "ultima polizza" non scatta perché i campi sono già valorizzati).
+Stesso identico fix non serve in `handleNettoChange`/`handleTasseChange`/`handleSsnChange` perché lì il lordo è effettivamente la somma dei tre.
 
 ## Verifica
 
-1. Cliente con 1+ polizza → apri `/immissione-polizza`, seleziona cliente → Compagnia/Agenzia compaiono automaticamente.
-2. Cambiare manualmente la compagnia → salva → riapri immissione per lo stesso cliente → ora la "preferenza" è la nuova compagnia.
-3. Cliente senza polizze → campi vuoti come oggi.
+1. Polizza R.C.A., aliquote 16% IPT + 10,5% SSN → digita Lordo `340,00` → blur:
+   - Netto 268,77 · Tasse 43,01 (assorbe +0,01) · SSN 28,22 · **Lordo riga 340,00 ✓**
+2. Lordo `476,50` (caso citato prima) → Netto/Tasse/SSN coerenti, totale riga 476,50 esatto.
+3. Edit successivo del netto manuale → tasse ricalcolate dall'aliquota come oggi (nessuna regressione).
 
-## Fuori scope
+## File
 
-- Nessuna nuova tabella/colonna di preferenze.
-- Nessuna modifica a `TitoloDetail` (la prefill ha senso solo in nuovo inserimento).
-- Nessuna modifica a Rinnovo (eredita dal titolo origine, prioritario).
+- `src/components/polizze/PremiGaranziaCardShell.tsx` (solo `handleLordoChange`, ~10 righe).
