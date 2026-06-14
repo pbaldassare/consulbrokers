@@ -1780,29 +1780,40 @@ const ImmissionePolizzaPage = () => {
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedCompagnia}
-              disabled={!selectedGruppoCompagniaId}
               onValueChange={(v) => {
                 setSelectedCompagnia(v);
                 setSelectedRapportoId("");
                 const ag = (compagnieList || []).find((c: any) => c.id === v) as any;
                 const tipo = (ag?.tipo || "").toLowerCase();
-                // per agenzia/direzione auto-sync della compagnia madre
                 if ((tipo === "agenzia" || tipo === "direzione") && ag?.gruppo_compagnia_id) {
+                  // agenzia/direzione → auto-set compagnia madre
                   setSelectedGruppoCompagniaId(ag.gruppo_compagnia_id);
+                } else if (tipo === "broker" || tipo === "plurimandataria") {
+                  // broker/pluri → se ha 1 solo gruppo, auto-set; altrimenti l'utente sceglie la compagnia
+                  const gruppi = rapportiMap?.get(v) || [];
+                  if (gruppi.length === 1) {
+                    setSelectedGruppoCompagniaId(gruppi[0]);
+                  } else if (gruppi.length > 1 && selectedGruppoCompagniaId && !gruppi.includes(selectedGruppoCompagniaId)) {
+                    setSelectedGruppoCompagniaId("");
+                  }
                 }
               }}
-              placeholder={selectedGruppoCompagniaId ? "— Seleziona agenzia —" : "Seleziona prima la Compagnia"}
+              placeholder="— Cerca agenzia / broker —"
               options={(compagnieList || [])
                 .filter((c: any) => {
-                  if (!selectedGruppoCompagniaId) return false;
                   const tipo = (c.tipo || "").toLowerCase();
-                  if (tipo === "agenzia" || tipo === "direzione") {
-                    return c.gruppo_compagnia_id === selectedGruppoCompagniaId;
+                  // Se è già scelta una compagnia, applica il filtro classico
+                  if (selectedGruppoCompagniaId) {
+                    if (tipo === "agenzia" || tipo === "direzione") {
+                      return c.gruppo_compagnia_id === selectedGruppoCompagniaId;
+                    }
+                    if (tipo === "broker" || tipo === "plurimandataria") {
+                      return (brokerPluriPerGruppo || []).includes(c.id);
+                    }
+                    return false;
                   }
-                  if (tipo === "broker" || tipo === "plurimandataria") {
-                    return (brokerPluriPerGruppo || []).includes(c.id);
-                  }
-                  return false;
+                  // Nessuna compagnia scelta → mostra tutte le entità utilizzabili
+                  return tipo === "agenzia" || tipo === "direzione" || tipo === "broker" || tipo === "plurimandataria";
                 })
                 .map((c: any) => {
                   const tipo = (c.tipo || "").toLowerCase();
@@ -1816,6 +1827,7 @@ const ImmissionePolizzaPage = () => {
                 })}
             />
           </div>
+
         </div>
 
         {/* Rapporto Agenzia: visibile solo per broker / plurimandataria */}
