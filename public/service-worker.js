@@ -11,7 +11,10 @@ const cleanup = async () => {
           const url = new URL(client.url);
           url.searchParams.set("sw-cleanup", Date.now().toString());
           url.searchParams.set("__v", Date.now().toString());
-          return client.navigate(url.toString());
+          // Non navighiamo direttamente: lasciamo decidere al client quando
+          // è sicuro ricaricare (vedi src/lib/swCleanupListener.ts).
+          client.postMessage({ type: "CBNET_SW_NAV", url: url.toString() });
+          return Promise.resolve();
         } catch {
           return Promise.resolve();
         }

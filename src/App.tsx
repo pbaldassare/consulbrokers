@@ -21,6 +21,9 @@ import { contabilitaRoutes } from "./routes/contabilita";
 import { sistemaRoutes } from "./routes/sistema";
 import { clienteRoutes } from "./routes/cliente";
 import { prospectRoutes } from "./routes/prospect";
+import { installSwCleanupListener } from "./lib/swCleanupListener";
+
+installSwCleanupListener();
 
 const queryClient = new QueryClient();
 
