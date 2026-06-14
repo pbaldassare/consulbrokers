@@ -4551,36 +4551,49 @@ export type Database = {
       }
       movimenti_polizze: {
         Row: {
+          cliente_id: string | null
           created_at: string
           data_messa_cassa: string | null
           id: string
           importo: number
           messo_a_cassa: boolean
           movimento_cliente_id: string
+          pagato_da: string | null
           tipo: Database["public"]["Enums"]["movimento_polizza_tipo"]
           titolo_id: string | null
         }
         Insert: {
+          cliente_id?: string | null
           created_at?: string
           data_messa_cassa?: string | null
           id?: string
           importo: number
           messo_a_cassa?: boolean
           movimento_cliente_id: string
+          pagato_da?: string | null
           tipo?: Database["public"]["Enums"]["movimento_polizza_tipo"]
           titolo_id?: string | null
         }
         Update: {
+          cliente_id?: string | null
           created_at?: string
           data_messa_cassa?: string | null
           id?: string
           importo?: number
           messo_a_cassa?: boolean
           movimento_cliente_id?: string
+          pagato_da?: string | null
           tipo?: Database["public"]["Enums"]["movimento_polizza_tipo"]
           titolo_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "movimenti_polizze_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "movimenti_polizze_movimento_cliente_id_fkey"
             columns: ["movimento_cliente_id"]
