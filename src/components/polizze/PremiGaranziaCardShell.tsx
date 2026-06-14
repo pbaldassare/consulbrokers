@@ -10,6 +10,15 @@ import { Car, ShieldCheck, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
+import { parseDecimalIt, parseDecimalItOr } from "@/lib/number";
+
+/** Normalizza una stringa numerica inserita dall'utente al blur: "476,5" → "476.50". */
+function normalizeDecimalOnBlur(value: string, decimals = 2): string {
+  if (value == null || value === "") return "";
+  const n = parseDecimalIt(value);
+  if (n === null) return value; // non valido: lasciamo com'è così l'utente vede il proprio input
+  return n.toFixed(decimals);
+}
 
 export interface GaranziaRow {
   /** Codice del sottoramo (rami.codice) o codice garanzia legacy */
