@@ -10,6 +10,15 @@ import { Car, ShieldCheck, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
+import { parseDecimalIt, parseDecimalItOr } from "@/lib/number";
+
+/** Normalizza una stringa numerica inserita dall'utente al blur: "476,5" → "476.50". */
+function normalizeDecimalOnBlur(value: string, decimals = 2): string {
+  if (value == null || value === "") return "";
+  const n = parseDecimalIt(value);
+  if (n === null) return value; // non valido: lasciamo com'è così l'utente vede il proprio input
+  return n.toFixed(decimals);
+}
 
 export interface GaranziaRow {
   /** Codice del sottoramo (rami.codice) o codice garanzia legacy */
@@ -125,10 +134,10 @@ export function PremiGaranziaCardShell({
   const [pctDraft, setPctDraft] = useState("");
   const titolo = isQuietanza ? "Premi per Garanzia — Quietanza" : "Premi per Garanzia — Firma";
 
-  const totNetto = rows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
-  const totTasse = rows.reduce((s, r) => s + (parseFloat(r.tasse || "0") || 0), 0);
-  const totSsn = rows.reduce((s, r) => s + (parseFloat(r.ssn || "0") || 0), 0);
-  const add = parseFloat(addizionali || "0") || 0;
+  const totNetto = rows.reduce((s, r) => s + parseDecimalItOr(r.netto), 0);
+  const totTasse = rows.reduce((s, r) => s + parseDecimalItOr(r.tasse), 0);
+  const totSsn = rows.reduce((s, r) => s + parseDecimalItOr(r.ssn), 0);
+  const add = parseDecimalItOr(addizionali);
   const lordo = totNetto + totTasse + totSsn + add;
   const hasSsnRows = rows.some((r) => r.ssnAttivo);
 
@@ -181,7 +190,7 @@ export function PremiGaranziaCardShell({
     const aliquota = escludi ? 0 : (Number(sel.aliquota_tasse_ramo) || 0);
     const ssnAttivo = !escludi && !!sel.ssn_attivo;
     const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
-    const netto = parseFloat(rows[idx]?.netto || "0") || 0;
+    const netto = parseDecimalItOr(rows[idx]?.netto);
     const tasseCalc = !escludi && netto > 0 && aliquota > 0 ? +((netto * aliquota) / 100).toFixed(2) : 0;
     updateRow(idx, {
       sottoramoId: sel.id,
@@ -204,23 +213,27 @@ export function PremiGaranziaCardShell({
       updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
     }
-    const netto = parseFloat(value);
+    // Conserviamo la stringa così com'è digitata (può contenere "," o "."),
+    // così l'utente vede esattamente quello che scrive. La normalizzazione
+    // avviene su onBlur.
+    const netto = parseDecimalIt(value);
     const aliquota = r?.aliquotaTasse || 0;
-    const tasseNew = aliquota > 0 && !isNaN(netto) ? +((netto * aliquota) / 100).toFixed(2) : (parseFloat(r?.tasse || "0") || 0);
-    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
-      ? calcSsn(netto, tasseNew, r.aliquotaSsn || 0).toFixed(2)
+    const hasNetto = netto !== null;
+    const tasseNew = aliquota > 0 && hasNetto ? +((netto! * aliquota) / 100).toFixed(2) : null;
+    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride && hasNetto
+      ? calcSsn(netto!, tasseNew ?? 0, r.aliquotaSsn || 0).toFixed(2)
       : (r?.ssn || "");
     updateRow(idx, {
       netto: value,
-      tasse: aliquota > 0 && !isNaN(netto) ? tasseNew.toFixed(2) : r?.tasse || "",
+      tasse: tasseNew !== null ? tasseNew.toFixed(2) : (r?.tasse || ""),
       ssn: ssnNew,
     });
   };
 
   const handleTasseChange = (idx: number, value: string) => {
     const r = rows[idx];
-    const netto = parseFloat(r?.netto || "0") || 0;
-    const tasse = parseFloat(value || "0") || 0;
+    const netto = parseDecimalItOr(r?.netto);
+    const tasse = parseDecimalItOr(value);
     const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
       ? calcSsn(netto, tasse, r.aliquotaSsn || 0).toFixed(2)
       : (r?.ssn || "");
@@ -237,8 +250,8 @@ export function PremiGaranziaCardShell({
       updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
     }
-    const lordo = parseFloat(value);
-    if (isNaN(lordo)) return;
+    const lordo = parseDecimalIt(value);
+    if (lordo === null) return;
     const aliquota = r?.aliquotaTasse || 0;
     // Risolve netto+tasse a partire dal lordo riga (SSN escluso: trattato come riga separata)
     let nettoCalc: number; let tasseCalc: number;
@@ -297,9 +310,9 @@ export function PremiGaranziaCardShell({
             </TableHeader>
             <TableBody>
               {rows.map((r, idx) => {
-                const netto = parseFloat(r.netto || "0") || 0;
-                const tax = parseFloat(r.tasse || "0") || 0;
-                const ssnRow = parseFloat(r.ssn || "0") || 0;
+                const netto = parseDecimalItOr(r.netto);
+                const tax = parseDecimalItOr(r.tasse);
+                const ssnRow = parseDecimalItOr(r.ssn);
                 // L'aliquota è fissa: viene dal DB (ramo/sottoramo) e non si ricalcola
                 // dai valori immessi. Sono netto/tasse/lordo a muoversi in base all'aliquota.
                 const aliquotaFissa = r.aliquotaTasse || 0;
@@ -352,11 +365,12 @@ export function PremiGaranziaCardShell({
                     </TableCell>
                     <TableCell className="text-right">
                       <Input
-                        type="number"
-                        step="0.01"
+                        type="text"
                         inputMode="decimal"
+                        pattern="[0-9.,\-]*"
                         value={r.netto}
                         onChange={(e) => handleNettoChange(idx, e.target.value)}
+                        onBlur={(e) => handleNettoChange(idx, normalizeDecimalOnBlur(e.target.value))}
                         className="h-8 text-right font-mono ml-auto w-28"
                       />
                     </TableCell>
@@ -365,11 +379,12 @@ export function PremiGaranziaCardShell({
                     </TableCell>
                     <TableCell className="text-right">
                       <Input
-                        type="number"
-                        step="0.01"
+                        type="text"
                         inputMode="decimal"
+                        pattern="[0-9.,\-]*"
                         value={r.escludiProvvigioni ? "0.00" : r.tasse}
                         onChange={(e) => handleTasseChange(idx, e.target.value)}
+                        onBlur={(e) => handleTasseChange(idx, normalizeDecimalOnBlur(e.target.value))}
                         disabled={r.escludiProvvigioni}
                         title={r.escludiProvvigioni ? "Voce esente: tasse forzate a 0" : undefined}
                         className="h-8 text-right font-mono ml-auto w-24"
@@ -380,11 +395,12 @@ export function PremiGaranziaCardShell({
                         {r.ssnAttivo ? (
                           <div className="flex flex-col items-end gap-0.5">
                             <Input
-                              type="number"
-                              step="0.01"
+                              type="text"
                               inputMode="decimal"
+                              pattern="[0-9.,\-]*"
                               value={r.ssn || ""}
                               onChange={(e) => handleSsnChange(idx, e.target.value)}
+                              onBlur={(e) => handleSsnChange(idx, normalizeDecimalOnBlur(e.target.value))}
                               className="h-8 text-right font-mono ml-auto w-24"
                               title={`SSN ${(r.aliquotaSsn ?? 10.5).toFixed(2)}% sul lordo (netto+tasse)`}
                             />
@@ -399,11 +415,12 @@ export function PremiGaranziaCardShell({
                     )}
                     <TableCell className="text-right">
                       <Input
-                        type="number"
-                        step="0.01"
+                        type="text"
                         inputMode="decimal"
+                        pattern="[0-9.,\-]*"
                         value={lordoRow ? lordoRow.toFixed(2) : ""}
                         onChange={(e) => handleLordoChange(idx, e.target.value)}
+                        onBlur={(e) => handleLordoChange(idx, normalizeDecimalOnBlur(e.target.value))}
                         className="h-8 text-right font-mono font-semibold ml-auto w-28"
                       />
                     </TableCell>
