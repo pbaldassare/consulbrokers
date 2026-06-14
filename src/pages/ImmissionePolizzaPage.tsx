@@ -604,6 +604,15 @@ const ImmissionePolizzaPage = () => {
 
   useDraftPersistence(draftKey, draftSnapshot, { enabled: draftHydrated });
 
+  // Segnala al version-guard che c'è un form aperto: evita reload del bundle
+  // mentre l'utente sta compilando la polizza (la pagina resterebbe
+  // letteralmente refreshata con perdita di dati non ancora persistiti).
+  useEffect(() => {
+    (window as any).__lovableFormDirty = true;
+    return () => { (window as any).__lovableFormDirty = false; };
+  }, []);
+
+
 
 
   // --- Queries ---
