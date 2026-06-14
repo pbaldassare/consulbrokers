@@ -1769,10 +1769,22 @@ const ImmissionePolizzaPage = () => {
                   ? "Caricamento compagnie…"
                   : "— Seleziona compagnia —"
               }
-              options={(gruppiCompagniaList || []).map((g: any) => ({
-                value: g.id,
-                label: g.nome || g.codice || "—",
-              }))}
+              options={(() => {
+                // Se è già selezionata un'agenzia broker/pluri con più gruppi, restringi alle sole compagnie compatibili
+                const ag = (compagnieList || []).find((c: any) => c.id === selectedCompagnia) as any;
+                const tipoSel = (ag?.tipo || "").toLowerCase();
+                let allowed: string[] | null = null;
+                if (ag && (tipoSel === "broker" || tipoSel === "plurimandataria")) {
+                  allowed = rapportiMap?.get(selectedCompagnia) || [];
+                }
+                return (gruppiCompagniaList || [])
+                  .filter((g: any) => !allowed || allowed.includes(g.id))
+                  .map((g: any) => ({
+                    value: g.id,
+                    label: g.nome || g.codice || "—",
+                  }));
+              })()}
+
             />
           </div>
           <div className="space-y-1.5">
