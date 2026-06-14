@@ -1,41 +1,72 @@
-## Obiettivo
 
-Recepire la regola di dominio:
+## Sintomo
 
-> Ogni record in `compagnie` di tipo **agenzia / direzione / broker / plurimandataria** rappresenta **già di per sé un rapporto** (il *rapporto principale*). La tabella `compagnia_rapporti` contiene **solo i rapporti aggiuntivi** (plurimandatarie / co-assicurazioni).
-> Conseguenza: il conteggio mostrato nella colonna "Rapporti" della tab **Agenzie** deve essere **`compagnia_rapporti.attivi + 1`** (mai 0). Non vanno mai creati record fittizi in `compagnia_rapporti` per rappresentare il rapporto principale.
+Stai compilando la polizza moto in `/portafoglio/immissione?clienteId=…`, modifichi data e premio, e la **pagina si ricarica davvero** (URL refresh), perdendo tutto. Hai confermato che non clicchi "Salva" e ti aspetti che almeno i campi restino lì.
 
-## Modifiche
+## Cause individuate
 
-### 1) Memoria di progetto
-Creare `mem://insurance/rapporto-principale-implicito` con la regola, e referenziarla in `mem://index.md` sotto "Memories".
+Ci sono due meccanismi indipendenti che convergono sullo stesso effetto "ho perso i dati":
 
-Bullet di sintesi:
-> Rapporto principale implicito — Ogni agenzia/direzione in `compagnie` è già il proprio rapporto principale; il conteggio "Rapporti" UI = `compagnia_rapporti.attivi + 1`. Non duplicare in `compagnia_rapporti`.
+1. **AppVersionGuard forza reload del bundle** (`src/components/AppVersionGuard.tsx` + `src/lib/versionCheck.ts`). Polla `/version.json` ogni `POLL_MS` ed esegue `window.location.reload()` se vede un version mismatch (throttle 30s anti-loop). In dev/preview Lovable il `version.json` cambia spesso → la pagina si ricarica davvero mentre compili. Nessuna guardia per "form con bozza non vuota in corso".
 
-### 2) UI — `src/pages/CompagnieList.tsx` (tab Agenzie)
-Modificare la cella della colonna "Rapporti" (intorno alla linea 1687-1697) per:
-- visualizzare `rc.attivi + 1` (e `(rc.tot + 1)` se ci sono inattivi)
-- aggiornare il `title` del bottone in: *"Gestisci rapporti aggiuntivi (oltre al rapporto principale)"*
-- mantenere lo stile "default" (riempito) quando `rc.attivi >= 1` (cioè quando esiste almeno un rapporto aggiuntivo oltre al principale)
+2. **Effect di reset righe premio** (`ImmissionePolizzaPage.tsx` linee 981-998, dipendenza `[isRCA]`). Ogni volta che `isRCA` cambia (anche perché `gruppiRamo`/`ramiList` arrivano in due tempi o perché tocchi `polizzaAuto`), azzera `premiFirmaRows`, `premiQuietanzaRows`, e tutti i campi veicolo/conducente — anche se contengono già dati che stavi inserendo. Stesso reset esplicito anche su `RamoSottoramoSelect.onChange` (linea 1887-1888).
 
-Nessuna modifica al DB e nessuna migrazione: il +1 è puramente di presentazione.
+3. **Bozza riallineata su key change**. Il `draftKey` (linea 446) è `immissione:v1:${selectedClienteId || preselectedClienteId || "new"}`. Al primo render parte da `new` (perché `selectedClienteId` è vuoto), poi l'effect 706-711 lo allinea a `preselectedClienteId` → il key cambia → l'hydration effect 451 ri-parte (loadDraft dell'altra key) e può sovrascrivere campi già toccati nei primi 200ms. È un piccolo race ma contribuisce al "vedo i campi che si svuotano".
 
-### 3) Nessun altro touch
-- Non modifico `RapportiCompagniaDialog` (gestisce correttamente solo i rapporti aggiuntivi N:N).
-- Non modifico l'RPC `get_rapporti_counts_per_compagnia`.
-- Lascio invariata la card "Rapporti aggiuntivi (plurimandatarie)" in fondo al dettaglio Compagnia: il testo già dice "aggiuntivi", coerente con la regola.
+## Fix proposto (frontend only)
 
-## Verifica
-- Aprire `/compagnie` → tab **Agenzie** → filtrare "vene" → la riga **Generali Venezia** deve mostrare **1** in Rapporti (non 0).
-- Per un'agenzia plurimandataria con 2 rapporti aggiuntivi in `compagnia_rapporti`, la colonna deve mostrare **3**.
+### A) Mettere il guinzaglio all'AppVersionGuard sulle pagine "form aperto"
+
+- In `src/lib/versionCheck.ts`, dentro `forceReload(...)`, aggiungere una condizione `canReloadNow()` che ritorna `false` se:
+  - `document.visibilityState !== "visible"`, **oppure**
+  - esiste almeno un `<input>/<textarea>/<select>` focusato con `:focus`, **oppure**
+  - una flag globale `window.__lovableFormDirty === true` è attiva.
+- In `ImmissionePolizzaPage.tsx`, settare `window.__lovableFormDirty = true` quando `draftHydrated && !!draftSnapshot.numeroPolizza || …` (basta tenerlo "dirty" finché la pagina è montata e ha un draft attivo). Pulirla in unmount e dopo salvataggio/`clearDraft`.
+- L'aggiornamento resta in coda: appena la pagina viene smontata o l'utente cambia tab, al prossimo poll il reload parte. Niente loop perché il throttle 30s esistente continua a funzionare.
+
+### B) Evitare il reset distruttivo delle righe premio
+
+- Cambiare l'effect 981 in modo che NON azzeri se le righe contengono già dati inseriti. Pseudocodice:
+
+  ```ts
+  useEffect(() => {
+    if (isRCA) return;
+    // reset solo se le righe sono "vuote/default" (nessun netto, nessun sottoramo, nessuna targa, ecc.)
+    const hasUserData =
+      premiFirmaRows.some(r => r.netto || r.tasse || r.sottoramoId) ||
+      premiQuietanzaRows.some(r => r.netto || r.tasse || r.sottoramoId) ||
+      !!vTarga || !!vMarca || !!vModello;
+    if (hasUserData) return;
+    // …reset come oggi…
+  }, [isRCA]);
+  ```
+
+- Stesso ragionamento per `RamoSottoramoSelect.onChange` (linee 1884-1890): mostrare un piccolo `confirm()` (o `toast` con undo) prima di azzerare le righe se contengono importi, invece di buttarle via in silenzio.
+
+### C) Stabilizzare la bozza alla prima entrata con `?clienteId=…`
+
+- Inizializzare `selectedClienteId` direttamente da `preselectedClienteId` in `useState(() => preselectedClienteId ?? "")`, in modo che il `draftKey` sia stabile dal primo render e l'hydration giri una sola volta. Rimuovere (o tenere come fallback) l'effect 706-711.
 
 ## File toccati
-- `.lovable/memory/insurance/rapporto-principale-implicito.md` (nuovo)
-- `.lovable/memory/index.md` (aggiunta bullet)
-- `src/pages/CompagnieList.tsx` (cella colonna Rapporti)
 
-## Fuori scope (per giro successivo, su tua richiesta)
-- Re-analisi dell'Excel "carico mese giugno napoli" con la nuova regola.
-- Dedup clienti *Santa Marina Salina* e *Consulbrokers*.
-- Verifica esistenza agenzie *AIB All Insurance Broker* (Lloyd's) e *ASSIB Underwriting* (AIG).
+- `src/lib/versionCheck.ts` — guard `canReloadNow()`.
+- `src/components/AppVersionGuard.tsx` — nessuna modifica funzionale (continua a pollare; il blocco è centralizzato in `versionCheck.ts`).
+- `src/pages/ImmissionePolizzaPage.tsx` —
+  - flag `window.__lovableFormDirty` su mount/unmount;
+  - `useState` iniziale di `selectedClienteId` da query string;
+  - guardia "hasUserData" nell'effect `[isRCA]`;
+  - conferma prima del reset righe premio in `RamoSottoramoSelect.onChange`.
+
+## Cosa NON tocco
+
+- La struttura DB e le RLS.
+- La logica di calcolo provvigioni/IPT/SSN.
+- Le altre pagine (`TitoloDetail`, `PortafoglioDetail`, ecc.).
+- Il debounce di salvataggio bozza (`useDraftPersistence`).
+
+## Verifica
+
+1. Aprire `/portafoglio/immissione?clienteId=…`, compilare Ramo + Premio + Data, lasciare la tab aperta più di un minuto: nessun reload finché c'è focus o `formDirty`.
+2. Cambiare Ramo dopo aver inserito un premio: chiede conferma prima di buttare le righe.
+3. Cliccare/togliere "Polizza Auto" su un ramo R.C.A. con premi già compilati: le righe restano.
+4. Refresh manuale (F5): la bozza viene ripristinata e parte dal cliente corretto senza re-hydration in due passi.
