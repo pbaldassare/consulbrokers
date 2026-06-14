@@ -365,11 +365,12 @@ export function PremiGaranziaCardShell({
                     </TableCell>
                     <TableCell className="text-right">
                       <Input
-                        type="number"
-                        step="0.01"
+                        type="text"
                         inputMode="decimal"
+                        pattern="[0-9.,\-]*"
                         value={r.netto}
                         onChange={(e) => handleNettoChange(idx, e.target.value)}
+                        onBlur={(e) => handleNettoChange(idx, normalizeDecimalOnBlur(e.target.value))}
                         className="h-8 text-right font-mono ml-auto w-28"
                       />
                     </TableCell>
@@ -378,11 +379,12 @@ export function PremiGaranziaCardShell({
                     </TableCell>
                     <TableCell className="text-right">
                       <Input
-                        type="number"
-                        step="0.01"
+                        type="text"
                         inputMode="decimal"
+                        pattern="[0-9.,\-]*"
                         value={r.escludiProvvigioni ? "0.00" : r.tasse}
                         onChange={(e) => handleTasseChange(idx, e.target.value)}
+                        onBlur={(e) => handleTasseChange(idx, normalizeDecimalOnBlur(e.target.value))}
                         disabled={r.escludiProvvigioni}
                         title={r.escludiProvvigioni ? "Voce esente: tasse forzate a 0" : undefined}
                         className="h-8 text-right font-mono ml-auto w-24"
@@ -393,11 +395,12 @@ export function PremiGaranziaCardShell({
                         {r.ssnAttivo ? (
                           <div className="flex flex-col items-end gap-0.5">
                             <Input
-                              type="number"
-                              step="0.01"
+                              type="text"
                               inputMode="decimal"
+                              pattern="[0-9.,\-]*"
                               value={r.ssn || ""}
                               onChange={(e) => handleSsnChange(idx, e.target.value)}
+                              onBlur={(e) => handleSsnChange(idx, normalizeDecimalOnBlur(e.target.value))}
                               className="h-8 text-right font-mono ml-auto w-24"
                               title={`SSN ${(r.aliquotaSsn ?? 10.5).toFixed(2)}% sul lordo (netto+tasse)`}
                             />
@@ -412,11 +415,12 @@ export function PremiGaranziaCardShell({
                     )}
                     <TableCell className="text-right">
                       <Input
-                        type="number"
-                        step="0.01"
+                        type="text"
                         inputMode="decimal"
+                        pattern="[0-9.,\-]*"
                         value={lordoRow ? lordoRow.toFixed(2) : ""}
                         onChange={(e) => handleLordoChange(idx, e.target.value)}
+                        onBlur={(e) => handleLordoChange(idx, normalizeDecimalOnBlur(e.target.value))}
                         className="h-8 text-right font-mono font-semibold ml-auto w-28"
                       />
                     </TableCell>
