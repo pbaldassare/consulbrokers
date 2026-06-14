@@ -134,10 +134,10 @@ export function PremiGaranziaCardShell({
   const [pctDraft, setPctDraft] = useState("");
   const titolo = isQuietanza ? "Premi per Garanzia — Quietanza" : "Premi per Garanzia — Firma";
 
-  const totNetto = rows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
-  const totTasse = rows.reduce((s, r) => s + (parseFloat(r.tasse || "0") || 0), 0);
-  const totSsn = rows.reduce((s, r) => s + (parseFloat(r.ssn || "0") || 0), 0);
-  const add = parseFloat(addizionali || "0") || 0;
+  const totNetto = rows.reduce((s, r) => s + parseDecimalItOr(r.netto), 0);
+  const totTasse = rows.reduce((s, r) => s + parseDecimalItOr(r.tasse), 0);
+  const totSsn = rows.reduce((s, r) => s + parseDecimalItOr(r.ssn), 0);
+  const add = parseDecimalItOr(addizionali);
   const lordo = totNetto + totTasse + totSsn + add;
   const hasSsnRows = rows.some((r) => r.ssnAttivo);
 
