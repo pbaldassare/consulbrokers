@@ -1,7 +1,7 @@
 // Kill-switch service worker.
-// Non cachea mai: rimuove cache/registrazione legacy e forza i client a
-// rientrare su una URL cache-busted. Serve solo per browser che avevano già
-// installato il vecchio SW.
+// Non cachea mai: rimuove cache/registrazione legacy e *chiede* ai client di
+// fare cache-busting tramite postMessage (così il client può rispettare il
+// flag `__lovableFormDirty` ed evitare di buttare via form aperti).
 const cleanup = async () => {
   try {
     await self.clients.claim();
@@ -14,7 +14,10 @@ const cleanup = async () => {
           const url = new URL(client.url);
           url.searchParams.set("sw-cleanup", Date.now().toString());
           url.searchParams.set("__v", Date.now().toString());
-          return client.navigate(url.toString());
+          // Non navighiamo direttamente: lasciamo decidere al client quando
+          // è sicuro ricaricare (vedi src/lib/swCleanupListener.ts).
+          client.postMessage({ type: "CBNET_SW_NAV", url: url.toString() });
+          return Promise.resolve();
         } catch {
           return Promise.resolve();
         }
