@@ -128,6 +128,10 @@ export function PremiGaranziaCardShell({
   onResetRow,
 }: PremiGaranziaCardShellProps) {
   const isQuietanza = tipoPremio === "quietanza";
+  // Draft locale per il campo Lordo: mentre l'utente digita teniamo la stringa
+  // così com'è (es. "4", "47", "476,", "476,5"); il back-solve scatta solo onBlur.
+  const [lordoDrafts, setLordoDrafts] = useState<Record<number, string>>({});
+
   const [totFocus, setTotFocus] = useState(false);
   const [totDraft, setTotDraft] = useState("");
   const [pctFocus, setPctFocus] = useState(false);
@@ -429,12 +433,23 @@ export function PremiGaranziaCardShell({
                         type="text"
                         inputMode="decimal"
                         pattern="[0-9.,\-]*"
-                        value={lordoRow ? lordoRow.toFixed(2) : ""}
-                        onChange={(e) => handleLordoChange(idx, e.target.value)}
-                        
+                        value={lordoDrafts[idx] ?? (lordoRow ? lordoRow.toFixed(2) : "")}
+                        onChange={(e) =>
+                          setLordoDrafts((d) => ({ ...d, [idx]: e.target.value }))
+                        }
+                        onBlur={(e) => {
+                          const v = normalizeDecimalOnBlur(e.target.value);
+                          handleLordoChange(idx, v);
+                          setLordoDrafts((d) => {
+                            const n = { ...d };
+                            delete n[idx];
+                            return n;
+                          });
+                        }}
                         className="h-8 text-right font-mono font-semibold ml-auto w-28"
                       />
                     </TableCell>
+
                     <TableCell className="text-right">
                       <Button
                         type="button"
