@@ -310,9 +310,9 @@ export function PremiGaranziaCardShell({
             </TableHeader>
             <TableBody>
               {rows.map((r, idx) => {
-                const netto = parseFloat(r.netto || "0") || 0;
-                const tax = parseFloat(r.tasse || "0") || 0;
-                const ssnRow = parseFloat(r.ssn || "0") || 0;
+                const netto = parseDecimalItOr(r.netto);
+                const tax = parseDecimalItOr(r.tasse);
+                const ssnRow = parseDecimalItOr(r.ssn);
                 // L'aliquota è fissa: viene dal DB (ramo/sottoramo) e non si ricalcola
                 // dai valori immessi. Sono netto/tasse/lordo a muoversi in base all'aliquota.
                 const aliquotaFissa = r.aliquotaTasse || 0;
