@@ -1821,6 +1821,11 @@ const ImmissionePolizzaPage = () => {
 
 
 
+        {prefilledHint && (
+          <div className="mb-2 text-[11px] text-teal-700 bg-teal-50 border border-teal-200 rounded px-2 py-1 inline-block">
+            Compagnia e Agenzia precompilate dall'ultima polizza di questo cliente — modificabili
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Compagnia Assicurativa <span className="text-destructive">*</span></Label>
