@@ -1900,12 +1900,23 @@ const ImmissionePolizzaPage = () => {
               gruppoRamoId={selectedGruppoRamoId}
               ramoId={null}
               onChange={({ gruppoRamoId }) => {
+                // Se l'utente ha già inserito importi/sottorami, chiedi conferma
+                // prima di buttare via le righe garanzia.
+                const hasRows =
+                  premiFirmaRows.some((r) => r.netto || r.tasse || r.sottoramoId) ||
+                  premiQuietanzaRows.some((r) => r.netto || r.tasse || r.sottoramoId);
+                if (hasRows && gruppoRamoId !== selectedGruppoRamoId) {
+                  const ok = window.confirm(
+                    "Cambiando Ramo le righe di Composizione Premio già inserite verranno cancellate. Continuare?"
+                  );
+                  if (!ok) return;
+                }
                 setSelectedGruppoRamoId(gruppoRamoId);
-                // Reset righe garanzia: i sottorami precedenti potrebbero non appartenere al nuovo gruppo
                 setPremiFirmaRows([emptyGaranziaRow()]);
                 setPremiQuietanzaRows([emptyGaranziaRow()]);
                 setSelectedRamo("");
               }}
+
             />
             <p className="text-[11px] text-muted-foreground mt-1">
               Il Sottoramo si seleziona riga per riga nelle Composizioni Premio sotto.
