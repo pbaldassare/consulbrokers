@@ -727,6 +727,58 @@ const ImmissionePolizzaPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preselectedClienteId]);
 
+  // Prefill Compagnia/Agenzia dall'ultima polizza del cliente.
+  // Si attiva solo quando il cliente cambia e i campi compagnia sono ancora vuoti.
+  // L'utente può comunque modificare; la "preferenza" è sempre l'ultima polizza salvata.
+  const prefilledForClienteRef = useRef<string | null>(null);
+  const [prefilledHint, setPrefilledHint] = useState(false);
+  useEffect(() => {
+    if (!selectedClienteId) return;
+    if (prefilledForClienteRef.current === selectedClienteId) return;
+    if (selectedCompagnia || selectedRapportoId) {
+      // utente ha già scelto qualcosa (o ereditato da AI/bozza): non sovrascrivere
+      prefilledForClienteRef.current = selectedClienteId;
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data: lastTit } = await supabase
+        .from("titoli")
+        .select("compagnia_id, compagnia_rapporto_id")
+        .eq("cliente_id", selectedClienteId)
+        .not("compagnia_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancelled || !lastTit?.compagnia_id) {
+        prefilledForClienteRef.current = selectedClienteId;
+        return;
+      }
+      const { data: comp } = await supabase
+        .from("compagnie")
+        .select("id, tipo, gruppo_compagnia_id")
+        .eq("id", lastTit.compagnia_id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (comp?.gruppo_compagnia_id && (comp.tipo === "agenzia" || comp.tipo === "direzione")) {
+        setSelectedGruppoCompagniaId(comp.gruppo_compagnia_id);
+      }
+      setSelectedCompagnia(lastTit.compagnia_id);
+      if (lastTit.compagnia_rapporto_id) setSelectedRapportoId(lastTit.compagnia_rapporto_id);
+      setPrefilledHint(true);
+      prefilledForClienteRef.current = selectedClienteId;
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClienteId]);
+
+  // Nascondi hint quando l'utente cambia compagnia manualmente
+  useEffect(() => {
+    if (!prefilledHint) return;
+    // se cliente cambia o compagnia svuotata, nascondi
+    if (!selectedCompagnia) setPrefilledHint(false);
+  }, [selectedCompagnia, prefilledHint]);
+
   // Eredita ufficio dal cliente (solo se non già impostato manualmente o da bozza)
   useEffect(() => {
     if (clienteDettaglio?.ufficio_id && !selectedUfficioId) {
@@ -1769,6 +1821,11 @@ const ImmissionePolizzaPage = () => {
 
 
 
+        {prefilledHint && (
+          <div className="mb-2 text-[11px] text-teal-700 bg-teal-50 border border-teal-200 rounded px-2 py-1 inline-block">
+            Compagnia e Agenzia precompilate dall'ultima polizza di questo cliente — modificabili
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Compagnia Assicurativa <span className="text-destructive">*</span></Label>
