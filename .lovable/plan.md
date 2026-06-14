@@ -1,37 +1,13 @@
-## Problema
+## Causa
+Il prefill di Compagnia/Agenzia in `src/pages/ImmissionePolizzaPage.tsx` (riga ~745) interroga `titoli` filtrando su `cliente_id`, ma in fase di salvataggio (riga 1390) il cliente viene scritto su `cliente_anagrafica_id` (la colonna effettivamente usata in tutto il modulo Immissione). Risultato: per ogni cliente la query restituisce 0 righe e i campi restano vuoti anche dopo aver salvato una o più polizze.
 
-Digitando `340,00` in Premio Lordo, il back-solve calcola netto = 340 / 1,265 = 268,7747… → arrotondato a 268,77. Poi:
-- tasse = 268,77 × 16% = 43,0032 → 43,00
-- SSN = 268,77 × 10,5% = 28,2208 → 28,22
-- somma riga = **339,99 €** (perdita 0,01 € da arrotondamento)
+Verifica DB: l'unico titolo salvato per RENT AND EVENTS SRL ha `cliente_anagrafica_id` valorizzato e `cliente_id = NULL`.
 
-`lordoRow` viene ricalcolato in UI come `netto + tasse + ssn`, quindi mostra 339,99 invece dei 340,00 richiesti.
+## Modifica
+File: `src/pages/ImmissionePolizzaPage.tsx`, effetto "Prefill Compagnia/Agenzia dall'ultima polizza del cliente" (righe 730‑773).
 
-## Fix
+- Sostituire `.eq("cliente_id", selectedClienteId)` con `.eq("cliente_anagrafica_id", selectedClienteId)` nella query su `titoli`.
+- Nessun'altra logica viene toccata (ordine `created_at desc`, guardia `selectedCompagnia || selectedRapportoId`, hint teal, lookup `gruppo_compagnia_id` per agenzia/direzione restano invariati).
 
-In `src/components/polizze/PremiGaranziaCardShell.tsx`, dentro `handleLordoChange`: dopo aver calcolato netto/SSN, **non** arrotondare tasse indipendentemente, ma derivarle come differenza per garantire l'invariante `netto + tasse + ssn = lordo` esatto al centesimo.
-
-```ts
-const round2 = (n: number) => Math.round(n * 100) / 100;
-const nettoR = round2(nettoCalc);
-const ssnR = r?.ssnAttivo ? round2(ssnCalc) : 0;
-const tasseR = round2(lordo - nettoR - ssnR); // assorbe il residuo
-```
-
-Vantaggi:
-- 340,00 resta 340,00 in UI (la riga lordo torna esatta).
-- L'errore di arrotondamento (≤ 0,01 €) finisce sulle tasse, che è la convenzione contabile italiana standard per RCA.
-- Nessuna nuova colonna/stato (`lordoOverride`) né cambiamenti DB.
-
-Stesso identico fix non serve in `handleNettoChange`/`handleTasseChange`/`handleSsnChange` perché lì il lordo è effettivamente la somma dei tre.
-
-## Verifica
-
-1. Polizza R.C.A., aliquote 16% IPT + 10,5% SSN → digita Lordo `340,00` → blur:
-   - Netto 268,77 · Tasse 43,01 (assorbe +0,01) · SSN 28,22 · **Lordo riga 340,00 ✓**
-2. Lordo `476,50` (caso citato prima) → Netto/Tasse/SSN coerenti, totale riga 476,50 esatto.
-3. Edit successivo del netto manuale → tasse ricalcolate dall'aliquota come oggi (nessuna regressione).
-
-## File
-
-- `src/components/polizze/PremiGaranziaCardShell.tsx` (solo `handleLordoChange`, ~10 righe).
+## Effetto atteso
+Dalla seconda polizza salvata per lo stesso cliente, i campi **Compagnia Assicurativa** e **Agenzia di Riferimento** vengono precompilati con i valori dell'ultima polizza salvata. L'utente può modificarli; la nuova scelta diventa la preferenza per la prossima polizza dello stesso cliente.

@@ -745,7 +745,7 @@ const ImmissionePolizzaPage = () => {
       const { data: lastTit } = await supabase
         .from("titoli")
         .select("compagnia_id, compagnia_rapporto_id")
-        .eq("cliente_id", selectedClienteId)
+        .eq("cliente_anagrafica_id", selectedClienteId)
         .not("compagnia_id", "is", null)
         .order("created_at", { ascending: false })
         .limit(1)
