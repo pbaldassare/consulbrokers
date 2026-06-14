@@ -1,59 +1,38 @@
-## Causa probabile
 
-Il refresh non è scatenato dalla virgola. È il **service-worker kill-switch** in `public/sw.js` e `public/service-worker.js`: al suo `activate` (che ri-scatta anche dopo aver scaricato una nuova versione del bundle, o quando il browser ricontrolla il SW) esegue `client.navigate(url + ?sw-cleanup=…&__v=…)` su **tutti** i client. Questo è di fatto un reload e **bypassa** il guard `__lovableFormDirty` che già protegge `AppVersionGuard.forceReload`. Il flag in `ImmissionePolizzaPage` viene settato correttamente, ma il SW non lo legge.
+## Obiettivo
 
-In più, il salvataggio in bozza dell'input Premio Lordo della riga avviene solo **on blur** (perché il valore digitato sta in `lordoDrafts` locale alla shell): finché l'utente sta digitando "476," il valore non è ancora in `premiFirmaRows`, quindi `useDraftPersistence` non lo serializza. Risultato: se il SW naviga via mentre stai digitando, perdi proprio quel campo (e tutto sembra "rifreshato dopo la virgola").
+Risolvere il caso "REVO direzione non appare nella tendina Agenzia di Riferimento": nel DB esistono due gruppi compagnia REVO praticamente identici, e l'agenzia/direzione `ELBA — REVO Insurance S.p.A. direzione` è agganciata a uno solo dei due. Quando in Immissione si sceglie l'altro, la direzione non compare.
 
-## Modifica 1 — Service worker: chiedere il consenso al client invece di navigare
+## Dati attuali
 
-File: `public/sw.js` e `public/service-worker.js`.
+- `gruppi_compagnia` con descrizione REVO:
+  - **GC104 — "REVO"** → id `9dd883b6-348f-4a2c-9744-51c54a17863a` (a questo è legata l'agenzia ELBA)
+  - **GC108 — "Revo Insurance S.p.a."** → id `3f25c0d6-cc39-4de0-bf7d-db4031ef1885` (duplicato, nessuna agenzia)
+- Riferimenti a GC108:
+  - `compagnie.gruppo_compagnia_id` = 0
+  - `compagnia_rapporti.gruppo_compagnia_id` = 0
+  - Nessun'altra tabella public referenzia `gruppi_compagnia` su GC108.
 
-- Sostituire `client.navigate(...)` con `client.postMessage({ type: "CBNET_SW_NAV", url })`.
-- Continuare a fare `caches.delete(...)` e `self.registration.unregister()` come ora.
+Quindi GC108 è orfano e può essere rimosso senza spostare nulla.
 
-Aggiungere un piccolo listener lato app (nuovo `src/lib/swCleanupListener.ts`, importato da `App.tsx`):
+## Azione
 
-```ts
-navigator.serviceWorker?.addEventListener("message", (e) => {
-  if (e?.data?.type !== "CBNET_SW_NAV") return;
-  const go = () => window.location.replace(e.data.url);
-  if ((window as any).__lovableFormDirty === true) {
-    // riprova quando il form non è più sporco
-    const id = window.setInterval(() => {
-      if ((window as any).__lovableFormDirty !== true) {
-        window.clearInterval(id);
-        go();
-      }
-    }, 1000);
-  } else {
-    go();
-  }
-});
+Una sola operazione dati (no migrazione di schema, no modifiche di codice):
+
+```sql
+DELETE FROM gruppi_compagnia
+WHERE id = '3f25c0d6-cc39-4de0-bf7d-db4031ef1885'; -- GC108 duplicato
 ```
 
-Effetto: con la pagina Immissione aperta il SW non porta via il tab finché l'utente è in compilazione.
-
-## Modifica 2 — Persistere subito il draft del Lordo riga
-
-File: `src/components/polizze/PremiGaranziaCardShell.tsx`, input "Premio Lordo" della riga (linee 437‑456).
-
-- Aggiungere prop opzionale `onRowDraftChange?: (idx: number, draft: { lordo?: string }) => void`.
-- Nell'`onChange` del lordo, oltre a `setLordoDrafts`, chiamare `onRowDraftChange?.(idx, { lordo: e.target.value })`.
-- In `ImmissionePolizzaPage.tsx` aggiungere `lordoDraftsFirma` / `lordoDraftsQuietanza` a `draftSnapshot`, così la bozza salva anche le stringhe in corso di digitazione e, al ripristino, le rimette in `lordoDrafts` via prop `initialLordoDrafts`.
-
-Effetto: anche in caso di reload accidentale, la stringa "476," (e le altre digitazioni parziali) viene ripristinata.
-
-## Modifica 3 — Robustezza piccola in `canReloadNow`
-
-File: `src/lib/versionCheck.ts`. Già copre il caso `__lovableFormDirty` e focus su INPUT; nessuna modifica funzionale richiesta. Solo verifica che `App.tsx` monti sempre `AppVersionGuard` (già fatto) e che il flag dirty resti `true` finché l'utente è sulla pagina Immissione (già fatto in `ImmissionePolizzaPage`, lines 618‑621).
+L'agenzia/direzione `ELBA — REVO Insurance S.p.A. direzione` resta intatta, legata al gruppo GC104 "REVO", e tornerà visibile in `Immissione → Agenzia di Riferimento` non appena si seleziona REVO come Compagnia Assicurativa.
 
 ## Verifica
 
-1. Aprire `/portafoglio/immissione`, iniziare a compilare, lasciare la pagina aperta mentre viene rilasciato un nuovo bundle (oppure forzare manualmente un messaggio `CBNET_SW_CLEANUP` dal DevTools): la pagina non deve navigare via finché c'è il form aperto.
-2. Digitare "340," nel Lordo della riga, ricaricare manualmente la pagina: alla riapertura, il valore "340," deve essere ripristinato dal draft.
+1. Aprire `/compagnie` → cliccare REVO → modale "Agenzie collegate a REVO" deve mostrare ancora la riga `ELBA — REVO Insurance S.p.A. direzione`.
+2. Aprire `/portafoglio/immissione`, selezionare Compagnia Assicurativa = REVO → nella tendina **Agenzia di Riferimento** deve comparire `ELBA - REVO Insurance S.p.A. direzione`.
+3. Nessun altro REVO duplicato deve apparire nelle liste compagnie.
 
-## Cosa NON viene toccato
+## Note
 
-- Logica di back-solve `handleLordoChange` e arrotondamenti (già corretti in passaggio precedente).
-- Comportamento di `AppVersionGuard` per gli altri form (continua a funzionare via `__lovableFormDirty`).
-- Le funzioni di `versionCheck.ts`.
+- Non viene toccato nessun titolo, rapporto, provvigione o codice frontend.
+- Se in futuro spuntassero altri gruppi duplicati, applicheremo lo stesso pattern (verifica riferimenti → delete) caso per caso.
