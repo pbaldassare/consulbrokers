@@ -876,6 +876,26 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
+  // Mappa completa compagnia (broker/pluri) → gruppi_compagnia coperti (per ricerca inversa)
+  const { data: rapportiMap } = useQuery({
+    queryKey: ["compagnia_rapporti_map_all"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporti")
+        .select("compagnia_id, gruppo_compagnia_id")
+        .eq("attivo", true);
+      const map = new Map<string, string[]>();
+      for (const r of (data || []) as any[]) {
+        if (!r.compagnia_id || !r.gruppo_compagnia_id) continue;
+        const arr = map.get(r.compagnia_id) || [];
+        if (!arr.includes(r.gruppo_compagnia_id)) arr.push(r.gruppo_compagnia_id);
+        map.set(r.compagnia_id, arr);
+      }
+      return map;
+    },
+  });
+
+
   const { data: gruppiCompagniaList } = useQuery({
     queryKey: ["gruppi-compagnia-immissione"],
     queryFn: async () => {
