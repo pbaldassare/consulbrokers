@@ -284,7 +284,7 @@ const ImmissionePolizzaPage = () => {
   }, [clienteSearch]);
   const [selectedAE, setSelectedAE] = useState("");
   const [selectedAccountExecutiveId, setSelectedAccountExecutiveId] = useState("");
-  const [selectedClienteId, setSelectedClienteId] = useState("");
+  const [selectedClienteId, setSelectedClienteId] = useState(() => preselectedClienteId || "");
   const [selectedUfficioId, setSelectedUfficioId] = useState("");
   const [selectedBackofficeId, setSelectedBackofficeId] = useState("");
 
