@@ -431,7 +431,7 @@ export function PremiGaranziaCardShell({
                         pattern="[0-9.,\-]*"
                         value={lordoRow ? lordoRow.toFixed(2) : ""}
                         onChange={(e) => handleLordoChange(idx, e.target.value)}
-                        onBlur={(e) => handleLordoChange(idx, normalizeDecimalOnBlur(e.target.value))}
+                        
                         className="h-8 text-right font-mono font-semibold ml-auto w-28"
                       />
                     </TableCell>
