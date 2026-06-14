@@ -130,7 +130,27 @@ function writeVersionStorage(key: string, value: string): void {
   } catch {}
 }
 
+function canReloadNow(): boolean {
+  try {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return false;
+    if (typeof window !== "undefined" && (window as any).__lovableFormDirty === true) return false;
+    if (typeof document !== "undefined") {
+      const ae = document.activeElement as HTMLElement | null;
+      if (ae) {
+        const tag = ae.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+        if ((ae as any).isContentEditable) return false;
+      }
+    }
+  } catch {}
+  return true;
+}
+
 export function forceReload(reason: string, _serverVersion?: string | null): boolean {
+  if (!canReloadNow()) {
+    console.warn(`[versionCheck] reload deferred (form dirty / focus): ${reason}`);
+    return false;
+  }
   try {
     const last = Number(readVersionStorage(RELOAD_FLAG) || 0);
     const now = Date.now();
@@ -148,6 +168,7 @@ export function forceReload(reason: string, _serverVersion?: string | null): boo
   window.location.replace(url.toString());
   return true;
 }
+
 
 export async function refreshToLatestVersion(reason = "manual update requested"): Promise<void> {
   try {

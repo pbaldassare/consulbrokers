@@ -284,7 +284,7 @@ const ImmissionePolizzaPage = () => {
   }, [clienteSearch]);
   const [selectedAE, setSelectedAE] = useState("");
   const [selectedAccountExecutiveId, setSelectedAccountExecutiveId] = useState("");
-  const [selectedClienteId, setSelectedClienteId] = useState("");
+  const [selectedClienteId, setSelectedClienteId] = useState(() => preselectedClienteId || "");
   const [selectedUfficioId, setSelectedUfficioId] = useState("");
   const [selectedBackofficeId, setSelectedBackofficeId] = useState("");
 
@@ -603,6 +603,15 @@ const ImmissionePolizzaPage = () => {
   };
 
   useDraftPersistence(draftKey, draftSnapshot, { enabled: draftHydrated });
+
+  // Segnala al version-guard che c'è un form aperto: evita reload del bundle
+  // mentre l'utente sta compilando la polizza (la pagina resterebbe
+  // letteralmente refreshata con perdita di dati non ancora persistiti).
+  useEffect(() => {
+    (window as any).__lovableFormDirty = true;
+    return () => { (window as any).__lovableFormDirty = false; };
+  }, []);
+
 
 
 
@@ -977,9 +986,17 @@ const ImmissionePolizzaPage = () => {
   // Detect RCA: gruppo ramo contiene "RCA" o "Auto" oppure checkbox polizzaAuto
   const isRCA = polizzaAuto || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("RCA") || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("AUTO");
 
-  // Quando il ramo NON è auto, azzeriamo tutti i dati veicolo/conducente per evitare salvataggi sporchi
+  // Quando il ramo NON è auto, azzeriamo i dati veicolo/conducente per evitare
+  // salvataggi sporchi — ma SOLO se non risultano dati già inseriti dall'utente
+  // (altrimenti il toggle di polizzaAuto o il flip di isRCA dovuto al caricamento
+  // asincrono di gruppiRamo cancellerebbe il lavoro in corso).
   useEffect(() => {
     if (isRCA) return;
+    const hasUserData =
+      premiFirmaRows.some((r) => r.netto || r.tasse || r.sottoramoId) ||
+      premiQuietanzaRows.some((r) => r.netto || r.tasse || r.sottoramoId) ||
+      !!vTarga || !!vMarca || !!vModello || !!vTelaio || !!targaTelaio;
+    if (hasUserData) return;
     setTargaTelaio("");
     setVMarca(""); setVModello(""); setVVersione(""); setVTarga(""); setVTelaio("");
     setVDescrizione(""); setVDataImmatricolazione(""); setVAnnoAcquisto("");
@@ -996,6 +1013,7 @@ const ImmissionePolizzaPage = () => {
     setCTipoPatente(""); setCDataRilascioPatente(""); setCNote("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRCA]);
+
 
   // Provvigione: rimossa lookup automatica per prodotto (prodotto è ora testo libero).
   // L'utente inserisce manualmente la percentuale.
@@ -1882,12 +1900,23 @@ const ImmissionePolizzaPage = () => {
               gruppoRamoId={selectedGruppoRamoId}
               ramoId={null}
               onChange={({ gruppoRamoId }) => {
+                // Se l'utente ha già inserito importi/sottorami, chiedi conferma
+                // prima di buttare via le righe garanzia.
+                const hasRows =
+                  premiFirmaRows.some((r) => r.netto || r.tasse || r.sottoramoId) ||
+                  premiQuietanzaRows.some((r) => r.netto || r.tasse || r.sottoramoId);
+                if (hasRows && gruppoRamoId !== selectedGruppoRamoId) {
+                  const ok = window.confirm(
+                    "Cambiando Ramo le righe di Composizione Premio già inserite verranno cancellate. Continuare?"
+                  );
+                  if (!ok) return;
+                }
                 setSelectedGruppoRamoId(gruppoRamoId);
-                // Reset righe garanzia: i sottorami precedenti potrebbero non appartenere al nuovo gruppo
                 setPremiFirmaRows([emptyGaranziaRow()]);
                 setPremiQuietanzaRows([emptyGaranziaRow()]);
                 setSelectedRamo("");
               }}
+
             />
             <p className="text-[11px] text-muted-foreground mt-1">
               Il Sottoramo si seleziona riga per riga nelle Composizioni Premio sotto.
