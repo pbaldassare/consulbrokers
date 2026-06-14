@@ -433,12 +433,23 @@ export function PremiGaranziaCardShell({
                         type="text"
                         inputMode="decimal"
                         pattern="[0-9.,\-]*"
-                        value={lordoRow ? lordoRow.toFixed(2) : ""}
-                        onChange={(e) => handleLordoChange(idx, e.target.value)}
-                        
+                        value={lordoDrafts[idx] ?? (lordoRow ? lordoRow.toFixed(2) : "")}
+                        onChange={(e) =>
+                          setLordoDrafts((d) => ({ ...d, [idx]: e.target.value }))
+                        }
+                        onBlur={(e) => {
+                          const v = normalizeDecimalOnBlur(e.target.value);
+                          handleLordoChange(idx, v);
+                          setLordoDrafts((d) => {
+                            const n = { ...d };
+                            delete n[idx];
+                            return n;
+                          });
+                        }}
                         className="h-8 text-right font-mono font-semibold ml-auto w-28"
                       />
                     </TableCell>
+
                     <TableCell className="text-right">
                       <Button
                         type="button"
