@@ -275,10 +275,16 @@ export function PremiGaranziaCardShell({
       tasseCalc = 0;
       ssnCalc = ssnManuale;
     }
+    // Arrotonda netto e SSN, e fai assorbire alle tasse il residuo da arrotondamento
+    // così che netto + tasse + ssn === lordo digitato dall'utente (al centesimo).
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const nettoR = round2(nettoCalc);
+    const ssnR = r?.ssnAttivo ? round2(ssnCalc) : 0;
+    const tasseR = totalRate > 0 ? round2(lordo - nettoR - ssnR) : round2(tasseCalc);
     updateRow(idx, {
-      netto: nettoCalc.toFixed(2),
-      tasse: tasseCalc.toFixed(2),
-      ssn: r?.ssnAttivo ? ssnCalc.toFixed(2) : (r?.ssn || ""),
+      netto: nettoR.toFixed(2),
+      tasse: tasseR.toFixed(2),
+      ssn: r?.ssnAttivo ? ssnR.toFixed(2) : (r?.ssn || ""),
     });
   };
 
