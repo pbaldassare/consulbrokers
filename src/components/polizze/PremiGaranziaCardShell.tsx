@@ -190,7 +190,7 @@ export function PremiGaranziaCardShell({
     const aliquota = escludi ? 0 : (Number(sel.aliquota_tasse_ramo) || 0);
     const ssnAttivo = !escludi && !!sel.ssn_attivo;
     const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
-    const netto = parseFloat(rows[idx]?.netto || "0") || 0;
+    const netto = parseDecimalItOr(rows[idx]?.netto);
     const tasseCalc = !escludi && netto > 0 && aliquota > 0 ? +((netto * aliquota) / 100).toFixed(2) : 0;
     updateRow(idx, {
       sottoramoId: sel.id,
@@ -213,23 +213,27 @@ export function PremiGaranziaCardShell({
       updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
     }
-    const netto = parseFloat(value);
+    // Conserviamo la stringa così com'è digitata (può contenere "," o "."),
+    // così l'utente vede esattamente quello che scrive. La normalizzazione
+    // avviene su onBlur.
+    const netto = parseDecimalIt(value);
     const aliquota = r?.aliquotaTasse || 0;
-    const tasseNew = aliquota > 0 && !isNaN(netto) ? +((netto * aliquota) / 100).toFixed(2) : (parseFloat(r?.tasse || "0") || 0);
-    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
-      ? calcSsn(netto, tasseNew, r.aliquotaSsn || 0).toFixed(2)
+    const hasNetto = netto !== null;
+    const tasseNew = aliquota > 0 && hasNetto ? +((netto! * aliquota) / 100).toFixed(2) : null;
+    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride && hasNetto
+      ? calcSsn(netto!, tasseNew ?? 0, r.aliquotaSsn || 0).toFixed(2)
       : (r?.ssn || "");
     updateRow(idx, {
       netto: value,
-      tasse: aliquota > 0 && !isNaN(netto) ? tasseNew.toFixed(2) : r?.tasse || "",
+      tasse: tasseNew !== null ? tasseNew.toFixed(2) : (r?.tasse || ""),
       ssn: ssnNew,
     });
   };
 
   const handleTasseChange = (idx: number, value: string) => {
     const r = rows[idx];
-    const netto = parseFloat(r?.netto || "0") || 0;
-    const tasse = parseFloat(value || "0") || 0;
+    const netto = parseDecimalItOr(r?.netto);
+    const tasse = parseDecimalItOr(value);
     const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
       ? calcSsn(netto, tasse, r.aliquotaSsn || 0).toFixed(2)
       : (r?.ssn || "");
@@ -246,8 +250,8 @@ export function PremiGaranziaCardShell({
       updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
     }
-    const lordo = parseFloat(value);
-    if (isNaN(lordo)) return;
+    const lordo = parseDecimalIt(value);
+    if (lordo === null) return;
     const aliquota = r?.aliquotaTasse || 0;
     // Risolve netto+tasse a partire dal lordo riga (SSN escluso: trattato come riga separata)
     let nettoCalc: number; let tasseCalc: number;
