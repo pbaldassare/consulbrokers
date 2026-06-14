@@ -253,20 +253,31 @@ export function PremiGaranziaCardShell({
     const lordo = parseDecimalIt(value);
     if (lordo === null) return;
     const aliquota = r?.aliquotaTasse || 0;
-    // Risolve netto+tasse a partire dal lordo riga (SSN escluso: trattato come riga separata)
-    let nettoCalc: number; let tasseCalc: number;
-    if (aliquota > 0) {
-      nettoCalc = lordo / (1 + aliquota / 100);
-      tasseCalc = lordo - nettoCalc;
+    const aliquotaSsn = r?.aliquotaSsn || 0;
+    const ssnAuto = !!r?.ssnAttivo && !r?.ssnManualOverride && aliquotaSsn > 0;
+    // Back-solve: lordo riga = netto + tasse + ssn.
+    // - tasse = netto * aliq/100
+    // - ssn   = netto * aliqSsn/100 (solo se auto). Se SSN manuale, lo sottraggo prima.
+    const ssnManuale = !ssnAuto && r?.ssnAttivo ? parseDecimalItOr(r?.ssn) : 0;
+    const lordoSenzaSsnManuale = Math.max(0, lordo - ssnManuale);
+    const totalRate = aliquota / 100 + (ssnAuto ? aliquotaSsn / 100 : 0);
+    let nettoCalc: number; let tasseCalc: number; let ssnCalc: number;
+    if (totalRate > 0) {
+      nettoCalc = lordoSenzaSsnManuale / (1 + totalRate);
+      tasseCalc = nettoCalc * (aliquota / 100);
+      ssnCalc = ssnAuto ? nettoCalc * (aliquotaSsn / 100) : ssnManuale;
     } else {
-      nettoCalc = lordo;
+      nettoCalc = lordoSenzaSsnManuale;
       tasseCalc = 0;
+      ssnCalc = ssnManuale;
     }
-    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
-      ? calcSsn(nettoCalc, tasseCalc, r.aliquotaSsn || 0).toFixed(2)
-      : (r?.ssn || "");
-    updateRow(idx, { netto: nettoCalc.toFixed(2), tasse: tasseCalc.toFixed(2), ssn: ssnNew });
+    updateRow(idx, {
+      netto: nettoCalc.toFixed(2),
+      tasse: tasseCalc.toFixed(2),
+      ssn: r?.ssnAttivo ? ssnCalc.toFixed(2) : (r?.ssn || ""),
+    });
   };
+
 
   return (
     <Card className={cn("border-l-4 shadow-sm", isQuietanza ? "border-l-amber-500" : "border-l-teal-600")}>
