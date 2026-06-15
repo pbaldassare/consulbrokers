@@ -659,19 +659,20 @@ const TitoloDetail = () => {
 
   const startEditContratto = () => {
     if (titolo) {
+      const t: any = titolo;
+      const vincoloVal = (t.vincolo || (t.vincolo_attivo ? "altro" : "")) as string;
       setContrattoForm({
-        
-        cig_rif: titolo.cig_rif ?? "",
-        vincolo_attivo: !!titolo.vincolo_attivo,
-        descrizione_polizza: titolo.descrizione_polizza ?? "",
-        prodotto_nome: titolo.prodotto_nome ?? "",
-        specialist: titolo.specialist ?? "",
-        produttore_nome: titolo.produttore_nome ?? "",
-        ufficio_id: titolo.ufficio_id ?? null,
-        compagnia_id: titolo.compagnia_id ?? null,
-        compagnia_rapporto_id: titolo.compagnia_rapporto_id ?? null,
-        ramo_id: titolo.ramo_id ?? null,
-        gruppo_ramo_id: titolo.ramo?.gruppo_ramo_id ?? null,
+        cig_rif: t.cig_rif ?? "",
+        cig_temporaneo: !!t.cig_temporaneo,
+        vincolo: vincoloVal,
+        vincolo_attivo: !!t.vincolo_attivo,
+        descrizione_polizza: t.descrizione_polizza ?? "",
+        prodotto_nome: t.prodotto_nome ?? "",
+        compagnia_id: t.compagnia_id ?? null,
+        gruppo_compagnia_id: t.compagnia_diretta?.gruppo_compagnia_id ?? null,
+        compagnia_rapporto_id: t.compagnia_rapporto_id ?? null,
+        ramo_id: t.ramo_id ?? null,
+        gruppo_ramo_id: t.ramo?.gruppo_ramo_id ?? null,
       });
     }
     setEditingContratto(true);
@@ -682,15 +683,20 @@ const TitoloDetail = () => {
       // Compute diff vs current titolo for activity log
       const before: Record<string, any> = {};
       const after: Record<string, any> = {};
-      const fields: (keyof typeof contrattoForm)[] = [
-        "cig_rif", "vincolo_attivo",
-        "descrizione_polizza", "prodotto_nome", "specialist", "produttore_nome",
-        "ufficio_id", "compagnia_id", "compagnia_rapporto_id", "ramo_id",
+      const vincoloAttivo = !!contrattoForm.vincolo && contrattoForm.vincolo !== "nessuno";
+      const fieldsForLog: { key: string; newVal: any }[] = [
+        { key: "cig_rif", newVal: contrattoForm.cig_rif || null },
+        { key: "vincolo", newVal: contrattoForm.vincolo || null },
+        { key: "vincolo_attivo", newVal: vincoloAttivo },
+        { key: "descrizione_polizza", newVal: contrattoForm.descrizione_polizza || null },
+        { key: "prodotto_nome", newVal: contrattoForm.prodotto_nome || null },
+        { key: "compagnia_id", newVal: contrattoForm.compagnia_id || null },
+        { key: "compagnia_rapporto_id", newVal: contrattoForm.compagnia_rapporto_id || null },
+        { key: "ramo_id", newVal: contrattoForm.ramo_id || null },
       ];
-      fields.forEach((f) => {
-        const oldV = titolo?.[f] ?? null;
-        const newV = contrattoForm[f] || null;
-        if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
+      fieldsForLog.forEach(({ key, newVal }) => {
+        const oldV = (titolo as any)?.[key] ?? null;
+        if (oldV !== newVal) { before[key] = oldV; after[key] = newVal; }
       });
 
       // Validazione: agenzia con 2+ rapporti richiede selezione
@@ -702,14 +708,11 @@ const TitoloDetail = () => {
       const { error } = await supabase
         .from("titoli")
         .update({
-          
           cig_rif: contrattoForm.cig_rif || null,
-          vincolo_attivo: !!contrattoForm.vincolo_attivo,
+          vincolo: contrattoForm.vincolo || null,
+          vincolo_attivo: vincoloAttivo,
           descrizione_polizza: contrattoForm.descrizione_polizza || null,
           prodotto_nome: contrattoForm.prodotto_nome || null,
-          specialist: contrattoForm.specialist || null,
-          produttore_nome: contrattoForm.produttore_nome || null,
-          ufficio_id: contrattoForm.ufficio_id || null,
           compagnia_id: contrattoForm.compagnia_id || null,
           compagnia_rapporto_id: contrattoForm.compagnia_rapporto_id || null,
           codice_rapporto: rapportoSel?.codice_rapporto || null,
