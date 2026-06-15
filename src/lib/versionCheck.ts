@@ -200,15 +200,13 @@ async function runLatestVersionCheck(): Promise<boolean> {
     return true;
   }
 
+  // NON ricarichiamo mai automaticamente: mostriamo solo il banner
+  // "Versione non aggiornata" e lasciamo che sia l'utente a cliccare
+  // "Aggiorna ora" (refreshToLatestVersion). Niente più reload a sorpresa
+  // che fanno perdere form aperti.
   const reason = `bundle ${info.bundle} != server ${info.server}`;
   notifyVersionStatus({ state: "stale", info, reason });
-  await purgeClientCaches();
-  const reloading = forceReload(reason, info.server);
-  if (reloading) {
-    window.setTimeout(() => notifyVersionStatus({ state: "reload-blocked", info, reason }), 2_500);
-  }
-  if (!reloading) notifyVersionStatus({ state: "reload-blocked", info, reason });
-  return !reloading;
+  return true;
 }
 
 export async function ensureLatestVersion(): Promise<boolean> {
