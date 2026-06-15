@@ -1,65 +1,46 @@
-## Allineare sezione Contratto in TitoloDetail alla pagina di Immissione
+## Problema
 
-L'utente ha ragione: la card **Contratto** in TitoloDetail (sia read-only sia in modifica) è disallineata da `ImmissionePolizzaPage`. Stessa sezione, stesso `PolizzaSection`, ma campi, layout, dimensioni input e logica non coincidono.
+Ogni tanto la pagina si auto-ricarica e l'utente perde il contesto (form aperti, scroll, ecc.). Le cause attuali nel codice sono **tre meccanismi sovrapposti** che fanno reload "da soli":
 
-### Drift rilevato
+1. **`AppVersionGuard` + `versionCheck.ts`** — polling ogni 30s di `/version.json`; se il bundle non combacia, pulisce cache e chiama `forceReload()` automaticamente (anche senza click utente). Basta un deploy o un `version.json` rigenerato per far partire il reload.
+2. **Service worker kill-switch** (`public/sw.js` + `public/service-worker.js`) — ad ogni attivazione manda `CBNET_SW_NAV` ai client, e `swCleanupListener.ts` esegue `window.location.replace(...)` se il form non è "dirty". È pensato per disinstallarsi, ma viene re-registrato e continua a sparare reload.
+3. **`useInactivityTimeout`** — 30 min, fa `signOut` (non un reload vero ma cambia rotta a `/login`). Resta com'è, non è la causa segnalata.
 
-| Aspetto | Immissione (riferimento) | TitoloDetail oggi |
-|---|---|---|
-| Compagnia vs Agenzia | **Due select separate** (Compagnia Assicurativa + Agenzia di Riferimento) con auto-link broker/pluri | Una sola select combinata "Agenzia / Agenzia di rif." |
-| Rapporto Agenzia | Visibile solo per broker/plurimandataria, badge readonly se unico, select se 2+ | Sempre visibile, con stile diverso |
-| Ramo / Sottoramo | `RamoSottoramoSelect gruppoOnly` (sottoramo si sceglie nelle righe garanzia) | `RamoSottoramoSelect` con anche sottoramo |
-| Dimensione input | `h-8 text-xs` ovunque | Default (più grandi, font diverso) |
-| Vincolo | `SearchableSelect` (Nessuno/Ipoteca/Leasing/Pegno/Cessione/Altro) salvato in `titoli.vincolo` | `Switch` Sì/No su `vincolo_attivo` |
-| Specialist | **Rimosso** dal Contratto (vive in Sede) | Ancora presente in Contratto |
-| CIG/Rif. | Mostrato solo per Ente, con flag CIG temporaneo e validazione | Mostrato per Ente, senza flag temp |
-| Hint precompilazione | Banner teal "Compagnia/Agenzia precompilate" | Assente |
-| N° Polizza | Editabile con validazione | Solo readonly testo |
-| Prefilled hint, prompts | Presenti | Assenti |
+Il flag `__lovableFormDirty` protegge solo alcuni form (es. ImmissionePolizza). Tutte le altre pagine (TitoloDetail in edit, Sinistri, ecc.) **non lo settano**, quindi vengono ricaricate sotto le mani dell'utente.
 
-Read-only (immagine 2): la modalità lettura impacchetta Compagnia, Agenzia, Codice Rapporto in 4 colonne strette → testo va a capo e la divisione tra "Compagnia" e "Agenzia di rif." sparisce visivamente.
+## Soluzione: rimuovere i reload automatici, lasciare solo banner manuale
 
-### Modifiche (un solo file: `src/pages/TitoloDetail.tsx`)
+Niente più reload "a sorpresa". L'unico modo per ricaricare diventa il bottone **"Aggiorna ora"** che l'utente già vede nel banner di `AppVersionGuard`.
 
-1. **Stato edit Contratto** (`contrattoForm`):
-   - Aggiungere `gruppo_compagnia_id: string | null` (Compagnia Assicurativa madre).
-   - Aggiungere `vincolo: string` (testuale, sostituisce uso del solo Switch).
+### 1. `src/lib/versionCheck.ts`
+- `runLatestVersionCheck()`: **non** chiamare più `purgeClientCaches()` né `forceReload()` quando la versione è stale. Limitarsi a notificare `state: "stale"` così il banner appare.
+- `forceReload()` resta, ma viene invocata SOLO da `refreshToLatestVersion()` (click utente).
+- Mantenere il polling 30s (serve solo a mostrare il banner), ma rimuovere il re-check su `focus`/`visibilitychange`/`online` per evitare check ridondanti (opzionale; comunque innocuo perché non ricarica più da solo).
 
-2. **Hook + data**:
-   - Aggiungere `useQuery` per `gruppi_compagnia` (id, nome, codice) — solo se `editingContratto`.
-   - Cambiare `compagnieOpts` per restituire anche `tipo`, `gruppo_compagnia_id`, così da poter filtrare come in Immissione.
-   - Calcolare `rapportiMap` (per broker/pluri → set di gruppi disponibili) come in Immissione.
+### 2. Service worker kill-switch
+- `public/sw.js` e `public/service-worker.js`: ridurli a un SW che fa **solo** `self.registration.unregister()` + `caches.delete(...)` su `install`/`activate`, senza più mandare `CBNET_SW_NAV` ai client. Nessun `postMessage`, nessun reload indotto.
+- `src/lib/swCleanupListener.ts`: rendere il listener un **no-op** (mantenere la funzione esportata per non rompere l'import in `main.tsx`, ma non eseguire più `window.location.replace`).
+- Effetto: i SW vecchi già installati sui browser degli utenti si disinstallano alla prossima visita e da lì in poi non c'è più nessun SW attivo a forzare navigazioni.
 
-3. **Edit UI** (sostituisce lines 1996-2129):
-   - Griglia `grid-cols-1 md:grid-cols-2 gap-3`.
-   - **Compagnia Assicurativa** (`SearchableSelect` su gruppi) + **Agenzia di Riferimento** (`SearchableSelect` su compagnie filtrate), con la **stessa logica** di Immissione (auto-set compagnia madre quando l'agenzia è di tipo `agenzia/direzione`; reset rapporto al cambio).
-   - **Rapporto Agenzia** mostrato solo per broker/plurimandataria, con stesse 3 varianti (zero / uno solo / multi-select).
-   - **RamoSottoramoSelect** con sottoramo (TitoloDetail edita il titolo, non le righe garanzia → resta utile sottoramo qui).
-   - **Prodotto** (Input testo libero), **Vincolo** (SearchableSelect 6 opzioni), **CIG/Rif.** (solo Ente, identico a Immissione con flag CIG temporaneo).
-   - **Descrizione** (Textarea full-width).
-   - Tutti gli input usano `h-8 text-xs` o equivalenti di Immissione.
-   - **Rimuovere campi non coerenti** dalla card Contratto: `Specialist`, `Produttore`, `Sede`, `Numero Polizza`, `Cliente` (questi vivono in altre card: Sede e Cliente). Rimangono mostrati in **read-only** (sotto), ma non più editabili da qui — già esiste l'edit dedicato in Cliente & Sede / sezioni vicine.
+### 3. `AppVersionGuard`
+- Nessuna modifica funzionale: continua a mostrare il banner "Versione non aggiornata" con il bottone **"Aggiorna ora"** (l'unico path che ora ricarica davvero).
+- Mantenere la diagnostica SW nel banner.
 
-4. **Read-only UI** (1956-1994):
-   - Cambiare grid in `grid-cols-1 md:grid-cols-3` con campi più larghi → niente più wrapping di "RAS RISCHI ASSICURATIVI SRL HDI" su 5 righe.
-   - Mostrare in ordine: Compagnia | Agenzia di rif. | Rapporto · Codice — Ramo | Sottoramo | Prodotto — N° Polizza | Cliente (link) | CIG (se Ente) — Vincolo | Descrizione (full-width).
-   - Usare lo stesso componente `FieldRow` corrente per coerenza tipografica con le altre sezioni.
+### 4. Cosa NON tocco
+- `useInactivityTimeout` (logout dopo 30 min) — comportamento voluto.
+- `AppErrorBoundary` — non causa reload automatici.
+- Logica di dominio (titoli, contabilità, ecc.) — invariata.
 
-5. **Save mutation** (`saveContrattoMutation`):
-   - Aggiungere al payload `vincolo` (testo) e mantenere `vincolo_attivo = vincolo !== "" && vincolo !== "nessuno"` per retro-compat.
-   - Validazione: come Immissione, se broker/pluri e 2+ rapporti, richiedere selezione.
-   - Rimuovere dal payload `specialist`, `produttore_nome`, `ufficio_id` (non più editabili da qui).
+## Verifica
 
-### Cosa **non cambia**
+- Aprire una pagina con form (TitoloDetail in modifica, ImmissionePolizza, Sinistro wizard), aspettare > 30s, simulare un cambio `version.json`: deve comparire solo il banner in alto, **nessun reload**. Il form resta intatto. Click su "Aggiorna ora" → reload pulito.
+- Controllare in DevTools → Application → Service Workers: dopo il primo caricamento post-fix non deve risultare nessun SW attivo per il dominio.
+- Smoke test Playwright esistenti (`02-navigation.spec.ts`) devono restare verdi.
 
-- `PolizzaSection` resta il wrapper (già condiviso).
-- Le altre card (Periodo, Importi, Regolazione, Commerciale & Provvigioni…) non vengono toccate.
-- Nessun cambio DB: usiamo colonne già esistenti (`vincolo` esiste già accanto a `vincolo_attivo`).
-- Lock UI quando polizza messa a cassa / stornata resta invariato.
+## File toccati
 
-### Verifica
-
-1. Aprire la polizza `0332438253` (id `9d081206…`) → Contratto in read-only deve mostrare HDI / AMISNA su righe larghe, no wrapping.
-2. Click "Modifica" → due select Compagnia + Agenzia identiche a Immissione, con stessi placeholder e font; Vincolo come dropdown.
-3. Cambiare Compagnia → Agenzia si filtra; salvare → torna in read-only allineato.
-4. Provvigioni: una volta selezionato il **Rapporto** corretto in edit e salvato, le card di split mostrano gli importi (era questo il vero blocco delle provvigioni mancanti sulla polizza in oggetto).
+- `src/lib/versionCheck.ts` (rimuovere auto-reload nel check)
+- `public/sw.js` (svuotare logica postMessage)
+- `public/service-worker.js` (svuotare logica postMessage)
+- `src/lib/swCleanupListener.ts` (no-op)
+- `src/components/AppVersionGuard.tsx` (eventuale rimozione listener focus/visibility, opzionale)
