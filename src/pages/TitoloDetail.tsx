@@ -526,13 +526,13 @@ const TitoloDetail = () => {
   const [editingContratto, setEditingContratto] = useState(false);
   const [contrattoForm, setContrattoForm] = useState({
     cig_rif: "",
+    cig_temporaneo: false,
+    vincolo: "" as string,
     vincolo_attivo: false,
     descrizione_polizza: "",
     prodotto_nome: "",
-    specialist: "",
-    produttore_nome: "",
-    ufficio_id: "" as string | null,
     compagnia_id: "" as string | null,
+    gruppo_compagnia_id: "" as string | null,
     compagnia_rapporto_id: "" as string | null,
     ramo_id: "" as string | null,
     gruppo_ramo_id: null as string | null,
