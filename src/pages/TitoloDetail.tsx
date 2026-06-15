@@ -1950,172 +1950,248 @@ const TitoloDetail = () => {
         </div>
 
         {!editingContratto ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-1">
             <FieldRow label="Compagnia" value={
               <span>{t.compagnia_diretta?.gruppi_compagnia?.descrizione || t.compagnia_diretta?.gruppo_compagnia || "—"}</span>
             } />
-            <FieldRow label="Agenzia / Agenzia di rif." value={
+            <FieldRow label="Agenzia di rif." value={
               <span>{t.compagnia_diretta?.codice || ""} - {t.compagnia_diretta?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
             <FieldRow label="Codice Rapporto" value={fmt(t.codice_rapporto)} />
             <FieldRow label="Ramo" value={fmt(t.ramo?.gruppo_ramo?.descrizione)} />
             <FieldRow label="Sottoramo" value={`${t.ramo?.codice || ""} ${t.ramo?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt(t.prodotto_nome || t.prodotti?.nome_prodotto)} />
-            <FieldRow label="Specialist" value={fmt(t.specialist)} />
-            
             <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
-            {t.cliente_anagrafica && (
-              <>
-                <div className="col-span-2 flex justify-between py-1">
-                  <span className="text-xs text-muted-foreground">Cliente</span>
-                  <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`)}>
-                    {t.cliente_anagrafica.tipo_cliente === "privato"
-                      ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
-                      : t.cliente_anagrafica.ragione_sociale || "—"}
-                    <ExternalLink className="w-3 h-3 ml-1" />
-                  </Button>
-                </div>
-                <FieldRow label="Attività" value={fmt(t.cliente_anagrafica.attivita)} />
-                <FieldRow label="Gr. Finanziario" value={fmt(t.cliente_anagrafica.gruppi_finanziari?.nome)} />
-                <FieldRow label="Gr. Statistico" value={fmt(t.cliente_anagrafica.gruppo_statistico)} />
-              </>
-            )}
-            <FieldRow label="Produttore" value={fmt(t.produttore_nome || (t.produttore ? `${t.produttore.nome || ""} ${t.produttore.cognome || ""}`.trim() : ""))} />
-            <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
+            {t.cliente_anagrafica ? (
+              <div className="flex justify-between py-1">
+                <span className="text-xs text-muted-foreground">Cliente</span>
+                <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`)}>
+                  {t.cliente_anagrafica.tipo_cliente === "privato"
+                    ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
+                    : t.cliente_anagrafica.ragione_sociale || "—"}
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </Button>
+              </div>
+            ) : <FieldRow label="Cliente" value="—" />}
             {(t.cliente_anagrafica?.gruppi_finanziari?.tipo_soggetto === "ente" || t.cliente_anagrafica?.tipo_cliente === "ente") && (
               <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
             )}
-            <FieldRow label="Vincolo" value={t.vincolo_attivo ? "Sì" : "No"} />
-            {t.descrizione_polizza && <div className="col-span-full"><FieldRow label="Descrizione" value={t.descrizione_polizza} /></div>}
+            <FieldRow label="Vincolo" value={t.vincolo ? (t.vincolo.charAt(0).toUpperCase() + t.vincolo.slice(1)) : (t.vincolo_attivo ? "Sì" : "No")} />
+            {t.descrizione_polizza && <div className="md:col-span-3"><FieldRow label="Descrizione" value={t.descrizione_polizza} /></div>}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {/* Read-only fields */}
-            <div className="space-y-1">
-              <Label className="text-xs">Agenzia / Agenzia di rif.</Label>
-              <SearchableSelect
-                options={compagnieOpts}
-                value={contrattoForm.compagnia_id || ""}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, compagnia_id: v || null, compagnia_rapporto_id: null }))}
-                placeholder="— Seleziona agenzia / agenzia —"
-              />
+          <div className="space-y-3">
+            {/* Compagnia + Agenzia di Riferimento — stessa logica/stile di ImmissionePolizzaPage */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Compagnia Assicurativa <span className="text-destructive">*</span></Label>
+                <SearchableSelect
+                  className="h-8 text-xs"
+                  value={contrattoForm.gruppo_compagnia_id || ""}
+                  onValueChange={(v) => {
+                    setContrattoForm((p) => {
+                      const next = { ...p, gruppo_compagnia_id: v || null } as typeof p;
+                      // resetta agenzia/rapporto se non più coerenti
+                      const ag = (compagnieRaw || []).find((c: any) => c.id === p.compagnia_id) as any;
+                      if (ag && v) {
+                        const tipo = (ag.tipo || "").toLowerCase();
+                        if ((tipo === "agenzia" || tipo === "direzione") && ag.gruppo_compagnia_id !== v) {
+                          next.compagnia_id = null;
+                          next.compagnia_rapporto_id = null;
+                        } else if (tipo === "broker" || tipo === "plurimandataria") {
+                          next.compagnia_rapporto_id = null;
+                        }
+                      }
+                      return next;
+                    });
+                  }}
+                  placeholder={(gruppiCompagniaList || []).length === 0 ? "Caricamento compagnie…" : "— Seleziona compagnia —"}
+                  options={(() => {
+                    const ag = (compagnieRaw || []).find((c: any) => c.id === contrattoForm.compagnia_id) as any;
+                    const tipoSel = (ag?.tipo || "").toLowerCase();
+                    let allowed: string[] | null = null;
+                    if (ag && (tipoSel === "broker" || tipoSel === "plurimandataria")) {
+                      allowed = rapportiMap?.get(contrattoForm.compagnia_id!) || [];
+                    }
+                    return (gruppiCompagniaList || [])
+                      .filter((g: any) => !allowed || allowed.includes(g.id))
+                      .map((g: any) => ({ value: g.id, label: g.descrizione || g.codice || "—" }));
+                  })()}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Agenzia di Riferimento <span className="text-destructive">*</span></Label>
+                <SearchableSelect
+                  className="h-8 text-xs"
+                  value={contrattoForm.compagnia_id || ""}
+                  onValueChange={(v) => {
+                    setContrattoForm((p) => {
+                      const next = { ...p, compagnia_id: v || null, compagnia_rapporto_id: null } as typeof p;
+                      const ag = (compagnieRaw || []).find((c: any) => c.id === v) as any;
+                      const tipo = (ag?.tipo || "").toLowerCase();
+                      if ((tipo === "agenzia" || tipo === "direzione") && ag?.gruppo_compagnia_id) {
+                        next.gruppo_compagnia_id = ag.gruppo_compagnia_id;
+                      } else if (tipo === "broker" || tipo === "plurimandataria") {
+                        const gruppi = rapportiMap?.get(v) || [];
+                        if (gruppi.length === 1) {
+                          next.gruppo_compagnia_id = gruppi[0];
+                        } else if (gruppi.length > 1 && p.gruppo_compagnia_id && !gruppi.includes(p.gruppo_compagnia_id)) {
+                          next.gruppo_compagnia_id = null;
+                        }
+                      }
+                      return next;
+                    });
+                  }}
+                  placeholder="— Cerca agenzia / broker —"
+                  options={(compagnieRaw || [])
+                    .filter((c: any) => {
+                      const tipo = (c.tipo || "").toLowerCase();
+                      if (contrattoForm.gruppo_compagnia_id) {
+                        if (tipo === "agenzia" || tipo === "direzione") return c.gruppo_compagnia_id === contrattoForm.gruppo_compagnia_id;
+                        if (tipo === "broker" || tipo === "plurimandataria") return brokerPluriPerGruppo.includes(c.id);
+                        return false;
+                      }
+                      return tipo === "agenzia" || tipo === "direzione" || tipo === "broker" || tipo === "plurimandataria";
+                    })
+                    .map((c: any) => {
+                      const tipo = (c.tipo || "").toLowerCase();
+                      const tipoLabel = tipo ? tipo.charAt(0).toUpperCase() + tipo.slice(1) : "";
+                      return {
+                        value: c.id,
+                        label: `${c.codice || ""} - ${c.nome || ""}`,
+                        description: tipoLabel,
+                        searchText: `${c.tipo || ""} ${c.gruppo_compagnia || ""}`,
+                      };
+                    })}
+                />
+              </div>
             </div>
+
+            {/* Rapporto Agenzia */}
             {contrattoForm.compagnia_id && (rapportiAgenziaEdit || []).length > 0 && (
-              <div className="space-y-1">
-                <Label className="text-xs">
-                  Rapporto Agenzia {(rapportiAgenziaEdit || []).length >= 2 && <span className="text-destructive">*</span>}
-                </Label>
-                {(rapportiAgenziaEdit || []).length === 1 ? (
-                  <div className="h-9 px-2 flex items-center text-sm rounded-md border bg-muted/30">
-                    {rapportiAgenziaEdit[0].codice_rapporto || "—"}
-                    {rapportiAgenziaEdit[0].tipo_rapporto ? ` · ${rapportiAgenziaEdit[0].tipo_rapporto}` : ""}
-                  </div>
-                ) : (
-                  <SearchableSelect
-                    className={!contrattoForm.compagnia_rapporto_id ? "ring-1 ring-amber-500" : ""}
-                    value={contrattoForm.compagnia_rapporto_id || ""}
-                    onValueChange={(v) => setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: v || null }))}
-                    placeholder="— Seleziona rapporto —"
-                    options={rapportiAgenziaEdit.map((r) => ({
-                      value: r.id,
-                      label: r.codice_rapporto || "—",
-                      description: r.tipo_rapporto || undefined,
-                    }))}
-                  />
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Rapporto Agenzia {(rapportiAgenziaEdit || []).length >= 2 && <span className="text-destructive">*</span>}
+                  </Label>
+                  {(rapportiAgenziaEdit || []).length === 1 ? (
+                    <div className="h-8 px-2 flex items-center text-xs rounded-md border bg-muted/30">
+                      {rapportiAgenziaEdit[0].codice_rapporto || "—"}
+                      {rapportiAgenziaEdit[0].tipo_rapporto ? ` · ${rapportiAgenziaEdit[0].tipo_rapporto}` : ""}
+                    </div>
+                  ) : (
+                    <SearchableSelect
+                      className={`h-8 text-xs ${!contrattoForm.compagnia_rapporto_id ? "ring-1 ring-amber-500" : ""}`}
+                      value={contrattoForm.compagnia_rapporto_id || ""}
+                      onValueChange={(v) => setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: v || null }))}
+                      placeholder="— Seleziona rapporto —"
+                      options={rapportiAgenziaEdit.map((r: any) => ({
+                        value: r.id,
+                        label: r.codice_rapporto || "—",
+                        description: r.tipo_rapporto || undefined,
+                      }))}
+                    />
+                  )}
+                </div>
               </div>
             )}
-            <div className="space-y-1 col-span-2">
-              <RamoSottoramoSelect
-                gruppoRamoId={contrattoForm.gruppo_ramo_id || null}
-                ramoId={contrattoForm.ramo_id || null}
-                onChange={({ gruppoRamoId, ramoId }) =>
-                  setContrattoForm((p: any) => ({ ...p, gruppo_ramo_id: gruppoRamoId, ramo_id: ramoId }))
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Numero Polizza</Label>
-              <div className="text-sm font-mono py-2">{fmt(t.numero_titolo)}</div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Cliente</Label>
-              <div className="text-sm font-mono py-2">
-                {t.cliente_anagrafica
-                  ? (t.cliente_anagrafica.tipo_cliente === "privato"
-                    ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
-                    : t.cliente_anagrafica.ragione_sociale || "—")
-                  : "—"}
+
+            {/* Ramo / Sottoramo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5 md:col-span-2">
+                <RamoSottoramoSelect
+                  gruppoRamoId={contrattoForm.gruppo_ramo_id || null}
+                  ramoId={contrattoForm.ramo_id || null}
+                  onChange={({ gruppoRamoId, ramoId }) =>
+                    setContrattoForm((p: any) => ({ ...p, gruppo_ramo_id: gruppoRamoId, ramo_id: ramoId }))
+                  }
+                />
               </div>
             </div>
 
-            {/* Editable fields */}
-
-            <div className="space-y-1">
-              <Label className="text-xs">Prodotto</Label>
-              <Input
-                type="text"
-                placeholder="Es. Tutela Legale, Cyber Risk…"
-                value={contrattoForm.prodotto_nome}
-                onChange={(e) => setContrattoForm(p => ({ ...p, prodotto_nome: e.target.value }))}
-              />
+            {/* Read-only chip per N° Polizza e Cliente */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Numero Polizza</Label>
+                <div className="h-8 px-2 flex items-center text-xs font-mono rounded-md border bg-muted/30">{fmt(t.numero_titolo)}</div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Cliente</Label>
+                <div className="h-8 px-2 flex items-center text-xs rounded-md border bg-muted/30">
+                  {t.cliente_anagrafica
+                    ? (t.cliente_anagrafica.tipo_cliente === "privato"
+                      ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
+                      : t.cliente_anagrafica.ragione_sociale || "—")
+                    : "—"}
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">Specialist</Label>
-              <SearchableSelect
-                options={specialistOpts}
-                value={contrattoForm.specialist}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, specialist: v }))}
-                placeholder="Seleziona specialist"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">Produttore</Label>
-              <SearchableSelect
-                options={produttoriOpts}
-                value={contrattoForm.produttore_nome}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, produttore_nome: v }))}
-                placeholder="Seleziona produttore"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">Sede</Label>
-              <SearchableSelect
-                options={ufficiOpts}
-                value={contrattoForm.ufficio_id || ""}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, ufficio_id: v || null }))}
-                placeholder="Seleziona sede"
-              />
-            </div>
-
-            {(t.cliente_anagrafica?.gruppi_finanziari?.tipo_soggetto === "ente" || t.cliente_anagrafica?.tipo_cliente === "ente") && (
-              <div className="space-y-1">
-                <Label className="text-xs">CIG/Rif.</Label>
+            {/* Prodotto */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5 md:col-span-2">
+                <Label className="text-xs">Prodotto</Label>
                 <Input
-                  value={contrattoForm.cig_rif}
-                  onChange={(e) => setContrattoForm(p => ({ ...p, cig_rif: e.target.value }))}
-                  maxLength={100}
+                  type="text"
+                  className="h-8 text-xs"
+                  placeholder="Nome prodotto (testo libero)"
+                  value={contrattoForm.prodotto_nome}
+                  onChange={(e) => setContrattoForm(p => ({ ...p, prodotto_nome: e.target.value }))}
                 />
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <Label className="text-xs">Vincolo</Label>
-              <div className="flex items-center gap-2 h-9">
-                <Switch
-                  checked={!!contrattoForm.vincolo_attivo}
-                  onCheckedChange={(v) => setContrattoForm(p => ({ ...p, vincolo_attivo: v }))}
-                />
-                <span className="text-sm">{contrattoForm.vincolo_attivo ? "Sì" : "No"}</span>
               </div>
             </div>
 
-            <div className="col-span-full space-y-1">
+            {/* CIG (solo Ente) + Vincolo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(t.cliente_anagrafica?.gruppi_finanziari?.tipo_soggetto === "ente" || t.cliente_anagrafica?.tipo_cliente === "ente") && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1">
+                    CIG/Rif. <span className="text-destructive" title="Obbligatorio per Enti">*</span>
+                  </Label>
+                  <Input
+                    value={contrattoForm.cig_rif}
+                    onChange={(e) => setContrattoForm(p => ({ ...p, cig_rif: e.target.value.toUpperCase() }))}
+                    maxLength={contrattoForm.cig_temporaneo ? 40 : 10}
+                    placeholder={contrattoForm.cig_temporaneo ? "CIG temporaneo" : "10 caratteri alfanumerici"}
+                    className="h-8 text-xs font-mono"
+                  />
+                  <div className="flex items-center gap-2 mt-1">
+                    <Checkbox
+                      id="cig-temp-detail"
+                      checked={contrattoForm.cig_temporaneo}
+                      onCheckedChange={(v) => setContrattoForm(p => ({ ...p, cig_temporaneo: !!v }))}
+                    />
+                    <Label htmlFor="cig-temp-detail" className="text-[10px] cursor-pointer">
+                      CIG temporaneo (formato libero)
+                    </Label>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Vincolo</Label>
+                <SearchableSelect
+                  className="h-8 text-xs"
+                  value={contrattoForm.vincolo}
+                  onValueChange={(v) => setContrattoForm(p => ({ ...p, vincolo: v }))}
+                  placeholder="— Specificare vincolo —"
+                  options={[
+                    { value: "nessuno", label: "Nessuno" },
+                    { value: "ipoteca", label: "Ipoteca" },
+                    { value: "leasing", label: "Leasing" },
+                    { value: "pegno", label: "Pegno" },
+                    { value: "cessione", label: "Cessione" },
+                    { value: "altro", label: "Altro" },
+                  ]}
+                />
+              </div>
+            </div>
+
+            {/* Descrizione */}
+            <div className="space-y-1.5">
               <Label className="text-xs">Descrizione</Label>
               <Textarea
+                className="text-xs"
                 value={contrattoForm.descrizione_polizza}
                 onChange={(e) => setContrattoForm(p => ({ ...p, descrizione_polizza: e.target.value }))}
                 rows={3}
@@ -2125,6 +2201,7 @@ const TitoloDetail = () => {
           </div>
         )}
       </SectionCollapsible>
+
 
       {/* PERIODO */}
       <SectionCollapsible title="Periodo" icon={Calendar}>
