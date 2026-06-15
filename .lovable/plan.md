@@ -1,46 +1,41 @@
-## Problema
+## PDF presentazione CBnet per Enti Pubblici — 12 pagine
 
-Ogni tanto la pagina si auto-ricarica e l'utente perde il contesto (form aperti, scroll, ecc.). Le cause attuali nel codice sono **tre meccanismi sovrapposti** che fanno reload "da soli":
+**Stile**: Executive scuro (navy `#1E2761`, ice blue `#CADCFC`, bianco, accent corallo `#F96167`).
+**Output**: `/mnt/documents/cbnet-presentazione-enti-pubblici.pdf`, formato landscape 16:9, ~12 pagine.
 
-1. **`AppVersionGuard` + `versionCheck.ts`** — polling ogni 30s di `/version.json`; se il bundle non combacia, pulisce cache e chiama `forceReload()` automaticamente (anche senza click utente). Basta un deploy o un `version.json` rigenerato per far partire il reload.
-2. **Service worker kill-switch** (`public/sw.js` + `public/service-worker.js`) — ad ogni attivazione manda `CBNET_SW_NAV` ai client, e `swCleanupListener.ts` esegue `window.location.replace(...)` se il form non è "dirty". È pensato per disinstallarsi, ma viene re-registrato e continua a sparare reload.
-3. **`useInactivityTimeout`** — 30 min, fa `signOut` (non un reload vero ma cambia rotta a `/login`). Resta com'è, non è la causa segnalata.
+### Nota su `protocollo@comune.it`
+Non mi hai dato la password e non l'ho da nessuna parte. **Userò la sessione admin già preconfigurata nel sandbox** per fare gli screenshot della piattaforma (i dati visibili sono reali, includono già "Comune di Varese" come ente di esempio). Se poi vuoi il PDF con l'header personalizzato "Preparato per: Comune – utente protocollo@comune.it", lo aggiungo come testo nel footer di copertina senza bisogno di loggarmi davvero.
 
-Il flag `__lovableFormDirty` protegge solo alcuni form (es. ImmissionePolizza). Tutte le altre pagine (TitoloDetail in edit, Sinistri, ecc.) **non lo settano**, quindi vengono ricaricate sotto le mani dell'utente.
+### Indice pagine
 
-## Soluzione: rimuovere i reload automatici, lasciare solo banner manuale
+| # | Titolo | Screenshot |
+|---|---|---|
+| 1 | **Cover** — "CBnet: gestione assicurativa intelligente per la Pubblica Amministrazione" | logo CBnet su sfondo navy + sottotitolo + footer "Preparato per: Comune" |
+| 2 | **La piattaforma in sintesi** — KPI, ruoli, sicurezza GDPR | Dashboard `/` (Utenti Attivi, Polizze, Sinistri, Raccolta Premi) |
+| 3 | **AI #1 — Assistente CFO conversazionale** | `/ai-assistant` (chat con esempi di domande su flotte/scadenze) |
+| 4 | **AI #2 — Riconciliazione bancaria automatica** (Gemini 2.5 Flash) | `/contabilita/ricongiungimento-bancario` |
+| 5 | **AI #3 — Import provvigioni da PDF** | flusso AI commission import in Compagnie/Provvigioni |
+| 6 | **AI #4 — Ricerca bandi pubblici con Browser-Use** | `/bandi-pubblici` |
+| 7 | **Sinistri — Apertura guidata (wizard)** | screenshot già fornito dall'utente (`Apri nuovo sinistro`) |
+| 8 | **Sinistri — Dashboard, eventi, checklist** | `/sinistri` + `/sinistri/:id` |
+| 9 | **Sinistri — Scadenze, prescrizioni, report SIR** | `/sinistri/.../prescrizioni` o `/scadenze` |
+| 10 | **Portafoglio polizze — Attive / Carico / Storico** | `/portafoglio/attive` |
+| 11 | **Contabilità & Estratti Conto** | `/contabilita/ec-clienti-contab` |
+| 12 | **Portale Cliente PWA + sintesi vantaggi** | `/cliente` (vista cliente read-only) + bullet finali |
 
-Niente più reload "a sorpresa". L'unico modo per ricaricare diventa il bottone **"Aggiorna ora"** che l'utente già vede nel banner di `AppVersionGuard`.
+Ogni pagina contiene: titolo grande (40pt), sottotitolo (16pt corallo), 2-3 bullet di valore per un ente pubblico (trasparenza, audit trail, RLS, accessibilità), screenshot incorniciato con drop shadow.
 
-### 1. `src/lib/versionCheck.ts`
-- `runLatestVersionCheck()`: **non** chiamare più `purgeClientCaches()` né `forceReload()` quando la versione è stale. Limitarsi a notificare `state: "stale"` così il banner appare.
-- `forceReload()` resta, ma viene invocata SOLO da `refreshToLatestVersion()` (click utente).
-- Mantenere il polling 30s (serve solo a mostrare il banner), ma rimuovere il re-check su `focus`/`visibilitychange`/`online` per evitare check ridondanti (opzionale; comunque innocuo perché non ricarica più da solo).
+### Come lo produco (tecnico)
 
-### 2. Service worker kill-switch
-- `public/sw.js` e `public/service-worker.js`: ridurli a un SW che fa **solo** `self.registration.unregister()` + `caches.delete(...)` su `install`/`activate`, senza più mandare `CBNET_SW_NAV` ai client. Nessun `postMessage`, nessun reload indotto.
-- `src/lib/swCleanupListener.ts`: rendere il listener un **no-op** (mantenere la funzione esportata per non rompere l'import in `main.tsx`, ma non eseguire più `window.location.replace`).
-- Effetto: i SW vecchi già installati sui browser degli utenti si disinstallano alla prossima visita e da lì in poi non c'è più nessun SW attivo a forzare navigazioni.
+1. **Screenshot via Playwright** (sessione admin pre-minted), viewport 1440×900, headless Chromium. Script in `/tmp/cbnet-pdf/capture.py`, output in `/tmp/cbnet-pdf/shots/01..12.png`. Per ogni rotta: navigo, attendo `networkidle`, screenshot. Per la pag. 7 riuso direttamente l'immagine che mi hai allegato (più pulita).
+2. **QA visivo**: apro le 12 png e verifico che la pagina sia caricata (no skeleton, no 404, no banner "Aggiorna ora"). Se uno screenshot è vuoto, ri-navigo con wait più lungo.
+3. **PDF con ReportLab** (`/tmp/cbnet-pdf/build_pdf.py`): landscape A4, sfondo navy, layout split-screen (testo sinistra 40%, screenshot destra 60% con angoli arrotondati), header con numero pagina, footer con dominio + data.
+4. **QA del PDF**: converto in jpg con `pdftoppm` e ispeziono tutte le 12 pagine — controllo overflow testi, screenshot tagliati, contrasto, ordine corretto.
+5. **Consegna** con `<presentation-artifact>` su `/mnt/documents/cbnet-presentazione-enti-pubblici.pdf`.
 
-### 3. `AppVersionGuard`
-- Nessuna modifica funzionale: continua a mostrare il banner "Versione non aggiornata" con il bottone **"Aggiorna ora"** (l'unico path che ora ricarica davvero).
-- Mantenere la diagnostica SW nel banner.
+### Cosa NON faccio
+- Nessuna modifica al codice dell'app.
+- Nessun login con credenziali che non ho — non invento password.
+- Nessun dato finto inventato: i numeri sono quelli reali della dashboard.
 
-### 4. Cosa NON tocco
-- `useInactivityTimeout` (logout dopo 30 min) — comportamento voluto.
-- `AppErrorBoundary` — non causa reload automatici.
-- Logica di dominio (titoli, contabilità, ecc.) — invariata.
-
-## Verifica
-
-- Aprire una pagina con form (TitoloDetail in modifica, ImmissionePolizza, Sinistro wizard), aspettare > 30s, simulare un cambio `version.json`: deve comparire solo il banner in alto, **nessun reload**. Il form resta intatto. Click su "Aggiorna ora" → reload pulito.
-- Controllare in DevTools → Application → Service Workers: dopo il primo caricamento post-fix non deve risultare nessun SW attivo per il dominio.
-- Smoke test Playwright esistenti (`02-navigation.spec.ts`) devono restare verdi.
-
-## File toccati
-
-- `src/lib/versionCheck.ts` (rimuovere auto-reload nel check)
-- `public/sw.js` (svuotare logica postMessage)
-- `public/service-worker.js` (svuotare logica postMessage)
-- `src/lib/swCleanupListener.ts` (no-op)
-- `src/components/AppVersionGuard.tsx` (eventuale rimozione listener focus/visibility, opzionale)
+Confermi e procedo? Se vuoi che includa/escluda una pagina specifica dimmelo prima così non rifaccio gli screenshot due volte.
