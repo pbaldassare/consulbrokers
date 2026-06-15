@@ -39,7 +39,7 @@ import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCom
 import { useRcaUsi } from "@/hooks/useRcaLookups";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { NuovoClienteDialog, type NuovoClienteInitialData } from "@/components/clienti/NuovoClienteDialog";
-import { UserPlus, Sparkles } from "lucide-react";
+import { UserPlus, Sparkles, X } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { ImportNuovaPolizzaAIDialog, type MatchResult } from "@/components/polizze/ImportNuovaPolizzaAIDialog";
 import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
