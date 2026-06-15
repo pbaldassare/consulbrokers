@@ -1816,7 +1816,28 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* CONTRATTO */}
-      <PolizzaSection title="Contratto" icon={FileText}>
+      <PolizzaSection
+        title="Contratto"
+        icon={FileText}
+        headerExtra={
+          (selectedGruppoCompagniaId || selectedCompagnia || selectedRapportoId) ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-teal-700 hover:text-teal-900 hover:bg-teal-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedGruppoCompagniaId("");
+                setSelectedCompagnia("");
+                setSelectedRapportoId("");
+              }}
+            >
+              <X className="w-3.5 h-3.5 mr-1" /> Azzera
+            </Button>
+          ) : null
+        }
+      >
 
 
 
