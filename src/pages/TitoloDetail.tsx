@@ -157,7 +157,7 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale, attivita, gruppo_statistico, gruppo_finanziario_id, gruppi_finanziari(nome, tipo_soggetto)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione)), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, aliquota_tasse_ramo, aliquota_tasse_ard, gruppo_ramo_id, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo), anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)")
+        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale, attivita, gruppo_statistico, gruppo_finanziario_id, gruppi_finanziari(nome, tipo_soggetto)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice, tipo, gruppo_compagnia, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione)), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, aliquota_tasse_ramo, aliquota_tasse_ard, gruppo_ramo_id, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo), anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -526,13 +526,13 @@ const TitoloDetail = () => {
   const [editingContratto, setEditingContratto] = useState(false);
   const [contrattoForm, setContrattoForm] = useState({
     cig_rif: "",
+    cig_temporaneo: false,
+    vincolo: "" as string,
     vincolo_attivo: false,
     descrizione_polizza: "",
     prodotto_nome: "",
-    specialist: "",
-    produttore_nome: "",
-    ufficio_id: "" as string | null,
     compagnia_id: "" as string | null,
+    gruppo_compagnia_id: "" as string | null,
     compagnia_rapporto_id: "" as string | null,
     ramo_id: "" as string | null,
     gruppo_ramo_id: null as string | null,
@@ -593,85 +593,79 @@ const TitoloDetail = () => {
     enabled: editingContratto,
   });
 
-  const { data: compagnieOpts = [] } = useQuery({
+  // Compagnie + gruppi + mappa rapporti (per filtro Compagnia ↔ Agenzia, broker/pluri)
+  const { data: compagnieRaw = [] } = useQuery({
     queryKey: ["agenzie-attive-titolo"],
+    enabled: editingContratto,
     queryFn: async () => {
       const { data } = await supabase
         .from("compagnie")
-        .select("id, nome, codice, gruppo_compagnia")
+        .select("id, nome, codice, tipo, gruppo_compagnia, gruppo_compagnia_id")
         .eq("attiva", true)
         .order("nome");
-      return (data || []).map((c: any) => ({
-        value: c.id,
-        label: `${c.codice ? c.codice + " - " : ""}${c.nome}`,
-        description: c.gruppo_compagnia ? `Gruppo: ${c.gruppo_compagnia}` : undefined,
-        searchText: c.gruppo_compagnia || undefined,
-      }));
+      return data || [];
     },
-    enabled: editingContratto,
   });
 
-  const { data: ramiOpts = [] } = useQuery({
-    queryKey: ["rami-attivi-titolo"],
+  const { data: gruppiCompagniaList = [] } = useQuery({
+    queryKey: ["gruppi-compagnia-titolo"],
+    enabled: editingContratto,
     queryFn: async () => {
       const { data } = await supabase
-        .from("rami")
-        .select("id, codice, descrizione")
-        .eq("attivo", true)
-        .order("codice");
-      return (data || []).map((r: any) => ({
-        value: r.id,
-        label: `${r.codice} - ${r.descrizione}`,
-      }));
+        .from("gruppi_compagnia")
+        .select("id, descrizione, codice")
+        .order("descrizione");
+      return data || [];
     },
-    enabled: editingContratto,
   });
 
-  const { data: specialistOpts = [] } = useQuery({
-    queryKey: ["specialist-profiles"],
+  // Mappa: agenzia_id (broker/pluri) -> set di gruppi compagnia con cui ha rapporti attivi
+  const { data: rapportiMap } = useQuery({
+    queryKey: ["compagnia-rapporti-map-titolo"],
+    enabled: editingContratto,
     queryFn: async () => {
       const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome")
-        .eq("attivo", true)
-        .eq("ruolo", "backoffice")
-        .order("cognome");
-      return (data || []).map((p: any) => ({
-        value: `${p.cognome || ""} ${p.nome || ""}`.trim(),
-        label: `${p.cognome || ""} ${p.nome || ""}`.trim(),
-      }));
+        .from("compagnia_rapporti")
+        .select("compagnia_id, gruppo_compagnia_id")
+        .eq("attivo", true);
+      const m = new Map<string, string[]>();
+      (data || []).forEach((r: any) => {
+        if (!r.compagnia_id || !r.gruppo_compagnia_id) return;
+        const arr = m.get(r.compagnia_id) || [];
+        if (!arr.includes(r.gruppo_compagnia_id)) arr.push(r.gruppo_compagnia_id);
+        m.set(r.compagnia_id, arr);
+      });
+      return m;
     },
-    enabled: editingContratto,
   });
 
-  const { data: ufficiOpts = [] } = useQuery({
-    queryKey: ["uffici-attivi"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("uffici")
-        .select("id, nome_ufficio")
-        .eq("attivo", true)
-        .order("nome_ufficio");
-      return (data || []).map((u: any) => ({ value: u.id, label: u.nome_ufficio }));
-    },
-    enabled: editingContratto,
-  });
+  // Lista agenzie filtrate per gruppo compagnia selezionato (logica identica a Immissione)
+  const brokerPluriPerGruppo = (() => {
+    if (!contrattoForm.gruppo_compagnia_id || !rapportiMap) return [] as string[];
+    const out: string[] = [];
+    rapportiMap.forEach((gruppi, agId) => {
+      if (gruppi.includes(contrattoForm.gruppo_compagnia_id!)) out.push(agId);
+    });
+    return out;
+  })();
+
 
   const startEditContratto = () => {
     if (titolo) {
+      const t: any = titolo;
+      const vincoloVal = (t.vincolo || (t.vincolo_attivo ? "altro" : "")) as string;
       setContrattoForm({
-        
-        cig_rif: titolo.cig_rif ?? "",
-        vincolo_attivo: !!titolo.vincolo_attivo,
-        descrizione_polizza: titolo.descrizione_polizza ?? "",
-        prodotto_nome: titolo.prodotto_nome ?? "",
-        specialist: titolo.specialist ?? "",
-        produttore_nome: titolo.produttore_nome ?? "",
-        ufficio_id: titolo.ufficio_id ?? null,
-        compagnia_id: titolo.compagnia_id ?? null,
-        compagnia_rapporto_id: titolo.compagnia_rapporto_id ?? null,
-        ramo_id: titolo.ramo_id ?? null,
-        gruppo_ramo_id: titolo.ramo?.gruppo_ramo_id ?? null,
+        cig_rif: t.cig_rif ?? "",
+        cig_temporaneo: !!t.cig_temporaneo,
+        vincolo: vincoloVal,
+        vincolo_attivo: !!t.vincolo_attivo,
+        descrizione_polizza: t.descrizione_polizza ?? "",
+        prodotto_nome: t.prodotto_nome ?? "",
+        compagnia_id: t.compagnia_id ?? null,
+        gruppo_compagnia_id: t.compagnia_diretta?.gruppo_compagnia_id ?? null,
+        compagnia_rapporto_id: t.compagnia_rapporto_id ?? null,
+        ramo_id: t.ramo_id ?? null,
+        gruppo_ramo_id: t.ramo?.gruppo_ramo_id ?? null,
       });
     }
     setEditingContratto(true);
@@ -682,15 +676,20 @@ const TitoloDetail = () => {
       // Compute diff vs current titolo for activity log
       const before: Record<string, any> = {};
       const after: Record<string, any> = {};
-      const fields: (keyof typeof contrattoForm)[] = [
-        "cig_rif", "vincolo_attivo",
-        "descrizione_polizza", "prodotto_nome", "specialist", "produttore_nome",
-        "ufficio_id", "compagnia_id", "compagnia_rapporto_id", "ramo_id",
+      const vincoloAttivo = !!contrattoForm.vincolo && contrattoForm.vincolo !== "nessuno";
+      const fieldsForLog: { key: string; newVal: any }[] = [
+        { key: "cig_rif", newVal: contrattoForm.cig_rif || null },
+        { key: "vincolo", newVal: contrattoForm.vincolo || null },
+        { key: "vincolo_attivo", newVal: vincoloAttivo },
+        { key: "descrizione_polizza", newVal: contrattoForm.descrizione_polizza || null },
+        { key: "prodotto_nome", newVal: contrattoForm.prodotto_nome || null },
+        { key: "compagnia_id", newVal: contrattoForm.compagnia_id || null },
+        { key: "compagnia_rapporto_id", newVal: contrattoForm.compagnia_rapporto_id || null },
+        { key: "ramo_id", newVal: contrattoForm.ramo_id || null },
       ];
-      fields.forEach((f) => {
-        const oldV = titolo?.[f] ?? null;
-        const newV = contrattoForm[f] || null;
-        if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
+      fieldsForLog.forEach(({ key, newVal }) => {
+        const oldV = (titolo as any)?.[key] ?? null;
+        if (oldV !== newVal) { before[key] = oldV; after[key] = newVal; }
       });
 
       // Validazione: agenzia con 2+ rapporti richiede selezione
@@ -702,14 +701,11 @@ const TitoloDetail = () => {
       const { error } = await supabase
         .from("titoli")
         .update({
-          
           cig_rif: contrattoForm.cig_rif || null,
-          vincolo_attivo: !!contrattoForm.vincolo_attivo,
+          vincolo: contrattoForm.vincolo || null,
+          vincolo_attivo: vincoloAttivo,
           descrizione_polizza: contrattoForm.descrizione_polizza || null,
           prodotto_nome: contrattoForm.prodotto_nome || null,
-          specialist: contrattoForm.specialist || null,
-          produttore_nome: contrattoForm.produttore_nome || null,
-          ufficio_id: contrattoForm.ufficio_id || null,
           compagnia_id: contrattoForm.compagnia_id || null,
           compagnia_rapporto_id: contrattoForm.compagnia_rapporto_id || null,
           codice_rapporto: rapportoSel?.codice_rapporto || null,
@@ -1954,172 +1950,248 @@ const TitoloDetail = () => {
         </div>
 
         {!editingContratto ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-1">
             <FieldRow label="Compagnia" value={
               <span>{t.compagnia_diretta?.gruppi_compagnia?.descrizione || t.compagnia_diretta?.gruppo_compagnia || "—"}</span>
             } />
-            <FieldRow label="Agenzia / Agenzia di rif." value={
+            <FieldRow label="Agenzia di rif." value={
               <span>{t.compagnia_diretta?.codice || ""} - {t.compagnia_diretta?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
             <FieldRow label="Codice Rapporto" value={fmt(t.codice_rapporto)} />
             <FieldRow label="Ramo" value={fmt(t.ramo?.gruppo_ramo?.descrizione)} />
             <FieldRow label="Sottoramo" value={`${t.ramo?.codice || ""} ${t.ramo?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt(t.prodotto_nome || t.prodotti?.nome_prodotto)} />
-            <FieldRow label="Specialist" value={fmt(t.specialist)} />
-            
             <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
-            {t.cliente_anagrafica && (
-              <>
-                <div className="col-span-2 flex justify-between py-1">
-                  <span className="text-xs text-muted-foreground">Cliente</span>
-                  <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`)}>
-                    {t.cliente_anagrafica.tipo_cliente === "privato"
-                      ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
-                      : t.cliente_anagrafica.ragione_sociale || "—"}
-                    <ExternalLink className="w-3 h-3 ml-1" />
-                  </Button>
-                </div>
-                <FieldRow label="Attività" value={fmt(t.cliente_anagrafica.attivita)} />
-                <FieldRow label="Gr. Finanziario" value={fmt(t.cliente_anagrafica.gruppi_finanziari?.nome)} />
-                <FieldRow label="Gr. Statistico" value={fmt(t.cliente_anagrafica.gruppo_statistico)} />
-              </>
-            )}
-            <FieldRow label="Produttore" value={fmt(t.produttore_nome || (t.produttore ? `${t.produttore.nome || ""} ${t.produttore.cognome || ""}`.trim() : ""))} />
-            <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
+            {t.cliente_anagrafica ? (
+              <div className="flex justify-between py-1">
+                <span className="text-xs text-muted-foreground">Cliente</span>
+                <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`)}>
+                  {t.cliente_anagrafica.tipo_cliente === "privato"
+                    ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
+                    : t.cliente_anagrafica.ragione_sociale || "—"}
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </Button>
+              </div>
+            ) : <FieldRow label="Cliente" value="—" />}
             {(t.cliente_anagrafica?.gruppi_finanziari?.tipo_soggetto === "ente" || t.cliente_anagrafica?.tipo_cliente === "ente") && (
               <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
             )}
-            <FieldRow label="Vincolo" value={t.vincolo_attivo ? "Sì" : "No"} />
-            {t.descrizione_polizza && <div className="col-span-full"><FieldRow label="Descrizione" value={t.descrizione_polizza} /></div>}
+            <FieldRow label="Vincolo" value={t.vincolo ? (t.vincolo.charAt(0).toUpperCase() + t.vincolo.slice(1)) : (t.vincolo_attivo ? "Sì" : "No")} />
+            {t.descrizione_polizza && <div className="md:col-span-3"><FieldRow label="Descrizione" value={t.descrizione_polizza} /></div>}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {/* Read-only fields */}
-            <div className="space-y-1">
-              <Label className="text-xs">Agenzia / Agenzia di rif.</Label>
-              <SearchableSelect
-                options={compagnieOpts}
-                value={contrattoForm.compagnia_id || ""}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, compagnia_id: v || null, compagnia_rapporto_id: null }))}
-                placeholder="— Seleziona agenzia / agenzia —"
-              />
+          <div className="space-y-3">
+            {/* Compagnia + Agenzia di Riferimento — stessa logica/stile di ImmissionePolizzaPage */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Compagnia Assicurativa <span className="text-destructive">*</span></Label>
+                <SearchableSelect
+                  className="h-8 text-xs"
+                  value={contrattoForm.gruppo_compagnia_id || ""}
+                  onValueChange={(v) => {
+                    setContrattoForm((p) => {
+                      const next = { ...p, gruppo_compagnia_id: v || null } as typeof p;
+                      // resetta agenzia/rapporto se non più coerenti
+                      const ag = (compagnieRaw || []).find((c: any) => c.id === p.compagnia_id) as any;
+                      if (ag && v) {
+                        const tipo = (ag.tipo || "").toLowerCase();
+                        if ((tipo === "agenzia" || tipo === "direzione") && ag.gruppo_compagnia_id !== v) {
+                          next.compagnia_id = null;
+                          next.compagnia_rapporto_id = null;
+                        } else if (tipo === "broker" || tipo === "plurimandataria") {
+                          next.compagnia_rapporto_id = null;
+                        }
+                      }
+                      return next;
+                    });
+                  }}
+                  placeholder={(gruppiCompagniaList || []).length === 0 ? "Caricamento compagnie…" : "— Seleziona compagnia —"}
+                  options={(() => {
+                    const ag = (compagnieRaw || []).find((c: any) => c.id === contrattoForm.compagnia_id) as any;
+                    const tipoSel = (ag?.tipo || "").toLowerCase();
+                    let allowed: string[] | null = null;
+                    if (ag && (tipoSel === "broker" || tipoSel === "plurimandataria")) {
+                      allowed = rapportiMap?.get(contrattoForm.compagnia_id!) || [];
+                    }
+                    return (gruppiCompagniaList || [])
+                      .filter((g: any) => !allowed || allowed.includes(g.id))
+                      .map((g: any) => ({ value: g.id, label: g.descrizione || g.codice || "—" }));
+                  })()}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Agenzia di Riferimento <span className="text-destructive">*</span></Label>
+                <SearchableSelect
+                  className="h-8 text-xs"
+                  value={contrattoForm.compagnia_id || ""}
+                  onValueChange={(v) => {
+                    setContrattoForm((p) => {
+                      const next = { ...p, compagnia_id: v || null, compagnia_rapporto_id: null } as typeof p;
+                      const ag = (compagnieRaw || []).find((c: any) => c.id === v) as any;
+                      const tipo = (ag?.tipo || "").toLowerCase();
+                      if ((tipo === "agenzia" || tipo === "direzione") && ag?.gruppo_compagnia_id) {
+                        next.gruppo_compagnia_id = ag.gruppo_compagnia_id;
+                      } else if (tipo === "broker" || tipo === "plurimandataria") {
+                        const gruppi = rapportiMap?.get(v) || [];
+                        if (gruppi.length === 1) {
+                          next.gruppo_compagnia_id = gruppi[0];
+                        } else if (gruppi.length > 1 && p.gruppo_compagnia_id && !gruppi.includes(p.gruppo_compagnia_id)) {
+                          next.gruppo_compagnia_id = null;
+                        }
+                      }
+                      return next;
+                    });
+                  }}
+                  placeholder="— Cerca agenzia / broker —"
+                  options={(compagnieRaw || [])
+                    .filter((c: any) => {
+                      const tipo = (c.tipo || "").toLowerCase();
+                      if (contrattoForm.gruppo_compagnia_id) {
+                        if (tipo === "agenzia" || tipo === "direzione") return c.gruppo_compagnia_id === contrattoForm.gruppo_compagnia_id;
+                        if (tipo === "broker" || tipo === "plurimandataria") return brokerPluriPerGruppo.includes(c.id);
+                        return false;
+                      }
+                      return tipo === "agenzia" || tipo === "direzione" || tipo === "broker" || tipo === "plurimandataria";
+                    })
+                    .map((c: any) => {
+                      const tipo = (c.tipo || "").toLowerCase();
+                      const tipoLabel = tipo ? tipo.charAt(0).toUpperCase() + tipo.slice(1) : "";
+                      return {
+                        value: c.id,
+                        label: `${c.codice || ""} - ${c.nome || ""}`,
+                        description: tipoLabel,
+                        searchText: `${c.tipo || ""} ${c.gruppo_compagnia || ""}`,
+                      };
+                    })}
+                />
+              </div>
             </div>
+
+            {/* Rapporto Agenzia */}
             {contrattoForm.compagnia_id && (rapportiAgenziaEdit || []).length > 0 && (
-              <div className="space-y-1">
-                <Label className="text-xs">
-                  Rapporto Agenzia {(rapportiAgenziaEdit || []).length >= 2 && <span className="text-destructive">*</span>}
-                </Label>
-                {(rapportiAgenziaEdit || []).length === 1 ? (
-                  <div className="h-9 px-2 flex items-center text-sm rounded-md border bg-muted/30">
-                    {rapportiAgenziaEdit[0].codice_rapporto || "—"}
-                    {rapportiAgenziaEdit[0].tipo_rapporto ? ` · ${rapportiAgenziaEdit[0].tipo_rapporto}` : ""}
-                  </div>
-                ) : (
-                  <SearchableSelect
-                    className={!contrattoForm.compagnia_rapporto_id ? "ring-1 ring-amber-500" : ""}
-                    value={contrattoForm.compagnia_rapporto_id || ""}
-                    onValueChange={(v) => setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: v || null }))}
-                    placeholder="— Seleziona rapporto —"
-                    options={rapportiAgenziaEdit.map((r) => ({
-                      value: r.id,
-                      label: r.codice_rapporto || "—",
-                      description: r.tipo_rapporto || undefined,
-                    }))}
-                  />
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Rapporto Agenzia {(rapportiAgenziaEdit || []).length >= 2 && <span className="text-destructive">*</span>}
+                  </Label>
+                  {(rapportiAgenziaEdit || []).length === 1 ? (
+                    <div className="h-8 px-2 flex items-center text-xs rounded-md border bg-muted/30">
+                      {rapportiAgenziaEdit[0].codice_rapporto || "—"}
+                      {rapportiAgenziaEdit[0].tipo_rapporto ? ` · ${rapportiAgenziaEdit[0].tipo_rapporto}` : ""}
+                    </div>
+                  ) : (
+                    <SearchableSelect
+                      className={`h-8 text-xs ${!contrattoForm.compagnia_rapporto_id ? "ring-1 ring-amber-500" : ""}`}
+                      value={contrattoForm.compagnia_rapporto_id || ""}
+                      onValueChange={(v) => setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: v || null }))}
+                      placeholder="— Seleziona rapporto —"
+                      options={rapportiAgenziaEdit.map((r: any) => ({
+                        value: r.id,
+                        label: r.codice_rapporto || "—",
+                        description: r.tipo_rapporto || undefined,
+                      }))}
+                    />
+                  )}
+                </div>
               </div>
             )}
-            <div className="space-y-1 col-span-2">
-              <RamoSottoramoSelect
-                gruppoRamoId={contrattoForm.gruppo_ramo_id || null}
-                ramoId={contrattoForm.ramo_id || null}
-                onChange={({ gruppoRamoId, ramoId }) =>
-                  setContrattoForm((p: any) => ({ ...p, gruppo_ramo_id: gruppoRamoId, ramo_id: ramoId }))
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Numero Polizza</Label>
-              <div className="text-sm font-mono py-2">{fmt(t.numero_titolo)}</div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Cliente</Label>
-              <div className="text-sm font-mono py-2">
-                {t.cliente_anagrafica
-                  ? (t.cliente_anagrafica.tipo_cliente === "privato"
-                    ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
-                    : t.cliente_anagrafica.ragione_sociale || "—")
-                  : "—"}
+
+            {/* Ramo / Sottoramo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5 md:col-span-2">
+                <RamoSottoramoSelect
+                  gruppoRamoId={contrattoForm.gruppo_ramo_id || null}
+                  ramoId={contrattoForm.ramo_id || null}
+                  onChange={({ gruppoRamoId, ramoId }) =>
+                    setContrattoForm((p: any) => ({ ...p, gruppo_ramo_id: gruppoRamoId, ramo_id: ramoId }))
+                  }
+                />
               </div>
             </div>
 
-            {/* Editable fields */}
-
-            <div className="space-y-1">
-              <Label className="text-xs">Prodotto</Label>
-              <Input
-                type="text"
-                placeholder="Es. Tutela Legale, Cyber Risk…"
-                value={contrattoForm.prodotto_nome}
-                onChange={(e) => setContrattoForm(p => ({ ...p, prodotto_nome: e.target.value }))}
-              />
+            {/* Read-only chip per N° Polizza e Cliente */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Numero Polizza</Label>
+                <div className="h-8 px-2 flex items-center text-xs font-mono rounded-md border bg-muted/30">{fmt(t.numero_titolo)}</div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Cliente</Label>
+                <div className="h-8 px-2 flex items-center text-xs rounded-md border bg-muted/30">
+                  {t.cliente_anagrafica
+                    ? (t.cliente_anagrafica.tipo_cliente === "privato"
+                      ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
+                      : t.cliente_anagrafica.ragione_sociale || "—")
+                    : "—"}
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">Specialist</Label>
-              <SearchableSelect
-                options={specialistOpts}
-                value={contrattoForm.specialist}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, specialist: v }))}
-                placeholder="Seleziona specialist"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">Produttore</Label>
-              <SearchableSelect
-                options={produttoriOpts}
-                value={contrattoForm.produttore_nome}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, produttore_nome: v }))}
-                placeholder="Seleziona produttore"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">Sede</Label>
-              <SearchableSelect
-                options={ufficiOpts}
-                value={contrattoForm.ufficio_id || ""}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, ufficio_id: v || null }))}
-                placeholder="Seleziona sede"
-              />
-            </div>
-
-            {(t.cliente_anagrafica?.gruppi_finanziari?.tipo_soggetto === "ente" || t.cliente_anagrafica?.tipo_cliente === "ente") && (
-              <div className="space-y-1">
-                <Label className="text-xs">CIG/Rif.</Label>
+            {/* Prodotto */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5 md:col-span-2">
+                <Label className="text-xs">Prodotto</Label>
                 <Input
-                  value={contrattoForm.cig_rif}
-                  onChange={(e) => setContrattoForm(p => ({ ...p, cig_rif: e.target.value }))}
-                  maxLength={100}
+                  type="text"
+                  className="h-8 text-xs"
+                  placeholder="Nome prodotto (testo libero)"
+                  value={contrattoForm.prodotto_nome}
+                  onChange={(e) => setContrattoForm(p => ({ ...p, prodotto_nome: e.target.value }))}
                 />
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <Label className="text-xs">Vincolo</Label>
-              <div className="flex items-center gap-2 h-9">
-                <Switch
-                  checked={!!contrattoForm.vincolo_attivo}
-                  onCheckedChange={(v) => setContrattoForm(p => ({ ...p, vincolo_attivo: v }))}
-                />
-                <span className="text-sm">{contrattoForm.vincolo_attivo ? "Sì" : "No"}</span>
               </div>
             </div>
 
-            <div className="col-span-full space-y-1">
+            {/* CIG (solo Ente) + Vincolo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(t.cliente_anagrafica?.gruppi_finanziari?.tipo_soggetto === "ente" || t.cliente_anagrafica?.tipo_cliente === "ente") && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1">
+                    CIG/Rif. <span className="text-destructive" title="Obbligatorio per Enti">*</span>
+                  </Label>
+                  <Input
+                    value={contrattoForm.cig_rif}
+                    onChange={(e) => setContrattoForm(p => ({ ...p, cig_rif: e.target.value.toUpperCase() }))}
+                    maxLength={contrattoForm.cig_temporaneo ? 40 : 10}
+                    placeholder={contrattoForm.cig_temporaneo ? "CIG temporaneo" : "10 caratteri alfanumerici"}
+                    className="h-8 text-xs font-mono"
+                  />
+                  <div className="flex items-center gap-2 mt-1">
+                    <Checkbox
+                      id="cig-temp-detail"
+                      checked={contrattoForm.cig_temporaneo}
+                      onCheckedChange={(v) => setContrattoForm(p => ({ ...p, cig_temporaneo: !!v }))}
+                    />
+                    <Label htmlFor="cig-temp-detail" className="text-[10px] cursor-pointer">
+                      CIG temporaneo (formato libero)
+                    </Label>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Vincolo</Label>
+                <SearchableSelect
+                  className="h-8 text-xs"
+                  value={contrattoForm.vincolo}
+                  onValueChange={(v) => setContrattoForm(p => ({ ...p, vincolo: v }))}
+                  placeholder="— Specificare vincolo —"
+                  options={[
+                    { value: "nessuno", label: "Nessuno" },
+                    { value: "ipoteca", label: "Ipoteca" },
+                    { value: "leasing", label: "Leasing" },
+                    { value: "pegno", label: "Pegno" },
+                    { value: "cessione", label: "Cessione" },
+                    { value: "altro", label: "Altro" },
+                  ]}
+                />
+              </div>
+            </div>
+
+            {/* Descrizione */}
+            <div className="space-y-1.5">
               <Label className="text-xs">Descrizione</Label>
               <Textarea
+                className="text-xs"
                 value={contrattoForm.descrizione_polizza}
                 onChange={(e) => setContrattoForm(p => ({ ...p, descrizione_polizza: e.target.value }))}
                 rows={3}
@@ -2129,6 +2201,7 @@ const TitoloDetail = () => {
           </div>
         )}
       </SectionCollapsible>
+
 
       {/* PERIODO */}
       <SectionCollapsible title="Periodo" icon={Calendar}>
