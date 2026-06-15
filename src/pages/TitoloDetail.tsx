@@ -593,69 +593,62 @@ const TitoloDetail = () => {
     enabled: editingContratto,
   });
 
-  const { data: compagnieOpts = [] } = useQuery({
+  // Compagnie + gruppi + mappa rapporti (per filtro Compagnia ↔ Agenzia, broker/pluri)
+  const { data: compagnieRaw = [] } = useQuery({
     queryKey: ["agenzie-attive-titolo"],
+    enabled: editingContratto,
     queryFn: async () => {
       const { data } = await supabase
         .from("compagnie")
-        .select("id, nome, codice, gruppo_compagnia")
+        .select("id, nome, codice, tipo, gruppo_compagnia, gruppo_compagnia_id")
         .eq("attiva", true)
         .order("nome");
-      return (data || []).map((c: any) => ({
-        value: c.id,
-        label: `${c.codice ? c.codice + " - " : ""}${c.nome}`,
-        description: c.gruppo_compagnia ? `Gruppo: ${c.gruppo_compagnia}` : undefined,
-        searchText: c.gruppo_compagnia || undefined,
-      }));
+      return data || [];
     },
-    enabled: editingContratto,
   });
 
-  const { data: ramiOpts = [] } = useQuery({
-    queryKey: ["rami-attivi-titolo"],
+  const { data: gruppiCompagniaList = [] } = useQuery({
+    queryKey: ["gruppi-compagnia-titolo"],
+    enabled: editingContratto,
     queryFn: async () => {
       const { data } = await supabase
-        .from("rami")
-        .select("id, codice, descrizione")
-        .eq("attivo", true)
-        .order("codice");
-      return (data || []).map((r: any) => ({
-        value: r.id,
-        label: `${r.codice} - ${r.descrizione}`,
-      }));
+        .from("gruppi_compagnia")
+        .select("id, descrizione, codice")
+        .order("descrizione");
+      return data || [];
     },
-    enabled: editingContratto,
   });
 
-  const { data: specialistOpts = [] } = useQuery({
-    queryKey: ["specialist-profiles"],
+  // Mappa: agenzia_id (broker/pluri) -> set di gruppi compagnia con cui ha rapporti attivi
+  const { data: rapportiMap } = useQuery({
+    queryKey: ["compagnia-rapporti-map-titolo"],
+    enabled: editingContratto,
     queryFn: async () => {
       const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome")
-        .eq("attivo", true)
-        .eq("ruolo", "backoffice")
-        .order("cognome");
-      return (data || []).map((p: any) => ({
-        value: `${p.cognome || ""} ${p.nome || ""}`.trim(),
-        label: `${p.cognome || ""} ${p.nome || ""}`.trim(),
-      }));
+        .from("compagnia_rapporti")
+        .select("compagnia_id, gruppo_compagnia_id")
+        .eq("attivo", true);
+      const m = new Map<string, string[]>();
+      (data || []).forEach((r: any) => {
+        if (!r.compagnia_id || !r.gruppo_compagnia_id) return;
+        const arr = m.get(r.compagnia_id) || [];
+        if (!arr.includes(r.gruppo_compagnia_id)) arr.push(r.gruppo_compagnia_id);
+        m.set(r.compagnia_id, arr);
+      });
+      return m;
     },
-    enabled: editingContratto,
   });
 
-  const { data: ufficiOpts = [] } = useQuery({
-    queryKey: ["uffici-attivi"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("uffici")
-        .select("id, nome_ufficio")
-        .eq("attivo", true)
-        .order("nome_ufficio");
-      return (data || []).map((u: any) => ({ value: u.id, label: u.nome_ufficio }));
-    },
-    enabled: editingContratto,
-  });
+  // Lista agenzie filtrate per gruppo compagnia selezionato (logica identica a Immissione)
+  const brokerPluriPerGruppo = (() => {
+    if (!contrattoForm.gruppo_compagnia_id || !rapportiMap) return [] as string[];
+    const out: string[] = [];
+    rapportiMap.forEach((gruppi, agId) => {
+      if (gruppi.includes(contrattoForm.gruppo_compagnia_id!)) out.push(agId);
+    });
+    return out;
+  })();
+
 
   const startEditContratto = () => {
     if (titolo) {
