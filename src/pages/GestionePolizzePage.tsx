@@ -737,7 +737,7 @@ const GestionePolizzePage = () => {
                     )}
                     {!isFetching && (polizze?.length ?? 0) === 0 && (
                       <TableRow>
-                        <TableCell colSpan={10} className="text-center py-6 text-sm text-muted-foreground">
+                        <TableCell colSpan={11} className="text-center py-6 text-sm text-muted-foreground">
                           Nessuna polizza corrisponde ai filtri impostati.
                         </TableCell>
                       </TableRow>
