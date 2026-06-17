@@ -39,6 +39,7 @@ import {
   ArrowUp,
   ArrowDown,
   Lock,
+  Hash,
 } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { useAuth } from "@/contexts/AuthContext";
