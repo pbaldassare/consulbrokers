@@ -151,26 +151,37 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label>Data scadenza</Label>
-            <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)} />
-          </div>
-          <div>
-            <Label>Data effetto</Label>
-            <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)} />
-          </div>
-          <div className="md:col-span-2">
-            <Label>Oggetto</Label>
-            <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)} placeholder="Breve descrizione dell'oggetto dell'appendice" />
-          </div>
-          <div className="md:col-span-2">
-            <Label>Note interne</Label>
-            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-          <div className="md:col-span-2">
-            <Label>Allegato (opzionale)</Label>
-            <Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-          </div>
+          {tipo === "regolazione" ? (
+            <div className="md:col-span-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 p-3 text-sm">
+              <strong>Regolazione premio:</strong> non è una semplice appendice ma un vero conguaglio.
+              Premendo <em>Apri form regolazione</em> verrà aperta la schermata di emissione polizza
+              precompilata dalla polizza madre, con possibilità di scegliere la quietanza di riferimento
+              e di inserire tutti i dati tecnici/economici come per una nuova polizza.
+            </div>
+          ) : (
+            <>
+              <div>
+                <Label>Data scadenza</Label>
+                <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)} />
+              </div>
+              <div>
+                <Label>Data effetto</Label>
+                <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Oggetto</Label>
+                <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)} placeholder="Breve descrizione dell'oggetto dell'appendice" />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Note interne</Label>
+                <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Allegato (opzionale)</Label>
+                <Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              </div>
+            </>
+          )}
         </div>
 
         <DialogFooter>
