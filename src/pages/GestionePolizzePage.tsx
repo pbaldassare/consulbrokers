@@ -338,6 +338,9 @@ const GestionePolizzePage = () => {
       case "annulla_messa_cassa":
         setAnnullaMCConfirm(true);
         return;
+      case "cig_temporanei":
+        navigate(`/titoli/${row.id}`);
+        return;
     }
   };
 
