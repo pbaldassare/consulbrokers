@@ -588,7 +588,7 @@ const GestionePolizzePage = () => {
       {operazione && (
         <>
           <PolizzaSection title="2. Filtra polizza" icon={Filter} defaultOpen>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
                 <SearchableSelect
