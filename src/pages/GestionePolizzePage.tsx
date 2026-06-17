@@ -643,6 +643,36 @@ const GestionePolizzePage = () => {
                   </div>
                 </div>
               )}
+              {!operazione.richiedeRegolazione && (
+                <div className="space-y-1.5">
+                  <Label>Regolazione</Label>
+                  <div
+                    className="inline-flex w-full rounded-md border border-input bg-background p-0.5"
+                    role="group"
+                    aria-label="filtro-reg"
+                  >
+                    {([
+                      { v: "all", l: "Tutti" },
+                      { v: "with", l: "In reg." },
+                      { v: "without", l: "Senza" },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.v}
+                        type="button"
+                        onClick={() => setRegFilter(opt.v)}
+                        data-reg-filter={opt.v}
+                        className={`flex-1 text-xs px-2 py-1.5 rounded transition ${
+                          regFilter === opt.v
+                            ? "bg-teal-600 text-white"
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {opt.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </PolizzaSection>
 
