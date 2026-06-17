@@ -66,6 +66,7 @@ import { AttivitaRecentiPanel } from "@/components/polizze/azioni/AttivitaRecent
 
 
 type OperazioneKey =
+  | "nuova_polizza"
   | "appendice"
   | "storno"
   | "rinnovo"
@@ -80,6 +81,7 @@ type OperazioneKey =
   | "precontrattuale"
   | "cig_temporanei"
   | "regolazioni_attese";
+
 
 interface Operazione {
   key: OperazioneKey;
