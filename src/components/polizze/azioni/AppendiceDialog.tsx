@@ -85,17 +85,20 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     },
   });
 
-  // Catena quietanze della polizza
+  // Catena quietanze della polizza (solo quelle "regolabili")
+  const STATI_VALIDI = ["attivo", "incassato", "sospeso"];
   const { data: catena } = useQuery({
     queryKey: ["catena-quietanze", titoloInfo?.numero_titolo],
     enabled: !!titoloInfo?.numero_titolo && open,
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, sostituisce_polizza, is_regolazione")
+        .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, sostituisce_polizza, is_regolazione, stato, numero_titolo")
         .eq("numero_titolo", titoloInfo!.numero_titolo!)
         .order("garanzia_da", { ascending: true });
-      return (data || []).filter((t: any) => !t.is_regolazione);
+      return (data || []).filter(
+        (t: any) => !t.is_regolazione && STATI_VALIDI.includes((t.stato || "").toLowerCase())
+      );
     },
   });
 
