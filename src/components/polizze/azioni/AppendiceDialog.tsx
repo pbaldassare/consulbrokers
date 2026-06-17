@@ -161,8 +161,20 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
       if (!numeroAppendice.trim()) throw new Error("Numero appendice obbligatorio");
 
       const isReg = tipo === "regolazione";
-      if (isReg && !quietanzaId) throw new Error("Seleziona la quietanza di riferimento");
-      if (isReg && !premioNetto) throw new Error("Inserisci il premio netto");
+      if (isReg) {
+        if (!quietanzaId) throw new Error("Seleziona la quietanza di riferimento");
+        const n = parseFloat(premioNetto.replace(",", "."));
+        const tt = parseFloat(tasse.replace(",", ".") || "0");
+        const l = parseFloat(premioLordo.replace(",", ".") || "0");
+        const p = parseFloat(provvigioni.replace(",", ".") || "0");
+        if (isNaN(n)) throw new Error("Inserisci il premio netto");
+        if (tt < 0) throw new Error("Le tasse non possono essere negative");
+        if (l + 0.01 < n) throw new Error("Il premio lordo non può essere inferiore al netto");
+        if (p < 0) throw new Error("Le provvigioni non possono essere negative");
+        if (dataEffetto && dataAppendice && dataEffetto > dataAppendice) {
+          throw new Error("La data effetto non può essere successiva alla data scadenza");
+        }
+      }
 
       let filePath: string | null = null;
       let nomeFile: string | null = null;
