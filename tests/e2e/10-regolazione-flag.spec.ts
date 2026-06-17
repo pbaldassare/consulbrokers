@@ -178,6 +178,55 @@ test.describe.serial('Regolazione promemoria — ciclo completo', () => {
     await expect(page.getByRole('row').filter({ hasText: POLIZZA_NUM })).toHaveCount(0);
   });
 
+  test('4b. URL reg=with/without persiste cambiando pagina (back/forward + reload + deep link)', async ({ page }) => {
+    // Deep link diretto con reg=with + operazione neutra: filtro deve essere applicato
+    await page.goto(`/portafoglio/gestione?op=appendice&reg=with&q=${encodeURIComponent(POLIZZA_NUM)}`);
+    await expectPageHealthy(page);
+
+    const filterGroup = page.locator('[role="group"][aria-label="filtro-reg"]');
+    await expect(filterGroup).toBeVisible();
+    await expect(filterGroup.locator('button[data-reg-filter="with"]')).toHaveClass(/bg-teal-600/);
+
+    // Risultato coerente col filtro: la polizza di test è presente
+    await expect(page.getByRole('row').filter({ hasText: POLIZZA_NUM })).toBeVisible({ timeout: 10_000 });
+
+    // Naviga via aprendo il dettaglio del titolo di test
+    await page.getByRole('row').filter({ hasText: POLIZZA_NUM })
+      .getByRole('button', { name: /^Esegui$/ }).click();
+    await page.waitForURL((url) => url.pathname.startsWith('/titoli/'), { timeout: 10_000 });
+
+    // Back → gli stessi search params devono essere ripristinati
+    await page.goBack();
+    await page.waitForURL((url) => url.pathname === '/portafoglio/gestione', { timeout: 10_000 });
+    const backParams = new URL(page.url()).searchParams;
+    expect(backParams.get('reg')).toBe('with');
+    expect(backParams.get('op')).toBe('appendice');
+    expect(backParams.get('q')).toBe(POLIZZA_NUM);
+    await expect(filterGroup.locator('button[data-reg-filter="with"]')).toHaveClass(/bg-teal-600/);
+    await expect(page.getByRole('row').filter({ hasText: POLIZZA_NUM })).toBeVisible({ timeout: 10_000 });
+
+    // Reload → lo stato deve restare coerente
+    await page.reload();
+    await expectPageHealthy(page);
+    expect(new URL(page.url()).searchParams.get('reg')).toBe('with');
+    await expect(filterGroup.locator('button[data-reg-filter="with"]')).toHaveClass(/bg-teal-600/);
+    await expect(page.getByRole('row').filter({ hasText: POLIZZA_NUM })).toBeVisible({ timeout: 10_000 });
+
+    // Cambia a "without" → naviga via → back: nuovo stato persistito, riga assente
+    await filterGroup.locator('button[data-reg-filter="without"]').click();
+    await expect.poll(() => new URL(page.url()).searchParams.get('reg')).toBe('without');
+    await expect(page.getByRole('row').filter({ hasText: POLIZZA_NUM })).toHaveCount(0);
+
+    await page.goto('/portafoglio/attive');
+    await page.goBack();
+    await page.waitForURL((url) => url.pathname === '/portafoglio/gestione', { timeout: 10_000 });
+    expect(new URL(page.url()).searchParams.get('reg')).toBe('without');
+    await expect(filterGroup.locator('button[data-reg-filter="without"]')).toHaveClass(/bg-teal-600/);
+    await expect(page.getByRole('row').filter({ hasText: POLIZZA_NUM })).toHaveCount(0);
+  });
+
+
+
   test('5. disattivazione del flag azzera i campi e ripristina il badge', async ({ page }) => {
     await page.goto(`/titoli/${titoloId}?section=regolazione`);
     await expectPageHealthy(page);
