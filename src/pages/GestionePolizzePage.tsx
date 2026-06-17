@@ -188,6 +188,7 @@ const GestionePolizzePage = () => {
     clienteId,
     compagniaId,
     cigFilter,
+    regFilter,
     sortBy,
     sortDir,
   ]);
