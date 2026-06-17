@@ -481,6 +481,15 @@ const GestionePolizzePage = () => {
                 {op.adminOnly && (
                   <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" title="admin" />
                 )}
+                {op.key === "cig_temporanei" && cigCount > 0 && (
+                  <span
+                    className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center"
+                    title={`${cigCount} CIG temporanei`}
+                    data-testid="cig-count-badge"
+                  >
+                    {cigCount}
+                  </span>
+                )}
                 {disabled && (
                   <Lock className="absolute top-1 right-1 w-3 h-3 text-muted-foreground" />
                 )}
