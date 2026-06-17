@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/SearchableSelect";
 import { toast } from "sonner";
-import { Loader2, AlertCircle, FileIcon } from "lucide-react";
+import { Loader2, AlertCircle, FileIcon, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logAttivita } from "@/lib/logAttivita";
 
