@@ -205,6 +205,19 @@ const GestionePolizzePage = () => {
     },
   });
 
+  // Conteggio live Regolazioni attese (per badge sulla card)
+  const { data: regCount = 0 } = useQuery({
+    queryKey: ["gestione-polizze-reg-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("titoli")
+        .select("id", { count: "exact", head: true })
+        .eq("regolazione", true)
+        .in("stato", ["attivo", "sospeso", "incassato"]);
+      return count ?? 0;
+    },
+  });
+
   // Opzioni Cliente / Compagnia per SearchableSelect
   const { data: clientiOpts = [] } = useQuery({
     queryKey: ["gestione-polizze-clienti-opts"],
