@@ -1,69 +1,32 @@
 ## Obiettivo
-Aggiungere un test Playwright E2E che valida il ciclo completo del flag **Regolazione** come promemoria: attivazione su un titolo, salvataggio dei campi obbligatori, e riflesso sulla card "Regolazioni Attese" in Gestione Polizze (badge live + filtro segmentato + colonna stato).
+Rimuovere dalla sezione "Regolazione" di `TitoloDetail` i 5 **campi legacy** (Periodicità, Tipo Scadenza, GG Presentazione, Tipo Lettera, Libro Matricola), mantenendo solo la **card promemoria** (Switch + Data presunta + Fattore + Note).
 
-## File da creare
-`tests/e2e/10-regolazione-flag.spec.ts` — nuovo file, allineato al pattern di `09-gestione-polizze.spec.ts` (storageState admin + `expectPageHealthy`).
+## Scope: solo UI di TitoloDetail
+Le colonne DB (`periodicita`, `tipo_scadenza`, `giorni_presentazione`, `tipo_lettera_regolazione`, `libro_matricola`) **restano in `titoli`** perché ancora lette/scritte da:
+- `src/pages/ImmissionePolizzaPage.tsx` (immissione nuova polizza)
+- `src/pages/DocPrecontrattualePage.tsx` (PDF precontrattuale)
+- `src/pages/PortafoglioDetail.tsx`
+- `src/pages/cliente/ClientePolizzaDetail.tsx`, `ClientePolizze.tsx` (portale cliente)
+- `src/components/titolo/sections/TitoloDataPersistenceInfo.tsx`
 
-## Setup dati
-Riuso degli helper esistenti in `tests/helpers/db-helper.ts`:
-- `createTestTitolo()` per creare un titolo `attivo` con `regolazione=false`
-- `cleanupTestTitolo()` in `afterAll` per teardown
-- Numero polizza univoco con timestamp (`REG-E2E-${Date.now()}`)
+Toccare queste altre pagine è fuori scope. Nessuna migrazione DB.
 
-Il `clienteId`/`produttoreId` di partenza viene risolto via `supabaseAdmin` cercando il primo cliente attivo e un'anagrafica professionale corrispondente, così il test resta self-contained.
+## Modifiche in `src/pages/TitoloDetail.tsx`
 
-## Scenari di test
+1. **Vista read-only** (righe ~2391–2412): rimuovo `FieldRow` per Periodicità, Tipo Scadenza, GG Presentazione, Tipo Lettera, Libro Matricola. Resta: Regolazione (Sì/No), Data presunta, Fattore, blocco Note.
+2. **Modalità modifica** (righe ~2460–2515): rimuovo l'intero blocco grid `<div className="grid grid-cols-2 md:grid-cols-3 gap-4">` coi 5 campi legacy.
+3. **State `regForm`** (riga ~300): rimuovo `periodicita`, `tipo_scadenza`, `giorni_presentazione`, `tipo_lettera_regolazione`, `libro_matricola`.
+4. **Reset/hydrate del form** (righe ~475–483): rimuovo le 5 chiavi corrispondenti.
+5. **`saveRegMutation`** (righe ~495–504): rimuovo dal payload `update()` le 5 colonne legacy (non vengono più scritte da questa sezione).
+6. **Import puliti**: rimuovo eventuali `tipoLetteraOpts`, `tipoScadenzaOpts`, `periodicitaOpts`, `RadioGroup`, `RadioGroupItem` se non più referenziati altrove nel file.
 
-### 1. Conteggio iniziale card "Regolazioni Attese"
-- Apre `/portafoglio/gestione`
-- Cattura il numero (badge ambra) sulla card `[data-op="regolazione"]` come `countBefore` (0 se badge assente)
-
-### 2. Attivazione flag da TitoloDetail
-- Naviga a `/titoli/{titoloId}?section=regolazione`
-- Verifica che la sezione "Regolazione" sia espansa
-- Attiva lo Switch "Polizza in regolazione (promemoria)"
-- Compila:
-  - **Data presunta**: oggi + 15 giorni (badge atteso 🟡 "In scadenza")
-  - **Fattore**: `Fatturato` (via SearchableSelect)
-  - **Note**: "Test E2E promemoria"
-- Click "Salva" / submit della sezione
-- Attende toast di conferma e ricarica → verifica che i campi siano persistiti
-
-### 3. Aggiornamento card + filtro + colonna in Gestione Polizze
-- Torna a `/portafoglio/gestione`
-- Verifica che il badge sulla card `[data-op="regolazione"]` sia `countBefore + 1`
-- Click sulla card → si attiva l'operazione "Regolazioni Attese"
-- Verifica che il filtro segmentato "Regolazione" sia nascosto (già implicito dall'operazione)
-- Cerca il numero polizza di test nel filtro "N° polizza / ricerca libera"
-- Verifica nella tabella risultati:
-  - Riga presente con numero polizza atteso
-  - Colonna **Reg.** mostra badge 🟡 (in scadenza, entro 30gg)
-  - Bottone "Esegui" presente
-- Click "Esegui" → URL `/titoli/{id}?section=regolazione`
-
-### 4. Verifica filtro segmentato (con operazione neutra)
-- Torna a `/portafoglio/gestione`, seleziona operazione `appendice` (non-regolazione)
-- Verifica che il filtro segmentato "Regolazione" sia visibile
-- Click "In reg." → URL contiene `reg=si`
-- Cerca il numero polizza test → riga presente
-- Click "Senza" → riga assente / messaggio empty
-
-### 5. Disattivazione flag (cleanup logico)
-- Naviga a `/titoli/{titoloId}?section=regolazione`
-- Disattiva Switch e salva
-- Verifica che `data_presunta`, `fattore`, `note` siano azzerati (re-fetch via `supabaseAdmin`)
-- Torna alla hub, verifica che il badge sia tornato a `countBefore`
-
-## Dettagli tecnici
-- **Selettori**: preferenza per `getByRole`, `getByLabel`, `[data-op="regolazione"]`. Per i badge sulla card uso `locator('[data-op="regolazione"]').locator('text=/^\\d+$/')`.
-- **Stato SearchableSelect**: pattern Popover+Command → click trigger, poi `getByRole('option', { name: 'Fatturato' })`.
-- **Sincronizzazione**: dopo i submit attendo `expect(toast).toBeVisible()` + reload mirato; per la card hub uso `expect.poll()` sul numero del badge (max 5s) per gestire l'invalidazione TanStack Query.
-- **Teardown**: `afterAll` chiama `cleanupTestTitolo()` e non lascia righe orfane in `titoli_regolazioni` (il test non crea regolazioni eseguite — solo il flag promemoria).
-- Nessuna modifica a codice di produzione o migrazioni: solo nuovo file di test.
+## Memoria
+Aggiorno `.lovable/memory/insurance/regolazione-reminder-flag.md`:
+- nuova nota: "In `TitoloDetail` la sezione Regolazione mostra solo i campi promemoria (Data presunta, Fattore, Note). I campi legacy `periodicita`, `tipo_scadenza`, `giorni_presentazione`, `tipo_lettera_regolazione`, `libro_matricola` restano in DB e in `ImmissionePolizza`/`Precontrattuale`/portale cliente, ma non sono più editabili qui."
 
 ## Non incluso
-- Test di concorrenza / race condition sul badge
-- Test del badge 🔴 "Scaduta" e ⚪ "Programmata" (basterebbero altre 2 date — posso aggiungerli se vuoi coprire tutti e 3 gli stati colore)
-- Modifica del flag su più titoli in parallelo
+- Drop colonne legacy in DB
+- Modifiche a `ImmissionePolizzaPage`, `DocPrecontrattualePage`, `PortafoglioDetail`, portale cliente, `TitoloDataPersistenceInfo`
+- Test E2E nuovi (i test esistenti 4c–4f non interagiscono coi campi rimossi e restano verdi)
 
-Vuoi che estenda lo scenario 3 a coprire **tutti e 3 i colori del badge** (creando 3 titoli con date diverse: ieri / +15gg / +60gg)?
+Vuoi che rimuova **anche** i campi legacy dalle altre pagine (Immissione, Precontrattuale, portale cliente) o droppi le colonne DB? Default: no, solo TitoloDetail.
