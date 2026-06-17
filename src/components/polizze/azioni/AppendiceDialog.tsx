@@ -122,6 +122,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     setTipo("modifica");
     setNote("");
     setFile(null);
+    setFiles([]);
     setQuietanzaId("");
     setPremioNetto("");
     setTasse("");
