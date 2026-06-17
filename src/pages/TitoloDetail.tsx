@@ -2440,10 +2440,8 @@ const TitoloDetail = () => {
                 </div>
               </div>
             )}
-
           </div>
 
-          </div>
         )}
       </SectionCollapsible>
 
