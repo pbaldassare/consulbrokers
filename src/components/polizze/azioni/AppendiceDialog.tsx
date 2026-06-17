@@ -271,6 +271,51 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
   const isReg = tipo === "regolazione";
 
+  // Validazione inline (regolazione)
+  const errors = useMemo(() => {
+    const e: Record<string, string> = {};
+    if (!isReg) return e;
+    if (!quietanzaId) e.quietanzaId = "Seleziona la quietanza di riferimento";
+    const n = parseFloat(premioNetto.replace(",", "."));
+    const tt = parseFloat((tasse || "0").replace(",", "."));
+    const l = parseFloat((premioLordo || "0").replace(",", "."));
+    const p = parseFloat((provvigioni || "0").replace(",", "."));
+    if (premioNetto === "" || isNaN(n)) e.premioNetto = "Inserisci un valore numerico";
+    if (!isNaN(tt) && tt < 0) e.tasse = "Le tasse non possono essere negative";
+    if (!isNaN(n) && !isNaN(l) && l + 0.01 < n) e.premioLordo = "Il lordo non può essere inferiore al netto";
+    if (!isNaN(p) && p < 0) e.provvigioni = "Le provvigioni non possono essere negative";
+    if (dataEffetto && dataAppendice && dataEffetto > dataAppendice) {
+      e.dataEffetto = "La data effetto deve precedere la scadenza";
+    }
+    return e;
+  }, [isReg, quietanzaId, premioNetto, tasse, premioLordo, provvigioni, dataEffetto, dataAppendice]);
+
+  const hasErrors = Object.keys(errors).length > 0;
+
+  // Preview locale del file selezionato (immagine o PDF)
+  const filePreviewUrl = useMemo(() => {
+    if (!file) return null;
+    return URL.createObjectURL(file);
+  }, [file]);
+  useEffect(() => {
+    return () => { if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl); };
+  }, [filePreviewUrl]);
+  const fileKind: "image" | "pdf" | "other" = useMemo(() => {
+    if (!file) return "other";
+    if (file.type.startsWith("image/")) return "image";
+    if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return "pdf";
+    return "other";
+  }, [file]);
+
+  const errClass = "border-destructive focus-visible:ring-destructive";
+  const ErrMsg = ({ id }: { id: string }) =>
+    errors[id] ? (
+      <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+        <AlertCircle className="h-3 w-3" /> {errors[id]}
+      </p>
+    ) : null;
+
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
