@@ -62,10 +62,8 @@ const AppendiciPolizzaPage = () => {
     setDataEffetto("");
     setOggetto("");
     setTipo("modifica");
-    setTesto("");
     setNote("");
     setFile(null);
-    setContentTab("testo");
     setExistingFilePath(null);
     setExistingFileName(null);
     setRemoveExistingFile(false);
