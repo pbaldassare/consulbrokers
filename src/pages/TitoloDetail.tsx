@@ -1557,7 +1557,7 @@ const TitoloDetail = () => {
                 Questo titolo è una <strong>Regolazione</strong>{madreQuietanza ? <> collegata a <span className="font-medium">{(madreQuietanza as any).numero_titolo}</span></> : null}. Sono disponibili solo Messa a Cassa, Storno e Annullamento.
               </div>
             )}
-            {!isRegolazione && (<></>)}
+            
             {!isRegolazione && (
               <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
                 <Clock className="w-4 h-4 mr-1" /> Sospensione
