@@ -592,10 +592,11 @@ const GestionePolizzePage = () => {
                   <Lock className="absolute top-1 right-1 w-3 h-3 text-muted-foreground" />
                 )}
                 <div className="flex items-center gap-1.5">
-                  <Icon className={`w-3.5 h-3.5 shrink-0 ${active ? "text-teal-600" : "text-muted-foreground"}`} />
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${op.key === "nuova_polizza" ? "text-white" : active ? "text-teal-600" : "text-muted-foreground"}`} />
                   <span className="font-medium text-xs leading-tight">{op.label}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground truncate leading-tight">{op.descrizione}</p>
+                <p className={`text-[10px] truncate leading-tight ${op.key === "nuova_polizza" ? "text-white/85" : "text-muted-foreground"}`}>{op.descrizione}</p>
+
               </button>
             );
             return disabled ? (
