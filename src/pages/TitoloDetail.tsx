@@ -3210,6 +3210,7 @@ const TitoloDetail = () => {
       />
 
       {/* RegolazionePremioDialog deprecato: la regolazione ora apre ImmissionePolizzaPage in mode=regolazione */}
+    </div>
   );
 };
 
