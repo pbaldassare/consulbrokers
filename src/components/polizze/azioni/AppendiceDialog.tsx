@@ -124,10 +124,17 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
   // Chiave bozza per autosave (per titolo)
   const draftKey = titoloId ? `appendice-draft:${titoloId}` : null;
+  const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 giorni
+  const DRAFT_STALE_MS = 24 * 60 * 60 * 1000;   // > 24h = "vecchia"
   const [draftRestored, setDraftRestored] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const draftAge = draftSavedAt ? Date.now() - draftSavedAt : null;
+  const draftStale = draftAge != null && draftAge > DRAFT_STALE_MS;
 
   useEffect(() => {
-    if (!open) { setDraftRestored(false); return; }
+    if (!open) { setDraftRestored(false); setDraftSavedAt(null); setAutosaveStatus("idle"); return; }
     const max = (existing || []).reduce((acc, a: any) => Math.max(acc, parseInt(a.numero_appendice) || 0), 0);
     setNumeroAppendice(String(max + 1));
 
@@ -138,18 +145,25 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         const raw = localStorage.getItem(draftKey);
         if (raw) {
           const d = JSON.parse(raw);
-          setDataAppendice(d.dataAppendice ?? "");
-          setDataEffetto(d.dataEffetto ?? "");
-          setOggetto(d.oggetto ?? "");
-          setTipo(d.tipo ?? "modifica");
-          setNote(d.note ?? "");
-          setQuietanzaId(d.quietanzaId ?? "");
-          setPremioNetto(d.premioNetto ?? "");
-          setTasse(d.tasse ?? "");
-          setPremioLordo(d.premioLordo ?? "");
-          setProvvigioni(d.provvigioni ?? "");
-          setPercProvv(d.percProvv ?? "");
-          restored = true;
+          const savedAt: number | undefined = typeof d.savedAt === "number" ? d.savedAt : undefined;
+          const expired = savedAt != null && Date.now() - savedAt > DRAFT_TTL_MS;
+          if (expired) {
+            try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
+          } else {
+            setDataAppendice(d.dataAppendice ?? "");
+            setDataEffetto(d.dataEffetto ?? "");
+            setOggetto(d.oggetto ?? "");
+            setTipo(d.tipo ?? "modifica");
+            setNote(d.note ?? "");
+            setQuietanzaId(d.quietanzaId ?? "");
+            setPremioNetto(d.premioNetto ?? "");
+            setTasse(d.tasse ?? "");
+            setPremioLordo(d.premioLordo ?? "");
+            setProvvigioni(d.provvigioni ?? "");
+            setPercProvv(d.percProvv ?? "");
+            setDraftSavedAt(savedAt ?? null);
+            restored = true;
+          }
         }
       } catch { /* ignore */ }
     }
@@ -167,6 +181,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
       setPremioLordo("");
       setProvvigioni("");
       setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
+      setDraftSavedAt(null);
     }
     setFile(null);
     setFiles([]);
