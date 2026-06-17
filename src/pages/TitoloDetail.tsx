@@ -297,8 +297,7 @@ const TitoloDetail = () => {
   // --- Regolazione edit state ---
   const [editingReg, setEditingReg] = useState(false);
   const [regForm, setRegForm] = useState({
-    regolazione: false, periodicita: "", tipo_scadenza: "",
-    giorni_presentazione: 0, tipo_lettera_regolazione: "", libro_matricola: "",
+    regolazione: false,
     regolazione_data_presunta: "", regolazione_fattore: "", regolazione_note: "",
   });
 
