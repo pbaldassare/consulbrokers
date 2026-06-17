@@ -300,21 +300,8 @@ const AppendiciPolizzaPage = () => {
           <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)} placeholder="Oggetto dell'appendice..." />
         </div>
 
-        {/* Tab contenuto */}
-        <Tabs value={contentTab} onValueChange={setContentTab}>
-          <TabsList>
-            <TabsTrigger value="testo"><FileText className="w-4 h-4 mr-1" />Scrivi testo</TabsTrigger>
-            <TabsTrigger value="file"><Upload className="w-4 h-4 mr-1" />Allega documento</TabsTrigger>
-          </TabsList>
-          <TabsContent value="testo" className="mt-3">
-            <Textarea
-              value={testo}
-              onChange={(e) => setTesto(e.target.value)}
-              placeholder="Redigi il testo dell'appendice..."
-              rows={8}
-            />
-          </TabsContent>
-          <TabsContent value="file" className="mt-3">
+        <div className="space-y-1.5">
+          <Label>Allega documento</Label>
             <div className="border-2 border-dashed border-border rounded-lg p-6 text-center space-y-3">
               <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Seleziona un file (PDF, DOC, immagini)</p>
