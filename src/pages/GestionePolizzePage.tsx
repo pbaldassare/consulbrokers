@@ -39,6 +39,7 @@ import {
   ArrowUp,
   ArrowDown,
   Lock,
+  Hash,
 } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -70,7 +71,8 @@ type OperazioneKey =
   | "messa_cassa"
   | "annulla_messa_cassa"
   | "carica_doc"
-  | "precontrattuale";
+  | "precontrattuale"
+  | "cig_temporanei";
 
 interface Operazione {
   key: OperazioneKey;
@@ -83,22 +85,25 @@ interface Operazione {
   richiedeMessaCassa?: boolean;
   /** richiede `data_messa_cassa` NULL */
   escludeMessaCassa?: boolean;
+  /** richiede `cig_temporaneo` valorizzato */
+  richiedeCigTemporaneo?: boolean;
   adminOnly?: boolean;
 }
 
 const OPERAZIONI: Operazione[] = [
-  { key: "appendice", label: "Appendice", icon: FileEdit, descrizione: "Aggiungi un'appendice alla polizza", statiFiltro: ["attivo"] },
+  { key: "appendice", label: "Appendice", icon: FileEdit, descrizione: "Aggiungi un'appendice", statiFiltro: ["attivo"] },
   { key: "storno", label: "Storno", icon: Ban, descrizione: "Storna premio e quietanze", statiFiltro: ["attivo"] },
-  { key: "rinnovo", label: "Rinnovo", icon: RefreshCw, descrizione: "Gestisci il rinnovo della polizza", statiFiltro: ["attivo"] },
-  { key: "duplica", label: "Duplica Polizza", icon: Copy, descrizione: "Crea una nuova polizza copiando i dati tecnici", statiFiltro: [] },
-  { key: "sostituzione", label: "Sostituzione", icon: Replace, descrizione: "Sostituisci con nuova polizza/numero", statiFiltro: ["attivo"] },
-  { key: "sospensione", label: "Sospensione", icon: PauseCircle, descrizione: "Sospendi temporaneamente la polizza", statiFiltro: ["attivo"] },
-  { key: "riattivazione", label: "Riattivazione", icon: PlayCircle, descrizione: "Riattiva una polizza sospesa", statiFiltro: ["sospeso"] },
-  { key: "annulla", label: "Annulla Polizza", icon: XCircle, descrizione: "Annullamento totale con cascade", statiFiltro: [], adminOnly: true },
-  { key: "messa_cassa", label: "Messa a Cassa", icon: Wallet, descrizione: "Incassa e contabilizza la polizza", statiFiltro: ["attivo"], escludeMessaCassa: true },
-  { key: "annulla_messa_cassa", label: "Annulla Messa a Cassa", icon: Undo2, descrizione: "Annulla la messa a cassa", statiFiltro: [], richiedeMessaCassa: true, adminOnly: true },
-  { key: "carica_doc", label: "Carica Documenti", icon: Upload, descrizione: "Carica documenti collegati alla polizza", statiFiltro: [] },
-  { key: "precontrattuale", label: "Genera Precontrattuale", icon: FileText, descrizione: "Genera la documentazione precontrattuale", statiFiltro: [] },
+  { key: "rinnovo", label: "Rinnovo", icon: RefreshCw, descrizione: "Gestisci rinnovo polizza", statiFiltro: ["attivo"] },
+  { key: "duplica", label: "Duplica", icon: Copy, descrizione: "Copia dati tecnici", statiFiltro: [] },
+  { key: "sostituzione", label: "Sostituzione", icon: Replace, descrizione: "Sostituisci polizza/numero", statiFiltro: ["attivo"] },
+  { key: "sospensione", label: "Sospensione", icon: PauseCircle, descrizione: "Sospendi temporaneamente", statiFiltro: ["attivo"] },
+  { key: "riattivazione", label: "Riattivazione", icon: PlayCircle, descrizione: "Riattiva polizza sospesa", statiFiltro: ["sospeso"] },
+  { key: "annulla", label: "Annulla", icon: XCircle, descrizione: "Annullamento totale", statiFiltro: [], adminOnly: true },
+  { key: "messa_cassa", label: "Messa a Cassa", icon: Wallet, descrizione: "Incassa e contabilizza", statiFiltro: ["attivo"], escludeMessaCassa: true },
+  { key: "annulla_messa_cassa", label: "Annulla M.C.", icon: Undo2, descrizione: "Annulla messa a cassa", statiFiltro: [], richiedeMessaCassa: true, adminOnly: true },
+  { key: "carica_doc", label: "Carica Doc.", icon: Upload, descrizione: "Carica documenti", statiFiltro: [] },
+  { key: "precontrattuale", label: "Precontrattuale", icon: FileText, descrizione: "Genera doc. precontrattuale", statiFiltro: [] },
+  { key: "cig_temporanei", label: "CIG Temporanei", icon: Hash, descrizione: "Polizze con numero provvisorio", statiFiltro: [], richiedeCigTemporaneo: true },
 ];
 
 const STATI_OPTIONS = ["", "attivo", "sospeso", "scaduto", "incassato", "annullato", "stornato"];
@@ -212,15 +217,27 @@ const GestionePolizzePage = () => {
     ],
     enabled: !!opKey,
     queryFn: async () => {
+      // Pre-filtro CIG temporanei: prendiamo gli id da titoli (la view non espone cig_temporaneo)
+      let cigIds: string[] | null = null;
+      if (operazione?.richiedeCigTemporaneo) {
+        const { data: cigRows } = await supabase
+          .from("titoli")
+          .select("id")
+          .not("cig_temporaneo", "is", null);
+        cigIds = (cigRows || []).map((r: any) => r.id);
+        if (cigIds.length === 0) return { rows: [], count: 0 };
+      }
+
       let q = supabase
         .from("v_portafoglio_titoli")
         .select(
-          "id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza",
+          "id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza, cig_rif",
           { count: "exact" },
         )
         .order(sortBy, { ascending: sortDir === "asc" })
         .range(range.from, range.to);
 
+      if (cigIds) q = q.in("id", cigIds);
       if (statiAttivi.length > 0) q = q.in("stato", statiAttivi);
       if (operazione?.richiedeMessaCassa) q = q.not("data_messa_cassa", "is", null);
       if (operazione?.escludeMessaCassa) q = q.is("data_messa_cassa", null);
@@ -321,6 +338,9 @@ const GestionePolizzePage = () => {
       case "annulla_messa_cassa":
         setAnnullaMCConfirm(true);
         return;
+      case "cig_temporanei":
+        navigate(`/titoli/${row.id}`);
+        return;
     }
   };
 
@@ -375,7 +395,7 @@ const GestionePolizzePage = () => {
       </div>
 
       <PolizzaSection title="1. Scegli operazione" icon={Wand2} defaultOpen>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
           {visibleOps.map((op) => {
             const Icon = op.icon;
             const active = op.key === opKey;
@@ -388,7 +408,8 @@ const GestionePolizzePage = () => {
                 onClick={() => !disabled && handleSelect(op.key)}
                 aria-label={`operazione-${op.key}`}
                 data-op={op.key}
-                className={`text-left rounded-lg border p-3 transition w-full ${
+                title={op.descrizione}
+                className={`relative text-left rounded-md border px-2 py-2 transition w-full h-[68px] flex flex-col justify-between ${
                   disabled
                     ? "opacity-60 cursor-not-allowed border-border bg-muted/30"
                     : "hover:border-teal-600 hover:shadow-sm"
@@ -398,17 +419,17 @@ const GestionePolizzePage = () => {
                     : "border-border bg-card"
                 }`}
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <Icon className={`w-4 h-4 ${active ? "text-teal-600" : "text-muted-foreground"}`} />
-                  <span className="font-semibold text-sm">{op.label}</span>
-                  {op.adminOnly && (
-                    <Badge variant="outline" className="text-[10px] ml-auto">
-                      admin
-                    </Badge>
-                  )}
-                  {disabled && <Lock className="w-3 h-3 text-muted-foreground ml-auto" />}
+                {op.adminOnly && (
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" title="admin" />
+                )}
+                {disabled && (
+                  <Lock className="absolute top-1 right-1 w-3 h-3 text-muted-foreground" />
+                )}
+                <div className="flex items-center gap-1.5">
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${active ? "text-teal-600" : "text-muted-foreground"}`} />
+                  <span className="font-medium text-xs leading-tight">{op.label}</span>
                 </div>
-                <p className="text-xs text-muted-foreground line-clamp-2">{op.descrizione}</p>
+                <p className="text-[10px] text-muted-foreground truncate leading-tight">{op.descrizione}</p>
               </button>
             );
             return disabled ? (
@@ -428,7 +449,7 @@ const GestionePolizzePage = () => {
       {operazione && (
         <>
           <PolizzaSection title="2. Filtra polizza" icon={Filter} defaultOpen>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
                 <SearchableSelect
@@ -441,53 +462,21 @@ const GestionePolizzePage = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Compagnia</Label>
-                <SearchableSelect
-                  options={compagnieOpts}
-                  value={compagniaId}
-                  onValueChange={setCompagniaId}
-                  placeholder="Tutte le compagnie"
-                  clearable
-                  clearLabel="— Tutte —"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>N° polizza / ricerca libera</Label>
+                <Label>N° polizza</Label>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="N° polizza, cliente, compagnia..."
+                    placeholder="N° polizza..."
                     className="pl-8"
                     aria-label="ricerca-libera"
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Stato</Label>
-                <select
-                  value={statoFilter}
-                  onChange={(e) => setStatoFilter(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  {STATI_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {s ? s : `Default (${operazione.statiFiltro.join(", ") || "tutti"})`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Scad. dal</Label>
-                <Input type="date" value={scadDal} onChange={(e) => setScadDal(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Scad. al</Label>
-                <Input type="date" value={scadAl} onChange={(e) => setScadAl(e.target.value)} />
-              </div>
             </div>
           </PolizzaSection>
+
 
 
           <PolizzaSection title={`3. Risultati — ${operazione.label}`} icon={operazione.icon} defaultOpen>

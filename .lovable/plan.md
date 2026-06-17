@@ -1,73 +1,37 @@
-## Miglioramenti pagina Gestione Polizze
+# Gestione Polizze — Restyle & semplificazione
 
-Estendo la pagina `GestionePolizzePage` con permessi UI, log attività, paginazione/ordinamento, filtri avanzati e un test E2E Playwright che copre tutte le 12 operazioni.
+Ho capito. Tre modifiche mirate alla pagina `src/pages/GestionePolizzePage.tsx`, solo UI/presentation.
 
-### 1. Permessi UI (admin-only e blocchi)
+## 1. Card operazioni più piccole
+- Grid passa da 4 colonne larghe a **6 colonne** su desktop (`grid-cols-2 md:grid-cols-3 lg:grid-cols-6`)
+- Padding card ridotto: `p-3` invece di `p-5`
+- Icona piccola (`h-4 w-4`) inline con titolo (`text-sm font-medium`)
+- Descrizione su 1 riga `text-xs text-muted-foreground truncate` (tooltip per testo completo)
+- Altezza uniforme ~80px, badge "admin" come piccolo dot in alto a destra
 
-- Le card delle operazioni admin-only (`Annulla Polizza`, `Annulla Messa a Cassa`) si **nascondono** se l'utente non è admin (`isAdmin` da `AuthContext`).
-- Le card che richiedono il permesso `titoli` vengono **disabilitate** (grigio + tooltip "Permesso mancante") se `hasPermission('titoli')` è falso, invece di sparire — così l'utente capisce che esistono.
-- Stesso check ripetuto sui pulsanti "Esegui" dentro i dialog risultato, per evitare bypass via deep link.
+## 2. Nuova card "CIG Temporanei"
+- Aggiunta nel set operazioni (13ª card)
+- Icona `Hash` o `FileWarning`
+- Label "CIG Temporanei", descrizione "Polizze con numero provvisorio"
+- Al click: pre-imposta filtro `cig_temporaneo IS NOT NULL` sui risultati e mostra colonna dedicata
+- Riusa la stessa sezione Risultati esistente; nessun nuovo dialog (apre direttamente la lista)
+- Azione per riga: link a `/titoli/:id` per assegnare il numero definitivo
 
-### 2. Sezione "Attività recenti" per operazione
+Campo DB già presente: `titoli.cig_temporaneo` (verificato).
 
-Sotto la lista delle polizze filtrate, aggiungo un pannello collassabile "Ultime attività" che mostra:
-- ultimi 10 record da `log_attivita` filtrati per `tipo_oggetto = 'titolo'` e per `azione` correlata all'operazione selezionata (es. `appendice_creata`, `storno_eseguito`, `messa_cassa`, ecc.);
-- colonne: data/ora, utente, polizza (N°), descrizione;
-- click su riga → naviga a `/titoli/:id?tab=log`.
+## 3. Filtri ridotti
+Sezione "2. Filtra polizza" mostra **solo**:
+- **Cliente** (`SearchableSelect` esistente)
+- **N° polizza** (input testo con debounce 350ms)
 
-Query con `useQuery`, `limit(10)`, ordinata `created_at desc`.
+Rimossi dalla sezione filtri:
+- Compagnia
+- Stato
+- Scad. dal / Scad. al
 
-### 3. Paginazione + ordinamento lista polizze
+Questi torneranno poi come filtri secondari sopra la tabella Risultati (non in questo step, come richiesto).
 
-- Sostituisco il fetch attuale con `useServerPagination` (limite **25**, debounce **350ms**) per rispettare le convenzioni di progetto.
-- Aggiungo controlli di ordinamento sulle colonne **N° Polizza** e **Decorrenza/Scadenza** (toggle asc/desc cliccando l'header) — passati alla query come `.order(...)`.
-- Footer paginazione: "Pagina X di Y · totale Z" + bottoni Precedente/Successivo.
+## File toccati
+- `src/pages/GestionePolizzePage.tsx` — restyle grid card, nuova entry CIG Temporanei nell'array operazioni, rimozione campi filtro extra, logica filtro `cig_temporaneo IS NOT NULL` quando operazione = `cig-temporanei`
 
-### 4. Filtri avanzati con SearchableSelect
-
-Sostituisco gli input testo correnti con `SearchableSelect` (Popover + Command) per:
-- **Cliente** → fetch da `clienti` (ragione_sociale/nome+cognome), debounced server-side;
-- **Compagnia** → fetch da `compagnie` attive;
-- **N° Polizza** → resta input testo (libero) ma con suggerimenti dai titoli matchanti (autocomplete);
-- mantengo i filtri esistenti **Stato** e **Range Decorrenza**.
-
-I filtri sono pre-impostati per operazione (es. Sospensione → solo `stato=attivo`) e poi raffinabili dall'utente.
-
-### 5. Test Playwright E2E
-
-Nuovo file `e2e/gestione-polizze.spec.ts` (o sotto `tests/e2e/` se già presente) che, **per ognuna delle 12 operazioni**:
-
-1. login con utente admin di test (env `TEST_USER`/`TEST_PASS`),
-2. naviga a `/portafoglio/gestione`,
-3. clicca la card operazione,
-4. applica filtro cliente noto (dataset di test) + seleziona la prima polizza valida,
-5. compila i **campi obbligatori minimi** del dialog/route target,
-6. salva,
-7. verifica toast di successo + presenza nuova riga in `log_attivita` (via UI nel tab Log della polizza).
-
-Operazioni che navigano a pagine esterne (`Appendice`, `Rinnovo`, `Precontrattuale`, `Duplica`) vengono verificate aprendo la pagina target e completando il form minimo.
-
-Aggiungo script `bun run test:e2e:gestione` in `package.json` per eseguire solo questo spec.
-
-### Sezione tecnica
-
-**File nuovi**
-- `src/components/polizze/azioni/AttivitaRecentiPanel.tsx` — pannello log attività per operazione.
-- `tests/e2e/gestione-polizze.spec.ts` — test E2E delle 12 operazioni.
-
-**File modificati**
-- `src/pages/GestionePolizzePage.tsx`:
-  - integra `isAdmin` / `hasPermission` da `useAuth` per nascondere/disabilitare le card;
-  - sostituisce fetch manuale con `useServerPagination`;
-  - aggiunge ordinamento header-click su `numero_polizza` e `decorrenza`;
-  - sostituisce input cliente/compagnia con `SearchableSelect`;
-  - integra `<AttivitaRecentiPanel operationKey={selectedOp} />`.
-- `package.json` — script `test:e2e:gestione`.
-
-**Nessuna modifica DB / RLS / trigger.** Riuso `log_attivita`, `useServerPagination`, `SearchableSelect`, dialog esistenti.
-
-**Permessi → operazioni**
-| Operazione | Visibile a | Eseguibile se |
-|---|---|---|
-| Appendice, Storno, Rinnovo, Duplica, Sostituzione, Sospensione, Riattivazione, Messa a Cassa, Carica Documenti, Precontrattuale | tutti | `hasPermission('titoli')` |
-| Annulla Polizza, Annulla Messa a Cassa | solo `isAdmin` | `isAdmin` |
+Nessuna modifica DB, RLS, edge function, o ad altri componenti.
