@@ -138,16 +138,24 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
                             </Button>
                           )}
                           {a.file_path && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Download" onClick={async () => {
-                              const { data, error } = await supabase.storage.from("documenti_titoli").download(a.file_path);
-                              if (error || !data) return;
-                              const url = URL.createObjectURL(data);
-                              const link = document.createElement("a");
-                              link.href = url; link.download = a.nome_file || "file"; link.click();
-                              URL.revokeObjectURL(url);
-                            }}>
-                              <Download className="w-3.5 h-3.5" />
-                            </Button>
+                            <>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Anteprima" onClick={async () => {
+                                const { data } = await supabase.storage.from("documenti_titoli").createSignedUrl(a.file_path, 60 * 10);
+                                if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+                              }}>
+                                <Eye className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Download" onClick={async () => {
+                                const { data, error } = await supabase.storage.from("documenti_titoli").download(a.file_path);
+                                if (error || !data) return;
+                                const url = URL.createObjectURL(data);
+                                const link = document.createElement("a");
+                                link.href = url; link.download = a.nome_file || "file"; link.click();
+                                URL.revokeObjectURL(url);
+                              }}>
+                                <Download className="w-3.5 h-3.5" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>
