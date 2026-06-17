@@ -2441,62 +2441,8 @@ const TitoloDetail = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <Label className="text-xs">Periodicità</Label>
-                <SearchableSelect
-                  options={periodicitaOpts}
-                  value={regForm.periodicita}
-                  onValueChange={(v) => setRegForm(p => ({ ...p, periodicita: v }))}
-                  placeholder="Seleziona periodicità"
-                />
-              </div>
+          </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs">Tipo Scadenza</Label>
-                <SearchableSelect
-                  options={tipoScadenzaOpts}
-                  value={regForm.tipo_scadenza}
-                  onValueChange={(v) => setRegForm(p => ({ ...p, tipo_scadenza: v }))}
-                  placeholder="Seleziona tipo scadenza"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">GG Presentazione</Label>
-                <Input
-                  type="number"
-                  value={regForm.giorni_presentazione}
-                  onChange={(e) => setRegForm(p => ({ ...p, giorni_presentazione: parseInt(e.target.value) || 0 }))}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Tipo Lettera</Label>
-                <SearchableSelect
-                  options={tipoLetteraOpts}
-                  value={regForm.tipo_lettera_regolazione}
-                  onValueChange={(v) => setRegForm(p => ({ ...p, tipo_lettera_regolazione: v }))}
-                  placeholder="Seleziona tipo lettera"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Libro Matricola</Label>
-                <RadioGroup
-                  value={regForm.libro_matricola}
-                  onValueChange={(v) => setRegForm(p => ({ ...p, libro_matricola: v }))}
-                  className="flex gap-4 mt-1"
-                >
-                  {["no", "auto", "altro"].map(v => (
-                    <div key={v} className="flex items-center gap-1">
-                      <RadioGroupItem value={v} id={`lm-${v}`} />
-                      <Label htmlFor={`lm-${v}`} className="text-sm capitalize">{v}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
-            </div>
           </div>
         )}
       </SectionCollapsible>
