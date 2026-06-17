@@ -74,7 +74,8 @@ type OperazioneKey =
   | "annulla_messa_cassa"
   | "carica_doc"
   | "precontrattuale"
-  | "cig_temporanei";
+  | "cig_temporanei"
+  | "regolazioni_attese";
 
 interface Operazione {
   key: OperazioneKey;
