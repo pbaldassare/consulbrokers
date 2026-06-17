@@ -1458,7 +1458,19 @@ const TitoloDetail = () => {
   return (
     <div className="space-y-4 max-w-5xl">
       {/* Header — sticky sotto la topbar globale */}
-      <TitoloHeaderBar t={t} onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`) : navigate("/portafoglio/carico")} />
+      <TitoloHeaderBar
+        t={t}
+        onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`) : navigate("/portafoglio/carico")}
+        madre={madreQuietanza ? {
+          id: (madreQuietanza as any).id,
+          numero_titolo: (madreQuietanza as any).numero_titolo,
+          garanzia_da: (madreQuietanza as any).garanzia_da,
+          garanzia_a: (madreQuietanza as any).garanzia_a,
+          rataLabel: (madreQuietanza as any).sostituisce_polizza
+            ? `Rata ${(madreQuietanza as any).riga ?? ""}`.trim()
+            : "Polizza",
+        } : null}
+      />
 
 
       {/* Banner di blocco + banner scope quietanza */}
