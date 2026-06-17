@@ -1,37 +1,56 @@
-# Gestione Polizze — Restyle & semplificazione
+## Cosa ho capito
 
-Ho capito. Tre modifiche mirate alla pagina `src/pages/GestionePolizzePage.tsx`, solo UI/presentation.
+Oggi `titoli.regolazione` è un **boolean** statico, mostrato come "No/Sì" nella sezione "Regolazione" della pagina titolo. Tu lo vuoi trasformare in un **promemoria operativo**: quando la polizza è "in regolazione" devo sapere **quando** andrà fatta e **su che base** (fatturato, numero dipendenti, ecc.), e voglio una **card in Gestione Polizze** che mi elenchi tutti i titoli flaggati — stessa UX della card "CIG Temporanei".
 
-## 1. Card operazioni più piccole
-- Grid passa da 4 colonne larghe a **6 colonne** su desktop (`grid-cols-2 md:grid-cols-3 lg:grid-cols-6`)
-- Padding card ridotto: `p-3` invece di `p-5`
-- Icona piccola (`h-4 w-4`) inline con titolo (`text-sm font-medium`)
-- Descrizione su 1 riga `text-xs text-muted-foreground truncate` (tooltip per testo completo)
-- Altezza uniforme ~80px, badge "admin" come piccolo dot in alto a destra
+NB: la tabella `titoli_regolazioni` esistente serve a un'altra cosa (registra la regolazione **già eseguita** con consuntivo/conguaglio, generando un titolo figlio). Quella resta com'è. Qui aggiungiamo i **parametri della regolazione attesa** direttamente sul titolo madre.
 
-## 2. Nuova card "CIG Temporanei"
-- Aggiunta nel set operazioni (13ª card)
-- Icona `Hash` o `FileWarning`
-- Label "CIG Temporanei", descrizione "Polizze con numero provvisorio"
-- Al click: pre-imposta filtro `cig_temporaneo IS NOT NULL` sui risultati e mostra colonna dedicata
-- Riusa la stessa sezione Risultati esistente; nessun nuovo dialog (apre direttamente la lista)
-- Azione per riga: link a `/titoli/:id` per assegnare il numero definitivo
+## Piano
 
-Campo DB già presente: `titoli.cig_temporaneo` (verificato).
+### 1. Database (migration)
+Su `titoli`:
+- `regolazione_data_presunta DATE` — quando va fatta
+- `regolazione_fattore TEXT` con CHECK in `('fatturato','num_dipendenti','retribuzioni','altro')`
+- `regolazione_note TEXT` — campo libero opzionale
+- Indice parziale `idx_titoli_regolazione_flag` su `WHERE regolazione = true`
 
-## 3. Filtri ridotti
-Sezione "2. Filtra polizza" mostra **solo**:
-- **Cliente** (`SearchableSelect` esistente)
-- **N° polizza** (input testo con debounce 350ms)
+Il boolean `titoli.regolazione` resta la verità del flag (così non rompiamo nulla). Quando il flag passa a `false`, i tre campi vengono azzerati lato UI in submit.
 
-Rimossi dalla sezione filtri:
-- Compagnia
-- Stato
-- Scad. dal / Scad. al
+### 2. UI — sezione "Regolazione" in `TitoloDetail`
+La riga statica `Regolazione: No` diventa:
+- Header con **Switch** "Polizza in regolazione" (scrive `titoli.regolazione`)
+- Quando ON, mostra inline: **Data presunta** (DatePicker), **Fattore** (SearchableSelect con le 4 voci sopra), **Note**, e mantiene `Periodicità` / `Tipo Lettera` già presenti.
+- Pulsante "Modifica" apre lo stesso pannello in edit (coerente con le altre sezioni). Il modale dedicato non serve: usiamo il pattern già adottato dalle altre sezioni (collapsible + edit inline) per non rompere il look & feel.
+- Lock attivo se `data_messa_cassa` o stato `incassato`/`stornato` (regola standard `TitoloDetail`).
 
-Questi torneranno poi come filtri secondari sopra la tabella Risultati (non in questo step, come richiesto).
+> Se preferisci esplicitamente un modale separato invece dell'edit inline, dimmelo e cambio approccio: l'ho proposto inline solo per coerenza con Contratto/Periodo/Importi.
 
-## File toccati
-- `src/pages/GestionePolizzePage.tsx` — restyle grid card, nuova entry CIG Temporanei nell'array operazioni, rimozione campi filtro extra, logica filtro `cig_temporaneo IS NOT NULL` quando operazione = `cig-temporanei`
+### 3. Card in `/portafoglio/gestione`
+Aggiungo la **13ª/14ª operazione** "Regolazioni Attese" accanto a "CIG Temporanei":
+- Icona `FileClock`, badge ambra live con il conteggio di `titoli` con `regolazione=true` (escluse polizze chiuse).
+- Al click filtra la lista risultati su `regolazione=true` (stessa logica multi-step già usata per CIG: query su `titoli` per id → join con `v_portafoglio_titoli`).
+- "Esegui" apre `TitoloDetail` con la sezione Regolazione già espansa (`?section=regolazione`).
+- Colonna extra in tabella: badge "Reg. attesa" + `regolazione_data_presunta` formattata; ordinamento per data presunta crescente di default su questa operazione.
 
-Nessuna modifica DB, RLS, edge function, o ad altri componenti.
+### 4. Filtro segmentato Regolazione
+Come per il CIG: tre-stati **Tutti / Con Regolazione / Senza Regolazione** nella sezione filtri, nascosto quando l'operazione attiva è già "Regolazioni Attese". Persistenza in URL come `reg=`.
+
+### 5. Filtro Scaduta / In scadenza
+Nella card "Regolazioni Attese" badge automatici sulla riga:
+- 🔴 **Scaduta** se `regolazione_data_presunta < today`
+- 🟡 **In scadenza** se entro 30 gg
+- ⚪ **Programmata** altrimenti
+
+### 6. Memory
+Creo `mem://insurance/regolazione-reminder-flag.md` con: campi DB, semantica del flag vs `titoli_regolazioni`, valori validi di `regolazione_fattore`, regola della card in Gestione Polizze.
+
+## File toccati (stima)
+- **Migration nuova** su `titoli` (3 colonne + indice)
+- `src/pages/TitoloDetail.tsx` — sezione Regolazione rivista
+- `src/pages/GestionePolizzePage.tsx` — nuova operazione + filtro segmentato + colonna
+- `src/components/polizze/RegolazioneSection.tsx` (nuovo) — incapsula il blocco
+- `.lovable/memory/insurance/regolazione-reminder-flag.md` (nuovo)
+
+## Cosa NON tocco
+- `titoli_regolazioni` (resta per la regolazione **eseguita** con conguaglio)
+- Logica messa a cassa / cascade annullamento
+- `tipo_lettera_regolazione` e `periodicita` (restano dove sono, in sezione Regolazione)

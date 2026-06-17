@@ -40,6 +40,8 @@ import {
   ArrowDown,
   Lock,
   Hash,
+  FileClock,
+
 } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -72,7 +74,8 @@ type OperazioneKey =
   | "annulla_messa_cassa"
   | "carica_doc"
   | "precontrattuale"
-  | "cig_temporanei";
+  | "cig_temporanei"
+  | "regolazioni_attese";
 
 interface Operazione {
   key: OperazioneKey;
@@ -87,6 +90,8 @@ interface Operazione {
   escludeMessaCassa?: boolean;
   /** richiede `cig_temporaneo` valorizzato */
   richiedeCigTemporaneo?: boolean;
+  /** richiede `regolazione = true` */
+  richiedeRegolazione?: boolean;
   adminOnly?: boolean;
 }
 
@@ -104,6 +109,7 @@ const OPERAZIONI: Operazione[] = [
   { key: "carica_doc", label: "Carica Doc.", icon: Upload, descrizione: "Carica documenti", statiFiltro: [] },
   { key: "precontrattuale", label: "Precontrattuale", icon: FileText, descrizione: "Genera doc. precontrattuale", statiFiltro: [] },
   { key: "cig_temporanei", label: "CIG Temporanei", icon: Hash, descrizione: "Polizze con numero provvisorio", statiFiltro: [], richiedeCigTemporaneo: true },
+  { key: "regolazioni_attese", label: "Regolazioni Attese", icon: FileClock, descrizione: "Polizze in attesa di regolazione", statiFiltro: [], richiedeRegolazione: true },
 ];
 
 const STATI_OPTIONS = ["", "attivo", "sospeso", "scaduto", "incassato", "annullato", "stornato"];
@@ -128,6 +134,9 @@ const GestionePolizzePage = () => {
   const [cigFilter, setCigFilter] = useState<"all" | "with" | "without">(
     (searchParams.get("cig") as "all" | "with" | "without") || "all",
   );
+  const [regFilter, setRegFilter] = useState<"all" | "with" | "without">(
+    (searchParams.get("reg") as "all" | "with" | "without") || "all",
+  );
   const [sortBy, setSortBy] = useState<"data_scadenza" | "numero_titolo">("data_scadenza");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -144,8 +153,9 @@ const GestionePolizzePage = () => {
     if (debouncedSearch) params.q = debouncedSearch;
     if (clienteId) params.cliente = clienteId;
     if (cigFilter !== "all") params.cig = cigFilter;
+    if (regFilter !== "all") params.reg = regFilter;
     setSearchParams(params, { replace: true });
-  }, [opKey, debouncedSearch, clienteId, cigFilter, setSearchParams]);
+  }, [opKey, debouncedSearch, clienteId, cigFilter, regFilter, setSearchParams]);
 
   // dialog state
   const [target, setTarget] = useState<{ id: string; numero: string } | null>(null);
@@ -178,6 +188,7 @@ const GestionePolizzePage = () => {
     clienteId,
     compagniaId,
     cigFilter,
+    regFilter,
     sortBy,
     sortDir,
   ]);
@@ -190,6 +201,19 @@ const GestionePolizzePage = () => {
         .from("titoli")
         .select("id", { count: "exact", head: true })
         .eq("cig_temporaneo", true);
+      return count ?? 0;
+    },
+  });
+
+  // Conteggio live Regolazioni attese (per badge sulla card)
+  const { data: regCount = 0 } = useQuery({
+    queryKey: ["gestione-polizze-reg-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("titoli")
+        .select("id", { count: "exact", head: true })
+        .eq("regolazione", true)
+        .in("stato", ["attivo", "sospeso", "incassato"]);
       return count ?? 0;
     },
   });
@@ -241,6 +265,7 @@ const GestionePolizzePage = () => {
       clienteId,
       compagniaId,
       cigFilter,
+      regFilter,
       sortBy,
       sortDir,
       page,
@@ -257,15 +282,35 @@ const GestionePolizzePage = () => {
           .select("id")
           .eq("cig_temporaneo", true);
         cigIds = (cigRows || []).map((r: any) => r.id);
-        if (cigIds.length === 0) return { rows: [], count: 0, cigMap: {} as Record<string, { cig_temporaneo: boolean; cig_rif: string | null }> };
+        if (cigIds.length === 0) return { rows: [], count: 0, cigMap: {}, regMap: {} };
       } else if (needsCigWithout) {
         const { data: cigRows } = await supabase
           .from("titoli")
           .select("id")
           .eq("cig_temporaneo", true);
         const excludeIds = (cigRows || []).map((r: any) => r.id);
-        // Per "senza CIG" useremo .not("id","in",...) sotto
         cigIds = excludeIds.length > 0 ? excludeIds : [];
+      }
+
+      // Pre-filtro Regolazione (operazione dedicata o filtro multi)
+      let regIds: string[] | null = null;
+      const needsRegWith = operazione?.richiedeRegolazione || regFilter === "with";
+      const needsRegWithout = regFilter === "without" && !operazione?.richiedeRegolazione;
+      if (needsRegWith) {
+        const { data: regRows } = await supabase
+          .from("titoli")
+          .select("id, regolazione_data_presunta")
+          .eq("regolazione", true)
+          .order("regolazione_data_presunta", { ascending: true, nullsFirst: false });
+        regIds = (regRows || []).map((r: any) => r.id);
+        if (regIds.length === 0) return { rows: [], count: 0, cigMap: {}, regMap: {} };
+      } else if (needsRegWithout) {
+        const { data: regRows } = await supabase
+          .from("titoli")
+          .select("id")
+          .eq("regolazione", true);
+        const excludeIds = (regRows || []).map((r: any) => r.id);
+        regIds = excludeIds.length > 0 ? excludeIds : [];
       }
 
       let q = supabase
@@ -280,6 +325,10 @@ const GestionePolizzePage = () => {
       if (needsCigWith && cigIds) q = q.in("id", cigIds);
       if (needsCigWithout && cigIds && cigIds.length > 0) {
         q = q.not("id", "in", `(${cigIds.map((i) => `"${i}"`).join(",")})`);
+      }
+      if (needsRegWith && regIds) q = q.in("id", regIds);
+      if (needsRegWithout && regIds && regIds.length > 0) {
+        q = q.not("id", "in", `(${regIds.map((i) => `"${i}"`).join(",")})`);
       }
       if (statiAttivi.length > 0) q = q.in("stato", statiAttivi);
       if (operazione?.richiedeMessaCassa) q = q.not("data_messa_cassa", "is", null);
@@ -297,26 +346,35 @@ const GestionePolizzePage = () => {
       const { data, error, count } = await q;
       if (error) throw error;
 
-      // Fetch cig flags per le righe visibili
       const rows = data || [];
       let cigMap: Record<string, { cig_temporaneo: boolean; cig_rif: string | null }> = {};
+      let regMap: Record<string, { regolazione: boolean; data_presunta: string | null; fattore: string | null; note: string | null }> = {};
       if (rows.length > 0) {
         const ids = rows.map((r: any) => r.id);
-        const { data: cigInfo } = await supabase
+        const { data: extra } = await supabase
           .from("titoli")
-          .select("id, cig_temporaneo, cig_rif")
+          .select("id, cig_temporaneo, cig_rif, regolazione, regolazione_data_presunta, regolazione_fattore, regolazione_note")
           .in("id", ids);
         cigMap = Object.fromEntries(
-          (cigInfo || []).map((r: any) => [r.id, { cig_temporaneo: !!r.cig_temporaneo, cig_rif: r.cig_rif }]),
+          (extra || []).map((r: any) => [r.id, { cig_temporaneo: !!r.cig_temporaneo, cig_rif: r.cig_rif }]),
+        );
+        regMap = Object.fromEntries(
+          (extra || []).map((r: any) => [r.id, {
+            regolazione: !!r.regolazione,
+            data_presunta: r.regolazione_data_presunta,
+            fattore: r.regolazione_fattore,
+            note: r.regolazione_note,
+          }]),
         );
       }
-      return { rows, count: count ?? 0, cigMap };
+      return { rows, count: count ?? 0, cigMap, regMap };
     },
   });
 
   const polizze = result?.rows ?? [];
   const totalCount = result?.count ?? 0;
   const cigMap = result?.cigMap ?? {};
+  const regMap = (result as any)?.regMap ?? {};
 
   const handleSelect = (op: OperazioneKey) => {
     setOpKey(op);
@@ -325,6 +383,7 @@ const GestionePolizzePage = () => {
     setClienteId("");
     setCompagniaId("");
     setCigFilter("all");
+    setRegFilter("all");
     resetPage();
   };
 
@@ -399,6 +458,9 @@ const GestionePolizzePage = () => {
         return;
       case "cig_temporanei":
         navigate(`/titoli/${row.id}`);
+        return;
+      case "regolazioni_attese":
+        navigate(`/titoli/${row.id}?section=regolazione`);
         return;
     }
   };
@@ -490,6 +552,15 @@ const GestionePolizzePage = () => {
                     {cigCount}
                   </span>
                 )}
+                {op.key === "regolazioni_attese" && regCount > 0 && (
+                  <span
+                    className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center"
+                    title={`${regCount} polizze in attesa di regolazione`}
+                    data-testid="reg-count-badge"
+                  >
+                    {regCount}
+                  </span>
+                )}
                 {disabled && (
                   <Lock className="absolute top-1 right-1 w-3 h-3 text-muted-foreground" />
                 )}
@@ -517,7 +588,7 @@ const GestionePolizzePage = () => {
       {operazione && (
         <>
           <PolizzaSection title="2. Filtra polizza" icon={Filter} defaultOpen>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
                 <SearchableSelect
@@ -562,6 +633,36 @@ const GestionePolizzePage = () => {
                         data-cig-filter={opt.v}
                         className={`flex-1 text-xs px-2 py-1.5 rounded transition ${
                           cigFilter === opt.v
+                            ? "bg-teal-600 text-white"
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {opt.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!operazione.richiedeRegolazione && (
+                <div className="space-y-1.5">
+                  <Label>Regolazione</Label>
+                  <div
+                    className="inline-flex w-full rounded-md border border-input bg-background p-0.5"
+                    role="group"
+                    aria-label="filtro-reg"
+                  >
+                    {([
+                      { v: "all", l: "Tutti" },
+                      { v: "with", l: "In reg." },
+                      { v: "without", l: "Senza" },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.v}
+                        type="button"
+                        onClick={() => setRegFilter(opt.v)}
+                        data-reg-filter={opt.v}
+                        className={`flex-1 text-xs px-2 py-1.5 rounded transition ${
+                          regFilter === opt.v
                             ? "bg-teal-600 text-white"
                             : "text-muted-foreground hover:bg-muted"
                         }`}
@@ -620,6 +721,7 @@ const GestionePolizzePage = () => {
                       <TableHead className="text-right">Premio</TableHead>
                       <TableHead>Stato</TableHead>
                       <TableHead>CIG</TableHead>
+                      <TableHead>Reg.</TableHead>
                       <TableHead className="text-right">Azione</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -627,7 +729,7 @@ const GestionePolizzePage = () => {
                   <TableBody>
                     {isFetching && (
                       <TableRow>
-                        <TableCell colSpan={10} className="text-center py-6">
+                        <TableCell colSpan={11} className="text-center py-6">
                           <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
                           Caricamento...
                         </TableCell>
@@ -635,7 +737,7 @@ const GestionePolizzePage = () => {
                     )}
                     {!isFetching && (polizze?.length ?? 0) === 0 && (
                       <TableRow>
-                        <TableCell colSpan={10} className="text-center py-6 text-sm text-muted-foreground">
+                        <TableCell colSpan={11} className="text-center py-6 text-sm text-muted-foreground">
                           Nessuna polizza corrisponde ai filtri impostati.
                         </TableCell>
                       </TableRow>
@@ -643,6 +745,16 @@ const GestionePolizzePage = () => {
                     {!isFetching &&
                       polizze?.map((p: any, idx: number) => {
                         const cig = cigMap[p.id];
+                        const reg = regMap[p.id];
+                        const today = new Date().toISOString().slice(0, 10);
+                        const in30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+                        const regBadgeStyle = reg?.regolazione
+                          ? reg.data_presunta && reg.data_presunta < today
+                            ? "bg-red-100 text-red-800 border-red-300"
+                            : reg.data_presunta && reg.data_presunta <= in30
+                            ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                            : "bg-amber-100 text-amber-800 border-amber-300"
+                          : "";
                         return (
                         <TableRow key={p.id} className={idx % 2 === 0 ? "" : "bg-muted/30"}>
                           <TableCell className="font-mono text-xs">
@@ -680,6 +792,18 @@ const GestionePolizzePage = () => {
                               </Badge>
                             ) : cig?.cig_rif ? (
                               <Badge variant="outline" className="text-[10px]">{cig.cig_rif}</Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {reg?.regolazione ? (
+                              <Badge className={`${regBadgeStyle} text-[10px] gap-0.5`} data-testid="reg-badge">
+                                <FileClock className="w-3 h-3" />
+                                {reg.data_presunta
+                                  ? new Date(reg.data_presunta).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "2-digit" })
+                                  : "Attesa"}
+                              </Badge>
                             ) : (
                               <span className="text-xs text-muted-foreground">—</span>
                             )}
