@@ -176,7 +176,6 @@ const AppendiciPolizzaPage = () => {
         data_appendice: dataAppendice || null,
         data_effetto: dataEffetto || null,
         oggetto: oggetto.trim() || null,
-        testo: testo.trim() || null,
         tipo,
         file_path: filePath,
         nome_file: nomeFile,
