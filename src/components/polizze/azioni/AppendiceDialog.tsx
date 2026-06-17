@@ -97,7 +97,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         .from("titoli")
         .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, premio_netto, tasse, sostituisce_polizza, is_regolazione, stato, numero_titolo")
         .eq("numero_titolo", titoloInfo!.numero_titolo!)
-        .order("garanzia_da", { ascending: true });
+        .order("garanzia_da", { ascending: false });
       return (data || []).filter(
         (t: any) => !t.is_regolazione && STATI_VALIDI.includes((t.stato || "").toLowerCase())
       );
@@ -106,30 +106,71 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
   const quietanzaOptions: SearchableSelectOption[] = useMemo(() => {
     const list = catena || [];
+    // Già ordinati DESC dalla query: la più recente è in cima
     return list.map((t: any, i: number) => {
-      const label = `Rata ${i + 1} · ${fmtDate(t.garanzia_da)} → ${fmtDate(t.garanzia_a)} · ${fmt(t.premio_lordo)}`;
-      return { value: t.id as string, label, searchText: `${t.riga}` };
+      const stato = (t.stato || "").toLowerCase();
+      const statoBadge = stato ? ` · ${stato}` : "";
+      const label = `Rata ${list.length - i} · ${fmtDate(t.garanzia_da)} → ${fmtDate(t.garanzia_a)} · ${fmt(t.premio_lordo)}${statoBadge}`;
+      const searchText = [
+        t.riga,
+        fmtDate(t.garanzia_da),
+        fmtDate(t.garanzia_a),
+        stato,
+        t.premio_lordo != null ? String(t.premio_lordo) : "",
+      ].filter(Boolean).join(" ");
+      return { value: t.id as string, label, searchText };
     });
   }, [catena]);
 
+  // Chiave bozza per autosave (per titolo)
+  const draftKey = titoloId ? `appendice-draft:${titoloId}` : null;
+  const [draftRestored, setDraftRestored] = useState(false);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) { setDraftRestored(false); return; }
     const max = (existing || []).reduce((acc, a: any) => Math.max(acc, parseInt(a.numero_appendice) || 0), 0);
     setNumeroAppendice(String(max + 1));
-    setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
-    setDataEffetto("");
-    setOggetto("");
-    setTipo("modifica");
-    setNote("");
+
+    // Tentativo di ripristino bozza
+    let restored = false;
+    if (draftKey) {
+      try {
+        const raw = localStorage.getItem(draftKey);
+        if (raw) {
+          const d = JSON.parse(raw);
+          setDataAppendice(d.dataAppendice ?? "");
+          setDataEffetto(d.dataEffetto ?? "");
+          setOggetto(d.oggetto ?? "");
+          setTipo(d.tipo ?? "modifica");
+          setNote(d.note ?? "");
+          setQuietanzaId(d.quietanzaId ?? "");
+          setPremioNetto(d.premioNetto ?? "");
+          setTasse(d.tasse ?? "");
+          setPremioLordo(d.premioLordo ?? "");
+          setProvvigioni(d.provvigioni ?? "");
+          setPercProvv(d.percProvv ?? "");
+          restored = true;
+        }
+      } catch { /* ignore */ }
+    }
+    setDraftRestored(restored);
+
+    if (!restored) {
+      setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
+      setDataEffetto("");
+      setOggetto("");
+      setTipo("modifica");
+      setNote("");
+      setQuietanzaId("");
+      setPremioNetto("");
+      setTasse("");
+      setPremioLordo("");
+      setProvvigioni("");
+      setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
+    }
     setFile(null);
     setFiles([]);
-    setQuietanzaId("");
-    setPremioNetto("");
-    setTasse("");
-    setPremioLordo("");
-    setProvvigioni("");
-    setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
-  }, [open, existing, titoloInfo]);
+  }, [open, existing, titoloInfo, draftKey]);
 
   // Quando cambio quietanza: prefill periodo + RESET importi sui valori della rata scelta
   useEffect(() => {
@@ -267,6 +308,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
       } else {
         toast.success(`Appendice n° ${numeroAppendice} creata`);
       }
+      if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
       qc.invalidateQueries({ queryKey: ["appendici-polizza", titoloId] });
       qc.invalidateQueries({ queryKey: ["appendici-count", titoloId] });
       qc.invalidateQueries({ queryKey: ["gestione-polizze"] });
@@ -299,6 +341,43 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
   }, [isReg, quietanzaId, premioNetto, tasse, premioLordo, provvigioni, dataEffetto, dataAppendice]);
 
   const hasErrors = Object.keys(errors).length > 0;
+
+  // Valori numerici per il riepilogo (sempre coerenti con i campi)
+  const parsedReg = useMemo(() => {
+    const num = (s: string) => {
+      const v = parseFloat((s || "").replace(",", "."));
+      return isNaN(v) ? 0 : v;
+    };
+    return {
+      netto: num(premioNetto),
+      tasse: num(tasse),
+      lordo: num(premioLordo),
+      provvigioni: num(provvigioni),
+    };
+  }, [premioNetto, tasse, premioLordo, provvigioni]);
+
+  // Autosave bozza (debounced) — solo quando il dialog è aperto e c'è qualche dato
+  useEffect(() => {
+    if (!open || !draftKey) return;
+    const hasAny =
+      tipo !== "modifica" || oggetto || note || quietanzaId ||
+      premioNetto || tasse || premioLordo || provvigioni || dataEffetto;
+    const t = setTimeout(() => {
+      try {
+        if (hasAny) {
+          localStorage.setItem(draftKey, JSON.stringify({
+            tipo, dataAppendice, dataEffetto, oggetto, note,
+            quietanzaId, premioNetto, tasse, premioLordo, provvigioni, percProvv,
+            savedAt: Date.now(),
+          }));
+        } else {
+          localStorage.removeItem(draftKey);
+        }
+      } catch { /* ignore quota */ }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [open, draftKey, tipo, dataAppendice, dataEffetto, oggetto, note,
+      quietanzaId, premioNetto, tasse, premioLordo, provvigioni, percProvv]);
 
   // Preview locale del file selezionato (immagine o PDF)
   const filePreviewUrl = useMemo(() => {
@@ -336,6 +415,30 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
               : "L'appendice viene salvata nel database e collegata alla polizza."}
           </DialogDescription>
         </DialogHeader>
+
+        {draftRestored && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2">
+            <span>Bozza precedente ripristinata automaticamente.</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={() => {
+                if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
+                setDraftRestored(false);
+                setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
+                setDataEffetto(""); setOggetto(""); setTipo("modifica"); setNote("");
+                setQuietanzaId(""); setPremioNetto(""); setTasse("");
+                setPremioLordo(""); setProvvigioni("");
+                setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
+              }}
+            >
+              Scarta bozza
+            </Button>
+          </div>
+        )}
+
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -469,6 +572,33 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Riepilogo importi — sempre aggiornato, non modificabile */}
+              <div className="md:col-span-2">
+                <div className="rounded-md border bg-muted/40 p-3">
+                  <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                    Riepilogo regolazione
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs text-muted-foreground">Netto</div>
+                      <div className="font-semibold tabular-nums">{fmt(parsedReg.netto)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Tasse</div>
+                      <div className="font-semibold tabular-nums">{fmt(parsedReg.tasse)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Lordo</div>
+                      <div className="font-semibold tabular-nums">{fmt(parsedReg.lordo)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Provvigioni</div>
+                      <div className="font-semibold tabular-nums">{fmt(parsedReg.provvigioni)}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </>
           ) : (
