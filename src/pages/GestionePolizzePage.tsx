@@ -496,17 +496,46 @@ const GestionePolizzePage = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>N° Polizza</TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          onClick={() => toggleSort("numero_titolo")}
+                          className="inline-flex items-center gap-1 hover:text-teal-700"
+                        >
+                          N° Polizza
+                          {sortBy === "numero_titolo" &&
+                            (sortDir === "asc" ? (
+                              <ArrowUp className="w-3 h-3" />
+                            ) : (
+                              <ArrowDown className="w-3 h-3" />
+                            ))}
+                        </button>
+                      </TableHead>
                       <TableHead>Cliente</TableHead>
                       <TableHead>Compagnia</TableHead>
                       <TableHead>Ramo</TableHead>
                       <TableHead>Decorr.</TableHead>
-                      <TableHead>Scad.</TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          onClick={() => toggleSort("data_scadenza")}
+                          className="inline-flex items-center gap-1 hover:text-teal-700"
+                        >
+                          Scad.
+                          {sortBy === "data_scadenza" &&
+                            (sortDir === "asc" ? (
+                              <ArrowUp className="w-3 h-3" />
+                            ) : (
+                              <ArrowDown className="w-3 h-3" />
+                            ))}
+                        </button>
+                      </TableHead>
                       <TableHead className="text-right">Premio</TableHead>
                       <TableHead>Stato</TableHead>
                       <TableHead className="text-right">Azione</TableHead>
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
                     {isFetching && (
                       <TableRow>
