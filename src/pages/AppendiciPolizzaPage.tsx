@@ -47,10 +47,8 @@ const AppendiciPolizzaPage = () => {
   const [dataEffetto, setDataEffetto] = useState("");
   const [oggetto, setOggetto] = useState("");
   const [tipo, setTipo] = useState("modifica");
-  const [testo, setTesto] = useState("");
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [contentTab, setContentTab] = useState("testo");
   const [viewText, setViewText] = useState<string | null>(null);
   // Track existing file when editing
   const [existingFilePath, setExistingFilePath] = useState<string | null>(null);
