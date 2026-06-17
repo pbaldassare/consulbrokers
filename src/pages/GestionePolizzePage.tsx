@@ -100,7 +100,7 @@ interface Operazione {
 const OPERAZIONI: Operazione[] = [
   { key: "appendice", label: "Appendice", icon: FileEdit, descrizione: "Aggiungi un'appendice", statiFiltro: ["attivo"] },
   { key: "storno", label: "Storno", icon: Ban, descrizione: "Storna premio e quietanze", statiFiltro: ["attivo"] },
-  { key: "rinnovo", label: "Rinnovo", icon: RefreshCw, descrizione: "Gestisci rinnovo polizza", statiFiltro: ["attivo"] },
+  // { key: "rinnovo", ... } — nascosta su richiesta utente (i rinnovi si gestiscono da pagina dedicata)
   { key: "duplica", label: "Duplica", icon: Copy, descrizione: "Copia dati tecnici", statiFiltro: [] },
   { key: "sostituzione", label: "Sostituzione", icon: Replace, descrizione: "Sostituisci polizza/numero", statiFiltro: ["attivo"] },
   { key: "sospensione", label: "Sospensione", icon: PauseCircle, descrizione: "Sospendi temporaneamente", statiFiltro: ["attivo"] },
