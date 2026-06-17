@@ -788,7 +788,11 @@ const ImmissionePolizzaPage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("*")
+        .select(`*,
+          cliente:clienti!titoli_cliente_anagrafica_id_fkey(id, ragione_sociale, nome, cognome),
+          compagnia:compagnie!titoli_compagnia_id_fkey(id, nome),
+          rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(id, codice_rapporto, nome_rapporto, tipo_rapporto)
+        `)
         .eq("id", titoloMadreId!)
         .maybeSingle();
       return data;
@@ -1788,6 +1792,21 @@ const ImmissionePolizzaPage = () => {
               Esci dalla regolazione
             </Button>
           </div>
+          {(() => {
+            const cli: any = (polizzaMadre as any)?.cliente;
+            const clienteLabel = cli?.ragione_sociale || [cli?.cognome, cli?.nome].filter(Boolean).join(" ") || "—";
+            const compagniaLabel = (polizzaMadre as any)?.compagnia?.nome || "—";
+            const rap: any = (polizzaMadre as any)?.rapporto;
+            const rapportoLabel = rap ? [rap.codice_rapporto, rap.nome_rapporto || rap.tipo_rapporto].filter(Boolean).join(" · ") : "—";
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-xs bg-white/60 dark:bg-amber-900/20 rounded px-3 py-2 border border-amber-300/60">
+                <div><span className="text-amber-800/70 dark:text-amber-300/70">Polizza N°</span><div className="font-medium">{polizzaMadre?.numero_titolo || "—"}</div></div>
+                <div><span className="text-amber-800/70 dark:text-amber-300/70">Cliente</span><div className="font-medium truncate" title={clienteLabel}>{clienteLabel}</div></div>
+                <div><span className="text-amber-800/70 dark:text-amber-300/70">Compagnia</span><div className="font-medium truncate" title={compagniaLabel}>{compagniaLabel}</div></div>
+                <div><span className="text-amber-800/70 dark:text-amber-300/70">Rapporto</span><div className="font-medium truncate" title={rapportoLabel}>{rapportoLabel}</div></div>
+              </div>
+            );
+          })()}
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
             <div className="space-y-1">
               <Label className="text-xs">Quietanza di riferimento *</Label>
