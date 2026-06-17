@@ -97,7 +97,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         .from("titoli")
         .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, premio_netto, tasse, sostituisce_polizza, is_regolazione, stato, numero_titolo")
         .eq("numero_titolo", titoloInfo!.numero_titolo!)
-        .order("garanzia_da", { ascending: true });
+        .order("garanzia_da", { ascending: false });
       return (data || []).filter(
         (t: any) => !t.is_regolazione && STATI_VALIDI.includes((t.stato || "").toLowerCase())
       );
@@ -106,9 +106,19 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
   const quietanzaOptions: SearchableSelectOption[] = useMemo(() => {
     const list = catena || [];
+    // Già ordinati DESC dalla query: la più recente è in cima
     return list.map((t: any, i: number) => {
-      const label = `Rata ${i + 1} · ${fmtDate(t.garanzia_da)} → ${fmtDate(t.garanzia_a)} · ${fmt(t.premio_lordo)}`;
-      return { value: t.id as string, label, searchText: `${t.riga}` };
+      const stato = (t.stato || "").toLowerCase();
+      const statoBadge = stato ? ` · ${stato}` : "";
+      const label = `Rata ${list.length - i} · ${fmtDate(t.garanzia_da)} → ${fmtDate(t.garanzia_a)} · ${fmt(t.premio_lordo)}${statoBadge}`;
+      const searchText = [
+        t.riga,
+        fmtDate(t.garanzia_da),
+        fmtDate(t.garanzia_a),
+        stato,
+        t.premio_lordo != null ? String(t.premio_lordo) : "",
+      ].filter(Boolean).join(" ");
+      return { value: t.id as string, label, searchText };
     });
   }, [catena]);
 
