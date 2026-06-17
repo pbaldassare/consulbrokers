@@ -377,18 +377,21 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     const hasAny =
       tipo !== "modifica" || oggetto || note || quietanzaId ||
       premioNetto || tasse || premioLordo || provvigioni || dataEffetto;
+    if (!hasAny) return;
+    setAutosaveStatus("saving");
     const t = setTimeout(() => {
       try {
-        if (hasAny) {
-          localStorage.setItem(draftKey, JSON.stringify({
-            tipo, dataAppendice, dataEffetto, oggetto, note,
-            quietanzaId, premioNetto, tasse, premioLordo, provvigioni, percProvv,
-            savedAt: Date.now(),
-          }));
-        } else {
-          localStorage.removeItem(draftKey);
-        }
-      } catch { /* ignore quota */ }
+        const now = Date.now();
+        localStorage.setItem(draftKey, JSON.stringify({
+          tipo, dataAppendice, dataEffetto, oggetto, note,
+          quietanzaId, premioNetto, tasse, premioLordo, provvigioni, percProvv,
+          savedAt: now,
+        }));
+        setDraftSavedAt(now);
+        setAutosaveStatus("saved");
+      } catch {
+        setAutosaveStatus("error");
+      }
     }, 400);
     return () => clearTimeout(t);
   }, [open, draftKey, tipo, dataAppendice, dataEffetto, oggetto, note,
