@@ -719,6 +719,8 @@ const GestionePolizzePage = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </TooltipProvider>
+
   );
 };
 
