@@ -1434,6 +1434,7 @@ const TitoloDetail = () => {
   // di creazione e non si può modificare inline. Operazioni dedicate
   // (Annulla Messa a Cassa, Storno, Rinnovo) restano disponibili.
   const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
+  const isRegolazione = !!(t as any).is_regolazione;
 
   // Catena polizza: usata per banner "scope" e pannello "Quietanze sorelle"
   const isQuietanzaCorrente = isQuietanzaTitolo(t);
