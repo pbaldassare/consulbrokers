@@ -265,6 +265,7 @@ const GestionePolizzePage = () => {
       clienteId,
       compagniaId,
       cigFilter,
+      regFilter,
       sortBy,
       sortDir,
       page,
@@ -281,15 +282,35 @@ const GestionePolizzePage = () => {
           .select("id")
           .eq("cig_temporaneo", true);
         cigIds = (cigRows || []).map((r: any) => r.id);
-        if (cigIds.length === 0) return { rows: [], count: 0, cigMap: {} as Record<string, { cig_temporaneo: boolean; cig_rif: string | null }> };
+        if (cigIds.length === 0) return { rows: [], count: 0, cigMap: {}, regMap: {} };
       } else if (needsCigWithout) {
         const { data: cigRows } = await supabase
           .from("titoli")
           .select("id")
           .eq("cig_temporaneo", true);
         const excludeIds = (cigRows || []).map((r: any) => r.id);
-        // Per "senza CIG" useremo .not("id","in",...) sotto
         cigIds = excludeIds.length > 0 ? excludeIds : [];
+      }
+
+      // Pre-filtro Regolazione (operazione dedicata o filtro multi)
+      let regIds: string[] | null = null;
+      const needsRegWith = operazione?.richiedeRegolazione || regFilter === "with";
+      const needsRegWithout = regFilter === "without" && !operazione?.richiedeRegolazione;
+      if (needsRegWith) {
+        const { data: regRows } = await supabase
+          .from("titoli")
+          .select("id, regolazione_data_presunta")
+          .eq("regolazione", true)
+          .order("regolazione_data_presunta", { ascending: true, nullsFirst: false });
+        regIds = (regRows || []).map((r: any) => r.id);
+        if (regIds.length === 0) return { rows: [], count: 0, cigMap: {}, regMap: {} };
+      } else if (needsRegWithout) {
+        const { data: regRows } = await supabase
+          .from("titoli")
+          .select("id")
+          .eq("regolazione", true);
+        const excludeIds = (regRows || []).map((r: any) => r.id);
+        regIds = excludeIds.length > 0 ? excludeIds : [];
       }
 
       let q = supabase
@@ -304,6 +325,10 @@ const GestionePolizzePage = () => {
       if (needsCigWith && cigIds) q = q.in("id", cigIds);
       if (needsCigWithout && cigIds && cigIds.length > 0) {
         q = q.not("id", "in", `(${cigIds.map((i) => `"${i}"`).join(",")})`);
+      }
+      if (needsRegWith && regIds) q = q.in("id", regIds);
+      if (needsRegWithout && regIds && regIds.length > 0) {
+        q = q.not("id", "in", `(${regIds.map((i) => `"${i}"`).join(",")})`);
       }
       if (statiAttivi.length > 0) q = q.in("stato", statiAttivi);
       if (operazione?.richiedeMessaCassa) q = q.not("data_messa_cassa", "is", null);
@@ -321,26 +346,35 @@ const GestionePolizzePage = () => {
       const { data, error, count } = await q;
       if (error) throw error;
 
-      // Fetch cig flags per le righe visibili
       const rows = data || [];
       let cigMap: Record<string, { cig_temporaneo: boolean; cig_rif: string | null }> = {};
+      let regMap: Record<string, { regolazione: boolean; data_presunta: string | null; fattore: string | null; note: string | null }> = {};
       if (rows.length > 0) {
         const ids = rows.map((r: any) => r.id);
-        const { data: cigInfo } = await supabase
+        const { data: extra } = await supabase
           .from("titoli")
-          .select("id, cig_temporaneo, cig_rif")
+          .select("id, cig_temporaneo, cig_rif, regolazione, regolazione_data_presunta, regolazione_fattore, regolazione_note")
           .in("id", ids);
         cigMap = Object.fromEntries(
-          (cigInfo || []).map((r: any) => [r.id, { cig_temporaneo: !!r.cig_temporaneo, cig_rif: r.cig_rif }]),
+          (extra || []).map((r: any) => [r.id, { cig_temporaneo: !!r.cig_temporaneo, cig_rif: r.cig_rif }]),
+        );
+        regMap = Object.fromEntries(
+          (extra || []).map((r: any) => [r.id, {
+            regolazione: !!r.regolazione,
+            data_presunta: r.regolazione_data_presunta,
+            fattore: r.regolazione_fattore,
+            note: r.regolazione_note,
+          }]),
         );
       }
-      return { rows, count: count ?? 0, cigMap };
+      return { rows, count: count ?? 0, cigMap, regMap };
     },
   });
 
   const polizze = result?.rows ?? [];
   const totalCount = result?.count ?? 0;
   const cigMap = result?.cigMap ?? {};
+  const regMap = (result as any)?.regMap ?? {};
 
   const handleSelect = (op: OperazioneKey) => {
     setOpKey(op);
@@ -349,6 +383,7 @@ const GestionePolizzePage = () => {
     setClienteId("");
     setCompagniaId("");
     setCigFilter("all");
+    setRegFilter("all");
     resetPage();
   };
 
