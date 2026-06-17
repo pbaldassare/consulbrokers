@@ -308,6 +308,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
       } else {
         toast.success(`Appendice n° ${numeroAppendice} creata`);
       }
+      if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
       qc.invalidateQueries({ queryKey: ["appendici-polizza", titoloId] });
       qc.invalidateQueries({ queryKey: ["appendici-count", titoloId] });
       qc.invalidateQueries({ queryKey: ["gestione-polizze"] });
