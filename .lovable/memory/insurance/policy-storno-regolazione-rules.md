@@ -13,16 +13,20 @@ type: feature
 - Snapshot in `titoli_storni` (causale, motivo, importo_rimborsato, era_messa_cassa, documento_id).
 - Movimento `ST` in `movimenti_polizza`.
 
-## Regolazione Premio (`RegolazionePremioDialog`)
+## Regolazione Premio (Immissione Polizza in `mode=regolazione`)
 - Disabilitato se `titoli.regolazione !== true` (flag anagrafico della polizza nella sezione "Regolazione").
-- Inserimento manuale di periodo, imponibile, premio lordo/netto/accessori/tasse/provvigioni (positivo = a debito cliente, negativo = a credito).
-- Crea **nuovo titolo `RG`** sulla polizza (stessa `numero_titolo`, nuova `riga`), eredita split commerciali, stato `attivo`, `da_incassare`.
-- Le quietanze future NON vengono toccate.
-- Documento opzionale (lettera compagnia) caricabile subito o dopo da Appendici.
-- Snapshot in `titoli_regolazioni`.
-- Movimento `RG` sul titolo madre.
+- **Punti di ingresso**: bottone "Regolazione" in TitoloDetail e Tipo=Regolazione nel modale Appendice di Gestione Polizze. Entrambi navigano a `/portafoglio/immissione?mode=regolazione&titoloMadreId=<id>&quietanzaRefId=<id>`.
+- Riutilizza `ImmissionePolizzaPage` con stesso form ricco (Compagnia/Rapporto, Ramo/Sottoramo, Periodo/Frazionamento, righe Premio per garanzia, Netto/Accessori/Tasse/SSN, Provvigioni). Importi negativi ammessi.
+- Pre-popolazione dalla polizza madre: cliente, numero_titolo, compagnia, rapporto, ramo, prodotto, durate, anni, frazionamento, tacito_rinnovo, AE, ufficio.
+- Banner ambra in alto con `SearchableSelect` delle rate (titoli con stesso `numero_titolo`) per scegliere la **quietanza di riferimento** (default: ultima incassata).
+- Crea nuovo titolo `RG` con `riga = max(riga)+1`, `sostituisce_polizza`/`sostituisce_riga` puntati alla madre, stato `attivo`.
+- Le quietanze future della polizza madre NON vengono toccate.
+- Snapshot in `titoli_regolazioni` con `titolo_madre_id`, `titolo_regolazione_id`, **`quietanza_riferimento_id`**, periodo, conguaglio_premio, note.
+- Movimento "Regolazione Premio" sul nuovo titolo + movimento `tipo_documento='RG'` sulla polizza madre (timeline).
+- Componente `RegolazionePremioDialog` deprecato (file ancora presente ma non importato).
 
 ## Note
 - Niente calcolo automatico di rateo (regola progetto: importi sempre a mano).
 - `isLocked` in TitoloDetail già copre `stornato` (campi non editabili).
 - Pagina/route legacy `/portafoglio/storno` + `StornoPolizzaPage.tsx` rimosse.
+- Migrazione `titoli_regolazioni.quietanza_riferimento_id` (uuid, FK→titoli, nullable, ON DELETE SET NULL) + indice `idx_titoli_regolazioni_quietanza_ref`.
