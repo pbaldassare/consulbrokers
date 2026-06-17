@@ -721,6 +721,7 @@ const GestionePolizzePage = () => {
                       <TableHead className="text-right">Premio</TableHead>
                       <TableHead>Stato</TableHead>
                       <TableHead>CIG</TableHead>
+                      <TableHead>Reg.</TableHead>
                       <TableHead className="text-right">Azione</TableHead>
                     </TableRow>
                   </TableHeader>
