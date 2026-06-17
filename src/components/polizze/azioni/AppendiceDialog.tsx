@@ -175,10 +175,23 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>Annulla</Button>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId}>
-            {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Crea appendice
-          </Button>
+          {tipo === "regolazione" ? (
+            <Button
+              onClick={() => {
+                if (!titoloId) return;
+                onOpenChange(false);
+                navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${titoloId}`);
+              }}
+              disabled={!titoloId}
+            >
+              Apri form regolazione <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId}>
+              {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Crea appendice
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
