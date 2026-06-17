@@ -76,13 +76,11 @@ const AppendiciPolizzaPage = () => {
     setDataEffetto(a.data_effetto || "");
     setOggetto(a.oggetto || "");
     setTipo(a.tipo || "modifica");
-    setTesto(a.testo || "");
     setNote(a.note || "");
     setFile(null);
     setExistingFilePath(a.file_path || null);
     setExistingFileName(a.nome_file || null);
     setRemoveExistingFile(false);
-    setContentTab(a.testo ? "testo" : a.file_path ? "file" : "testo");
     // Scroll to form
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
