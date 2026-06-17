@@ -217,15 +217,27 @@ const GestionePolizzePage = () => {
     ],
     enabled: !!opKey,
     queryFn: async () => {
+      // Pre-filtro CIG temporanei: prendiamo gli id da titoli (la view non espone cig_temporaneo)
+      let cigIds: string[] | null = null;
+      if (operazione?.richiedeCigTemporaneo) {
+        const { data: cigRows } = await supabase
+          .from("titoli")
+          .select("id")
+          .not("cig_temporaneo", "is", null);
+        cigIds = (cigRows || []).map((r: any) => r.id);
+        if (cigIds.length === 0) return { rows: [], count: 0 };
+      }
+
       let q = supabase
         .from("v_portafoglio_titoli")
         .select(
-          "id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza",
+          "id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza, cig_rif",
           { count: "exact" },
         )
         .order(sortBy, { ascending: sortDir === "asc" })
         .range(range.from, range.to);
 
+      if (cigIds) q = q.in("id", cigIds);
       if (statiAttivi.length > 0) q = q.in("stato", statiAttivi);
       if (operazione?.richiedeMessaCassa) q = q.not("data_messa_cassa", "is", null);
       if (operazione?.escludeMessaCassa) q = q.is("data_messa_cassa", null);
