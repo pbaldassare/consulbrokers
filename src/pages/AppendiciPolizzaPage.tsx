@@ -326,8 +326,7 @@ const AppendiciPolizzaPage = () => {
                 <p className="text-sm text-destructive">Il file verrà rimosso al salvataggio</p>
               )}
             </div>
-          </TabsContent>
-        </Tabs>
+        </div>
 
         <div className="space-y-1.5">
           <Label>Note</Label>
