@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/SearchableSelect";
 import { toast } from "sonner";
-import { Loader2, AlertCircle, FileIcon } from "lucide-react";
+import { Loader2, AlertCircle, FileIcon, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logAttivita } from "@/lib/logAttivita";
 
@@ -45,6 +45,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
   const [tipo, setTipo] = useState("modifica");
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
 
   // Campi regolazione
   const [quietanzaId, setQuietanzaId] = useState<string>("");
@@ -121,6 +122,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     setTipo("modifica");
     setNote("");
     setFile(null);
+    setFiles([]);
     setQuietanzaId("");
     setPremioNetto("");
     setTasse("");
@@ -186,12 +188,17 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
       let filePath: string | null = null;
       let nomeFile: string | null = null;
-      if (file) {
-        const path = `appendici/${titoloId}/${Date.now()}_${file.name}`;
-        const { error: upErr } = await supabase.storage.from("documenti_titoli").upload(path, file);
+      const allegati: Array<{ path: string; nome: string; size: number; type: string }> = [];
+
+      // Multi-file solo per regolazione; per altri tipi si usa il singolo `file`
+      const toUpload: File[] = isReg ? files : (file ? [file] : []);
+      for (let i = 0; i < toUpload.length; i++) {
+        const f = toUpload[i];
+        const path = `appendici/${titoloId}/${Date.now()}_${i}_${f.name}`;
+        const { error: upErr } = await supabase.storage.from("documenti_titoli").upload(path, f);
         if (upErr) throw upErr;
-        filePath = path;
-        nomeFile = file.name;
+        allegati.push({ path, nome: f.name, size: f.size, type: f.type });
+        if (i === 0) { filePath = path; nomeFile = f.name; }
       }
 
       const payload: any = {
@@ -203,6 +210,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         tipo,
         file_path: filePath,
         nome_file: nomeFile,
+        allegati,
         note: note.trim() || null,
         created_by: user?.id || null,
       };
@@ -316,6 +324,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     ) : null;
 
 
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -421,27 +430,43 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                 <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
               </div>
               <div className="md:col-span-2">
-                <Label>Allegato (opzionale)</Label>
-                <Input type="file" accept="image/*,application/pdf"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                {file && filePreviewUrl && (
-                  <div className="mt-2 rounded-md border bg-muted/30 p-2">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                      <FileIcon className="h-3.5 w-3.5" />
-                      <span className="truncate">{file.name}</span>
-                      <span className="ml-auto">{(file.size / 1024).toFixed(0)} KB</span>
-                    </div>
-                    {fileKind === "image" && (
-                      <img src={filePreviewUrl} alt={file.name}
-                        className="max-h-48 w-auto mx-auto rounded" />
-                    )}
-                    {fileKind === "pdf" && (
-                      <iframe src={filePreviewUrl} title={file.name}
-                        className="w-full h-64 rounded border-0" />
-                    )}
-                    {fileKind === "other" && (
-                      <p className="text-xs text-muted-foreground">Anteprima non disponibile per questo tipo di file.</p>
-                    )}
+                <Label>Allegati (opzionali)</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    multiple
+                    onChange={(e) => {
+                      const picked = Array.from(e.target.files || []);
+                      if (picked.length) {
+                        setFiles((prev) => {
+                          const seen = new Set(prev.map((f) => `${f.name}_${f.size}`));
+                          const merged = [...prev];
+                          for (const f of picked) {
+                            const k = `${f.name}_${f.size}`;
+                            if (!seen.has(k)) { merged.push(f); seen.add(k); }
+                          }
+                          return merged;
+                        });
+                      }
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                  <Plus className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Puoi selezionare più file (immagini o PDF). Verranno caricati alla creazione dell'appendice.
+                </p>
+
+                {files.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {files.map((f, idx) => (
+                      <AllegatoPreview
+                        key={`${f.name}_${f.size}_${idx}`}
+                        file={f}
+                        onRemove={() => setFiles((prev) => prev.filter((_, i) => i !== idx))}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
@@ -481,5 +506,42 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function AllegatoPreview({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const url = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  const kind: "image" | "pdf" | "other" =
+    file.type.startsWith("image/") ? "image"
+      : file.type === "application/pdf" || /\.pdf$/i.test(file.name) ? "pdf"
+      : "other";
+  return (
+    <div className="rounded-md border bg-muted/30 p-2">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+        <FileIcon className="h-3.5 w-3.5" />
+        <span className="truncate flex-1">{file.name}</span>
+        <span>{(file.size / 1024).toFixed(0)} KB</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0"
+          onClick={onRemove}
+          title="Rimuovi allegato"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      {kind === "image" && (
+        <img src={url} alt={file.name} className="max-h-40 w-auto mx-auto rounded" />
+      )}
+      {kind === "pdf" && (
+        <iframe src={url} title={file.name} className="w-full h-48 rounded border-0" />
+      )}
+      {kind === "other" && (
+        <p className="text-xs text-muted-foreground">Anteprima non disponibile.</p>
+      )}
+    </div>
   );
 }

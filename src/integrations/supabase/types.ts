@@ -612,6 +612,7 @@ export type Database = {
       }
       appendici_polizza: {
         Row: {
+          allegati: Json
           created_at: string | null
           created_by: string | null
           data_appendice: string | null
@@ -634,6 +635,7 @@ export type Database = {
           titolo_regolazione_id: string | null
         }
         Insert: {
+          allegati?: Json
           created_at?: string | null
           created_by?: string | null
           data_appendice?: string | null
@@ -656,6 +658,7 @@ export type Database = {
           titolo_regolazione_id?: string | null
         }
         Update: {
+          allegati?: Json
           created_at?: string | null
           created_by?: string | null
           data_appendice?: string | null
