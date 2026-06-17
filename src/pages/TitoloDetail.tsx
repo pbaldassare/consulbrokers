@@ -3209,14 +3209,7 @@ const TitoloDetail = () => {
         onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
       />
 
-      <RegolazionePremioDialog
-        open={regolazioneOpen}
-        onOpenChange={setRegolazioneOpen}
-        titoloId={t.id}
-        numeroPolizza={t.numero_titolo || undefined}
-        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
-      />
-    </div>
+      {/* RegolazionePremioDialog deprecato: la regolazione ora apre ImmissionePolizzaPage in mode=regolazione */}
   );
 };
 
