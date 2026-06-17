@@ -112,7 +112,7 @@ const OPERAZIONI: Operazione[] = [
   { key: "riattivazione", label: "Riattivazione", icon: PlayCircle, descrizione: "Riattiva polizza sospesa", statiFiltro: ["sospeso"] },
   { key: "annulla", label: "Annulla", icon: XCircle, descrizione: "Annullamento totale", statiFiltro: [], adminOnly: true },
   // { key: "messa_cassa", ... } — nascosta su richiesta utente (gestita dalla scheda polizza)
-  { key: "annulla_messa_cassa", label: "Annulla M.C.", icon: Undo2, descrizione: "Annulla messa a cassa", statiFiltro: [], richiedeMessaCassa: true, adminOnly: true },
+  // { key: "annulla_messa_cassa", ... } — nascosta su richiesta utente
 
   { key: "carica_doc", label: "Carica Doc.", icon: Upload, descrizione: "Carica documenti", statiFiltro: [] },
   { key: "precontrattuale", label: "Precontrattuale", icon: FileText, descrizione: "Genera doc. precontrattuale", statiFiltro: [] },
