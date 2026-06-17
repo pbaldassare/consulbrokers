@@ -440,16 +440,6 @@ const AppendiciPolizzaPage = () => {
           </div>
         )}
       </PolizzaSection>
-
-      {/* Dialog visualizza testo */}
-      <Dialog open={!!viewText} onOpenChange={() => setViewText(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Testo Appendice</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm whitespace-pre-wrap">{viewText}</p>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
