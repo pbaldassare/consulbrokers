@@ -14,9 +14,8 @@ import { logAttivita } from "@/lib/logAttivita";
 
 const TIPI_APPENDICE = [
   { value: "modifica", label: "Modifica" },
-  { value: "integrazione", label: "Integrazione" },
-  { value: "rettifica", label: "Rettifica" },
-  { value: "annullamento_parziale", label: "Annullamento parziale" },
+  { value: "proroga", label: "Appendice di proroga" },
+  { value: "regolazione", label: "Regolazione" },
 ];
 
 interface Props {
