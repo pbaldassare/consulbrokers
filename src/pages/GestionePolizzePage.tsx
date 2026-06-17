@@ -153,8 +153,9 @@ const GestionePolizzePage = () => {
     if (debouncedSearch) params.q = debouncedSearch;
     if (clienteId) params.cliente = clienteId;
     if (cigFilter !== "all") params.cig = cigFilter;
+    if (regFilter !== "all") params.reg = regFilter;
     setSearchParams(params, { replace: true });
-  }, [opKey, debouncedSearch, clienteId, cigFilter, setSearchParams]);
+  }, [opKey, debouncedSearch, clienteId, cigFilter, regFilter, setSearchParams]);
 
   // dialog state
   const [target, setTarget] = useState<{ id: string; numero: string } | null>(null);
