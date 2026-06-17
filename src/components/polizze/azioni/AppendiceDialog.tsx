@@ -30,6 +30,7 @@ interface Props {
 export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, onCreated }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const [numeroAppendice, setNumeroAppendice] = useState("");
   const [dataAppendice, setDataAppendice] = useState(new Date().toISOString().slice(0, 10));
