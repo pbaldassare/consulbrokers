@@ -177,9 +177,22 @@ const GestionePolizzePage = () => {
     scadAl,
     clienteId,
     compagniaId,
+    cigFilter,
     sortBy,
     sortDir,
   ]);
+
+  // Conteggio live CIG temporanei (per badge sulla card)
+  const { data: cigCount = 0 } = useQuery({
+    queryKey: ["gestione-polizze-cig-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("titoli")
+        .select("id", { count: "exact", head: true })
+        .eq("cig_temporaneo", true);
+      return count ?? 0;
+    },
+  });
 
   // Opzioni Cliente / Compagnia per SearchableSelect
   const { data: clientiOpts = [] } = useQuery({
