@@ -1516,7 +1516,7 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" disabled={["stornato","estinto","sostituito","annullato"].includes(t.stato)} title={["stornato","estinto","sostituito","annullato"].includes(t.stato) ? `Titolo in stato "${t.stato}": storno non disponibile` : undefined} onClick={() => setStornoOpen(true)}>
               <ArrowRightLeft className="w-4 h-4 mr-1" /> Storno
             </Button>
-            <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => setRegolazioneOpen(true)}>
+            <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${t.id}&quietanzaRefId=${t.id}`)}>
               <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}`)}>
