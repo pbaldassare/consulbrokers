@@ -275,8 +275,13 @@ const GestionePolizzePage = () => {
       toast.error("Operazione riservata agli amministratori");
       return;
     }
+    if (!canTitoli) {
+      toast.error("Permesso 'titoli' mancante");
+      return;
+    }
     const t = { id: row.id, numero: row.numero_titolo || row.id.slice(0, 8) };
     setTarget(t);
+
 
     switch (operazione.key) {
       case "appendice":
