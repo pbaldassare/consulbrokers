@@ -122,24 +122,55 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     });
   }, [catena]);
 
+  // Chiave bozza per autosave (per titolo)
+  const draftKey = titoloId ? `appendice-draft:${titoloId}` : null;
+  const [draftRestored, setDraftRestored] = useState(false);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) { setDraftRestored(false); return; }
     const max = (existing || []).reduce((acc, a: any) => Math.max(acc, parseInt(a.numero_appendice) || 0), 0);
     setNumeroAppendice(String(max + 1));
-    setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
-    setDataEffetto("");
-    setOggetto("");
-    setTipo("modifica");
-    setNote("");
+
+    // Tentativo di ripristino bozza
+    let restored = false;
+    if (draftKey) {
+      try {
+        const raw = localStorage.getItem(draftKey);
+        if (raw) {
+          const d = JSON.parse(raw);
+          setDataAppendice(d.dataAppendice ?? "");
+          setDataEffetto(d.dataEffetto ?? "");
+          setOggetto(d.oggetto ?? "");
+          setTipo(d.tipo ?? "modifica");
+          setNote(d.note ?? "");
+          setQuietanzaId(d.quietanzaId ?? "");
+          setPremioNetto(d.premioNetto ?? "");
+          setTasse(d.tasse ?? "");
+          setPremioLordo(d.premioLordo ?? "");
+          setProvvigioni(d.provvigioni ?? "");
+          setPercProvv(d.percProvv ?? "");
+          restored = true;
+        }
+      } catch { /* ignore */ }
+    }
+    setDraftRestored(restored);
+
+    if (!restored) {
+      setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
+      setDataEffetto("");
+      setOggetto("");
+      setTipo("modifica");
+      setNote("");
+      setQuietanzaId("");
+      setPremioNetto("");
+      setTasse("");
+      setPremioLordo("");
+      setProvvigioni("");
+      setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
+    }
     setFile(null);
     setFiles([]);
-    setQuietanzaId("");
-    setPremioNetto("");
-    setTasse("");
-    setPremioLordo("");
-    setProvvigioni("");
-    setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
-  }, [open, existing, titoloInfo]);
+  }, [open, existing, titoloInfo, draftKey]);
 
   // Quando cambio quietanza: prefill periodo + RESET importi sui valori della rata scelta
   useEffect(() => {
