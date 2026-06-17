@@ -73,7 +73,6 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     setDataEffetto("");
     setOggetto("");
     setTipo("modifica");
-    setTesto("");
     setNote("");
     setFile(null);
   }, [open, existing, titoloInfo]);
