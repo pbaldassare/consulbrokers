@@ -131,12 +131,15 @@ const GestionePolizzePage = () => {
   const [scadAl, setScadAl] = useState("");
   const [clienteId, setClienteId] = useState<string>(searchParams.get("cliente") || "");
   const [compagniaId, setCompagniaId] = useState<string>("");
-  const [cigFilter, setCigFilter] = useState<"all" | "with" | "without">(
-    (searchParams.get("cig") as "all" | "with" | "without") || "all",
-  );
-  const [regFilter, setRegFilter] = useState<"all" | "with" | "without">(
-    (searchParams.get("reg") as "all" | "with" | "without") || "all",
-  );
+  const [cigFilter, setCigFilter] = useState<"all" | "with" | "without">(() => {
+    const v = searchParams.get("cig");
+    return v === "with" || v === "without" ? v : "all";
+  });
+  const [regFilter, setRegFilter] = useState<"all" | "with" | "without">(() => {
+    const v = searchParams.get("reg");
+    return v === "with" || v === "without" ? v : "all";
+  });
+
   const [sortBy, setSortBy] = useState<"data_scadenza" | "numero_titolo">("data_scadenza");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
