@@ -884,6 +884,20 @@ const GestionePolizzePage = () => {
             numeroPolizza={target.numero}
             onDone={refreshAll}
           />
+          <AppendiceDialog
+            open={appendiceOpen}
+            onOpenChange={setAppendiceOpen}
+            titoloId={target.id}
+            numeroTitolo={target.numero}
+            onCreated={refreshAll}
+          />
+          <CaricaDocDialog
+            open={caricaDocOpen}
+            onOpenChange={setCaricaDocOpen}
+            titoloId={target.id}
+            numeroTitolo={target.numero}
+            onUploaded={refreshAll}
+          />
         </>
       )}
 
