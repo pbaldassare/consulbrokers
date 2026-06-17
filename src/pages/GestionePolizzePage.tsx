@@ -113,15 +113,21 @@ const GestionePolizzePage = () => {
   const queryClient = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
   const canTitoli = isAdmin || hasPermission("titoli");
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [opKey, setOpKey] = useState<OperazioneKey | null>(null);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [opKey, setOpKey] = useState<OperazioneKey | null>(
+    (searchParams.get("op") as OperazioneKey | null) || null,
+  );
+  const [search, setSearch] = useState(searchParams.get("q") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get("q") || "");
   const [statoFilter, setStatoFilter] = useState<string>("");
   const [scadDal, setScadDal] = useState("");
   const [scadAl, setScadAl] = useState("");
-  const [clienteId, setClienteId] = useState<string>("");
+  const [clienteId, setClienteId] = useState<string>(searchParams.get("cliente") || "");
   const [compagniaId, setCompagniaId] = useState<string>("");
+  const [cigFilter, setCigFilter] = useState<"all" | "with" | "without">(
+    (searchParams.get("cig") as "all" | "with" | "without") || "all",
+  );
   const [sortBy, setSortBy] = useState<"data_scadenza" | "numero_titolo">("data_scadenza");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -130,6 +136,16 @@ const GestionePolizzePage = () => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Persist filters in URL (so back-navigation from /titoli/:id restores state)
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (opKey) params.op = opKey;
+    if (debouncedSearch) params.q = debouncedSearch;
+    if (clienteId) params.cliente = clienteId;
+    if (cigFilter !== "all") params.cig = cigFilter;
+    setSearchParams(params, { replace: true });
+  }, [opKey, debouncedSearch, clienteId, cigFilter, setSearchParams]);
 
   // dialog state
   const [target, setTarget] = useState<{ id: string; numero: string } | null>(null);
