@@ -165,10 +165,6 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
             <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)} placeholder="Breve descrizione dell'oggetto dell'appendice" />
           </div>
           <div className="md:col-span-2">
-            <Label>Testo / Descrizione</Label>
-            <Textarea rows={4} value={testo} onChange={(e) => setTesto(e.target.value)} />
-          </div>
-          <div className="md:col-span-2">
             <Label>Note interne</Label>
             <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
