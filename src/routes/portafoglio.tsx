@@ -6,6 +6,7 @@ import TitoloDetail from "@/pages/TitoloDetail";
 import ImmissionePolizzaPage from "@/pages/ImmissionePolizzaPage";
 import AppendiciPolizzaPage from "@/pages/AppendiciPolizzaPage";
 import RinnoviPolizzaPage from "@/pages/RinnoviPolizzaPage";
+import GestionePolizzePage from "@/pages/GestionePolizzePage";
 
 import DocPrecontrattualePage from "@/pages/DocPrecontrattualePage";
 import EstrazioniStampePage from "@/pages/EstrazioniStampePage";
