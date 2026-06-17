@@ -8434,6 +8434,7 @@ export type Database = {
           note: string | null
           periodo_a: string | null
           periodo_da: string | null
+          quietanza_riferimento_id: string | null
           titolo_madre_id: string
           titolo_regolazione_id: string | null
         }
@@ -8448,6 +8449,7 @@ export type Database = {
           note?: string | null
           periodo_a?: string | null
           periodo_da?: string | null
+          quietanza_riferimento_id?: string | null
           titolo_madre_id: string
           titolo_regolazione_id?: string | null
         }
@@ -8462,10 +8464,25 @@ export type Database = {
           note?: string | null
           periodo_a?: string | null
           periodo_da?: string | null
+          quietanza_riferimento_id?: string | null
           titolo_madre_id?: string
           titolo_regolazione_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "titoli_regolazioni_quietanza_riferimento_id_fkey"
+            columns: ["quietanza_riferimento_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_regolazioni_quietanza_riferimento_id_fkey"
+            columns: ["quietanza_riferimento_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "titoli_regolazioni_titolo_madre_id_fkey"
             columns: ["titolo_madre_id"]
