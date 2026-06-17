@@ -7860,6 +7860,9 @@ export type Database = {
           ramo_id: string | null
           rate: number | null
           regolazione: boolean | null
+          regolazione_data_presunta: string | null
+          regolazione_fattore: string | null
+          regolazione_note: string | null
           riga: number | null
           rimborso: boolean | null
           risk_type: string | null
@@ -7977,6 +7980,9 @@ export type Database = {
           ramo_id?: string | null
           rate?: number | null
           regolazione?: boolean | null
+          regolazione_data_presunta?: string | null
+          regolazione_fattore?: string | null
+          regolazione_note?: string | null
           riga?: number | null
           rimborso?: boolean | null
           risk_type?: string | null
@@ -8094,6 +8100,9 @@ export type Database = {
           ramo_id?: string | null
           rate?: number | null
           regolazione?: boolean | null
+          regolazione_data_presunta?: string | null
+          regolazione_fattore?: string | null
+          regolazione_note?: string | null
           riga?: number | null
           rimborso?: boolean | null
           risk_type?: string | null
