@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +36,9 @@ import {
   Filter,
   Search,
   Loader2,
+  ArrowUp,
+  ArrowDown,
+  Lock,
 } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,6 +52,11 @@ import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePoli
 import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
 import { DuplicaPolizzaDialog } from "@/components/polizze/azioni/DuplicaPolizzaDialog";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/SearchableSelect";
+import ServerPagination from "@/components/ServerPagination";
+import { useServerPagination } from "@/hooks/useServerPagination";
+import { AttivitaRecentiPanel } from "@/components/polizze/azioni/AttivitaRecentiPanel";
+
 
 type OperazioneKey =
   | "appendice"
