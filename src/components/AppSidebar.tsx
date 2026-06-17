@@ -143,6 +143,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Polizze Attive", path: "/portafoglio/attive", icon: Shield },
         { label: "Carico", path: "/portafoglio/carico", icon: Clock },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
+        { label: "Gestione Polizze", path: "/portafoglio/gestione", icon: Wand2 },
         
         { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer, hideForRoles: ["ufficio"] },
         { label: "Collettive / Libri Matricola", path: "/portafoglio/collettive", icon: BookOpen },
