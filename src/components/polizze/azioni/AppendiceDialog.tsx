@@ -153,7 +153,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
             </Select>
           </div>
           <div>
-            <Label>Data appendice</Label>
+            <Label>Data scadenza</Label>
             <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)} />
           </div>
           <div>
