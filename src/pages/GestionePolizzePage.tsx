@@ -552,6 +552,15 @@ const GestionePolizzePage = () => {
                     {cigCount}
                   </span>
                 )}
+                {op.key === "regolazioni_attese" && regCount > 0 && (
+                  <span
+                    className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center"
+                    title={`${regCount} polizze in attesa di regolazione`}
+                    data-testid="reg-count-badge"
+                  >
+                    {regCount}
+                  </span>
+                )}
                 {disabled && (
                   <Lock className="absolute top-1 right-1 w-3 h-3 text-muted-foreground" />
                 )}
