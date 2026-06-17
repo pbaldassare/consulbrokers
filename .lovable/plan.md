@@ -1,8 +1,15 @@
-In `src/pages/ImmissionePolizzaPage.tsx` (intorno alle righe 1797-1810), nel blocco "Tipo Operazione", rimuovere dalle opzioni radio le voci:
+Confermo, ho capito. In `src/components/polizze/azioni/AppendiceDialog.tsx`:
 
-- `{ value: "cp_nuova", label: "CP (Nuova)" }`
-- `{ value: "cp_sost_rinn", label: "CP (Sost/Rinn)" }`
+1. **Tipi appendice** — ridurre `TIPI_APPENDICE` a sole 3 voci:
+   - `modifica` → "Modifica"
+   - `proroga` → "Appendice di proroga"
+   - `regolazione` → "Regolazione"
+   
+   Rimuovere `integrazione`, `rettifica`, `annullamento_parziale`.
 
-Restano visibili solo: **Polizza**, **Emittenda** e il flag separato **Polizza Auto**.
+2. **Numero appendice automatico** — calcolato come `max(numero_appendice esistenti) + 1` per quella polizza (logica già presente in `useQuery` + `useEffect`):
+   - Campo `<Input>` reso **read-only** (disabled) — l'utente non può modificarlo.
+   - Resta visibile per trasparenza ma è gestito automaticamente dal sistema.
+   - Se non ci sono appendici → 1, se ce n'è una → 2, ecc.
 
-Nessuna modifica al type union né alla logica di salvataggio: i valori restano supportati a livello dati (per compatibilità con record esistenti), semplicemente non più selezionabili dalla UI in fase di immissione.
+Nessuna modifica a DB, logica di salvataggio o altri componenti.

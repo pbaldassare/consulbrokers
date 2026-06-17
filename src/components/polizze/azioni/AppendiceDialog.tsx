@@ -14,9 +14,8 @@ import { logAttivita } from "@/lib/logAttivita";
 
 const TIPI_APPENDICE = [
   { value: "modifica", label: "Modifica" },
-  { value: "integrazione", label: "Integrazione" },
-  { value: "rettifica", label: "Rettifica" },
-  { value: "annullamento_parziale", label: "Annullamento parziale" },
+  { value: "proroga", label: "Appendice di proroga" },
+  { value: "regolazione", label: "Regolazione" },
 ];
 
 interface Props {
@@ -127,7 +126,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label>Numero *</Label>
-            <Input value={numeroAppendice} onChange={(e) => setNumeroAppendice(e.target.value)} />
+            <Input value={numeroAppendice} readOnly disabled className="bg-muted" />
+            <p className="text-xs text-muted-foreground mt-1">Progressivo automatico</p>
           </div>
           <div>
             <Label>Tipo</Label>
