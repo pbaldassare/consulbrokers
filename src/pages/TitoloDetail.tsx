@@ -502,21 +502,6 @@ const TitoloDetail = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const periodicitaOpts = [
-    { value: "annuale", label: "Annuale" },
-    { value: "semestrale", label: "Semestrale" },
-    { value: "trimestrale", label: "Trimestrale" },
-    { value: "mensile", label: "Mensile" },
-  ];
-  const tipoScadenzaOpts = [
-    { value: "no_scadenza", label: "No scadenza" },
-    { value: "a_scadenza", label: "A scadenza" },
-  ];
-  const tipoLetteraOpts = [
-    { value: "standard", label: "Standard" },
-    { value: "personalizzata", label: "Personalizzata" },
-    { value: "nessuna", label: "Nessuna" },
-  ];
 
   // --- Contratto edit state ---
   const [editingContratto, setEditingContratto] = useState(false);
