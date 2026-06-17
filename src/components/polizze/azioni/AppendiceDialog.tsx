@@ -52,18 +52,32 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     },
   });
 
+  // Recupera scadenza polizza per default
+  const { data: titoloInfo } = useQuery({
+    queryKey: ["titolo-scadenza", titoloId],
+    enabled: !!titoloId && open,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("data_scadenza")
+        .eq("id", titoloId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+
   useEffect(() => {
     if (!open) return;
     const max = (existing || []).reduce((acc, a: any) => Math.max(acc, parseInt(a.numero_appendice) || 0), 0);
     setNumeroAppendice(String(max + 1));
-    setDataAppendice(new Date().toISOString().slice(0, 10));
+    setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
     setDataEffetto("");
     setOggetto("");
     setTipo("modifica");
     setTesto("");
     setNote("");
     setFile(null);
-  }, [open, existing]);
+  }, [open, existing, titoloInfo]);
 
   const mut = useMutation({
     mutationFn: async () => {
@@ -139,7 +153,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
             </Select>
           </div>
           <div>
-            <Label>Data appendice</Label>
+            <Label>Data scadenza</Label>
             <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)} />
           </div>
           <div>
