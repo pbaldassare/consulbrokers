@@ -619,6 +619,7 @@ const GestionePolizzePage = () => {
                       </TableHead>
                       <TableHead className="text-right">Premio</TableHead>
                       <TableHead>Stato</TableHead>
+                      <TableHead>CIG</TableHead>
                       <TableHead className="text-right">Azione</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -626,7 +627,7 @@ const GestionePolizzePage = () => {
                   <TableBody>
                     {isFetching && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-6">
+                        <TableCell colSpan={10} className="text-center py-6">
                           <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
                           Caricamento...
                         </TableCell>
@@ -634,13 +635,15 @@ const GestionePolizzePage = () => {
                     )}
                     {!isFetching && (polizze?.length ?? 0) === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-6 text-sm text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-6 text-sm text-muted-foreground">
                           Nessuna polizza corrisponde ai filtri impostati.
                         </TableCell>
                       </TableRow>
                     )}
                     {!isFetching &&
-                      polizze?.map((p: any, idx: number) => (
+                      polizze?.map((p: any, idx: number) => {
+                        const cig = cigMap[p.id];
+                        return (
                         <TableRow key={p.id} className={idx % 2 === 0 ? "" : "bg-muted/30"}>
                           <TableCell className="font-mono text-xs">
                             <button
@@ -669,6 +672,18 @@ const GestionePolizzePage = () => {
                               {p.stato}
                             </Badge>
                           </TableCell>
+                          <TableCell>
+                            {cig?.cig_temporaneo ? (
+                              <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]" data-testid="cig-badge-temp">
+                                <Hash className="w-3 h-3 mr-0.5" />
+                                Temp.{cig.cig_rif ? ` ${cig.cig_rif}` : ""}
+                              </Badge>
+                            ) : cig?.cig_rif ? (
+                              <Badge variant="outline" className="text-[10px]">{cig.cig_rif}</Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">
                             <Button size="sm" onClick={() => esegui(p)} className="gap-1">
                               <operazione.icon className="w-3.5 h-3.5" />
@@ -676,7 +691,8 @@ const GestionePolizzePage = () => {
                             </Button>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                   </TableBody>
                 </Table>
               </CardContent>
