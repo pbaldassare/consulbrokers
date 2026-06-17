@@ -1558,39 +1558,55 @@ const TitoloDetail = () => {
               </div>
             )}
             {!isRegolazione && (<></>)}
-            <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
-              <Clock className="w-4 h-4 mr-1" /> Sospensione
-            </Button>
-            <Button variant="outline" size="sm" disabled={t.stato !== "sospeso"} title={t.stato !== "sospeso" ? "Solo le polizze sospese possono essere riattivate" : undefined} onClick={() => setRiattivazioneOpen(true)}>
-              <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
-              <Replace className="w-4 h-4 mr-1" /> Sostituzione
-            </Button>
-            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)}>
-              <Ban className="w-4 h-4 mr-1" /> Estinzione
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
-              <FileText className="w-4 h-4 mr-1" /> Appendici
-            </Button>
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
+                <Clock className="w-4 h-4 mr-1" /> Sospensione
+              </Button>
+            )}
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" disabled={t.stato !== "sospeso"} title={t.stato !== "sospeso" ? "Solo le polizze sospese possono essere riattivate" : undefined} onClick={() => setRiattivazioneOpen(true)}>
+                <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
+              </Button>
+            )}
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
+                <Replace className="w-4 h-4 mr-1" /> Sostituzione
+              </Button>
+            )}
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)}>
+                <Ban className="w-4 h-4 mr-1" /> Estinzione
+              </Button>
+            )}
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+                <FileText className="w-4 h-4 mr-1" /> Appendici
+              </Button>
+            )}
             <Button variant="outline" size="sm" disabled={["stornato","estinto","sostituito","annullato"].includes(t.stato)} title={["stornato","estinto","sostituito","annullato"].includes(t.stato) ? `Titolo in stato "${t.stato}": storno non disponibile` : undefined} onClick={() => setStornoOpen(true)}>
               <ArrowRightLeft className="w-4 h-4 mr-1" /> Storno
             </Button>
-            <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${t.id}&quietanzaRefId=${t.id}`)}>
-              <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}`)}>
-              <FileText className="w-4 h-4 mr-1" /> Precontrattuale
-            </Button>
-            <ImportPolizzaAiButton
-              titoloId={t.id}
-              ramo={t.ramo}
-              onImported={() => {
-                queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "firma"] });
-                queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "quietanza"] });
-                queryClient.invalidateQueries({ queryKey: ["premi-garanzia", t.id] });
-              }}
-            />
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${t.id}&quietanzaRefId=${t.id}`)}>
+                <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
+              </Button>
+            )}
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}`)}>
+                <FileText className="w-4 h-4 mr-1" /> Precontrattuale
+              </Button>
+            )}
+            {!isRegolazione && (
+              <ImportPolizzaAiButton
+                titoloId={t.id}
+                ramo={t.ramo}
+                onImported={() => {
+                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "firma"] });
+                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "quietanza"] });
+                  queryClient.invalidateQueries({ queryKey: ["premi-garanzia", t.id] });
+                }}
+              />
+            )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
