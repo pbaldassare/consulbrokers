@@ -435,8 +435,17 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         </DialogHeader>
 
         {draftRestored && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2">
-            <span>Bozza precedente ripristinata automaticamente.</span>
+          <div className={cn(
+            "rounded-md border px-3 py-2 text-xs flex items-center justify-between gap-2",
+            draftStale
+              ? "border-orange-400 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800 text-orange-900 dark:text-orange-200"
+              : "border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 text-amber-900 dark:text-amber-200"
+          )}>
+            <span>
+              {draftStale
+                ? `Bozza vecchia ripristinata (salvata ${formatAge(draftAge!)} fa). Verificala prima di salvare.`
+                : `Bozza ripristinata automaticamente${draftAge != null ? ` (salvata ${formatAge(draftAge)} fa)` : ""}.`}
+            </span>
             <Button
               type="button"
               variant="ghost"
@@ -445,6 +454,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
               onClick={() => {
                 if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
                 setDraftRestored(false);
+                setDraftSavedAt(null);
+                setAutosaveStatus("idle");
                 setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
                 setDataEffetto(""); setOggetto(""); setTipo("modifica"); setNote("");
                 setQuietanzaId(""); setPremioNetto(""); setTasse("");
@@ -452,10 +463,11 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                 setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
               }}
             >
-              Scarta bozza
+              Elimina bozza
             </Button>
           </div>
         )}
+
 
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
