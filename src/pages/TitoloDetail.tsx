@@ -1493,6 +1493,57 @@ const TitoloDetail = () => {
         onNavigate={(rid) => navigate(`/titoli/${rid}`)}
       />
 
+      {/* Pannello "Regolazioni collegate" — solo per titoli non-RG con almeno una RG */}
+      {!isRegolazione && regolazioniCollegate.length > 0 && (
+        <Card className="border-l-4 border-l-orange-500 shadow-sm">
+          <CardHeader className="pb-3 bg-orange-50/60 dark:bg-orange-950/20 border-b">
+            <CardTitle className="text-sm sm:text-base font-semibold text-orange-900 dark:text-orange-100 flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" /> Regolazioni collegate ({regolazioniCollegate.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase text-muted-foreground bg-muted/40">
+                <tr>
+                  <th className="text-left px-3 py-2">Numero</th>
+                  <th className="text-left px-3 py-2">Periodo</th>
+                  <th className="text-right px-3 py-2">Premio Lordo</th>
+                  <th className="text-left px-3 py-2">Stato</th>
+                  <th className="text-left px-3 py-2">Messa a cassa</th>
+                  <th className="w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {regolazioniCollegate.map((rg: any) => (
+                  <tr
+                    key={rg.id}
+                    className="border-t hover:bg-orange-50/40 dark:hover:bg-orange-950/20 cursor-pointer"
+                    onClick={() => navigate(`/titoli/${rg.id}`)}
+                  >
+                    <td className="px-3 py-2 font-mono">{rg.numero_titolo}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {rg.garanzia_da ? new Date(rg.garanzia_da).toLocaleDateString("it-IT") : "—"}
+                      {rg.garanzia_a ? ` → ${new Date(rg.garanzia_a).toLocaleDateString("it-IT")}` : ""}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtEuro(rg.premio_lordo)}</td>
+                    <td className="px-3 py-2">
+                      <Badge variant={rg.stato === "incassato" ? "default" : "secondary"} className={rg.stato === "incassato" ? "bg-amber-500 hover:bg-amber-600" : ""}>
+                        {rg.stato}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {rg.data_messa_cassa ? new Date(rg.data_messa_cassa).toLocaleDateString("it-IT") : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">›</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+
       {/* Card dedicata: rinnovo in attesa di messa a cassa della polizza precedente */}
       {t.stato === "in_attesa_rinnovo" && (
         <Card className="border-orange-400 bg-orange-50/50">
