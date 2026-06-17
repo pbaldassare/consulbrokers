@@ -50,6 +50,15 @@ const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedClienteId = searchParams.get("clienteId");
+  // --- Modalità REGOLAZIONE PREMIO ---
+  // Apertura da AppendiceDialog (Gestione Polizze) o da TitoloDetail.
+  // La pagina precompila i dati dalla polizza madre e crea un nuovo titolo RG
+  // collegato a una quietanza di riferimento (selezionabile via banner).
+  const regolazioneMode = searchParams.get("mode") === "regolazione";
+  const titoloMadreId = searchParams.get("titoloMadreId");
+  const initialQuietanzaRefId = searchParams.get("quietanzaRefId");
+  const [selectedQuietanzaRefId, setSelectedQuietanzaRefId] = useState<string>(initialQuietanzaRefId || "");
+  const regolazionePrefilledRef = useRef<string | null>(null);
   const { user, profile } = useAuth();
   const [saving, setSaving] = useState(false);
   const [aiImportOpen, setAiImportOpen] = useState(false);
