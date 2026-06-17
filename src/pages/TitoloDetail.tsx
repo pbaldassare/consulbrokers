@@ -297,6 +297,38 @@ const TitoloDetail = () => {
     enabled: !!numeroTitolo,
   });
 
+  // Quietanza madre della regolazione (se il titolo corrente è una RG)
+  const madreQuietanzaId: string | null = (titolo as any)?.is_regolazione
+    ? (titolo as any).regolazione_quietanza_id || null
+    : null;
+  const { data: madreQuietanza } = useQuery({
+    queryKey: ["madre-quietanza", madreQuietanzaId],
+    enabled: !!madreQuietanzaId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, garanzia_da, garanzia_a, sostituisce_polizza, riga")
+        .eq("id", madreQuietanzaId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  // Regolazioni collegate al titolo corrente (visualizzate sul titolo madre)
+  const { data: regolazioniCollegate = [] } = useQuery({
+    queryKey: ["regolazioni-collegate", id],
+    enabled: !!id && !(titolo as any)?.is_regolazione,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, premio_lordo, premio_netto, provvigioni_firma, stato, data_messa_cassa, garanzia_da, garanzia_a, created_at")
+        .eq("regolazione_quietanza_id", id!)
+        .order("created_at", { ascending: true });
+      return data || [];
+    },
+  });
+
+
   // --- Cassa dialog state ---
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
