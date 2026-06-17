@@ -342,6 +342,43 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
   const hasErrors = Object.keys(errors).length > 0;
 
+  // Valori numerici per il riepilogo (sempre coerenti con i campi)
+  const parsedReg = useMemo(() => {
+    const num = (s: string) => {
+      const v = parseFloat((s || "").replace(",", "."));
+      return isNaN(v) ? 0 : v;
+    };
+    return {
+      netto: num(premioNetto),
+      tasse: num(tasse),
+      lordo: num(premioLordo),
+      provvigioni: num(provvigioni),
+    };
+  }, [premioNetto, tasse, premioLordo, provvigioni]);
+
+  // Autosave bozza (debounced) — solo quando il dialog è aperto e c'è qualche dato
+  useEffect(() => {
+    if (!open || !draftKey) return;
+    const hasAny =
+      tipo !== "modifica" || oggetto || note || quietanzaId ||
+      premioNetto || tasse || premioLordo || provvigioni || dataEffetto;
+    const t = setTimeout(() => {
+      try {
+        if (hasAny) {
+          localStorage.setItem(draftKey, JSON.stringify({
+            tipo, dataAppendice, dataEffetto, oggetto, note,
+            quietanzaId, premioNetto, tasse, premioLordo, provvigioni, percProvv,
+            savedAt: Date.now(),
+          }));
+        } else {
+          localStorage.removeItem(draftKey);
+        }
+      } catch { /* ignore quota */ }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [open, draftKey, tipo, dataAppendice, dataEffetto, oggetto, note,
+      quietanzaId, premioNetto, tasse, premioLordo, provvigioni, percProvv]);
+
   // Preview locale del file selezionato (immagine o PDF)
   const filePreviewUrl = useMemo(() => {
     if (!file) return null;
