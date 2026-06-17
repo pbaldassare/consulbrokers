@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/SearchableSelect";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, FileIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { logAttivita } from "@/lib/logAttivita";
 
 const TIPI_APPENDICE = [
@@ -93,7 +94,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, sostituisce_polizza, is_regolazione, stato, numero_titolo")
+        .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, premio_netto, tasse, sostituisce_polizza, is_regolazione, stato, numero_titolo")
         .eq("numero_titolo", titoloInfo!.numero_titolo!)
         .order("garanzia_da", { ascending: true });
       return (data || []).filter(
@@ -128,13 +129,20 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
   }, [open, existing, titoloInfo]);
 
-  // Pre-fill periodo dalla quietanza scelta
+  // Quando cambio quietanza: prefill periodo + RESET importi sui valori della rata scelta
   useEffect(() => {
     if (!quietanzaId || !catena) return;
-    const q = catena.find((t: any) => t.id === quietanzaId);
+    const q: any = catena.find((t: any) => t.id === quietanzaId);
     if (!q) return;
-    if (!dataEffetto) setDataEffetto((q as any).garanzia_da || "");
-    if (!dataAppendice) setDataAppendice((q as any).garanzia_a || "");
+    setDataEffetto(q.garanzia_da || "");
+    setDataAppendice(q.garanzia_a || "");
+    const n = q.premio_netto != null ? Number(q.premio_netto).toFixed(2) : "";
+    const tx = q.tasse != null ? Number(q.tasse).toFixed(2) : "";
+    const l = q.premio_lordo != null ? Number(q.premio_lordo).toFixed(2) : "";
+    setPremioNetto(n);
+    setTasse(tx);
+    setPremioLordo(l);
+    // provvigioni verranno ricalcolate dall'effect netto×%
   }, [quietanzaId, catena]);
 
   // Auto-calcolo provvigioni quando cambia netto o %
@@ -263,6 +271,51 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
   const isReg = tipo === "regolazione";
 
+  // Validazione inline (regolazione)
+  const errors = useMemo(() => {
+    const e: Record<string, string> = {};
+    if (!isReg) return e;
+    if (!quietanzaId) e.quietanzaId = "Seleziona la quietanza di riferimento";
+    const n = parseFloat(premioNetto.replace(",", "."));
+    const tt = parseFloat((tasse || "0").replace(",", "."));
+    const l = parseFloat((premioLordo || "0").replace(",", "."));
+    const p = parseFloat((provvigioni || "0").replace(",", "."));
+    if (premioNetto === "" || isNaN(n)) e.premioNetto = "Inserisci un valore numerico";
+    if (!isNaN(tt) && tt < 0) e.tasse = "Le tasse non possono essere negative";
+    if (!isNaN(n) && !isNaN(l) && l + 0.01 < n) e.premioLordo = "Il lordo non può essere inferiore al netto";
+    if (!isNaN(p) && p < 0) e.provvigioni = "Le provvigioni non possono essere negative";
+    if (dataEffetto && dataAppendice && dataEffetto > dataAppendice) {
+      e.dataEffetto = "La data effetto deve precedere la scadenza";
+    }
+    return e;
+  }, [isReg, quietanzaId, premioNetto, tasse, premioLordo, provvigioni, dataEffetto, dataAppendice]);
+
+  const hasErrors = Object.keys(errors).length > 0;
+
+  // Preview locale del file selezionato (immagine o PDF)
+  const filePreviewUrl = useMemo(() => {
+    if (!file) return null;
+    return URL.createObjectURL(file);
+  }, [file]);
+  useEffect(() => {
+    return () => { if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl); };
+  }, [filePreviewUrl]);
+  const fileKind: "image" | "pdf" | "other" = useMemo(() => {
+    if (!file) return "other";
+    if (file.type.startsWith("image/")) return "image";
+    if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return "pdf";
+    return "other";
+  }, [file]);
+
+  const errClass = "border-destructive focus-visible:ring-destructive";
+  const ErrMsg = ({ id }: { id: string }) =>
+    errors[id] ? (
+      <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+        <AlertCircle className="h-3 w-3" /> {errors[id]}
+      </p>
+    ) : null;
+
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -301,12 +354,19 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                   onValueChange={setQuietanzaId}
                   placeholder="Scegli la rata su cui agganciare la regolazione…"
                   emptyText="Nessuna quietanza disponibile"
+                  className={cn(errors.quietanzaId && errClass)}
                 />
+                <ErrMsg id="quietanzaId" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Cambiando quietanza i campi importi e date si reimpostano sui valori della rata scelta.
+                </p>
               </div>
 
               <div>
                 <Label>Data effetto</Label>
-                <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)} />
+                <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)}
+                  className={cn(errors.dataEffetto && errClass)} />
+                <ErrMsg id="dataEffetto" />
               </div>
               <div>
                 <Label>Data scadenza</Label>
@@ -315,50 +375,37 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
               <div>
                 <Label>Premio netto *</Label>
-                <Input
-                  inputMode="decimal"
-                  value={premioNetto}
+                <Input inputMode="decimal" value={premioNetto}
                   onChange={(e) => setPremioNetto(e.target.value)}
                   placeholder="0,00"
-                />
+                  className={cn(errors.premioNetto && errClass)} />
+                <ErrMsg id="premioNetto" />
               </div>
               <div>
                 <Label>Tasse</Label>
-                <Input
-                  inputMode="decimal"
-                  value={tasse}
-                  onChange={(e) => setTasse(e.target.value)}
-                  placeholder="0,00"
-                />
+                <Input inputMode="decimal" value={tasse}
+                  onChange={(e) => setTasse(e.target.value)} placeholder="0,00"
+                  className={cn(errors.tasse && errClass)} />
+                <ErrMsg id="tasse" />
               </div>
               <div>
                 <Label>Premio lordo</Label>
-                <Input
-                  inputMode="decimal"
-                  value={premioLordo}
-                  onChange={(e) => setPremioLordo(e.target.value)}
-                  placeholder="0,00"
-                />
+                <Input inputMode="decimal" value={premioLordo}
+                  onChange={(e) => setPremioLordo(e.target.value)} placeholder="0,00"
+                  className={cn(errors.premioLordo && errClass)} />
+                <ErrMsg id="premioLordo" />
               </div>
               <div>
                 <Label>Provvigioni</Label>
                 <div className="flex gap-2">
-                  <Input
-                    inputMode="decimal"
-                    value={provvigioni}
-                    onChange={(e) => setProvvigioni(e.target.value)}
-                    placeholder="0,00"
-                    className="flex-1"
-                  />
-                  <Input
-                    inputMode="decimal"
-                    value={percProvv}
-                    onChange={(e) => setPercProvv(e.target.value)}
-                    placeholder="%"
-                    className="w-20"
-                    title="% provvigione (sul netto)"
-                  />
+                  <Input inputMode="decimal" value={provvigioni}
+                    onChange={(e) => setProvvigioni(e.target.value)} placeholder="0,00"
+                    className={cn("flex-1", errors.provvigioni && errClass)} />
+                  <Input inputMode="decimal" value={percProvv}
+                    onChange={(e) => setPercProvv(e.target.value)} placeholder="%"
+                    className="w-20" title="% provvigione (sul netto)" />
                 </div>
+                <ErrMsg id="provvigioni" />
                 <p className="text-xs text-muted-foreground mt-1">
                   Auto-calcolata: netto × % polizza originale. Modificabile.
                 </p>
@@ -366,11 +413,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
               <div className="md:col-span-2">
                 <Label>Oggetto</Label>
-                <Input
-                  value={oggetto}
-                  onChange={(e) => setOggetto(e.target.value)}
-                  placeholder="Es. Conguaglio premio 2026"
-                />
+                <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)}
+                  placeholder="Es. Conguaglio premio 2026" />
               </div>
               <div className="md:col-span-2">
                 <Label>Note interne</Label>
@@ -378,7 +422,28 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
               </div>
               <div className="md:col-span-2">
                 <Label>Allegato (opzionale)</Label>
-                <Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                <Input type="file" accept="image/*,application/pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                {file && filePreviewUrl && (
+                  <div className="mt-2 rounded-md border bg-muted/30 p-2">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                      <FileIcon className="h-3.5 w-3.5" />
+                      <span className="truncate">{file.name}</span>
+                      <span className="ml-auto">{(file.size / 1024).toFixed(0)} KB</span>
+                    </div>
+                    {fileKind === "image" && (
+                      <img src={filePreviewUrl} alt={file.name}
+                        className="max-h-48 w-auto mx-auto rounded" />
+                    )}
+                    {fileKind === "pdf" && (
+                      <iframe src={filePreviewUrl} title={file.name}
+                        className="w-full h-64 rounded border-0" />
+                    )}
+                    {fileKind === "other" && (
+                      <p className="text-xs text-muted-foreground">Anteprima non disponibile per questo tipo di file.</p>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -409,7 +474,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>Annulla</Button>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId}>
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId || (isReg && hasErrors)}>
             {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isReg ? "Crea regolazione" : "Crea appendice"}
           </Button>

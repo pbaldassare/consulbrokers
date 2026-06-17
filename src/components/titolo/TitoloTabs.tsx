@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Percent, Clock, List, Users, ShieldCheck, StickyNote, Pencil, Eye, Download } from "lucide-react";
+import { FileText, Percent, Clock, List, Users, ShieldCheck, StickyNote, Pencil, Eye, Download, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -117,49 +117,7 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
                 </TableHeader>
                 <TableBody>
                   {(appendiciPolizza as any[]).map((a: any) => (
-                    <TableRow key={a.id}>
-                      <TableCell className="font-mono font-bold">{a.numero_appendice}</TableCell>
-                      <TableCell className="text-sm">{a.data_appendice ? format(new Date(a.data_appendice), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
-                      <TableCell className="text-sm">{a.data_effetto ? format(new Date(a.data_effetto), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
-                      <TableCell><Badge variant="outline" className="capitalize">{a.tipo}</Badge></TableCell>
-                      <TableCell className="max-w-[200px] truncate text-sm">{a.oggetto || "—"}</TableCell>
-                      <TableCell className="text-sm">{a.nome_file || "—"}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Modifica" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}&appendiceId=${a.id}`)}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                          {a.testo && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Visualizza testo" onClick={() => {
-                              const w = window.open("", "_blank");
-                              if (w) { w.document.write(`<pre style="white-space:pre-wrap;font-family:sans-serif;padding:2rem">${a.testo}</pre>`); }
-                            }}>
-                              <Eye className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                          {a.file_path && (
-                            <>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Anteprima" onClick={async () => {
-                                const { data } = await supabase.storage.from("documenti_titoli").createSignedUrl(a.file_path, 60 * 10);
-                                if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-                              }}>
-                                <Eye className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Download" onClick={async () => {
-                                const { data, error } = await supabase.storage.from("documenti_titoli").download(a.file_path);
-                                if (error || !data) return;
-                                const url = URL.createObjectURL(data);
-                                const link = document.createElement("a");
-                                link.href = url; link.download = a.nome_file || "file"; link.click();
-                                URL.revokeObjectURL(url);
-                              }}>
-                                <Download className="w-3.5 h-3.5" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    <AppendiceTableRow key={a.id} a={a} t={t} navigate={navigate} />
                   ))}
                 </TableBody>
               </Table>
@@ -191,3 +149,106 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
     </Tabs>
   );
 };
+
+function isPdf(name?: string | null) {
+  return !!name && /\.pdf$/i.test(name);
+}
+function isImage(name?: string | null) {
+  return !!name && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
+}
+
+function AppendiceTableRow({ a, t, navigate }: { a: any; t: any; navigate: (p: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (open && a.file_path && !url) {
+      setLoading(true);
+      supabase.storage.from("documenti_titoli").createSignedUrl(a.file_path, 60 * 10).then(({ data }) => {
+        if (!cancelled) {
+          setUrl(data?.signedUrl || null);
+          setLoading(false);
+        }
+      });
+    }
+    return () => { cancelled = true; };
+  }, [open, a.file_path, url]);
+
+  const hasFile = !!a.file_path;
+  const kind = isImage(a.nome_file) ? "image" : isPdf(a.nome_file) ? "pdf" : "other";
+
+  return (
+    <>
+      <TableRow>
+        <TableCell className="font-mono font-bold">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 hover:underline"
+            disabled={!hasFile}
+            onClick={() => setOpen((v) => !v)}
+            title={hasFile ? "Mostra/nascondi anteprima" : "Nessun allegato"}
+          >
+            {hasFile ? (open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />) : null}
+            {a.numero_appendice}
+          </button>
+        </TableCell>
+        <TableCell className="text-sm">{a.data_appendice ? format(new Date(a.data_appendice), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
+        <TableCell className="text-sm">{a.data_effetto ? format(new Date(a.data_effetto), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
+        <TableCell><Badge variant="outline" className="capitalize">{a.tipo}</Badge></TableCell>
+        <TableCell className="max-w-[200px] truncate text-sm">{a.oggetto || "—"}</TableCell>
+        <TableCell className="text-sm">{a.nome_file || "—"}</TableCell>
+        <TableCell>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7" title="Modifica" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}&appendiceId=${a.id}`)}>
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+            {hasFile && (
+              <>
+                <Button variant="ghost" size="icon" className="h-7 w-7" title={open ? "Nascondi anteprima" : "Mostra anteprima"} onClick={() => setOpen((v) => !v)}>
+                  <Eye className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" title="Download" onClick={async () => {
+                  const { data, error } = await supabase.storage.from("documenti_titoli").download(a.file_path);
+                  if (error || !data) return;
+                  const u = URL.createObjectURL(data);
+                  const link = document.createElement("a");
+                  link.href = u; link.download = a.nome_file || "file"; link.click();
+                  URL.revokeObjectURL(u);
+                }}>
+                  <Download className="w-3.5 h-3.5" />
+                </Button>
+              </>
+            )}
+          </div>
+        </TableCell>
+      </TableRow>
+      {open && hasFile && (
+        <TableRow>
+          <TableCell colSpan={7} className="bg-muted/30">
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <Loader2 className="w-4 h-4 animate-spin" /> Caricamento anteprima…
+              </div>
+            )}
+            {!loading && url && kind === "image" && (
+              <img src={url} alt={a.nome_file || "allegato"} className="max-h-72 mx-auto rounded" />
+            )}
+            {!loading && url && kind === "pdf" && (
+              <iframe src={url} title={a.nome_file || "allegato"} className="w-full h-[480px] rounded border-0" />
+            )}
+            {!loading && url && kind === "other" && (
+              <p className="text-sm text-muted-foreground py-3">
+                Anteprima non disponibile per questo tipo di file. Usa il pulsante Download.
+              </p>
+            )}
+            {!loading && !url && (
+              <p className="text-sm text-destructive py-3">Impossibile generare l'anteprima.</p>
+            )}
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
