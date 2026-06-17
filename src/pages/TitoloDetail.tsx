@@ -2391,76 +2391,127 @@ const TitoloDetail = () => {
         {!editingReg ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
             <FieldRow label="Regolazione" value={fmtBool(t.regolazione)} />
+            <FieldRow label="Data presunta" value={fmtDate((t as any).regolazione_data_presunta)} />
+            <FieldRow label="Fattore" value={fmt({
+              fatturato: "Fatturato",
+              num_dipendenti: "N° dipendenti",
+              retribuzioni: "Retribuzioni",
+              altro: "Altro",
+            }[(t as any).regolazione_fattore as string] ?? null)} />
             <FieldRow label="Periodicità" value={fmt(t.periodicita)} />
             <FieldRow label="Tipo Scadenza" value={fmt(t.tipo_scadenza)} />
             <FieldRow label="GG Presentazione" value={fmt(t.giorni_presentazione)} />
             <FieldRow label="Tipo Lettera" value={fmt(t.tipo_lettera_regolazione)} />
             <FieldRow label="Libro Matricola" value={fmt(t.libro_matricola)} />
+            {(t as any).regolazione_note && (
+              <div className="col-span-2 md:col-span-4 text-xs">
+                <span className="text-muted-foreground">Note: </span>
+                <span>{(t as any).regolazione_note}</span>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="flex items-center gap-2">
-              <Checkbox
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-md border bg-muted/40 p-3">
+              <Switch
                 id="reg-check"
                 checked={regForm.regolazione}
                 onCheckedChange={(v) => setRegForm(p => ({ ...p, regolazione: !!v }))}
               />
-              <Label htmlFor="reg-check">Regolazione attiva</Label>
+              <Label htmlFor="reg-check" className="font-medium">Polizza in regolazione (promemoria)</Label>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">Periodicità</Label>
-              <SearchableSelect
-                options={periodicitaOpts}
-                value={regForm.periodicita}
-                onValueChange={(v) => setRegForm(p => ({ ...p, periodicita: v }))}
-                placeholder="Seleziona periodicità"
-              />
-            </div>
+            {regForm.regolazione && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 rounded-md border border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 p-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Data presunta regolazione</Label>
+                  <Input
+                    type="date"
+                    value={regForm.regolazione_data_presunta}
+                    onChange={(e) => setRegForm(p => ({ ...p, regolazione_data_presunta: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Fattore di regolazione</Label>
+                  <SearchableSelect
+                    options={[
+                      { value: "fatturato", label: "Fatturato" },
+                      { value: "num_dipendenti", label: "N° dipendenti" },
+                      { value: "retribuzioni", label: "Retribuzioni" },
+                      { value: "altro", label: "Altro" },
+                    ]}
+                    value={regForm.regolazione_fattore}
+                    onValueChange={(v) => setRegForm(p => ({ ...p, regolazione_fattore: v }))}
+                    placeholder="Seleziona fattore"
+                    clearable
+                  />
+                </div>
+                <div className="space-y-1 md:col-span-3">
+                  <Label className="text-xs">Note</Label>
+                  <Input
+                    value={regForm.regolazione_note}
+                    onChange={(e) => setRegForm(p => ({ ...p, regolazione_note: e.target.value }))}
+                    placeholder="Eventuali note sul promemoria"
+                  />
+                </div>
+              </div>
+            )}
 
-            <div className="space-y-1">
-              <Label className="text-xs">Tipo Scadenza</Label>
-              <SearchableSelect
-                options={tipoScadenzaOpts}
-                value={regForm.tipo_scadenza}
-                onValueChange={(v) => setRegForm(p => ({ ...p, tipo_scadenza: v }))}
-                placeholder="Seleziona tipo scadenza"
-              />
-            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <Label className="text-xs">Periodicità</Label>
+                <SearchableSelect
+                  options={periodicitaOpts}
+                  value={regForm.periodicita}
+                  onValueChange={(v) => setRegForm(p => ({ ...p, periodicita: v }))}
+                  placeholder="Seleziona periodicità"
+                />
+              </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">GG Presentazione</Label>
-              <Input
-                type="number"
-                value={regForm.giorni_presentazione}
-                onChange={(e) => setRegForm(p => ({ ...p, giorni_presentazione: parseInt(e.target.value) || 0 }))}
-              />
-            </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Tipo Scadenza</Label>
+                <SearchableSelect
+                  options={tipoScadenzaOpts}
+                  value={regForm.tipo_scadenza}
+                  onValueChange={(v) => setRegForm(p => ({ ...p, tipo_scadenza: v }))}
+                  placeholder="Seleziona tipo scadenza"
+                />
+              </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">Tipo Lettera</Label>
-              <SearchableSelect
-                options={tipoLetteraOpts}
-                value={regForm.tipo_lettera_regolazione}
-                onValueChange={(v) => setRegForm(p => ({ ...p, tipo_lettera_regolazione: v }))}
-                placeholder="Seleziona tipo lettera"
-              />
-            </div>
+              <div className="space-y-1">
+                <Label className="text-xs">GG Presentazione</Label>
+                <Input
+                  type="number"
+                  value={regForm.giorni_presentazione}
+                  onChange={(e) => setRegForm(p => ({ ...p, giorni_presentazione: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">Libro Matricola</Label>
-              <RadioGroup
-                value={regForm.libro_matricola}
-                onValueChange={(v) => setRegForm(p => ({ ...p, libro_matricola: v }))}
-                className="flex gap-4 mt-1"
-              >
-                {["no", "auto", "altro"].map(v => (
-                  <div key={v} className="flex items-center gap-1">
-                    <RadioGroupItem value={v} id={`lm-${v}`} />
-                    <Label htmlFor={`lm-${v}`} className="text-sm capitalize">{v}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
+              <div className="space-y-1">
+                <Label className="text-xs">Tipo Lettera</Label>
+                <SearchableSelect
+                  options={tipoLetteraOpts}
+                  value={regForm.tipo_lettera_regolazione}
+                  onValueChange={(v) => setRegForm(p => ({ ...p, tipo_lettera_regolazione: v }))}
+                  placeholder="Seleziona tipo lettera"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Libro Matricola</Label>
+                <RadioGroup
+                  value={regForm.libro_matricola}
+                  onValueChange={(v) => setRegForm(p => ({ ...p, libro_matricola: v }))}
+                  className="flex gap-4 mt-1"
+                >
+                  {["no", "auto", "altro"].map(v => (
+                    <div key={v} className="flex items-center gap-1">
+                      <RadioGroupItem value={v} id={`lm-${v}`} />
+                      <Label htmlFor={`lm-${v}`} className="text-sm capitalize">{v}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
             </div>
           </div>
         )}
