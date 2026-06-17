@@ -472,11 +472,6 @@ const TitoloDetail = () => {
     if (titolo) {
       setRegForm({
         regolazione: titolo.regolazione ?? false,
-        periodicita: titolo.periodicita ?? "",
-        tipo_scadenza: titolo.tipo_scadenza ?? "",
-        giorni_presentazione: titolo.giorni_presentazione ?? 0,
-        tipo_lettera_regolazione: titolo.tipo_lettera_regolazione ?? "",
-        libro_matricola: titolo.libro_matricola ?? "",
         regolazione_data_presunta: (titolo as any).regolazione_data_presunta ?? "",
         regolazione_fattore: (titolo as any).regolazione_fattore ?? "",
         regolazione_note: (titolo as any).regolazione_note ?? "",
@@ -492,11 +487,6 @@ const TitoloDetail = () => {
         .from("titoli")
         .update({
           regolazione: regForm.regolazione,
-          periodicita: regForm.periodicita || null,
-          tipo_scadenza: regForm.tipo_scadenza || null,
-          giorni_presentazione: regForm.giorni_presentazione,
-          tipo_lettera_regolazione: regForm.tipo_lettera_regolazione || null,
-          libro_matricola: regForm.libro_matricola || null,
           regolazione_data_presunta: regForm.regolazione ? (regForm.regolazione_data_presunta || null) : null,
           regolazione_fattore: regForm.regolazione ? (regForm.regolazione_fattore || null) : null,
           regolazione_note: regForm.regolazione ? (regForm.regolazione_note || null) : null,
