@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Trash2, Download, Pencil, X, Plus } from "lucide-react";
+import { Trash2, Download, Pencil, X, Plus, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -22,9 +23,8 @@ import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 
 const TIPI_APPENDICE = [
   { value: "modifica", label: "Modifica" },
-  { value: "integrazione", label: "Integrazione" },
-  { value: "rettifica", label: "Rettifica" },
-  { value: "annullamento_parziale", label: "Annullamento parziale" },
+  { value: "proroga", label: "Appendice di proroga" },
+  { value: "regolazione", label: "Regolazione" },
 ];
 
 const AppendiciPolizzaPage = () => {
