@@ -32,6 +32,16 @@ interface Props {
 const fmt = (n: number | null | undefined) =>
   n == null ? "-" : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
 const fmtDate = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString("it-IT") : "-");
+const formatAge = (ms: number): string => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} min`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `${h}h`;
+  const d = Math.round(h / 24);
+  return `${d}g`;
+};
 
 export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, onCreated }: Props) {
   const { user } = useAuth();
@@ -124,10 +134,17 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
   // Chiave bozza per autosave (per titolo)
   const draftKey = titoloId ? `appendice-draft:${titoloId}` : null;
+  const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 giorni
+  const DRAFT_STALE_MS = 24 * 60 * 60 * 1000;   // > 24h = "vecchia"
   const [draftRestored, setDraftRestored] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const draftAge = draftSavedAt ? Date.now() - draftSavedAt : null;
+  const draftStale = draftAge != null && draftAge > DRAFT_STALE_MS;
 
   useEffect(() => {
-    if (!open) { setDraftRestored(false); return; }
+    if (!open) { setDraftRestored(false); setDraftSavedAt(null); setAutosaveStatus("idle"); return; }
     const max = (existing || []).reduce((acc, a: any) => Math.max(acc, parseInt(a.numero_appendice) || 0), 0);
     setNumeroAppendice(String(max + 1));
 
@@ -138,18 +155,25 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         const raw = localStorage.getItem(draftKey);
         if (raw) {
           const d = JSON.parse(raw);
-          setDataAppendice(d.dataAppendice ?? "");
-          setDataEffetto(d.dataEffetto ?? "");
-          setOggetto(d.oggetto ?? "");
-          setTipo(d.tipo ?? "modifica");
-          setNote(d.note ?? "");
-          setQuietanzaId(d.quietanzaId ?? "");
-          setPremioNetto(d.premioNetto ?? "");
-          setTasse(d.tasse ?? "");
-          setPremioLordo(d.premioLordo ?? "");
-          setProvvigioni(d.provvigioni ?? "");
-          setPercProvv(d.percProvv ?? "");
-          restored = true;
+          const savedAt: number | undefined = typeof d.savedAt === "number" ? d.savedAt : undefined;
+          const expired = savedAt != null && Date.now() - savedAt > DRAFT_TTL_MS;
+          if (expired) {
+            try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
+          } else {
+            setDataAppendice(d.dataAppendice ?? "");
+            setDataEffetto(d.dataEffetto ?? "");
+            setOggetto(d.oggetto ?? "");
+            setTipo(d.tipo ?? "modifica");
+            setNote(d.note ?? "");
+            setQuietanzaId(d.quietanzaId ?? "");
+            setPremioNetto(d.premioNetto ?? "");
+            setTasse(d.tasse ?? "");
+            setPremioLordo(d.premioLordo ?? "");
+            setProvvigioni(d.provvigioni ?? "");
+            setPercProvv(d.percProvv ?? "");
+            setDraftSavedAt(savedAt ?? null);
+            restored = true;
+          }
         }
       } catch { /* ignore */ }
     }
@@ -167,6 +191,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
       setPremioLordo("");
       setProvvigioni("");
       setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
+      setDraftSavedAt(null);
     }
     setFile(null);
     setFiles([]);
@@ -362,18 +387,21 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     const hasAny =
       tipo !== "modifica" || oggetto || note || quietanzaId ||
       premioNetto || tasse || premioLordo || provvigioni || dataEffetto;
+    if (!hasAny) return;
+    setAutosaveStatus("saving");
     const t = setTimeout(() => {
       try {
-        if (hasAny) {
-          localStorage.setItem(draftKey, JSON.stringify({
-            tipo, dataAppendice, dataEffetto, oggetto, note,
-            quietanzaId, premioNetto, tasse, premioLordo, provvigioni, percProvv,
-            savedAt: Date.now(),
-          }));
-        } else {
-          localStorage.removeItem(draftKey);
-        }
-      } catch { /* ignore quota */ }
+        const now = Date.now();
+        localStorage.setItem(draftKey, JSON.stringify({
+          tipo, dataAppendice, dataEffetto, oggetto, note,
+          quietanzaId, premioNetto, tasse, premioLordo, provvigioni, percProvv,
+          savedAt: now,
+        }));
+        setDraftSavedAt(now);
+        setAutosaveStatus("saved");
+      } catch {
+        setAutosaveStatus("error");
+      }
     }, 400);
     return () => clearTimeout(t);
   }, [open, draftKey, tipo, dataAppendice, dataEffetto, oggetto, note,
@@ -417,8 +445,17 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         </DialogHeader>
 
         {draftRestored && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2">
-            <span>Bozza precedente ripristinata automaticamente.</span>
+          <div className={cn(
+            "rounded-md border px-3 py-2 text-xs flex items-center justify-between gap-2",
+            draftStale
+              ? "border-orange-400 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800 text-orange-900 dark:text-orange-200"
+              : "border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 text-amber-900 dark:text-amber-200"
+          )}>
+            <span>
+              {draftStale
+                ? `Bozza vecchia ripristinata (salvata ${formatAge(draftAge!)} fa). Verificala prima di salvare.`
+                : `Bozza ripristinata automaticamente${draftAge != null ? ` (salvata ${formatAge(draftAge)} fa)` : ""}.`}
+            </span>
             <Button
               type="button"
               variant="ghost"
@@ -427,6 +464,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
               onClick={() => {
                 if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
                 setDraftRestored(false);
+                setDraftSavedAt(null);
+                setAutosaveStatus("idle");
                 setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
                 setDataEffetto(""); setOggetto(""); setTipo("modifica"); setNote("");
                 setQuietanzaId(""); setPremioNetto(""); setTasse("");
@@ -434,10 +473,11 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                 setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
               }}
             >
-              Scarta bozza
+              Elimina bozza
             </Button>
           </div>
         )}
+
 
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -597,6 +637,40 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                       <div className="text-xs text-muted-foreground">Provvigioni</div>
                       <div className="font-semibold tabular-nums">{fmt(parsedReg.provvigioni)}</div>
                     </div>
+                  </div>
+
+                  {/* Stato autosave bozza */}
+                  <div className="mt-3 pt-2 border-t flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      {autosaveStatus === "saving" && (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                          <span className="text-muted-foreground">Salvataggio bozza in corso…</span>
+                        </>
+                      )}
+                      {autosaveStatus === "saved" && (
+                        <>
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          <span className="text-muted-foreground">
+                            Bozza salvata{draftSavedAt ? ` · ${new Date(draftSavedAt).toLocaleTimeString("it-IT")}` : ""}
+                          </span>
+                        </>
+                      )}
+                      {autosaveStatus === "error" && (
+                        <>
+                          <AlertCircle className="h-3 w-3 text-destructive" />
+                          <span className="text-destructive">Errore nel salvataggio bozza</span>
+                        </>
+                      )}
+                      {autosaveStatus === "idle" && (
+                        <span className="text-muted-foreground">Bozza non salvata</span>
+                      )}
+                    </div>
+                    {hasErrors && (
+                      <span className="text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> Correggi i campi evidenziati prima di salvare
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
