@@ -297,6 +297,38 @@ const TitoloDetail = () => {
     enabled: !!numeroTitolo,
   });
 
+  // Quietanza madre della regolazione (se il titolo corrente è una RG)
+  const madreQuietanzaId: string | null = (titolo as any)?.is_regolazione
+    ? (titolo as any).regolazione_quietanza_id || null
+    : null;
+  const { data: madreQuietanza } = useQuery({
+    queryKey: ["madre-quietanza", madreQuietanzaId],
+    enabled: !!madreQuietanzaId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, garanzia_da, garanzia_a, sostituisce_polizza, riga")
+        .eq("id", madreQuietanzaId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  // Regolazioni collegate al titolo corrente (visualizzate sul titolo madre)
+  const { data: regolazioniCollegate = [] } = useQuery({
+    queryKey: ["regolazioni-collegate", id],
+    enabled: !!id && !(titolo as any)?.is_regolazione,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, premio_lordo, premio_netto, provvigioni_firma, stato, data_messa_cassa, garanzia_da, garanzia_a, created_at")
+        .eq("regolazione_quietanza_id", id!)
+        .order("created_at", { ascending: true });
+      return data || [];
+    },
+  });
+
+
   // --- Cassa dialog state ---
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -1402,6 +1434,7 @@ const TitoloDetail = () => {
   // di creazione e non si può modificare inline. Operazioni dedicate
   // (Annulla Messa a Cassa, Storno, Rinnovo) restano disponibili.
   const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
+  const isRegolazione = !!(t as any).is_regolazione;
 
   // Catena polizza: usata per banner "scope" e pannello "Quietanze sorelle"
   const isQuietanzaCorrente = isQuietanzaTitolo(t);
@@ -1426,7 +1459,19 @@ const TitoloDetail = () => {
   return (
     <div className="space-y-4 max-w-5xl">
       {/* Header — sticky sotto la topbar globale */}
-      <TitoloHeaderBar t={t} onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`) : navigate("/portafoglio/carico")} />
+      <TitoloHeaderBar
+        t={t}
+        onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`) : navigate("/portafoglio/carico")}
+        madre={madreQuietanza ? {
+          id: (madreQuietanza as any).id,
+          numero_titolo: (madreQuietanza as any).numero_titolo,
+          garanzia_da: (madreQuietanza as any).garanzia_da,
+          garanzia_a: (madreQuietanza as any).garanzia_a,
+          rataLabel: (madreQuietanza as any).sostituisce_polizza
+            ? `Rata ${(madreQuietanza as any).riga ?? ""}`.trim()
+            : "Polizza",
+        } : null}
+      />
 
 
       {/* Banner di blocco + banner scope quietanza */}
@@ -1447,6 +1492,57 @@ const TitoloDetail = () => {
         catena={catenaCorrente || null}
         onNavigate={(rid) => navigate(`/titoli/${rid}`)}
       />
+
+      {/* Pannello "Regolazioni collegate" — solo per titoli non-RG con almeno una RG */}
+      {!isRegolazione && regolazioniCollegate.length > 0 && (
+        <Card className="border-l-4 border-l-orange-500 shadow-sm">
+          <CardHeader className="pb-3 bg-orange-50/60 dark:bg-orange-950/20 border-b">
+            <CardTitle className="text-sm sm:text-base font-semibold text-orange-900 dark:text-orange-100 flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" /> Regolazioni collegate ({regolazioniCollegate.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase text-muted-foreground bg-muted/40">
+                <tr>
+                  <th className="text-left px-3 py-2">Numero</th>
+                  <th className="text-left px-3 py-2">Periodo</th>
+                  <th className="text-right px-3 py-2">Premio Lordo</th>
+                  <th className="text-left px-3 py-2">Stato</th>
+                  <th className="text-left px-3 py-2">Messa a cassa</th>
+                  <th className="w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {regolazioniCollegate.map((rg: any) => (
+                  <tr
+                    key={rg.id}
+                    className="border-t hover:bg-orange-50/40 dark:hover:bg-orange-950/20 cursor-pointer"
+                    onClick={() => navigate(`/titoli/${rg.id}`)}
+                  >
+                    <td className="px-3 py-2 font-mono">{rg.numero_titolo}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {rg.garanzia_da ? new Date(rg.garanzia_da).toLocaleDateString("it-IT") : "—"}
+                      {rg.garanzia_a ? ` → ${new Date(rg.garanzia_a).toLocaleDateString("it-IT")}` : ""}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtEuro(rg.premio_lordo)}</td>
+                    <td className="px-3 py-2">
+                      <Badge variant={rg.stato === "incassato" ? "default" : "secondary"} className={rg.stato === "incassato" ? "bg-amber-500 hover:bg-amber-600" : ""}>
+                        {rg.stato}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {rg.data_messa_cassa ? new Date(rg.data_messa_cassa).toLocaleDateString("it-IT") : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">›</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* Card dedicata: rinnovo in attesa di messa a cassa della polizza precedente */}
       {t.stato === "in_attesa_rinnovo" && (
@@ -1507,39 +1603,61 @@ const TitoloDetail = () => {
         <Card className="border-l-4 border-l-teal-600 shadow-sm">
           <CardHeader className="pb-3 bg-teal-50/60 dark:bg-teal-950/20 border-b"><CardTitle className="text-sm sm:text-base font-semibold text-teal-900 dark:text-teal-100">Operazioni</CardTitle></CardHeader>
           <CardContent className="flex gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
-              <Clock className="w-4 h-4 mr-1" /> Sospensione
-            </Button>
-            <Button variant="outline" size="sm" disabled={t.stato !== "sospeso"} title={t.stato !== "sospeso" ? "Solo le polizze sospese possono essere riattivate" : undefined} onClick={() => setRiattivazioneOpen(true)}>
-              <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
-              <Replace className="w-4 h-4 mr-1" /> Sostituzione
-            </Button>
-            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)}>
-              <Ban className="w-4 h-4 mr-1" /> Estinzione
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
-              <FileText className="w-4 h-4 mr-1" /> Appendici
-            </Button>
+            {isRegolazione && (
+              <div className="w-full -mt-1 mb-1 rounded-md border border-orange-300 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800 px-3 py-2 text-xs text-orange-900 dark:text-orange-200">
+                Questo titolo è una <strong>Regolazione</strong>{madreQuietanza ? <> collegata a <span className="font-medium">{(madreQuietanza as any).numero_titolo}</span></> : null}. Sono disponibili solo Messa a Cassa, Storno e Annullamento.
+              </div>
+            )}
+            
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
+                <Clock className="w-4 h-4 mr-1" /> Sospensione
+              </Button>
+            )}
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" disabled={t.stato !== "sospeso"} title={t.stato !== "sospeso" ? "Solo le polizze sospese possono essere riattivate" : undefined} onClick={() => setRiattivazioneOpen(true)}>
+                <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
+              </Button>
+            )}
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
+                <Replace className="w-4 h-4 mr-1" /> Sostituzione
+              </Button>
+            )}
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)}>
+                <Ban className="w-4 h-4 mr-1" /> Estinzione
+              </Button>
+            )}
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+                <FileText className="w-4 h-4 mr-1" /> Appendici
+              </Button>
+            )}
             <Button variant="outline" size="sm" disabled={["stornato","estinto","sostituito","annullato"].includes(t.stato)} title={["stornato","estinto","sostituito","annullato"].includes(t.stato) ? `Titolo in stato "${t.stato}": storno non disponibile` : undefined} onClick={() => setStornoOpen(true)}>
               <ArrowRightLeft className="w-4 h-4 mr-1" /> Storno
             </Button>
-            <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${t.id}&quietanzaRefId=${t.id}`)}>
-              <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}`)}>
-              <FileText className="w-4 h-4 mr-1" /> Precontrattuale
-            </Button>
-            <ImportPolizzaAiButton
-              titoloId={t.id}
-              ramo={t.ramo}
-              onImported={() => {
-                queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "firma"] });
-                queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "quietanza"] });
-                queryClient.invalidateQueries({ queryKey: ["premi-garanzia", t.id] });
-              }}
-            />
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${t.id}&quietanzaRefId=${t.id}`)}>
+                <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
+              </Button>
+            )}
+            {!isRegolazione && (
+              <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}`)}>
+                <FileText className="w-4 h-4 mr-1" /> Precontrattuale
+              </Button>
+            )}
+            {!isRegolazione && (
+              <ImportPolizzaAiButton
+                titoloId={t.id}
+                ramo={t.ramo}
+                onImported={() => {
+                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "firma"] });
+                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "quietanza"] });
+                  queryClient.invalidateQueries({ queryKey: ["premi-garanzia", t.id] });
+                }}
+              />
+            )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -1583,25 +1701,27 @@ const TitoloDetail = () => {
               </AlertDialogContent>
             </AlertDialog>
 
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!t.data_messa_cassa}
-              title={!t.data_messa_cassa ? "Disponibile solo dopo la messa a cassa" : "Reinvia email di notifica all'agenzia/compagnia"}
-              onClick={async () => {
-                const tid = toast.loading("Invio notifica messa a cassa...");
-                const res: any = await supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } });
-                toast.dismiss(tid);
-                if (res?.error) {
-                  toast.error(`Notifica non inviata: ${res.error.message ?? res.error}`);
-                } else {
-                  toast.success(`Notifica inviata a ${res?.data?.recipient ?? "destinatario"}`);
-                  queryClient.invalidateQueries({ queryKey: ["log-attivita", t.id] });
-                }
-              }}
-            >
-              <Mail className="w-4 h-4 mr-1" /> Reinvia notifica
-            </Button>
+            {!isRegolazione && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!t.data_messa_cassa}
+                title={!t.data_messa_cassa ? "Disponibile solo dopo la messa a cassa" : "Reinvia email di notifica all'agenzia/compagnia"}
+                onClick={async () => {
+                  const tid = toast.loading("Invio notifica messa a cassa...");
+                  const res: any = await supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } });
+                  toast.dismiss(tid);
+                  if (res?.error) {
+                    toast.error(`Notifica non inviata: ${res.error.message ?? res.error}`);
+                  } else {
+                    toast.success(`Notifica inviata a ${res?.data?.recipient ?? "destinatario"}`);
+                    queryClient.invalidateQueries({ queryKey: ["log-attivita", t.id] });
+                  }
+                }}
+              >
+                <Mail className="w-4 h-4 mr-1" /> Reinvia notifica
+              </Button>
+            )}
 
             {/* ===== Sotto-sezione Messa a Cassa unificata ===== */}
             {(t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
