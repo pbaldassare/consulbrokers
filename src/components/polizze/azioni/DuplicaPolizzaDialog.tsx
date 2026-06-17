@@ -138,7 +138,7 @@ export const DuplicaPolizzaDialog = ({ open, onOpenChange, titoloId, numeroPoliz
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Copy className="w-5 h-5 text-teal-600" />

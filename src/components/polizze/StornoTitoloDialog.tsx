@@ -306,7 +306,7 @@ export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Storno Polizza</DialogTitle>
             <DialogDescription>
