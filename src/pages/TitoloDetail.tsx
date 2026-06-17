@@ -2387,11 +2387,6 @@ const TitoloDetail = () => {
               retribuzioni: "Retribuzioni",
               altro: "Altro",
             }[(t as any).regolazione_fattore as string] ?? null)} />
-            <FieldRow label="Periodicità" value={fmt(t.periodicita)} />
-            <FieldRow label="Tipo Scadenza" value={fmt(t.tipo_scadenza)} />
-            <FieldRow label="GG Presentazione" value={fmt(t.giorni_presentazione)} />
-            <FieldRow label="Tipo Lettera" value={fmt(t.tipo_lettera_regolazione)} />
-            <FieldRow label="Libro Matricola" value={fmt(t.libro_matricola)} />
             {(t as any).regolazione_note && (
               <div className="col-span-2 md:col-span-4 text-xs">
                 <span className="text-muted-foreground">Note: </span>
