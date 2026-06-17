@@ -364,9 +364,21 @@ const AppendiciPolizzaPage = () => {
           <Button variant="secondary" onClick={() => paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/attive")}>
             Chiudi
           </Button>
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? "Salvataggio..." : editingId ? "Aggiorna Appendice" : "Salva Appendice"}
-          </Button>
+          {tipo === "regolazione" ? (
+            <Button
+              onClick={() => {
+                if (!paramTitoloId) return;
+                navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${paramTitoloId}`);
+              }}
+              disabled={!paramTitoloId}
+            >
+              Apri form regolazione <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? "Salvataggio..." : editingId ? "Aggiorna Appendice" : "Salva Appendice"}
+            </Button>
+          )}
         </div>
       </PolizzaSection>
 
