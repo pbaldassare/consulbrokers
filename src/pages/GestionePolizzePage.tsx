@@ -594,14 +594,20 @@ const GestionePolizzePage = () => {
                 </Table>
               </CardContent>
             </Card>
-            {(polizze?.length ?? 0) >= 25 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Mostrate le prime 25 polizze. Affina i filtri per restringere la ricerca.
-              </p>
-            )}
+            <ServerPagination
+              page={page}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={setPage}
+            />
+          </PolizzaSection>
+
+          <PolizzaSection title="4. Attività recenti" icon={Wand2} defaultOpen={false}>
+            <AttivitaRecentiPanel operationKey={opKey} operationLabel={operazione.label} />
           </PolizzaSection>
         </>
       )}
+
 
       {/* Dialogs */}
       {target && (
