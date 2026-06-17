@@ -90,6 +90,8 @@ interface Operazione {
   escludeMessaCassa?: boolean;
   /** richiede `cig_temporaneo` valorizzato */
   richiedeCigTemporaneo?: boolean;
+  /** richiede `regolazione = true` */
+  richiedeRegolazione?: boolean;
   adminOnly?: boolean;
 }
 
@@ -107,6 +109,7 @@ const OPERAZIONI: Operazione[] = [
   { key: "carica_doc", label: "Carica Doc.", icon: Upload, descrizione: "Carica documenti", statiFiltro: [] },
   { key: "precontrattuale", label: "Precontrattuale", icon: FileText, descrizione: "Genera doc. precontrattuale", statiFiltro: [] },
   { key: "cig_temporanei", label: "CIG Temporanei", icon: Hash, descrizione: "Polizze con numero provvisorio", statiFiltro: [], richiedeCigTemporaneo: true },
+  { key: "regolazioni_attese", label: "Regolazioni Attese", icon: FileClock, descrizione: "Polizze in attesa di regolazione", statiFiltro: [], richiedeRegolazione: true },
 ];
 
 const STATI_OPTIONS = ["", "attivo", "sospeso", "scaduto", "incassato", "annullato", "stornato"];
