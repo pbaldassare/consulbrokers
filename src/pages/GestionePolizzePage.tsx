@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -113,15 +113,21 @@ const GestionePolizzePage = () => {
   const queryClient = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
   const canTitoli = isAdmin || hasPermission("titoli");
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [opKey, setOpKey] = useState<OperazioneKey | null>(null);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [opKey, setOpKey] = useState<OperazioneKey | null>(
+    (searchParams.get("op") as OperazioneKey | null) || null,
+  );
+  const [search, setSearch] = useState(searchParams.get("q") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get("q") || "");
   const [statoFilter, setStatoFilter] = useState<string>("");
   const [scadDal, setScadDal] = useState("");
   const [scadAl, setScadAl] = useState("");
-  const [clienteId, setClienteId] = useState<string>("");
+  const [clienteId, setClienteId] = useState<string>(searchParams.get("cliente") || "");
   const [compagniaId, setCompagniaId] = useState<string>("");
+  const [cigFilter, setCigFilter] = useState<"all" | "with" | "without">(
+    (searchParams.get("cig") as "all" | "with" | "without") || "all",
+  );
   const [sortBy, setSortBy] = useState<"data_scadenza" | "numero_titolo">("data_scadenza");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -130,6 +136,16 @@ const GestionePolizzePage = () => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Persist filters in URL (so back-navigation from /titoli/:id restores state)
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (opKey) params.op = opKey;
+    if (debouncedSearch) params.q = debouncedSearch;
+    if (clienteId) params.cliente = clienteId;
+    if (cigFilter !== "all") params.cig = cigFilter;
+    setSearchParams(params, { replace: true });
+  }, [opKey, debouncedSearch, clienteId, cigFilter, setSearchParams]);
 
   // dialog state
   const [target, setTarget] = useState<{ id: string; numero: string } | null>(null);
@@ -161,9 +177,22 @@ const GestionePolizzePage = () => {
     scadAl,
     clienteId,
     compagniaId,
+    cigFilter,
     sortBy,
     sortDir,
   ]);
+
+  // Conteggio live CIG temporanei (per badge sulla card)
+  const { data: cigCount = 0 } = useQuery({
+    queryKey: ["gestione-polizze-cig-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("titoli")
+        .select("id", { count: "exact", head: true })
+        .eq("cig_temporaneo", true);
+      return count ?? 0;
+    },
+  });
 
   // Opzioni Cliente / Compagnia per SearchableSelect
   const { data: clientiOpts = [] } = useQuery({
@@ -211,21 +240,32 @@ const GestionePolizzePage = () => {
       scadAl,
       clienteId,
       compagniaId,
+      cigFilter,
       sortBy,
       sortDir,
       page,
     ],
     enabled: !!opKey,
     queryFn: async () => {
-      // Pre-filtro CIG temporanei: prendiamo gli id da titoli (la view non espone cig_temporaneo)
+      // Pre-filtro CIG (operazione dedicata o filtro multi)
       let cigIds: string[] | null = null;
-      if (operazione?.richiedeCigTemporaneo) {
+      const needsCigWith = operazione?.richiedeCigTemporaneo || cigFilter === "with";
+      const needsCigWithout = cigFilter === "without" && !operazione?.richiedeCigTemporaneo;
+      if (needsCigWith) {
         const { data: cigRows } = await supabase
           .from("titoli")
           .select("id")
-          .not("cig_temporaneo", "is", null);
+          .eq("cig_temporaneo", true);
         cigIds = (cigRows || []).map((r: any) => r.id);
-        if (cigIds.length === 0) return { rows: [], count: 0 };
+        if (cigIds.length === 0) return { rows: [], count: 0, cigMap: {} as Record<string, { cig_temporaneo: boolean; cig_rif: string | null }> };
+      } else if (needsCigWithout) {
+        const { data: cigRows } = await supabase
+          .from("titoli")
+          .select("id")
+          .eq("cig_temporaneo", true);
+        const excludeIds = (cigRows || []).map((r: any) => r.id);
+        // Per "senza CIG" useremo .not("id","in",...) sotto
+        cigIds = excludeIds.length > 0 ? excludeIds : [];
       }
 
       let q = supabase
@@ -237,7 +277,10 @@ const GestionePolizzePage = () => {
         .order(sortBy, { ascending: sortDir === "asc" })
         .range(range.from, range.to);
 
-      if (cigIds) q = q.in("id", cigIds);
+      if (needsCigWith && cigIds) q = q.in("id", cigIds);
+      if (needsCigWithout && cigIds && cigIds.length > 0) {
+        q = q.not("id", "in", `(${cigIds.map((i) => `"${i}"`).join(",")})`);
+      }
       if (statiAttivi.length > 0) q = q.in("stato", statiAttivi);
       if (operazione?.richiedeMessaCassa) q = q.not("data_messa_cassa", "is", null);
       if (operazione?.escludeMessaCassa) q = q.is("data_messa_cassa", null);
@@ -253,12 +296,27 @@ const GestionePolizzePage = () => {
       }
       const { data, error, count } = await q;
       if (error) throw error;
-      return { rows: data || [], count: count ?? 0 };
+
+      // Fetch cig flags per le righe visibili
+      const rows = data || [];
+      let cigMap: Record<string, { cig_temporaneo: boolean; cig_rif: string | null }> = {};
+      if (rows.length > 0) {
+        const ids = rows.map((r: any) => r.id);
+        const { data: cigInfo } = await supabase
+          .from("titoli")
+          .select("id, cig_temporaneo, cig_rif")
+          .in("id", ids);
+        cigMap = Object.fromEntries(
+          (cigInfo || []).map((r: any) => [r.id, { cig_temporaneo: !!r.cig_temporaneo, cig_rif: r.cig_rif }]),
+        );
+      }
+      return { rows, count: count ?? 0, cigMap };
     },
   });
 
   const polizze = result?.rows ?? [];
   const totalCount = result?.count ?? 0;
+  const cigMap = result?.cigMap ?? {};
 
   const handleSelect = (op: OperazioneKey) => {
     setOpKey(op);
@@ -266,6 +324,7 @@ const GestionePolizzePage = () => {
     setStatoFilter("");
     setClienteId("");
     setCompagniaId("");
+    setCigFilter("all");
     resetPage();
   };
 
@@ -422,6 +481,15 @@ const GestionePolizzePage = () => {
                 {op.adminOnly && (
                   <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" title="admin" />
                 )}
+                {op.key === "cig_temporanei" && cigCount > 0 && (
+                  <span
+                    className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center"
+                    title={`${cigCount} CIG temporanei`}
+                    data-testid="cig-count-badge"
+                  >
+                    {cigCount}
+                  </span>
+                )}
                 {disabled && (
                   <Lock className="absolute top-1 right-1 w-3 h-3 text-muted-foreground" />
                 )}
@@ -449,7 +517,7 @@ const GestionePolizzePage = () => {
       {operazione && (
         <>
           <PolizzaSection title="2. Filtra polizza" icon={Filter} defaultOpen>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
                 <SearchableSelect
@@ -474,6 +542,36 @@ const GestionePolizzePage = () => {
                   />
                 </div>
               </div>
+              {!operazione.richiedeCigTemporaneo && (
+                <div className="space-y-1.5">
+                  <Label>CIG</Label>
+                  <div
+                    className="inline-flex w-full rounded-md border border-input bg-background p-0.5"
+                    role="group"
+                    aria-label="filtro-cig"
+                  >
+                    {([
+                      { v: "all", l: "Tutti" },
+                      { v: "with", l: "Con CIG" },
+                      { v: "without", l: "Senza" },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.v}
+                        type="button"
+                        onClick={() => setCigFilter(opt.v)}
+                        data-cig-filter={opt.v}
+                        className={`flex-1 text-xs px-2 py-1.5 rounded transition ${
+                          cigFilter === opt.v
+                            ? "bg-teal-600 text-white"
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {opt.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </PolizzaSection>
 
@@ -521,6 +619,7 @@ const GestionePolizzePage = () => {
                       </TableHead>
                       <TableHead className="text-right">Premio</TableHead>
                       <TableHead>Stato</TableHead>
+                      <TableHead>CIG</TableHead>
                       <TableHead className="text-right">Azione</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -528,7 +627,7 @@ const GestionePolizzePage = () => {
                   <TableBody>
                     {isFetching && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-6">
+                        <TableCell colSpan={10} className="text-center py-6">
                           <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
                           Caricamento...
                         </TableCell>
@@ -536,13 +635,15 @@ const GestionePolizzePage = () => {
                     )}
                     {!isFetching && (polizze?.length ?? 0) === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-6 text-sm text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-6 text-sm text-muted-foreground">
                           Nessuna polizza corrisponde ai filtri impostati.
                         </TableCell>
                       </TableRow>
                     )}
                     {!isFetching &&
-                      polizze?.map((p: any, idx: number) => (
+                      polizze?.map((p: any, idx: number) => {
+                        const cig = cigMap[p.id];
+                        return (
                         <TableRow key={p.id} className={idx % 2 === 0 ? "" : "bg-muted/30"}>
                           <TableCell className="font-mono text-xs">
                             <button
@@ -571,6 +672,18 @@ const GestionePolizzePage = () => {
                               {p.stato}
                             </Badge>
                           </TableCell>
+                          <TableCell>
+                            {cig?.cig_temporaneo ? (
+                              <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]" data-testid="cig-badge-temp">
+                                <Hash className="w-3 h-3 mr-0.5" />
+                                Temp.{cig.cig_rif ? ` ${cig.cig_rif}` : ""}
+                              </Badge>
+                            ) : cig?.cig_rif ? (
+                              <Badge variant="outline" className="text-[10px]">{cig.cig_rif}</Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">
                             <Button size="sm" onClick={() => esegui(p)} className="gap-1">
                               <operazione.icon className="w-3.5 h-3.5" />
@@ -578,7 +691,8 @@ const GestionePolizzePage = () => {
                             </Button>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                   </TableBody>
                 </Table>
               </CardContent>
