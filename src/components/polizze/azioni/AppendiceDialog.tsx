@@ -354,12 +354,19 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                   onValueChange={setQuietanzaId}
                   placeholder="Scegli la rata su cui agganciare la regolazione…"
                   emptyText="Nessuna quietanza disponibile"
+                  className={cn(errors.quietanzaId && errClass)}
                 />
+                <ErrMsg id="quietanzaId" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Cambiando quietanza i campi importi e date si reimpostano sui valori della rata scelta.
+                </p>
               </div>
 
               <div>
                 <Label>Data effetto</Label>
-                <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)} />
+                <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)}
+                  className={cn(errors.dataEffetto && errClass)} />
+                <ErrMsg id="dataEffetto" />
               </div>
               <div>
                 <Label>Data scadenza</Label>
@@ -368,50 +375,37 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
               <div>
                 <Label>Premio netto *</Label>
-                <Input
-                  inputMode="decimal"
-                  value={premioNetto}
+                <Input inputMode="decimal" value={premioNetto}
                   onChange={(e) => setPremioNetto(e.target.value)}
                   placeholder="0,00"
-                />
+                  className={cn(errors.premioNetto && errClass)} />
+                <ErrMsg id="premioNetto" />
               </div>
               <div>
                 <Label>Tasse</Label>
-                <Input
-                  inputMode="decimal"
-                  value={tasse}
-                  onChange={(e) => setTasse(e.target.value)}
-                  placeholder="0,00"
-                />
+                <Input inputMode="decimal" value={tasse}
+                  onChange={(e) => setTasse(e.target.value)} placeholder="0,00"
+                  className={cn(errors.tasse && errClass)} />
+                <ErrMsg id="tasse" />
               </div>
               <div>
                 <Label>Premio lordo</Label>
-                <Input
-                  inputMode="decimal"
-                  value={premioLordo}
-                  onChange={(e) => setPremioLordo(e.target.value)}
-                  placeholder="0,00"
-                />
+                <Input inputMode="decimal" value={premioLordo}
+                  onChange={(e) => setPremioLordo(e.target.value)} placeholder="0,00"
+                  className={cn(errors.premioLordo && errClass)} />
+                <ErrMsg id="premioLordo" />
               </div>
               <div>
                 <Label>Provvigioni</Label>
                 <div className="flex gap-2">
-                  <Input
-                    inputMode="decimal"
-                    value={provvigioni}
-                    onChange={(e) => setProvvigioni(e.target.value)}
-                    placeholder="0,00"
-                    className="flex-1"
-                  />
-                  <Input
-                    inputMode="decimal"
-                    value={percProvv}
-                    onChange={(e) => setPercProvv(e.target.value)}
-                    placeholder="%"
-                    className="w-20"
-                    title="% provvigione (sul netto)"
-                  />
+                  <Input inputMode="decimal" value={provvigioni}
+                    onChange={(e) => setProvvigioni(e.target.value)} placeholder="0,00"
+                    className={cn("flex-1", errors.provvigioni && errClass)} />
+                  <Input inputMode="decimal" value={percProvv}
+                    onChange={(e) => setPercProvv(e.target.value)} placeholder="%"
+                    className="w-20" title="% provvigione (sul netto)" />
                 </div>
+                <ErrMsg id="provvigioni" />
                 <p className="text-xs text-muted-foreground mt-1">
                   Auto-calcolata: netto × % polizza originale. Modificabile.
                 </p>
@@ -419,11 +413,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
               <div className="md:col-span-2">
                 <Label>Oggetto</Label>
-                <Input
-                  value={oggetto}
-                  onChange={(e) => setOggetto(e.target.value)}
-                  placeholder="Es. Conguaglio premio 2026"
-                />
+                <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)}
+                  placeholder="Es. Conguaglio premio 2026" />
               </div>
               <div className="md:col-span-2">
                 <Label>Note interne</Label>
@@ -431,7 +422,28 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
               </div>
               <div className="md:col-span-2">
                 <Label>Allegato (opzionale)</Label>
-                <Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                <Input type="file" accept="image/*,application/pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                {file && filePreviewUrl && (
+                  <div className="mt-2 rounded-md border bg-muted/30 p-2">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                      <FileIcon className="h-3.5 w-3.5" />
+                      <span className="truncate">{file.name}</span>
+                      <span className="ml-auto">{(file.size / 1024).toFixed(0)} KB</span>
+                    </div>
+                    {fileKind === "image" && (
+                      <img src={filePreviewUrl} alt={file.name}
+                        className="max-h-48 w-auto mx-auto rounded" />
+                    )}
+                    {fileKind === "pdf" && (
+                      <iframe src={filePreviewUrl} title={file.name}
+                        className="w-full h-64 rounded border-0" />
+                    )}
+                    {fileKind === "other" && (
+                      <p className="text-xs text-muted-foreground">Anteprima non disponibile per questo tipo di file.</p>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -462,7 +474,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>Annulla</Button>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId}>
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId || (isReg && hasErrors)}>
             {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isReg ? "Crea regolazione" : "Crea appendice"}
           </Button>
