@@ -118,7 +118,7 @@ export const DuplicaPolizzaDialog = ({ open, onOpenChange, titoloId, numeroPoliz
         entita_tipo: "titolo",
         entita_id: nuovo.id,
         azione: "duplicazione",
-        descrizione: `Polizza duplicata da N° ${numeroPolizza || titoloId.slice(0, 8)}`,
+        dettagli_json: { da_numero: numeroPolizza || null, da_titolo_id: titoloId },
         severity: "info",
       }).catch(() => {});
 
