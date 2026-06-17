@@ -796,6 +796,18 @@ const GestionePolizzePage = () => {
                               <span className="text-xs text-muted-foreground">—</span>
                             )}
                           </TableCell>
+                          <TableCell>
+                            {reg?.regolazione ? (
+                              <Badge className={`${regBadgeStyle} text-[10px] gap-0.5`} data-testid="reg-badge">
+                                <FileClock className="w-3 h-3" />
+                                {reg.data_presunta
+                                  ? new Date(reg.data_presunta).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "2-digit" })
+                                  : "Attesa"}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">
                             <Button size="sm" onClick={() => esegui(p)} className="gap-1">
                               <operazione.icon className="w-3.5 h-3.5" />
