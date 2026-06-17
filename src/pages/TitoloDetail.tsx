@@ -32,7 +32,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -297,8 +297,7 @@ const TitoloDetail = () => {
   // --- Regolazione edit state ---
   const [editingReg, setEditingReg] = useState(false);
   const [regForm, setRegForm] = useState({
-    regolazione: false, periodicita: "", tipo_scadenza: "",
-    giorni_presentazione: 0, tipo_lettera_regolazione: "", libro_matricola: "",
+    regolazione: false,
     regolazione_data_presunta: "", regolazione_fattore: "", regolazione_note: "",
   });
 
@@ -473,11 +472,6 @@ const TitoloDetail = () => {
     if (titolo) {
       setRegForm({
         regolazione: titolo.regolazione ?? false,
-        periodicita: titolo.periodicita ?? "",
-        tipo_scadenza: titolo.tipo_scadenza ?? "",
-        giorni_presentazione: titolo.giorni_presentazione ?? 0,
-        tipo_lettera_regolazione: titolo.tipo_lettera_regolazione ?? "",
-        libro_matricola: titolo.libro_matricola ?? "",
         regolazione_data_presunta: (titolo as any).regolazione_data_presunta ?? "",
         regolazione_fattore: (titolo as any).regolazione_fattore ?? "",
         regolazione_note: (titolo as any).regolazione_note ?? "",
@@ -493,11 +487,6 @@ const TitoloDetail = () => {
         .from("titoli")
         .update({
           regolazione: regForm.regolazione,
-          periodicita: regForm.periodicita || null,
-          tipo_scadenza: regForm.tipo_scadenza || null,
-          giorni_presentazione: regForm.giorni_presentazione,
-          tipo_lettera_regolazione: regForm.tipo_lettera_regolazione || null,
-          libro_matricola: regForm.libro_matricola || null,
           regolazione_data_presunta: regForm.regolazione ? (regForm.regolazione_data_presunta || null) : null,
           regolazione_fattore: regForm.regolazione ? (regForm.regolazione_fattore || null) : null,
           regolazione_note: regForm.regolazione ? (regForm.regolazione_note || null) : null,
@@ -513,21 +502,6 @@ const TitoloDetail = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const periodicitaOpts = [
-    { value: "annuale", label: "Annuale" },
-    { value: "semestrale", label: "Semestrale" },
-    { value: "trimestrale", label: "Trimestrale" },
-    { value: "mensile", label: "Mensile" },
-  ];
-  const tipoScadenzaOpts = [
-    { value: "no_scadenza", label: "No scadenza" },
-    { value: "a_scadenza", label: "A scadenza" },
-  ];
-  const tipoLetteraOpts = [
-    { value: "standard", label: "Standard" },
-    { value: "personalizzata", label: "Personalizzata" },
-    { value: "nessuna", label: "Nessuna" },
-  ];
 
   // --- Contratto edit state ---
   const [editingContratto, setEditingContratto] = useState(false);
@@ -2398,11 +2372,6 @@ const TitoloDetail = () => {
               retribuzioni: "Retribuzioni",
               altro: "Altro",
             }[(t as any).regolazione_fattore as string] ?? null)} />
-            <FieldRow label="Periodicità" value={fmt(t.periodicita)} />
-            <FieldRow label="Tipo Scadenza" value={fmt(t.tipo_scadenza)} />
-            <FieldRow label="GG Presentazione" value={fmt(t.giorni_presentazione)} />
-            <FieldRow label="Tipo Lettera" value={fmt(t.tipo_lettera_regolazione)} />
-            <FieldRow label="Libro Matricola" value={fmt(t.libro_matricola)} />
             {(t as any).regolazione_note && (
               <div className="col-span-2 md:col-span-4 text-xs">
                 <span className="text-muted-foreground">Note: </span>
@@ -2456,64 +2425,8 @@ const TitoloDetail = () => {
                 </div>
               </div>
             )}
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <Label className="text-xs">Periodicità</Label>
-                <SearchableSelect
-                  options={periodicitaOpts}
-                  value={regForm.periodicita}
-                  onValueChange={(v) => setRegForm(p => ({ ...p, periodicita: v }))}
-                  placeholder="Seleziona periodicità"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Tipo Scadenza</Label>
-                <SearchableSelect
-                  options={tipoScadenzaOpts}
-                  value={regForm.tipo_scadenza}
-                  onValueChange={(v) => setRegForm(p => ({ ...p, tipo_scadenza: v }))}
-                  placeholder="Seleziona tipo scadenza"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">GG Presentazione</Label>
-                <Input
-                  type="number"
-                  value={regForm.giorni_presentazione}
-                  onChange={(e) => setRegForm(p => ({ ...p, giorni_presentazione: parseInt(e.target.value) || 0 }))}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Tipo Lettera</Label>
-                <SearchableSelect
-                  options={tipoLetteraOpts}
-                  value={regForm.tipo_lettera_regolazione}
-                  onValueChange={(v) => setRegForm(p => ({ ...p, tipo_lettera_regolazione: v }))}
-                  placeholder="Seleziona tipo lettera"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Libro Matricola</Label>
-                <RadioGroup
-                  value={regForm.libro_matricola}
-                  onValueChange={(v) => setRegForm(p => ({ ...p, libro_matricola: v }))}
-                  className="flex gap-4 mt-1"
-                >
-                  {["no", "auto", "altro"].map(v => (
-                    <div key={v} className="flex items-center gap-1">
-                      <RadioGroupItem value={v} id={`lm-${v}`} />
-                      <Label htmlFor={`lm-${v}`} className="text-sm capitalize">{v}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
-            </div>
           </div>
+
         )}
       </SectionCollapsible>
 
