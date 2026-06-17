@@ -46,7 +46,7 @@ import { RiattivazionePolizzaDialog } from "@/components/polizze/RiattivazionePo
 import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
 import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
-import { RegolazionePremioDialog } from "@/components/polizze/RegolazionePremioDialog";
+// RegolazionePremioDialog rimosso: la regolazione passa da ImmissionePolizzaPage in mode=regolazione
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 import { TitoloHeaderBar } from "@/components/titolo/sections/TitoloHeaderBar";
 import { TitoloScopeBanners } from "@/components/titolo/sections/TitoloScopeBanners";
