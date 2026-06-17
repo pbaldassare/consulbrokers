@@ -549,6 +549,33 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                   </div>
                 )}
               </div>
+
+              {/* Riepilogo importi — sempre aggiornato, non modificabile */}
+              <div className="md:col-span-2">
+                <div className="rounded-md border bg-muted/40 p-3">
+                  <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                    Riepilogo regolazione
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs text-muted-foreground">Netto</div>
+                      <div className="font-semibold tabular-nums">{fmt(parsedReg.netto)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Tasse</div>
+                      <div className="font-semibold tabular-nums">{fmt(parsedReg.tasse)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Lordo</div>
+                      <div className="font-semibold tabular-nums">{fmt(parsedReg.lordo)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Provvigioni</div>
+                      <div className="font-semibold tabular-nums">{fmt(parsedReg.provvigioni)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </>
           ) : (
             <>
