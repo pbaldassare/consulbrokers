@@ -102,6 +102,7 @@ interface Operazione {
 }
 
 const OPERAZIONI: Operazione[] = [
+  { key: "nuova_polizza", label: "Nuova Polizza", icon: PlusCircle, descrizione: "Emetti una nuova polizza", statiFiltro: [] },
   { key: "appendice", label: "Appendice", icon: FileEdit, descrizione: "Aggiungi un'appendice", statiFiltro: ["attivo"] },
   { key: "storno", label: "Storno", icon: Ban, descrizione: "Storna premio e quietanze", statiFiltro: ["attivo"] },
   // { key: "rinnovo", ... } — nascosta su richiesta utente (i rinnovi si gestiscono da pagina dedicata)
@@ -110,8 +111,9 @@ const OPERAZIONI: Operazione[] = [
   { key: "sospensione", label: "Sospensione", icon: PauseCircle, descrizione: "Sospendi temporaneamente", statiFiltro: ["attivo"] },
   { key: "riattivazione", label: "Riattivazione", icon: PlayCircle, descrizione: "Riattiva polizza sospesa", statiFiltro: ["sospeso"] },
   { key: "annulla", label: "Annulla", icon: XCircle, descrizione: "Annullamento totale", statiFiltro: [], adminOnly: true },
-  { key: "messa_cassa", label: "Messa a Cassa", icon: Wallet, descrizione: "Incassa e contabilizza", statiFiltro: ["attivo"], escludeMessaCassa: true },
+  // { key: "messa_cassa", ... } — nascosta su richiesta utente (gestita dalla scheda polizza)
   { key: "annulla_messa_cassa", label: "Annulla M.C.", icon: Undo2, descrizione: "Annulla messa a cassa", statiFiltro: [], richiedeMessaCassa: true, adminOnly: true },
+
   { key: "carica_doc", label: "Carica Doc.", icon: Upload, descrizione: "Carica documenti", statiFiltro: [] },
   { key: "precontrattuale", label: "Precontrattuale", icon: FileText, descrizione: "Genera doc. precontrattuale", statiFiltro: [] },
   { key: "cig_temporanei", label: "CIG Temporanei", icon: Hash, descrizione: "Polizze con numero provvisorio", statiFiltro: [], richiedeCigTemporaneo: true },
