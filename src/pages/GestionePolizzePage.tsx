@@ -745,6 +745,16 @@ const GestionePolizzePage = () => {
                     {!isFetching &&
                       polizze?.map((p: any, idx: number) => {
                         const cig = cigMap[p.id];
+                        const reg = regMap[p.id];
+                        const today = new Date().toISOString().slice(0, 10);
+                        const in30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+                        const regBadgeStyle = reg?.regolazione
+                          ? reg.data_presunta && reg.data_presunta < today
+                            ? "bg-red-100 text-red-800 border-red-300"
+                            : reg.data_presunta && reg.data_presunta <= in30
+                            ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                            : "bg-amber-100 text-amber-800 border-amber-300"
+                          : "";
                         return (
                         <TableRow key={p.id} className={idx % 2 === 0 ? "" : "bg-muted/30"}>
                           <TableCell className="font-mono text-xs">
