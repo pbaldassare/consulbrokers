@@ -342,7 +342,8 @@ const GestionePolizzePage = () => {
       if (operazione?.escludeMessaCassa) q = q.is("data_messa_cassa", null);
       if (scadDal) q = q.gte("data_scadenza", scadDal);
       if (scadAl) q = q.lte("data_scadenza", scadAl);
-      // NB: il filtro deve usare cliente_id (FK -> clienti.id) perché la select
+      // NB: in titoli il cliente può essere su cliente_id OPPURE su cliente_anagrafica_id
+      // (legacy: nonostante il nome, contiene clienti.id). Filtrare su entrambi.
       // popola le opzioni da public.clienti. cliente_anagrafica_id punta invece
       // a anagrafiche_professionali.id (ID diverso) → matcha quasi sempre 0 righe.
       if (clienteId) q = q.eq("cliente_id", clienteId);
