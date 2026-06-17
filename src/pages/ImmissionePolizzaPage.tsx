@@ -50,6 +50,15 @@ const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedClienteId = searchParams.get("clienteId");
+  // --- Modalità REGOLAZIONE PREMIO ---
+  // Apertura da AppendiceDialog (Gestione Polizze) o da TitoloDetail.
+  // La pagina precompila i dati dalla polizza madre e crea un nuovo titolo RG
+  // collegato a una quietanza di riferimento (selezionabile via banner).
+  const regolazioneMode = searchParams.get("mode") === "regolazione";
+  const titoloMadreId = searchParams.get("titoloMadreId");
+  const initialQuietanzaRefId = searchParams.get("quietanzaRefId");
+  const [selectedQuietanzaRefId, setSelectedQuietanzaRefId] = useState<string>(initialQuietanzaRefId || "");
+  const regolazionePrefilledRef = useRef<string | null>(null);
   const { user, profile } = useAuth();
   const [saving, setSaving] = useState(false);
   const [aiImportOpen, setAiImportOpen] = useState(false);
@@ -772,6 +781,69 @@ const ImmissionePolizzaPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClienteId]);
 
+  // ============= REGOLAZIONE PREMIO: load polizza madre + quietanze + prefill =============
+  const { data: polizzaMadre } = useQuery({
+    queryKey: ["regolazione-polizza-madre", titoloMadreId],
+    enabled: regolazioneMode && !!titoloMadreId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("*")
+        .eq("id", titoloMadreId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: quietanzePolizza } = useQuery({
+    queryKey: ["regolazione-quietanze", polizzaMadre?.numero_titolo],
+    enabled: regolazioneMode && !!polizzaMadre?.numero_titolo,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, riga, durata_da, durata_a, stato, data_messa_cassa, premio_lordo")
+        .eq("numero_titolo", polizzaMadre!.numero_titolo)
+        .order("riga", { ascending: true });
+      return data || [];
+    },
+  });
+
+  // Prefill form da polizza madre (una sola volta per polizza)
+  useEffect(() => {
+    if (!regolazioneMode || !polizzaMadre) return;
+    if (regolazionePrefilledRef.current === polizzaMadre.id) return;
+    regolazionePrefilledRef.current = polizzaMadre.id;
+
+    if (polizzaMadre.cliente_anagrafica_id) setSelectedClienteId(polizzaMadre.cliente_anagrafica_id);
+    if (polizzaMadre.numero_titolo) setNumeroPolizza(polizzaMadre.numero_titolo);
+    if (polizzaMadre.prodotto_nome) setProdottoNome(polizzaMadre.prodotto_nome);
+    if (polizzaMadre.compagnia_id) setSelectedCompagnia(polizzaMadre.compagnia_id);
+    if ((polizzaMadre as any).compagnia_rapporto_id) setSelectedRapportoId((polizzaMadre as any).compagnia_rapporto_id);
+    if (polizzaMadre.ramo_id) setSelectedRamo(polizzaMadre.ramo_id);
+    if (polizzaMadre.durata_da) setDurataDa(polizzaMadre.durata_da);
+    if (polizzaMadre.durata_a) { setDurataA(polizzaMadre.durata_a); setDurataATouched(true); }
+    if (polizzaMadre.anni_durata) setAnniDurata(String(polizzaMadre.anni_durata));
+    if (polizzaMadre.frazionamento) setFrazionamento(polizzaMadre.frazionamento);
+    if (typeof polizzaMadre.tacito_rinnovo === "boolean") setTacitoRinnovo(polizzaMadre.tacito_rinnovo);
+    if (polizzaMadre.descrizione_polizza) setDescrizionePolizza(polizzaMadre.descrizione_polizza);
+    if ((polizzaMadre as any).anagrafica_commerciale_id) setSelectedAE((polizzaMadre as any).anagrafica_commerciale_id);
+    if ((polizzaMadre as any).ae_anagrafica_id) setSelectedAccountExecutiveId((polizzaMadre as any).ae_anagrafica_id);
+    if (polizzaMadre.ufficio_id) setSelectedUfficioId(polizzaMadre.ufficio_id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regolazioneMode, polizzaMadre]);
+
+  // Quietanza di riferimento di default: l'ultima incassata, altrimenti l'ultima riga
+  useEffect(() => {
+    if (!regolazioneMode) return;
+    if (selectedQuietanzaRefId) return;
+    if (!quietanzePolizza || quietanzePolizza.length === 0) return;
+    const incassate = quietanzePolizza.filter((q: any) => q.stato === "incassato" || q.data_messa_cassa);
+    const target = incassate.length > 0 ? incassate[incassate.length - 1] : quietanzePolizza[quietanzePolizza.length - 1];
+    if (target) setSelectedQuietanzaRefId(target.id);
+  }, [regolazioneMode, quietanzePolizza, selectedQuietanzaRefId]);
+
+
+
   // Nascondi hint quando l'utente cambia compagnia manualmente
   useEffect(() => {
     if (!prefilledHint) return;
@@ -1377,9 +1449,26 @@ const ImmissionePolizzaPage = () => {
     const rapportoSel = (rapportiAgenzia || []).find((r: any) => r.id === selectedRapportoId);
     setSaving(true);
     try {
+      // In modalità regolazione la nuova riga deve essere riga+1 rispetto all'ultima del numero_titolo
+      let regolazioneRiga = 0;
+      let regolazioneNote: string | null = null;
+      if (regolazioneMode && polizzaMadre?.numero_titolo) {
+        const { data: siblings } = await supabase
+          .from("titoli")
+          .select("riga")
+          .eq("numero_titolo", polizzaMadre.numero_titolo);
+        const maxRiga = Math.max(
+          0,
+          ...((siblings || []).map((s: any) => Number(s.riga || 0))),
+          Number(polizzaMadre.riga || 0),
+        );
+        regolazioneRiga = maxRiga + 1;
+        const today = new Date().toISOString().slice(0, 10);
+        regolazioneNote = `Regolazione premio del ${today.split("-").reverse().join("/")} — polizza madre rg.${polizzaMadre.riga ?? 0}`;
+      }
       const payload: Record<string, any> = {
         numero_titolo: numeroPolizza || null,
-        riga: 0,
+        riga: regolazioneMode ? regolazioneRiga : 0,
         appendice: "000",
         // gruppo_compagnia_id non è una colonna di titoli: si deriva via compagnia_rapporti
         compagnia_id: selectedCompagnia || null,
@@ -1463,6 +1552,13 @@ const ImmissionePolizzaPage = () => {
         } : {}),
       };
 
+      // In modalità regolazione: agganciamo polizza madre e note
+      if (regolazioneMode && polizzaMadre) {
+        payload.sostituisce_polizza = polizzaMadre.numero_titolo;
+        payload.sostituisce_riga = polizzaMadre.riga;
+        payload.note = regolazioneNote;
+      }
+
       const { data: newTitolo, error } = await supabase
         .from("titoli")
         .insert(payload)
@@ -1470,24 +1566,50 @@ const ImmissionePolizzaPage = () => {
         .single();
       if (error) throw error;
 
-      // Create first movimento "Polizza Base"
+      // Create first movimento ("Polizza Base" oppure "Regolazione Premio")
       await supabase.from("movimenti_polizza").insert({
         titolo_id: newTitolo.id,
-        riga: 0,
+        riga: regolazioneMode ? regolazioneRiga : 0,
         appendice: "000",
         data_movimento: new Date().toISOString().split("T")[0],
         data_effetto: durataDa || null,
         data_scadenza: durataA || null,
         tacito_rinnovo: tacitoRinnovo,
-        descrizione: cigRif ? `CIG: ${cigRif}` : descrizionePolizza || null,
+        descrizione: regolazioneMode
+          ? (regolazioneNote || "Regolazione premio")
+          : (cigRif ? `CIG: ${cigRif}` : descrizionePolizza || null),
         valuta,
         premio: totFirma || 0,
         provvigioni: provvFirma || 0,
-        tipo: "Polizza Base",
+        tipo: regolazioneMode ? "Regolazione Premio" : "Polizza Base",
         incassato: false,
         stato: "attivo",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
       } as any);
+
+      // Snapshot regolazione (collegamento con polizza madre + quietanza di riferimento)
+      if (regolazioneMode && polizzaMadre) {
+        await supabase.from("titoli_regolazioni").insert({
+          titolo_madre_id: polizzaMadre.id,
+          titolo_regolazione_id: newTitolo.id,
+          quietanza_riferimento_id: selectedQuietanzaRefId || null,
+          data_regolazione: new Date().toISOString().slice(0, 10),
+          periodo_da: durataDa || null,
+          periodo_a: durataA || null,
+          conguaglio_premio: totFirma || 0,
+          note: regolazioneNote,
+          created_by: user?.id || null,
+        } as any);
+
+        // Movimento RG sulla polizza madre (per timeline)
+        await supabase.from("movimenti_polizza").insert({
+          titolo_id: polizzaMadre.id,
+          tipo_documento: "RG",
+          data_movimento: new Date().toISOString().slice(0, 10),
+          descrizione: `Regolazione premio — nuovo titolo riga ${regolazioneRiga}, conguaglio ${(totFirma || 0).toFixed(2)} €`,
+          stato: polizzaMadre.stato,
+        } as any);
+      }
 
       // Save RCA data if applicable
       if (isRCA) {
@@ -1596,8 +1718,14 @@ const ImmissionePolizzaPage = () => {
     <div className="space-y-5 max-w-4xl">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Immissione Polizza</h1>
-          <p className="text-sm text-muted-foreground mt-1">Inserimento nuova polizza nel portafoglio</p>
+          <h1 className="text-2xl font-bold text-foreground">
+            {regolazioneMode ? "Regolazione Premio" : "Immissione Polizza"}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {regolazioneMode
+              ? "Conguaglio premio collegato a una polizza esistente — verrà creato un nuovo titolo RG"
+              : "Inserimento nuova polizza nel portafoglio"}
+          </p>
         </div>
         <Button
           type="button"
@@ -1633,6 +1761,60 @@ const ImmissionePolizzaPage = () => {
           </Button>
         </div>
       )}
+
+      {regolazioneMode && (
+        <div className="rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm">
+              <span className="font-semibold text-amber-900 dark:text-amber-200">
+                Regolazione della polizza N° {polizzaMadre?.numero_titolo || "—"}
+              </span>
+              {polizzaMadre?.riga != null && (
+                <span className="text-xs text-amber-800/80 dark:text-amber-300/80 ml-2">
+                  (riga madre {polizzaMadre.riga})
+                </span>
+              )}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={() => {
+                if (titoloMadreId) navigate(`/titoli/${titoloMadreId}`);
+                else navigate(-1);
+              }}
+            >
+              Esci dalla regolazione
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+            <div className="space-y-1">
+              <Label className="text-xs">Quietanza di riferimento *</Label>
+              <SearchableSelect
+                className="h-8 text-xs"
+                value={selectedQuietanzaRefId}
+                onValueChange={(v) => setSelectedQuietanzaRefId(v)}
+                placeholder="— Seleziona la quietanza —"
+                options={(quietanzePolizza || []).map((q: any) => {
+                  const da = q.durata_da ? new Date(q.durata_da).toLocaleDateString("it-IT") : "—";
+                  const a = q.durata_a ? new Date(q.durata_a).toLocaleDateString("it-IT") : "—";
+                  const incassata = q.stato === "incassato" || q.data_messa_cassa ? " · INCASSATA" : "";
+                  return {
+                    value: q.id,
+                    label: `Riga ${q.riga ?? 0} · ${da} → ${a} · ${q.stato || "—"}${incassata}`,
+                  };
+                })}
+              />
+              <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                La regolazione verrà collegata a questa quietanza nella tabella titoli_regolazioni.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+
 
 
 

@@ -46,7 +46,7 @@ import { RiattivazionePolizzaDialog } from "@/components/polizze/RiattivazionePo
 import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
 import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
-import { RegolazionePremioDialog } from "@/components/polizze/RegolazionePremioDialog";
+// RegolazionePremioDialog rimosso: la regolazione passa da ImmissionePolizzaPage in mode=regolazione
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 import { TitoloHeaderBar } from "@/components/titolo/sections/TitoloHeaderBar";
 import { TitoloScopeBanners } from "@/components/titolo/sections/TitoloScopeBanners";
@@ -142,7 +142,7 @@ const TitoloDetail = () => {
   const [sostituzioneOpen, setSostituzioneOpen] = useState(false);
   const [estinzioneOpen, setEstinzioneOpen] = useState(false);
   const [stornoOpen, setStornoOpen] = useState(false);
-  const [regolazioneOpen, setRegolazioneOpen] = useState(false);
+  // regolazioneOpen rimosso: ora navighiamo a /portafoglio/immissione?mode=regolazione
 
   // --- Rinnovo dialog state ---
   
@@ -1516,7 +1516,7 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" disabled={["stornato","estinto","sostituito","annullato"].includes(t.stato)} title={["stornato","estinto","sostituito","annullato"].includes(t.stato) ? `Titolo in stato "${t.stato}": storno non disponibile` : undefined} onClick={() => setStornoOpen(true)}>
               <ArrowRightLeft className="w-4 h-4 mr-1" /> Storno
             </Button>
-            <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => setRegolazioneOpen(true)}>
+            <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${t.id}&quietanzaRefId=${t.id}`)}>
               <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}`)}>
@@ -3209,13 +3209,7 @@ const TitoloDetail = () => {
         onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
       />
 
-      <RegolazionePremioDialog
-        open={regolazioneOpen}
-        onOpenChange={setRegolazioneOpen}
-        titoloId={t.id}
-        numeroPolizza={t.numero_titolo || undefined}
-        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
-      />
+      {/* RegolazionePremioDialog deprecato: la regolazione ora apre ImmissionePolizzaPage in mode=regolazione */}
     </div>
   );
 };

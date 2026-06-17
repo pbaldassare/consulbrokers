@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 import { logAttivita } from "@/lib/logAttivita";
 
 const TIPI_APPENDICE = [
@@ -29,6 +30,7 @@ interface Props {
 export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, onCreated }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const [numeroAppendice, setNumeroAppendice] = useState("");
   const [dataAppendice, setDataAppendice] = useState(new Date().toISOString().slice(0, 10));
@@ -149,34 +151,58 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label>Data scadenza</Label>
-            <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)} />
-          </div>
-          <div>
-            <Label>Data effetto</Label>
-            <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)} />
-          </div>
-          <div className="md:col-span-2">
-            <Label>Oggetto</Label>
-            <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)} placeholder="Breve descrizione dell'oggetto dell'appendice" />
-          </div>
-          <div className="md:col-span-2">
-            <Label>Note interne</Label>
-            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-          <div className="md:col-span-2">
-            <Label>Allegato (opzionale)</Label>
-            <Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-          </div>
+          {tipo === "regolazione" ? (
+            <div className="md:col-span-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 p-3 text-sm">
+              <strong>Regolazione premio:</strong> non è una semplice appendice ma un vero conguaglio.
+              Premendo <em>Apri form regolazione</em> verrà aperta la schermata di emissione polizza
+              precompilata dalla polizza madre, con possibilità di scegliere la quietanza di riferimento
+              e di inserire tutti i dati tecnici/economici come per una nuova polizza.
+            </div>
+          ) : (
+            <>
+              <div>
+                <Label>Data scadenza</Label>
+                <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)} />
+              </div>
+              <div>
+                <Label>Data effetto</Label>
+                <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Oggetto</Label>
+                <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)} placeholder="Breve descrizione dell'oggetto dell'appendice" />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Note interne</Label>
+                <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Allegato (opzionale)</Label>
+                <Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              </div>
+            </>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>Annulla</Button>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId}>
-            {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Crea appendice
-          </Button>
+          {tipo === "regolazione" ? (
+            <Button
+              onClick={() => {
+                if (!titoloId) return;
+                onOpenChange(false);
+                navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${titoloId}`);
+              }}
+              disabled={!titoloId}
+            >
+              Apri form regolazione <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId}>
+              {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Crea appendice
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
