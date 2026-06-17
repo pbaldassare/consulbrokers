@@ -71,7 +71,8 @@ type OperazioneKey =
   | "messa_cassa"
   | "annulla_messa_cassa"
   | "carica_doc"
-  | "precontrattuale";
+  | "precontrattuale"
+  | "cig_temporanei";
 
 interface Operazione {
   key: OperazioneKey;
@@ -84,22 +85,25 @@ interface Operazione {
   richiedeMessaCassa?: boolean;
   /** richiede `data_messa_cassa` NULL */
   escludeMessaCassa?: boolean;
+  /** richiede `cig_temporaneo` valorizzato */
+  richiedeCigTemporaneo?: boolean;
   adminOnly?: boolean;
 }
 
 const OPERAZIONI: Operazione[] = [
-  { key: "appendice", label: "Appendice", icon: FileEdit, descrizione: "Aggiungi un'appendice alla polizza", statiFiltro: ["attivo"] },
+  { key: "appendice", label: "Appendice", icon: FileEdit, descrizione: "Aggiungi un'appendice", statiFiltro: ["attivo"] },
   { key: "storno", label: "Storno", icon: Ban, descrizione: "Storna premio e quietanze", statiFiltro: ["attivo"] },
-  { key: "rinnovo", label: "Rinnovo", icon: RefreshCw, descrizione: "Gestisci il rinnovo della polizza", statiFiltro: ["attivo"] },
-  { key: "duplica", label: "Duplica Polizza", icon: Copy, descrizione: "Crea una nuova polizza copiando i dati tecnici", statiFiltro: [] },
-  { key: "sostituzione", label: "Sostituzione", icon: Replace, descrizione: "Sostituisci con nuova polizza/numero", statiFiltro: ["attivo"] },
-  { key: "sospensione", label: "Sospensione", icon: PauseCircle, descrizione: "Sospendi temporaneamente la polizza", statiFiltro: ["attivo"] },
-  { key: "riattivazione", label: "Riattivazione", icon: PlayCircle, descrizione: "Riattiva una polizza sospesa", statiFiltro: ["sospeso"] },
-  { key: "annulla", label: "Annulla Polizza", icon: XCircle, descrizione: "Annullamento totale con cascade", statiFiltro: [], adminOnly: true },
-  { key: "messa_cassa", label: "Messa a Cassa", icon: Wallet, descrizione: "Incassa e contabilizza la polizza", statiFiltro: ["attivo"], escludeMessaCassa: true },
-  { key: "annulla_messa_cassa", label: "Annulla Messa a Cassa", icon: Undo2, descrizione: "Annulla la messa a cassa", statiFiltro: [], richiedeMessaCassa: true, adminOnly: true },
-  { key: "carica_doc", label: "Carica Documenti", icon: Upload, descrizione: "Carica documenti collegati alla polizza", statiFiltro: [] },
-  { key: "precontrattuale", label: "Genera Precontrattuale", icon: FileText, descrizione: "Genera la documentazione precontrattuale", statiFiltro: [] },
+  { key: "rinnovo", label: "Rinnovo", icon: RefreshCw, descrizione: "Gestisci rinnovo polizza", statiFiltro: ["attivo"] },
+  { key: "duplica", label: "Duplica", icon: Copy, descrizione: "Copia dati tecnici", statiFiltro: [] },
+  { key: "sostituzione", label: "Sostituzione", icon: Replace, descrizione: "Sostituisci polizza/numero", statiFiltro: ["attivo"] },
+  { key: "sospensione", label: "Sospensione", icon: PauseCircle, descrizione: "Sospendi temporaneamente", statiFiltro: ["attivo"] },
+  { key: "riattivazione", label: "Riattivazione", icon: PlayCircle, descrizione: "Riattiva polizza sospesa", statiFiltro: ["sospeso"] },
+  { key: "annulla", label: "Annulla", icon: XCircle, descrizione: "Annullamento totale", statiFiltro: [], adminOnly: true },
+  { key: "messa_cassa", label: "Messa a Cassa", icon: Wallet, descrizione: "Incassa e contabilizza", statiFiltro: ["attivo"], escludeMessaCassa: true },
+  { key: "annulla_messa_cassa", label: "Annulla M.C.", icon: Undo2, descrizione: "Annulla messa a cassa", statiFiltro: [], richiedeMessaCassa: true, adminOnly: true },
+  { key: "carica_doc", label: "Carica Doc.", icon: Upload, descrizione: "Carica documenti", statiFiltro: [] },
+  { key: "precontrattuale", label: "Precontrattuale", icon: FileText, descrizione: "Genera doc. precontrattuale", statiFiltro: [] },
+  { key: "cig_temporanei", label: "CIG Temporanei", icon: Hash, descrizione: "Polizze con numero provvisorio", statiFiltro: [], richiedeCigTemporaneo: true },
 ];
 
 const STATI_OPTIONS = ["", "attivo", "sospeso", "scaduto", "incassato", "annullato", "stornato"];
