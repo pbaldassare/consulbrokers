@@ -689,6 +689,10 @@ const GestionePolizzePage = () => {
 
 
           <PolizzaSection title={`3. Risultati — ${operazione.label}`} icon={operazione.icon} defaultOpen>
+            <div className="mb-3 text-sm text-muted-foreground bg-teal-50 border border-teal-200 rounded-md px-3 py-2">
+              👉 Trova la polizza nella tabella e clicca <strong>"Esegui {operazione.label}"</strong> sulla riga
+              (colonna a destra, sempre visibile) per aprire il dialog e salvare l'operazione in database.
+            </div>
             <Card>
               <CardContent className="p-0">
                 <Table>
@@ -732,7 +736,7 @@ const GestionePolizzePage = () => {
                       <TableHead>Stato</TableHead>
                       <TableHead>CIG</TableHead>
                       <TableHead>Reg.</TableHead>
-                      <TableHead className="text-right">Azione</TableHead>
+                      <TableHead className="sticky right-0 bg-background z-10 text-right border-l shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.15)] min-w-[180px]">Azione</TableHead>
                     </TableRow>
                   </TableHeader>
 
@@ -766,7 +770,7 @@ const GestionePolizzePage = () => {
                             : "bg-amber-100 text-amber-800 border-amber-300"
                           : "";
                         return (
-                        <TableRow key={p.id} className={idx % 2 === 0 ? "" : "bg-muted/30"}>
+                        <TableRow key={p.id} className={idx % 2 === 0 ? "bg-background" : "bg-muted/30"}>
                           <TableCell className="font-mono text-xs">
                             <button
                               type="button"
@@ -818,10 +822,15 @@ const GestionePolizzePage = () => {
                               <span className="text-xs text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right">
-                            <Button size="sm" onClick={() => esegui(p)} className="gap-1">
+                          <TableCell className={`sticky right-0 z-10 text-right border-l shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.15)] ${idx % 2 === 0 ? "bg-background" : "bg-muted/30"}`}>
+                            <Button
+                              size="sm"
+                              onClick={() => esegui(p)}
+                              data-tour="esegui-riga"
+                              className="gap-1 bg-teal-700 hover:bg-teal-800 text-white font-semibold shadow-sm"
+                            >
                               <operazione.icon className="w-3.5 h-3.5" />
-                              Esegui
+                              Esegui {operazione.label}
                             </Button>
                           </TableCell>
                         </TableRow>
