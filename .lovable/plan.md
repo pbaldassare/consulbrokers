@@ -1,88 +1,73 @@
+## Miglioramenti pagina Gestione Polizze
 
-## Gestione Polizze — pagina action-first
+Estendo la pagina `GestionePolizzePage` con permessi UI, log attività, paginazione/ordinamento, filtri avanzati e un test E2E Playwright che copre tutte le 12 operazioni.
 
-Nuova pagina `/portafoglio/gestione`: scegli prima **l'operazione**, poi filtri **cliente/polizza**, esegui. Tutte le azioni riusano gli stessi componenti/dialog/route già presenti in `TitoloDetail` → sincronizzazione automatica con le polizze.
+### 1. Permessi UI (admin-only e blocchi)
 
-## Layout
+- Le card delle operazioni admin-only (`Annulla Polizza`, `Annulla Messa a Cassa`) si **nascondono** se l'utente non è admin (`isAdmin` da `AuthContext`).
+- Le card che richiedono il permesso `titoli` vengono **disabilitate** (grigio + tooltip "Permesso mancante") se `hasPermission('titoli')` è falso, invece di sparire — così l'utente capisce che esistono.
+- Stesso check ripetuto sui pulsanti "Esegui" dentro i dialog risultato, per evitare bypass via deep link.
 
-```text
-┌─ Gestione Polizze ────────────────────────────────────────┐
-│ 1. Scegli operazione                                       │
-│ ┌──────────┬──────────┬──────────┬──────────┐             │
-│ │Appendice │  Storno  │ Rinnovo  │ Duplica  │             │
-│ │Sostituz. │Sospension│Riattivaz │Annulla   │             │
-│ │Messa Cassa│Annulla MC│Carica Doc│Precontr.│             │
-│ └──────────┴──────────┴──────────┴──────────┘             │
-├────────────────────────────────────────────────────────────┤
-│ 2. Filtra polizza (filtri pre-impostati per operazione)    │
-│   [Cliente ▼] [Compagnia ▼] [Ramo ▼] [Stato ▼]            │
-│   [N° Polizza] [Scadenza dal—al]                          │
-├────────────────────────────────────────────────────────────┤
-│ 3. Risultati (paginati 25, debounce 350ms, zebra)         │
-│   N°  Cliente  Compagnia  Ramo  Decorr  Scad  Stato [Esegui]│
-└────────────────────────────────────────────────────────────┘
-```
+### 2. Sezione "Attività recenti" per operazione
 
-## 12 operazioni — set completo
+Sotto la lista delle polizze filtrate, aggiungo un pannello collassabile "Ultime attività" che mostra:
+- ultimi 10 record da `log_attivita` filtrati per `tipo_oggetto = 'titolo'` e per `azione` correlata all'operazione selezionata (es. `appendice_creata`, `storno_eseguito`, `messa_cassa`, ecc.);
+- colonne: data/ora, utente, polizza (N°), descrizione;
+- click su riga → naviga a `/titoli/:id?tab=log`.
 
-| # | Operazione | Filtro stato di default | Come si esegue (riuso) |
-|---|---|---|---|
-| 1 | Appendice | `attivo` | route `/portafoglio/appendici?titoloId=...` |
-| 2 | Storno | `attivo` (no già stornato) | `<StornoDialog>` estratto da TitoloDetail |
-| 3 | Rinnovo | `attivo` + scadenza ≤ 90gg | `<RinnovoDialog>` estratto da TitoloDetail |
-| 4 | Duplica | tutti | route `/portafoglio/immissione?duplicaDa=<titoloId>` |
-| 5 | Sostituzione | `attivo` | `<SostituzioneDialog>` estratto |
-| 6 | Sospensione | `attivo` (non sospeso) | `<SospensioneDialog>` estratto |
-| 7 | Riattivazione | `sospeso` | `<RiattivazioneDialog>` estratto |
-| 8 | Annulla Polizza | tutti tranne `annullato` | `<AnnullaPolizzaDialog>` (admin) |
-| 9 | Messa a Cassa | `attivo` & no `data_messa_cassa` | `<MessaACassaDialog>` estratto |
-| 10 | Annulla Messa a Cassa | `incassato` o con `data_messa_cassa` | `<AnnullaMessaCassaDialog>` (admin) |
-| 11 | Carica Documenti | tutti | `<DocumentiTitoloUploader>` in modal con `titolo_id` |
-| 12 | Genera Precontrattuale | tutti | route `/portafoglio/doc-precontrattuale?titoloId=...` |
+Query con `useQuery`, `limit(10)`, ordinata `created_at desc`.
 
-Permessi: la pagina richiede `hasPermission('titoli')`; ogni dialog mantiene i propri guard (es. admin per Annulla/Annulla MC).
+### 3. Paginazione + ordinamento lista polizze
 
-## Duplica — comportamento confermato
+- Sostituisco il fetch attuale con `useServerPagination` (limite **25**, debounce **350ms**) per rispettare le convenzioni di progetto.
+- Aggiungo controlli di ordinamento sulle colonne **N° Polizza** e **Decorrenza/Scadenza** (toggle asc/desc cliccando l'header) — passati alla query come `.order(...)`.
+- Footer paginazione: "Pagina X di Y · totale Z" + bottoni Precedente/Successivo.
 
-`/portafoglio/immissione?duplicaDa=<titoloId>` pre-popola **tutti i campi tecnici** dalla polizza sorgente (cliente, compagnia/rapporto, ramo/sottoramo, frazionamento, garanzie, premi, RCA se presente, …) **lasciando vuoti e obbligatori**:
-- **Numero Polizza** (obbligatorio, da inserire a mano)
-- **Decorrenza / Scadenza** (obbligatorie)
-- **CIG** (se presente nell'originale viene azzerato)
+### 4. Filtri avanzati con SearchableSelect
 
-Salvataggio bloccato finché i 3 campi obbligatori non sono valorizzati (validation Zod già esistente in `ImmissionePolizzaPage`). La polizza salvata è un titolo nuovo, indipendente — nessun legame DB con la sorgente (solo log: "Duplicata da N° XXX" in `log_attivita`).
+Sostituisco gli input testo correnti con `SearchableSelect` (Popover + Command) per:
+- **Cliente** → fetch da `clienti` (ragione_sociale/nome+cognome), debounced server-side;
+- **Compagnia** → fetch da `compagnie` attive;
+- **N° Polizza** → resta input testo (libero) ma con suggerimenti dai titoli matchanti (autocomplete);
+- mantengo i filtri esistenti **Stato** e **Range Decorrenza**.
 
-## Sincronizzazione
+I filtri sono pre-impostati per operazione (es. Sospensione → solo `stato=attivo`) e poi raffinabili dall'utente.
 
-Nessuna logica duplicata: ogni operazione scrive sulle stesse tabelle (`titoli`, `appendici_polizza`, `titoli_storni`, `titoli_sostituzioni`, `movimenti_polizza`, `documenti`, `log_attivita`) tramite gli stessi componenti già usati in `TitoloDetail`. Risultato visibile automaticamente in:
-- scheda polizza (TitoloDetail)
-- Polizze Attive / Carico / Storico
-- Log Attività (tab dedicato)
-- trigger esistenti (auto-quietanza, notifica messa a cassa email, cascade annullamento…)
+### 5. Test Playwright E2E
 
-## File toccati
+Nuovo file `e2e/gestione-polizze.spec.ts` (o sotto `tests/e2e/` se già presente) che, **per ognuna delle 12 operazioni**:
 
-**Nuovi**
-- `src/pages/GestionePolizzePage.tsx` — hub con cards + filtri + tabella
-- `src/components/polizze/azioni/StornoDialog.tsx`
-- `src/components/polizze/azioni/RinnovoDialog.tsx`
-- `src/components/polizze/azioni/SostituzioneDialog.tsx`
-- `src/components/polizze/azioni/SospensioneDialog.tsx`
-- `src/components/polizze/azioni/RiattivazioneDialog.tsx`
-- `src/components/polizze/azioni/AnnullaPolizzaDialog.tsx`
-- `src/components/polizze/azioni/MessaACassaDialog.tsx`
-- `src/components/polizze/azioni/AnnullaMessaCassaDialog.tsx`
-- `src/components/polizze/azioni/CaricaDocumentiDialog.tsx`
+1. login con utente admin di test (env `TEST_USER`/`TEST_PASS`),
+2. naviga a `/portafoglio/gestione`,
+3. clicca la card operazione,
+4. applica filtro cliente noto (dataset di test) + seleziona la prima polizza valida,
+5. compila i **campi obbligatori minimi** del dialog/route target,
+6. salva,
+7. verifica toast di successo + presenza nuova riga in `log_attivita` (via UI nel tab Log della polizza).
 
-(I dialog vengono **estratti** dalla logica inline attualmente in `TitoloDetail.tsx`. Se un'azione è già un componente esterno, si riusa direttamente.)
+Operazioni che navigano a pagine esterne (`Appendice`, `Rinnovo`, `Precontrattuale`, `Duplica`) vengono verificate aprendo la pagina target e completando il form minimo.
 
-**Modificati**
-- `src/routes/portafoglio.tsx` — nuova route `/portafoglio/gestione`
-- `src/components/MainLayout.tsx` (o file sidebar Portafoglio) — voce di menu "Gestione Polizze" sotto Portafoglio
-- `src/pages/TitoloDetail.tsx` — usa i dialog estratti (zero cambio di comportamento)
-- `src/pages/ImmissionePolizzaPage.tsx` — supporto query param `?duplicaDa=<titoloId>`: prefill campi tecnici, reset N°/date/CIG con validation obbligatoria
+Aggiungo script `bun run test:e2e:gestione` in `package.json` per eseguire solo questo spec.
 
-**Non toccati**: schema DB, RLS, edge functions, trigger.
+### Sezione tecnica
 
-## Memory da aggiornare
+**File nuovi**
+- `src/components/polizze/azioni/AttivitaRecentiPanel.tsx` — pannello log attività per operazione.
+- `tests/e2e/gestione-polizze.spec.ts` — test E2E delle 12 operazioni.
 
-Aggiungo `mem://features/gestione-polizze-hub` con: "Hub azioni-first in `/portafoglio/gestione`. 12 operazioni che riusano i dialog/route di TitoloDetail. Duplica via `?duplicaDa=` con N°/decorrenza/scadenza obbligatori."
+**File modificati**
+- `src/pages/GestionePolizzePage.tsx`:
+  - integra `isAdmin` / `hasPermission` da `useAuth` per nascondere/disabilitare le card;
+  - sostituisce fetch manuale con `useServerPagination`;
+  - aggiunge ordinamento header-click su `numero_polizza` e `decorrenza`;
+  - sostituisce input cliente/compagnia con `SearchableSelect`;
+  - integra `<AttivitaRecentiPanel operationKey={selectedOp} />`.
+- `package.json` — script `test:e2e:gestione`.
+
+**Nessuna modifica DB / RLS / trigger.** Riuso `log_attivita`, `useServerPagination`, `SearchableSelect`, dialog esistenti.
+
+**Permessi → operazioni**
+| Operazione | Visibile a | Eseguibile se |
+|---|---|---|
+| Appendice, Storno, Rinnovo, Duplica, Sostituzione, Sospensione, Riattivazione, Messa a Cassa, Carica Documenti, Precontrattuale | tutti | `hasPermission('titoli')` |
+| Annulla Polizza, Annulla Messa a Cassa | solo `isAdmin` | `isAdmin` |

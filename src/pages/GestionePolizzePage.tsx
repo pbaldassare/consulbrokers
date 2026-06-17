@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +36,9 @@ import {
   Filter,
   Search,
   Loader2,
+  ArrowUp,
+  ArrowDown,
+  Lock,
 } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,6 +52,11 @@ import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePoli
 import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
 import { DuplicaPolizzaDialog } from "@/components/polizze/azioni/DuplicaPolizzaDialog";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/SearchableSelect";
+import ServerPagination from "@/components/ServerPagination";
+import { useServerPagination } from "@/hooks/useServerPagination";
+import { AttivitaRecentiPanel } from "@/components/polizze/azioni/AttivitaRecentiPanel";
+
 
 type OperazioneKey =
   | "appendice"
@@ -97,13 +106,25 @@ const STATI_OPTIONS = ["", "attivo", "sospeso", "scaduto", "incassato", "annulla
 const GestionePolizzePage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isAdmin } = useAuth();
+  const { isAdmin, hasPermission } = useAuth();
+  const canTitoli = isAdmin || hasPermission("titoli");
 
   const [opKey, setOpKey] = useState<OperazioneKey | null>(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statoFilter, setStatoFilter] = useState<string>("");
   const [scadDal, setScadDal] = useState("");
   const [scadAl, setScadAl] = useState("");
+  const [clienteId, setClienteId] = useState<string>("");
+  const [compagniaId, setCompagniaId] = useState<string>("");
+  const [sortBy, setSortBy] = useState<"data_scadenza" | "numero_titolo">("data_scadenza");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  // debounce ricerca 350ms (memory: 350ms debounce)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   // dialog state
   const [target, setTarget] = useState<{ id: string; numero: string } | null>(null);
@@ -120,51 +141,133 @@ const GestionePolizzePage = () => {
 
   const operazione = useMemo(() => OPERAZIONI.find((o) => o.key === opKey) || null, [opKey]);
 
-  // pre-imposta filtro stato in base all'operazione
   const statiAttivi = useMemo(() => {
     if (!operazione) return [] as string[];
     if (statoFilter) return [statoFilter];
     return operazione.statiFiltro;
   }, [operazione, statoFilter]);
 
-  const { data: polizze, isFetching } = useQuery({
-    queryKey: ["gestione-polizze", opKey, search, statiAttivi.join(","), scadDal, scadAl],
+  // Paginazione standard 25/pagina (memory)
+  const { page, setPage, pageSize, range, resetPage } = useServerPagination(25, [
+    opKey,
+    debouncedSearch,
+    statoFilter,
+    scadDal,
+    scadAl,
+    clienteId,
+    compagniaId,
+    sortBy,
+    sortDir,
+  ]);
+
+  // Opzioni Cliente / Compagnia per SearchableSelect
+  const { data: clientiOpts = [] } = useQuery({
+    queryKey: ["gestione-polizze-clienti-opts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale")
+        .eq("attivo", true)
+        .order("cognome", { ascending: true })
+        .limit(500);
+      return ((data || []) as any[]).map<SearchableSelectOption>((c) => ({
+        value: c.id,
+        label:
+          c.ragione_sociale ||
+          `${c.cognome ?? ""} ${c.nome ?? ""}`.trim() ||
+          c.id.slice(0, 8),
+      }));
+    },
+  });
+
+  const { data: compagnieOpts = [] } = useQuery({
+    queryKey: ["gestione-polizze-compagnie-opts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnie")
+        .select("id, nome")
+        .eq("attiva", true)
+        .order("nome", { ascending: true })
+        .limit(500);
+      return ((data || []) as any[]).map<SearchableSelectOption>((c) => ({
+        value: c.id,
+        label: c.nome,
+      }));
+    },
+  });
+
+  const { data: result, isFetching } = useQuery({
+    queryKey: [
+      "gestione-polizze",
+      opKey,
+      debouncedSearch,
+      statiAttivi.join(","),
+      scadDal,
+      scadAl,
+      clienteId,
+      compagniaId,
+      sortBy,
+      sortDir,
+      page,
+    ],
     enabled: !!opKey,
     queryFn: async () => {
       let q = supabase
         .from("v_portafoglio_titoli")
         .select(
-          "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza",
+          "id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza",
+          { count: "exact" },
         )
-        .order("data_scadenza", { ascending: true })
-        .limit(25);
+        .order(sortBy, { ascending: sortDir === "asc" })
+        .range(range.from, range.to);
 
       if (statiAttivi.length > 0) q = q.in("stato", statiAttivi);
       if (operazione?.richiedeMessaCassa) q = q.not("data_messa_cassa", "is", null);
       if (operazione?.escludeMessaCassa) q = q.is("data_messa_cassa", null);
       if (scadDal) q = q.gte("data_scadenza", scadDal);
       if (scadAl) q = q.lte("data_scadenza", scadAl);
-      if (search.trim()) {
-        const s = search.trim();
-        q = q.or(`numero_titolo.ilike.%${s}%,cliente_nome_display.ilike.%${s}%,compagnia_nome.ilike.%${s}%`);
+      if (clienteId) q = q.eq("cliente_anagrafica_id", clienteId);
+      if (compagniaId) q = q.eq("compagnia_id", compagniaId);
+      if (debouncedSearch) {
+        const s = debouncedSearch;
+        q = q.or(
+          `numero_titolo.ilike.%${s}%,cliente_nome_display.ilike.%${s}%,compagnia_nome.ilike.%${s}%`,
+        );
       }
-      const { data, error } = await q;
+      const { data, error, count } = await q;
       if (error) throw error;
-      return data || [];
+      return { rows: data || [], count: count ?? 0 };
     },
   });
+
+  const polizze = result?.rows ?? [];
+  const totalCount = result?.count ?? 0;
 
   const handleSelect = (op: OperazioneKey) => {
     setOpKey(op);
     setSearch("");
     setStatoFilter("");
+    setClienteId("");
+    setCompagniaId("");
+    resetPage();
+  };
+
+  const toggleSort = (col: "data_scadenza" | "numero_titolo") => {
+    if (sortBy === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(col);
+      setSortDir("asc");
+    }
   };
 
   const refreshAll = () => {
     queryClient.invalidateQueries({ queryKey: ["gestione-polizze"] });
     queryClient.invalidateQueries({ queryKey: ["titoli"] });
     queryClient.invalidateQueries({ queryKey: ["v_portafoglio_titoli"] });
+    queryClient.invalidateQueries({ queryKey: ["log_attivita_gestione_polizze"] });
   };
+
 
   const esegui = (row: any) => {
     if (!operazione) return;
@@ -172,8 +275,13 @@ const GestionePolizzePage = () => {
       toast.error("Operazione riservata agli amministratori");
       return;
     }
+    if (!canTitoli) {
+      toast.error("Permesso 'titoli' mancante");
+      return;
+    }
     const t = { id: row.id, numero: row.numero_titolo || row.id.slice(0, 8) };
     setTarget(t);
+
 
     switch (operazione.key) {
       case "appendice":
@@ -253,6 +361,7 @@ const GestionePolizzePage = () => {
   const visibleOps = OPERAZIONI.filter((o) => isAdmin || !o.adminOnly);
 
   return (
+    <TooltipProvider>
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -270,13 +379,23 @@ const GestionePolizzePage = () => {
           {visibleOps.map((op) => {
             const Icon = op.icon;
             const active = op.key === opKey;
-            return (
+            const disabled = !canTitoli;
+            const card = (
               <button
                 key={op.key}
                 type="button"
-                onClick={() => handleSelect(op.key)}
-                className={`text-left rounded-lg border p-3 transition hover:border-teal-600 hover:shadow-sm ${
-                  active ? "border-teal-600 bg-teal-50 dark:bg-teal-950/30 ring-1 ring-teal-600" : "border-border bg-card"
+                disabled={disabled}
+                onClick={() => !disabled && handleSelect(op.key)}
+                aria-label={`operazione-${op.key}`}
+                data-op={op.key}
+                className={`text-left rounded-lg border p-3 transition w-full ${
+                  disabled
+                    ? "opacity-60 cursor-not-allowed border-border bg-muted/30"
+                    : "hover:border-teal-600 hover:shadow-sm"
+                } ${
+                  active
+                    ? "border-teal-600 bg-teal-50 dark:bg-teal-950/30 ring-1 ring-teal-600"
+                    : "border-border bg-card"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
@@ -287,9 +406,20 @@ const GestionePolizzePage = () => {
                       admin
                     </Badge>
                   )}
+                  {disabled && <Lock className="w-3 h-3 text-muted-foreground ml-auto" />}
                 </div>
                 <p className="text-xs text-muted-foreground line-clamp-2">{op.descrizione}</p>
               </button>
+            );
+            return disabled ? (
+              <Tooltip key={op.key}>
+                <TooltipTrigger asChild>
+                  <div>{card}</div>
+                </TooltipTrigger>
+                <TooltipContent>Permesso "titoli" mancante</TooltipContent>
+              </Tooltip>
+            ) : (
+              card
             );
           })}
         </div>
@@ -298,16 +428,39 @@ const GestionePolizzePage = () => {
       {operazione && (
         <>
           <PolizzaSection title="2. Filtra polizza" icon={Filter} defaultOpen>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div className="md:col-span-2 space-y-1.5">
-                <Label>Cerca (N° polizza, cliente, compagnia)</Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label>Cliente</Label>
+                <SearchableSelect
+                  options={clientiOpts}
+                  value={clienteId}
+                  onValueChange={setClienteId}
+                  placeholder="Tutti i clienti"
+                  clearable
+                  clearLabel="— Tutti —"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Compagnia</Label>
+                <SearchableSelect
+                  options={compagnieOpts}
+                  value={compagniaId}
+                  onValueChange={setCompagniaId}
+                  placeholder="Tutte le compagnie"
+                  clearable
+                  clearLabel="— Tutte —"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>N° polizza / ricerca libera</Label>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Almeno 2 caratteri..."
+                    placeholder="N° polizza, cliente, compagnia..."
                     className="pl-8"
+                    aria-label="ricerca-libera"
                   />
                 </div>
               </div>
@@ -325,18 +478,17 @@ const GestionePolizzePage = () => {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label>Scad. dal</Label>
-                  <Input type="date" value={scadDal} onChange={(e) => setScadDal(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>al</Label>
-                  <Input type="date" value={scadAl} onChange={(e) => setScadAl(e.target.value)} />
-                </div>
+              <div className="space-y-1.5">
+                <Label>Scad. dal</Label>
+                <Input type="date" value={scadDal} onChange={(e) => setScadDal(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Scad. al</Label>
+                <Input type="date" value={scadAl} onChange={(e) => setScadAl(e.target.value)} />
               </div>
             </div>
           </PolizzaSection>
+
 
           <PolizzaSection title={`3. Risultati — ${operazione.label}`} icon={operazione.icon} defaultOpen>
             <Card>
@@ -344,17 +496,46 @@ const GestionePolizzePage = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>N° Polizza</TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          onClick={() => toggleSort("numero_titolo")}
+                          className="inline-flex items-center gap-1 hover:text-teal-700"
+                        >
+                          N° Polizza
+                          {sortBy === "numero_titolo" &&
+                            (sortDir === "asc" ? (
+                              <ArrowUp className="w-3 h-3" />
+                            ) : (
+                              <ArrowDown className="w-3 h-3" />
+                            ))}
+                        </button>
+                      </TableHead>
                       <TableHead>Cliente</TableHead>
                       <TableHead>Compagnia</TableHead>
                       <TableHead>Ramo</TableHead>
                       <TableHead>Decorr.</TableHead>
-                      <TableHead>Scad.</TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          onClick={() => toggleSort("data_scadenza")}
+                          className="inline-flex items-center gap-1 hover:text-teal-700"
+                        >
+                          Scad.
+                          {sortBy === "data_scadenza" &&
+                            (sortDir === "asc" ? (
+                              <ArrowUp className="w-3 h-3" />
+                            ) : (
+                              <ArrowDown className="w-3 h-3" />
+                            ))}
+                        </button>
+                      </TableHead>
                       <TableHead className="text-right">Premio</TableHead>
                       <TableHead>Stato</TableHead>
                       <TableHead className="text-right">Azione</TableHead>
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
                     {isFetching && (
                       <TableRow>
@@ -413,14 +594,20 @@ const GestionePolizzePage = () => {
                 </Table>
               </CardContent>
             </Card>
-            {(polizze?.length ?? 0) >= 25 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Mostrate le prime 25 polizze. Affina i filtri per restringere la ricerca.
-              </p>
-            )}
+            <ServerPagination
+              page={page}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={setPage}
+            />
+          </PolizzaSection>
+
+          <PolizzaSection title="4. Attività recenti" icon={Wand2} defaultOpen={false}>
+            <AttivitaRecentiPanel operationKey={opKey} operationLabel={operazione.label} />
           </PolizzaSection>
         </>
       )}
+
 
       {/* Dialogs */}
       {target && (
@@ -532,6 +719,8 @@ const GestionePolizzePage = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </TooltipProvider>
+
   );
 };
 
