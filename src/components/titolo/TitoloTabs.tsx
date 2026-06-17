@@ -117,49 +117,7 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
                 </TableHeader>
                 <TableBody>
                   {(appendiciPolizza as any[]).map((a: any) => (
-                    <TableRow key={a.id}>
-                      <TableCell className="font-mono font-bold">{a.numero_appendice}</TableCell>
-                      <TableCell className="text-sm">{a.data_appendice ? format(new Date(a.data_appendice), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
-                      <TableCell className="text-sm">{a.data_effetto ? format(new Date(a.data_effetto), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
-                      <TableCell><Badge variant="outline" className="capitalize">{a.tipo}</Badge></TableCell>
-                      <TableCell className="max-w-[200px] truncate text-sm">{a.oggetto || "—"}</TableCell>
-                      <TableCell className="text-sm">{a.nome_file || "—"}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Modifica" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}&appendiceId=${a.id}`)}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                          {a.testo && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Visualizza testo" onClick={() => {
-                              const w = window.open("", "_blank");
-                              if (w) { w.document.write(`<pre style="white-space:pre-wrap;font-family:sans-serif;padding:2rem">${a.testo}</pre>`); }
-                            }}>
-                              <Eye className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                          {a.file_path && (
-                            <>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Anteprima" onClick={async () => {
-                                const { data } = await supabase.storage.from("documenti_titoli").createSignedUrl(a.file_path, 60 * 10);
-                                if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-                              }}>
-                                <Eye className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Download" onClick={async () => {
-                                const { data, error } = await supabase.storage.from("documenti_titoli").download(a.file_path);
-                                if (error || !data) return;
-                                const url = URL.createObjectURL(data);
-                                const link = document.createElement("a");
-                                link.href = url; link.download = a.nome_file || "file"; link.click();
-                                URL.revokeObjectURL(url);
-                              }}>
-                                <Download className="w-3.5 h-3.5" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    <AppendiceTableRow key={a.id} a={a} t={t} navigate={navigate} />
                   ))}
                 </TableBody>
               </Table>
