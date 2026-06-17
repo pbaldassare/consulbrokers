@@ -1,26 +1,46 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
 import { fmtEuro } from "@/lib/formatCurrency";
+
+interface MadreInfo {
+  id: string;
+  numero_titolo?: string | null;
+  garanzia_da?: string | null;
+  garanzia_a?: string | null;
+  rataLabel?: string | null;
+}
 
 interface Props {
   t: any;
   onBack: () => void;
+  madre?: MadreInfo | null;
 }
 
 /**
- * Header sticky del dettaglio titolo. Estratto da TitoloDetail.tsx
- * senza modifiche: stesso markup, stessi badge, stessa logica condizionale.
+ * Header sticky del dettaglio titolo.
+ * Aggiunge un badge "Regolazione" e il riferimento alla quietanza madre
+ * quando t.is_regolazione = true.
  */
-export function TitoloHeaderBar({ t, onBack }: Props) {
+export function TitoloHeaderBar({ t, onBack, madre }: Props) {
+  const isRegolazione = !!t.is_regolazione;
+  const fmtD = (d?: string | null) => (d ? new Date(d).toLocaleDateString("it-IT") : "");
+
   return (
     <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60">
       <div className="flex items-start gap-4">
         <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="w-5 h-5" /></Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold text-foreground">Polizza {t.numero_titolo || t.id.slice(0, 8)}</h1>
-            {t.sostituisce_polizza ? (
+            <h1 className="text-2xl font-bold text-foreground">
+              {isRegolazione ? "Regolazione" : "Polizza"} {t.numero_titolo || t.id.slice(0, 8)}
+            </h1>
+            {isRegolazione ? (
+              <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">
+                <RefreshCw className="w-3 h-3 mr-1" /> Regolazione
+              </Badge>
+            ) : t.sostituisce_polizza ? (
               <Badge variant="secondary" title={`Sostituisce ${t.sostituisce_polizza}`}>
                 Quietanza{t.garanzia_da ? ` · dal ${t.garanzia_da}${t.garanzia_a ? ` al ${t.garanzia_a}` : ""}` : ""}
               </Badge>
@@ -28,6 +48,21 @@ export function TitoloHeaderBar({ t, onBack }: Props) {
               <Badge variant="outline">Polizza originale</Badge>
             )}
           </div>
+
+          {isRegolazione && madre && (
+            <p className="text-sm mt-0.5">
+              <span className="text-muted-foreground">Collegata a </span>
+              <Link
+                to={`/titoli/${madre.id}`}
+                className="font-medium text-teal-700 hover:text-teal-800 hover:underline"
+              >
+                {madre.numero_titolo || "polizza"}
+                {madre.rataLabel ? ` · ${madre.rataLabel}` : ""}
+                {madre.garanzia_da ? ` (${fmtD(madre.garanzia_da)}${madre.garanzia_a ? ` → ${fmtD(madre.garanzia_a)}` : ""})` : ""}
+              </Link>
+            </p>
+          )}
+
           <p className="text-muted-foreground text-sm">{(t as any).prodotto_nome || t.prodotti?.nome_prodotto || ""} — {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "N/D"}</p>
           <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
             <div className="flex items-center gap-1.5">
