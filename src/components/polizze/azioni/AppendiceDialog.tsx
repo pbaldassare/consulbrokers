@@ -628,6 +628,40 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                       <div className="font-semibold tabular-nums">{fmt(parsedReg.provvigioni)}</div>
                     </div>
                   </div>
+
+                  {/* Stato autosave bozza */}
+                  <div className="mt-3 pt-2 border-t flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      {autosaveStatus === "saving" && (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                          <span className="text-muted-foreground">Salvataggio bozza in corso…</span>
+                        </>
+                      )}
+                      {autosaveStatus === "saved" && (
+                        <>
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          <span className="text-muted-foreground">
+                            Bozza salvata{draftSavedAt ? ` · ${new Date(draftSavedAt).toLocaleTimeString("it-IT")}` : ""}
+                          </span>
+                        </>
+                      )}
+                      {autosaveStatus === "error" && (
+                        <>
+                          <AlertCircle className="h-3 w-3 text-destructive" />
+                          <span className="text-destructive">Errore nel salvataggio bozza</span>
+                        </>
+                      )}
+                      {autosaveStatus === "idle" && (
+                        <span className="text-muted-foreground">Bozza non salvata</span>
+                      )}
+                    </div>
+                    {hasErrors && (
+                      <span className="text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> Correggi i campi evidenziati prima di salvare
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </>
