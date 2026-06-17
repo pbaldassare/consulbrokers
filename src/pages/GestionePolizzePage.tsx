@@ -517,7 +517,7 @@ const GestionePolizzePage = () => {
       {operazione && (
         <>
           <PolizzaSection title="2. Filtra polizza" icon={Filter} defaultOpen>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
                 <SearchableSelect
@@ -542,6 +542,36 @@ const GestionePolizzePage = () => {
                   />
                 </div>
               </div>
+              {!operazione.richiedeCigTemporaneo && (
+                <div className="space-y-1.5">
+                  <Label>CIG</Label>
+                  <div
+                    className="inline-flex w-full rounded-md border border-input bg-background p-0.5"
+                    role="group"
+                    aria-label="filtro-cig"
+                  >
+                    {([
+                      { v: "all", l: "Tutti" },
+                      { v: "with", l: "Con CIG" },
+                      { v: "without", l: "Senza" },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.v}
+                        type="button"
+                        onClick={() => setCigFilter(opt.v)}
+                        data-cig-filter={opt.v}
+                        className={`flex-1 text-xs px-2 py-1.5 rounded transition ${
+                          cigFilter === opt.v
+                            ? "bg-teal-600 text-white"
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {opt.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </PolizzaSection>
 
