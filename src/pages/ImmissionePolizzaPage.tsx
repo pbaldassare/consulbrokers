@@ -1718,8 +1718,14 @@ const ImmissionePolizzaPage = () => {
     <div className="space-y-5 max-w-4xl">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Immissione Polizza</h1>
-          <p className="text-sm text-muted-foreground mt-1">Inserimento nuova polizza nel portafoglio</p>
+          <h1 className="text-2xl font-bold text-foreground">
+            {regolazioneMode ? "Regolazione Premio" : "Immissione Polizza"}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {regolazioneMode
+              ? "Conguaglio premio collegato a una polizza esistente — verrà creato un nuovo titolo RG"
+              : "Inserimento nuova polizza nel portafoglio"}
+          </p>
         </div>
         <Button
           type="button"
