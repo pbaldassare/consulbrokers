@@ -6,6 +6,7 @@ import TitoloDetail from "@/pages/TitoloDetail";
 import ImmissionePolizzaPage from "@/pages/ImmissionePolizzaPage";
 import AppendiciPolizzaPage from "@/pages/AppendiciPolizzaPage";
 import RinnoviPolizzaPage from "@/pages/RinnoviPolizzaPage";
+import GestionePolizzePage from "@/pages/GestionePolizzePage";
 
 import DocPrecontrattualePage from "@/pages/DocPrecontrattualePage";
 import EstrazioniStampePage from "@/pages/EstrazioniStampePage";
@@ -39,6 +40,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/immissione" element={<ImmissionePolizzaPage />} />
     <Route path="/portafoglio/appendici" element={<AppendiciPolizzaPage />} />
     <Route path="/portafoglio/rinnovi" element={<RinnoviPolizzaPage />} />
+    <Route path="/portafoglio/gestione" element={<GestionePolizzePage />} />
 
     <Route path="/portafoglio/doc-precontrattuale" element={<DocPrecontrattualePage />} />
     <Route path="/portafoglio/estrazioni-stampe" element={<EstrazioniStampePage />} />
