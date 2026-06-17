@@ -41,6 +41,8 @@ import {
   Lock,
   Hash,
   FileClock,
+  PlusCircle,
+
 
 } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
