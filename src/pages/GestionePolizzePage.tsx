@@ -361,6 +361,7 @@ const GestionePolizzePage = () => {
   const visibleOps = OPERAZIONI.filter((o) => isAdmin || !o.adminOnly);
 
   return (
+    <TooltipProvider>
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -378,13 +379,23 @@ const GestionePolizzePage = () => {
           {visibleOps.map((op) => {
             const Icon = op.icon;
             const active = op.key === opKey;
-            return (
+            const disabled = !canTitoli;
+            const card = (
               <button
                 key={op.key}
                 type="button"
-                onClick={() => handleSelect(op.key)}
-                className={`text-left rounded-lg border p-3 transition hover:border-teal-600 hover:shadow-sm ${
-                  active ? "border-teal-600 bg-teal-50 dark:bg-teal-950/30 ring-1 ring-teal-600" : "border-border bg-card"
+                disabled={disabled}
+                onClick={() => !disabled && handleSelect(op.key)}
+                aria-label={`operazione-${op.key}`}
+                data-op={op.key}
+                className={`text-left rounded-lg border p-3 transition w-full ${
+                  disabled
+                    ? "opacity-60 cursor-not-allowed border-border bg-muted/30"
+                    : "hover:border-teal-600 hover:shadow-sm"
+                } ${
+                  active
+                    ? "border-teal-600 bg-teal-50 dark:bg-teal-950/30 ring-1 ring-teal-600"
+                    : "border-border bg-card"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
@@ -395,9 +406,20 @@ const GestionePolizzePage = () => {
                       admin
                     </Badge>
                   )}
+                  {disabled && <Lock className="w-3 h-3 text-muted-foreground ml-auto" />}
                 </div>
                 <p className="text-xs text-muted-foreground line-clamp-2">{op.descrizione}</p>
               </button>
+            );
+            return disabled ? (
+              <Tooltip key={op.key}>
+                <TooltipTrigger asChild>
+                  <div>{card}</div>
+                </TooltipTrigger>
+                <TooltipContent>Permesso "titoli" mancante</TooltipContent>
+              </Tooltip>
+            ) : (
+              card
             );
           })}
         </div>
@@ -406,16 +428,39 @@ const GestionePolizzePage = () => {
       {operazione && (
         <>
           <PolizzaSection title="2. Filtra polizza" icon={Filter} defaultOpen>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div className="md:col-span-2 space-y-1.5">
-                <Label>Cerca (N° polizza, cliente, compagnia)</Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label>Cliente</Label>
+                <SearchableSelect
+                  options={clientiOpts}
+                  value={clienteId}
+                  onValueChange={setClienteId}
+                  placeholder="Tutti i clienti"
+                  clearable
+                  clearLabel="— Tutti —"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Compagnia</Label>
+                <SearchableSelect
+                  options={compagnieOpts}
+                  value={compagniaId}
+                  onValueChange={setCompagniaId}
+                  placeholder="Tutte le compagnie"
+                  clearable
+                  clearLabel="— Tutte —"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>N° polizza / ricerca libera</Label>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Almeno 2 caratteri..."
+                    placeholder="N° polizza, cliente, compagnia..."
                     className="pl-8"
+                    aria-label="ricerca-libera"
                   />
                 </div>
               </div>
@@ -433,18 +478,17 @@ const GestionePolizzePage = () => {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label>Scad. dal</Label>
-                  <Input type="date" value={scadDal} onChange={(e) => setScadDal(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>al</Label>
-                  <Input type="date" value={scadAl} onChange={(e) => setScadAl(e.target.value)} />
-                </div>
+              <div className="space-y-1.5">
+                <Label>Scad. dal</Label>
+                <Input type="date" value={scadDal} onChange={(e) => setScadDal(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Scad. al</Label>
+                <Input type="date" value={scadAl} onChange={(e) => setScadAl(e.target.value)} />
               </div>
             </div>
           </PolizzaSection>
+
 
           <PolizzaSection title={`3. Risultati — ${operazione.label}`} icon={operazione.icon} defaultOpen>
             <Card>
