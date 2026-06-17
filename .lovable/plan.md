@@ -1,64 +1,98 @@
-## Capito — esempio concreto
+## Obiettivo
 
-Polizza `434334433` (baldassare paolo, CORPI IMBARCAZIONI DIPOR.) ha 3 quietanze:
-- Q1 2025-05-25 → 2026-05-25 (messa a cassa)
-- Q2 2026-05-25 → 2027-05-25
-- Q3 2027-05-25 → 2028-05-25
+La Regolazione (titolo RG) **non è una quietanza** e non deve apparire come polizza o rata "di pari livello". Deve:
+1. essere chiaramente etichettata come **Regolazione** ovunque (header del titolo, liste, filtri);
+2. essere **nidificata sotto la quietanza** a cui è stata agganciata in Carico, Polizze Attive, Storico e Gestione Polizze;
+3. avere la **propria messa a cassa** (già presente) ma con una toolbar Operazioni ridotta alle sole azioni sensate;
+4. mostrare un **link diretto alla quietanza madre** dal dettaglio del titolo RG.
 
-A fine periodo Q2 la compagnia comunica un conguaglio di €120 di premio extra. L'utente:
-1. Clicca **Esegui Appendice** sulla riga `434334433`.
-2. Sceglie tipo = **Regolazione**.
-3. Seleziona dal **SearchableSelect "Quietanza di riferimento"** la rata Q2 (2026-05-25 → 2027-05-25).
-4. Inserisce in 4 campi affiancati: **Netto 100,00 / Tasse 20,00 / Lordo 120,00 / Provvigioni 15,00** (le provvigioni vengono pre-calcolate applicando la % della polizza originale sul netto, ma restano editabili).
-5. Allega il PDF del conguaglio compagnia.
-6. Salva: viene creato un record `appendici_polizza` (tipo=regolazione, collegato alla polizza madre e alla quietanza Q2) e — automaticamente — un nuovo `titoli` di tipo Regolazione (RG) collegato alla Q2 (`sostituisce_polizza=Q2.id`), che eredita anagrafiche/compagnia/rapporto/ramo/percentuali dalla madre, importi presi dai 4 campi, **stato = "attivo"**.
-7. Da quel momento la regolazione vive come una normale rata: appare in **Carico**, può essere **messa a cassa**, **incassata**, genera **provvigioni** secondo i meccanismi esistenti (trigger `genera_quietanza_su_messa_cassa` skip perché tipo RG, niente quietanza successiva).
-
-Niente più redirect a `ImmissionePolizzaPage` con `mode=regolazione`: tutto succede dentro il dialog "Esegui Appendice", coerente con il flusso documenti che già esiste.
+I dati già esistono: `titoli.is_regolazione` e `titoli.regolazione_quietanza_id` (FK alla quietanza fonte). Non servono cambi schema.
 
 ---
 
-## Modifiche DB (migrazione)
+## 1. Etichetta e header del titolo RG
 
-**`appendici_polizza` — colonne aggiunte**
-- `quietanza_id uuid REFERENCES titoli(id) ON DELETE SET NULL` — rata a cui è agganciata la regolazione
-- `titolo_regolazione_id uuid REFERENCES titoli(id) ON DELETE SET NULL` — FK al nuovo titolo RG generato
-- `premio_netto numeric(14,2)`
-- `tasse numeric(14,2)`
-- `premio_lordo numeric(14,2)`
-- `provvigioni numeric(14,2)`
-- `percentuale_provvigione numeric(7,4)` (snapshot della % della madre al momento della creazione)
+File: `src/components/titolo/sections/TitoloHeaderBar.tsx`
 
-**`titoli` — nessuna modifica strutturale**: il record RG generato usa colonne esistenti (`sostituisce_polizza`, `premio_netto`, `tasse`, `premio_lordo`, `provvigioni_firma`, `percentuale_provvigione`, `stato`, `numero_titolo`, ecc.) e un nuovo valore in `tipo_movimento` = `'regolazione'` (testo libero, già usato per altri tipi).
+- Quando `titolo.is_regolazione === true`:
+  - Sostituire il badge "Polizza originale" con un badge **`Regolazione`** (variant distintivo, es. arancione/ambra).
+  - Sotto il numero titolo, aggiungere una riga "Regolazione di **{numero polizza madre} · Rata {n}** ({periodo})" con link cliccabile alla quietanza madre (`/titoli/{regolazione_quietanza_id}`).
+  - Non mostrare la riga "Quietanza · dal … al …" tipica delle rate.
+- Mostrare il periodo coperto dalla regolazione (data effetto → data scadenza dell'appendice) come info secondaria.
 
-**Trigger / RPC**
-- Nuova RPC `crea_titolo_da_regolazione(p_appendice_id uuid)` SECURITY DEFINER: legge l'appendice + quietanza di riferimento, INSERT in `titoli` ereditando campi della madre, imposta `appendici_polizza.titolo_regolazione_id`, scrive snapshot in `titoli_regolazioni`.
-- Patch trigger `genera_quietanza_su_messa_cassa`: skip se `NEW.tipo_movimento = 'regolazione'` (la regolazione è one-shot, non genera rata successiva).
-- Patch `policy-cancellation-cascade`: cancellando una quietanza, cascade anche alle eventuali regolazioni agganciate.
+## 2. Toolbar Operazioni ridotta sul titolo RG
 
-**GRANT** standard per le nuove colonne (eredita dai GRANT esistenti su `appendici_polizza`) + `GRANT EXECUTE ON FUNCTION crea_titolo_da_regolazione TO authenticated`.
+File: `src/pages/TitoloDetail.tsx` (o il componente `OperazioniBar` dove sono renderizzati i bottoni).
+
+- Se `titolo.is_regolazione === true`: mostrare **solo** Messa a Cassa (Incassa/Garantito), Storno e Annullamento.
+- Nascondere: Sospensione, Riattivazione, Sostituzione, Estinzione, Appendici, Regolazione, Precontrattuale, Scansione AI, Reinvia notifica.
+- Aggiungere un piccolo banner informativo sopra la toolbar: "Questo titolo è una Regolazione collegata alla Rata X della polizza ...".
+
+## 3. Nidificazione nelle liste di portafoglio
+
+Riguarda i listati che oggi pescano da `titoli` o da `v_portafoglio_*`. Verificare e patchare le pagine/queries di:
+
+- `src/pages/GestionePolizzePage.tsx`
+- `src/pages/portafoglio/CaricoMesePage.tsx` (o analoghe – Carico)
+- Polizze Attive
+- Storico Polizze
+
+Pattern di nidificazione (lato client, senza toccare il DB):
+
+```text
+[+]  Polizza 123456 (madre)
+       └─ Rata 1 · 01/01 → 31/03 · 1.000 €
+            └─ [Regolazione] RG1 · 1.222 € · Da incassare
+       └─ Rata 2 · 01/04 → 30/06 · 1.000 €
+       └─ Rata 3 …
+```
+
+Implementazione:
+- Recuperare nella stessa query anche i titoli con `is_regolazione=true` per i `regolazione_quietanza_id` presenti nella pagina corrente (un secondo `select` mirato, oppure include nella query principale e raggruppamento client-side per `regolazione_quietanza_id`).
+- Le RG NON compaiono come righe di primo livello: solo come figlie espandibili sotto la rata di riferimento, con icona di rientro e badge "Regolazione".
+- Le colonne mostrate per la RG sono le sue (premio lordo, stato, messa a cassa, azioni). Conserva ordinamento per data garanzia / messa a cassa.
+- In Storico la RG segue lo stato della quietanza (rimane figlia anche se la quietanza è incassata/chiusa).
+
+## 4. Filtro "Tipo" e badge nelle tabelle
+
+- Nei filtri Tipo già presenti (Polizza/Quietanza, vedi memoria "Polizza vs Quietanza filtering" basata su `sostituisce_polizza`) aggiungere **Regolazione** come opzione esplicita, mappata su `is_regolazione=true`.
+- Nelle colonne tipo/badge: badge "Regolazione" arancione, sostituisce il badge Polizza/Quietanza per le righe RG.
+
+## 5. Pagina di dettaglio della quietanza madre
+
+File: `src/pages/TitoloDetail.tsx` (versione quando il titolo NON è regolazione)
+
+- Aggiungere un pannello/sezione "Regolazioni collegate" che elenca tutti i `titoli` con `regolazione_quietanza_id = id`, con numero, importo, stato e link al dettaglio.
+- Mostrare un counter nelle azioni rapide (es. "Regolazioni: 1").
+
+## 6. Coerenza dialog Regolazione
+
+File: `src/components/polizze/azioni/AppendiceDialog.tsx`
+
+- Nessun cambio funzionale: continua a creare appendice + RG via `crea_titolo_da_regolazione`.
+- Nel SearchableSelect quietanze: assicurarsi di **escludere** la polizza madre quando `sostituisce_polizza` è null e non ci sono rate (caso "polizza unica"): in quel caso la regolazione si aggancia comunque alla "rata 1" che coincide con la madre — comportamento già corretto, ma serve un testo esplicativo nel popup.
+
+## 7. Nessuna migrazione schema
+
+Tutti i campi necessari esistono (`is_regolazione`, `regolazione_quietanza_id`, FK al titolo madre via `numero_titolo`). Solo modifiche frontend.
 
 ---
 
-## Modifiche UI
+## Dettagli tecnici
 
-**`AppendiceDialog.tsx`** — quando `tipo === "regolazione"`:
-- Sostituire il banner+bottone "Apri form regolazione" con i campi inline:
-  - `SearchableSelect` "Quietanza di riferimento" (lista rate `titoli` con stesso `numero_titolo`, label `"Rata N · gg/mm/aaaa → gg/mm/aaaa · €lordo"`)
-  - Grid 4 colonne: Netto / Tasse / Lordo / Provvigioni (auto-calcolate, editabili)
-  - Data effetto + Data scadenza (default = periodo della quietanza scelta)
-  - Oggetto + Note + Allegato (riusati)
-- Footer: bottone "Crea regolazione" (non più "Apri form"). On submit: insert su `appendici_polizza` → chiama RPC `crea_titolo_da_regolazione` → toast con link al nuovo titolo RG.
+- **Nidificazione lato client**: usare un singolo `useMemo` per costruire `Map<quietanzaId, Regolazione[]>` da affiancare alla riga padre nella tabella. Riga RG è renderizzata con `pl-8` + icona `CornerDownRight`.
+- **Stato espansione**: salvare in `useState<Set<string>>` le rate espanse; di default tutte le rate che hanno almeno una RG sono espanse.
+- **Etichetta dettaglio**: helper `getTitoloKind(t) => "polizza" | "quietanza" | "regolazione"` per evitare condizioni sparse.
+- **Performance**: la query extra per le RG accetta gli stessi filtri di periodo della query principale; nessun N+1.
+- **Test manuale**:
+  1. Apri un titolo madre, crea una regolazione su Rata 1 → controlla che in Gestione Polizze la RG appaia come figlia di Rata 1.
+  2. Apri il titolo RG → header con badge "Regolazione" e link alla Rata 1.
+  3. Verifica toolbar: solo Messa a Cassa, Storno, Annullamento.
+  4. Esegui Messa a Cassa sulla RG → stato passa a "incassato" indipendentemente dalla rata.
+  5. Apri il titolo madre Rata 1 → sezione "Regolazioni collegate" mostra la RG.
 
-**`ImmissionePolizzaPage.tsx`** — rimuovere il ramo `mode=regolazione` (banner amber riepilogo, query `polizzaMadre`, logica pre-fill da quietanza). La pagina torna a gestire solo emissione/rinnovo.
+## Fuori scope (per ora)
 
-**`AppendiciPolizzaPage.tsx`** — rimuovere il bottone "Apri form regolazione" del footer; usare lo stesso flusso del dialog (oppure linkare direttamente al dialog).
-
-**`TitoloDetail.tsx`** — il record RG mostra badge "Regolazione" + link "← Quietanza di riferimento" verso il titolo Q2; sezione Importi e azioni cassa/provvigioni funzionano già senza modifiche.
-
----
-
-## Aggiornamenti memoria
-
-- `mem://insurance/policy-storno-regolazione-rules.md` — riscrivere la sezione Regolazione: non più "riusa ImmissionePolizzaPage" ma "Appendice tipo=regolazione → genera titolo RG via RPC, agganciato alla quietanza scelta".
-- Aggiornare `mem://index.md` di conseguenza.
+- Spostare la RG sotto la polizza madre invece che sotto la quietanza (richiede impostazione utente).
+- Stampe / export aggiornati con la struttura nidificata: da gestire in un'iterazione successiva.
+- Permessi differenziati sul titolo RG (oggi seguono quelli della tabella `titoli`).
