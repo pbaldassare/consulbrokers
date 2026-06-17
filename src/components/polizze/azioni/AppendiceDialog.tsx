@@ -73,10 +73,15 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("data_scadenza, numero_titolo, percentuale_provvigione")
+        .select("data_scadenza, numero_titolo, premio_netto, provvigioni_firma")
         .eq("id", titoloId!)
         .maybeSingle();
-      return data;
+      if (!data) return null;
+      const perc =
+        data.premio_netto && Number(data.premio_netto) !== 0 && data.provvigioni_firma != null
+          ? +((Number(data.provvigioni_firma) / Number(data.premio_netto)) * 100).toFixed(4)
+          : null;
+      return { ...data, percentuale_provvigione: perc };
     },
   });
 
