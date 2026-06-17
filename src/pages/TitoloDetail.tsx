@@ -498,7 +498,10 @@ const TitoloDetail = () => {
           giorni_presentazione: regForm.giorni_presentazione,
           tipo_lettera_regolazione: regForm.tipo_lettera_regolazione || null,
           libro_matricola: regForm.libro_matricola || null,
-        })
+          regolazione_data_presunta: regForm.regolazione ? (regForm.regolazione_data_presunta || null) : null,
+          regolazione_fattore: regForm.regolazione ? (regForm.regolazione_fattore || null) : null,
+          regolazione_note: regForm.regolazione ? (regForm.regolazione_note || null) : null,
+        } as any)
         .eq("id", id!);
       if (error) throw error;
     },
