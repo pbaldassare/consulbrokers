@@ -106,13 +106,25 @@ const STATI_OPTIONS = ["", "attivo", "sospeso", "scaduto", "incassato", "annulla
 const GestionePolizzePage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isAdmin } = useAuth();
+  const { isAdmin, hasPermission } = useAuth();
+  const canTitoli = isAdmin || hasPermission("titoli");
 
   const [opKey, setOpKey] = useState<OperazioneKey | null>(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statoFilter, setStatoFilter] = useState<string>("");
   const [scadDal, setScadDal] = useState("");
   const [scadAl, setScadAl] = useState("");
+  const [clienteId, setClienteId] = useState<string>("");
+  const [compagniaId, setCompagniaId] = useState<string>("");
+  const [sortBy, setSortBy] = useState<"data_scadenza" | "numero_titolo">("data_scadenza");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  // debounce ricerca 350ms (memory: 350ms debounce)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   // dialog state
   const [target, setTarget] = useState<{ id: string; numero: string } | null>(null);
@@ -129,51 +141,133 @@ const GestionePolizzePage = () => {
 
   const operazione = useMemo(() => OPERAZIONI.find((o) => o.key === opKey) || null, [opKey]);
 
-  // pre-imposta filtro stato in base all'operazione
   const statiAttivi = useMemo(() => {
     if (!operazione) return [] as string[];
     if (statoFilter) return [statoFilter];
     return operazione.statiFiltro;
   }, [operazione, statoFilter]);
 
-  const { data: polizze, isFetching } = useQuery({
-    queryKey: ["gestione-polizze", opKey, search, statiAttivi.join(","), scadDal, scadAl],
+  // Paginazione standard 25/pagina (memory)
+  const { page, setPage, pageSize, range, resetPage } = useServerPagination(25, [
+    opKey,
+    debouncedSearch,
+    statoFilter,
+    scadDal,
+    scadAl,
+    clienteId,
+    compagniaId,
+    sortBy,
+    sortDir,
+  ]);
+
+  // Opzioni Cliente / Compagnia per SearchableSelect
+  const { data: clientiOpts = [] } = useQuery({
+    queryKey: ["gestione-polizze-clienti-opts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale")
+        .eq("attivo", true)
+        .order("cognome", { ascending: true })
+        .limit(500);
+      return ((data || []) as any[]).map<SearchableSelectOption>((c) => ({
+        value: c.id,
+        label:
+          c.ragione_sociale ||
+          `${c.cognome ?? ""} ${c.nome ?? ""}`.trim() ||
+          c.id.slice(0, 8),
+      }));
+    },
+  });
+
+  const { data: compagnieOpts = [] } = useQuery({
+    queryKey: ["gestione-polizze-compagnie-opts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnie")
+        .select("id, nome")
+        .eq("attiva", true)
+        .order("nome", { ascending: true })
+        .limit(500);
+      return ((data || []) as any[]).map<SearchableSelectOption>((c) => ({
+        value: c.id,
+        label: c.nome,
+      }));
+    },
+  });
+
+  const { data: result, isFetching } = useQuery({
+    queryKey: [
+      "gestione-polizze",
+      opKey,
+      debouncedSearch,
+      statiAttivi.join(","),
+      scadDal,
+      scadAl,
+      clienteId,
+      compagniaId,
+      sortBy,
+      sortDir,
+      page,
+    ],
     enabled: !!opKey,
     queryFn: async () => {
       let q = supabase
         .from("v_portafoglio_titoli")
         .select(
-          "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza",
+          "id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza",
+          { count: "exact" },
         )
-        .order("data_scadenza", { ascending: true })
-        .limit(25);
+        .order(sortBy, { ascending: sortDir === "asc" })
+        .range(range.from, range.to);
 
       if (statiAttivi.length > 0) q = q.in("stato", statiAttivi);
       if (operazione?.richiedeMessaCassa) q = q.not("data_messa_cassa", "is", null);
       if (operazione?.escludeMessaCassa) q = q.is("data_messa_cassa", null);
       if (scadDal) q = q.gte("data_scadenza", scadDal);
       if (scadAl) q = q.lte("data_scadenza", scadAl);
-      if (search.trim()) {
-        const s = search.trim();
-        q = q.or(`numero_titolo.ilike.%${s}%,cliente_nome_display.ilike.%${s}%,compagnia_nome.ilike.%${s}%`);
+      if (clienteId) q = q.eq("cliente_anagrafica_id", clienteId);
+      if (compagniaId) q = q.eq("compagnia_id", compagniaId);
+      if (debouncedSearch) {
+        const s = debouncedSearch;
+        q = q.or(
+          `numero_titolo.ilike.%${s}%,cliente_nome_display.ilike.%${s}%,compagnia_nome.ilike.%${s}%`,
+        );
       }
-      const { data, error } = await q;
+      const { data, error, count } = await q;
       if (error) throw error;
-      return data || [];
+      return { rows: data || [], count: count ?? 0 };
     },
   });
+
+  const polizze = result?.rows ?? [];
+  const totalCount = result?.count ?? 0;
 
   const handleSelect = (op: OperazioneKey) => {
     setOpKey(op);
     setSearch("");
     setStatoFilter("");
+    setClienteId("");
+    setCompagniaId("");
+    resetPage();
+  };
+
+  const toggleSort = (col: "data_scadenza" | "numero_titolo") => {
+    if (sortBy === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(col);
+      setSortDir("asc");
+    }
   };
 
   const refreshAll = () => {
     queryClient.invalidateQueries({ queryKey: ["gestione-polizze"] });
     queryClient.invalidateQueries({ queryKey: ["titoli"] });
     queryClient.invalidateQueries({ queryKey: ["v_portafoglio_titoli"] });
+    queryClient.invalidateQueries({ queryKey: ["log_attivita_gestione_polizze"] });
   };
+
 
   const esegui = (row: any) => {
     if (!operazione) return;
