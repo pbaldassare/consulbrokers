@@ -459,6 +459,9 @@ const GestionePolizzePage = () => {
       case "cig_temporanei":
         navigate(`/titoli/${row.id}`);
         return;
+      case "regolazioni_attese":
+        navigate(`/titoli/${row.id}?section=regolazione`);
+        return;
     }
   };
 
