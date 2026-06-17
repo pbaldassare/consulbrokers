@@ -240,21 +240,32 @@ const GestionePolizzePage = () => {
       scadAl,
       clienteId,
       compagniaId,
+      cigFilter,
       sortBy,
       sortDir,
       page,
     ],
     enabled: !!opKey,
     queryFn: async () => {
-      // Pre-filtro CIG temporanei: prendiamo gli id da titoli (la view non espone cig_temporaneo)
+      // Pre-filtro CIG (operazione dedicata o filtro multi)
       let cigIds: string[] | null = null;
-      if (operazione?.richiedeCigTemporaneo) {
+      const needsCigWith = operazione?.richiedeCigTemporaneo || cigFilter === "with";
+      const needsCigWithout = cigFilter === "without" && !operazione?.richiedeCigTemporaneo;
+      if (needsCigWith) {
         const { data: cigRows } = await supabase
           .from("titoli")
           .select("id")
-          .not("cig_temporaneo", "is", null);
+          .eq("cig_temporaneo", true);
         cigIds = (cigRows || []).map((r: any) => r.id);
-        if (cigIds.length === 0) return { rows: [], count: 0 };
+        if (cigIds.length === 0) return { rows: [], count: 0, cigMap: {} as Record<string, { cig_temporaneo: boolean; cig_rif: string | null }> };
+      } else if (needsCigWithout) {
+        const { data: cigRows } = await supabase
+          .from("titoli")
+          .select("id")
+          .eq("cig_temporaneo", true);
+        const excludeIds = (cigRows || []).map((r: any) => r.id);
+        // Per "senza CIG" useremo .not("id","in",...) sotto
+        cigIds = excludeIds.length > 0 ? excludeIds : [];
       }
 
       let q = supabase
@@ -266,7 +277,10 @@ const GestionePolizzePage = () => {
         .order(sortBy, { ascending: sortDir === "asc" })
         .range(range.from, range.to);
 
-      if (cigIds) q = q.in("id", cigIds);
+      if (needsCigWith && cigIds) q = q.in("id", cigIds);
+      if (needsCigWithout && cigIds && cigIds.length > 0) {
+        q = q.not("id", "in", `(${cigIds.map((i) => `"${i}"`).join(",")})`);
+      }
       if (statiAttivi.length > 0) q = q.in("stato", statiAttivi);
       if (operazione?.richiedeMessaCassa) q = q.not("data_messa_cassa", "is", null);
       if (operazione?.escludeMessaCassa) q = q.is("data_messa_cassa", null);
@@ -282,12 +296,27 @@ const GestionePolizzePage = () => {
       }
       const { data, error, count } = await q;
       if (error) throw error;
-      return { rows: data || [], count: count ?? 0 };
+
+      // Fetch cig flags per le righe visibili
+      const rows = data || [];
+      let cigMap: Record<string, { cig_temporaneo: boolean; cig_rif: string | null }> = {};
+      if (rows.length > 0) {
+        const ids = rows.map((r: any) => r.id);
+        const { data: cigInfo } = await supabase
+          .from("titoli")
+          .select("id, cig_temporaneo, cig_rif")
+          .in("id", ids);
+        cigMap = Object.fromEntries(
+          (cigInfo || []).map((r: any) => [r.id, { cig_temporaneo: !!r.cig_temporaneo, cig_rif: r.cig_rif }]),
+        );
+      }
+      return { rows, count: count ?? 0, cigMap };
     },
   });
 
   const polizze = result?.rows ?? [];
   const totalCount = result?.count ?? 0;
+  const cigMap = result?.cigMap ?? {};
 
   const handleSelect = (op: OperazioneKey) => {
     setOpKey(op);
@@ -295,6 +324,7 @@ const GestionePolizzePage = () => {
     setStatoFilter("");
     setClienteId("");
     setCompagniaId("");
+    setCigFilter("all");
     resetPage();
   };
 
