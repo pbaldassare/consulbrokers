@@ -406,11 +406,7 @@ const AppendiciPolizzaPage = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        {a.testo && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewText(a.testo)} title="Visualizza testo">
-                            <Eye className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
+                        {/* testo legacy non più visualizzato */}
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(a)} title="Modifica">
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
