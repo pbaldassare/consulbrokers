@@ -429,27 +429,43 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                 <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
               </div>
               <div className="md:col-span-2">
-                <Label>Allegato (opzionale)</Label>
-                <Input type="file" accept="image/*,application/pdf"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                {file && filePreviewUrl && (
-                  <div className="mt-2 rounded-md border bg-muted/30 p-2">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                      <FileIcon className="h-3.5 w-3.5" />
-                      <span className="truncate">{file.name}</span>
-                      <span className="ml-auto">{(file.size / 1024).toFixed(0)} KB</span>
-                    </div>
-                    {fileKind === "image" && (
-                      <img src={filePreviewUrl} alt={file.name}
-                        className="max-h-48 w-auto mx-auto rounded" />
-                    )}
-                    {fileKind === "pdf" && (
-                      <iframe src={filePreviewUrl} title={file.name}
-                        className="w-full h-64 rounded border-0" />
-                    )}
-                    {fileKind === "other" && (
-                      <p className="text-xs text-muted-foreground">Anteprima non disponibile per questo tipo di file.</p>
-                    )}
+                <Label>Allegati (opzionali)</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    multiple
+                    onChange={(e) => {
+                      const picked = Array.from(e.target.files || []);
+                      if (picked.length) {
+                        setFiles((prev) => {
+                          const seen = new Set(prev.map((f) => `${f.name}_${f.size}`));
+                          const merged = [...prev];
+                          for (const f of picked) {
+                            const k = `${f.name}_${f.size}`;
+                            if (!seen.has(k)) { merged.push(f); seen.add(k); }
+                          }
+                          return merged;
+                        });
+                      }
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                  <Plus className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Puoi selezionare più file (immagini o PDF). Verranno caricati alla creazione dell'appendice.
+                </p>
+
+                {files.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {files.map((f, idx) => (
+                      <AllegatoPreview
+                        key={`${f.name}_${f.size}_${idx}`}
+                        file={f}
+                        onRemove={() => setFiles((prev) => prev.filter((_, i) => i !== idx))}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
