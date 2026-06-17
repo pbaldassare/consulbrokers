@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Trash2, Download, Pencil, X, Plus } from "lucide-react";
+import { Trash2, Download, Pencil, X, Plus, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -22,9 +23,8 @@ import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 
 const TIPI_APPENDICE = [
   { value: "modifica", label: "Modifica" },
-  { value: "integrazione", label: "Integrazione" },
-  { value: "rettifica", label: "Rettifica" },
-  { value: "annullamento_parziale", label: "Annullamento parziale" },
+  { value: "proroga", label: "Appendice di proroga" },
+  { value: "regolazione", label: "Regolazione" },
 ];
 
 const AppendiciPolizzaPage = () => {
@@ -267,20 +267,13 @@ const AppendiciPolizzaPage = () => {
       {/* FORM APPENDICE */}
       <PolizzaSection title={editingId ? `Modifica Appendice #${numeroAppendice}` : "Nuova Appendice"}>
 
-        <div className="flex gap-4 flex-wrap">
-          <div className="space-y-1.5 w-[120px]">
-            <Label>N° Appendice</Label>
-            <Input value={numeroAppendice} onChange={(e) => setNumeroAppendice(e.target.value)} placeholder="1" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label>Numero *</Label>
+            <Input value={numeroAppendice} readOnly disabled className="bg-muted" />
+            <p className="text-xs text-muted-foreground mt-1">Progressivo automatico</p>
           </div>
-          <div className="space-y-1.5 w-[160px]">
-            <Label>Data Appendice</Label>
-            <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)} />
-          </div>
-          <div className="space-y-1.5 w-[160px]">
-            <Label>Data Effetto</Label>
-            <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)} />
-          </div>
-          <div className="space-y-1.5 w-[200px]">
+          <div>
             <Label>Tipo</Label>
             <Select value={tipo} onValueChange={setTipo}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -291,45 +284,57 @@ const AppendiciPolizzaPage = () => {
               </SelectContent>
             </Select>
           </div>
-        </div>
 
-        <div className="space-y-1.5">
-          <Label>Oggetto</Label>
-          <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)} placeholder="Oggetto dell'appendice..." />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Allega documento</Label>
-            <div className="border-2 border-dashed border-border rounded-lg p-6 text-center space-y-3">
-              <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Seleziona un file (PDF, DOC, immagini)</p>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff"
-                onChange={(e) => { setFile(e.target.files?.[0] || null); setRemoveExistingFile(false); }}
-                className="text-sm"
-              />
-              {file && <p className="text-sm font-medium text-foreground">📎 {file.name}</p>}
-              {/* Show existing file info when editing */}
-              {editingId && existingFileName && !removeExistingFile && !file && (
-                <div className="flex items-center justify-center gap-2 text-sm">
-                  <span className="text-muted-foreground">File attuale:</span>
-                  <span className="font-medium">{existingFileName}</span>
-                  <Button variant="ghost" size="sm" className="h-6 text-destructive hover:text-destructive" onClick={() => setRemoveExistingFile(true)}>
-                    <X className="w-3 h-3 mr-1" />Rimuovi
-                  </Button>
-                </div>
-              )}
-              {editingId && removeExistingFile && !file && (
-                <p className="text-sm text-destructive">Il file verrà rimosso al salvataggio</p>
-              )}
+          {tipo === "regolazione" ? (
+            <div className="md:col-span-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 p-3 text-sm">
+              <strong>Regolazione premio:</strong> non è una semplice appendice ma un vero conguaglio.
+              Premendo <em>Apri form regolazione</em> verrà aperta la schermata di emissione polizza
+              precompilata dalla polizza madre, con possibilità di scegliere la quietanza di riferimento
+              e di inserire tutti i dati tecnici/economici come per una nuova polizza.
             </div>
+          ) : (
+            <>
+              <div>
+                <Label>Data scadenza</Label>
+                <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)} />
+              </div>
+              <div>
+                <Label>Data effetto</Label>
+                <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Oggetto</Label>
+                <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)} placeholder="Breve descrizione dell'oggetto dell'appendice" />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Note interne</Label>
+                <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Allegato (opzionale)</Label>
+                <Input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff"
+                  onChange={(e) => { setFile(e.target.files?.[0] || null); setRemoveExistingFile(false); }}
+                />
+                {file && <p className="text-xs text-muted-foreground mt-1">📎 {file.name}</p>}
+                {editingId && existingFileName && !removeExistingFile && !file && (
+                  <div className="flex items-center gap-2 text-xs mt-1">
+                    <span className="text-muted-foreground">File attuale:</span>
+                    <span className="font-medium">{existingFileName}</span>
+                    <Button variant="ghost" size="sm" className="h-6 text-destructive hover:text-destructive" onClick={() => setRemoveExistingFile(true)}>
+                      <X className="w-3 h-3 mr-1" />Rimuovi
+                    </Button>
+                  </div>
+                )}
+                {editingId && removeExistingFile && !file && (
+                  <p className="text-xs text-destructive mt-1">Il file verrà rimosso al salvataggio</p>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="space-y-1.5">
-          <Label>Note</Label>
-          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note aggiuntive..." />
-        </div>
 
         <div className="flex justify-end gap-2 pt-2">
           {editingId && (
@@ -359,9 +364,21 @@ const AppendiciPolizzaPage = () => {
           <Button variant="secondary" onClick={() => paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/attive")}>
             Chiudi
           </Button>
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? "Salvataggio..." : editingId ? "Aggiorna Appendice" : "Salva Appendice"}
-          </Button>
+          {tipo === "regolazione" ? (
+            <Button
+              onClick={() => {
+                if (!paramTitoloId) return;
+                navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${paramTitoloId}`);
+              }}
+              disabled={!paramTitoloId}
+            >
+              Apri form regolazione <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? "Salvataggio..." : editingId ? "Aggiorna Appendice" : "Salva Appendice"}
+            </Button>
+          )}
         </div>
       </PolizzaSection>
 
