@@ -142,7 +142,7 @@ const TitoloDetail = () => {
   const [sostituzioneOpen, setSostituzioneOpen] = useState(false);
   const [estinzioneOpen, setEstinzioneOpen] = useState(false);
   const [stornoOpen, setStornoOpen] = useState(false);
-  const [regolazioneOpen, setRegolazioneOpen] = useState(false);
+  // regolazioneOpen rimosso: ora navighiamo a /portafoglio/immissione?mode=regolazione
 
   // --- Rinnovo dialog state ---
   
