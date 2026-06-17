@@ -128,13 +128,20 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
   }, [open, existing, titoloInfo]);
 
-  // Pre-fill periodo dalla quietanza scelta
+  // Quando cambio quietanza: prefill periodo + RESET importi sui valori della rata scelta
   useEffect(() => {
     if (!quietanzaId || !catena) return;
-    const q = catena.find((t: any) => t.id === quietanzaId);
+    const q: any = catena.find((t: any) => t.id === quietanzaId);
     if (!q) return;
-    if (!dataEffetto) setDataEffetto((q as any).garanzia_da || "");
-    if (!dataAppendice) setDataAppendice((q as any).garanzia_a || "");
+    setDataEffetto(q.garanzia_da || "");
+    setDataAppendice(q.garanzia_a || "");
+    const n = q.premio_netto != null ? Number(q.premio_netto).toFixed(2) : "";
+    const tx = q.tasse != null ? Number(q.tasse).toFixed(2) : "";
+    const l = q.premio_lordo != null ? Number(q.premio_lordo).toFixed(2) : "";
+    setPremioNetto(n);
+    setTasse(tx);
+    setPremioLordo(l);
+    // provvigioni verranno ricalcolate dall'effect netto×%
   }, [quietanzaId, catena]);
 
   // Auto-calcolo provvigioni quando cambia netto o %
