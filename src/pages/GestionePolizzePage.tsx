@@ -395,7 +395,7 @@ const GestionePolizzePage = () => {
       </div>
 
       <PolizzaSection title="1. Scegli operazione" icon={Wand2} defaultOpen>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
           {visibleOps.map((op) => {
             const Icon = op.icon;
             const active = op.key === opKey;
@@ -408,7 +408,8 @@ const GestionePolizzePage = () => {
                 onClick={() => !disabled && handleSelect(op.key)}
                 aria-label={`operazione-${op.key}`}
                 data-op={op.key}
-                className={`text-left rounded-lg border p-3 transition w-full ${
+                title={op.descrizione}
+                className={`relative text-left rounded-md border px-2 py-2 transition w-full h-[68px] flex flex-col justify-between ${
                   disabled
                     ? "opacity-60 cursor-not-allowed border-border bg-muted/30"
                     : "hover:border-teal-600 hover:shadow-sm"
@@ -418,17 +419,17 @@ const GestionePolizzePage = () => {
                     : "border-border bg-card"
                 }`}
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <Icon className={`w-4 h-4 ${active ? "text-teal-600" : "text-muted-foreground"}`} />
-                  <span className="font-semibold text-sm">{op.label}</span>
-                  {op.adminOnly && (
-                    <Badge variant="outline" className="text-[10px] ml-auto">
-                      admin
-                    </Badge>
-                  )}
-                  {disabled && <Lock className="w-3 h-3 text-muted-foreground ml-auto" />}
+                {op.adminOnly && (
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" title="admin" />
+                )}
+                {disabled && (
+                  <Lock className="absolute top-1 right-1 w-3 h-3 text-muted-foreground" />
+                )}
+                <div className="flex items-center gap-1.5">
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${active ? "text-teal-600" : "text-muted-foreground"}`} />
+                  <span className="font-medium text-xs leading-tight">{op.label}</span>
                 </div>
-                <p className="text-xs text-muted-foreground line-clamp-2">{op.descrizione}</p>
+                <p className="text-[10px] text-muted-foreground truncate leading-tight">{op.descrizione}</p>
               </button>
             );
             return disabled ? (
@@ -448,7 +449,7 @@ const GestionePolizzePage = () => {
       {operazione && (
         <>
           <PolizzaSection title="2. Filtra polizza" icon={Filter} defaultOpen>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
                 <SearchableSelect
@@ -461,53 +462,21 @@ const GestionePolizzePage = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Compagnia</Label>
-                <SearchableSelect
-                  options={compagnieOpts}
-                  value={compagniaId}
-                  onValueChange={setCompagniaId}
-                  placeholder="Tutte le compagnie"
-                  clearable
-                  clearLabel="— Tutte —"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>N° polizza / ricerca libera</Label>
+                <Label>N° polizza</Label>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="N° polizza, cliente, compagnia..."
+                    placeholder="N° polizza..."
                     className="pl-8"
                     aria-label="ricerca-libera"
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Stato</Label>
-                <select
-                  value={statoFilter}
-                  onChange={(e) => setStatoFilter(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  {STATI_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {s ? s : `Default (${operazione.statiFiltro.join(", ") || "tutti"})`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Scad. dal</Label>
-                <Input type="date" value={scadDal} onChange={(e) => setScadDal(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Scad. al</Label>
-                <Input type="date" value={scadAl} onChange={(e) => setScadAl(e.target.value)} />
-              </div>
             </div>
           </PolizzaSection>
+
 
 
           <PolizzaSection title={`3. Risultati — ${operazione.label}`} icon={operazione.icon} defaultOpen>
