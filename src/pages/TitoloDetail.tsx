@@ -249,12 +249,21 @@ const TitoloDetail = () => {
   const { data: appendiciPolizza = [] } = useQuery({
     queryKey: ["appendici-polizza", id],
     queryFn: async () => {
-      const { data } = await supabase
+      // Appendici registrate direttamente su questo titolo
+      const { data: direct } = await supabase
         .from("appendici_polizza")
         .select("*")
         .eq("titolo_id", id!)
         .order("created_at", { ascending: false });
-      return data || [];
+      // Se questo titolo è una regolazione (RG), includi anche l'appendice madre che l'ha generato
+      const { data: regParents } = await supabase
+        .from("appendici_polizza")
+        .select("*")
+        .eq("titolo_regolazione_id", id!);
+      const merged = [...(direct || []), ...(regParents || [])];
+      // dedup per id
+      const seen = new Set<string>();
+      return merged.filter((a: any) => (seen.has(a.id) ? false : (seen.add(a.id), true)));
     },
     enabled: !!id,
   });
