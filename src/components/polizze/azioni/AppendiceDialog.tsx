@@ -416,6 +416,30 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
           </DialogDescription>
         </DialogHeader>
 
+        {draftRestored && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2">
+            <span>Bozza precedente ripristinata automaticamente.</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={() => {
+                if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
+                setDraftRestored(false);
+                setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
+                setDataEffetto(""); setOggetto(""); setTipo("modifica"); setNote("");
+                setQuietanzaId(""); setPremioNetto(""); setTasse("");
+                setPremioLordo(""); setProvvigioni("");
+                setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
+              }}
+            >
+              Scarta bozza
+            </Button>
+          </div>
+        )}
+
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label>Numero *</Label>
