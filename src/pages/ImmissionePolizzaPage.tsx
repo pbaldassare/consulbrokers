@@ -788,7 +788,11 @@ const ImmissionePolizzaPage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("*")
+        .select(`*,
+          cliente:clienti!titoli_cliente_anagrafica_id_fkey(id, ragione_sociale, nome, cognome),
+          compagnia:compagnie!titoli_compagnia_id_fkey(id, nome),
+          rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(id, codice, descrizione, tipo_rapporto)
+        `)
         .eq("id", titoloMadreId!)
         .maybeSingle();
       return data;
