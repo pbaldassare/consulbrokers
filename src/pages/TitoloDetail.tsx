@@ -299,6 +299,7 @@ const TitoloDetail = () => {
   const [regForm, setRegForm] = useState({
     regolazione: false, periodicita: "", tipo_scadenza: "",
     giorni_presentazione: 0, tipo_lettera_regolazione: "", libro_matricola: "",
+    regolazione_data_presunta: "", regolazione_fattore: "", regolazione_note: "",
   });
 
   // --- Commerciale split state (multi-produttore) ---
