@@ -93,7 +93,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, sostituisce_polizza, is_regolazione, stato, numero_titolo")
+        .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, premio_netto, tasse, sostituisce_polizza, is_regolazione, stato, numero_titolo")
         .eq("numero_titolo", titoloInfo!.numero_titolo!)
         .order("garanzia_da", { ascending: true });
       return (data || []).filter(
