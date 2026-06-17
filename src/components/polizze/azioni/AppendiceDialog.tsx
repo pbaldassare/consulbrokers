@@ -45,6 +45,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
   const [tipo, setTipo] = useState("modifica");
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
 
   // Campi regolazione
   const [quietanzaId, setQuietanzaId] = useState<string>("");
