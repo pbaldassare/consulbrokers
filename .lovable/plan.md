@@ -1,18 +1,32 @@
-## Rendere visibile il bottone "Esegui" su ogni riga
+## Filtro Cliente in Gestione Polizze: usare OR su `cliente_id` e `cliente_anagrafica_id`
 
-### Problema
-Il bottone che apre il dialog di creazione (Appendice, Storno, …) è nell'**ultima** delle 11 colonne della tabella, che esce dallo schermo per overflow orizzontale. Sembra che la pagina sia "ferma" mentre in realtà il CTA è fuori vista a destra.
+### Causa
+Su `titoli` (e quindi su `v_portafoglio_titoli`) il legame al cliente è **doppio**:
+- `cliente_id` → `clienti.id` (29 titoli su 102)
+- `cliente_anagrafica_id` → **anch'esso `clienti.id`** (76 titoli su 102), nonostante il nome suggerisca `anagrafiche_professionali.id`. Verificato: 76/76 matchano `clienti.id`, 0/76 matchano `anagrafiche_professionali.id`.
 
-### Modifiche (solo UI, file unico)
+Il fix recente filtrava solo su `cliente_id`, escludendo i 76 titoli "legacy" — fra cui le 5 polizze di Baldassare Paolo. Per questo `Nessuna polizza` quando lo selezioni.
 
-`src/pages/GestionePolizzePage.tsx`:
+### Modifica
 
-1. **Sticky-right** sulla colonna Azione (header + celle):
-   - `className="sticky right-0 bg-background z-10 border-l shadow-[-4px_0_8px_-6px_rgba(0,0,0,0.15)]"`
-   - Riga pari/dispari: usare `bg-background` / `bg-muted/30` coerente con la riga.
-2. **CTA più visibile**: bottone con label dinamica `"Crea {label}"` (es. "Crea Appendice", "Avvia Storno", "Genera Rinnovo"), variante primary (verde teal del brand), icona + testo, `data-tour="esegui-riga"`.
-3. **Hint sopra la tabella**: nella card "3. Risultati — {op}" aggiungere un sottotesto: *"Clicca **{Esegui label}** sulla riga della polizza per aprire il dialog e salvare l'operazione."*
-4. **Header colonna**: rinominare la 11ª colonna da "Azione" implicita a un'intestazione esplicita `"Azione"` (oggi è vuota) per chiarezza.
-5. Mantenere `overflow-x-auto` sul wrapper della Table; lo sticky cell tiene il CTA sempre a vista.
+`src/pages/GestionePolizzePage.tsx` — sostituire il filtro singolo con un OR:
 
-Niente cambi di logica, niente DB, niente nuovi file. È un fix di **discoverability** del CTA esistente.
+```ts
+if (clienteId) {
+  q = q.or(`cliente_id.eq.${clienteId},cliente_anagrafica_id.eq.${clienteId}`);
+}
+```
+
+Niente altre modifiche: l'opzione Cliente continua a venire da `public.clienti` (corretto), la SearchableSelect è invariata.
+
+### Aggiornare la memoria
+
+`mem://insurance/v-portafoglio-titoli-cliente-keys.md` va riscritta: `cliente_anagrafica_id` su `titoli` **contiene `clienti.id`** (legacy naming). Per filtrare titoli per cliente serve `cliente_id OR cliente_anagrafica_id`. Idem dovunque si filtri `titoli`/`v_portafoglio_titoli` per cliente — vado a fare un audit (ripgrep) e segnalo (senza correggerli ora, fuori scope) i punti che usano solo una delle due colonne.
+
+### Test
+
+Aggiornare `tests/e2e/11-gestione-polizze-operazioni.spec.ts`: il fixture `createTestTitolo` valorizza `cliente_anagrafica_id` (vedi helper) — verificare che il filtro mostri il titolo con la SearchableSelect su `clienti.id` come prima.
+
+### Fuori scopo
+- Migrazione dati per consolidare `cliente_id` (riempire `cliente_id` dove c'è solo `cliente_anagrafica_id`): è un cleanup separato che richiede approvazione esplicita.
+- Refactor delle altre pagine che filtrano titoli per cliente.
