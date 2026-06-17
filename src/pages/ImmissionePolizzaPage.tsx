@@ -1762,6 +1762,60 @@ const ImmissionePolizzaPage = () => {
         </div>
       )}
 
+      {regolazioneMode && (
+        <div className="rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm">
+              <span className="font-semibold text-amber-900 dark:text-amber-200">
+                Regolazione della polizza N° {polizzaMadre?.numero_titolo || "—"}
+              </span>
+              {polizzaMadre?.riga != null && (
+                <span className="text-xs text-amber-800/80 dark:text-amber-300/80 ml-2">
+                  (riga madre {polizzaMadre.riga})
+                </span>
+              )}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={() => {
+                if (titoloMadreId) navigate(`/titoli/${titoloMadreId}`);
+                else navigate(-1);
+              }}
+            >
+              Esci dalla regolazione
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+            <div className="space-y-1">
+              <Label className="text-xs">Quietanza di riferimento *</Label>
+              <SearchableSelect
+                className="h-8 text-xs"
+                value={selectedQuietanzaRefId}
+                onValueChange={(v) => setSelectedQuietanzaRefId(v)}
+                placeholder="— Seleziona la quietanza —"
+                options={(quietanzePolizza || []).map((q: any) => {
+                  const da = q.durata_da ? new Date(q.durata_da).toLocaleDateString("it-IT") : "—";
+                  const a = q.durata_a ? new Date(q.durata_a).toLocaleDateString("it-IT") : "—";
+                  const incassata = q.stato === "incassato" || q.data_messa_cassa ? " · INCASSATA" : "";
+                  return {
+                    value: q.id,
+                    label: `Riga ${q.riga ?? 0} · ${da} → ${a} · ${q.stato || "—"}${incassata}`,
+                  };
+                })}
+              />
+              <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                La regolazione verrà collegata a questa quietanza nella tabella titoli_regolazioni.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
 
 
       <ImportNuovaPolizzaAIDialog
