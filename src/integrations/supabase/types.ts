@@ -622,9 +622,16 @@ export type Database = {
           note: string | null
           numero_appendice: string
           oggetto: string | null
+          percentuale_provvigione: number | null
+          premio_lordo: number | null
+          premio_netto: number | null
+          provvigioni: number | null
+          quietanza_id: string | null
+          tasse: number | null
           testo: string | null
           tipo: string | null
           titolo_id: string
+          titolo_regolazione_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -637,9 +644,16 @@ export type Database = {
           note?: string | null
           numero_appendice: string
           oggetto?: string | null
+          percentuale_provvigione?: number | null
+          premio_lordo?: number | null
+          premio_netto?: number | null
+          provvigioni?: number | null
+          quietanza_id?: string | null
+          tasse?: number | null
           testo?: string | null
           tipo?: string | null
           titolo_id: string
+          titolo_regolazione_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -652,11 +666,32 @@ export type Database = {
           note?: string | null
           numero_appendice?: string
           oggetto?: string | null
+          percentuale_provvigione?: number | null
+          premio_lordo?: number | null
+          premio_netto?: number | null
+          provvigioni?: number | null
+          quietanza_id?: string | null
+          tasse?: number | null
           testo?: string | null
           tipo?: string | null
           titolo_id?: string
+          titolo_regolazione_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "appendici_polizza_quietanza_id_fkey"
+            columns: ["quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appendici_polizza_quietanza_id_fkey"
+            columns: ["quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appendici_polizza_titolo_id_fkey"
             columns: ["titolo_id"]
@@ -667,6 +702,20 @@ export type Database = {
           {
             foreignKeyName: "appendici_polizza_titolo_id_fkey"
             columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appendici_polizza_titolo_regolazione_id_fkey"
+            columns: ["titolo_regolazione_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appendici_polizza_titolo_regolazione_id_fkey"
+            columns: ["titolo_regolazione_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
@@ -7831,6 +7880,7 @@ export type Database = {
           id_legacy: number | null
           importo_incassato: number | null
           indicizzata: boolean | null
+          is_regolazione: boolean
           libro_matricola: string | null
           limite_mora: string | null
           limite_riattivazione: string | null
@@ -7863,6 +7913,7 @@ export type Database = {
           regolazione_data_presunta: string | null
           regolazione_fattore: string | null
           regolazione_note: string | null
+          regolazione_quietanza_id: string | null
           riga: number | null
           rimborso: boolean | null
           risk_type: string | null
@@ -7951,6 +8002,7 @@ export type Database = {
           id_legacy?: number | null
           importo_incassato?: number | null
           indicizzata?: boolean | null
+          is_regolazione?: boolean
           libro_matricola?: string | null
           limite_mora?: string | null
           limite_riattivazione?: string | null
@@ -7983,6 +8035,7 @@ export type Database = {
           regolazione_data_presunta?: string | null
           regolazione_fattore?: string | null
           regolazione_note?: string | null
+          regolazione_quietanza_id?: string | null
           riga?: number | null
           rimborso?: boolean | null
           risk_type?: string | null
@@ -8071,6 +8124,7 @@ export type Database = {
           id_legacy?: number | null
           importo_incassato?: number | null
           indicizzata?: boolean | null
+          is_regolazione?: boolean
           libro_matricola?: string | null
           limite_mora?: string | null
           limite_riattivazione?: string | null
@@ -8103,6 +8157,7 @@ export type Database = {
           regolazione_data_presunta?: string | null
           regolazione_fattore?: string | null
           regolazione_note?: string | null
+          regolazione_quietanza_id?: string | null
           riga?: number | null
           rimborso?: boolean | null
           risk_type?: string | null
@@ -8204,6 +8259,20 @@ export type Database = {
             columns: ["ramo_id"]
             isOneToOne: false
             referencedRelation: "rami"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_regolazione_quietanza_id_fkey"
+            columns: ["regolazione_quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_regolazione_quietanza_id_fkey"
+            columns: ["regolazione_quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
           {
@@ -9790,6 +9859,10 @@ export type Database = {
           cliente_id: string
           count: number
         }[]
+      }
+      crea_titolo_da_regolazione: {
+        Args: { p_appendice_id: string }
+        Returns: string
       }
       current_ufficio_id: { Args: never; Returns: string }
       ensure_default_rapporto: {
