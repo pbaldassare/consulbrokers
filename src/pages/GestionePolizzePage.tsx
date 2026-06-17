@@ -55,6 +55,8 @@ import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePoli
 import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
 import { DuplicaPolizzaDialog } from "@/components/polizze/azioni/DuplicaPolizzaDialog";
+import { AppendiceDialog } from "@/components/polizze/azioni/AppendiceDialog";
+import { CaricaDocDialog } from "@/components/polizze/azioni/CaricaDocDialog";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/SearchableSelect";
 import ServerPagination from "@/components/ServerPagination";
 import { useServerPagination } from "@/hooks/useServerPagination";
@@ -167,6 +169,8 @@ const GestionePolizzePage = () => {
   const [sostituzioneOpen, setSostituzioneOpen] = useState(false);
   const [stornoOpen, setStornoOpen] = useState(false);
   const [duplicaOpen, setDuplicaOpen] = useState(false);
+  const [appendiceOpen, setAppendiceOpen] = useState(false);
+  const [caricaDocOpen, setCaricaDocOpen] = useState(false);
   const [messaCassaOpen, setMessaCassaOpen] = useState(false);
   const [messaCassaTitolo, setMessaCassaTitolo] = useState<any | null>(null);
   const [annullaConfirm, setAnnullaConfirm] = useState(false);
@@ -426,7 +430,7 @@ const GestionePolizzePage = () => {
 
     switch (operazione.key) {
       case "appendice":
-        navigate(`/portafoglio/appendici?titoloId=${row.id}`);
+        setAppendiceOpen(true);
         return;
       case "rinnovo":
         navigate(`/portafoglio/rinnovi?titoloId=${row.id}`);
@@ -435,7 +439,7 @@ const GestionePolizzePage = () => {
         navigate(`/portafoglio/doc-precontrattuale?titoloId=${row.id}`);
         return;
       case "carica_doc":
-        navigate(`/titoli/${row.id}?tab=documenti`);
+        setCaricaDocOpen(true);
         return;
       case "duplica":
         setDuplicaOpen(true);
@@ -879,6 +883,20 @@ const GestionePolizzePage = () => {
             titoloId={target.id}
             numeroPolizza={target.numero}
             onDone={refreshAll}
+          />
+          <AppendiceDialog
+            open={appendiceOpen}
+            onOpenChange={setAppendiceOpen}
+            titoloId={target.id}
+            numeroTitolo={target.numero}
+            onCreated={refreshAll}
+          />
+          <CaricaDocDialog
+            open={caricaDocOpen}
+            onOpenChange={setCaricaDocOpen}
+            titoloId={target.id}
+            numeroTitolo={target.numero}
+            onUploaded={refreshAll}
           />
         </>
       )}

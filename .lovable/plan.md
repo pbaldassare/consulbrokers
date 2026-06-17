@@ -1,78 +1,54 @@
-## Diagnosi
+## Ho capito: serve eseguire l'operazione e salvarla, non solo filtrare
 
-Ho confermato il problema esaminando `src/pages/GestionePolizzePage.tsx` e lo schema della view `v_portafoglio_titoli`.
+In `/portafoglio/gestione` le card in alto (Appendice, Storno, Rinnovo, Duplica, Sostituzione, Sospensione, Riattivazione, Annulla, Messa a Cassa, Annulla M.C., Carica Doc., Precontrattuale, CIG Temporanei, Regolazioni Attese) **non sono filtri**: sono **operazioni** che devono produrre un record nuovo / una modifica persistente nel database sulla polizza scelta.
 
-### Bug primario — il filtro "Cliente" non filtra la tabella
+### Stato attuale (cosa fa oggi "Esegui" riga per riga)
 
-- `clientiOpts` carica i clienti da `public.clienti` e usa `clienti.id` come `value` (riga 234-240).
-- La query risultati invece filtra così (riga 341):
-  ```ts
-  if (clienteId) q = q.eq("cliente_anagrafica_id", clienteId);
-  ```
-- Ma su `v_portafoglio_titoli` esistono **due colonne distinte**: `cliente_id` (FK → `clienti.id`) e `cliente_anagrafica_id` (FK → `anagrafiche_professionali.id`). L'ID scelto nella select è di tipo `clienti.id`, quindi il match su `cliente_anagrafica_id` torna **0 righe** quasi sempre.
+| Operazione | Comportamento attuale | Persiste in DB? |
+|---|---|---|
+| Storno | Apre `StornoTitoloDialog` inline | ✅ sì (scrive `titoli_storni` + aggiorna `titoli`) |
+| Duplica | Apre `DuplicaPolizzaDialog` inline | ✅ sì (insert in `titoli`) |
+| Sospensione / Riattivazione / Sostituzione / Messa a Cassa / Annulla / Annulla M.C. | Aprono i rispettivi dialog inline | ✅ sì |
+| **Appendice** | Naviga a `/portafoglio/appendici?titoloId=…` (devi cliccare ancora "Nuova appendice" lì) | ❌ non crea nulla qui |
+| **Rinnovo** | Naviga a `/portafoglio/rinnovi?titoloId=…` | ❌ non crea nulla qui |
+| **Precontrattuale** | Naviga a `/portafoglio/doc-precontrattuale?titoloId=…` | ❌ |
+| **Carica Doc.** | Naviga a `/titoli/:id?tab=documenti` | ❌ |
+| CIG Temporanei / Regolazioni Attese | Naviga al dettaglio titolo | ❌ (sono più "viste" che operazioni) |
 
-Conseguenze visibili allo screenshot:
-- la colonna "Cliente" mostra `—` per molte righe (sono titoli senza match anagrafica),
-- selezionando un cliente la tabella si svuota o resta incoerente,
-- l'utente quindi non riesce a "scegliere cliente + polizza" e l'azione "Esegui" non sembra fare quello che si aspetta (in alcuni casi naviga su una polizza non sua).
+Quindi il pattern è incoerente: alcune operazioni si **completano in-page** con dialog, altre invece **scappano via** verso un'altra pagina e ti costringono a un secondo click per creare davvero il record.
 
-### Bug secondario — "Esegui Appendice non succede nulla"
+### Piano
 
-`esegui()` per `appendice` chiama `navigate('/portafoglio/appendici?titoloId=' + row.id)`. La rotta esiste (`src/routes/portafoglio.tsx`) e `AppendiciPolizzaPage` legge `searchParams.get('titoloId')`. La navigazione **avviene**, ma quando il filtro cliente è rotto la riga su cui si clicca potrebbe non essere quella attesa, dando la sensazione che "non succeda nulla di corretto". Va comunque verificato visivamente con Playwright che la pagina si apra precompilata sulla polizza giusta per ogni operazione.
+Rendere `/portafoglio/gestione` la **vera centrale operativa**: clic su card → filtra → "Esegui" → si apre un dialog che salva subito in DB e torna sulla stessa pagina (toast + refresh tabella). Niente più redirect a pagine intermedie.
 
----
+1. **Appendice** — `esegui` apre un nuovo `AppendiceDialog` inline (riusando la logica di `AppendiciPolizzaPage`):
+   - campi: numero appendice (precompilato = max+1), data appendice, descrizione, file opzionale
+   - submit → insert in `appendici_polizza` + `log_attivita`, toast, invalidate query.
 
-## Cosa fare
+2. **Rinnovo** — apre un `RinnovoDialog` inline che crea il titolo di rinnovo (insert in `titoli` con `sostituisce_polizza`/date traslate secondo frazionamento), invece di portare a `/portafoglio/rinnovi`. Mantiene comunque il link "Apri in pagina dedicata" per i casi complessi.
 
-### 1. Fix filtro cliente (1 riga, `GestionePolizzePage.tsx`)
-Sostituire il filtro al rigo 341:
-```ts
-if (clienteId) q = q.eq("cliente_id", clienteId);
-```
-Mantengo `clientiOpts` invariata (è la fonte UI giusta: anagrafica clienti).
+3. **Precontrattuale** — apre un `PrecontrattualeDialog` inline che genera il PDF (riuso `lib/precontrattuale-pdf.ts`), lo salva in storage + riga `documenti`, toast.
 
-### 2. Persistenza URL del cliente (allineamento)
-`clienteId` è già inizializzato da `searchParams.get("cliente")` (riga 132) ma non viene mai sincronizzato nell'URL. Aggiungo l'effetto di scrittura `cliente=<uuid>` in `setSearchParams` insieme agli altri filtri (op, q, reg, …), così i deep link e il back/forward continuano a funzionare come per `reg`/`q`/`op`.
+4. **Carica Doc.** — apre un `CaricaDocDialog` inline con dropzone (riuso del pannello documenti del titolo): upload → bucket + riga `documenti` collegata al titolo.
 
-### 3. Verifica end-to-end di TUTTE le operazioni con Playwright
+5. **CIG Temporanei / Regolazioni Attese** — restano "viste filtrate" perché non sono operazioni di scrittura; rinominare il loro `Esegui` in **"Apri"** per chiarezza (e tenere il deep link al dettaglio).
 
-Per ogni operazione della barra:
+6. **Tracciamento**: ogni operazione scrive una riga in `log_attivita` (entità=`titolo`, azione=`appendice_creata|rinnovo_creato|...`) così la storia è auditabile dal pannello "Attività Recenti" già presente nella pagina.
 
-| Operazione | Comportamento atteso |
-|---|---|
-| Appendice | naviga a `/portafoglio/appendici?titoloId=…` con polizza precompilata |
-| Rinnovo | naviga a `/portafoglio/rinnovi?titoloId=…` |
-| Precontrattuale | naviga a `/portafoglio/doc-precontrattuale?titoloId=…` |
-| Carica Doc. | naviga a `/titoli/:id?tab=documenti` |
-| Duplica / Storno / Sospensione / Riattivazione / Sostituzione | apre il rispettivo dialog con `target` valorizzato |
-| Messa a Cassa | apre dialog `MessaCassaDialog` con titolo selezionato |
-| Annulla / Annulla M.C. | apre `AlertDialog` corretto (admin only) |
-| CIG Temporanei | naviga a `/titoli/:id` |
-| Regolazioni Attese | naviga a `/titoli/:id?section=regolazione` |
+7. **UX**: dopo ogni operazione → `toast.success`, `queryClient.invalidateQueries` sui titoli + sulla card affetta, niente navigazione via.
 
-Per ognuna seleziono un cliente reale dal filtro, verifico che la tabella si filtri, clicco "Esegui" sulla riga e prendo screenshot della pagina di destinazione / dialog aperto. Annoto eventuali altre rotture e le sistemo nello stesso giro (es. dialog che non si apre, rotta che non legge `titoloId`, permesso `canTitoli` calcolato male, ecc.).
+### Dettagli tecnici
 
-### 4. E2E automatici
+- File toccati: `src/pages/GestionePolizzePage.tsx` (sostituire i `navigate(...)` di Appendice/Rinnovo/Precontrattuale/Carica Doc. con apertura di dialog) + 4 nuovi dialog in `src/components/polizze/azioni/`:
+  - `AppendiceDialog.tsx`
+  - `RinnovoDialog.tsx`
+  - `PrecontrattualeDialog.tsx`
+  - `CaricaDocDialog.tsx`
+- Niente modifiche a schema DB: tutte le tabelle esistono già (`appendici_polizza`, `titoli`, `documenti`, `log_attivita`).
+- Niente modifiche RLS.
+- Test E2E: aggiornare `tests/e2e/11-gestione-polizze-operazioni.spec.ts` — al posto di verificare l'URL, verificare che il dialog si apra, che il submit produca toast e che il record compaia nella tabella/DB.
 
-Aggiungo a `tests/e2e/10-regolazione-flag.spec.ts` (o in un nuovo `09-gestione-polizze-operazioni.spec.ts` se cresce troppo) due test:
+### Fuori scopo (per ora)
 
-- **filtro cliente filtra realmente**: seleziono il cliente del titolo di test → la riga compare e ha la colonna Cliente popolata; deseleziono → tornano più righe; URL contiene `cliente=<uuid>` e sopravvive a reload.
-- **Esegui per ogni operazione**: per `appendice`, `precontrattuale`, `carica_doc`, `regolazioni_attese`, `cig_temporanei` verifico l'URL atteso dopo click; per i dialog (`messa_cassa`, `annulla`, `annulla_messa_cassa`) verifico `getByRole('dialog')` con titolo coerente.
-
-### 5. Memory
-
-Aggiorno `mem://insurance/policy-vs-quietanza-filtering` (o creo un nuovo `mem://insurance/gestione-polizze-cliente-filter`) con la nota: "in `v_portafoglio_titoli` usare sempre `cliente_id` (FK clienti) per i filtri di select cliente; `cliente_anagrafica_id` è la FK ad anagrafiche professionali ed è usato per altre lookup".
-
----
-
-## File toccati
-
-- `src/pages/GestionePolizzePage.tsx` — fix filtro `cliente_id` + sync URL `cliente`.
-- Eventuali fix puntuali emersi dalla verifica Playwright (una operazione alla volta, sempre lato frontend/presentazione).
-- `tests/e2e/09-gestione-polizze.spec.ts` (o nuovo file) — copertura filtro cliente + matrice operazioni.
-- `mem://insurance/gestione-polizze-cliente-filter` — nuova memory.
-
-## Fuori scope
-
-- Nessuna modifica DB, RLS, edge function.
-- Nessun ridisegno del flusso UX (resta "scegli op → filtra → Esegui per riga"); non introduco un wizard "scegli cliente + polizza + esegui in alto" perché non richiesto.
+- Non tocco Storno/Duplica/Sospensione/Riattivazione/Sostituzione/Messa a Cassa/Annulla/Annulla M.C.: già funzionano correttamente con dialog inline.
+- Non rimuovo le pagine dedicate `/portafoglio/appendici`, `/portafoglio/rinnovi`, `/portafoglio/doc-precontrattuale`: restano per accesso diretto / casi avanzati.
