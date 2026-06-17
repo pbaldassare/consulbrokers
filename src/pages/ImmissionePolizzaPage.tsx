@@ -1449,9 +1449,26 @@ const ImmissionePolizzaPage = () => {
     const rapportoSel = (rapportiAgenzia || []).find((r: any) => r.id === selectedRapportoId);
     setSaving(true);
     try {
+      // In modalità regolazione la nuova riga deve essere riga+1 rispetto all'ultima del numero_titolo
+      let regolazioneRiga = 0;
+      let regolazioneNote: string | null = null;
+      if (regolazioneMode && polizzaMadre?.numero_titolo) {
+        const { data: siblings } = await supabase
+          .from("titoli")
+          .select("riga")
+          .eq("numero_titolo", polizzaMadre.numero_titolo);
+        const maxRiga = Math.max(
+          0,
+          ...((siblings || []).map((s: any) => Number(s.riga || 0))),
+          Number(polizzaMadre.riga || 0),
+        );
+        regolazioneRiga = maxRiga + 1;
+        const today = new Date().toISOString().slice(0, 10);
+        regolazioneNote = `Regolazione premio del ${today.split("-").reverse().join("/")} — polizza madre rg.${polizzaMadre.riga ?? 0}`;
+      }
       const payload: Record<string, any> = {
         numero_titolo: numeroPolizza || null,
-        riga: 0,
+        riga: regolazioneMode ? regolazioneRiga : 0,
         appendice: "000",
         // gruppo_compagnia_id non è una colonna di titoli: si deriva via compagnia_rapporti
         compagnia_id: selectedCompagnia || null,
