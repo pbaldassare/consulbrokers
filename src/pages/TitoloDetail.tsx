@@ -478,6 +478,9 @@ const TitoloDetail = () => {
         giorni_presentazione: titolo.giorni_presentazione ?? 0,
         tipo_lettera_regolazione: titolo.tipo_lettera_regolazione ?? "",
         libro_matricola: titolo.libro_matricola ?? "",
+        regolazione_data_presunta: (titolo as any).regolazione_data_presunta ?? "",
+        regolazione_fattore: (titolo as any).regolazione_fattore ?? "",
+        regolazione_note: (titolo as any).regolazione_note ?? "",
       });
     }
     setEditingReg(true);
