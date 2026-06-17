@@ -1,32 +1,17 @@
-## Filtro Cliente in Gestione Polizze: usare OR su `cliente_id` e `cliente_anagrafica_id`
+## Modifiche all'hub Gestione Polizze
 
-### Causa
-Su `titoli` (e quindi su `v_portafoglio_titoli`) il legame al cliente è **doppio**:
-- `cliente_id` → `clienti.id` (29 titoli su 102)
-- `cliente_anagrafica_id` → **anch'esso `clienti.id`** (76 titoli su 102), nonostante il nome suggerisca `anagrafiche_professionali.id`. Verificato: 76/76 matchano `clienti.id`, 0/76 matchano `anagrafiche_professionali.id`.
+In `src/pages/GestionePolizzePage.tsx`, dentro l'array `OPERAZIONI`:
 
-Il fix recente filtrava solo su `cliente_id`, escludendo i 76 titoli "legacy" — fra cui le 5 polizze di Baldassare Paolo. Per questo `Nessuna polizza` quando lo selezioni.
+1. **Nascondere la card "Messa a Cassa"** — commentare la riga `{ key: "messa_cassa", ... }` (stesso pattern già usato per Rinnovo). La logica di esecuzione resta in `case "messa_cassa"` per compatibilità con deep-link esistenti, ma la card non viene più mostrata nella griglia.
 
-### Modifica
+2. **Aggiungere card "Nuova Polizza"** come prima voce dell'array:
+   - `key: "nuova_polizza"`
+   - `label: "Nuova Polizza"`
+   - `icon: PlusCircle` (da `lucide-react`)
+   - `descrizione: "Emetti una nuova polizza"`
+   - `statiFiltro: []` (non serve filtrare titoli esistenti)
+   - Al click → naviga a `/portafoglio/immissione` senza aprire i pannelli filtri/risultati (gestita come scorciatoia: l'handler `onClick` della card fa `navigate("/portafoglio/immissione")` invece di selezionare l'operazione).
 
-`src/pages/GestionePolizzePage.tsx` — sostituire il filtro singolo con un OR:
+3. **Stile coerente**: la card "Nuova Polizza" usa lo stesso layout delle altre ma con accento teal pieno (call-to-action primaria) per distinguerla dalle azioni contestuali.
 
-```ts
-if (clienteId) {
-  q = q.or(`cliente_id.eq.${clienteId},cliente_anagrafica_id.eq.${clienteId}`);
-}
-```
-
-Niente altre modifiche: l'opzione Cliente continua a venire da `public.clienti` (corretto), la SearchableSelect è invariata.
-
-### Aggiornare la memoria
-
-`mem://insurance/v-portafoglio-titoli-cliente-keys.md` va riscritta: `cliente_anagrafica_id` su `titoli` **contiene `clienti.id`** (legacy naming). Per filtrare titoli per cliente serve `cliente_id OR cliente_anagrafica_id`. Idem dovunque si filtri `titoli`/`v_portafoglio_titoli` per cliente — vado a fare un audit (ripgrep) e segnalo (senza correggerli ora, fuori scope) i punti che usano solo una delle due colonne.
-
-### Test
-
-Aggiornare `tests/e2e/11-gestione-polizze-operazioni.spec.ts`: il fixture `createTestTitolo` valorizza `cliente_anagrafica_id` (vedi helper) — verificare che il filtro mostri il titolo con la SearchableSelect su `clienti.id` come prima.
-
-### Fuori scopo
-- Migrazione dati per consolidare `cliente_id` (riempire `cliente_id` dove c'è solo `cliente_anagrafica_id`): è un cleanup separato che richiede approvazione esplicita.
-- Refactor delle altre pagine che filtrano titoli per cliente.
+Nessuna modifica al routing, ai dialog o al filtro cliente già sistemato.
