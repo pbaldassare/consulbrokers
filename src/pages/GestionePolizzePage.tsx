@@ -543,7 +543,14 @@ const GestionePolizzePage = () => {
                 key={op.key}
                 type="button"
                 disabled={disabled}
-                onClick={() => !disabled && handleSelect(op.key)}
+                onClick={() => {
+                  if (disabled) return;
+                  if (op.key === "nuova_polizza") {
+                    navigate("/portafoglio/immissione");
+                    return;
+                  }
+                  handleSelect(op.key);
+                }}
                 aria-label={`operazione-${op.key}`}
                 data-op={op.key}
                 title={op.descrizione}
@@ -552,10 +559,13 @@ const GestionePolizzePage = () => {
                     ? "opacity-60 cursor-not-allowed border-border bg-muted/30"
                     : "hover:border-teal-600 hover:shadow-sm"
                 } ${
-                  active
+                  op.key === "nuova_polizza"
+                    ? "border-teal-600 bg-teal-600 text-white hover:bg-teal-700 hover:border-teal-700"
+                    : active
                     ? "border-teal-600 bg-teal-50 dark:bg-teal-950/30 ring-1 ring-teal-600"
                     : "border-border bg-card"
                 }`}
+
               >
                 {op.adminOnly && (
                   <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" title="admin" />
