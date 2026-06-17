@@ -41,6 +41,8 @@ import {
   Lock,
   Hash,
   FileClock,
+  PlusCircle,
+
 
 } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
@@ -64,6 +66,7 @@ import { AttivitaRecentiPanel } from "@/components/polizze/azioni/AttivitaRecent
 
 
 type OperazioneKey =
+  | "nuova_polizza"
   | "appendice"
   | "storno"
   | "rinnovo"
@@ -78,6 +81,7 @@ type OperazioneKey =
   | "precontrattuale"
   | "cig_temporanei"
   | "regolazioni_attese";
+
 
 interface Operazione {
   key: OperazioneKey;
@@ -98,6 +102,7 @@ interface Operazione {
 }
 
 const OPERAZIONI: Operazione[] = [
+  { key: "nuova_polizza", label: "Nuova Polizza", icon: PlusCircle, descrizione: "Emetti una nuova polizza", statiFiltro: [] },
   { key: "appendice", label: "Appendice", icon: FileEdit, descrizione: "Aggiungi un'appendice", statiFiltro: ["attivo"] },
   { key: "storno", label: "Storno", icon: Ban, descrizione: "Storna premio e quietanze", statiFiltro: ["attivo"] },
   // { key: "rinnovo", ... } — nascosta su richiesta utente (i rinnovi si gestiscono da pagina dedicata)
@@ -106,8 +111,9 @@ const OPERAZIONI: Operazione[] = [
   { key: "sospensione", label: "Sospensione", icon: PauseCircle, descrizione: "Sospendi temporaneamente", statiFiltro: ["attivo"] },
   { key: "riattivazione", label: "Riattivazione", icon: PlayCircle, descrizione: "Riattiva polizza sospesa", statiFiltro: ["sospeso"] },
   { key: "annulla", label: "Annulla", icon: XCircle, descrizione: "Annullamento totale", statiFiltro: [], adminOnly: true },
-  { key: "messa_cassa", label: "Messa a Cassa", icon: Wallet, descrizione: "Incassa e contabilizza", statiFiltro: ["attivo"], escludeMessaCassa: true },
+  // { key: "messa_cassa", ... } — nascosta su richiesta utente (gestita dalla scheda polizza)
   { key: "annulla_messa_cassa", label: "Annulla M.C.", icon: Undo2, descrizione: "Annulla messa a cassa", statiFiltro: [], richiedeMessaCassa: true, adminOnly: true },
+
   { key: "carica_doc", label: "Carica Doc.", icon: Upload, descrizione: "Carica documenti", statiFiltro: [] },
   { key: "precontrattuale", label: "Precontrattuale", icon: FileText, descrizione: "Genera doc. precontrattuale", statiFiltro: [] },
   { key: "cig_temporanei", label: "CIG Temporanei", icon: Hash, descrizione: "Polizze con numero provvisorio", statiFiltro: [], richiedeCigTemporaneo: true },
@@ -537,7 +543,14 @@ const GestionePolizzePage = () => {
                 key={op.key}
                 type="button"
                 disabled={disabled}
-                onClick={() => !disabled && handleSelect(op.key)}
+                onClick={() => {
+                  if (disabled) return;
+                  if (op.key === "nuova_polizza") {
+                    navigate("/portafoglio/immissione");
+                    return;
+                  }
+                  handleSelect(op.key);
+                }}
                 aria-label={`operazione-${op.key}`}
                 data-op={op.key}
                 title={op.descrizione}
@@ -546,10 +559,13 @@ const GestionePolizzePage = () => {
                     ? "opacity-60 cursor-not-allowed border-border bg-muted/30"
                     : "hover:border-teal-600 hover:shadow-sm"
                 } ${
-                  active
+                  op.key === "nuova_polizza"
+                    ? "border-teal-600 bg-teal-600 text-white hover:bg-teal-700 hover:border-teal-700"
+                    : active
                     ? "border-teal-600 bg-teal-50 dark:bg-teal-950/30 ring-1 ring-teal-600"
                     : "border-border bg-card"
                 }`}
+
               >
                 {op.adminOnly && (
                   <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" title="admin" />
@@ -576,10 +592,11 @@ const GestionePolizzePage = () => {
                   <Lock className="absolute top-1 right-1 w-3 h-3 text-muted-foreground" />
                 )}
                 <div className="flex items-center gap-1.5">
-                  <Icon className={`w-3.5 h-3.5 shrink-0 ${active ? "text-teal-600" : "text-muted-foreground"}`} />
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${op.key === "nuova_polizza" ? "text-white" : active ? "text-teal-600" : "text-muted-foreground"}`} />
                   <span className="font-medium text-xs leading-tight">{op.label}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground truncate leading-tight">{op.descrizione}</p>
+                <p className={`text-[10px] truncate leading-tight ${op.key === "nuova_polizza" ? "text-white/85" : "text-muted-foreground"}`}>{op.descrizione}</p>
+
               </button>
             );
             return disabled ? (
