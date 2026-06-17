@@ -781,6 +781,69 @@ const ImmissionePolizzaPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClienteId]);
 
+  // ============= REGOLAZIONE PREMIO: load polizza madre + quietanze + prefill =============
+  const { data: polizzaMadre } = useQuery({
+    queryKey: ["regolazione-polizza-madre", titoloMadreId],
+    enabled: regolazioneMode && !!titoloMadreId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("*")
+        .eq("id", titoloMadreId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: quietanzePolizza } = useQuery({
+    queryKey: ["regolazione-quietanze", polizzaMadre?.numero_titolo],
+    enabled: regolazioneMode && !!polizzaMadre?.numero_titolo,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, riga, durata_da, durata_a, stato, data_messa_cassa, premio_lordo")
+        .eq("numero_titolo", polizzaMadre!.numero_titolo)
+        .order("riga", { ascending: true });
+      return data || [];
+    },
+  });
+
+  // Prefill form da polizza madre (una sola volta per polizza)
+  useEffect(() => {
+    if (!regolazioneMode || !polizzaMadre) return;
+    if (regolazionePrefilledRef.current === polizzaMadre.id) return;
+    regolazionePrefilledRef.current = polizzaMadre.id;
+
+    if (polizzaMadre.cliente_anagrafica_id) setSelectedClienteId(polizzaMadre.cliente_anagrafica_id);
+    if (polizzaMadre.numero_titolo) setNumeroPolizza(polizzaMadre.numero_titolo);
+    if (polizzaMadre.prodotto_nome) setProdottoNome(polizzaMadre.prodotto_nome);
+    if (polizzaMadre.compagnia_id) setSelectedCompagnia(polizzaMadre.compagnia_id);
+    if ((polizzaMadre as any).compagnia_rapporto_id) setSelectedRapportoId((polizzaMadre as any).compagnia_rapporto_id);
+    if (polizzaMadre.ramo_id) setSelectedRamo(polizzaMadre.ramo_id);
+    if (polizzaMadre.durata_da) setDurataDa(polizzaMadre.durata_da);
+    if (polizzaMadre.durata_a) { setDurataA(polizzaMadre.durata_a); setDurataATouched(true); }
+    if (polizzaMadre.anni_durata) setAnniDurata(String(polizzaMadre.anni_durata));
+    if (polizzaMadre.frazionamento) setFrazionamento(polizzaMadre.frazionamento);
+    if (typeof polizzaMadre.tacito_rinnovo === "boolean") setTacitoRinnovo(polizzaMadre.tacito_rinnovo);
+    if (polizzaMadre.descrizione_polizza) setDescrizionePolizza(polizzaMadre.descrizione_polizza);
+    if ((polizzaMadre as any).anagrafica_commerciale_id) setSelectedAE((polizzaMadre as any).anagrafica_commerciale_id);
+    if ((polizzaMadre as any).ae_anagrafica_id) setSelectedAccountExecutiveId((polizzaMadre as any).ae_anagrafica_id);
+    if (polizzaMadre.ufficio_id) setSelectedUfficioId(polizzaMadre.ufficio_id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regolazioneMode, polizzaMadre]);
+
+  // Quietanza di riferimento di default: l'ultima incassata, altrimenti l'ultima riga
+  useEffect(() => {
+    if (!regolazioneMode) return;
+    if (selectedQuietanzaRefId) return;
+    if (!quietanzePolizza || quietanzePolizza.length === 0) return;
+    const incassate = quietanzePolizza.filter((q: any) => q.stato === "incassato" || q.data_messa_cassa);
+    const target = incassate.length > 0 ? incassate[incassate.length - 1] : quietanzePolizza[quietanzePolizza.length - 1];
+    if (target) setSelectedQuietanzaRefId(target.id);
+  }, [regolazioneMode, quietanzePolizza, selectedQuietanzaRefId]);
+
+
+
   // Nascondi hint quando l'utente cambia compagnia manualmente
   useEffect(() => {
     if (!prefilledHint) return;
