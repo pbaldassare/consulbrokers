@@ -508,3 +508,40 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     </Dialog>
   );
 }
+
+function AllegatoPreview({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const url = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  const kind: "image" | "pdf" | "other" =
+    file.type.startsWith("image/") ? "image"
+      : file.type === "application/pdf" || /\.pdf$/i.test(file.name) ? "pdf"
+      : "other";
+  return (
+    <div className="rounded-md border bg-muted/30 p-2">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+        <FileIcon className="h-3.5 w-3.5" />
+        <span className="truncate flex-1">{file.name}</span>
+        <span>{(file.size / 1024).toFixed(0)} KB</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0"
+          onClick={onRemove}
+          title="Rimuovi allegato"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      {kind === "image" && (
+        <img src={url} alt={file.name} className="max-h-40 w-auto mx-auto rounded" />
+      )}
+      {kind === "pdf" && (
+        <iframe src={url} title={file.name} className="w-full h-48 rounded border-0" />
+      )}
+      {kind === "other" && (
+        <p className="text-xs text-muted-foreground">Anteprima non disponibile.</p>
+      )}
+    </div>
+  );
+}
