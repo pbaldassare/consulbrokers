@@ -729,7 +729,7 @@ const GestionePolizzePage = () => {
                   <TableBody>
                     {isFetching && (
                       <TableRow>
-                        <TableCell colSpan={10} className="text-center py-6">
+                        <TableCell colSpan={11} className="text-center py-6">
                           <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
                           Caricamento...
                         </TableCell>
