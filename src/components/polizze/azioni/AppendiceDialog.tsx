@@ -188,12 +188,17 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
       let filePath: string | null = null;
       let nomeFile: string | null = null;
-      if (file) {
-        const path = `appendici/${titoloId}/${Date.now()}_${file.name}`;
-        const { error: upErr } = await supabase.storage.from("documenti_titoli").upload(path, file);
+      const allegati: Array<{ path: string; nome: string; size: number; type: string }> = [];
+
+      // Multi-file solo per regolazione; per altri tipi si usa il singolo `file`
+      const toUpload: File[] = isReg ? files : (file ? [file] : []);
+      for (let i = 0; i < toUpload.length; i++) {
+        const f = toUpload[i];
+        const path = `appendici/${titoloId}/${Date.now()}_${i}_${f.name}`;
+        const { error: upErr } = await supabase.storage.from("documenti_titoli").upload(path, f);
         if (upErr) throw upErr;
-        filePath = path;
-        nomeFile = file.name;
+        allegati.push({ path, nome: f.name, size: f.size, type: f.type });
+        if (i === 0) { filePath = path; nomeFile = f.name; }
       }
 
       const payload: any = {
@@ -205,6 +210,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         tipo,
         file_path: filePath,
         nome_file: nomeFile,
+        allegati,
         note: note.trim() || null,
         created_by: user?.id || null,
       };
