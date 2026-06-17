@@ -35,7 +35,6 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
   const [dataEffetto, setDataEffetto] = useState("");
   const [oggetto, setOggetto] = useState("");
   const [tipo, setTipo] = useState("modifica");
-  const [testo, setTesto] = useState("");
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
 
@@ -74,7 +73,6 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     setDataEffetto("");
     setOggetto("");
     setTipo("modifica");
-    setTesto("");
     setNote("");
     setFile(null);
   }, [open, existing, titoloInfo]);
@@ -100,7 +98,6 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         data_appendice: dataAppendice || null,
         data_effetto: dataEffetto || null,
         oggetto: oggetto.trim() || null,
-        testo: testo.trim() || null,
         tipo,
         file_path: filePath,
         nome_file: nomeFile,

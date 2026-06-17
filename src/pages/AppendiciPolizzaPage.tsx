@@ -6,16 +6,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Upload, Trash2, Download, Eye, Pencil, X, Plus } from "lucide-react";
+import { Upload, Trash2, Download, Pencil, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
@@ -47,10 +45,8 @@ const AppendiciPolizzaPage = () => {
   const [dataEffetto, setDataEffetto] = useState("");
   const [oggetto, setOggetto] = useState("");
   const [tipo, setTipo] = useState("modifica");
-  const [testo, setTesto] = useState("");
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [contentTab, setContentTab] = useState("testo");
   const [viewText, setViewText] = useState<string | null>(null);
   // Track existing file when editing
   const [existingFilePath, setExistingFilePath] = useState<string | null>(null);
@@ -64,10 +60,8 @@ const AppendiciPolizzaPage = () => {
     setDataEffetto("");
     setOggetto("");
     setTipo("modifica");
-    setTesto("");
     setNote("");
     setFile(null);
-    setContentTab("testo");
     setExistingFilePath(null);
     setExistingFileName(null);
     setRemoveExistingFile(false);
@@ -80,13 +74,11 @@ const AppendiciPolizzaPage = () => {
     setDataEffetto(a.data_effetto || "");
     setOggetto(a.oggetto || "");
     setTipo(a.tipo || "modifica");
-    setTesto(a.testo || "");
     setNote(a.note || "");
     setFile(null);
     setExistingFilePath(a.file_path || null);
     setExistingFileName(a.nome_file || null);
     setRemoveExistingFile(false);
-    setContentTab(a.testo ? "testo" : a.file_path ? "file" : "testo");
     // Scroll to form
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -182,7 +174,6 @@ const AppendiciPolizzaPage = () => {
         data_appendice: dataAppendice || null,
         data_effetto: dataEffetto || null,
         oggetto: oggetto.trim() || null,
-        testo: testo.trim() || null,
         tipo,
         file_path: filePath,
         nome_file: nomeFile,
@@ -307,21 +298,8 @@ const AppendiciPolizzaPage = () => {
           <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)} placeholder="Oggetto dell'appendice..." />
         </div>
 
-        {/* Tab contenuto */}
-        <Tabs value={contentTab} onValueChange={setContentTab}>
-          <TabsList>
-            <TabsTrigger value="testo"><FileText className="w-4 h-4 mr-1" />Scrivi testo</TabsTrigger>
-            <TabsTrigger value="file"><Upload className="w-4 h-4 mr-1" />Allega documento</TabsTrigger>
-          </TabsList>
-          <TabsContent value="testo" className="mt-3">
-            <Textarea
-              value={testo}
-              onChange={(e) => setTesto(e.target.value)}
-              placeholder="Redigi il testo dell'appendice..."
-              rows={8}
-            />
-          </TabsContent>
-          <TabsContent value="file" className="mt-3">
+        <div className="space-y-1.5">
+          <Label>Allega documento</Label>
             <div className="border-2 border-dashed border-border rounded-lg p-6 text-center space-y-3">
               <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Seleziona un file (PDF, DOC, immagini)</p>
@@ -346,8 +324,7 @@ const AppendiciPolizzaPage = () => {
                 <p className="text-sm text-destructive">Il file verrà rimosso al salvataggio</p>
               )}
             </div>
-          </TabsContent>
-        </Tabs>
+        </div>
 
         <div className="space-y-1.5">
           <Label>Note</Label>
@@ -427,11 +404,7 @@ const AppendiciPolizzaPage = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        {a.testo && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewText(a.testo)} title="Visualizza testo">
-                            <Eye className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
+                        {/* testo legacy non più visualizzato */}
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(a)} title="Modifica">
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
@@ -465,16 +438,6 @@ const AppendiciPolizzaPage = () => {
           </div>
         )}
       </PolizzaSection>
-
-      {/* Dialog visualizza testo */}
-      <Dialog open={!!viewText} onOpenChange={() => setViewText(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Testo Appendice</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm whitespace-pre-wrap">{viewText}</p>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
