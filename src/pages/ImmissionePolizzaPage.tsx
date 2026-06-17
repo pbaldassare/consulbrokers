@@ -1799,8 +1799,6 @@ const ImmissionePolizzaPage = () => {
             {[
               { value: "polizza", label: "Polizza" },
               { value: "emittenda", label: "Emittenda" },
-              { value: "cp_nuova", label: "CP (Nuova)" },
-              { value: "cp_sost_rinn", label: "CP (Sost/Rinn)" },
             ].map((opt) => (
               <div key={opt.value} className="flex items-center gap-2">
                 <RadioGroupItem value={opt.value} id={`tipo-${opt.value}`} />
