@@ -1552,6 +1552,13 @@ const ImmissionePolizzaPage = () => {
         } : {}),
       };
 
+      // In modalità regolazione: agganciamo polizza madre e note
+      if (regolazioneMode && polizzaMadre) {
+        payload.sostituisce_polizza = polizzaMadre.numero_titolo;
+        payload.sostituisce_riga = polizzaMadre.riga;
+        payload.note = regolazioneNote;
+      }
+
       const { data: newTitolo, error } = await supabase
         .from("titoli")
         .insert(payload)
@@ -1559,24 +1566,50 @@ const ImmissionePolizzaPage = () => {
         .single();
       if (error) throw error;
 
-      // Create first movimento "Polizza Base"
+      // Create first movimento ("Polizza Base" oppure "Regolazione Premio")
       await supabase.from("movimenti_polizza").insert({
         titolo_id: newTitolo.id,
-        riga: 0,
+        riga: regolazioneMode ? regolazioneRiga : 0,
         appendice: "000",
         data_movimento: new Date().toISOString().split("T")[0],
         data_effetto: durataDa || null,
         data_scadenza: durataA || null,
         tacito_rinnovo: tacitoRinnovo,
-        descrizione: cigRif ? `CIG: ${cigRif}` : descrizionePolizza || null,
+        descrizione: regolazioneMode
+          ? (regolazioneNote || "Regolazione premio")
+          : (cigRif ? `CIG: ${cigRif}` : descrizionePolizza || null),
         valuta,
         premio: totFirma || 0,
         provvigioni: provvFirma || 0,
-        tipo: "Polizza Base",
+        tipo: regolazioneMode ? "Regolazione Premio" : "Polizza Base",
         incassato: false,
         stato: "attivo",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
       } as any);
+
+      // Snapshot regolazione (collegamento con polizza madre + quietanza di riferimento)
+      if (regolazioneMode && polizzaMadre) {
+        await supabase.from("titoli_regolazioni").insert({
+          titolo_madre_id: polizzaMadre.id,
+          titolo_regolazione_id: newTitolo.id,
+          quietanza_riferimento_id: selectedQuietanzaRefId || null,
+          data_regolazione: new Date().toISOString().slice(0, 10),
+          periodo_da: durataDa || null,
+          periodo_a: durataA || null,
+          conguaglio_premio: totFirma || 0,
+          note: regolazioneNote,
+          created_by: user?.id || null,
+        } as any);
+
+        // Movimento RG sulla polizza madre (per timeline)
+        await supabase.from("movimenti_polizza").insert({
+          titolo_id: polizzaMadre.id,
+          tipo_documento: "RG",
+          data_movimento: new Date().toISOString().slice(0, 10),
+          descrizione: `Regolazione premio — nuovo titolo riga ${regolazioneRiga}, conguaglio ${(totFirma || 0).toFixed(2)} €`,
+          stato: polizzaMadre.stato,
+        } as any);
+      }
 
       // Save RCA data if applicable
       if (isRCA) {
