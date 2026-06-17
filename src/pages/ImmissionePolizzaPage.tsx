@@ -1797,7 +1797,7 @@ const ImmissionePolizzaPage = () => {
             const clienteLabel = cli?.ragione_sociale || [cli?.cognome, cli?.nome].filter(Boolean).join(" ") || "—";
             const compagniaLabel = (polizzaMadre as any)?.compagnia?.nome || "—";
             const rap: any = (polizzaMadre as any)?.rapporto;
-            const rapportoLabel = rap ? [rap.codice, rap.descrizione || rap.tipo_rapporto].filter(Boolean).join(" · ") : "—";
+            const rapportoLabel = rap ? [rap.codice_rapporto, rap.nome_rapporto || rap.tipo_rapporto].filter(Boolean).join(" · ") : "—";
             return (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-xs bg-white/60 dark:bg-amber-900/20 rounded px-3 py-2 border border-amber-300/60">
                 <div><span className="text-amber-800/70 dark:text-amber-300/70">Polizza N°</span><div className="font-medium">{polizzaMadre?.numero_titolo || "—"}</div></div>
