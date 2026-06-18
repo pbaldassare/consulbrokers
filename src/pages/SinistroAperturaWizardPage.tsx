@@ -23,6 +23,7 @@ import { format } from "date-fns";
 import { TIPI_SINISTRO, formatTipoSinistro } from "@/lib/tipiSinistro";
 import { Checkbox } from "@/components/ui/checkbox";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { applySoloMadriFilter, mergePolizze } from "@/lib/polizzeSearch";
 
 const DRAFT_KEY = "sinistri:apertura:bozza";
 
@@ -117,14 +118,14 @@ export default function SinistroAperturaWizardPage() {
     const onlyMothers = opts?.soloMadri ?? soloMadri;
     setPolizzeLoading(true);
     try {
-      let titQuery = supabase.from('titoli')
+      const baseTitQuery = supabase.from('titoli')
         .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, sostituisce_polizza, data_decorrenza, data_scadenza,
           prodotti(nome_prodotto, compagnie(id, nome)),
           clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
         .eq('cliente_anagrafica_id', clienteId)
         .order('created_at', { ascending: false })
         .limit(200);
-      if (onlyMothers) titQuery = titQuery.is('sostituisce_polizza', null);
+      const titQuery = applySoloMadriFilter(baseTitQuery as any, onlyMothers);
 
       const [titRes, cgaRes] = await Promise.all([
         titQuery,
@@ -134,22 +135,8 @@ export default function SinistroAperturaWizardPage() {
           .eq('cliente_id', clienteId)
           .limit(200),
       ]);
-      const fromTitoli = (titRes.data ?? []).map((t: any) => ({ ...t, _isCga: false }));
-      const fromCga = (cgaRes.data ?? []).map((c: any) => ({
-        id: `cga:${c.id}`,
-        numero_titolo: c.numero_polizza,
-        stato: 'attivo',
-        cliente_anagrafica_id: c.cliente_id,
-        ufficio_id: null,
-        prodotti: {
-          nome_prodotto: c.prodotti_cga?.nome_prodotto,
-          compagnie: { id: null, nome: c.prodotti_cga?.compagnia },
-        },
-        clienti: null,
-        _isCga: true,
-      }));
       // Nessuna deduplica: mostriamo tutte le occorrenze (polizze madri + quietanze se "Tutte")
-      const merged = [...fromTitoli, ...fromCga].filter((p: any) => p.numero_titolo);
+      const merged = mergePolizze((titRes.data ?? []) as any, (cgaRes.data ?? []) as any);
       setPolizzeList(merged);
     } finally {
       setPolizzeLoading(false);
