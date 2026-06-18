@@ -1115,6 +1115,10 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
     () => filteredTitoli.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
     [filteredTitoli],
   );
+  const totProvv = useMemo(
+    () => filteredTitoli.reduce((s, p) => s + (Number(p.provvigioni_firma) || 0) + (Number(p.provvigioni_quietanza) || 0), 0),
+    [filteredTitoli],
+  );
 
   // Flat quietanze filtrate (vista "Solo quietanze")
   const flatQuietanze = useMemo(() => {
