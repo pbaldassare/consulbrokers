@@ -10,17 +10,19 @@ import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { Shield, Search, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
-import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/RamoSottoramoFilter";
 import { useRamiAll } from "@/hooks/useRamiLookup";
 import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
 import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
+import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
+import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
+import { rowBorderClass, isQuietanzaRow } from "@/lib/polizzeDisplay";
 
 const rowHref = (p: any) =>
   p?.sostituisce_polizza
@@ -158,17 +160,11 @@ const PortafoglioAttivePage = () => {
             setPage(0);
           }}
         />
-        <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Polizze + Quietanze + Reg.</SelectItem>
-            <SelectItem value="polizze">Solo polizze</SelectItem>
-            <SelectItem value="quietanze">Solo quietanze</SelectItem>
-            <SelectItem value="regolazioni">Solo regolazioni</SelectItem>
-          </SelectContent>
-        </Select>
+        <TipoFilterSegmented
+          value={filtroTipo}
+          onChange={(v) => { setFiltroTipo(v); setPage(0); }}
+          withRegolazioni
+        />
         <div className="flex items-center gap-2 ml-auto">
           <Switch
             id="escludi-mese"
@@ -193,6 +189,7 @@ const PortafoglioAttivePage = () => {
                 <TableRow>
                   <TableHead>N° Polizza</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Polizza madre</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Anticipo</TableHead>
                   <TableHead>Agenzia</TableHead>
@@ -209,9 +206,16 @@ const PortafoglioAttivePage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {polizze.map((p: any) => (
-                  <TableRow key={p.id} className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : ""}`} onClick={() => navigate(rowHref(p))}>
-                    <TableCell className="font-medium">
+                {polizze.map((p: any) => {
+                  const isQ = isQuietanzaRow(p);
+                  return (
+                  <TableRow
+                    key={p.id}
+                    className={`cursor-pointer ${rowBorderClass(p)} ${p.is_regolazione ? "bg-orange-50/40" : isQ ? "bg-quietanza-soft/40" : ""}`}
+                    onClick={() => navigate(rowHref(p))}
+                  >
+                    <TableCell className={`font-medium ${isQ ? "pl-8 font-normal text-muted-foreground" : ""}`}>
+                      {isQ && <span className="mr-1 text-muted-foreground">└</span>}
                       {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
                       {p.numero_titolo || "—"}
                     </TableCell>
@@ -219,14 +223,29 @@ const PortafoglioAttivePage = () => {
                       <div className="flex gap-1 flex-wrap">
                         {p.is_regolazione
                           ? <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">Regolazione</Badge>
-                          : p.sostituisce_polizza
-                            ? <Badge variant="secondary">Quietanza</Badge>
-                            : <Badge variant="default">Polizza</Badge>}
+                          : isQ
+                            ? <TipoPolizzaBadge tipo="quietanza" />
+                            : <TipoPolizzaBadge tipo="polizza" />}
                         {p.stato === "sospeso" && (
                           <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Sospesa</Badge>
                         )}
                         <CompensazioneBadge summary={compensazioniMap?.get(p.id)} titoloId={p.id} />
                       </div>
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {isQ && p.polizza_id ? (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 font-mono text-xs"
+                          onClick={() => navigate(`/polizze/${p.polizza_id}`)}
+                          title="Vai alla polizza madre"
+                        >
+                          {p.numero_titolo || "—"}
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
@@ -257,7 +276,8 @@ const PortafoglioAttivePage = () => {
                     <TableCell className="text-sm">{p.specialist || "—"}</TableCell>
                     <TableCell className="text-sm">{p.produttore_nome || "—"}</TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

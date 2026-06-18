@@ -1197,7 +1197,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
         {mode ? <div /> : (
           <TipoFilterSegmented
             value={filtroTipo}
-            onChange={(v) => setFiltroTipoState(v)}
+            onChange={(v) => v !== "regolazioni" && setFiltroTipoState(v)}
             counts={{ tutti: allPol.length + allQuiet.length, polizze: allPol.length, quietanze: allQuiet.length }}
           />
         )}
