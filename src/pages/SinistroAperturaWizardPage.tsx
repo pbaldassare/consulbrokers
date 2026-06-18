@@ -78,6 +78,7 @@ export default function SinistroAperturaWizardPage() {
   const [polizzaSearchText, setPolizzaSearchText] = useState("");
   const [polizzeList, setPolizzeList] = useState<any[]>([]);
   const [polizzeLoading, setPolizzeLoading] = useState(false);
+  const [soloMadri, setSoloMadri] = useState(true);
 
   // Stato ricerca cliente (Step 1)
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
