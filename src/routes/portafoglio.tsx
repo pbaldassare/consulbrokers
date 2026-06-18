@@ -56,6 +56,5 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/collettive" element={<PlaceholderPage title="Collettive / Libri Matricola" description="Gestione polizze collettive e libri matricola" icon={BookOpen} />} />
     <Route path="/portafoglio/documentale" element={<DocumentalePage />} />
     <Route path="/provvigioni-maturate" element={<ProvvigioniMaturatePage />} />
-    <Route path="/provvigioni-compagnie-ramo" element={<ProvvigioniCompagnieRamoPage />} />
   </>
 );
