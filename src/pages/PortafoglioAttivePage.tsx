@@ -189,6 +189,7 @@ const PortafoglioAttivePage = () => {
                 <TableRow>
                   <TableHead>N° Polizza</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Polizza madre</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Anticipo</TableHead>
                   <TableHead>Agenzia</TableHead>
@@ -205,9 +206,16 @@ const PortafoglioAttivePage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {polizze.map((p: any) => (
-                  <TableRow key={p.id} className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : ""}`} onClick={() => navigate(rowHref(p))}>
-                    <TableCell className="font-medium">
+                {polizze.map((p: any) => {
+                  const isQ = isQuietanzaRow(p);
+                  return (
+                  <TableRow
+                    key={p.id}
+                    className={`cursor-pointer ${rowBorderClass(p)} ${p.is_regolazione ? "bg-orange-50/40" : isQ ? "bg-quietanza-soft/40" : ""}`}
+                    onClick={() => navigate(rowHref(p))}
+                  >
+                    <TableCell className={`font-medium ${isQ ? "pl-8 font-normal text-muted-foreground" : ""}`}>
+                      {isQ && <span className="mr-1 text-muted-foreground">└</span>}
                       {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
                       {p.numero_titolo || "—"}
                     </TableCell>
@@ -215,14 +223,29 @@ const PortafoglioAttivePage = () => {
                       <div className="flex gap-1 flex-wrap">
                         {p.is_regolazione
                           ? <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">Regolazione</Badge>
-                          : p.sostituisce_polizza
-                            ? <Badge variant="secondary">Quietanza</Badge>
-                            : <Badge variant="default">Polizza</Badge>}
+                          : isQ
+                            ? <TipoPolizzaBadge tipo="quietanza" />
+                            : <TipoPolizzaBadge tipo="polizza" />}
                         {p.stato === "sospeso" && (
                           <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Sospesa</Badge>
                         )}
                         <CompensazioneBadge summary={compensazioniMap?.get(p.id)} titoloId={p.id} />
                       </div>
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {isQ && p.polizza_id ? (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 font-mono text-xs"
+                          onClick={() => navigate(`/polizze/${p.polizza_id}`)}
+                          title="Vai alla polizza madre"
+                        >
+                          {p.numero_titolo || "—"}
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
