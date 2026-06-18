@@ -122,6 +122,7 @@ export default function SinistroAperturaWizardPage() {
             clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
           .eq('stato', 'attivo')
           .eq('cliente_anagrafica_id', clienteId)
+          .is('sostituisce_polizza', null)
           .limit(100),
         supabase.from('polizza_cga')
           .select(`id, numero_polizza, data_decorrenza, premio_lordo_totale, cliente_id, prodotti_cga(nome_prodotto, compagnia, ramo)`)
