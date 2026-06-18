@@ -64,6 +64,8 @@ export interface PremiGaranziaCardShellProps {
   tipoPremio: "firma" | "quietanza";
   /** Gruppo Ramo selezionato sul titolo: filtra il catalogo garanzie selezionabili */
   gruppoRamoId?: string | null;
+  /** Sottoramo di default proposto per le NUOVE righe (bottone "+"). Le righe esistenti restano invariate. */
+  defaultSottoramoId?: string | null;
   rows: GaranziaRow[];
   onRowsChange: (next: GaranziaRow[]) => void;
   addizionali: string;
@@ -103,9 +105,11 @@ export interface PremiGaranziaCardShellProps {
   onResetRow?: (idx: number) => void;
 }
 
+
 export function PremiGaranziaCardShell({
   tipoPremio,
   gruppoRamoId,
+  defaultSottoramoId,
   rows,
   onRowsChange,
   addizionali,
@@ -127,6 +131,7 @@ export function PremiGaranziaCardShell({
   personalizzati,
   onResetRow,
 }: PremiGaranziaCardShellProps) {
+
   const isQuietanza = tipoPremio === "quietanza";
   // Draft locale per il campo Lordo: mentre l'utente digita teniamo la stringa
   // così com'è (es. "4", "47", "476,", "476,5"); il back-solve scatta solo onBlur.
@@ -171,7 +176,29 @@ export function PremiGaranziaCardShell({
     onRowsChange(next);
   };
 
-  const addRow = () => onRowsChange([...rows, emptyGaranziaRow()]);
+  const buildRowFromSottoramo = (sottoramoId: string | null | undefined): GaranziaRow => {
+    if (!sottoramoId) return emptyGaranziaRow();
+    const sel = (catalogo as any[]).find((s: any) => s.id === sottoramoId);
+    if (!sel) return emptyGaranziaRow();
+    const escludi = !!sel.escludi_provvigioni;
+    const aliquota = escludi ? 0 : (Number(sel.aliquota_tasse_ramo) || 0);
+    const ssnAttivo = !escludi && !!sel.ssn_attivo;
+    const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
+    return {
+      ...emptyGaranziaRow(),
+      sottoramoId: sel.id,
+      codice: sel.codice,
+      descrizione: sel.descrizione,
+      aliquotaTasse: aliquota,
+      aliquotaSsn,
+      ssnAttivo,
+      escludiProvvigioni: escludi,
+      tasse: escludi ? "0" : "",
+    };
+  };
+
+  const addRow = () => onRowsChange([...rows, buildRowFromSottoramo(defaultSottoramoId)]);
+
 
   const removeRow = (idx: number) => {
     const r = rows[idx];
