@@ -536,10 +536,14 @@ export default function SinistroAperturaWizardPage() {
                         if (c) selezionaCliente(c);
                       }}
                       placeholder="Cerca cliente per nome, cognome, ragione sociale, CF o P.IVA..."
+                      searchPlaceholder="Digita almeno 2 caratteri…"
                       searchValue={clientiSearchText}
                       onSearchChange={setClientiSearchText}
+                      serverSideSearch
+                      emptyText={clientiLoading ? "Ricerca in corso…" : "Nessun cliente trovato."}
                       className="w-full"
                     />
+
                   )}
                 </div>
 
