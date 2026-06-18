@@ -1,0 +1,84 @@
+import { cn } from "@/lib/utils";
+
+export type FiltroTipo = "tutti" | "polizze" | "quietanze";
+
+export type TipoFilterSegmentedProps = {
+  value: FiltroTipo;
+  onChange: (v: FiltroTipo) => void;
+  counts?: { tutti?: number; polizze?: number; quietanze?: number };
+  className?: string;
+};
+
+/**
+ * Segmented control "Tipo": Tutti · Polizze · Quietanze.
+ * Il chip attivo prende il colore del tipo (teal/ambra), così la modalità è leggibile a colpo d'occhio.
+ */
+export function TipoFilterSegmented({ value, onChange, counts, className }: TipoFilterSegmentedProps) {
+  const items: Array<{
+    key: FiltroTipo;
+    label: string;
+    count?: number;
+    activeClasses: string;
+  }> = [
+    {
+      key: "tutti",
+      label: "Tutti",
+      count: counts?.tutti,
+      activeClasses: "bg-foreground text-background shadow-sm",
+    },
+    {
+      key: "polizze",
+      label: "Polizze",
+      count: counts?.polizze,
+      activeClasses: "bg-polizza text-polizza-foreground shadow-sm",
+    },
+    {
+      key: "quietanze",
+      label: "Quietanze",
+      count: counts?.quietanze,
+      activeClasses: "bg-quietanza text-quietanza-foreground shadow-sm",
+    },
+  ];
+
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5",
+        className,
+      )}
+      role="tablist"
+      aria-label="Filtro tipo polizza"
+    >
+      {items.map((it) => {
+        const active = value === it.key;
+        return (
+          <button
+            key={it.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(it.key)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all",
+              active
+                ? it.activeClasses
+                : "text-muted-foreground hover:text-foreground hover:bg-background/60",
+            )}
+          >
+            {it.label}
+            {typeof it.count === "number" && (
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[10px] leading-none tabular-nums",
+                  active ? "bg-background/20" : "bg-background/80 text-foreground/70",
+                )}
+              >
+                {it.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
