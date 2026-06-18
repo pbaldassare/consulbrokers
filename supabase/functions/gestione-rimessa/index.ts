@@ -176,9 +176,16 @@ Deno.serve(async (req) => {
         .single();
       if (rErr) throw rErr;
 
+      const titoloIds = available.map((t: any) => t.id);
+      const { data: qMap } = await supabaseAdmin
+        .from("quietanze")
+        .select("id, titolo_id")
+        .in("titolo_id", titoloIds);
+      const qByTitolo = new Map<string, string>((qMap || []).map((q: any) => [q.titolo_id, q.id]));
       const dettagli = available.map((t: any) => ({
         rimessa_id: rimessa.id,
         titolo_id: t.id,
+        quietanza_id: qByTitolo.get(t.id) ?? null,
         importo: t.importo,
       }));
       const { error: dErr } = await supabaseAdmin.from("rimessa_dettaglio").insert(dettagli);
@@ -523,9 +530,16 @@ Deno.serve(async (req) => {
         .single();
       if (rErr) throw rErr;
 
+      const titoloIdsB = available.map((t: any) => t.id);
+      const { data: qMapB } = await supabaseAdmin
+        .from("quietanze")
+        .select("id, titolo_id")
+        .in("titolo_id", titoloIdsB);
+      const qByTitoloB = new Map<string, string>((qMapB || []).map((q: any) => [q.titolo_id, q.id]));
       const dettagli = available.map((t: any) => ({
         rimessa_id: rimessa.id,
         titolo_id: t.id,
+        quietanza_id: qByTitoloB.get(t.id) ?? null,
         importo: t.importo,
       }));
       const { error: dErr } = await supabaseAdmin.from("rimessa_dettaglio").insert(dettagli);
