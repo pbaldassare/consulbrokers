@@ -82,6 +82,7 @@ export default function SinistroAperturaWizardPage() {
   const [selectedClienteData, setSelectedClienteData] = useState<any>(null);
   const [clientiSearchText, setClientiSearchText] = useState("");
   const [clientiList, setClientiList] = useState<any[]>([]);
+  const [clientiLoading, setClientiLoading] = useState(false);
 
   // Inizializzazione React Hook Form
   const { register, control, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<WizardFormValues>({
