@@ -1182,6 +1182,24 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               </div>
             )}
 
+            {/* Provvigioni per Ramo del singolo rapporto (solo per rapporti già salvati) */}
+            {form.id && (
+              <Accordion type="single" collapsible defaultValue="provv-rapporto" className="pt-2">
+                <AccordionItem value="provv-rapporto" className="border rounded-md px-3">
+                  <AccordionTrigger className="text-sm font-medium hover:no-underline">
+                    <span className="flex items-center gap-2">
+                      <Percent className="w-4 h-4 text-primary" />
+                      Provvigioni per Ramo / Sottoramo (di questo rapporto)
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ProvvigioniRapportiTab fixedRapportoId={form.id} />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
+
+
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setFormOpen(false)}>Annulla</Button>
               <Button
