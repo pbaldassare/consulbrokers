@@ -81,6 +81,14 @@
 
     --badge-yellow-bg: 45 80% 55%;
     --badge-yellow-fg: 0 0% 100%;
+
+    /* Polizza vs Quietanza */
+    --polizza: 173 80% 30%;
+    --polizza-foreground: 0 0% 100%;
+    --polizza-soft: 173 60% 95%;
+    --quietanza: 38 92% 50%;
+    --quietanza-foreground: 26 83% 14%;
+    --quietanza-soft: 38 92% 96%;
   }
 
   .dark {
