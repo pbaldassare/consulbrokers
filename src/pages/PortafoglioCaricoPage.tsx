@@ -114,8 +114,9 @@ const PortafoglioCaricoPage = () => {
   const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroPeriodo, isDefaultExtended, filtroTipo, dateDa, dateA, sortField, sortDirection]);
 
   const applyTipoFilter = (q: any) => {
-    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null);
-    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null);
+    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    if (filtroTipo === "regolazioni") return q.eq("is_regolazione", true);
     return q;
   };
 
