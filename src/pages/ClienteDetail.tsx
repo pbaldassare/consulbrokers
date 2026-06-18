@@ -1351,6 +1351,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
 
                     <TableCell>{agenzia}</TableCell>
                     <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
+                    <TableCell className="font-mono">{fmtNum((Number(head.provvigioni_firma)||0) + (Number(head.provvigioni_quietanza)||0))}</TableCell>
                     <TableCell><Badge variant={stateVariant(head.stato)}>{stateLabel("madre", head.stato)}</Badge></TableCell>
                     <TableCell>{head.data_messa_cassa || head.data_incasso || "—"}</TableCell>
                     {isAdmin && (
