@@ -745,7 +745,7 @@ const PortafoglioCaricoPage = () => {
                       <TableCell className="text-sm">{p.produttore_nome || "—"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 flex-wrap">
-                          <Badge variant={statoBadgeVariant(p.stato)}>{p.stato}</Badge>
+                          <Badge variant={statoBadgeVariant(statoShown)}>{statoShown}</Badge>
                           {p.conferimento_gestito && !p.fondi_ricevuti && (
                             <Badge variant="destructive" className="text-[10px] h-5">Att. Fondi</Badge>
                           )}
