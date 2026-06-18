@@ -1,39 +1,47 @@
-## Filtri + Export Excel sulla pagina Sinistri (Portale Cliente)
+## Step 1 wizard apertura sinistro — ricerca cliente → ricerca polizza
 
-### 1. Filtri sopra le card KPI (`src/pages/cliente/ClienteSinistri.tsx`)
-Aggiungere una barra filtri (Card compatta) sopra la griglia KPI con:
-- **Ricerca testo libero**: n° sinistro, n° compagnia, controparte, targa
-- **Stato**: multi-select (in_valutazione, aperto, in_lavorazione, in_attesa_documenti, in_liquidazione, chiuso, respinto) — popolato dinamicamente dai valori presenti
-- **Garanzia / Ramo sinistro**: select da valori distinti
-- **Compagnia**: select dai valori distinti (`compagnie.nome`)
-- **Polizza**: select dai numeri titolo collegati
-- **Provincia / Città**: due select dai distinti `provincia_sinistro` / `citta_sinistro`
-- **Range data evento**: due DatePicker (da / a)
-- **Bottone "Reset filtri"** + counter "X di Y sinistri"
+Modifico **solo** lo Step 1 di `src/pages/SinistroAperturaWizardPage.tsx`. Nessuna modifica a schema DB, RLS, edge functions o altri step.
 
-I filtri agiscono client-side sul dataset già caricato (`sinistri`); KPI, grafici e tabella usano la lista filtrata.
+### Comportamento nuovo
 
-### 2. Selezione righe per export
-- Checkbox in testa tabella ("seleziona tutti i filtrati") + checkbox per riga
-- Stato `selectedIds: Set<string>`
-- Toolbar sopra la tabella mostra "N selezionati" + bottone **"Esporta Excel"** (disabilitato se 0)
-- Se nessuna riga selezionata ma si clicca un secondo bottone **"Esporta tutti i filtrati"**, esporta l'intero risultato filtrato
+```text
+Step 1: Cliente & Polizza
+─────────────────────────────────
+1) Cerca cliente               [SearchableSelect]
+   → digita nome / cognome / ragione sociale / CF / P.IVA
+   → query su `clienti` (limit 25, debounce 350ms)
+   → mostra: Nome/RagSoc · CF/P.IVA · tipo
 
-### 3. Export Excel con dati polizza completi
-Nuovo handler `handleExport()`:
-1. Per gli ID selezionati, recupera i sinistri (già in memoria) + fetch parallelo polizze:
-   ```ts
-   supabase.from("titoli").select("*, compagnie(nome,codice), rami(codice,descrizione), clienti(...)")
-     .in("id", titoloIds)
-   ```
-2. Costruisce array di righe con **tutte le colonne sinistro** (numero, stato, ramo, date, luogo, importi, controparte, perito, dinamica, note) **+ tutti i campi polizza** rilevanti (numero, compagnia, ramo, prodotto, decorrenza, scadenza, frazionamento, premio netto/tasse/lordo, provv. firma/quietanza, CIG, targa/telaio, vincolo, tacito rinnovo, stato, produttore, ecc.)
-3. Usa `xlsx` (già in deps) per generare workbook con due sheet:
-   - **Sinistri**: una riga per sinistro con tutti i campi sinistro + polizza appaiati
-   - **Polizze**: una riga per polizza unica coinvolta (dettaglio completo)
-4. Download via `XLSX.writeFile(wb, 'sinistri_export_YYYYMMDD.xlsx')`
+2) (dopo selezione cliente)
+   Cliente selezionato: ACME SRL · 12345678901   [Cambia]
 
-### 4. Note tecniche
-- Nessuna modifica DB / RLS
-- Riuso componenti UI esistenti (`SearchableSelect`, shadcn `Checkbox`, `Popover`, `Calendar`)
-- I filtri restano client-side perché il dataset cliente è limitato (RLS già filtra ai suoi sinistri)
-- File toccato: solo `src/pages/cliente/ClienteSinistri.tsx` (+ eventualmente un piccolo helper `src/lib/exportSinistriXlsx.ts` per tenere la pagina leggibile)
+3) Polizza del cliente         [SearchableSelect, disabled finché non c'è cliente]
+   → carica automaticamente TUTTE le polizze attive del cliente selezionato
+     (titoli + polizza_cga, eq cliente_anagrafica_id, stesso pattern già usato
+      per `preselectedClienteId`)
+   → ricerca testuale lato client sul numero polizza
+   → "Nessuna polizza per questo cliente" se lista vuota
+   → resta opzionale: "Prosegui senza polizza" come oggi
+```
+
+Se l'utente cambia cliente, resetto `titolo_id`, `selectedPolizzaData` e la lista polizze.
+
+### Modifiche tecniche (un solo file)
+
+`src/pages/SinistroAperturaWizardPage.tsx`:
+
+- Nuovi stati: `selectedClienteId`, `selectedClienteData`, `clientiSearchText`, `clientiList`, `clientiLoading`.
+- Nuova `useEffect` debounced (350ms) che cerca clienti su `clienti` (`or(cognome.ilike, nome.ilike, ragione_sociale.ilike, codice_fiscale.ilike, partita_iva.ilike)`, `limit(25)`).
+- Riuso del blocco già esistente (righe ~114-150) che carica `titoli` + `polizza_cga` per un `cliente_anagrafica_id`: lo estraggo in una funzione `loadPolizzeForCliente(clienteId)` chiamata sia dal preselect URL sia dalla nuova selezione manuale.
+- Rimuovo la ricerca polizze "globale" (righe 211-258 + il blocco `onSearchChange` dentro `SearchableSelect` polizze, righe 525-555): la lista è ora derivata dal cliente.
+- Filtro testuale polizze: client-side su `polizzeList` con `polizzaSearchText`.
+- Reset della polizza quando cambia cliente.
+- Preserva il flusso esistente con `preselectedClienteId` (deep-link da scheda cliente): seleziona automaticamente il cliente e mostra subito le sue polizze.
+- Persistenza bozza: aggiungo `cliente_id` allo schema/draft Step 1 (opzionale) così che ricaricando la bozza il cliente venga riselezionato; il salvataggio finale del sinistro continua a usare `selectedPolizzaData?.cliente_anagrafica_id` esattamente come oggi (nessun cambio in `handleSubmit`).
+- Testo descrittivo dello Step 1 aggiornato: "Seleziona prima il cliente, poi scegli una delle sue polizze attive. La polizza è facoltativa."
+
+### Cosa NON cambia
+
+- Nessuna modifica a Step 2/3/4/5, salvataggio sinistro, RLS, edge functions, tipi Supabase.
+- Naming/terminologia invariati (Cliente, Polizza).
+- Pattern UI: `SearchableSelect`, debounce 350ms, limit 25 (memory rules).

@@ -77,6 +77,12 @@ export default function SinistroAperturaWizardPage() {
   const [polizzeList, setPolizzeList] = useState<any[]>([]);
   const [polizzeLoading, setPolizzeLoading] = useState(false);
 
+  // Stato ricerca cliente (Step 1)
+  const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
+  const [selectedClienteData, setSelectedClienteData] = useState<any>(null);
+  const [clientiSearchText, setClientiSearchText] = useState("");
+  const [clientiList, setClientiList] = useState<any[]>([]);
+
   // Inizializzazione React Hook Form
   const { register, control, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<WizardFormValues>({
     resolver: zodResolver(wizardSchema),
@@ -101,49 +107,95 @@ export default function SinistroAperturaWizardPage() {
   const [searchParams] = useSearchParams();
   const preselectedClienteId = searchParams.get('cliente_id');
 
-  useEffect(() => {
-    if (preselectedClienteId) {
-      // fetch client info
-      supabase.from('clienti')
-        .select('cognome, nome, ragione_sociale')
-        .eq('id', preselectedClienteId)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) setPreselectedCliente(data);
-        });
-      // fetch polizze (titoli + CGA) for this client
-      Promise.all([
+  // Carica polizze (titoli + CGA) per un cliente
+  const loadPolizzeForCliente = async (clienteId: string) => {
+    setPolizzeLoading(true);
+    try {
+      const [titRes, cgaRes] = await Promise.all([
         supabase.from('titoli')
           .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id,
             prodotti(nome_prodotto, compagnie(id, nome)),
             clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
           .eq('stato', 'attivo')
-          .eq('cliente_anagrafica_id', preselectedClienteId)
+          .eq('cliente_anagrafica_id', clienteId)
           .limit(100),
         supabase.from('polizza_cga')
           .select(`id, numero_polizza, data_decorrenza, premio_lordo_totale, cliente_id, prodotti_cga(nome_prodotto, compagnia, ramo)`)
           .eq('stato', 'approvato')
-          .eq('cliente_id', preselectedClienteId)
+          .eq('cliente_id', clienteId)
           .limit(100),
-      ]).then(([titRes, cgaRes]) => {
-        const fromTitoli = (titRes.data ?? []).map((t: any) => ({ ...t, _isCga: false }));
-        const fromCga = (cgaRes.data ?? []).map((c: any) => ({
-          id: `cga:${c.id}`,
-          numero_titolo: c.numero_polizza,
-          stato: 'attivo',
-          cliente_anagrafica_id: c.cliente_id,
-          ufficio_id: null,
-          prodotti: {
-            nome_prodotto: c.prodotti_cga?.nome_prodotto,
-            compagnie: { id: null, nome: c.prodotti_cga?.compagnia },
-          },
-          clienti: null,
-          _isCga: true,
-        }));
-        setPolizzeList([...fromTitoli, ...fromCga].slice(0, 50));
-      });
+      ]);
+      const fromTitoli = (titRes.data ?? []).map((t: any) => ({ ...t, _isCga: false }));
+      const fromCga = (cgaRes.data ?? []).map((c: any) => ({
+        id: `cga:${c.id}`,
+        numero_titolo: c.numero_polizza,
+        stato: 'attivo',
+        cliente_anagrafica_id: c.cliente_id,
+        ufficio_id: null,
+        prodotti: {
+          nome_prodotto: c.prodotti_cga?.nome_prodotto,
+          compagnie: { id: null, nome: c.prodotti_cga?.compagnia },
+        },
+        clienti: null,
+        _isCga: true,
+      }));
+      setPolizzeList([...fromTitoli, ...fromCga].slice(0, 50));
+    } finally {
+      setPolizzeLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (preselectedClienteId) {
+      supabase.from('clienti')
+        .select('id, cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva')
+        .eq('id', preselectedClienteId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setPreselectedCliente(data);
+            setSelectedClienteId(data.id);
+            setSelectedClienteData(data);
+          }
+        });
+      loadPolizzeForCliente(preselectedClienteId);
     }
   }, [preselectedClienteId]);
+
+  // Ricerca clienti (debounced) — Step 1
+  useEffect(() => {
+    const q = clientiSearchText.trim();
+    if (!q) { setClientiList([]); return; }
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from('clienti')
+        .select('id, nome, cognome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva')
+        .or(`cognome.ilike.%${q}%,nome.ilike.%${q}%,ragione_sociale.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
+        .limit(25);
+      setClientiList(data || []);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [clientiSearchText]);
+
+  const selezionaCliente = (c: any) => {
+    setSelectedClienteId(c.id);
+    setSelectedClienteData(c);
+    setSelectedPolizzaData(null);
+    setValue('titolo_id', '');
+    setPolizzaSearchText('');
+    loadPolizzeForCliente(c.id);
+  };
+
+  const resetCliente = () => {
+    setSelectedClienteId(null);
+    setSelectedClienteData(null);
+    setSelectedPolizzaData(null);
+    setValue('titolo_id', '');
+    setPolizzeList([]);
+    setPolizzaSearchText('');
+    setClientiSearchText('');
+  };
+
 
   const { fields: docFields, append: appendDoc, remove: removeDoc } = useFieldArray({
     control,
@@ -208,61 +260,9 @@ export default function SinistroAperturaWizardPage() {
     }
   });
 
-  // Ricerca polizze in tempo reale (Step 1)
-  const handleCercaPolizze = async () => {
-    if (!polizzaSearchText.trim()) {
-      toast.warning("Inserisci un criterio di ricerca");
-      return;
-    }
-    setPolizzeLoading(true);
-    try {
-      const search = polizzaSearchText.trim();
+  // (ricerca polizze globale rimossa: ora le polizze derivano dal cliente selezionato)
 
-      // Query semplificata con FK esplicita
-      const { data, error } = await supabase
-        .from("titoli")
-        .select(`
-          id,
-          numero_titolo,
-          stato,
-          cliente_id,
-          compagnia_id,
-          ramo_id,
-          ufficio_id,
-          clienti(nome, cognome, ragione_sociale),
-          compagnie(nome),
-          rami(nome)
-        `)
-        .in("stato", ["attivo", "sospeso"])
-        .ilike("numero_titolo", `%${search}%`)
-        .range(0, 24);
 
-      if (error) throw error;
-
-      const results = (data || []).map((p: any) => ({
-        ...p,
-        clienteNome: p.clienti
-          ? `${p.clienti.cognome || ""} ${p.clienti.nome || ""} ${p.clienti.ragione_sociale || ""}`.trim()
-          : "Cliente non trovato",
-      }));
-
-      setPolizzeList(results);
-      if (results.length === 0) {
-        toast.info("Nessuna polizza attiva trovata con questi criteri");
-      }
-    } catch (err: any) {
-      console.error("Errore ricerca polizze:", err);
-      toast.error("Errore nella ricerca polizze: " + err.message);
-    } finally {
-      setPolizzeLoading(false);
-    }
-  };
-
-  const selezionaPolizza = (polizza: any) => {
-    setSelectedPolizzaData(polizza);
-    setValue("titolo_id", polizza.id);
-    toast.success(`Polizza N° ${polizza.numero_titolo} selezionata`);
-  };
 
   // Gestione caricamento file (Step 3)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -477,14 +477,14 @@ export default function SinistroAperturaWizardPage() {
         <Card className="shadow-md border-t-4 border-t-primary">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              {currentStep === 1 && "Step 1: Ricerca e Collegamento Polizza"}
+              {currentStep === 1 && "Step 1: Cliente e Polizza"}
               {currentStep === 2 && "Step 2: Dettagli dell'Accadimento"}
               {currentStep === 3 && "Step 3: Documenti Iniziali"}
               {currentStep === 4 && "Step 4: Assegnazione Pratica e Priorità"}
               {currentStep === 5 && "Step 5: Riepilogo e Conferma"}
             </CardTitle>
             <CardDescription>
-              {currentStep === 1 && "Cerca la polizza attiva digitando il numero o il nome del contraente. Campo facoltativo: puoi proseguire anche senza collegare una polizza."}
+              {currentStep === 1 && "Seleziona prima il cliente, poi scegli una delle sue polizze attive. La polizza è facoltativa."}
               {currentStep === 2 && "Fornisci tutte le informazioni relative a quando, dove e come si è verificato il sinistro."}
               {currentStep === 3 && "Carica referti, foto o denunce firmate. Questo step è facoltativo."}
               {currentStep === 4 && "Assegna la pratica a un addetto interno e ad un liquidatore di riferimento."}
@@ -492,71 +492,90 @@ export default function SinistroAperturaWizardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            
-            {/* STEP 1: POLIZZA COLLEGATA */}
+
+            {/* STEP 1: CLIENTE + POLIZZA */}
             {currentStep === 1 && (
-              <div className="space-y-4">
-                {preselectedCliente && (
-                  <Badge variant="secondary" className="mb-2">
-                    Cliente preselezionato: {getClienteNome(preselectedCliente)}
-                  </Badge>
-                )}
-                {/* SearchableSelect for live search and selection */}
-                <SearchableSelect
-                  options={polizzeList.map(p => ({
-                    value: p.id,
-                    label: p.numero_titolo,
-                    description: `${getClienteNome(p.clienti)} - ${p.prodotti?.nome_prodotto || "—"}`,
-                    searchText: `${p.numero_titolo} ${getClienteNome(p.clienti)} ${p.prodotti?.nome_prodotto || ""}`,
-                  }))}
-                  value={watchTitoloId ?? ""}
-                  onValueChange={(val) => {
-                    const selected = polizzeList.find(p => p.id === val);
-                    if (selected) selezionaPolizza(selected);
-                  }}
-                  placeholder="Cerca polizza..."
-                  searchValue={polizzaSearchText}
-                  onSearchChange={(q) => {
-                    setPolizzaSearchText(q);
-                    // Trigger live search
-                    if (q.trim()) {
-                      supabase
-                        .from("titoli")
-                        .select(`
-                          id,
-                          numero_titolo,
-                          stato,
-                          cliente_id,
-                          compagnia_id,
-                          ramo_id,
-                          ufficio_id,
-                          clienti(nome, cognome, ragione_sociale),
-                          compagnie(nome),
-                          rami(nome)
-                        `)
-                        .in("stato", ["attivo", "sospeso"])
-                        .ilike("numero_titolo", `%${q.trim()}%`)
-                        .range(0, 24)
-                        .then(({ data, error }) => {
-                          if (!error && data) {
-                            const results = (data || []).map((p: any) => ({
-                              ...p,
-                              clienteNome: p.clienti
-                                ? `${p.clienti.cognome || ""} ${p.clienti.nome || ""} ${p.clienti.ragione_sociale || ""}`.trim()
-                                : "Cliente non trovato",
-                            }));
-                            setPolizzeList(results);
+              <div className="space-y-6">
+                {/* 1) Ricerca cliente */}
+                <div className="space-y-2">
+                  <Label>Cliente *</Label>
+                  {selectedClienteData ? (
+                    <div className="flex items-center justify-between gap-3 p-3 bg-muted/50 rounded-lg border">
+                      <div className="text-sm">
+                        <p className="font-semibold">{getClienteNome(selectedClienteData)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedClienteData.codice_fiscale || selectedClienteData.partita_iva || "—"}
+                          {selectedClienteData.tipo_cliente ? ` · ${selectedClienteData.tipo_cliente}` : ""}
+                        </p>
+                      </div>
+                      <Button type="button" variant="outline" size="sm" onClick={resetCliente}>
+                        Cambia cliente
+                      </Button>
+                    </div>
+                  ) : (
+                    <SearchableSelect
+                      options={clientiList.map((c: any) => ({
+                        value: c.id,
+                        label: getClienteNome(c) || "(senza nome)",
+                        description: [c.codice_fiscale || c.partita_iva, c.tipo_cliente].filter(Boolean).join(" · "),
+                        searchText: `${getClienteNome(c)} ${c.codice_fiscale || ""} ${c.partita_iva || ""}`,
+                      }))}
+                      value=""
+                      onValueChange={(val) => {
+                        const c = clientiList.find((x: any) => x.id === val);
+                        if (c) selezionaCliente(c);
+                      }}
+                      placeholder="Cerca cliente per nome, cognome, ragione sociale, CF o P.IVA..."
+                      searchValue={clientiSearchText}
+                      onSearchChange={setClientiSearchText}
+                      className="w-full"
+                    />
+                  )}
+                </div>
+
+                {/* 2) Selezione polizza del cliente */}
+                {selectedClienteId && (
+                  <div className="space-y-2">
+                    <Label>Polizza del cliente {polizzeLoading && <span className="text-xs text-muted-foreground">(caricamento...)</span>}</Label>
+                    {polizzeList.length === 0 && !polizzeLoading ? (
+                      <p className="text-sm text-muted-foreground p-3 border rounded-lg bg-muted/30">
+                        Nessuna polizza attiva trovata per questo cliente. Puoi proseguire senza collegare una polizza.
+                      </p>
+                    ) : (
+                      <SearchableSelect
+                        options={polizzeList.map((p: any) => ({
+                          value: p.id,
+                          label: p.numero_titolo,
+                          description: `${p.prodotti?.nome_prodotto || "—"}${p.prodotti?.compagnie?.nome ? " · " + p.prodotti.compagnie.nome : ""}`,
+                          searchText: `${p.numero_titolo} ${p.prodotti?.nome_prodotto || ""}`,
+                        }))}
+                        value={watchTitoloId ?? ""}
+                        onValueChange={(val) => {
+                          if (!val) {
+                            setSelectedPolizzaData(null);
+                            setValue("titolo_id", "");
+                            return;
                           }
-                        });
-                    }
-                  }}
-                  clearable={true}
-                  clearLabel="— Nessuna Polizza —"
-                  className="w-full"
-                />
-                {/* Show selected polizza details */}
+                          const selected = polizzeList.find((p: any) => p.id === val);
+                          if (selected) {
+                            setSelectedPolizzaData({ ...selected, clienti: selectedClienteData });
+                            setValue("titolo_id", selected.id);
+                          }
+                        }}
+                        placeholder="Seleziona una polizza del cliente..."
+                        searchValue={polizzaSearchText}
+                        onSearchChange={setPolizzaSearchText}
+                        clearable={true}
+                        clearLabel="— Nessuna Polizza —"
+                        className="w-full"
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Riepilogo polizza selezionata */}
                 {selectedPolizzaData && (
-                  <div className="p-4 bg-muted/50 rounded-lg border space-y-2 mt-4">
+                  <div className="p-4 bg-muted/50 rounded-lg border space-y-2">
                     <h4 className="font-semibold text-sm text-primary">Polizza Selezionata per il Sinistro</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                       <div>
@@ -565,7 +584,7 @@ export default function SinistroAperturaWizardPage() {
                       </div>
                       <div>
                         <span className="text-muted-foreground">Contraente:</span>
-                        <p className="font-semibold">{getClienteNome(selectedPolizzaData.clienti)}</p>
+                        <p className="font-semibold">{getClienteNome(selectedPolizzaData.clienti || selectedClienteData)}</p>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Stato Polizza:</span>
@@ -574,6 +593,7 @@ export default function SinistroAperturaWizardPage() {
                     </div>
                   </div>
                 )}
+
                 {errors.titolo_id && (
                   <p className="text-xs text-destructive flex items-center gap-1 mt-1">
                     <AlertCircle className="h-3 w-3" /> {errors.titolo_id.message}
@@ -581,6 +601,7 @@ export default function SinistroAperturaWizardPage() {
                 )}
               </div>
             )}
+
 
             {/* STEP 2: DATI SINISTRO */}
             {currentStep === 2 && (
