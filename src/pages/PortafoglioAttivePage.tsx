@@ -10,17 +10,19 @@ import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { Shield, Search, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
-import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/RamoSottoramoFilter";
 import { useRamiAll } from "@/hooks/useRamiLookup";
 import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
 import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
+import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
+import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
+import { rowBorderClass, isQuietanzaRow } from "@/lib/polizzeDisplay";
 
 const rowHref = (p: any) =>
   p?.sostituisce_polizza
