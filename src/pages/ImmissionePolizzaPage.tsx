@@ -317,6 +317,9 @@ const ImmissionePolizzaPage = () => {
   const [selectedRapportoId, setSelectedRapportoId] = useState<string>("");
   const [selectedRamo, setSelectedRamo] = useState("");
   const [selectedGruppoRamoId, setSelectedGruppoRamoId] = useState<string | null>(null);
+  /** Sottoramo di default proposto nelle nuove righe garanzia (Firma + Quietanza). */
+  const [defaultSottoramoId, setDefaultSottoramoId] = useState<string | null>(null);
+
   const [prodottoNome, setProdottoNome] = useState("");
   // 'specialist' hardcoded state rimosso: ora si usa solo selectedBackofficeId
   
@@ -1052,7 +1055,7 @@ const ImmissionePolizzaPage = () => {
   const { data: ramiList } = useQuery({
     queryKey: ["rami-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id, ssn_attivo, aliquota_ssn, aliquota_tasse_ramo").eq("attivo", true).order("codice");
+      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id, ssn_attivo, aliquota_ssn, aliquota_tasse_ramo, escludi_provvigioni").eq("attivo", true).order("codice");
       return data || [];
     },
   });
@@ -2181,30 +2184,63 @@ const ImmissionePolizzaPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5 md:col-span-2">
             <RamoSottoramoSelect
-              gruppoOnly
+              layout="stacked"
               gruppoRamoId={selectedGruppoRamoId}
-              ramoId={null}
-              onChange={({ gruppoRamoId }) => {
-                // Se l'utente ha già inserito importi/sottorami, chiedi conferma
-                // prima di buttare via le righe garanzia.
-                const hasRows =
-                  premiFirmaRows.some((r) => r.netto || r.tasse || r.sottoramoId) ||
-                  premiQuietanzaRows.some((r) => r.netto || r.tasse || r.sottoramoId);
-                if (hasRows && gruppoRamoId !== selectedGruppoRamoId) {
-                  const ok = window.confirm(
-                    "Cambiando Ramo le righe di Composizione Premio già inserite verranno cancellate. Continuare?"
-                  );
-                  if (!ok) return;
+              ramoId={defaultSottoramoId}
+              onChange={({ gruppoRamoId, ramoId }) => {
+                const gruppoChanged = gruppoRamoId !== selectedGruppoRamoId;
+                if (gruppoChanged) {
+                  // Cambio Ramo → reset righe garanzia (con conferma se ci sono dati)
+                  const hasRows =
+                    premiFirmaRows.some((r) => r.netto || r.tasse || r.sottoramoId) ||
+                    premiQuietanzaRows.some((r) => r.netto || r.tasse || r.sottoramoId);
+                  if (hasRows) {
+                    const ok = window.confirm(
+                      "Cambiando Ramo le righe di Composizione Premio già inserite verranno cancellate. Continuare?"
+                    );
+                    if (!ok) return;
+                  }
+                  setSelectedGruppoRamoId(gruppoRamoId);
+                  setDefaultSottoramoId(null);
+                  setPremiFirmaRows([emptyGaranziaRow()]);
+                  setPremiQuietanzaRows([emptyGaranziaRow()]);
+                  setSelectedRamo("");
+                  return;
                 }
-                setSelectedGruppoRamoId(gruppoRamoId);
-                setPremiFirmaRows([emptyGaranziaRow()]);
-                setPremiQuietanzaRows([emptyGaranziaRow()]);
-                setSelectedRamo("");
+                // Stesso Ramo: cambia solo il Sottoramo di default.
+                // Propaghiamo a: righe vuote (no importi) + righe che avevano il vecchio default.
+                const prevDefault = defaultSottoramoId;
+                setDefaultSottoramoId(ramoId);
+                if (ramoId) setSelectedRamo(ramoId);
+                const sel: any = (ramiList || []).find((r: any) => r.id === ramoId);
+                if (!sel) return;
+                const escludi = !!sel.escludi_provvigioni;
+                const aliquota = escludi ? 0 : (Number(sel.aliquota_tasse_ramo) || 0);
+                const ssnAttivo = !escludi && !!sel.ssn_attivo;
+                const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
+                const preset = (base: GaranziaRow): GaranziaRow => ({
+                  ...base,
+                  sottoramoId: sel.id,
+                  codice: sel.codice,
+                  descrizione: sel.descrizione,
+                  aliquotaTasse: aliquota,
+                  aliquotaSsn,
+                  ssnAttivo,
+                  escludiProvvigioni: escludi,
+                  tasse: escludi ? "0" : base.tasse,
+                });
+                const propagate = (rows: GaranziaRow[]) =>
+                  rows.map((r) => {
+                    const isEmpty = !r.netto && !r.tasse && !r.sottoramoId;
+                    const matchedPrevDefault = !!prevDefault && r.sottoramoId === prevDefault && !r.netto && !r.tasse;
+                    return isEmpty || matchedPrevDefault ? preset(r) : r;
+                  });
+                setPremiFirmaRows((prev) => propagate(prev));
+                setPremiQuietanzaRows((prev) => propagate(prev));
               }}
-
             />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Il Sottoramo si seleziona riga per riga nelle Composizioni Premio sotto.
+              Il Sottoramo selezionato qui è il <b>default</b> proposto nelle nuove righe di Composizione Premio. Puoi cambiarlo riga per riga.
             </p>
             {isRCA && (
               <p className="text-[11px] text-primary flex items-center gap-1 mt-1">
@@ -2212,6 +2248,7 @@ const ImmissionePolizzaPage = () => {
                 Ramo RCA rilevato: in fondo alla pagina troverai le sezioni Veicolo, Garanzie e Conducente.
               </p>
             )}
+
           </div>
         </div>
 
@@ -2520,6 +2557,8 @@ const ImmissionePolizzaPage = () => {
                 <PremiGaranziaCardShell
                   tipoPremio="firma"
                   gruppoRamoId={selectedGruppoRamoId}
+                  defaultSottoramoId={defaultSottoramoId}
+
                   rows={premiFirmaRows}
                   onRowsChange={(next) => {
                     setPremiFirmaRows(next);
@@ -2552,6 +2591,8 @@ const ImmissionePolizzaPage = () => {
                 <PremiGaranziaCardShell
                   tipoPremio="quietanza"
                   gruppoRamoId={selectedGruppoRamoId}
+                  defaultSottoramoId={defaultSottoramoId}
+
                   rows={premiQuietanzaRows}
                   onRowsChange={(next) => {
                     setPremiQuietanzaRows((prev) => markQuietanzaEdits(prev, next));

@@ -1,28 +1,32 @@
-## Problema
-Il portale cliente non riesce ad aprire un nuovo sinistro. Errore DB:
-`new row for relation "sinistri" violates check constraint "sinistri_stato_check"`.
+## Obiettivo
+In `ImmissionePolizzaPage`, affiancare Ramo e Sottoramo nella card "Contratto" (sottoramo subito sotto al ramo) e usare il Sottoramo scelto come **default** per le righe di Composizione Premio (Firma + Quietanza), pur restando modificabile per riga.
 
-## Causa
-Il check constraint `sinistri_stato_check` ammette solo:
-`aperto, in_lavorazione, in_attesa_documenti, chiuso, respinto`.
+## Modifiche
 
-Ma:
-- l'edge function `gestione-sinistri` (azione `crea`) inserisce stato `in_valutazione` quando il sinistro è aperto dal cliente;
-- il resto del codice (badge, transizioni, zod schema) usa anche `in_liquidazione`.
+### 1. Card "Contratto" — Ramo + Sottoramo vicini
+File: `src/pages/ImmissionePolizzaPage.tsx` (righe ~2181-2216).
 
-Quindi il constraint è disallineato rispetto agli stati reali del dominio.
+- Sostituire `<RamoSottoramoSelect gruppoOnly ... />` con `<RamoSottoramoSelect layout="stacked" gruppoRamoId={selectedGruppoRamoId} ramoId={defaultSottoramoId} onChange={...} />` (rimosso `gruppoOnly`, aggiunto `layout="stacked"` per impilare verticalmente).
+- L'`onChange` aggiorna sia `selectedGruppoRamoId` sia un nuovo stato `defaultSottoramoId`.
+- Cambio di Ramo → reset righe garanzia (logica conferma già esistente) + `defaultSottoramoId = null`.
+- Cambio di solo Sottoramo (stesso ramo) → **propagare** il nuovo sottoramo alle righe garanzia che sono ancora "vuote" (nessun netto/tasse) o che hanno lo stesso vecchio default. Le righe già compilate manualmente con un sottoramo diverso restano intatte.
+- Aggiornare il testo helper: "Sottoramo di default; puoi modificarlo riga per riga nelle Composizioni Premio sotto."
 
-## Fix
-Migrazione SQL che ricrea il check constraint con tutti gli stati validi:
+### 2. Nuovo stato `defaultSottoramoId`
+- `const [defaultSottoramoId, setDefaultSottoramoId] = useState<string | null>(null);`
+- Aggiornare la helper `emptyGaranziaRow()` (o i punti dove si crea una nuova riga "+") perché preimposti `sottoramoId = defaultSottoramoId` e relativi `codice`/`descrizione`/`aliquotaTasse` derivati da `ramiList`.
 
-```
-ALTER TABLE public.sinistri DROP CONSTRAINT sinistri_stato_check;
-ALTER TABLE public.sinistri ADD CONSTRAINT sinistri_stato_check
-  CHECK (stato IN ('in_valutazione','aperto','in_lavorazione',
-                   'in_attesa_documenti','in_liquidazione','chiuso','respinto'));
-```
+### 3. Bottoni "Aggiungi riga" Firma/Quietanza
+- Quando si clicca "+", la nuova riga eredita `defaultSottoramoId` (e i campi correlati: codice, descrizione, aliquota tasse dal record `rami`).
+- Se `defaultSottoramoId` è vuoto, comportamento attuale invariato.
 
-Nessuna modifica frontend/edge function: la enum nello zod schema è già corretta.
+### 4. Inizializzazione su modifica esistente / import AI / rinnovo
+- Quando si caricano righe esistenti (es. madre polizza, AI, rinnovo) e tutte le righe usano lo stesso sottoramo, impostare `defaultSottoramoId` con quel valore così la UI Contratto resta coerente.
 
-## Verifica
-Riprovare "Apri nuovo sinistro" dal portale cliente → deve creare il record con stato `in_valutazione` senza errori.
+### 5. Salvataggio
+- Nessun cambiamento sul DB: `titoli.ramo_id` continua a derivare dalla prima riga garanzia non vuota (come già fatto). Il `defaultSottoramoId` è solo stato UI.
+
+## Fuori scopo
+- `TitoloDetail` (modifica polizza esistente): nessuna modifica in questo passaggio.
+- Nessuna migration DB.
+- Logica provvigioni / RCA / sezioni veicolo: invariate.
