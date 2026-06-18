@@ -308,14 +308,14 @@ const PortafoglioCaricoPage = () => {
     const today = todayStr();
     let ok = 0, ko = 0;
     for (const p of selectedAttive) {
-      const { error } = await supabase.from("titoli").update({
+      // Native write: aggiorniamo la quietanza per titolo_id legacy
+      const { error } = await (supabase.from("quietanze") as any).update({
         stato: "incassato",
         data_incasso: today,
         data_messa_cassa: today,
         data_pagamento: today,
-        data_decorrenza_rinnovo: today,
         importo_incassato: p.premio_lordo ?? null,
-      }).eq("id", p.id);
+      }).eq("titolo_id", p.id);
       if (error) ko++; else {
         ok++;
         // Genera provvigioni per ogni polizza messa a cassa
@@ -328,7 +328,7 @@ const PortafoglioCaricoPage = () => {
     if (ok > 0) {
       await logAttivita({
         azione: "messa_a_cassa_massiva",
-        entita_tipo: "titolo",
+        entita_tipo: "quietanza",
         entita_id: "batch",
         dettagli_json: { messe_a_cassa: ok, errori: ko },
       });
