@@ -204,7 +204,7 @@ const PortafoglioAttivePage = () => {
               </TableHeader>
               <TableBody>
                 {polizze.map((p: any) => (
-                  <TableRow key={p.id} className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : ""}`} onClick={() => navigate(`/titoli/${p.id}`)}>
+                  <TableRow key={p.id} className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : ""}`} onClick={() => navigate(rowHref(p))}>
                     <TableCell className="font-medium">
                       {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
                       {p.numero_titolo || "—"}

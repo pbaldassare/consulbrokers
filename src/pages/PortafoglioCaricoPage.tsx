@@ -559,7 +559,7 @@ const PortafoglioCaricoPage = () => {
                   <TableRow
                     key={p.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => { setPendingDialogOpen(false); navigate(`/titoli/${p.id}`); }}
+                    onClick={() => { setPendingDialogOpen(false); navigate(rowHref(p)); }}
                   >
                     <TableCell className="font-mono text-sm">{p.numero_titolo}</TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
@@ -681,7 +681,7 @@ const PortafoglioCaricoPage = () => {
                     <TableRow
                       key={p.id}
                       className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : ""}`}
-                      onClick={() => navigate(`/titoli/${p.id}`)}
+                      onClick={() => navigate(rowHref(p))}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox

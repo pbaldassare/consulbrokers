@@ -224,7 +224,7 @@ const PortafoglioStoricoPage = () => {
                   <TableRow
                     key={p.id}
                     className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : idx % 2 === 1 ? "bg-muted/30" : ""}`}
-                    onClick={() => navigate(`/titoli/${p.id}`)}
+                    onClick={() => navigate(rowHref(p))}
                   >
                     <TableCell className="font-medium">
                       {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
@@ -278,7 +278,7 @@ const PortafoglioStoricoPage = () => {
                         title="Apri dettaglio (sola consultazione)"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/titoli/${p.id}`);
+                          navigate(rowHref(p));
                         }}
                       >
                         <Eye className="h-4 w-4" />
