@@ -853,7 +853,7 @@ const GestionePolizzePage = () => {
                               className="gap-1 bg-teal-700 hover:bg-teal-800 text-white font-semibold shadow-sm"
                             >
                               <operazione.icon className="w-3.5 h-3.5" />
-                              Esegui {operazione.label}
+                              {operazione.key === "appendice" ? "Crea" : "Esegui"} {operazione.label}
                             </Button>
                           </TableCell>
                         </TableRow>
