@@ -2058,26 +2058,12 @@ export default function ClienteDetail() {
                   <NuovaPolizzaButton clienteId={id} label="Nuova Polizza" />
                 </div>
               ) : (
-                <PolizzeClienteTable polizze={polizze} navigate={navigate} mode="polizze" />
+                <PolizzeClienteTable polizze={polizze} navigate={navigate} />
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="quietanze">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Quietanze del cliente</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-2">
-              {polizze.filter((p) => !!p.sostituisce_polizza).length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">Nessuna quietanza presente</p>
-              ) : (
-                <PolizzeClienteTable polizze={polizze} navigate={navigate} mode="quietanze" />
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
 
 
