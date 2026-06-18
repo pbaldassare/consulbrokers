@@ -186,17 +186,11 @@ const PortafoglioStoricoPage = () => {
             setPage(0);
           }}
         />
-        <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Polizze + Quietanze + Reg.</SelectItem>
-            <SelectItem value="polizze">Solo polizze</SelectItem>
-            <SelectItem value="quietanze">Solo quietanze</SelectItem>
-            <SelectItem value="regolazioni">Solo regolazioni</SelectItem>
-          </SelectContent>
-        </Select>
+        <TipoFilterSegmented
+          value={filtroTipo}
+          onChange={(v) => { setFiltroTipo(v); setPage(0); }}
+          withRegolazioni
+        />
       </div>
 
       {isLoading ? (
