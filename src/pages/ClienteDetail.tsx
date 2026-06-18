@@ -1136,6 +1136,8 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
             <TableHead>N. Polizza</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Gruppo Ramo</TableHead>
+            <TableHead>Ramo</TableHead>
+
             <TableHead>Agenzia</TableHead>
             <TableHead>Premio €</TableHead>
             <TableHead>Stato</TableHead>
@@ -1147,7 +1149,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
           {filtroTipo === "quietanze" ? (
             flatQuietanze.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 9 : 8} className="text-center text-sm text-muted-foreground py-6">
+                <TableCell colSpan={isAdmin ? 10 : 9} className="text-center text-sm text-muted-foreground py-6">
                   Nessuna quietanza presente
                 </TableCell>
               </TableRow>
@@ -1161,6 +1163,8 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
                   </TableCell>
                   <TableCell><Badge variant="secondary">Quietanza {idx}</Badge></TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
+                  <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
+
                   <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
                   <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                   <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, idx)}</Badge></TableCell>
@@ -1190,6 +1194,8 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
               const showRate = filtroTipo === "tutti" && hasRate;
               const isOpen = !!expanded[c.numero];
               const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
+              const ramo = head.ramo?.descrizione || "—";
+
               const agenzia = head.compagnia_diretta?.nome || "—";
               return (
                 <>
@@ -1200,6 +1206,8 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
                     <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
                     <TableCell><Badge variant="outline">Polizza</Badge></TableCell>
                     <TableCell>{gruppoRamo}</TableCell>
+                    <TableCell>{ramo}</TableCell>
+
                     <TableCell>{agenzia}</TableCell>
                     <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
                     <TableCell><Badge variant={stateVariant(head.stato)}>{stateLabel("madre", head.stato)}</Badge></TableCell>
@@ -1226,6 +1234,8 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
                       <TableCell className="pl-8 font-mono text-xs text-muted-foreground">↳ {r.numero_titolo || "—"}</TableCell>
                       <TableCell><Badge variant="secondary">Quietanza {i + 2}</Badge></TableCell>
                       <TableCell className="text-muted-foreground text-xs">{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{r.ramo?.descrizione || "—"}</TableCell>
+
                       <TableCell className="text-muted-foreground text-xs">{r.compagnia_diretta?.nome || "—"}</TableCell>
                       <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                       <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, i + 2)}</Badge></TableCell>
