@@ -67,7 +67,7 @@ const PortafoglioStoricoPage = () => {
     queryKey: ["portafoglio-storico", search, filtroCompagnia, filterRamoIds, filtroStato, filtroTipo, page, today],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id, sostituisce_polizza",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id, sostituisce_polizza, is_regolazione, regolazione_quietanza_id",
         { count: "exact" }
       );
       q = buildFilter(q);
