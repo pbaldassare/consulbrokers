@@ -208,7 +208,7 @@ export function PremiGaranziaCardShell({
       if (!ok) return;
     }
     const next = rows.filter((_, i) => i !== idx);
-    onRowsChange(next.length ? next : [emptyGaranziaRow()]);
+    onRowsChange(next.length ? next : [buildRowFromSottoramo(defaultSottoramoId)]);
   };
 
   const calcSsn = (netto: number, _tasse: number, aliquotaSsn: number) =>
