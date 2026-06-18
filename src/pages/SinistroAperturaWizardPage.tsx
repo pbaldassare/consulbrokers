@@ -310,7 +310,8 @@ export default function SinistroAperturaWizardPage() {
     } else if (currentStep === 2) {
       fieldsToValidate = ["data_evento", "data_denuncia", "descrizione", "importo_riserva"];
       // Validazione custom: serve tipo standard OPPURE personalizzato (min 3 char)
-      const tStd = (getValues("tipo_sinistro") || "").trim();
+      const tStdRaw = (getValues("tipo_sinistro") || "").trim();
+      const tStd = tStdRaw === "__custom__" ? "" : tStdRaw;
       const tCustom = (getValues("tipo_sinistro_personalizzato") || "").trim();
       if (!tStd && tCustom.length < 3) {
         toast.error("Specifica il tipo sinistro (predefinito o personalizzato, min 3 caratteri)");
