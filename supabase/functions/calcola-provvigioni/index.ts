@@ -66,6 +66,15 @@ Deno.serve(async (req) => {
     // Delete old provvigioni for this titolo
     await supabaseAdmin.from("provvigioni_generate").delete().eq("titolo_id", titolo_id);
 
+    // Fase 2: risolvi quietanza_id (nuovo modello) per agganciare le righe
+    const { data: qLink } = await supabaseAdmin
+      .from("quietanze")
+      .select("id")
+      .eq("titolo_id", titolo_id)
+      .maybeSingle();
+    const quietanzaIdResolved: string | null = qLink?.id ?? null;
+
+
     // Lookup admin (Consulbrokers SPA) anagrafica id from settings
     let adminAnagraficaId: string | null = null;
     {
@@ -173,11 +182,13 @@ Deno.serve(async (req) => {
         });
       }
 
+      const rowsWithQ = rows.map((r) => ({ ...r, quietanza_id: quietanzaIdResolved }));
       const { data: inserted, error: iErr } = await supabaseAdmin
         .from("provvigioni_generate")
-        .insert(rows)
+        .insert(rowsWithQ)
         .select();
       if (iErr) throw iErr;
+
 
       return new Response(
         JSON.stringify({ message: `Provvigioni generate: ${inserted.length}`, provvigioni: inserted }),
@@ -242,6 +253,7 @@ Deno.serve(async (req) => {
       .from("provvigioni_generate")
       .insert({
         titolo_id,
+        quietanza_id: quietanzaIdResolved,
         user_id: titolo.produttore_id,
         percentuale: bestRule.percentuale_provvigione,
         importo_provvigione: Math.round(importo * 100) / 100,
@@ -250,6 +262,7 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (pErr) throw pErr;
+
 
     return new Response(
       JSON.stringify({ message: "Provvigione calcolata", provvigione: prov }),
