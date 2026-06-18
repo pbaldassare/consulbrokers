@@ -27,7 +27,7 @@ const PortafoglioAttivePage = () => {
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
-  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
+  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze" | "regolazioni">("tutti");
 
   const today = format(new Date(), "yyyy-MM-dd");
   const inizioMese = format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -38,16 +38,18 @@ const PortafoglioAttivePage = () => {
   const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroGruppoRamo, filtroRamo, escludiMeseCorrente, filtroTipo]);
 
   const applyTipoFilter = (q: any) => {
-    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null);
-    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null);
+    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    if (filtroTipo === "regolazioni") return q.eq("is_regolazione", true);
     return q;
   };
+
 
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente, filtroTipo],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza, is_regolazione, regolazione_quietanza_id",
         { count: "exact" }
       ).in("stato", ["attivo", "sospeso"]).gte("garanzia_a", today);
 
@@ -151,13 +153,14 @@ const PortafoglioAttivePage = () => {
           }}
         />
         <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="tutti">Polizze + Quietanze</SelectItem>
+            <SelectItem value="tutti">Polizze + Quietanze + Reg.</SelectItem>
             <SelectItem value="polizze">Solo polizze</SelectItem>
             <SelectItem value="quietanze">Solo quietanze</SelectItem>
+            <SelectItem value="regolazioni">Solo regolazioni</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2 ml-auto">
@@ -201,13 +204,18 @@ const PortafoglioAttivePage = () => {
               </TableHeader>
               <TableBody>
                 {polizze.map((p: any) => (
-                  <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${p.id}`)}>
-                    <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
+                  <TableRow key={p.id} className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : ""}`} onClick={() => navigate(`/titoli/${p.id}`)}>
+                    <TableCell className="font-medium">
+                      {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
+                      {p.numero_titolo || "—"}
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
-                        {p.sostituisce_polizza
-                          ? <Badge variant="secondary">Quietanza</Badge>
-                          : <Badge variant="default">Polizza</Badge>}
+                        {p.is_regolazione
+                          ? <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">Regolazione</Badge>
+                          : p.sostituisce_polizza
+                            ? <Badge variant="secondary">Quietanza</Badge>
+                            : <Badge variant="default">Polizza</Badge>}
                         {p.stato === "sospeso" && (
                           <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Sospesa</Badge>
                         )}

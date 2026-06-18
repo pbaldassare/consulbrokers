@@ -329,7 +329,7 @@ const GestionePolizzePage = () => {
       let q = supabase
         .from("v_portafoglio_titoli")
         .select(
-          "id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza, cig_rif",
+          "id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza, cig_rif, is_regolazione, regolazione_quietanza_id",
           { count: "exact" },
         )
         .order(sortBy, { ascending: sortDir === "asc" })
@@ -788,8 +788,9 @@ const GestionePolizzePage = () => {
                             : "bg-amber-100 text-amber-800 border-amber-300"
                           : "";
                         return (
-                        <TableRow key={p.id} className={idx % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                        <TableRow key={p.id} className={p.is_regolazione ? "bg-orange-50/40" : idx % 2 === 0 ? "bg-background" : "bg-muted/30"}>
                           <TableCell className="font-mono text-xs">
+                            {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
                             <button
                               type="button"
                               onClick={() => navigate(`/titoli/${p.id}`)}
@@ -797,7 +798,11 @@ const GestionePolizzePage = () => {
                             >
                               {p.numero_titolo || p.id.slice(0, 8)}
                             </button>
-                            {p.sostituisce_polizza && (
+                            {p.is_regolazione ? (
+                              <Badge className="ml-1 text-[10px] bg-orange-500 hover:bg-orange-600 text-white">
+                                regolazione
+                              </Badge>
+                            ) : p.sostituisce_polizza && (
                               <Badge variant="outline" className="ml-1 text-[10px]">
                                 quietanza
                               </Badge>

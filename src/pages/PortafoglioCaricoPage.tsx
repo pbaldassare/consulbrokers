@@ -50,7 +50,7 @@ const PortafoglioCaricoPage = () => {
   const [dateDa, setDateDa] = useState<string>(searchParams.get("dal") || "");
   const [dateA, setDateA] = useState<string>(searchParams.get("al") || "");
   const isDefaultExtended = !userTouched && filtroPeriodo === "mese_corrente" && !dateDa && !dateA;
-  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
+  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze" | "regolazioni">("tutti");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -114,8 +114,9 @@ const PortafoglioCaricoPage = () => {
   const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroPeriodo, isDefaultExtended, filtroTipo, dateDa, dateA, sortField, sortDirection]);
 
   const applyTipoFilter = (q: any) => {
-    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null);
-    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null);
+    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    if (filtroTipo === "regolazioni") return q.eq("is_regolazione", true);
     return q;
   };
 
@@ -157,7 +158,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, dateDa, dateA, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, regolazione_quietanza_id",
         { count: "exact" }
       );
       q = applyPeriodoFilter(q);
@@ -606,13 +607,14 @@ const PortafoglioCaricoPage = () => {
           <ToggleGroupItem value="tutte" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Tutte</ToggleGroupItem>
         </ToggleGroup>
         <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="tutti">Polizze + Quietanze</SelectItem>
+            <SelectItem value="tutti">Polizze + Quietanze + Reg.</SelectItem>
             <SelectItem value="polizze">Solo polizze</SelectItem>
             <SelectItem value="quietanze">Solo quietanze</SelectItem>
+            <SelectItem value="regolazioni">Solo regolazioni</SelectItem>
           </SelectContent>
         </Select>
         {hasActiveFilters && (
@@ -662,7 +664,7 @@ const PortafoglioCaricoPage = () => {
                   return (
                     <TableRow
                       key={p.id}
-                      className={`cursor-pointer ${isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : ""}`}
+                      className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : ""}`}
                       onClick={() => navigate(`/titoli/${p.id}`)}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -671,9 +673,14 @@ const PortafoglioCaricoPage = () => {
                           onCheckedChange={() => toggleSelect(p.id)}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
+                      <TableCell className="font-medium">
+                        {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
+                        {p.numero_titolo || "—"}
+                      </TableCell>
                       <TableCell>
-                        {p.sostituisce_polizza ? (
+                        {p.is_regolazione ? (
+                          <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">Regolazione</Badge>
+                        ) : p.sostituisce_polizza ? (
                           <Badge variant="secondary" title={`Rata della polizza ${p.numero_titolo || ""}`}>Quietanza</Badge>
                         ) : (
                           <Badge variant="default">Polizza</Badge>

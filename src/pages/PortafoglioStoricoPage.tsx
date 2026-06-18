@@ -26,7 +26,7 @@ const PortafoglioStoricoPage = () => {
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [filtroStato, setFiltroStato] = useState("tutti");
-  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
+  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze" | "regolazioni">("tutti");
   const { data: ramiAll = [] } = useRamiAll();
   const { ramoIds: filterRamoIds } = expandRamoFilter(filtroGruppoRamo, filtroRamo, ramiAll);
   const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroCompagnia, filtroGruppoRamo, filtroRamo, filtroStato, filtroTipo]);
@@ -57,8 +57,9 @@ const PortafoglioStoricoPage = () => {
     }
     if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
     if (filterRamoIds && filterRamoIds.length > 0) q = q.in("ramo_id", filterRamoIds);
-    if (filtroTipo === "polizze") q = q.is("sostituisce_polizza", null);
-    else if (filtroTipo === "quietanze") q = q.not("sostituisce_polizza", "is", null);
+    if (filtroTipo === "polizze") q = q.is("sostituisce_polizza", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    else if (filtroTipo === "quietanze") q = q.not("sostituisce_polizza", "is", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    else if (filtroTipo === "regolazioni") q = q.eq("is_regolazione", true);
     return q;
   };
 
@@ -66,7 +67,7 @@ const PortafoglioStoricoPage = () => {
     queryKey: ["portafoglio-storico", search, filtroCompagnia, filterRamoIds, filtroStato, filtroTipo, page, today],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id, sostituisce_polizza",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id, sostituisce_polizza, is_regolazione, regolazione_quietanza_id",
         { count: "exact" }
       );
       q = buildFilter(q);
@@ -177,13 +178,14 @@ const PortafoglioStoricoPage = () => {
           }}
         />
         <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="tutti">Polizze + Quietanze</SelectItem>
+            <SelectItem value="tutti">Polizze + Quietanze + Reg.</SelectItem>
             <SelectItem value="polizze">Solo polizze</SelectItem>
             <SelectItem value="quietanze">Solo quietanze</SelectItem>
+            <SelectItem value="regolazioni">Solo regolazioni</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -221,14 +223,19 @@ const PortafoglioStoricoPage = () => {
                 {polizze.map((p: any, idx: number) => (
                   <TableRow
                     key={p.id}
-                    className={`cursor-pointer ${idx % 2 === 1 ? "bg-muted/30" : ""}`}
+                    className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : idx % 2 === 1 ? "bg-muted/30" : ""}`}
                     onClick={() => navigate(`/titoli/${p.id}`)}
                   >
-                    <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
+                    <TableCell className="font-medium">
+                      {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
+                      {p.numero_titolo || "—"}
+                    </TableCell>
                     <TableCell>
-                      {p.sostituisce_polizza
-                        ? <Badge variant="secondary">Quietanza</Badge>
-                        : <Badge variant="default">Polizza</Badge>}
+                      {p.is_regolazione
+                        ? <Badge className="bg-orange-500 hover:bg-orange-600 text-white">Regolazione</Badge>
+                        : p.sostituisce_polizza
+                          ? <Badge variant="secondary">Quietanza</Badge>
+                          : <Badge variant="default">Polizza</Badge>}
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
