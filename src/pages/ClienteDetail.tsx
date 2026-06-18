@@ -2024,10 +2024,7 @@ export default function ClienteDetail() {
               const nQuiet = polizze.filter((p) => !!p.sostituisce_polizza).length;
               const nPol = polizze.length - nQuiet;
               return (
-                <>
-                  <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({nPol})</TabsTrigger>
-                  <TabsTrigger value="quietanze"><FileText className="w-4 h-4 mr-1" />Quietanze ({nQuiet})</TabsTrigger>
-                </>
+                <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({nPol}) · Quietanze ({nQuiet})</TabsTrigger>
               );
             })()}
             <TabsTrigger value="sinistri"><AlertTriangle className="w-4 h-4 mr-1" />Sinistri</TabsTrigger>
