@@ -1,19 +1,27 @@
 import { cn } from "@/lib/utils";
 
-export type FiltroTipo = "tutti" | "polizze" | "quietanze";
+export type FiltroTipo = "tutti" | "polizze" | "quietanze" | "regolazioni";
 
 export type TipoFilterSegmentedProps = {
   value: FiltroTipo;
   onChange: (v: FiltroTipo) => void;
-  counts?: { tutti?: number; polizze?: number; quietanze?: number };
+  counts?: { tutti?: number; polizze?: number; quietanze?: number; regolazioni?: number };
+  /** Mostra anche il chip Regolazioni (solo portafoglio). Default: false. */
+  withRegolazioni?: boolean;
   className?: string;
 };
 
 /**
- * Segmented control "Tipo": Tutti · Polizze · Quietanze.
- * Il chip attivo prende il colore del tipo (teal/ambra), così la modalità è leggibile a colpo d'occhio.
+ * Segmented control "Tipo": Tutti · Polizze · Quietanze · (Regolazioni).
+ * Il chip attivo prende il colore del tipo (teal/ambra/arancio), così la modalità è leggibile a colpo d'occhio.
  */
-export function TipoFilterSegmented({ value, onChange, counts, className }: TipoFilterSegmentedProps) {
+export function TipoFilterSegmented({
+  value,
+  onChange,
+  counts,
+  withRegolazioni = false,
+  className,
+}: TipoFilterSegmentedProps) {
   const items: Array<{
     key: FiltroTipo;
     label: string;
@@ -39,6 +47,15 @@ export function TipoFilterSegmented({ value, onChange, counts, className }: Tipo
       activeClasses: "bg-quietanza text-quietanza-foreground shadow-sm",
     },
   ];
+
+  if (withRegolazioni) {
+    items.push({
+      key: "regolazioni",
+      label: "Regolazioni",
+      count: counts?.regolazioni,
+      activeClasses: "bg-orange-500 text-white shadow-sm",
+    });
+  }
 
   return (
     <div
