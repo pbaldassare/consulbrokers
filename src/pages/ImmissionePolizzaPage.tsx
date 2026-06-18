@@ -45,6 +45,7 @@ import { ImportNuovaPolizzaAIDialog, type MatchResult } from "@/components/poliz
 import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
 import { FieldHint } from "@/components/ui/field-hint";
 import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPersistence";
+import { computeQuietanzePlan } from "@/lib/quietanzePlan";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
