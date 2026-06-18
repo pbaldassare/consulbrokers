@@ -1304,13 +1304,12 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
               flatQuietanze.map(({ rata: r, madreNum, idx }) => (
                 <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => navigate(`/titoli/${r.id}`)}>
                   <TableCell></TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {r.numero_titolo || "—"}
-                    {madreNum && <div className="text-[10px] text-muted-foreground">polizza {madreNum}</div>}
-                  </TableCell>
+                  <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
                   <TableCell><Badge variant="secondary">Quietanza {idx}</Badge></TableCell>
+                  <TableCell className="font-mono text-xs">{madreNum || "—"}</TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
+
 
                   <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
                   <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
