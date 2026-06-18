@@ -15,7 +15,7 @@ import EstrazioniStampePage from "@/pages/EstrazioniStampePage";
 
 import DocumentalePage from "@/pages/DocumentalePage";
 import ProvvigioniMaturatePage from "@/pages/ProvvigioniMaturatePage";
-import ProvvigioniCompagnieRamoPage from "@/pages/ProvvigioniCompagnieRamoPage";
+
 import PortafoglioAttivePage from "@/pages/PortafoglioAttivePage";
 import PortafoglioCaricoPage from "@/pages/PortafoglioCaricoPage";
 import PortafoglioStoricoPage from "@/pages/PortafoglioStoricoPage";
