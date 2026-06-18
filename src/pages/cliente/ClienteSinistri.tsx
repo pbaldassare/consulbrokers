@@ -42,6 +42,26 @@ export default function ClienteSinistri() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [openNuovo, setOpenNuovo] = useState(false);
 
+export default function ClienteSinistri() {
+  const { user } = useAuth();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [openNuovo, setOpenNuovo] = useState(false);
+
+  // Filtri
+  const [fSearch, setFSearch] = useState("");
+  const [fStato, setFStato] = useState<string>("all");
+  const [fRamo, setFRamo] = useState<string>("all");
+  const [fCompagnia, setFCompagnia] = useState<string>("all");
+  const [fPolizza, setFPolizza] = useState<string>("all");
+  const [fProvincia, setFProvincia] = useState<string>("all");
+  const [fCitta, setFCitta] = useState<string>("all");
+  const [fDataDa, setFDataDa] = useState<Date | undefined>();
+  const [fDataA, setFDataA] = useState<Date | undefined>();
+
+  // Selezione
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
+
   const { data: sinistri = [], refetch } = useQuery({
     queryKey: ["cliente-sinistri", user?.id],
     queryFn: async () => {
@@ -58,13 +78,49 @@ export default function ClienteSinistri() {
     enabled: !!user,
   });
 
-  const aperti = sinistri.filter((s: any) => !["chiuso", "respinto"].includes(s.stato)).length;
-  const chiusi = sinistri.length - aperti;
-  const riserve = sinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
-  const liquidato = sinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
+  // Opzioni filtri (uniche dal dataset)
+  const distinct = (key: (s: any) => string | undefined | null) =>
+    Array.from(new Set(sinistri.map(key).filter(Boolean))) as string[];
+  const optStati = distinct((s) => s.stato);
+  const optRami = distinct((s) => s.ramo_sinistro);
+  const optCompagnie = distinct((s) => s.compagnie?.nome);
+  const optPolizze = distinct((s) => s.titoli?.numero_titolo);
+  const optProvince = distinct((s) => s.provincia_sinistro);
+  const optCitta = distinct((s) => s.citta_sinistro);
+
+  const filteredSinistri = useMemo(() => {
+    const q = fSearch.trim().toLowerCase();
+    return sinistri.filter((s: any) => {
+      if (fStato !== "all" && s.stato !== fStato) return false;
+      if (fRamo !== "all" && s.ramo_sinistro !== fRamo) return false;
+      if (fCompagnia !== "all" && s.compagnie?.nome !== fCompagnia) return false;
+      if (fPolizza !== "all" && s.titoli?.numero_titolo !== fPolizza) return false;
+      if (fProvincia !== "all" && s.provincia_sinistro !== fProvincia) return false;
+      if (fCitta !== "all" && s.citta_sinistro !== fCitta) return false;
+      if (fDataDa && (!s.data_evento || new Date(s.data_evento) < fDataDa)) return false;
+      if (fDataA && (!s.data_evento || new Date(s.data_evento) > fDataA)) return false;
+      if (q) {
+        const hay = [s.numero_sinistro, s.numero_sinistro_compagnia, s.controparte, s.targa_veicolo, s.citta_sinistro, s.dinamica]
+          .filter(Boolean).join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [sinistri, fSearch, fStato, fRamo, fCompagnia, fPolizza, fProvincia, fCitta, fDataDa, fDataA]);
+
+  const resetFilters = () => {
+    setFSearch(""); setFStato("all"); setFRamo("all"); setFCompagnia("all");
+    setFPolizza("all"); setFProvincia("all"); setFCitta("all");
+    setFDataDa(undefined); setFDataA(undefined);
+  };
+
+  const aperti = filteredSinistri.filter((s: any) => !["chiuso", "respinto"].includes(s.stato)).length;
+  const chiusi = filteredSinistri.length - aperti;
+  const riserve = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
+  const liquidato = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
 
   // Pie - Sinistri per Ramo (aperti vs chiusi)
-  const sinPerRamo = sinistri.reduce((acc: any[], s: any) => {
+  const sinPerRamo = filteredSinistri.reduce((acc: any[], s: any) => {
     const ramo = s.ramo_sinistro || "Altro";
     const isOpen = !["chiuso", "respinto"].includes(s.stato);
     const key = `${ramo} (${isOpen ? "Aperti" : "Chiusi"})`;
@@ -75,14 +131,14 @@ export default function ClienteSinistri() {
   }, []);
 
   // Bar data riserve vs liquidato
-  const barData = sinistri.map((s: any) => ({
+  const barData = filteredSinistri.map((s: any) => ({
     name: s.numero_sinistro?.replace("SIN-VA-", "") || "—",
     riserva: s.importo_riserva || 0,
     liquidato: s.importo_liquidato || 0,
   }));
 
   const kpis = [
-    { label: "Totale", value: sinistri.length, icon: AlertTriangle, color: "text-blue-600", bg: "bg-blue-100", border: "#2563eb" },
+    { label: "Totale", value: filteredSinistri.length, icon: AlertTriangle, color: "text-blue-600", bg: "bg-blue-100", border: "#2563eb" },
     { label: "Aperti", value: aperti, icon: Clock, color: "text-orange-600", bg: "bg-orange-100", border: "#ea580c" },
     { label: "Chiusi", value: chiusi, icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-100", border: "#059669" },
     { label: "Riserve Totali", value: fmt(riserve), icon: DollarSign, color: "text-red-600", bg: "bg-red-100", border: "#dc2626" },
@@ -91,6 +147,43 @@ export default function ClienteSinistri() {
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const allFilteredSelected = filteredSinistri.length > 0 && filteredSinistri.every((s: any) => selectedIds.has(s.id));
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      if (allFilteredSelected) {
+        const next = new Set(prev);
+        filteredSinistri.forEach((s: any) => next.delete(s.id));
+        return next;
+      }
+      const next = new Set(prev);
+      filteredSinistri.forEach((s: any) => next.add(s.id));
+      return next;
+    });
+  };
+
+  const handleExport = async (mode: "selected" | "filtered") => {
+    const list = mode === "selected"
+      ? filteredSinistri.filter((s: any) => selectedIds.has(s.id))
+      : filteredSinistri;
+    if (!list.length) { toast.error("Nessun sinistro da esportare"); return; }
+    setExporting(true);
+    try {
+      await exportSinistriXlsx(list);
+      toast.success(`Esportati ${list.length} sinistri`);
+    } catch (e: any) {
+      toast.error("Errore export: " + (e?.message || e));
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
