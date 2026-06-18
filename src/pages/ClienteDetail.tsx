@@ -1279,6 +1279,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
             <TableHead className="w-8"></TableHead>
             <TableHead>N. Polizza</TableHead>
             <TableHead>Tipo</TableHead>
+            <TableHead>Polizza madre</TableHead>
             <TableHead>Gruppo Ramo</TableHead>
             <TableHead>Garanzia</TableHead>
 
@@ -1289,6 +1290,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
             <TableHead>Data Incasso</TableHead>
             {isAdmin && <TableHead className="w-12"></TableHead>}
           </TableRow>
+
         </TableHeader>
         <TableBody>
           {filtroTipo === "quietanze" ? (
