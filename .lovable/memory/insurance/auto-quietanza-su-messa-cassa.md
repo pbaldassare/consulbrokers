@@ -1,35 +1,64 @@
 ---
-name: Auto-generazione quietanza su messa a cassa
-description: Trigger DB che crea automaticamente la quietanza successiva alla messa a cassa
+name: Pre-generazione quietanze su creazione polizza madre
+description: Trigger DB genera intera catena quietanze all'insert polizza madre in base a frazionamento+anni_durata; messa a cassa è evento separato
 type: feature
 ---
-# Generazione automatica quietanza successiva
 
-Trigger `trg_genera_quietanza_su_messa_cassa` (AFTER UPDATE OF stato ON titoli, funzione `public.genera_quietanza_su_messa_cassa`):
+# Generazione quietanze
 
-- Si attiva quando `stato` passa a `incassato`.
-- Skip se **poliennale** (durata > 13 mesi tra `garanzia_da` e `garanzia_a`): la stessa riga resta `attivo`.
-- Skip se esiste già un successore (`sostituisce_polizza = NEW.numero_titolo` AND riga match) → evita doppioni con `RinnovoTitoloDialog` pre-staged.
-- Calcola periodo dal `frazionamento` testuale (Mensile=1, Trimestrale=3, Quadrimestrale=4, Semestrale=6, Annuale=12); fallback a `12/rate` se mancante.
-- Inserisce nuovo `titoli` con `numero_titolo` invariato, `riga = max+1`, stato `attivo`, date traslate (`durata_da = old.durata_a`, `durata_a = +N mesi`), garanzia con stesso offset rispetto a `durata_da`.
-- Copia: anagrafica cliente, prodotto, sede, produttore, compagnia/rapporto, ramo, specialist, commerciale (+anagrafica/percentuali), AE, frazionamento/rate/periodicita, tacito_rinnovo, descrizione, valuta, indicizzata.
-- Premi: usa i campi `*_quietanza` (fallback ai `*_firma`); inizializza sia firma sia quietanza con gli stessi valori.
-- Copia righe `premi_garanzia_polizza` (sia `firma` sia `quietanza`).
-- `sostituisce_polizza/sostituisce_riga` = origine.
+## Nuovo comportamento (dal 18/06/2026)
 
-La nuova quietanza compare automaticamente nel **Carico del Mese** del periodo target (es. annuale 14/05/2026 → quietanza 14/05/2027 in Carico 05/2027).
+Trigger `trg_genera_quietanze_su_insert_madre` (AFTER INSERT su `titoli`,
+funzione `public.genera_quietanze_su_insert_madre`):
 
-⚠️ Convenzione: `data_scadenza` della nuova quietanza = **decorrenza** (`garanzia_da`/`durata_da`), NON `garanzia_a`. Il "Carico del Mese" filtra per `data_scadenza` = mese in cui la rata va incassata, quindi deve coincidere col mese di rinnovo.
+- Scatta SOLO su madre (`sostituisce_polizza IS NULL`) e SOLO se `numero_titolo`,
+  `garanzia_da`, `garanzia_a` valorizzati e `is_regolazione=false`.
+- Calcola `n_rate = (12 / mesi_rata) * anni_durata` da `frazionamento` + `anni_durata`.
+  - Mensile=1, Trimestrale=3, Quadrimestrale=4, Semestrale=6, Annuale=12 mesi.
+  - **Poliennale** o frazionamento sconosciuto → nessuna pre-generazione.
+- Inserisce le rate 2..N concatenate via `sostituisce_polizza`/`sostituisce_riga`,
+  stato `attivo`, date traslate (garanzia/durata/competenza/scadenza), importi
+  clonati dalla madre (preferendo `*_quietanza` dove presenti).
+- Skip se esiste già una quietanza per quella polizza (idempotente; salva da
+  reinserimenti legacy).
 
-## Distinzione UI Polizza vs Quietanze
+Esempi:
+- Annuale 1y → solo madre.
+- Annuale 3y → madre + 2 quietanze annuali.
+- Semestrale 1y → madre + 1.
+- Trimestrale 1y → madre + 3.
+- Mensile 1y → madre + 11.
+- Poliennale → solo madre.
 
-Nel modello una "polizza" utente = catena di record `titoli` con stesso `numero_titolo`:
-- **Polizza originale** (madre): `sostituisce_polizza IS NULL`
-- **Quietanze / Rate successive**: `sostituisce_polizza` valorizzato (= numero_titolo origine)
+## Fallback legacy
 
-Helper condiviso: `src/lib/quietanze.ts` (`groupTitoliByPolizza`, `isQuietanza`, `getRataIndex`, `tipoLabel`).
+Il vecchio trigger `genera_quietanza_su_messa_cassa` resta attivo come fallback:
+ha già la skip rule "se la successiva esiste, esci", quindi sulle polizze nuove
+non genera nulla. Per le polizze esistenti pre-deploy continua a generare la
+quietanza alla messa a cassa.
 
-UI:
-- **ClienteDetail → tab Polizze**: tabella raggruppata per `numero_titolo`. La madre è la riga principale (badge "Polizza"); le quietanze sono righe figlie espandibili (chevron) con badge "Rata N" e periodo `garanzia_da → garanzia_a`. Colonna "Rate" mostra `1 + N`.
-- **TitoloDetail header**: badge accanto al titolo `Polizza originale` se madre, altrimenti `Quietanza · dal gg/mm/aaaa al gg/mm/aaaa` (tooltip mostra il `sostituisce_polizza`).
+## UI
 
+`ImmissionePolizzaPage` mostra sotto la sezione "Periodo" un pannello sky con
+l'anteprima delle quietanze (idx, garanzia da/a, data competenza), calcolato
+client-side da `src/lib/quietanzePlan.ts` (`computeQuietanzePlan`).
+
+## Helper & test
+
+- `src/lib/quietanzePlan.ts`: `computeQuietanzePlan` / `computeQuietanzeOnly`
+  (puri, condivisi UI + test).
+- `src/lib/__tests__/quietanzePlan.test.ts`: 10 casi coprono tutti i
+  frazionamenti, multi-anno, poliennale, edge.
+
+## Cosa NON è cambiato
+
+- Messa a cassa: stesso flusso (incassa rata corrente, passa a `incassato`).
+- `quietanza-isolation`: ogni rata resta record indipendente, modificabile.
+- `annulla_polizza_cascade`: continua a cancellare tutta la catena via
+  `sostituisce_polizza`.
+- Importi: editabili per singola rata dopo la creazione.
+
+## Backfill
+
+Nessun backfill automatico: solo le polizze create dopo il deploy hanno la
+catena pre-generata.
