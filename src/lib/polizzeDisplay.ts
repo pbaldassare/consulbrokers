@@ -1,0 +1,41 @@
+// Helper di presentazione condivisi per le tabelle del portafoglio (Attive/Carico/Storico).
+// Regola di dominio (UI-only): SOLO quietanze e regolazioni possono mostrare lo stato "incassato".
+// Una polizza madre (titolo non sostitutivo, non di regolazione) non deve mai apparire come "incassata":
+// quel concetto appartiene alle sue rate, non al contenitore.
+
+export type PolizzaRow = {
+  stato?: string | null;
+  sostituisce_polizza?: string | null;
+  is_regolazione?: boolean | null;
+};
+
+/**
+ * Stato da visualizzare in tabella. Per le polizze madre mascheriamo "incassato" → "attivo".
+ * Per quietanze e regolazioni restituisce lo stato originale.
+ */
+export function displayStatoPolizza(p: PolizzaRow): string {
+  const stato = p?.stato || "";
+  const isMadre = !p?.sostituisce_polizza && !p?.is_regolazione;
+  if (isMadre && stato === "incassato") return "attivo";
+  return stato;
+}
+
+/** True se la riga è una quietanza (rata sostitutiva). */
+export function isQuietanzaRow(p: PolizzaRow): boolean {
+  return !!p?.sostituisce_polizza && !p?.is_regolazione;
+}
+
+/** True se la riga è una polizza madre (non quietanza, non regolazione). */
+export function isPolizzaMadreRow(p: PolizzaRow): boolean {
+  return !p?.sostituisce_polizza && !p?.is_regolazione;
+}
+
+/**
+ * Classe del bordo sinistro colorato per raggruppare visivamente le righe in scroll.
+ * Teal per polizze, ambra per quietanze, arancio per regolazioni.
+ */
+export function rowBorderClass(p: PolizzaRow): string {
+  if (p?.is_regolazione) return "border-l-4 border-l-orange-500";
+  if (p?.sostituisce_polizza) return "border-l-4 border-l-quietanza";
+  return "border-l-4 border-l-polizza";
+}
