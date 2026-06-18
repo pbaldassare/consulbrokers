@@ -1330,7 +1330,7 @@ function PolizzeClienteTable({ polizze, navigate, mode = "polizze" }: { polizze:
             filteredCatene.map((c) => {
               const head = c.madre || c.all[0];
               const hasRate = c.rate.length > 0;
-              const showRate = filtroTipo === "tutti" && hasRate;
+              const showRate = false;
               const isOpen = !!expanded[c.numero];
               const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
               const ramo = head.ramo?.descrizione || "—";
