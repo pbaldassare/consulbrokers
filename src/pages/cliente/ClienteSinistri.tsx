@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,12 +7,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import NuovaDenunciaSinistroDialog from "@/components/cliente/NuovaDenunciaSinistroDialog";
 import SinistroDocumentiCliente from "@/components/cliente/SinistroDocumentiCliente";
 import { fmtEuro0 as fmt } from "@/lib/formatCurrency";
+import { exportSinistriXlsx } from "@/lib/exportSinistriXlsx";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
 const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
@@ -34,6 +42,21 @@ export default function ClienteSinistri() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [openNuovo, setOpenNuovo] = useState(false);
 
+  // Filtri
+  const [fSearch, setFSearch] = useState("");
+  const [fStato, setFStato] = useState<string>("all");
+  const [fRamo, setFRamo] = useState<string>("all");
+  const [fCompagnia, setFCompagnia] = useState<string>("all");
+  const [fPolizza, setFPolizza] = useState<string>("all");
+  const [fProvincia, setFProvincia] = useState<string>("all");
+  const [fCitta, setFCitta] = useState<string>("all");
+  const [fDataDa, setFDataDa] = useState<Date | undefined>();
+  const [fDataA, setFDataA] = useState<Date | undefined>();
+
+  // Selezione
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
+
   const { data: sinistri = [], refetch } = useQuery({
     queryKey: ["cliente-sinistri", user?.id],
     queryFn: async () => {
@@ -50,13 +73,49 @@ export default function ClienteSinistri() {
     enabled: !!user,
   });
 
-  const aperti = sinistri.filter((s: any) => !["chiuso", "respinto"].includes(s.stato)).length;
-  const chiusi = sinistri.length - aperti;
-  const riserve = sinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
-  const liquidato = sinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
+  // Opzioni filtri (uniche dal dataset)
+  const distinct = (key: (s: any) => string | undefined | null) =>
+    Array.from(new Set(sinistri.map(key).filter(Boolean))) as string[];
+  const optStati = distinct((s) => s.stato);
+  const optRami = distinct((s) => s.ramo_sinistro);
+  const optCompagnie = distinct((s) => s.compagnie?.nome);
+  const optPolizze = distinct((s) => s.titoli?.numero_titolo);
+  const optProvince = distinct((s) => s.provincia_sinistro);
+  const optCitta = distinct((s) => s.citta_sinistro);
+
+  const filteredSinistri = useMemo(() => {
+    const q = fSearch.trim().toLowerCase();
+    return sinistri.filter((s: any) => {
+      if (fStato !== "all" && s.stato !== fStato) return false;
+      if (fRamo !== "all" && s.ramo_sinistro !== fRamo) return false;
+      if (fCompagnia !== "all" && s.compagnie?.nome !== fCompagnia) return false;
+      if (fPolizza !== "all" && s.titoli?.numero_titolo !== fPolizza) return false;
+      if (fProvincia !== "all" && s.provincia_sinistro !== fProvincia) return false;
+      if (fCitta !== "all" && s.citta_sinistro !== fCitta) return false;
+      if (fDataDa && (!s.data_evento || new Date(s.data_evento) < fDataDa)) return false;
+      if (fDataA && (!s.data_evento || new Date(s.data_evento) > fDataA)) return false;
+      if (q) {
+        const hay = [s.numero_sinistro, s.numero_sinistro_compagnia, s.controparte, s.targa_veicolo, s.citta_sinistro, s.dinamica]
+          .filter(Boolean).join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [sinistri, fSearch, fStato, fRamo, fCompagnia, fPolizza, fProvincia, fCitta, fDataDa, fDataA]);
+
+  const resetFilters = () => {
+    setFSearch(""); setFStato("all"); setFRamo("all"); setFCompagnia("all");
+    setFPolizza("all"); setFProvincia("all"); setFCitta("all");
+    setFDataDa(undefined); setFDataA(undefined);
+  };
+
+  const aperti = filteredSinistri.filter((s: any) => !["chiuso", "respinto"].includes(s.stato)).length;
+  const chiusi = filteredSinistri.length - aperti;
+  const riserve = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
+  const liquidato = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
 
   // Pie - Sinistri per Ramo (aperti vs chiusi)
-  const sinPerRamo = sinistri.reduce((acc: any[], s: any) => {
+  const sinPerRamo = filteredSinistri.reduce((acc: any[], s: any) => {
     const ramo = s.ramo_sinistro || "Altro";
     const isOpen = !["chiuso", "respinto"].includes(s.stato);
     const key = `${ramo} (${isOpen ? "Aperti" : "Chiusi"})`;
@@ -67,14 +126,14 @@ export default function ClienteSinistri() {
   }, []);
 
   // Bar data riserve vs liquidato
-  const barData = sinistri.map((s: any) => ({
+  const barData = filteredSinistri.map((s: any) => ({
     name: s.numero_sinistro?.replace("SIN-VA-", "") || "—",
     riserva: s.importo_riserva || 0,
     liquidato: s.importo_liquidato || 0,
   }));
 
   const kpis = [
-    { label: "Totale", value: sinistri.length, icon: AlertTriangle, color: "text-blue-600", bg: "bg-blue-100", border: "#2563eb" },
+    { label: "Totale", value: filteredSinistri.length, icon: AlertTriangle, color: "text-blue-600", bg: "bg-blue-100", border: "#2563eb" },
     { label: "Aperti", value: aperti, icon: Clock, color: "text-orange-600", bg: "bg-orange-100", border: "#ea580c" },
     { label: "Chiusi", value: chiusi, icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-100", border: "#059669" },
     { label: "Riserve Totali", value: fmt(riserve), icon: DollarSign, color: "text-red-600", bg: "bg-red-100", border: "#dc2626" },
@@ -83,6 +142,43 @@ export default function ClienteSinistri() {
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const allFilteredSelected = filteredSinistri.length > 0 && filteredSinistri.every((s: any) => selectedIds.has(s.id));
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      if (allFilteredSelected) {
+        const next = new Set(prev);
+        filteredSinistri.forEach((s: any) => next.delete(s.id));
+        return next;
+      }
+      const next = new Set(prev);
+      filteredSinistri.forEach((s: any) => next.add(s.id));
+      return next;
+    });
+  };
+
+  const handleExport = async (mode: "selected" | "filtered") => {
+    const list = mode === "selected"
+      ? filteredSinistri.filter((s: any) => selectedIds.has(s.id))
+      : filteredSinistri;
+    if (!list.length) { toast.error("Nessun sinistro da esportare"); return; }
+    setExporting(true);
+    try {
+      await exportSinistriXlsx(list);
+      toast.success(`Esportati ${list.length} sinistri`);
+    } catch (e: any) {
+      toast.error("Errore export: " + (e?.message || e));
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -94,7 +190,11 @@ export default function ClienteSinistri() {
           </div>
           <div>
             <h1 className="text-xl font-bold">I Miei Sinistri</h1>
-            <p className="text-sm text-muted-foreground">{sinistri.length} sinistri registrati</p>
+            <p className="text-sm text-muted-foreground">
+              {filteredSinistri.length === sinistri.length
+                ? `${sinistri.length} sinistri registrati`
+                : `${filteredSinistri.length} di ${sinistri.length} sinistri`}
+            </p>
           </div>
         </div>
         <Button onClick={() => setOpenNuovo(true)} className="gap-2">
@@ -103,6 +203,83 @@ export default function ClienteSinistri() {
       </div>
 
       <NuovaDenunciaSinistroDialog open={openNuovo} onOpenChange={setOpenNuovo} onCreated={() => refetch()} />
+
+      {/* Filtri */}
+      <Card>
+        <CardContent className="pt-4 pb-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+            <Filter className="h-4 w-4" /> Filtri
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            <Input placeholder="Cerca: n°, controparte, targa…" value={fSearch} onChange={(e) => setFSearch(e.target.value)} />
+            <Select value={fStato} onValueChange={setFStato}>
+              <SelectTrigger><SelectValue placeholder="Stato" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tutti gli stati</SelectItem>
+                {optStati.map((v) => <SelectItem key={v} value={v}>{v.replace(/_/g, " ")}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={fRamo} onValueChange={setFRamo}>
+              <SelectTrigger><SelectValue placeholder="Garanzia" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tutte le garanzie</SelectItem>
+                {optRami.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={fCompagnia} onValueChange={setFCompagnia}>
+              <SelectTrigger><SelectValue placeholder="Compagnia" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tutte le compagnie</SelectItem>
+                {optCompagnie.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={fPolizza} onValueChange={setFPolizza}>
+              <SelectTrigger><SelectValue placeholder="Polizza" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tutte le polizze</SelectItem>
+                {optPolizze.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={fProvincia} onValueChange={setFProvincia}>
+              <SelectTrigger><SelectValue placeholder="Provincia" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tutte le province</SelectItem>
+                {optProvince.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={fCitta} onValueChange={setFCitta}>
+              <SelectTrigger><SelectValue placeholder="Città" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tutte le città</SelectItem>
+                {optCitta.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("flex-1 justify-start text-left font-normal", !fDataDa && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {fDataDa ? format(fDataDa, "dd/MM/yy") : "Da"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={fDataDa} onSelect={setFDataDa} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("flex-1 justify-start text-left font-normal", !fDataA && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {fDataA ? format(fDataA, "dd/MM/yy") : "A"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={fDataA} onSelect={setFDataA} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" variant="ghost" onClick={resetFilters} className="gap-1">
+              <X className="h-3 w-3" /> Reset filtri
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -163,15 +340,29 @@ export default function ClienteSinistri() {
 
       {/* Table */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Elenco Sinistri</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+          <CardTitle className="text-base">Elenco Sinistri</CardTitle>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{selectedIds.size} selezionati</span>
+            <Button size="sm" variant="outline" disabled={!selectedIds.size || exporting} onClick={() => handleExport("selected")} className="gap-1.5">
+              <Download className="h-4 w-4" /> Esporta selezionati
+            </Button>
+            <Button size="sm" disabled={!filteredSinistri.length || exporting} onClick={() => handleExport("filtered")} className="gap-1.5">
+              <Download className="h-4 w-4" /> Esporta tutti ({filteredSinistri.length})
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent>
-          {sinistri.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Nessun sinistro presente</p>
+          {filteredSinistri.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Nessun sinistro corrisponde ai filtri</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
+                    <TableHead className="w-8 px-2">
+                      <Checkbox checked={allFilteredSelected} onCheckedChange={toggleSelectAll} aria-label="Seleziona tutti" />
+                    </TableHead>
                     <TableHead className="w-8"></TableHead>
                     <TableHead>N. Sinistro</TableHead>
                     <TableHead>Garanzia</TableHead>
@@ -184,13 +375,16 @@ export default function ClienteSinistri() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sinistri.map((s: any) => (
+                  {filteredSinistri.map((s: any) => (
                     <>
                       <TableRow
                         key={s.id}
                         className="cursor-pointer hover:bg-muted/30 transition-colors"
                         onClick={() => toggleExpand(s.id)}
                       >
+                        <TableCell className="w-8 px-2" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox checked={selectedIds.has(s.id)} onCheckedChange={() => toggleSelect(s.id)} aria-label="Seleziona" />
+                        </TableCell>
                         <TableCell className="w-8 px-2">
                           {expandedId === s.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                         </TableCell>
