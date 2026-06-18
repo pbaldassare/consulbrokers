@@ -1,9 +1,13 @@
 ---
 name: Polizza vs Quietanza filtering
-description: Filtro Tipo unificato in Carico/Attive/Storico; nel dettaglio cliente sono invece due tab separati
+description: Filtro Tipo unificato (Polizze+Quietanze / Solo polizze / Solo quietanze) con badge per riga in Carico/Attive/Storico e ClienteDetail
 type: feature
 ---
-- In **Portafoglio Carico / Attive / Storico** distinzione via `sostituisce_polizza`: filtro `Tipo` (Polizze+Quietanze / Solo polizze / Solo quietanze) + colonna badge.
-- In **ClienteDetail** (`/archivi/clienti/:id`) NON c'è il filtro Tipo: ci sono due tab separati `Polizze (n)` e `Quietanze (n)`. La tabella interna è la stessa (`PolizzeClienteTable`) ma in modalità diversa via prop `mode`:
-  - `mode="polizze"` → solo madri, niente chevron/righe figlie.
-  - `mode="quietanze"` → vista flat di tutte le rate, con riferimento alla polizza madre nella colonna N. Polizza.
+- Distinzione via `titoli.sostituisce_polizza`: NULL = polizza madre, valorizzato = quietanza.
+- UI Tab unico "Polizze (n) · Quietanze (n)" con filtro `Tipo`:
+  - **Polizze + Quietanze**: madri come righe principali, quietanze come righe espandibili (chevron) sotto la madre.
+  - **Solo polizze**: solo madri, niente chevron.
+  - **Solo quietanze**: vista flat di tutte le rate, con colonna "Polizza madre".
+- Colonna `Tipo` nella tabella: badge `Polizza` o `Quietanza N`.
+- Colonna `Polizza madre`: vuota per le madri, valorizzata col `numero_titolo` della madre per le quietanze.
+- Vale per ClienteDetail e per le viste Portafoglio Carico/Attive/Storico (stesso pattern).
