@@ -30,6 +30,10 @@ import { Wallet, Shield } from "lucide-react";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
+const rowHref = (p: any) =>
+  p?.sostituisce_polizza
+    ? `/quietanze/${p.quietanza_id}`
+    : `/polizze/${p.polizza_id}`;
 
 const PortafoglioCaricoPage = () => {
   const navigate = useNavigate();
