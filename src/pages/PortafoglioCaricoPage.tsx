@@ -656,6 +656,7 @@ const PortafoglioCaricoPage = () => {
                   </TableHead>
                   <SortableHeader field="numero_titolo">N° Polizza</SortableHeader>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Polizza madre</TableHead>
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
                   <TableHead>Anticipo</TableHead>
                   <SortableHeader field="compagnia_nome">Agenzia</SortableHeader>
@@ -674,10 +675,12 @@ const PortafoglioCaricoPage = () => {
                 {polizze.map((p: any) => {
                   const isIncassato = p.stato === "incassato";
                   const isProcessing = loadingIds.has(p.id);
+                  const isQ = isQuietanzaRow(p);
+                  const statoShown = displayStatoPolizza(p);
                   return (
                     <TableRow
                       key={p.id}
-                      className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : ""}`}
+                      className={`cursor-pointer ${rowBorderClass(p)} ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : isQ ? "bg-quietanza-soft/40" : ""}`}
                       onClick={() => navigate(rowHref(p))}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -686,17 +689,33 @@ const PortafoglioCaricoPage = () => {
                           onCheckedChange={() => toggleSelect(p.id)}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className={`font-medium ${isQ ? "pl-8 font-normal text-muted-foreground" : ""}`}>
+                        {isQ && <span className="mr-1 text-muted-foreground">└</span>}
                         {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
                         {p.numero_titolo || "—"}
                       </TableCell>
                       <TableCell>
                         {p.is_regolazione ? (
                           <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">Regolazione</Badge>
-                        ) : p.sostituisce_polizza ? (
-                          <Badge variant="secondary" title={`Rata della polizza ${p.numero_titolo || ""}`}>Quietanza</Badge>
+                        ) : isQ ? (
+                          <TipoPolizzaBadge tipo="quietanza" />
                         ) : (
-                          <Badge variant="default">Polizza</Badge>
+                          <TipoPolizzaBadge tipo="polizza" />
+                        )}
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {isQ && p.polizza_id ? (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 font-mono text-xs"
+                            onClick={() => navigate(`/polizze/${p.polizza_id}`)}
+                            title="Vai alla polizza madre"
+                          >
+                            {p.numero_titolo || "—"}
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
                       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
