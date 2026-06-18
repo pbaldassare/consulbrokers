@@ -82,6 +82,7 @@ export default function SinistroAperturaWizardPage() {
   const [selectedClienteData, setSelectedClienteData] = useState<any>(null);
   const [clientiSearchText, setClientiSearchText] = useState("");
   const [clientiList, setClientiList] = useState<any[]>([]);
+  const [clientiLoading, setClientiLoading] = useState(false);
 
   // Inizializzazione React Hook Form
   const { register, control, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<WizardFormValues>({
@@ -164,18 +165,27 @@ export default function SinistroAperturaWizardPage() {
 
   // Ricerca clienti (debounced) — Step 1
   useEffect(() => {
-    const q = clientiSearchText.trim();
-    if (!q) { setClientiList([]); return; }
+    const raw = clientiSearchText.trim();
+    if (!raw) { setClientiList([]); setClientiLoading(false); return; }
+    // sanifica: rimuovi caratteri che romperebbero la sintassi .or() di PostgREST
+    const q = raw.replace(/[,()]/g, ' ').trim();
+    if (!q) { setClientiList([]); setClientiLoading(false); return; }
+    setClientiLoading(true);
     const t = setTimeout(async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('clienti')
         .select('id, nome, cognome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva')
         .or(`cognome.ilike.%${q}%,nome.ilike.%${q}%,ragione_sociale.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
+        .order('cognome', { ascending: true, nullsFirst: false })
         .limit(25);
+      if (error) console.error('Ricerca clienti error:', error);
       setClientiList(data || []);
+      setClientiLoading(false);
     }, 350);
     return () => clearTimeout(t);
   }, [clientiSearchText]);
+
+
 
   const selezionaCliente = (c: any) => {
     setSelectedClienteId(c.id);
@@ -526,10 +536,14 @@ export default function SinistroAperturaWizardPage() {
                         if (c) selezionaCliente(c);
                       }}
                       placeholder="Cerca cliente per nome, cognome, ragione sociale, CF o P.IVA..."
+                      searchPlaceholder="Digita almeno 2 caratteri…"
                       searchValue={clientiSearchText}
                       onSearchChange={setClientiSearchText}
+                      serverSideSearch
+                      emptyText={clientiLoading ? "Ricerca in corso…" : "Nessun cliente trovato."}
                       className="w-full"
                     />
+
                   )}
                 </div>
 

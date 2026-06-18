@@ -27,6 +27,8 @@ interface SearchableSelectProps {
   searchPlaceholder?: string;
   clearable?: boolean;
   clearLabel?: string;
+  /** Disabilita il filtro client di cmdk: usa quando le `options` sono già filtrate dal server. */
+  serverSideSearch?: boolean;
 }
 
 export function SearchableSelect({
@@ -42,10 +44,15 @@ export function SearchableSelect({
   searchPlaceholder = "Cerca...",
   clearable = false,
   clearLabel = "— Nessuno —",
+  serverSideSearch = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
 
   const selectedLabel = options.find((o) => o.value === value)?.label;
+  const trimmedSearch = (searchValue ?? "").trim();
+  const serverEmptyMessage = trimmedSearch.length === 0
+    ? "Digita per cercare…"
+    : emptyText;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -63,7 +70,7 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command shouldFilter={true}>
+        <Command shouldFilter={!serverSideSearch}>
           <CommandInput
             placeholder={searchPlaceholder}
             value={searchValue}
@@ -72,7 +79,7 @@ export function SearchableSelect({
             }}
           />
           <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandEmpty>{serverSideSearch ? serverEmptyMessage : emptyText}</CommandEmpty>
             <CommandGroup>
               {clearable && value && (
                 <CommandItem
