@@ -213,7 +213,7 @@ const PortafoglioCaricoPage = () => {
     queryFn: async () => {
       let q = supabase
         .from("v_portafoglio_quietanze")
-        .select("id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza")
+        .select("id, quietanza_id, polizza_id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza")
         .eq("stato", "in_attesa_rinnovo");
       q = applyDateRange(q, "data_scadenza");
       const { data } = await q.order("data_scadenza", { ascending: true });
