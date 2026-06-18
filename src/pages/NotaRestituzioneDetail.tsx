@@ -130,11 +130,18 @@ const NotaRestituzioneDetail = () => {
   const addTitoloMutation = useMutation({
     mutationFn: async () => {
       const tit = titoli.find((t: any) => t.id === selectedTitoloId);
+      // Fase 2: scrivi anche quietanza_id per agganciare al nuovo modello
+      const { data: q } = await supabase
+        .from("quietanze")
+        .select("id")
+        .eq("titolo_id", selectedTitoloId)
+        .maybeSingle();
       const { error } = await supabase.from("note_restituzione_dettaglio").insert({
         nota_id: id!,
         titolo_id: selectedTitoloId,
         prodotto_id: (tit?.prodotti as any)?.id || null,
-      });
+        quietanza_id: q?.id ?? null,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
