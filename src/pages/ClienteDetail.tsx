@@ -1186,29 +1186,27 @@ function PolizzeClienteTable({ polizze, navigate, mode = "polizze" }: { polizze:
   };
   return (
     <div className="space-y-3">
-      {/* Toolbar: filtro Tipo + mini-KPI */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Tipo:</span>
-          <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as "tutti" | "polizze" | "quietanze")}>
-            <SelectTrigger className="h-8 w-[210px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="tutti">Polizze + Quietanze</SelectItem>
-              <SelectItem value="polizze">Solo polizze</SelectItem>
-              <SelectItem value="quietanze">Solo quietanze</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Toolbar: mini-KPI */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">{allPol.length}</span> polizze ·{" "}
-          <span className="font-medium text-foreground">{allQuiet.length}</span> quietanze · totale premio{" "}
-          <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
-          {" · "}totale provvigioni{" "}
-          <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
+          {mode === "polizze" ? (
+            <>
+              <span className="font-medium text-foreground">{allPol.length}</span> polizze · totale premio{" "}
+              <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
+              {" · "}totale provvigioni{" "}
+              <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
+            </>
+          ) : (
+            <>
+              <span className="font-medium text-foreground">{allQuiet.length}</span> quietanze · totale premio{" "}
+              <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
+              {" · "}totale provvigioni{" "}
+              <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
+            </>
+          )}
         </div>
       </div>
+
 
       {/* Filtri di ricerca */}
       <div className="flex flex-wrap items-end gap-2 p-2 rounded-md border bg-muted/30">
