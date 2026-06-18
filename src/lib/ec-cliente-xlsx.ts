@@ -31,7 +31,7 @@ export interface ExportXlsxOptions {
 export function exportECClienteXlsx(d: ECClienteData, fileName: string, opts: ExportXlsxOptions = {}) {
   const aoa: any[][] = [];
   aoa.push([
-    "Polizza", "Ramo", "Rischio", "Compagnia", "Effetto",
+    "Polizza", "Garanzia", "Rischio", "Compagnia", "Effetto",
     "Premio (€)", "Compensazioni (€)", "Dovuto (€)", "Riconciliazione", "Note",
   ]);
   let totRiconciliati = 0;

@@ -733,7 +733,7 @@ const GestionePolizzePage = () => {
                       </TableHead>
                       <TableHead>Cliente</TableHead>
                       <TableHead>Compagnia</TableHead>
-                      <TableHead>Ramo</TableHead>
+                      <TableHead>Garanzia</TableHead>
                       <TableHead>Decorr.</TableHead>
                       <TableHead>
                         <button

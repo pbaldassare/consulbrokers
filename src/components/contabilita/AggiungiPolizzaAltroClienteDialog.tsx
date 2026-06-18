@@ -144,7 +144,7 @@ export function AggiungiPolizzaAltroClienteDialog({ open, onOpenChange, excludeT
                 <Table>
                   <TableHeader><TableRow>
                     <TableHead className="w-10"></TableHead>
-                    <TableHead>Numero</TableHead><TableHead>Ramo</TableHead><TableHead>Compagnia</TableHead>
+                    <TableHead>Numero</TableHead><TableHead>Garanzia</TableHead><TableHead>Compagnia</TableHead>
                     <TableHead className="text-right">Premio</TableHead><TableHead className="text-right w-32">Importo</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>

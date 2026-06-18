@@ -64,7 +64,7 @@ const ClientePolizzaDetail = () => {
 
   const rows = [
     { label: "Agenzia", value: titolo.compagnie?.nome, icon: Building2 },
-    { label: "Ramo", value: titolo.rami?.descrizione, icon: Shield },
+    { label: "Garanzia", value: titolo.rami?.descrizione, icon: Shield },
     { label: "Decorrenza", value: fmtDate(titolo.durata_da), icon: Calendar },
     { label: "Scadenza", value: fmtDate(titolo.data_scadenza), icon: Calendar },
     { label: "Periodicità", value: titolo.periodicita, icon: Calendar },

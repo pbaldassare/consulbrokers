@@ -96,7 +96,7 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
       }
     },
     onSuccess: () => {
-      toast.success("Rami abilitati aggiornati");
+      toast.success("Garanzie abilitate aggiornate");
       qc.invalidateQueries({ queryKey: ["rapporto-rami-abilitati"] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami"] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami_all"] });

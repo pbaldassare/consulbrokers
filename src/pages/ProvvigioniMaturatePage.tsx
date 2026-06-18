@@ -477,7 +477,7 @@ const ProvvigioniMaturatePage = () => {
                 </TableHead>
                 <TableHead>Polizza</TableHead>
                 <TableHead>Compagnia</TableHead>
-                <TableHead>Ramo</TableHead>
+                <TableHead>Garanzia</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead className="text-right">Premio</TableHead>
                 <TableHead>Messa a cassa</TableHead>

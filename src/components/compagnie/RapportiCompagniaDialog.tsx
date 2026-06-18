@@ -611,7 +611,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                         <TableHead>Tipo</TableHead>
                         <TableHead>Sede</TableHead>
                         <TableHead>Codice</TableHead>
-                        <TableHead>Rami</TableHead>
+                        <TableHead>Garanzie</TableHead>
                         <TableHead>Inizio</TableHead>
                         <TableHead>Fine</TableHead>
                         <TableHead className="text-right">% Provv.</TableHead>

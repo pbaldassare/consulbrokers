@@ -218,7 +218,7 @@ const ClientePolizze = () => {
         <CardContent className="pt-4 pb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             <SearchableSelect options={statiOptions} value={stato} onValueChange={setStato} placeholder="Stato" />
-            <SearchableSelect options={ramiOptions} value={ramo} onValueChange={setRamo} placeholder="Ramo" />
+            <SearchableSelect options={ramiOptions} value={ramo} onValueChange={setRamo} placeholder="Garanzia" />
             <SearchableSelect options={compagnieOptions} value={compagnia} onValueChange={setCompagnia} placeholder="Compagnia" />
             <Input placeholder="Cerca polizza / targa / prodotto / CIG" value={search} onChange={(e) => setSearch(e.target.value)} />
             <div className="flex gap-2">

@@ -193,7 +193,7 @@ const StoricoTrattativePage = () => {
               <TableRow>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Soggetto</TableHead>
-                <TableHead>Ramo</TableHead>
+                <TableHead>Garanzia</TableHead>
                 <TableHead>Agenzia</TableHead>
                 <TableHead>Ufficio</TableHead>
                 <TableHead>Premio</TableHead>

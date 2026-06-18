@@ -2068,8 +2068,8 @@ const TitoloDetail = () => {
               <span>{t.compagnia_diretta?.codice || ""} - {t.compagnia_diretta?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
             <FieldRow label="Codice Rapporto" value={fmt(t.codice_rapporto)} />
-            <FieldRow label="Ramo" value={fmt(t.ramo?.gruppo_ramo?.descrizione)} />
-            <FieldRow label="Sottoramo" value={`${t.ramo?.codice || ""} ${t.ramo?.descrizione || "—"}`} />
+            <FieldRow label="Gruppo Ramo" value={fmt(t.ramo?.gruppo_ramo?.descrizione)} />
+            <FieldRow label="Garanzia" value={`${t.ramo?.codice || ""} ${t.ramo?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt(t.prodotto_nome || t.prodotti?.nome_prodotto)} />
             <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
             {t.cliente_anagrafica ? (

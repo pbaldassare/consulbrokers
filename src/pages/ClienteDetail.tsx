@@ -788,8 +788,8 @@ function TrattativeClienteSection({ clienteId }: { clienteId: string }) {
             <DialogHeader><DialogTitle>Nuova Trattativa</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
               <div className="space-y-1.5">
-                <Label>Ramo</Label>
-                <SearchableSelect options={ramiOpts} value={form.ramo_id} onValueChange={(v) => setForm({ ...form, ramo_id: v })} placeholder="Seleziona ramo..." />
+                <Label>Garanzia</Label>
+                <SearchableSelect options={ramiOpts} value={form.ramo_id} onValueChange={(v) => setForm({ ...form, ramo_id: v })} placeholder="Seleziona garanzia..." />
               </div>
               <div className="space-y-1.5">
                 <Label>Agenzia</Label>
@@ -1136,7 +1136,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
             <TableHead>N. Polizza</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Gruppo Ramo</TableHead>
-            <TableHead>Ramo</TableHead>
+            <TableHead>Garanzia</TableHead>
 
             <TableHead>Agenzia</TableHead>
             <TableHead>Premio €</TableHead>

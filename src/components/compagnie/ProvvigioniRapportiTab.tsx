@@ -357,10 +357,10 @@ export default function ProvvigioniRapportiTab() {
             </AccordionTrigger>
             <AccordionContent>
               <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-0.5 pb-2">
-                <li>Match esatto <b>Rapporto + Ramo + Sottoramo</b></li>
-                <li>Default di <b>Ramo</b> sul rapporto</li>
+                <li>Match esatto <b>Rapporto + Gruppo Ramo + Garanzia</b></li>
+                <li>Default di <b>Gruppo Ramo</b> sul rapporto</li>
                 <li><b>% globale del rapporto</b> (<code>compagnia_rapporti</code>)</li>
-                <li>Default per <b>Tipo rapporto + Ramo/Sottoramo</b></li>
+                <li>Default per <b>Tipo rapporto + Gruppo Ramo/Garanzia</b></li>
                 <li>Se nessuna regola → <b>0%</b> + warning</li>
               </ol>
             </AccordionContent>
@@ -511,7 +511,7 @@ export default function ProvvigioniRapportiTab() {
                     <Input
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Cerca Ramo o Sottoramo..."
+                      placeholder="Cerca Gruppo Ramo o Garanzia..."
                       className="pl-8 h-9"
                     />
                   </div>
@@ -924,7 +924,7 @@ function DefaultTipoEditor({ rows, gruppiRamo, rami, onChanged }: any) {
           <SearchableSelect options={TIPI_RAPPORTO.map((t) => ({ value: t, label: t }))} value={tipo} onValueChange={setTipo} placeholder="Tipo..." />
         </div>
         <div className="w-56 space-y-1">
-          <Label className="text-xs">Ramo</Label>
+          <Label className="text-xs">Gruppo Ramo</Label>
           <SearchableSelect
             options={gruppiRamo.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.descrizione}` }))}
             value={gr}
@@ -933,7 +933,7 @@ function DefaultTipoEditor({ rows, gruppiRamo, rami, onChanged }: any) {
           />
         </div>
         <div className="w-56 space-y-1">
-          <Label className="text-xs">Sottoramo (opz)</Label>
+          <Label className="text-xs">Garanzia (opz)</Label>
           <SearchableSelect
             options={rami
               .filter((r: any) => !gr || r.gruppo_ramo_id === gr)
@@ -955,8 +955,8 @@ function DefaultTipoEditor({ rows, gruppiRamo, rami, onChanged }: any) {
           <TableHeader>
             <TableRow>
               <TableHead>Tipo</TableHead>
-              <TableHead>Ramo</TableHead>
-              <TableHead>Sottoramo</TableHead>
+              <TableHead>Gruppo Ramo</TableHead>
+              <TableHead>Garanzia</TableHead>
               <TableHead>%</TableHead>
               <TableHead></TableHead>
             </TableRow>
@@ -1052,7 +1052,7 @@ function PasteDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Formato: <code>Ramo;Sottoramo;%</code> oppure <code>Sottoramo;%</code> (una riga per voce). Separatori: <code>; , tab</code>. Header opzionale.
+            Formato: <code>GruppoRamo;Garanzia;%</code> oppure <code>Garanzia;%</code> (una riga per voce). Separatori: <code>; , tab</code>. Header opzionale.
           </p>
           <div className="flex items-center gap-2">
             <input
@@ -1078,8 +1078,8 @@ function PasteDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Ramo</TableHead>
-                    <TableHead>Sottoramo</TableHead>
+                    <TableHead>Gruppo Ramo</TableHead>
+                    <TableHead>Garanzia</TableHead>
                     <TableHead>%</TableHead>
                     <TableHead>Esito</TableHead>
                   </TableRow>
