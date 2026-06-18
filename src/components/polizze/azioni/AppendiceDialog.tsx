@@ -512,6 +512,11 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                 <p className="text-xs text-muted-foreground mt-1">
                   Cambiando quietanza i campi importi e date si reimpostano sui valori della rata scelta.
                 </p>
+                {quietanzaOptions.length === 1 && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
+                    Polizza unica senza rate aggiuntive: la regolazione verrà agganciata alla rata 1, che coincide con la polizza madre.
+                  </p>
+                )}
               </div>
 
               <div>
