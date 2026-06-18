@@ -1,23 +1,56 @@
-## Modifiche allo Step 2 del Wizard Apertura Sinistro
+## Obiettivo
 
-File: `src/pages/SinistroAperturaWizardPage.tsx`
+Allineare il dettaglio cliente al modello **Polizza vs Quietanza** (memoria `polizza-vs-quietanza-filtering` + `quietanza-isolation`): trasformare l'unico tab "Polizze · Quietanze" in **due tab separati**, mantenendo l'esperienza completa ma con responsabilità chiare.
 
-### 1. Luogo Accadimento — facoltativo
-- Rimuovere `.min(1, ...)` da `luogo_sinistro` nello schema zod (diventa `z.string().optional()`).
-- Rimuoverlo dall'array `fieldsToValidate` dello step 2.
-- Label da `Luogo Accadimento *` a `Luogo Accadimento` (senza asterisco).
+## Cosa cambia (solo `src/pages/ClienteDetail.tsx`)
 
-### 2. Data Denuncia — default = data apertura (oggi)
-- Nei `defaultValues` del form impostare `data_denuncia: new Date().toISOString().slice(0,10)` invece di stringa vuota.
-- (La `data_apertura` nel backend già usa `oggi` di default, quindi denuncia = apertura.)
+### Tabs (riga ~2017)
 
-### 3. Tipo Sinistro — supporto tipo personalizzato
-Replicare il pattern del componente cliente `NuovaDenunciaSinistroDialog.tsx`:
-- Aggiungere campo `tipo_sinistro_personalizzato: z.string().optional()` allo schema.
-- Aggiungere checkbox "Tipo non in elenco (personalizzato)" sotto il Select Tipo Sinistro.
-- Quando attivo: nascondere il Select e mostrare un `<Input>` per il testo libero (min 3 caratteri).
-- Validazione step 2: richiedere `tipo_sinistro` OPPURE `tipo_sinistro_personalizzato` (min 3 char).
-- Nel payload invio a `gestione-sinistri` (azione `crea`): inviare `tipo_sinistro: null` + `tipo_sinistro_personalizzato: testo` quando personalizzato, altrimenti come oggi.
-- Aggiornare il riepilogo step 5 per mostrare il valore personalizzato (usare `formatTipoSinistro` da `src/lib/tipiSinistro.ts`).
+Prima:
+```
+[Polizze (3) · Quietanze (3)]
+```
 
-Nessuna modifica a DB, RLS o edge function: i campi `tipo_sinistro_personalizzato` sono già supportati lato server.
+Dopo:
+```
+[Polizze (3)] [Quietanze (3)]
+```
+
+Default attivo: **Polizze** (è la vista "principale", ma la sezione Quietanze contiene comunque tutte le rate flat).
+
+### Tab "Polizze" (contratti = madri)
+
+- Toolbar: rimuovo il filtro `Tipo` (non serve più, qui sono solo madri).
+- KPI: `N polizze · totale premio annuo · totale provvigioni annue` (calcolati sulle sole madri filtrate).
+- Filtri di ricerca: invariati (N. polizza/Targa, Gruppo Ramo, Garanzia, Agenzia, Stato).
+- Tabella: una riga per ogni **madre**, badge `Polizza`, niente chevron/accordion, niente righe figlie. Colonna extra "Quietanze" con il count (es. `2`) cliccabile che porta al tab Quietanze pre-filtrando sulla polizza madre.
+- Azioni admin: elimina polizza+quietanze (come oggi `handleDeleteMadre`).
+
+### Tab "Quietanze" (rate)
+
+- Toolbar: rimuovo il filtro `Tipo`.
+- KPI: `N quietanze · totale premio incassato/da incassare · totale provvigioni`.
+- Filtri: stessi attuali + nuovo filtro `Polizza madre` (SearchableSelect popolato dalle madri del cliente, deep-link via querystring `?polizzaMadre=<id>`).
+- Tabella: vista **flat** (riuso di `flatQuietanze`), badge `Quietanza N`, colonna "Polizza madre" cliccabile (`numero_titolo` della madre → naviga a `/titoli/<madreId>`).
+- Azioni admin: elimina singola quietanza (`handleDeleteRata`).
+
+### Stato condiviso
+
+- Mantengo i `useState` dei filtri al livello del componente `PolizzeClienteTab` ma lo splitto in due sotto-componenti `PolizzeTab` e `QuietanzeTab` che condividono `catene`/`filteredCatene` via props (la query `polizze_cliente` resta unica, niente refetch).
+- `filtroTipo` viene eliminato dallo state.
+- Il conteggio Tabs in alto (`nPol`, `nQuiet`) resta calcolato come oggi.
+
+### Memoria
+
+Aggiorno `mem://insurance/polizza-vs-quietanza-filtering` aggiungendo: "Nel dettaglio cliente le due viste sono tab separati (`Polizze` / `Quietanze`), non più un unico tab con filtro Tipo. Carico/Attive/Storico restano col filtro Tipo unificato."
+
+## Fuori scope
+
+- Nessuna modifica a `PortafoglioCarico/Attive/Storico` (lì il filtro Tipo unificato resta come da memoria).
+- Nessuna modifica a query, RLS, schema o logica di eliminazione.
+- Nessuna modifica al portale cliente (`src/pages/cliente/ClientePolizze.tsx`).
+
+## File toccati
+
+- `src/pages/ClienteDetail.tsx` (refactor del componente interno `PolizzeClienteTab` → split in due, modifica `<TabsTrigger>` e relativi `<TabsContent>`).
+- `.lovable/memory/insurance/polizza-vs-quietanza-filtering.md` (aggiornamento riga sul dettaglio cliente).

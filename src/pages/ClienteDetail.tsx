@@ -1026,10 +1026,10 @@ Consulbrokers S.r.l.`;
   );
 }
 
-function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: (to: string) => void }) {
+function PolizzeClienteTable({ polizze, navigate, mode = "polizze" }: { polizze: any[]; navigate: (to: string) => void; mode?: "polizze" | "quietanze" }) {
   const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
+  const filtroTipo: "tutti" | "polizze" | "quietanze" = mode === "quietanze" ? "quietanze" : "polizze";
   const [filtroNumero, setFiltroNumero] = useState("");
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string>("");
   const [filtroGaranzia, setFiltroGaranzia] = useState<string>("");
@@ -1186,29 +1186,27 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
   };
   return (
     <div className="space-y-3">
-      {/* Toolbar: filtro Tipo + mini-KPI */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Tipo:</span>
-          <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as "tutti" | "polizze" | "quietanze")}>
-            <SelectTrigger className="h-8 w-[210px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="tutti">Polizze + Quietanze</SelectItem>
-              <SelectItem value="polizze">Solo polizze</SelectItem>
-              <SelectItem value="quietanze">Solo quietanze</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Toolbar: mini-KPI */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">{allPol.length}</span> polizze ·{" "}
-          <span className="font-medium text-foreground">{allQuiet.length}</span> quietanze · totale premio{" "}
-          <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
-          {" · "}totale provvigioni{" "}
-          <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
+          {mode === "polizze" ? (
+            <>
+              <span className="font-medium text-foreground">{allPol.length}</span> polizze · totale premio{" "}
+              <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
+              {" · "}totale provvigioni{" "}
+              <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
+            </>
+          ) : (
+            <>
+              <span className="font-medium text-foreground">{allQuiet.length}</span> quietanze · totale premio{" "}
+              <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
+              {" · "}totale provvigioni{" "}
+              <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
+            </>
+          )}
         </div>
       </div>
+
 
       {/* Filtri di ricerca */}
       <div className="flex flex-wrap items-end gap-2 p-2 rounded-md border bg-muted/30">
@@ -1332,7 +1330,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
             filteredCatene.map((c) => {
               const head = c.madre || c.all[0];
               const hasRate = c.rate.length > 0;
-              const showRate = filtroTipo === "tutti" && hasRate;
+              const showRate = false;
               const isOpen = !!expanded[c.numero];
               const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
               const ramo = head.ramo?.descrizione || "—";
@@ -2014,7 +2012,10 @@ export default function ClienteDetail() {
               const nQuiet = polizze.filter((p) => !!p.sostituisce_polizza).length;
               const nPol = polizze.length - nQuiet;
               return (
-                <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({nPol}) · Quietanze ({nQuiet})</TabsTrigger>
+                <>
+                  <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({nPol})</TabsTrigger>
+                  <TabsTrigger value="quietanze"><FileText className="w-4 h-4 mr-1" />Quietanze ({nQuiet})</TabsTrigger>
+                </>
               );
             })()}
             <TabsTrigger value="sinistri"><AlertTriangle className="w-4 h-4 mr-1" />Sinistri</TabsTrigger>
@@ -2048,11 +2049,27 @@ export default function ClienteDetail() {
                   <NuovaPolizzaButton clienteId={id} label="Nuova Polizza" />
                 </div>
               ) : (
-                <PolizzeClienteTable polizze={polizze} navigate={navigate} />
+                <PolizzeClienteTable polizze={polizze} navigate={navigate} mode="polizze" />
               )}
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="quietanze">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Quietanze del cliente</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2">
+              {polizze.filter((p) => !!p.sostituisce_polizza).length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">Nessuna quietanza presente</p>
+              ) : (
+                <PolizzeClienteTable polizze={polizze} navigate={navigate} mode="quietanze" />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
 
 
           <TabsContent value="sinistri">
