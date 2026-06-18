@@ -153,13 +153,14 @@ const PortafoglioAttivePage = () => {
           }}
         />
         <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="tutti">Polizze + Quietanze</SelectItem>
+            <SelectItem value="tutti">Polizze + Quietanze + Reg.</SelectItem>
             <SelectItem value="polizze">Solo polizze</SelectItem>
             <SelectItem value="quietanze">Solo quietanze</SelectItem>
+            <SelectItem value="regolazioni">Solo regolazioni</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2 ml-auto">
