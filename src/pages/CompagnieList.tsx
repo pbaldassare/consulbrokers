@@ -1585,9 +1585,6 @@ const CompagnieList = () => {
           <TabsTrigger value="anagrafica" className="gap-2">
             <Building2 className="w-4 h-4" />Agenzie
           </TabsTrigger>
-          <TabsTrigger value="provvigioni" className="gap-2">
-            <Percent className="w-4 h-4" />Provvigioni
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="agenzie" className="mt-4">
