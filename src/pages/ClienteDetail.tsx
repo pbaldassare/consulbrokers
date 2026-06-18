@@ -1030,29 +1030,102 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
   const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
+  const [filtroNumero, setFiltroNumero] = useState("");
+  const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string>("");
+  const [filtroGaranzia, setFiltroGaranzia] = useState<string>("");
+  const [filtroAgenzia, setFiltroAgenzia] = useState<string>("");
+  const [filtroStato, setFiltroStato] = useState<string>("");
   const toggle = (k: string) => setExpanded((s) => ({ ...s, [k]: !s[k] }));
   const { profile } = useAuth();
   const isAdmin = profile?.ruolo === "admin";
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  // Conteggi & totali
-  const allQuiet = useMemo(() => polizze.filter((p) => !!p.sostituisce_polizza), [polizze]);
-  const allPol = useMemo(() => polizze.filter((p) => !p.sostituisce_polizza), [polizze]);
-  const totPremio = useMemo(
-    () => polizze.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
-    [polizze]
+  // Opzioni filtri (derivate dalle polizze caricate)
+  const gruppiRamoOpts = useMemo(() => {
+    const s = new Set<string>();
+    polizze.forEach((p) => { const v = p.ramo?.gruppo_ramo?.descrizione; if (v) s.add(v); });
+    return Array.from(s).sort().map((v) => ({ value: v, label: v }));
+  }, [polizze]);
+  const garanzieOpts = useMemo(() => {
+    const s = new Set<string>();
+    polizze.forEach((p) => {
+      if (filtroGruppoRamo && p.ramo?.gruppo_ramo?.descrizione !== filtroGruppoRamo) return;
+      const v = p.ramo?.descrizione; if (v) s.add(v);
+    });
+    return Array.from(s).sort().map((v) => ({ value: v, label: v }));
+  }, [polizze, filtroGruppoRamo]);
+  const agenzieOpts = useMemo(() => {
+    const s = new Set<string>();
+    polizze.forEach((p) => { const v = p.compagnia_diretta?.nome; if (v) s.add(v); });
+    return Array.from(s).sort().map((v) => ({ value: v, label: v }));
+  }, [polizze]);
+  const statiOpts = useMemo(() => {
+    const s = new Set<string>();
+    polizze.forEach((p) => { if (p.stato) s.add(p.stato); });
+    return Array.from(s).sort().map((v) => ({ value: v, label: v }));
+  }, [polizze]);
+
+  // Predicate sul singolo titolo (madre o rata)
+  const matchTitolo = (t: any) => {
+    if (filtroNumero) {
+      const q = filtroNumero.toLowerCase();
+      if (!String(t.numero_titolo || "").toLowerCase().includes(q)) return false;
+    }
+    if (filtroGruppoRamo && t.ramo?.gruppo_ramo?.descrizione !== filtroGruppoRamo) return false;
+    if (filtroGaranzia && t.ramo?.descrizione !== filtroGaranzia) return false;
+    if (filtroAgenzia && t.compagnia_diretta?.nome !== filtroAgenzia) return false;
+    if (filtroStato && t.stato !== filtroStato) return false;
+    return true;
+  };
+
+  // Catene filtrate: passano se madre o almeno una rata match
+  const filteredCatene = useMemo(
+    () => catene.filter((c: any) => {
+      const head = c.madre || c.all[0];
+      if (head && matchTitolo(head)) return true;
+      return c.rate.some((r: any) => matchTitolo(r));
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [catene, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato],
   );
 
-  // Flat quietanze con riferimento alla madre (per vista "Solo quietanze")
-  const flatQuietanze = useMemo(() => {
-    const out: { rata: any; madreNum: string | null; idx: number }[] = [];
-    catene.forEach((c) => {
-      const madreNum = (c.madre || c.all[0])?.numero_titolo || null;
-      c.rate.forEach((r, i) => out.push({ rata: r, madreNum, idx: i + 2 }));
+  const hasAnyFilter = !!(filtroNumero || filtroGruppoRamo || filtroGaranzia || filtroAgenzia || filtroStato);
+  const clearFilters = () => {
+    setFiltroNumero(""); setFiltroGruppoRamo(""); setFiltroGaranzia(""); setFiltroAgenzia(""); setFiltroStato("");
+  };
+
+  // Conteggi & totali (sui risultati filtrati)
+  const filteredTitoli = useMemo(() => {
+    const out: any[] = [];
+    filteredCatene.forEach((c: any) => {
+      const head = c.madre || c.all[0];
+      if (head && matchTitolo(head)) out.push(head);
+      c.rate.forEach((r: any) => { if (matchTitolo(r)) out.push(r); });
     });
     return out;
-  }, [catene]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredCatene, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
+
+  const allQuiet = useMemo(() => filteredTitoli.filter((p) => !!p.sostituisce_polizza), [filteredTitoli]);
+  const allPol = useMemo(() => filteredTitoli.filter((p) => !p.sostituisce_polizza), [filteredTitoli]);
+  const totPremio = useMemo(
+    () => filteredTitoli.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
+    [filteredTitoli],
+  );
+
+  // Flat quietanze filtrate (vista "Solo quietanze")
+  const flatQuietanze = useMemo(() => {
+    const out: { rata: any; madreNum: string | null; idx: number }[] = [];
+    filteredCatene.forEach((c: any) => {
+      const madreNum = (c.madre || c.all[0])?.numero_titolo || null;
+      c.rate.forEach((r: any, i: number) => {
+        if (matchTitolo(r)) out.push({ rata: r, madreNum, idx: i + 2 });
+      });
+    });
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredCatene, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
 
   const isLocked = (t: any) =>
     t?.stato === "incassato" || t?.stato === "stornato" || !!t?.data_messa_cassa;
@@ -1128,6 +1201,64 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
           <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
         </div>
       </div>
+
+      {/* Filtri di ricerca */}
+      <div className="flex flex-wrap items-end gap-2 p-2 rounded-md border bg-muted/30">
+        <div className="flex flex-col gap-1">
+          <Label className="text-[10px] text-muted-foreground uppercase">N. Polizza</Label>
+          <Input value={filtroNumero} onChange={(e) => setFiltroNumero(e.target.value)} placeholder="Cerca numero…" className="h-8 w-[160px]" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label className="text-[10px] text-muted-foreground uppercase">Gruppo Ramo</Label>
+          <SearchableSelect
+            options={gruppiRamoOpts}
+            value={filtroGruppoRamo}
+            onValueChange={(v) => { setFiltroGruppoRamo(v); setFiltroGaranzia(""); }}
+            placeholder="Tutti"
+            clearable
+            className="h-8 w-[180px]"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label className="text-[10px] text-muted-foreground uppercase">Garanzia</Label>
+          <SearchableSelect
+            options={garanzieOpts}
+            value={filtroGaranzia}
+            onValueChange={setFiltroGaranzia}
+            placeholder="Tutte"
+            clearable
+            className="h-8 w-[200px]"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label className="text-[10px] text-muted-foreground uppercase">Agenzia</Label>
+          <SearchableSelect
+            options={agenzieOpts}
+            value={filtroAgenzia}
+            onValueChange={setFiltroAgenzia}
+            placeholder="Tutte"
+            clearable
+            className="h-8 w-[180px]"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label className="text-[10px] text-muted-foreground uppercase">Stato</Label>
+          <SearchableSelect
+            options={statiOpts}
+            value={filtroStato}
+            onValueChange={setFiltroStato}
+            placeholder="Tutti"
+            clearable
+            className="h-8 w-[140px]"
+          />
+        </div>
+        {hasAnyFilter && (
+          <Button type="button" variant="ghost" size="sm" className="h-8" onClick={clearFilters}>
+            Pulisci filtri
+          </Button>
+        )}
+      </div>
+
 
       <Table>
         <TableHeader>

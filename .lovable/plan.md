@@ -1,17 +1,22 @@
-## Obiettivo
-Nella tabella **Polizze del cliente** (`ClienteDetail.tsx`, tab "Polizze · Quietanze") aggiungere la colonna **Ramo** (sottoramo) accanto a **Gruppo Ramo**, mostrando il **primo sottoramo selezionato** sulla polizza.
+Aggiungo una barra filtri sopra la tabella **Polizze del cliente** in `ClienteDetail.tsx` (componente `PolizzeClienteTable`).
 
-## Contesto
-La query polizze (riga ~1510) già carica `ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:...)`. `titoli.ramo_id` è per design il **primo sottoramo** delle righe garanzia (derivato in fase di immissione), quindi è già il dato richiesto — nessuna nuova query/JOIN necessario.
+## Filtri (in linea, sopra la tabella, accanto al filtro "Tipo" già esistente)
+1. **Cerca N. Polizza** — input testo libero (match su `numero_titolo` della madre e delle quietanze).
+2. **Gruppo Ramo** — `SearchableSelect` con i gruppi presenti nelle polizze del cliente (distinct da `ramo.gruppo_ramo.descrizione`).
+3. **Garanzia** — `SearchableSelect` con le garanzie presenti (distinct da `ramo.descrizione`). Se è selezionato un Gruppo Ramo, la lista mostra solo le garanzie di quel gruppo.
+4. **Agenzia** — `SearchableSelect` con le agenzie distinct da `compagnia_diretta.nome`.
+5. **Stato** — `SearchableSelect` con gli stati distinct (`attivo`, `incassato`, `sospeso`, `scaduto`, `stornato`).
+6. **Bottone "Pulisci filtri"** visibile quando almeno un filtro è attivo.
 
-## Modifiche (solo `src/pages/ClienteDetail.tsx`)
+Tutte le opzioni dei select sono **derivate dinamicamente** dalle polizze caricate (no query aggiuntive).
 
-1. **Header tabella** (riga 1138): inserire `<TableHead>Ramo</TableHead>` subito dopo `Gruppo Ramo`.
-2. **Riga Quietanze (filtro = quietanze)** (riga 1163): aggiungere `<TableCell>{r.ramo?.descrizione || "—"}</TableCell>` dopo la cella Gruppo Ramo.
-3. **Riga Polizza madre** (riga 1202): aggiungere `<TableCell>{head.ramo?.descrizione || "—"}</TableCell>` dopo la cella Gruppo Ramo. Aggiungere variabile locale `const ramo = head.ramo?.descrizione || "—";` accanto a `gruppoRamo`.
-4. **Riga Quietanze figlie espanse** (riga 1228): aggiungere `<TableCell className="text-muted-foreground text-xs">{r.ramo?.descrizione || "—"}</TableCell>` dopo la cella Gruppo Ramo.
-5. Aggiornare i `colSpan` "Nessuna quietanza" (riga 1150) da `isAdmin ? 9 : 8` a `isAdmin ? 10 : 9`.
+## Logica
+- Filtri applicati lato client su `catene` (madre + quietanze figlie).
+- Una catena passa il filtro se la **madre** o **almeno una rata** soddisfa tutti i filtri attivi.
+- Il contatore "X polizze · Y quietanze · totale premio €" si aggiorna sui risultati filtrati.
+- Il filtro "Tipo" (Polizze + Quietanze / Solo polizze / Solo quietanze) resta com'è e si combina con i nuovi filtri.
 
-## Fuori scopo
-- Nessuna modifica al DB / alle query.
-- Nessuna modifica a Carico, Storico, Attive, ECClienti o altre liste (eventuale estensione in passaggio separato se richiesto).
+## File toccati
+- `src/pages/ClienteDetail.tsx` — solo il componente `PolizzeClienteTable` (stati nuovi, derivazione opzioni, predicate di filtro, render toolbar).
+
+Nessuna modifica a query, schema o altri componenti.
