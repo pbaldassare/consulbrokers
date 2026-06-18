@@ -27,7 +27,7 @@ const PortafoglioAttivePage = () => {
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
-  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
+  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze" | "regolazioni">("tutti");
 
   const today = format(new Date(), "yyyy-MM-dd");
   const inizioMese = format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -38,10 +38,12 @@ const PortafoglioAttivePage = () => {
   const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroGruppoRamo, filtroRamo, escludiMeseCorrente, filtroTipo]);
 
   const applyTipoFilter = (q: any) => {
-    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null);
-    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null);
+    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    if (filtroTipo === "regolazioni") return q.eq("is_regolazione", true);
     return q;
   };
+
 
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente, filtroTipo],
