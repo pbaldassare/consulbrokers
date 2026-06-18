@@ -57,8 +57,9 @@ const PortafoglioStoricoPage = () => {
     }
     if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
     if (filterRamoIds && filterRamoIds.length > 0) q = q.in("ramo_id", filterRamoIds);
-    if (filtroTipo === "polizze") q = q.is("sostituisce_polizza", null);
-    else if (filtroTipo === "quietanze") q = q.not("sostituisce_polizza", "is", null);
+    if (filtroTipo === "polizze") q = q.is("sostituisce_polizza", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    else if (filtroTipo === "quietanze") q = q.not("sostituisce_polizza", "is", null).or("is_regolazione.is.null,is_regolazione.eq.false");
+    else if (filtroTipo === "regolazioni") q = q.eq("is_regolazione", true);
     return q;
   };
 
