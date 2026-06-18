@@ -204,13 +204,18 @@ const PortafoglioAttivePage = () => {
               </TableHeader>
               <TableBody>
                 {polizze.map((p: any) => (
-                  <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${p.id}`)}>
-                    <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
+                  <TableRow key={p.id} className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : ""}`} onClick={() => navigate(`/titoli/${p.id}`)}>
+                    <TableCell className="font-medium">
+                      {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
+                      {p.numero_titolo || "—"}
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
-                        {p.sostituisce_polizza
-                          ? <Badge variant="secondary">Quietanza</Badge>
-                          : <Badge variant="default">Polizza</Badge>}
+                        {p.is_regolazione
+                          ? <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">Regolazione</Badge>
+                          : p.sostituisce_polizza
+                            ? <Badge variant="secondary">Quietanza</Badge>
+                            : <Badge variant="default">Polizza</Badge>}
                         {p.stato === "sospeso" && (
                           <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Sospesa</Badge>
                         )}
