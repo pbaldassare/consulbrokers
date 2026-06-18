@@ -9454,6 +9454,7 @@ export type Database = {
           id_legacy: number | null
           importo_incassato: number | null
           indicizzata: boolean | null
+          is_regolazione: boolean | null
           libro_matricola: string | null
           limite_mora: string | null
           limite_riattivazione: string | null
@@ -9486,6 +9487,7 @@ export type Database = {
           ramo_nome: string | null
           rate: number | null
           regolazione: boolean | null
+          regolazione_quietanza_id: string | null
           riga: number | null
           rimborso: boolean | null
           risk_type: string | null
@@ -9571,6 +9573,20 @@ export type Database = {
             columns: ["ramo_id"]
             isOneToOne: false
             referencedRelation: "rami"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_regolazione_quietanza_id_fkey"
+            columns: ["regolazione_quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_regolazione_quietanza_id_fkey"
+            columns: ["regolazione_quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
           {
