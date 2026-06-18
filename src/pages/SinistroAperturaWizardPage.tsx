@@ -107,49 +107,95 @@ export default function SinistroAperturaWizardPage() {
   const [searchParams] = useSearchParams();
   const preselectedClienteId = searchParams.get('cliente_id');
 
-  useEffect(() => {
-    if (preselectedClienteId) {
-      // fetch client info
-      supabase.from('clienti')
-        .select('cognome, nome, ragione_sociale')
-        .eq('id', preselectedClienteId)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) setPreselectedCliente(data);
-        });
-      // fetch polizze (titoli + CGA) for this client
-      Promise.all([
+  // Carica polizze (titoli + CGA) per un cliente
+  const loadPolizzeForCliente = async (clienteId: string) => {
+    setPolizzeLoading(true);
+    try {
+      const [titRes, cgaRes] = await Promise.all([
         supabase.from('titoli')
           .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id,
             prodotti(nome_prodotto, compagnie(id, nome)),
             clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
           .eq('stato', 'attivo')
-          .eq('cliente_anagrafica_id', preselectedClienteId)
+          .eq('cliente_anagrafica_id', clienteId)
           .limit(100),
         supabase.from('polizza_cga')
           .select(`id, numero_polizza, data_decorrenza, premio_lordo_totale, cliente_id, prodotti_cga(nome_prodotto, compagnia, ramo)`)
           .eq('stato', 'approvato')
-          .eq('cliente_id', preselectedClienteId)
+          .eq('cliente_id', clienteId)
           .limit(100),
-      ]).then(([titRes, cgaRes]) => {
-        const fromTitoli = (titRes.data ?? []).map((t: any) => ({ ...t, _isCga: false }));
-        const fromCga = (cgaRes.data ?? []).map((c: any) => ({
-          id: `cga:${c.id}`,
-          numero_titolo: c.numero_polizza,
-          stato: 'attivo',
-          cliente_anagrafica_id: c.cliente_id,
-          ufficio_id: null,
-          prodotti: {
-            nome_prodotto: c.prodotti_cga?.nome_prodotto,
-            compagnie: { id: null, nome: c.prodotti_cga?.compagnia },
-          },
-          clienti: null,
-          _isCga: true,
-        }));
-        setPolizzeList([...fromTitoli, ...fromCga].slice(0, 50));
-      });
+      ]);
+      const fromTitoli = (titRes.data ?? []).map((t: any) => ({ ...t, _isCga: false }));
+      const fromCga = (cgaRes.data ?? []).map((c: any) => ({
+        id: `cga:${c.id}`,
+        numero_titolo: c.numero_polizza,
+        stato: 'attivo',
+        cliente_anagrafica_id: c.cliente_id,
+        ufficio_id: null,
+        prodotti: {
+          nome_prodotto: c.prodotti_cga?.nome_prodotto,
+          compagnie: { id: null, nome: c.prodotti_cga?.compagnia },
+        },
+        clienti: null,
+        _isCga: true,
+      }));
+      setPolizzeList([...fromTitoli, ...fromCga].slice(0, 50));
+    } finally {
+      setPolizzeLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (preselectedClienteId) {
+      supabase.from('clienti')
+        .select('id, cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva')
+        .eq('id', preselectedClienteId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setPreselectedCliente(data);
+            setSelectedClienteId(data.id);
+            setSelectedClienteData(data);
+          }
+        });
+      loadPolizzeForCliente(preselectedClienteId);
     }
   }, [preselectedClienteId]);
+
+  // Ricerca clienti (debounced) — Step 1
+  useEffect(() => {
+    const q = clientiSearchText.trim();
+    if (!q) { setClientiList([]); return; }
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from('clienti')
+        .select('id, nome, cognome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva')
+        .or(`cognome.ilike.%${q}%,nome.ilike.%${q}%,ragione_sociale.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
+        .limit(25);
+      setClientiList(data || []);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [clientiSearchText]);
+
+  const selezionaCliente = (c: any) => {
+    setSelectedClienteId(c.id);
+    setSelectedClienteData(c);
+    setSelectedPolizzaData(null);
+    setValue('titolo_id', '');
+    setPolizzaSearchText('');
+    loadPolizzeForCliente(c.id);
+  };
+
+  const resetCliente = () => {
+    setSelectedClienteId(null);
+    setSelectedClienteData(null);
+    setSelectedPolizzaData(null);
+    setValue('titolo_id', '');
+    setPolizzeList([]);
+    setPolizzaSearchText('');
+    setClientiSearchText('');
+  };
+
 
   const { fields: docFields, append: appendDoc, remove: removeDoc } = useFieldArray({
     control,
