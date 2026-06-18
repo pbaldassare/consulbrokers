@@ -23,6 +23,7 @@ import { format } from "date-fns";
 import { TIPI_SINISTRO, formatTipoSinistro } from "@/lib/tipiSinistro";
 import { Checkbox } from "@/components/ui/checkbox";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { applySoloMadriFilter, mergePolizze } from "@/lib/polizzeSearch";
 
 const DRAFT_KEY = "sinistri:apertura:bozza";
 
