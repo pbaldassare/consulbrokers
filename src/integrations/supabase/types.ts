@@ -624,6 +624,7 @@ export type Database = {
           numero_appendice: string
           oggetto: string | null
           percentuale_provvigione: number | null
+          polizza_id: string | null
           premio_lordo: number | null
           premio_netto: number | null
           provvigioni: number | null
@@ -647,6 +648,7 @@ export type Database = {
           numero_appendice: string
           oggetto?: string | null
           percentuale_provvigione?: number | null
+          polizza_id?: string | null
           premio_lordo?: number | null
           premio_netto?: number | null
           provvigioni?: number | null
@@ -670,6 +672,7 @@ export type Database = {
           numero_appendice?: string
           oggetto?: string | null
           percentuale_provvigione?: number | null
+          polizza_id?: string | null
           premio_lordo?: number | null
           premio_netto?: number | null
           provvigioni?: number | null
@@ -681,6 +684,13 @@ export type Database = {
           titolo_regolazione_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "appendici_polizza_polizza_id_fkey"
+            columns: ["polizza_id"]
+            isOneToOne: false
+            referencedRelation: "polizze"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appendici_polizza_quietanza_id_fkey"
             columns: ["quietanza_id"]
@@ -5384,6 +5394,300 @@ export type Database = {
           },
         ]
       }
+      polizze: {
+        Row: {
+          account_executive_anagrafica_id: string | null
+          addizionali_annue: number | null
+          anagrafica_commerciale_id: string | null
+          anni_durata: number | null
+          appendice_corrente: string | null
+          cambio: number | null
+          cig_rif: string | null
+          cliente_anagrafica_id: string | null
+          commerciale_id: string | null
+          compagnia_id: string | null
+          compagnia_rapporto_id: string | null
+          created_at: string
+          created_by: string | null
+          data_annullamento: string | null
+          data_riattivazione: string | null
+          data_sospensione: string | null
+          descrizione_polizza: string | null
+          disdetta_mesi: number | null
+          durata_a: string | null
+          durata_da: string | null
+          emissione_fee: boolean | null
+          formato_elettronico: boolean | null
+          frazionamento: string | null
+          giorni_presentazione: number | null
+          gruppo_ramo_id: string | null
+          id: string
+          indicizzata: boolean | null
+          libro_matricola: string | null
+          motivo_annullamento: string | null
+          no_calcolo_tasse: boolean | null
+          note: string | null
+          numero_polizza: string | null
+          numero_polizza_precedente: string | null
+          pag_diretto_compagnia: boolean | null
+          percentuale_commerciale: number | null
+          percentuale_riparto: number | null
+          premio_annuo_lordo: number | null
+          premio_annuo_netto: number | null
+          prodotto_nome: string | null
+          produttore_anagrafica_id: string | null
+          provvigioni_annue_firma: number | null
+          provvigioni_annue_quietanza: number | null
+          ramo_id: string | null
+          regolazione: boolean | null
+          risk_type: string | null
+          search_vector: unknown
+          sostituisce_polizza_id: string | null
+          sostituita_da_polizza_id: string | null
+          ssn_annuo: number | null
+          stato: Database["public"]["Enums"]["polizza_stato"]
+          tacito_rinnovo: boolean | null
+          targa_telaio: string | null
+          tasse_annue: number | null
+          tipo_lettera_regolazione: string | null
+          tipo_mandatario: string | null
+          tipo_portafoglio: string | null
+          tipo_scadenza: string | null
+          titolo_madre_id: string | null
+          ufficio_id: string | null
+          updated_at: string
+          valuta: string | null
+          vincolo: string | null
+        }
+        Insert: {
+          account_executive_anagrafica_id?: string | null
+          addizionali_annue?: number | null
+          anagrafica_commerciale_id?: string | null
+          anni_durata?: number | null
+          appendice_corrente?: string | null
+          cambio?: number | null
+          cig_rif?: string | null
+          cliente_anagrafica_id?: string | null
+          commerciale_id?: string | null
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_annullamento?: string | null
+          data_riattivazione?: string | null
+          data_sospensione?: string | null
+          descrizione_polizza?: string | null
+          disdetta_mesi?: number | null
+          durata_a?: string | null
+          durata_da?: string | null
+          emissione_fee?: boolean | null
+          formato_elettronico?: boolean | null
+          frazionamento?: string | null
+          giorni_presentazione?: number | null
+          gruppo_ramo_id?: string | null
+          id?: string
+          indicizzata?: boolean | null
+          libro_matricola?: string | null
+          motivo_annullamento?: string | null
+          no_calcolo_tasse?: boolean | null
+          note?: string | null
+          numero_polizza?: string | null
+          numero_polizza_precedente?: string | null
+          pag_diretto_compagnia?: boolean | null
+          percentuale_commerciale?: number | null
+          percentuale_riparto?: number | null
+          premio_annuo_lordo?: number | null
+          premio_annuo_netto?: number | null
+          prodotto_nome?: string | null
+          produttore_anagrafica_id?: string | null
+          provvigioni_annue_firma?: number | null
+          provvigioni_annue_quietanza?: number | null
+          ramo_id?: string | null
+          regolazione?: boolean | null
+          risk_type?: string | null
+          search_vector?: unknown
+          sostituisce_polizza_id?: string | null
+          sostituita_da_polizza_id?: string | null
+          ssn_annuo?: number | null
+          stato?: Database["public"]["Enums"]["polizza_stato"]
+          tacito_rinnovo?: boolean | null
+          targa_telaio?: string | null
+          tasse_annue?: number | null
+          tipo_lettera_regolazione?: string | null
+          tipo_mandatario?: string | null
+          tipo_portafoglio?: string | null
+          tipo_scadenza?: string | null
+          titolo_madre_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string
+          valuta?: string | null
+          vincolo?: string | null
+        }
+        Update: {
+          account_executive_anagrafica_id?: string | null
+          addizionali_annue?: number | null
+          anagrafica_commerciale_id?: string | null
+          anni_durata?: number | null
+          appendice_corrente?: string | null
+          cambio?: number | null
+          cig_rif?: string | null
+          cliente_anagrafica_id?: string | null
+          commerciale_id?: string | null
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_annullamento?: string | null
+          data_riattivazione?: string | null
+          data_sospensione?: string | null
+          descrizione_polizza?: string | null
+          disdetta_mesi?: number | null
+          durata_a?: string | null
+          durata_da?: string | null
+          emissione_fee?: boolean | null
+          formato_elettronico?: boolean | null
+          frazionamento?: string | null
+          giorni_presentazione?: number | null
+          gruppo_ramo_id?: string | null
+          id?: string
+          indicizzata?: boolean | null
+          libro_matricola?: string | null
+          motivo_annullamento?: string | null
+          no_calcolo_tasse?: boolean | null
+          note?: string | null
+          numero_polizza?: string | null
+          numero_polizza_precedente?: string | null
+          pag_diretto_compagnia?: boolean | null
+          percentuale_commerciale?: number | null
+          percentuale_riparto?: number | null
+          premio_annuo_lordo?: number | null
+          premio_annuo_netto?: number | null
+          prodotto_nome?: string | null
+          produttore_anagrafica_id?: string | null
+          provvigioni_annue_firma?: number | null
+          provvigioni_annue_quietanza?: number | null
+          ramo_id?: string | null
+          regolazione?: boolean | null
+          risk_type?: string | null
+          search_vector?: unknown
+          sostituisce_polizza_id?: string | null
+          sostituita_da_polizza_id?: string | null
+          ssn_annuo?: number | null
+          stato?: Database["public"]["Enums"]["polizza_stato"]
+          tacito_rinnovo?: boolean | null
+          targa_telaio?: string | null
+          tasse_annue?: number | null
+          tipo_lettera_regolazione?: string | null
+          tipo_mandatario?: string | null
+          tipo_portafoglio?: string | null
+          tipo_scadenza?: string | null
+          titolo_madre_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string
+          valuta?: string | null
+          vincolo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polizze_account_executive_anagrafica_id_fkey"
+            columns: ["account_executive_anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_anagrafica_commerciale_id_fkey"
+            columns: ["anagrafica_commerciale_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_cliente_anagrafica_id_fkey"
+            columns: ["cliente_anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_compagnia_rapporto_id_fkey"
+            columns: ["compagnia_rapporto_id"]
+            isOneToOne: false
+            referencedRelation: "compagnia_rapporti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_ramo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["gruppo_ramo_id"]
+          },
+          {
+            foreignKeyName: "polizze_produttore_anagrafica_id_fkey"
+            columns: ["produttore_anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_ramo_id_fkey"
+            columns: ["ramo_id"]
+            isOneToOne: false
+            referencedRelation: "rami"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_sostituisce_polizza_id_fkey"
+            columns: ["sostituisce_polizza_id"]
+            isOneToOne: false
+            referencedRelation: "polizze"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_sostituita_da_polizza_id_fkey"
+            columns: ["sostituita_da_polizza_id"]
+            isOneToOne: false
+            referencedRelation: "polizze"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_titolo_madre_id_fkey"
+            columns: ["titolo_madre_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_titolo_madre_id_fkey"
+            columns: ["titolo_madre_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portafoglio_incassi: {
         Row: {
           cliente_id: string | null
@@ -5497,6 +5801,8 @@ export type Database = {
           is_rca_principale: boolean
           lordo_calcolato: number | null
           ordine: number | null
+          polizza_id: string | null
+          quietanza_id: string | null
           quietanza_personalizzata: boolean
           rata: number | null
           ssn: number | null
@@ -5518,6 +5824,8 @@ export type Database = {
           is_rca_principale?: boolean
           lordo_calcolato?: number | null
           ordine?: number | null
+          polizza_id?: string | null
+          quietanza_id?: string | null
           quietanza_personalizzata?: boolean
           rata?: number | null
           ssn?: number | null
@@ -5539,6 +5847,8 @@ export type Database = {
           is_rca_principale?: boolean
           lordo_calcolato?: number | null
           ordine?: number | null
+          polizza_id?: string | null
+          quietanza_id?: string | null
           quietanza_personalizzata?: boolean
           rata?: number | null
           ssn?: number | null
@@ -5548,6 +5858,20 @@ export type Database = {
           voce_origine_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "premi_garanzia_polizza_polizza_id_fkey"
+            columns: ["polizza_id"]
+            isOneToOne: false
+            referencedRelation: "polizze"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "premi_garanzia_polizza_quietanza_id_fkey"
+            columns: ["quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "quietanze"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "premi_garanzia_polizza_titolo_id_fkey"
             columns: ["titolo_id"]
@@ -6750,6 +7074,127 @@ export type Database = {
           },
         ]
       }
+      quietanze: {
+        Row: {
+          addizionali: number | null
+          appendice: string | null
+          conto_incasso: string | null
+          created_at: string
+          data_competenza: string | null
+          data_incasso: string | null
+          data_messa_cassa: string | null
+          data_pagamento: string | null
+          data_scadenza: string | null
+          garanzia_a: string | null
+          garanzia_da: string | null
+          id: string
+          importo_incassato: number | null
+          limite_mora: string | null
+          mora_giorni: number | null
+          numero_polizza_snapshot: string | null
+          numero_rata: number
+          numero_rate_totali: number
+          polizza_id: string
+          premio_lordo: number | null
+          premio_netto: number | null
+          provvigioni_firma: number | null
+          provvigioni_quietanza: number | null
+          search_vector: unknown
+          ssn: number | null
+          stato: Database["public"]["Enums"]["quietanza_stato"]
+          tasse: number | null
+          tipo_incasso: string | null
+          titolo_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          addizionali?: number | null
+          appendice?: string | null
+          conto_incasso?: string | null
+          created_at?: string
+          data_competenza?: string | null
+          data_incasso?: string | null
+          data_messa_cassa?: string | null
+          data_pagamento?: string | null
+          data_scadenza?: string | null
+          garanzia_a?: string | null
+          garanzia_da?: string | null
+          id?: string
+          importo_incassato?: number | null
+          limite_mora?: string | null
+          mora_giorni?: number | null
+          numero_polizza_snapshot?: string | null
+          numero_rata: number
+          numero_rate_totali: number
+          polizza_id: string
+          premio_lordo?: number | null
+          premio_netto?: number | null
+          provvigioni_firma?: number | null
+          provvigioni_quietanza?: number | null
+          search_vector?: unknown
+          ssn?: number | null
+          stato?: Database["public"]["Enums"]["quietanza_stato"]
+          tasse?: number | null
+          tipo_incasso?: string | null
+          titolo_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          addizionali?: number | null
+          appendice?: string | null
+          conto_incasso?: string | null
+          created_at?: string
+          data_competenza?: string | null
+          data_incasso?: string | null
+          data_messa_cassa?: string | null
+          data_pagamento?: string | null
+          data_scadenza?: string | null
+          garanzia_a?: string | null
+          garanzia_da?: string | null
+          id?: string
+          importo_incassato?: number | null
+          limite_mora?: string | null
+          mora_giorni?: number | null
+          numero_polizza_snapshot?: string | null
+          numero_rata?: number
+          numero_rate_totali?: number
+          polizza_id?: string
+          premio_lordo?: number | null
+          premio_netto?: number | null
+          provvigioni_firma?: number | null
+          provvigioni_quietanza?: number | null
+          search_vector?: unknown
+          ssn?: number | null
+          stato?: Database["public"]["Enums"]["quietanza_stato"]
+          tasse?: number | null
+          tipo_incasso?: string | null
+          titolo_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quietanze_polizza_id_fkey"
+            columns: ["polizza_id"]
+            isOneToOne: false
+            referencedRelation: "polizze"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quietanze_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quietanze_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rami: {
         Row: {
           aliquota_ssn: number | null
@@ -7901,6 +8346,7 @@ export type Database = {
           percentuale_commerciale: number | null
           percentuale_riparto: number | null
           periodicita: string | null
+          polizza_id: string | null
           premio_lordo: number | null
           premio_netto: number | null
           premio_netto_quietanza: number | null
@@ -8023,6 +8469,7 @@ export type Database = {
           percentuale_commerciale?: number | null
           percentuale_riparto?: number | null
           periodicita?: string | null
+          polizza_id?: string | null
           premio_lordo?: number | null
           premio_netto?: number | null
           premio_netto_quietanza?: number | null
@@ -8145,6 +8592,7 @@ export type Database = {
           percentuale_commerciale?: number | null
           percentuale_riparto?: number | null
           periodicita?: string | null
+          polizza_id?: string | null
           premio_lordo?: number | null
           premio_netto?: number | null
           premio_netto_quietanza?: number | null
@@ -8241,6 +8689,13 @@ export type Database = {
             columns: ["compagnia_rapporto_id"]
             isOneToOne: false
             referencedRelation: "compagnia_rapporti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_polizza_id_fkey"
+            columns: ["polizza_id"]
+            isOneToOne: false
+            referencedRelation: "polizze"
             referencedColumns: ["id"]
           },
           {
@@ -9907,6 +10362,11 @@ export type Database = {
           tipo_cliente: string
         }[]
       }
+      fn_polizza_genera_quietanze: {
+        Args: { _polizza_id: string }
+        Returns: number
+      }
+      fn_rate_per_anno: { Args: { frazionamento: string }; Returns: number }
       generate_codice_cliente: { Args: never; Returns: string }
       get_canali_cliente_with_meta: {
         Args: { _limit?: number; _offset?: number; _user_id: string }
@@ -10032,6 +10492,18 @@ export type Database = {
         | "ricongiunti"
         | "incassato"
       movimento_polizza_tipo: "polizza" | "anticipo" | "ammanco"
+      polizza_stato:
+        | "attiva"
+        | "sospesa"
+        | "annullata"
+        | "scaduta"
+        | "sostituita"
+      quietanza_stato:
+        | "da_incassare"
+        | "incassato"
+        | "sospesa"
+        | "annullata"
+        | "stornata"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -10177,6 +10649,20 @@ export const Constants = {
         "incassato",
       ],
       movimento_polizza_tipo: ["polizza", "anticipo", "ammanco"],
+      polizza_stato: [
+        "attiva",
+        "sospesa",
+        "annullata",
+        "scaduta",
+        "sostituita",
+      ],
+      quietanza_stato: [
+        "da_incassare",
+        "incassato",
+        "sospesa",
+        "annullata",
+        "stornata",
+      ],
     },
   },
 } as const

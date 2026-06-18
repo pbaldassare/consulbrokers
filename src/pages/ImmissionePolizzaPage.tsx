@@ -1733,6 +1733,12 @@ const ImmissionePolizzaPage = () => {
               ? "Conguaglio premio collegato a una polizza esistente — verrà creato un nuovo titolo RG"
               : "Inserimento nuova polizza nel portafoglio"}
           </p>
+          {!regolazioneMode && (
+            <p className="text-[11px] text-teal-700 dark:text-teal-300 mt-1 italic">
+              ℹ️ Modello Polizza/Quietanza attivo: al salvataggio viene creata 1 <b>Polizza-Contratto</b> + N <b>Quietanze</b> in base al frazionamento. La polizza rappresenta il contratto, le quietanze sono le rate che si mettono a cassa.
+            </p>
+          )}
+
         </div>
         <Button
           type="button"
