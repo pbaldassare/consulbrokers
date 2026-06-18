@@ -1383,8 +1383,10 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                       <TableCell></TableCell>
                       <TableCell className="pl-8 font-mono text-xs text-muted-foreground">↳ {r.numero_titolo || "—"}</TableCell>
                       <TableCell><Badge variant="secondary">Quietanza {i + 2}</Badge></TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{head.numero_titolo || "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">{r.ramo?.descrizione || "—"}</TableCell>
+
 
                       <TableCell className="text-muted-foreground text-xs">{r.compagnia_diretta?.nome || "—"}</TableCell>
                       <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
