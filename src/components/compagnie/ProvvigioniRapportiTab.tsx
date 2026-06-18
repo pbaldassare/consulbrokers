@@ -470,7 +470,8 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
         <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
           <Card>
             <CardContent className="pt-4 pb-4 space-y-3">
-              {/* Riga 1: selettore rapporto con prev/next */}
+              {/* Riga 1: selettore rapporto con prev/next (nascosto in modalità fissa) */}
+              {!isFixed && (
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Rapporto Agenzia ↔ Compagnia</Label>
                 <div className="flex items-center gap-2">
@@ -490,6 +491,7 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
                   </Button>
                 </div>
               </div>
+              )}
 
               {/* Riga 2: tipo rapporto + azioni */}
               <div className="flex items-center justify-between flex-wrap gap-2">
