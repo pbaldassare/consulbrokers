@@ -263,11 +263,6 @@ export default function SinistroAperturaWizardPage() {
   // (ricerca polizze globale rimossa: ora le polizze derivano dal cliente selezionato)
 
 
-  const selezionaPolizza = (polizza: any) => {
-    setSelectedPolizzaData(polizza);
-    setValue("titolo_id", polizza.id);
-    toast.success(`Polizza N° ${polizza.numero_titolo} selezionata`);
-  };
 
   // Gestione caricamento file (Step 3)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
