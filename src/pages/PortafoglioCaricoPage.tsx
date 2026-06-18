@@ -234,25 +234,25 @@ const PortafoglioCaricoPage = () => {
     const today = todayStr();
     setLoadingIds(prev => new Set(prev).add(titoloId));
     try {
-      const { error } = await supabase.from("titoli").update({
+      // Native: scriviamo sulla quietanza (entità nativa). Il trigger DB cura il riallineamento del titolo legacy.
+      const { error } = await (supabase.from("quietanze") as any).update({
         stato: "incassato",
         data_incasso: today,
         data_messa_cassa: today,
         data_pagamento: today,
-        data_decorrenza_rinnovo: today,
         importo_incassato: premioLordo ?? null,
-      }).eq("id", titoloId);
+      }).eq("titolo_id", titoloId);
 
       if (error) throw error;
 
       await logAttivita({
         azione: "messa_a_cassa",
-        entita_tipo: "titolo",
+        entita_tipo: "quietanza",
         entita_id: titoloId,
-        dettagli_json: { data_messa_cassa: today, data_pagamento: today, data_decorrenza_rinnovo: today },
+        dettagli_json: { data_messa_cassa: today, data_pagamento: today },
       });
 
-      // Genera provvigioni automaticamente
+      // Genera provvigioni automaticamente (edge function lavora su titolo_id legacy)
       supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: titoloId } }).catch(() => {});
       // Notifica formale all'agenzia/rapporto
       supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: titoloId } }).catch(() => {});
