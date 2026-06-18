@@ -42,11 +42,6 @@ export default function ClienteSinistri() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [openNuovo, setOpenNuovo] = useState(false);
 
-export default function ClienteSinistri() {
-  const { user } = useAuth();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [openNuovo, setOpenNuovo] = useState(false);
-
   // Filtri
   const [fSearch, setFSearch] = useState("");
   const [fStato, setFStato] = useState<string>("all");
