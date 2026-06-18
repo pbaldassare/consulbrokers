@@ -27,16 +27,15 @@ describe("shouldShowRate", () => {
 });
 
 describe("computeFlatQuietanze", () => {
-  it("emette una riga per rata con madreNum corretto e idx 1-based partendo da 2", () => {
+  it("emette una riga per rata con madreNum/madreId/totale corretti e idx 1-based partendo da 2", () => {
     const catene = groupTitoliByPolizza(titoli);
     const flat = computeFlatQuietanze(catene);
 
     expect(flat).toHaveLength(2);
-    // entrambe le rate appartengono a POL-A → madreNum identico
     expect(flat.every((r) => r.madreNum === "POL-A")).toBe(true);
-    // idx: la prima rata è "Quietanza 2", la seconda "Quietanza 3"
+    expect(flat.every((r) => r.madreId === "a0")).toBe(true);
+    expect(flat.every((r) => r.totale === 3)).toBe(true);
     expect(flat.map((r) => r.idx).sort()).toEqual([2, 3]);
-    // gli id delle rate sono quelli con sostituisce_polizza valorizzato
     expect(flat.map((r) => r.rata.id).sort()).toEqual(["a1", "a2"]);
   });
 

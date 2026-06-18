@@ -11,15 +11,18 @@ export function shouldShowRate(filtroTipo: FiltroTipo, hasRate: boolean): boolea
 
 /**
  * Vista flat delle quietanze (mode="quietanze"): per ogni catena emette N righe
- * (una per rata) con il `madreNum` della polizza madre.
+ * (una per rata) con il `madreNum` e `madreId` della polizza madre.
  */
 export function computeFlatQuietanze<T extends TitoloLike>(
   catene: CatenaPolizza<T>[],
-): { rata: T; madreNum: string | null; idx: number }[] {
-  const out: { rata: T; madreNum: string | null; idx: number }[] = [];
+): { rata: T; madreNum: string | null; madreId: string | null; idx: number; totale: number }[] {
+  const out: { rata: T; madreNum: string | null; madreId: string | null; idx: number; totale: number }[] = [];
   for (const c of catene) {
-    const madreNum = (c.madre || c.all[0])?.numero_titolo ?? null;
-    c.rate.forEach((r, i) => out.push({ rata: r, madreNum, idx: i + 2 }));
+    const head = c.madre || c.all[0];
+    const madreNum = head?.numero_titolo ?? null;
+    const madreId = head?.id ?? null;
+    const totale = c.all.length;
+    c.rate.forEach((r, i) => out.push({ rata: r, madreNum, madreId, idx: i + 2, totale }));
   }
   return out;
 }

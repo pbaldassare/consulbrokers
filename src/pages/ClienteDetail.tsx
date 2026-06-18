@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, createContext, useContext, useMemo } from "react";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
+import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
+import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { logAttivita } from "@/lib/logAttivita";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams, useNavigate } from "react-router-dom";
@@ -1123,11 +1125,14 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
 
   // Flat quietanze filtrate (vista "Solo quietanze")
   const flatQuietanze = useMemo(() => {
-    const out: { rata: any; madreNum: string | null; idx: number }[] = [];
+    const out: { rata: any; madreNum: string | null; madreId: string | null; idx: number; totale: number }[] = [];
     filteredCatene.forEach((c: any) => {
-      const madreNum = (c.madre || c.all[0])?.numero_titolo || null;
+      const head = c.madre || c.all[0];
+      const madreNum = head?.numero_titolo || null;
+      const madreId = head?.id || null;
+      const totale = c.all.length;
       c.rate.forEach((r: any, i: number) => {
-        if (matchTitolo(r)) out.push({ rata: r, madreNum, idx: i + 2 });
+        if (matchTitolo(r)) out.push({ rata: r, madreNum, madreId, idx: i + 2, totale });
       });
     });
     return out;
@@ -1190,19 +1195,11 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
       {/* Toolbar: filtro Tipo (solo se non in mode fisso) + mini-KPI */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {mode ? <div /> : (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Tipo:</span>
-            <Select value={filtroTipo} onValueChange={(v) => setFiltroTipoState(v as "tutti" | "polizze" | "quietanze")}>
-              <SelectTrigger className="h-8 w-[210px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tutti">Polizze + Quietanze</SelectItem>
-                <SelectItem value="polizze">Solo polizze</SelectItem>
-                <SelectItem value="quietanze">Solo quietanze</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <TipoFilterSegmented
+            value={filtroTipo}
+            onChange={(v) => setFiltroTipoState(v)}
+            counts={{ tutti: allPol.length + allQuiet.length, polizze: allPol.length, quietanze: allQuiet.length }}
+          />
         )}
         <div className="text-xs text-muted-foreground">
           <span className="font-medium text-foreground">{allPol.length}</span> polizze ·{" "}
@@ -1301,12 +1298,30 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                 </TableCell>
               </TableRow>
             ) : (
-              flatQuietanze.map(({ rata: r, madreNum, idx }) => (
-                <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => navigate(`/titoli/${r.id}`)}>
+              flatQuietanze.map(({ rata: r, madreNum, madreId, idx, totale }) => (
+                <TableRow
+                  key={r.id}
+                  className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/40 hover:bg-quietanza-soft/70"
+                  onClick={() => navigate(`/titoli/${r.id}`)}
+                >
                   <TableCell></TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
-                  <TableCell><Badge variant="secondary">Quietanza {idx}</Badge></TableCell>
-                  <TableCell className="font-mono text-xs">{madreNum || "—"}</TableCell>
+                  <TableCell><TipoPolizzaBadge tipo="quietanza" numero={idx} totale={totale} /></TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {madreId ? (
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 font-mono text-xs text-polizza hover:underline"
+                        onClick={() => navigate(`/titoli/${madreId}`)}
+                      >
+                        {madreNum || "—"}
+                      </Button>
+                    ) : (
+                      <span className="font-mono text-xs text-muted-foreground">{madreNum || "—"}</span>
+                    )}
+                  </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
 
@@ -1342,16 +1357,21 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
               const isOpen = !!expanded[c.numero];
               const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
               const ramo = head.ramo?.descrizione || "—";
+              const totale = c.all.length;
 
               const agenzia = head.compagnia_diretta?.nome || "—";
               return (
                 <>
-                  <TableRow key={c.numero} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/titoli/${head.id}`)}>
+                  <TableRow
+                    key={c.numero}
+                    className="cursor-pointer border-l-4 border-l-polizza hover:bg-muted/50"
+                    onClick={() => navigate(`/titoli/${head.id}`)}
+                  >
                     <TableCell onClick={(e) => { e.stopPropagation(); if (showRate) toggle(c.numero); }}>
                       {showRate ? (isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />) : null}
                     </TableCell>
                     <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
-                    <TableCell><Badge variant="outline">Polizza</Badge></TableCell>
+                    <TableCell><TipoPolizzaBadge tipo="polizza" /></TableCell>
                     <TableCell className="text-muted-foreground">—</TableCell>
                     <TableCell>{gruppoRamo}</TableCell>
                     <TableCell>{ramo}</TableCell>
@@ -1379,11 +1399,28 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                     )}
                   </TableRow>
                   {showRate && isOpen && c.rate.map((r, i) => (
-                    <TableRow key={r.id} className="cursor-pointer bg-muted/20 hover:bg-muted/40" onClick={() => navigate(`/titoli/${r.id}`)}>
+                    <TableRow
+                      key={r.id}
+                      className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/30 hover:bg-quietanza-soft/60"
+                      onClick={() => navigate(`/titoli/${r.id}`)}
+                    >
                       <TableCell></TableCell>
-                      <TableCell className="pl-8 font-mono text-xs text-muted-foreground">↳ {r.numero_titolo || "—"}</TableCell>
-                      <TableCell><Badge variant="secondary">Quietanza {i + 2}</Badge></TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{head.numero_titolo || "—"}</TableCell>
+                      <TableCell className="pl-8 font-mono text-xs text-muted-foreground">
+                        <span className="text-quietanza/70 mr-1">└</span>
+                        {r.numero_titolo || "—"}
+                      </TableCell>
+                      <TableCell><TipoPolizzaBadge tipo="quietanza" numero={i + 2} totale={totale} /></TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 font-mono text-xs text-polizza hover:underline"
+                          onClick={() => navigate(`/titoli/${head.id}`)}
+                        >
+                          {head.numero_titolo || "—"}
+                        </Button>
+                      </TableCell>
                       <TableCell className="text-muted-foreground text-xs">{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">{r.ramo?.descrizione || "—"}</TableCell>
 

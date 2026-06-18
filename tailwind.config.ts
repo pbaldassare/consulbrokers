@@ -77,6 +77,16 @@ export default {
           "teal-border": "hsl(var(--kpi-teal-border))",
           "teal-text": "hsl(var(--kpi-teal-text))",
         },
+        polizza: {
+          DEFAULT: "hsl(var(--polizza))",
+          foreground: "hsl(var(--polizza-foreground))",
+          soft: "hsl(var(--polizza-soft))",
+        },
+        quietanza: {
+          DEFAULT: "hsl(var(--quietanza))",
+          foreground: "hsl(var(--quietanza-foreground))",
+          soft: "hsl(var(--quietanza-soft))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
