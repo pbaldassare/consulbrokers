@@ -92,8 +92,9 @@ export default function SinistroAperturaWizardPage() {
     defaultValues: {
       titolo_id: "",
       data_evento: "",
-      data_denuncia: "",
+      data_denuncia: new Date().toISOString().slice(0, 10),
       tipo_sinistro: "",
+      tipo_sinistro_personalizzato: "",
       numero_sinistro_compagnia: "",
       descrizione: "",
       luogo_sinistro: "",
