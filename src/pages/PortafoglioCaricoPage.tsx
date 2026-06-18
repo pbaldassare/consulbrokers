@@ -275,11 +275,23 @@ const PortafoglioCaricoPage = () => {
   const annullaIncasso = useCallback(async (titoloId: string) => {
     setLoadingIds(prev => new Set(prev).add(titoloId));
     try {
+      // Cascade su provvigioni / movimenti / compensazioni / anticipi (helper condiviso)
       const res = await annullaMessaACassa(titoloId);
       if (!res.ok) {
         toast.error(res.error || "Operazione fallita");
         return;
       }
+      // Native: resetta lo stato di incasso sulla quietanza
+      await (supabase.from("quietanze") as any).update({
+        stato: "da_incassare",
+        data_messa_cassa: null,
+        data_pagamento: null,
+        data_incasso: null,
+        importo_incassato: null,
+        tipo_incasso: null,
+        conto_incasso: null,
+      }).eq("titolo_id", titoloId);
+
       toast.success(
         `Incasso annullato (${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov. rimossi)`
       );
