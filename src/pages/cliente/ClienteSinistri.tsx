@@ -345,15 +345,29 @@ export default function ClienteSinistri() {
 
       {/* Table */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Elenco Sinistri</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+          <CardTitle className="text-base">Elenco Sinistri</CardTitle>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{selectedIds.size} selezionati</span>
+            <Button size="sm" variant="outline" disabled={!selectedIds.size || exporting} onClick={() => handleExport("selected")} className="gap-1.5">
+              <Download className="h-4 w-4" /> Esporta selezionati
+            </Button>
+            <Button size="sm" disabled={!filteredSinistri.length || exporting} onClick={() => handleExport("filtered")} className="gap-1.5">
+              <Download className="h-4 w-4" /> Esporta tutti ({filteredSinistri.length})
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent>
-          {sinistri.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Nessun sinistro presente</p>
+          {filteredSinistri.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Nessun sinistro corrisponde ai filtri</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
+                    <TableHead className="w-8 px-2">
+                      <Checkbox checked={allFilteredSelected} onCheckedChange={toggleSelectAll} aria-label="Seleziona tutti" />
+                    </TableHead>
                     <TableHead className="w-8"></TableHead>
                     <TableHead>N. Sinistro</TableHead>
                     <TableHead>Garanzia</TableHead>
@@ -366,13 +380,16 @@ export default function ClienteSinistri() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sinistri.map((s: any) => (
+                  {filteredSinistri.map((s: any) => (
                     <>
                       <TableRow
                         key={s.id}
                         className="cursor-pointer hover:bg-muted/30 transition-colors"
                         onClick={() => toggleExpand(s.id)}
                       >
+                        <TableCell className="w-8 px-2" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox checked={selectedIds.has(s.id)} onCheckedChange={() => toggleSelect(s.id)} aria-label="Seleziona" />
+                        </TableCell>
                         <TableCell className="w-8 px-2">
                           {expandedId === s.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                         </TableCell>
