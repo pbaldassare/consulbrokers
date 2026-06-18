@@ -78,6 +78,7 @@ export default function SinistroAperturaWizardPage() {
   const [polizzaSearchText, setPolizzaSearchText] = useState("");
   const [polizzeList, setPolizzeList] = useState<any[]>([]);
   const [polizzeLoading, setPolizzeLoading] = useState(false);
+  const [soloMadri, setSoloMadri] = useState(true);
 
   // Stato ricerca cliente (Step 1)
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
@@ -112,23 +113,26 @@ export default function SinistroAperturaWizardPage() {
   const preselectedClienteId = searchParams.get('cliente_id');
 
   // Carica polizze (titoli + CGA) per un cliente
-  const loadPolizzeForCliente = async (clienteId: string) => {
+  const loadPolizzeForCliente = async (clienteId: string, opts?: { soloMadri?: boolean }) => {
+    const onlyMothers = opts?.soloMadri ?? soloMadri;
     setPolizzeLoading(true);
     try {
+      let titQuery = supabase.from('titoli')
+        .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, sostituisce_polizza, data_decorrenza, data_scadenza,
+          prodotti(nome_prodotto, compagnie(id, nome)),
+          clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
+        .eq('cliente_anagrafica_id', clienteId)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (onlyMothers) titQuery = titQuery.is('sostituisce_polizza', null);
+
       const [titRes, cgaRes] = await Promise.all([
-        supabase.from('titoli')
-          .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id,
-            prodotti(nome_prodotto, compagnie(id, nome)),
-            clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
-          .eq('stato', 'attivo')
-          .eq('cliente_anagrafica_id', clienteId)
-          .is('sostituisce_polizza', null)
-          .limit(100),
+        titQuery,
         supabase.from('polizza_cga')
           .select(`id, numero_polizza, data_decorrenza, premio_lordo_totale, cliente_id, prodotti_cga(nome_prodotto, compagnia, ramo)`)
           .eq('stato', 'approvato')
           .eq('cliente_id', clienteId)
-          .limit(100),
+          .limit(200),
       ]);
       const fromTitoli = (titRes.data ?? []).map((t: any) => ({ ...t, _isCga: false }));
       const fromCga = (cgaRes.data ?? []).map((c: any) => ({
@@ -144,16 +148,9 @@ export default function SinistroAperturaWizardPage() {
         clienti: null,
         _isCga: true,
       }));
-      // Dedup difensivo per numero_titolo (tiene la più recente)
-      const merged = [...fromTitoli, ...fromCga];
-      const seen = new Set<string>();
-      const dedup = merged.filter((p: any) => {
-        const key = `${p._isCga ? 'cga' : 'tit'}:${(p.numero_titolo || '').trim()}`;
-        if (!p.numero_titolo || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      setPolizzeList(dedup.slice(0, 50));
+      // Nessuna deduplica: mostriamo tutte le occorrenze (polizze madri + quietanze se "Tutte")
+      const merged = [...fromTitoli, ...fromCga].filter((p: any) => p.numero_titolo);
+      setPolizzeList(merged);
     } finally {
       setPolizzeLoading(false);
     }
@@ -572,18 +569,31 @@ export default function SinistroAperturaWizardPage() {
                 {/* 2) Selezione polizza del cliente */}
                 {selectedClienteId && (
                   <div className="space-y-2">
-                    <Label>Polizza del cliente {polizzeLoading && <span className="text-xs text-muted-foreground">(caricamento...)</span>}</Label>
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <Label>Polizza del cliente {polizzeLoading && <span className="text-xs text-muted-foreground">(caricamento...)</span>}</Label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+                        <Checkbox
+                          checked={soloMadri}
+                          onCheckedChange={(c) => {
+                            const v = !!c;
+                            setSoloMadri(v);
+                            if (selectedClienteId) loadPolizzeForCliente(selectedClienteId, { soloMadri: v });
+                          }}
+                        />
+                        <span>{soloMadri ? "Solo madri" : "Tutte le polizze (incluse quietanze)"}</span>
+                      </label>
+                    </div>
                     {polizzeList.length === 0 && !polizzeLoading ? (
                       <p className="text-sm text-muted-foreground p-3 border rounded-lg bg-muted/30">
-                        Nessuna polizza attiva trovata per questo cliente. Puoi proseguire senza collegare una polizza.
+                        Nessuna polizza trovata per questo cliente. Puoi proseguire senza collegare una polizza.
                       </p>
                     ) : (
                       <SearchableSelect
                         options={polizzeList.map((p: any) => ({
                           value: p.id,
-                          label: p.numero_titolo,
-                          description: `${p.prodotti?.nome_prodotto || "—"}${p.prodotti?.compagnie?.nome ? " · " + p.prodotti.compagnie.nome : ""}`,
-                          searchText: `${p.numero_titolo} ${p.prodotti?.nome_prodotto || ""}`,
+                          label: `${p.numero_titolo}${p.sostituisce_polizza ? " (quietanza)" : ""}`,
+                          description: `${p.prodotti?.nome_prodotto || "—"}${p.prodotti?.compagnie?.nome ? " · " + p.prodotti.compagnie.nome : ""}${p.stato ? " · " + p.stato : ""}${p.data_decorrenza ? " · dec. " + p.data_decorrenza : ""}`,
+                          searchText: `${p.numero_titolo} ${p.prodotti?.nome_prodotto || ""} ${p.stato || ""}`,
                         }))}
                         value={watchTitoloId ?? ""}
                         onValueChange={(val) => {
