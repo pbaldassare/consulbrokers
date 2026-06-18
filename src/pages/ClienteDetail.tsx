@@ -1215,7 +1215,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
             value={filtroGruppoRamo}
             onValueChange={(v) => { setFiltroGruppoRamo(v); setFiltroGaranzia(""); }}
             placeholder="Tutti"
-            allowClear
+            clearable
             className="h-8 w-[180px]"
           />
         </div>
@@ -1226,7 +1226,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
             value={filtroGaranzia}
             onValueChange={setFiltroGaranzia}
             placeholder="Tutte"
-            allowClear
+            clearable
             className="h-8 w-[200px]"
           />
         </div>
@@ -1237,7 +1237,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
             value={filtroAgenzia}
             onValueChange={setFiltroAgenzia}
             placeholder="Tutte"
-            allowClear
+            clearable
             className="h-8 w-[180px]"
           />
         </div>
@@ -1248,7 +1248,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
             value={filtroStato}
             onValueChange={setFiltroStato}
             placeholder="Tutti"
-            allowClear
+            clearable
             className="h-8 w-[140px]"
           />
         </div>
