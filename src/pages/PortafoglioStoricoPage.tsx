@@ -19,6 +19,9 @@ import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti
 import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
+import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
+import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
+import { rowBorderClass, isQuietanzaRow, displayStatoPolizza } from "@/lib/polizzeDisplay";
 
 const rowHref = (p: any) =>
   p?.sostituisce_polizza
