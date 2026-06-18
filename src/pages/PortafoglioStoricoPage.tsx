@@ -19,6 +19,12 @@ import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti
 import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
+
+const rowHref = (p: any) =>
+  p?.sostituisce_polizza
+    ? `/quietanze/${p.quietanza_id}`
+    : `/polizze/${p.polizza_id}`;
+
 const PortafoglioStoricoPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
