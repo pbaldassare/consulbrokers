@@ -29,6 +29,9 @@ import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer"
 import { Wallet, Shield } from "lucide-react";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
+import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
+import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
+import { rowBorderClass, isQuietanzaRow, displayStatoPolizza } from "@/lib/polizzeDisplay";
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 const rowHref = (p: any) =>
   p?.sostituisce_polizza
