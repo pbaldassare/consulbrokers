@@ -708,7 +708,7 @@ const GestionePolizzePage = () => {
 
           <PolizzaSection title={`3. Risultati — ${operazione.label}`} icon={operazione.icon} defaultOpen>
             <div className="mb-3 text-sm text-muted-foreground bg-teal-50 border border-teal-200 rounded-md px-3 py-2">
-              👉 Trova la polizza nella tabella e clicca <strong>"Esegui {operazione.label}"</strong> sulla riga
+              👉 Trova la polizza nella tabella e clicca <strong>"{operazione.key === "appendice" ? "Crea" : "Esegui"} {operazione.label}"</strong> sulla riga
               (colonna a destra, sempre visibile) per aprire il dialog e salvare l'operazione in database.
             </div>
             <Card>
@@ -853,7 +853,7 @@ const GestionePolizzePage = () => {
                               className="gap-1 bg-teal-700 hover:bg-teal-800 text-white font-semibold shadow-sm"
                             >
                               <operazione.icon className="w-3.5 h-3.5" />
-                              Esegui {operazione.label}
+                              {operazione.key === "appendice" ? "Crea" : "Esegui"} {operazione.label}
                             </Button>
                           </TableCell>
                         </TableRow>
