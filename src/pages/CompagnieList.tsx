@@ -1721,9 +1721,8 @@ const CompagnieList = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="provvigioni" className="mt-4">
-          <ProvvigioniRapportiTab />
-        </TabsContent>
+
+
 
 
       </Tabs>
