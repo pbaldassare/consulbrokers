@@ -1338,7 +1338,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
             filteredCatene.map((c) => {
               const head = c.madre || c.all[0];
               const hasRate = c.rate.length > 0;
-              const showRate = false;
+              const showRate = filtroTipo === "tutti" && hasRate;
               const isOpen = !!expanded[c.numero];
               const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
               const ramo = head.ramo?.descrizione || "—";
@@ -1352,8 +1352,10 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                     </TableCell>
                     <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
                     <TableCell><Badge variant="outline">Polizza</Badge></TableCell>
+                    <TableCell className="text-muted-foreground">—</TableCell>
                     <TableCell>{gruppoRamo}</TableCell>
                     <TableCell>{ramo}</TableCell>
+
 
                     <TableCell>{agenzia}</TableCell>
                     <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
