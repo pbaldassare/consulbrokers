@@ -1319,7 +1319,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
               ))
             )
           ) : (
-            catene.map((c) => {
+            filteredCatene.map((c) => {
               const head = c.madre || c.all[0];
               const hasRate = c.rate.length > 0;
               const showRate = filtroTipo === "tutti" && hasRate;
