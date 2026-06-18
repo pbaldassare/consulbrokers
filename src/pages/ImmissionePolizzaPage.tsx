@@ -317,6 +317,9 @@ const ImmissionePolizzaPage = () => {
   const [selectedRapportoId, setSelectedRapportoId] = useState<string>("");
   const [selectedRamo, setSelectedRamo] = useState("");
   const [selectedGruppoRamoId, setSelectedGruppoRamoId] = useState<string | null>(null);
+  /** Sottoramo di default proposto nelle nuove righe garanzia (Firma + Quietanza). */
+  const [defaultSottoramoId, setDefaultSottoramoId] = useState<string | null>(null);
+
   const [prodottoNome, setProdottoNome] = useState("");
   // 'specialist' hardcoded state rimosso: ora si usa solo selectedBackofficeId
   
