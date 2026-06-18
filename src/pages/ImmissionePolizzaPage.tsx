@@ -2557,6 +2557,8 @@ const ImmissionePolizzaPage = () => {
                 <PremiGaranziaCardShell
                   tipoPremio="firma"
                   gruppoRamoId={selectedGruppoRamoId}
+                  defaultSottoramoId={defaultSottoramoId}
+
                   rows={premiFirmaRows}
                   onRowsChange={(next) => {
                     setPremiFirmaRows(next);
@@ -2589,6 +2591,8 @@ const ImmissionePolizzaPage = () => {
                 <PremiGaranziaCardShell
                   tipoPremio="quietanza"
                   gruppoRamoId={selectedGruppoRamoId}
+                  defaultSottoramoId={defaultSottoramoId}
+
                   rows={premiQuietanzaRows}
                   onRowsChange={(next) => {
                     setPremiQuietanzaRows((prev) => markQuietanzaEdits(prev, next));
