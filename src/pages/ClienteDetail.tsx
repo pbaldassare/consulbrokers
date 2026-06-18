@@ -1026,10 +1026,10 @@ Consulbrokers S.r.l.`;
   );
 }
 
-function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: (to: string) => void }) {
+function PolizzeClienteTable({ polizze, navigate, mode = "polizze" }: { polizze: any[]; navigate: (to: string) => void; mode?: "polizze" | "quietanze" }) {
   const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
+  const filtroTipo: "tutti" | "polizze" | "quietanze" = mode === "quietanze" ? "quietanze" : "polizze";
   const [filtroNumero, setFiltroNumero] = useState("");
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string>("");
   const [filtroGaranzia, setFiltroGaranzia] = useState<string>("");
