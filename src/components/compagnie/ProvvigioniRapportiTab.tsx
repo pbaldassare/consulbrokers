@@ -33,13 +33,23 @@ const LS_KEY = "provv-rapporti-ui-v1";
 type FilterStato = "all" | "configured" | "missing" | "only_default";
 
 
-export default function ProvvigioniRapportiTab() {
+type Props = {
+  /** Se valorizzato, il componente si "blocca" su un singolo rapporto:
+   *  nasconde l'elenco rapporti, il selettore prev/next e non persiste su localStorage. */
+  fixedRapportoId?: string;
+};
+
+export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) {
   const qc = useQueryClient();
-  // Stato UI (con persistenza localStorage)
+  const isFixed = !!fixedRapportoId;
+  // Stato UI (con persistenza localStorage solo in modalità globale)
   const persisted = useMemo(() => {
+    if (isFixed) return {} as any;
     try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return {}; }
-  }, []);
-  const [rapportoId, setRapportoId] = useState<string>(persisted.rapportoId || "");
+  }, [isFixed]);
+  const [rapportoIdState, setRapportoIdState] = useState<string>(persisted.rapportoId || "");
+  const rapportoId = isFixed ? (fixedRapportoId as string) : rapportoIdState;
+  const setRapportoId = (v: string) => { if (!isFixed) setRapportoIdState(v); };
   const [pasteOpen, setPasteOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -49,10 +59,11 @@ export default function ProvvigioniRapportiTab() {
   const [bulkConfirm, setBulkConfirm] = useState<{ kind: "apply" | "reset"; gruppoId: string; perc?: number; overwrite?: boolean } | null>(null);
 
   useEffect(() => {
+    if (isFixed) return;
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({ rapportoId, filterStato, expanded }));
     } catch {}
-  }, [rapportoId, filterStato, expanded]);
+  }, [isFixed, rapportoId, filterStato, expanded]);
 
 
   // Rapporti elenco
