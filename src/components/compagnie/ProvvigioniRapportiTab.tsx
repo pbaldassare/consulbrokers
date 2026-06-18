@@ -400,6 +400,16 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
               </span>
             </AccordionTrigger>
             <AccordionContent>
+        {!isFixed && (
+        <Accordion type="single" collapsible>
+          <AccordionItem value="elenco" className="border rounded-md px-3">
+            <AccordionTrigger className="text-sm font-medium hover:no-underline">
+              <span className="flex items-center gap-2">
+                <Percent className="w-4 h-4" />
+                Elenco Agenzie e provvigioni attive ({rapporti.length})
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
               <div className="pb-2 overflow-x-auto">
                 <Table>
                   <TableHeader>
