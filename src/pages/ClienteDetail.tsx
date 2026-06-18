@@ -1070,7 +1070,9 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
   const matchTitolo = (t: any) => {
     if (filtroNumero) {
       const q = filtroNumero.toLowerCase();
-      if (!String(t.numero_titolo || "").toLowerCase().includes(q)) return false;
+      const num = String(t.numero_titolo || "").toLowerCase();
+      const targa = String(t.targa_telaio || "").toLowerCase();
+      if (!num.includes(q) && !targa.includes(q)) return false;
     }
     if (filtroGruppoRamo && t.ramo?.gruppo_ramo?.descrizione !== filtroGruppoRamo) return false;
     if (filtroGaranzia && t.ramo?.descrizione !== filtroGaranzia) return false;
@@ -1111,6 +1113,10 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
   const allPol = useMemo(() => filteredTitoli.filter((p) => !p.sostituisce_polizza), [filteredTitoli]);
   const totPremio = useMemo(
     () => filteredTitoli.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
+    [filteredTitoli],
+  );
+  const totProvv = useMemo(
+    () => filteredTitoli.reduce((s, p) => s + (Number(p.provvigioni_firma) || 0) + (Number(p.provvigioni_quietanza) || 0), 0),
     [filteredTitoli],
   );
 
@@ -1199,14 +1205,16 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
           <span className="font-medium text-foreground">{allPol.length}</span> polizze ·{" "}
           <span className="font-medium text-foreground">{allQuiet.length}</span> quietanze · totale premio{" "}
           <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
+          {" · "}totale provvigioni{" "}
+          <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
         </div>
       </div>
 
       {/* Filtri di ricerca */}
       <div className="flex flex-wrap items-end gap-2 p-2 rounded-md border bg-muted/30">
         <div className="flex flex-col gap-1">
-          <Label className="text-[10px] text-muted-foreground uppercase">N. Polizza</Label>
-          <Input value={filtroNumero} onChange={(e) => setFiltroNumero(e.target.value)} placeholder="Cerca numero…" className="h-8 w-[160px]" />
+          <Label className="text-[10px] text-muted-foreground uppercase">N. Polizza / Targa</Label>
+          <Input value={filtroNumero} onChange={(e) => setFiltroNumero(e.target.value)} placeholder="Cerca numero o targa…" className="h-8 w-[180px]" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-[10px] text-muted-foreground uppercase">Gruppo Ramo</Label>
@@ -1271,6 +1279,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
 
             <TableHead>Agenzia</TableHead>
             <TableHead>Premio €</TableHead>
+            <TableHead>Provvigioni €</TableHead>
             <TableHead>Stato</TableHead>
             <TableHead>Data Incasso</TableHead>
             {isAdmin && <TableHead className="w-12"></TableHead>}
@@ -1280,7 +1289,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
           {filtroTipo === "quietanze" ? (
             flatQuietanze.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 10 : 9} className="text-center text-sm text-muted-foreground py-6">
+                <TableCell colSpan={isAdmin ? 11 : 10} className="text-center text-sm text-muted-foreground py-6">
                   Nessuna quietanza presente
                 </TableCell>
               </TableRow>
@@ -1298,6 +1307,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
 
                   <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
                   <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
+                  <TableCell className="font-mono">{fmtNum((Number(r.provvigioni_firma)||0) + (Number(r.provvigioni_quietanza)||0))}</TableCell>
                   <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, idx)}</Badge></TableCell>
                   <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
                   {isAdmin && (
@@ -1341,6 +1351,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
 
                     <TableCell>{agenzia}</TableCell>
                     <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
+                    <TableCell className="font-mono">{fmtNum((Number(head.provvigioni_firma)||0) + (Number(head.provvigioni_quietanza)||0))}</TableCell>
                     <TableCell><Badge variant={stateVariant(head.stato)}>{stateLabel("madre", head.stato)}</Badge></TableCell>
                     <TableCell>{head.data_messa_cassa || head.data_incasso || "—"}</TableCell>
                     {isAdmin && (
@@ -1369,6 +1380,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
 
                       <TableCell className="text-muted-foreground text-xs">{r.compagnia_diretta?.nome || "—"}</TableCell>
                       <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
+                      <TableCell className="font-mono">{fmtNum((Number(r.provvigioni_firma)||0) + (Number(r.provvigioni_quietanza)||0))}</TableCell>
                       <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, i + 2)}</Badge></TableCell>
                       <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
                       {isAdmin && (
@@ -1648,7 +1660,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, data_incasso, data_messa_cassa, sostituisce_polizza, garanzia_da, garanzia_a, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome)")
+        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, sostituisce_polizza, garanzia_da, garanzia_a, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome)")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;

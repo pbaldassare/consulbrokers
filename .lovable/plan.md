@@ -1,22 +1,16 @@
-Aggiungo una barra filtri sopra la tabella **Polizze del cliente** in `ClienteDetail.tsx` (componente `PolizzeClienteTable`).
+## Modifiche a `src/pages/ClienteDetail.tsx` — tabella "Polizze del cliente"
 
-## Filtri (in linea, sopra la tabella, accanto al filtro "Tipo" già esistente)
-1. **Cerca N. Polizza** — input testo libero (match su `numero_titolo` della madre e delle quietanze).
-2. **Gruppo Ramo** — `SearchableSelect` con i gruppi presenti nelle polizze del cliente (distinct da `ramo.gruppo_ramo.descrizione`).
-3. **Garanzia** — `SearchableSelect` con le garanzie presenti (distinct da `ramo.descrizione`). Se è selezionato un Gruppo Ramo, la lista mostra solo le garanzie di quel gruppo.
-4. **Agenzia** — `SearchableSelect` con le agenzie distinct da `compagnia_diretta.nome`.
-5. **Stato** — `SearchableSelect` con gli stati distinct (`attivo`, `incassato`, `sospeso`, `scaduto`, `stornato`).
-6. **Bottone "Pulisci filtri"** visibile quando almeno un filtro è attivo.
+Due ritocchi nella sezione `PolizzeClienteTable`:
 
-Tutte le opzioni dei select sono **derivate dinamicamente** dalle polizze caricate (no query aggiuntive).
+### 1. Nuova colonna "Provvigioni €"
+- Estendere la `select` in `queryFn` (riga ~1651) aggiungendo `provvigioni_firma`, `provvigioni_quietanza`, `targa_telaio`.
+- Aggiungere `<TableHead>Provvigioni €</TableHead>` subito dopo `Premio €` (riga ~1273).
+- Per ogni riga (madre e rate, sia nella vista "Solo quietanze" che nella vista standard) aggiungere `<TableCell className="font-mono">{fmtNum((t.provvigioni_firma||0) + (t.provvigioni_quietanza||0))}</TableCell>` accanto a quella del premio.
+- Aggiornare i `colSpan` da `10/9` a `11/10`.
+- Aggiornare il mini-KPI in alto a destra: oltre a "totale premio" aggiungere "totale provvigioni € X.XX" calcolato come `filteredTitoli.reduce((s,p) => s + (Number(p.provvigioni_firma)||0) + (Number(p.provvigioni_quietanza)||0), 0)`.
 
-## Logica
-- Filtri applicati lato client su `catene` (madre + quietanze figlie).
-- Una catena passa il filtro se la **madre** o **almeno una rata** soddisfa tutti i filtri attivi.
-- Il contatore "X polizze · Y quietanze · totale premio €" si aggiorna sui risultati filtrati.
-- Il filtro "Tipo" (Polizze + Quietanze / Solo polizze / Solo quietanze) resta com'è e si combina con i nuovi filtri.
+### 2. Ricerca per Targa nel filtro "N. Polizza"
+- Rinominare label e placeholder del campo `filtroNumero` in "N. Polizza / Targa" e "Cerca numero o targa…".
+- In `matchTitolo` estendere il check: il filtro passa se il testo è contenuto in `numero_titolo` **oppure** in `targa_telaio` (case-insensitive).
 
-## File toccati
-- `src/pages/ClienteDetail.tsx` — solo il componente `PolizzeClienteTable` (stati nuovi, derivazione opzioni, predicate di filtro, render toolbar).
-
-Nessuna modifica a query, schema o altri componenti.
+Nessun'altra modifica: niente DB, niente altri componenti, niente cambi di business logic.
