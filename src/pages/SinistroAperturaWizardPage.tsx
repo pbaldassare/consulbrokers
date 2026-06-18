@@ -647,14 +647,43 @@ export default function SinistroAperturaWizardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="tipo_sinistro">Tipo Sinistro *</Label>
-                    <SearchableSelect
-                      options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
-                      value={watch("tipo_sinistro") || ""}
-                      onValueChange={(val) => setValue("tipo_sinistro", val, { shouldValidate: true })}
-                      placeholder="Seleziona tipo sinistro..."
-                      searchPlaceholder="Cerca tipo..."
-                    />
-                    {errors.tipo_sinistro && <p className="text-xs text-destructive">{errors.tipo_sinistro.message}</p>}
+                    {(watch("tipo_sinistro_personalizzato") || "").length > 0 || watch("tipo_sinistro") === "__custom__" ? (
+                      <Input
+                        id="tipo_sinistro_personalizzato"
+                        placeholder="Descrivi il tipo di sinistro (min 3 caratteri)"
+                        value={watch("tipo_sinistro_personalizzato") || ""}
+                        onChange={(e) => {
+                          setValue("tipo_sinistro_personalizzato", e.target.value, { shouldValidate: true });
+                          setValue("tipo_sinistro", "", { shouldValidate: true });
+                        }}
+                        maxLength={500}
+                      />
+                    ) : (
+                      <SearchableSelect
+                        options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
+                        value={watch("tipo_sinistro") || ""}
+                        onValueChange={(val) => setValue("tipo_sinistro", val, { shouldValidate: true })}
+                        placeholder="Seleziona tipo sinistro..."
+                        searchPlaceholder="Cerca tipo..."
+                      />
+                    )}
+                    <div className="flex items-center gap-2 pt-1">
+                      <Checkbox
+                        id="usa_tipo_personalizzato"
+                        checked={(watch("tipo_sinistro_personalizzato") || "").length > 0 || watch("tipo_sinistro") === "__custom__"}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setValue("tipo_sinistro", "__custom__");
+                          } else {
+                            setValue("tipo_sinistro", "");
+                            setValue("tipo_sinistro_personalizzato", "");
+                          }
+                        }}
+                      />
+                      <Label htmlFor="usa_tipo_personalizzato" className="text-xs font-normal cursor-pointer">
+                        Tipo non in elenco (personalizzato)
+                      </Label>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="numero_sinistro_compagnia">Numero Sinistro Compagnia (opzionale)</Label>
@@ -664,7 +693,7 @@ export default function SinistroAperturaWizardPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="luogo_sinistro">Luogo Accadimento *</Label>
+                    <Label htmlFor="luogo_sinistro">Luogo Accadimento</Label>
                     <AddressAutocomplete
                       value={watch("luogo_sinistro") || ""}
                       onChange={(v) => setValue("luogo_sinistro", v, { shouldValidate: true })}
