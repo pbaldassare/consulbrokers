@@ -1055,7 +1055,7 @@ const ImmissionePolizzaPage = () => {
   const { data: ramiList } = useQuery({
     queryKey: ["rami-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id, ssn_attivo, aliquota_ssn, aliquota_tasse_ramo").eq("attivo", true).order("codice");
+      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id, ssn_attivo, aliquota_ssn, aliquota_tasse_ramo, escludi_provvigioni").eq("attivo", true).order("codice");
       return data || [];
     },
   });
