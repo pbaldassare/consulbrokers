@@ -329,7 +329,7 @@ const GestionePolizzePage = () => {
       let q = supabase
         .from("v_portafoglio_titoli")
         .select(
-          "id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza, cig_rif",
+          "id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, data_messa_cassa, ufficio_id, sostituisce_polizza, cig_rif, is_regolazione, regolazione_quietanza_id",
           { count: "exact" },
         )
         .order(sortBy, { ascending: sortDir === "asc" })
