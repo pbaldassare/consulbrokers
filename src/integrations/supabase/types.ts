@@ -4787,6 +4787,7 @@ export type Database = {
           id: string
           nota_id: string
           prodotto_id: string | null
+          quietanza_id: string | null
           titolo_id: string | null
         }
         Insert: {
@@ -4794,6 +4795,7 @@ export type Database = {
           id?: string
           nota_id: string
           prodotto_id?: string | null
+          quietanza_id?: string | null
           titolo_id?: string | null
         }
         Update: {
@@ -4801,6 +4803,7 @@ export type Database = {
           id?: string
           nota_id?: string
           prodotto_id?: string | null
+          quietanza_id?: string | null
           titolo_id?: string | null
         }
         Relationships: [
@@ -4817,6 +4820,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "prodotti"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_restituzione_dettaglio_quietanza_id_fkey"
+            columns: ["quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "quietanze"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_restituzione_dettaglio_quietanza_id_fkey"
+            columns: ["quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_quietanze"
+            referencedColumns: ["quietanza_id"]
           },
           {
             foreignKeyName: "note_restituzione_dettaglio_titolo_id_fkey"
@@ -5871,6 +5888,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "quietanze"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "premi_garanzia_polizza_quietanza_id_fkey"
+            columns: ["quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_quietanze"
+            referencedColumns: ["quietanza_id"]
           },
           {
             foreignKeyName: "premi_garanzia_polizza_titolo_id_fkey"
@@ -7014,6 +7038,7 @@ export type Database = {
           importo_provvigione: number | null
           pagata: boolean | null
           percentuale: number | null
+          quietanza_id: string | null
           solo_statistico: boolean
           tipo_destinatario: string | null
           titolo_id: string
@@ -7026,6 +7051,7 @@ export type Database = {
           importo_provvigione?: number | null
           pagata?: boolean | null
           percentuale?: number | null
+          quietanza_id?: string | null
           solo_statistico?: boolean
           tipo_destinatario?: string | null
           titolo_id: string
@@ -7038,6 +7064,7 @@ export type Database = {
           importo_provvigione?: number | null
           pagata?: boolean | null
           percentuale?: number | null
+          quietanza_id?: string | null
           solo_statistico?: boolean
           tipo_destinatario?: string | null
           titolo_id?: string
@@ -7050,6 +7077,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "anagrafiche_professionali"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provvigioni_generate_quietanza_id_fkey"
+            columns: ["quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "quietanze"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provvigioni_generate_quietanza_id_fkey"
+            columns: ["quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_quietanze"
+            referencedColumns: ["quietanza_id"]
           },
           {
             foreignKeyName: "provvigioni_generate_titolo_id_fkey"
@@ -7454,22 +7495,39 @@ export type Database = {
         Row: {
           id: string
           importo: number | null
+          quietanza_id: string | null
           rimessa_id: string
           titolo_id: string | null
         }
         Insert: {
           id?: string
           importo?: number | null
+          quietanza_id?: string | null
           rimessa_id: string
           titolo_id?: string | null
         }
         Update: {
           id?: string
           importo?: number | null
+          quietanza_id?: string | null
           rimessa_id?: string
           titolo_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "rimessa_dettaglio_quietanza_id_fkey"
+            columns: ["quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "quietanze"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rimessa_dettaglio_quietanza_id_fkey"
+            columns: ["quietanza_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_quietanze"
+            referencedColumns: ["quietanza_id"]
+          },
           {
             foreignKeyName: "rimessa_dettaglio_rimessa_id_fkey"
             columns: ["rimessa_id"]
@@ -7749,6 +7807,7 @@ export type Database = {
           numero_sinistro: string | null
           numero_sinistro_compagnia: string | null
           perito_id: string | null
+          polizza_id: string | null
           provincia_sinistro: string | null
           ramo_sinistro: string | null
           responsabile_id: string | null
@@ -7790,6 +7849,7 @@ export type Database = {
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
           perito_id?: string | null
+          polizza_id?: string | null
           provincia_sinistro?: string | null
           ramo_sinistro?: string | null
           responsabile_id?: string | null
@@ -7831,6 +7891,7 @@ export type Database = {
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
           perito_id?: string | null
+          polizza_id?: string | null
           provincia_sinistro?: string | null
           ramo_sinistro?: string | null
           responsabile_id?: string | null
@@ -7877,6 +7938,13 @@ export type Database = {
             columns: ["perito_id"]
             isOneToOne: false
             referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sinistri_polizza_id_fkey"
+            columns: ["polizza_id"]
+            isOneToOne: false
+            referencedRelation: "polizze"
             referencedColumns: ["id"]
           },
           {
@@ -9051,6 +9119,8 @@ export type Database = {
           motivo: string | null
           parametri_nuovi: Json
           parametri_precedenti: Json
+          polizza_id: string | null
+          polizza_sostituta_id: string | null
           titolo_conguaglio_id: string | null
           titolo_id: string
         }
@@ -9064,6 +9134,8 @@ export type Database = {
           motivo?: string | null
           parametri_nuovi?: Json
           parametri_precedenti?: Json
+          polizza_id?: string | null
+          polizza_sostituta_id?: string | null
           titolo_conguaglio_id?: string | null
           titolo_id: string
         }
@@ -9077,10 +9149,26 @@ export type Database = {
           motivo?: string | null
           parametri_nuovi?: Json
           parametri_precedenti?: Json
+          polizza_id?: string | null
+          polizza_sostituta_id?: string | null
           titolo_conguaglio_id?: string | null
           titolo_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "titoli_sostituzioni_polizza_id_fkey"
+            columns: ["polizza_id"]
+            isOneToOne: false
+            referencedRelation: "polizze"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_sostituzioni_polizza_sostituta_id_fkey"
+            columns: ["polizza_sostituta_id"]
+            isOneToOne: false
+            referencedRelation: "polizze"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "titoli_sostituzioni_titolo_conguaglio_id_fkey"
             columns: ["titolo_conguaglio_id"]
@@ -9193,6 +9281,7 @@ export type Database = {
           id: string
           importo_rimborsato: number | null
           motivo: string | null
+          polizza_id: string | null
           titolo_id: string
           titolo_storno_id: string | null
         }
@@ -9206,6 +9295,7 @@ export type Database = {
           id?: string
           importo_rimborsato?: number | null
           motivo?: string | null
+          polizza_id?: string | null
           titolo_id: string
           titolo_storno_id?: string | null
         }
@@ -9219,10 +9309,18 @@ export type Database = {
           id?: string
           importo_rimborsato?: number | null
           motivo?: string | null
+          polizza_id?: string | null
           titolo_id?: string
           titolo_storno_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "titoli_storni_polizza_id_fkey"
+            columns: ["polizza_id"]
+            isOneToOne: false
+            referencedRelation: "polizze"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "titoli_storni_titolo_id_fkey"
             columns: ["titolo_id"]
@@ -9850,6 +9948,118 @@ export type Database = {
           uscite: number | null
         }
         Relationships: []
+      }
+      v_portafoglio_quietanze: {
+        Row: {
+          addizionali: number | null
+          ae_anagrafica_id: string | null
+          appendice: string | null
+          appendice_corrente: string | null
+          cig_rif: string | null
+          cliente_anagrafica_id: string | null
+          compagnia_id: string | null
+          conto_incasso: string | null
+          data_competenza: string | null
+          data_incasso: string | null
+          data_messa_cassa: string | null
+          data_pagamento: string | null
+          data_scadenza: string | null
+          descrizione_polizza: string | null
+          durata_a: string | null
+          durata_da: string | null
+          frazionamento: string | null
+          garanzia_a: string | null
+          garanzia_da: string | null
+          importo_incassato: number | null
+          numero_polizza: string | null
+          numero_polizza_snapshot: string | null
+          numero_rata: number | null
+          numero_rate_totali: number | null
+          polizza_id: string | null
+          premio_lordo: number | null
+          premio_netto: number | null
+          produttore_id: string | null
+          provvigioni_firma: number | null
+          provvigioni_quietanza: number | null
+          quietanza_id: string | null
+          ramo_id: string | null
+          regolazione: boolean | null
+          ssn: number | null
+          stato_polizza: Database["public"]["Enums"]["polizza_stato"] | null
+          stato_quietanza: Database["public"]["Enums"]["quietanza_stato"] | null
+          tacito_rinnovo: boolean | null
+          tasse: number | null
+          tipo_incasso: string | null
+          tipo_portafoglio: string | null
+          tipo_riga: string | null
+          titolo_legacy_id: string | null
+          ufficio_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polizze_cliente_anagrafica_id_fkey"
+            columns: ["cliente_anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_ramo_id_fkey"
+            columns: ["ramo_id"]
+            isOneToOne: false
+            referencedRelation: "rami"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quietanze_polizza_id_fkey"
+            columns: ["polizza_id"]
+            isOneToOne: false
+            referencedRelation: "polizze"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quietanze_titolo_id_fkey"
+            columns: ["titolo_legacy_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quietanze_titolo_id_fkey"
+            columns: ["titolo_legacy_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_ae_anagrafica_id_fkey"
+            columns: ["ae_anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_anagrafica_commerciale_id_fkey"
+            columns: ["produttore_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_portafoglio_titoli: {
         Row: {
