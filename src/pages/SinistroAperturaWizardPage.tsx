@@ -144,7 +144,16 @@ export default function SinistroAperturaWizardPage() {
         clienti: null,
         _isCga: true,
       }));
-      setPolizzeList([...fromTitoli, ...fromCga].slice(0, 50));
+      // Dedup difensivo per numero_titolo (tiene la più recente)
+      const merged = [...fromTitoli, ...fromCga];
+      const seen = new Set<string>();
+      const dedup = merged.filter((p: any) => {
+        const key = `${p._isCga ? 'cga' : 'tit'}:${(p.numero_titolo || '').trim()}`;
+        if (!p.numero_titolo || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setPolizzeList(dedup.slice(0, 50));
     } finally {
       setPolizzeLoading(false);
     }
