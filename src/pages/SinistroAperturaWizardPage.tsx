@@ -36,10 +36,11 @@ const wizardSchema = z.object({
   // Step 2
   data_evento: z.string().min(1, "La data accadimento è obbligatoria"),
   data_denuncia: z.string().min(1, "La data denuncia è obbligatoria"),
-  tipo_sinistro: z.string().min(1, "Il tipo sinistro è obbligatorio"),
+  tipo_sinistro: z.string().optional(),
+  tipo_sinistro_personalizzato: z.string().optional(),
   numero_sinistro_compagnia: z.string().optional(),
   descrizione: z.string().min(20, "La descrizione deve contenere almeno 20 caratteri"),
-  luogo_sinistro: z.string().min(1, "Il luogo accadimento è obbligatorio"),
+  luogo_sinistro: z.string().optional(),
   importo_riserva: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().min(0, "L'importo non può essere negativo").optional()),
   
   // Step 3
