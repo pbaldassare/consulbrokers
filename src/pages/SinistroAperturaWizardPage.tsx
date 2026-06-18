@@ -591,9 +591,9 @@ export default function SinistroAperturaWizardPage() {
                       <SearchableSelect
                         options={polizzeList.map((p: any) => ({
                           value: p.id,
-                          label: p.numero_titolo,
-                          description: `${p.prodotti?.nome_prodotto || "—"}${p.prodotti?.compagnie?.nome ? " · " + p.prodotti.compagnie.nome : ""}`,
-                          searchText: `${p.numero_titolo} ${p.prodotti?.nome_prodotto || ""}`,
+                          label: `${p.numero_titolo}${p.sostituisce_polizza ? " (quietanza)" : ""}`,
+                          description: `${p.prodotti?.nome_prodotto || "—"}${p.prodotti?.compagnie?.nome ? " · " + p.prodotti.compagnie.nome : ""}${p.stato ? " · " + p.stato : ""}${p.data_decorrenza ? " · dec. " + p.data_decorrenza : ""}`,
+                          searchText: `${p.numero_titolo} ${p.prodotti?.nome_prodotto || ""} ${p.stato || ""}`,
                         }))}
                         value={watchTitoloId ?? ""}
                         onValueChange={(val) => {
