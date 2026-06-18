@@ -19,6 +19,12 @@ import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti
 import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
+
+const rowHref = (p: any) =>
+  p?.sostituisce_polizza
+    ? `/quietanze/${p.quietanza_id}`
+    : `/polizze/${p.polizza_id}`;
+
 const PortafoglioStoricoPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -67,7 +73,7 @@ const PortafoglioStoricoPage = () => {
     queryKey: ["portafoglio-storico", search, filtroCompagnia, filterRamoIds, filtroStato, filtroTipo, page, today],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_quietanze").select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id, sostituisce_polizza, is_regolazione, regolazione_quietanza_id",
+        "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id, sostituisce_polizza, is_regolazione, regolazione_quietanza_id",
         { count: "exact" }
       );
       q = buildFilter(q);
@@ -224,7 +230,7 @@ const PortafoglioStoricoPage = () => {
                   <TableRow
                     key={p.id}
                     className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : idx % 2 === 1 ? "bg-muted/30" : ""}`}
-                    onClick={() => navigate(`/titoli/${p.id}`)}
+                    onClick={() => navigate(rowHref(p))}
                   >
                     <TableCell className="font-medium">
                       {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
@@ -278,7 +284,7 @@ const PortafoglioStoricoPage = () => {
                         title="Apri dettaglio (sola consultazione)"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/titoli/${p.id}`);
+                          navigate(rowHref(p));
                         }}
                       >
                         <Eye className="h-4 w-4" />

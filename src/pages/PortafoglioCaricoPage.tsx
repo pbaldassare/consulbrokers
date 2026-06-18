@@ -30,6 +30,10 @@ import { Wallet, Shield } from "lucide-react";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
+const rowHref = (p: any) =>
+  p?.sostituisce_polizza
+    ? `/quietanze/${p.quietanza_id}`
+    : `/polizze/${p.polizza_id}`;
 
 const PortafoglioCaricoPage = () => {
   const navigate = useNavigate();
@@ -158,7 +162,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, dateDa, dateA, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_quietanze").select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, regolazione_quietanza_id",
+        "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, regolazione_quietanza_id",
         { count: "exact" }
       );
       q = applyPeriodoFilter(q);
@@ -213,7 +217,7 @@ const PortafoglioCaricoPage = () => {
     queryFn: async () => {
       let q = supabase
         .from("v_portafoglio_quietanze")
-        .select("id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza")
+        .select("id, quietanza_id, polizza_id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza")
         .eq("stato", "in_attesa_rinnovo");
       q = applyDateRange(q, "data_scadenza");
       const { data } = await q.order("data_scadenza", { ascending: true });
@@ -234,25 +238,25 @@ const PortafoglioCaricoPage = () => {
     const today = todayStr();
     setLoadingIds(prev => new Set(prev).add(titoloId));
     try {
-      const { error } = await supabase.from("titoli").update({
+      // Native: scriviamo sulla quietanza (entità nativa). Il trigger DB cura il riallineamento del titolo legacy.
+      const { error } = await (supabase.from("quietanze") as any).update({
         stato: "incassato",
         data_incasso: today,
         data_messa_cassa: today,
         data_pagamento: today,
-        data_decorrenza_rinnovo: today,
         importo_incassato: premioLordo ?? null,
-      }).eq("id", titoloId);
+      }).eq("titolo_id", titoloId);
 
       if (error) throw error;
 
       await logAttivita({
         azione: "messa_a_cassa",
-        entita_tipo: "titolo",
+        entita_tipo: "quietanza",
         entita_id: titoloId,
-        dettagli_json: { data_messa_cassa: today, data_pagamento: today, data_decorrenza_rinnovo: today },
+        dettagli_json: { data_messa_cassa: today, data_pagamento: today },
       });
 
-      // Genera provvigioni automaticamente
+      // Genera provvigioni automaticamente (edge function lavora su titolo_id legacy)
       supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: titoloId } }).catch(() => {});
       // Notifica formale all'agenzia/rapporto
       supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: titoloId } }).catch(() => {});
@@ -275,11 +279,23 @@ const PortafoglioCaricoPage = () => {
   const annullaIncasso = useCallback(async (titoloId: string) => {
     setLoadingIds(prev => new Set(prev).add(titoloId));
     try {
+      // Cascade su provvigioni / movimenti / compensazioni / anticipi (helper condiviso)
       const res = await annullaMessaACassa(titoloId);
       if (!res.ok) {
         toast.error(res.error || "Operazione fallita");
         return;
       }
+      // Native: resetta lo stato di incasso sulla quietanza
+      await (supabase.from("quietanze") as any).update({
+        stato: "da_incassare",
+        data_messa_cassa: null,
+        data_pagamento: null,
+        data_incasso: null,
+        importo_incassato: null,
+        tipo_incasso: null,
+        conto_incasso: null,
+      }).eq("titolo_id", titoloId);
+
       toast.success(
         `Incasso annullato (${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov. rimossi)`
       );
@@ -308,14 +324,14 @@ const PortafoglioCaricoPage = () => {
     const today = todayStr();
     let ok = 0, ko = 0;
     for (const p of selectedAttive) {
-      const { error } = await supabase.from("titoli").update({
+      // Native write: aggiorniamo la quietanza per titolo_id legacy
+      const { error } = await (supabase.from("quietanze") as any).update({
         stato: "incassato",
         data_incasso: today,
         data_messa_cassa: today,
         data_pagamento: today,
-        data_decorrenza_rinnovo: today,
         importo_incassato: p.premio_lordo ?? null,
-      }).eq("id", p.id);
+      }).eq("titolo_id", p.id);
       if (error) ko++; else {
         ok++;
         // Genera provvigioni per ogni polizza messa a cassa
@@ -328,7 +344,7 @@ const PortafoglioCaricoPage = () => {
     if (ok > 0) {
       await logAttivita({
         azione: "messa_a_cassa_massiva",
-        entita_tipo: "titolo",
+        entita_tipo: "quietanza",
         entita_id: "batch",
         dettagli_json: { messe_a_cassa: ok, errori: ko },
       });
@@ -543,7 +559,7 @@ const PortafoglioCaricoPage = () => {
                   <TableRow
                     key={p.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => { setPendingDialogOpen(false); navigate(`/titoli/${p.id}`); }}
+                    onClick={() => { setPendingDialogOpen(false); navigate(rowHref(p)); }}
                   >
                     <TableCell className="font-mono text-sm">{p.numero_titolo}</TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
@@ -665,7 +681,7 @@ const PortafoglioCaricoPage = () => {
                     <TableRow
                       key={p.id}
                       className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : ""}`}
-                      onClick={() => navigate(`/titoli/${p.id}`)}
+                      onClick={() => navigate(rowHref(p))}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
