@@ -20,7 +20,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { FilePlus, Search, ArrowLeft, ArrowRight, Trash2, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
-import { TIPI_SINISTRO } from "@/lib/tipiSinistro";
+import { TIPI_SINISTRO, formatTipoSinistro } from "@/lib/tipiSinistro";
+import { Checkbox } from "@/components/ui/checkbox";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const DRAFT_KEY = "sinistri:apertura:bozza";
