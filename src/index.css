@@ -153,6 +153,14 @@
     --badge-orange-fg: 0 0% 100%;
     --badge-yellow-bg: 45 70% 45%;
     --badge-yellow-fg: 0 0% 100%;
+
+    /* Polizza vs Quietanza (dark) */
+    --polizza: 173 70% 45%;
+    --polizza-foreground: 0 0% 100%;
+    --polizza-soft: 173 40% 16%;
+    --quietanza: 38 85% 55%;
+    --quietanza-foreground: 38 30% 10%;
+    --quietanza-soft: 38 35% 14%;
   }
 
 }
