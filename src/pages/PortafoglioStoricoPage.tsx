@@ -26,7 +26,7 @@ const PortafoglioStoricoPage = () => {
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [filtroStato, setFiltroStato] = useState("tutti");
-  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
+  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze" | "regolazioni">("tutti");
   const { data: ramiAll = [] } = useRamiAll();
   const { ramoIds: filterRamoIds } = expandRamoFilter(filtroGruppoRamo, filtroRamo, ramiAll);
   const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroCompagnia, filtroGruppoRamo, filtroRamo, filtroStato, filtroTipo]);
