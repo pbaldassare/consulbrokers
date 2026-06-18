@@ -625,17 +625,11 @@ const PortafoglioCaricoPage = () => {
           <ToggleGroupItem value="messe_cassa" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Messe a Cassa</ToggleGroupItem>
           <ToggleGroupItem value="tutte" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Tutte</ToggleGroupItem>
         </ToggleGroup>
-        <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Polizze + Quietanze + Reg.</SelectItem>
-            <SelectItem value="polizze">Solo polizze</SelectItem>
-            <SelectItem value="quietanze">Solo quietanze</SelectItem>
-            <SelectItem value="regolazioni">Solo regolazioni</SelectItem>
-          </SelectContent>
-        </Select>
+        <TipoFilterSegmented
+          value={filtroTipo}
+          onChange={(v) => { setFiltroTipo(v); setPage(0); }}
+          withRegolazioni
+        />
         {hasActiveFilters && (
           <Button variant="outline" size="sm" onClick={resetFilters} className="gap-1">
             <RotateCcw className="h-3.5 w-3.5" />
