@@ -569,10 +569,23 @@ export default function SinistroAperturaWizardPage() {
                 {/* 2) Selezione polizza del cliente */}
                 {selectedClienteId && (
                   <div className="space-y-2">
-                    <Label>Polizza del cliente {polizzeLoading && <span className="text-xs text-muted-foreground">(caricamento...)</span>}</Label>
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <Label>Polizza del cliente {polizzeLoading && <span className="text-xs text-muted-foreground">(caricamento...)</span>}</Label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+                        <Checkbox
+                          checked={soloMadri}
+                          onCheckedChange={(c) => {
+                            const v = !!c;
+                            setSoloMadri(v);
+                            if (selectedClienteId) loadPolizzeForCliente(selectedClienteId, { soloMadri: v });
+                          }}
+                        />
+                        <span>{soloMadri ? "Solo madri" : "Tutte le polizze (incluse quietanze)"}</span>
+                      </label>
+                    </div>
                     {polizzeList.length === 0 && !polizzeLoading ? (
                       <p className="text-sm text-muted-foreground p-3 border rounded-lg bg-muted/30">
-                        Nessuna polizza attiva trovata per questo cliente. Puoi proseguire senza collegare una polizza.
+                        Nessuna polizza trovata per questo cliente. Puoi proseguire senza collegare una polizza.
                       </p>
                     ) : (
                       <SearchableSelect
