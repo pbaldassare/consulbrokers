@@ -1,39 +1,39 @@
-## Obiettivo
-Quando dal portale cliente si clicca su una polizza in `/cliente/polizze`, aprire una pagina di dettaglio completa con tutti i "dati generali" della polizza (oggi `ClientePolizzaDetail.tsx` mostra solo 9 campi base).
+## Filtri + Export Excel sulla pagina Sinistri (Portale Cliente)
 
-## Cosa fare
+### 1. Filtri sopra le card KPI (`src/pages/cliente/ClienteSinistri.tsx`)
+Aggiungere una barra filtri (Card compatta) sopra la griglia KPI con:
+- **Ricerca testo libero**: n° sinistro, n° compagnia, controparte, targa
+- **Stato**: multi-select (in_valutazione, aperto, in_lavorazione, in_attesa_documenti, in_liquidazione, chiuso, respinto) — popolato dinamicamente dai valori presenti
+- **Garanzia / Ramo sinistro**: select da valori distinti
+- **Compagnia**: select dai valori distinti (`compagnie.nome`)
+- **Polizza**: select dai numeri titolo collegati
+- **Provincia / Città**: due select dai distinti `provincia_sinistro` / `citta_sinistro`
+- **Range data evento**: due DatePicker (da / a)
+- **Bottone "Reset filtri"** + counter "X di Y sinistri"
 
-### 1. Arricchire `src/pages/cliente/ClientePolizzaDetail.tsx`
-Mantenere il layout attuale (header verde + card "Dati Polizza" + Documenti + Sinistri) e aggiungere sezioni informative read-only con i campi che il cliente si aspetta di vedere:
+I filtri agiscono client-side sul dataset già caricato (`sinistri`); KPI, grafici e tabella usano la lista filtrata.
 
-- **Anagrafica polizza**
-  - Numero polizza, Compagnia / Agenzia, Ramo / Garanzia, Prodotto, CIG, Targa/Telaio, Stato, Tipo portafoglio, Vincolo, Produttore
+### 2. Selezione righe per export
+- Checkbox in testa tabella ("seleziona tutti i filtrati") + checkbox per riga
+- Stato `selectedIds: Set<string>`
+- Toolbar sopra la tabella mostra "N selezionati" + bottone **"Esporta Excel"** (disabilitato se 0)
+- Se nessuna riga selezionata ma si clicca un secondo bottone **"Esporta tutti i filtrati"**, esporta l'intero risultato filtrato
 
-- **Durata & rinnovo**
-  - Decorrenza (`durata_da`), Scadenza (`durata_a` / `data_scadenza`), Anni durata, Frazionamento (`periodicita`), Tacito rinnovo, Disdetta (mesi), Regolazione, Indicizzata
+### 3. Export Excel con dati polizza completi
+Nuovo handler `handleExport()`:
+1. Per gli ID selezionati, recupera i sinistri (già in memoria) + fetch parallelo polizze:
+   ```ts
+   supabase.from("titoli").select("*, compagnie(nome,codice), rami(codice,descrizione), clienti(...)")
+     .in("id", titoloIds)
+   ```
+2. Costruisce array di righe con **tutte le colonne sinistro** (numero, stato, ramo, date, luogo, importi, controparte, perito, dinamica, note) **+ tutti i campi polizza** rilevanti (numero, compagnia, ramo, prodotto, decorrenza, scadenza, frazionamento, premio netto/tasse/lordo, provv. firma/quietanza, CIG, targa/telaio, vincolo, tacito rinnovo, stato, produttore, ecc.)
+3. Usa `xlsx` (già in deps) per generare workbook con due sheet:
+   - **Sinistri**: una riga per sinistro con tutti i campi sinistro + polizza appaiati
+   - **Polizze**: una riga per polizza unica coinvolta (dettaglio completo)
+4. Download via `XLSX.writeFile(wb, 'sinistri_export_YYYYMMDD.xlsx')`
 
-- **Premio annuo (riferimento)**
-  - Premio netto, Tasse, Addizionali, SSN, Premio lordo, Provv. firma, Provv. quietanza (read-only)
-
-- **Quietanze / rate**
-  - Tabella delle quietanze collegate (rata, decorrenza, scadenza, premio lordo, stato, data incasso) — query su `quietanze` per `titolo_id`/`polizza_id`. Nessuna azione, solo lettura.
-
-- **Stato contratto**
-  - Data sospensione, data riattivazione, data annullamento, motivo annullamento (se valorizzati)
-
-- **Note** (se presenti)
-
-### 2. Query
-Estendere il `select` da `titoli` a `select("*, compagnie(nome, codice), rami(codice, descrizione)")` (già `*` di fatto ok) e aggiungere fetch parallela su `quietanze` filtrata per `titolo_id = id` ordinata per `numero_rata`. Continuare a usare `get_my_cliente_ids` lato lista; il detail è già protetto da RLS cliente.
-
-### 3. Click sulla riga
-La navigazione esiste già (`_detailPath = /cliente/polizze/${t.id}`) ma è implementata con `<Link>` annidati in ogni `<TableCell>`. Sostituire con un singolo handler a livello di `<TableRow>` (`onClick={() => navigate(detailPath)}`) per evitare anomalie di accessibilità e garantire che il click funzioni ovunque sulla riga.
-
-### 4. Fuori scopo (per non rompere)
-- Niente azioni (messa a cassa, sospensione, annullamento) — il portale cliente resta read-only.
-- Niente modifiche a `ClientePolizze` oltre al fix del click.
-- Niente modifiche a RLS o schema.
-
-## File toccati
-- `src/pages/cliente/ClientePolizzaDetail.tsx` (riscrittura sezioni informative)
-- `src/pages/cliente/ClientePolizze.tsx` (solo: TableRow clickabile)
+### 4. Note tecniche
+- Nessuna modifica DB / RLS
+- Riuso componenti UI esistenti (`SearchableSelect`, shadcn `Checkbox`, `Popover`, `Calendar`)
+- I filtri restano client-side perché il dataset cliente è limitato (RLS già filtra ai suoi sinistri)
+- File toccato: solo `src/pages/cliente/ClienteSinistri.tsx` (+ eventualmente un piccolo helper `src/lib/exportSinistriXlsx.ts` per tenere la pagina leggibile)
