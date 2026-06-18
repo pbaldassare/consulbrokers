@@ -77,6 +77,12 @@ export default function SinistroAperturaWizardPage() {
   const [polizzeList, setPolizzeList] = useState<any[]>([]);
   const [polizzeLoading, setPolizzeLoading] = useState(false);
 
+  // Stato ricerca cliente (Step 1)
+  const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
+  const [selectedClienteData, setSelectedClienteData] = useState<any>(null);
+  const [clientiSearchText, setClientiSearchText] = useState("");
+  const [clientiList, setClientiList] = useState<any[]>([]);
+
   // Inizializzazione React Hook Form
   const { register, control, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<WizardFormValues>({
     resolver: zodResolver(wizardSchema),
