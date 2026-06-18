@@ -1,14 +1,26 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, FileText, Loader2, Pencil } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, FileText, Loader2, Pencil, Pause, Play, Replace, XCircle, Ban, Undo2, FilePlus2, ScrollText } from "lucide-react";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizzaDialog";
+import { RiattivazionePolizzaDialog } from "@/components/polizze/RiattivazionePolizzaDialog";
+import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
+import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
+import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
+import { annullaPolizza } from "@/lib/annullaPolizza";
 
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
 
@@ -31,6 +43,14 @@ const STATO_QUIETANZA: Record<string, { label: string; cls: string }> = {
 export default function PolizzaDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  const [sospensioneOpen, setSospensioneOpen] = useState(false);
+  const [riattivazioneOpen, setRiattivazioneOpen] = useState(false);
+  const [sostituzioneOpen, setSostituzioneOpen] = useState(false);
+  const [estinzioneOpen, setEstinzioneOpen] = useState(false);
+  const [stornoOpen, setStornoOpen] = useState(false);
+  const [annullaLoading, setAnnullaLoading] = useState(false);
 
   const { data: polizza, isLoading: loadingP } = useQuery({
     queryKey: ["polizza", id],
@@ -65,6 +85,11 @@ export default function PolizzaDetail() {
     enabled: !!id,
   });
 
+  const refreshAll = () => {
+    qc.invalidateQueries({ queryKey: ["polizza", id] });
+    qc.invalidateQueries({ queryKey: ["polizza-quietanze", id] });
+  };
+
   if (loadingP) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -87,7 +112,26 @@ export default function PolizzaDetail() {
   const compagnia: any = (polizza as any).compagnie;
   const ramo: any = (polizza as any).rami;
   const clienteNome = cliente?.ragione_sociale || [cliente?.cognome, cliente?.nome].filter(Boolean).join(" ") || "—";
-  const titoloMadreId = (polizza as any).titolo_madre_id;
+  const titoloMadreId: string | null = (polizza as any).titolo_madre_id;
+  const stato = polizza.stato as string;
+  const locked = ["annullata", "estinta", "sostituita"].includes(stato);
+  const numPol = polizza.numero_polizza || "";
+
+  async function handleAnnulla() {
+    if (!titoloMadreId) {
+      toast.error("Polizza senza titolo collegato: impossibile annullare.");
+      return;
+    }
+    setAnnullaLoading(true);
+    const res = await annullaPolizza(titoloMadreId);
+    setAnnullaLoading(false);
+    if (!res.ok) {
+      toast.error(res.error || "Errore durante l'annullamento");
+      return;
+    }
+    toast.success(`Polizza annullata · ${res.quietanzeEliminate ?? 0} quietanze rimosse`);
+    refreshAll();
+  }
 
   return (
     <div className="space-y-6">
@@ -102,25 +146,80 @@ export default function PolizzaDetail() {
             <span>Polizza contratto</span>
           </div>
           <h1 className="text-2xl font-bold">
-            {polizza.numero_polizza || "—"}{" "}
-            <Badge variant={STATO_VARIANT[polizza.stato as string] || "secondary"} className="ml-2 align-middle">
-              {polizza.stato}
+            {numPol || "—"}{" "}
+            <Badge variant={STATO_VARIANT[stato] || "secondary"} className="ml-2 align-middle">
+              {stato}
             </Badge>
           </h1>
           <p className="text-muted-foreground text-sm">
             {clienteNome} · {compagnia?.nome || "—"} · {ramo?.descrizione || ramo?.codice || "—"}
           </p>
         </div>
-        <div className="flex gap-2">
-          {titoloMadreId && (
-            <Button variant="outline" asChild>
-              <Link to={`/titoli/${titoloMadreId}`}>
-                <Pencil className="h-4 w-4 mr-2" /> Apri editing completo
-              </Link>
+        {titoloMadreId && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link to={`/titoli/${titoloMadreId}`}>
+              <Pencil className="h-4 w-4 mr-2" /> Apri editing completo
+            </Link>
+          </Button>
+        )}
+      </div>
+
+      {/* === BARRA AZIONI === */}
+      <Card>
+        <CardContent className="py-3 flex flex-wrap gap-2">
+          {stato === "sospesa" ? (
+            <Button size="sm" onClick={() => setRiattivazioneOpen(true)} disabled={!titoloMadreId}>
+              <Play className="h-4 w-4 mr-1" /> Riattiva
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setSospensioneOpen(true)} disabled={locked || !titoloMadreId}>
+              <Pause className="h-4 w-4 mr-1" /> Sospendi
             </Button>
           )}
-        </div>
-      </div>
+          <Button size="sm" variant="outline" onClick={() => setSostituzioneOpen(true)} disabled={locked || !titoloMadreId}>
+            <Replace className="h-4 w-4 mr-1" /> Sostituisci
+          </Button>
+          <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)} disabled={locked || !titoloMadreId}>
+            <XCircle className="h-4 w-4 mr-1" /> Estingui
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setStornoOpen(true)} disabled={locked || !titoloMadreId}>
+            <Undo2 className="h-4 w-4 mr-1" /> Storno
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(numPol)}&clienteId=${encodeURIComponent(cliente?.id || "")}&titoloId=${encodeURIComponent(titoloMadreId || "")}`)} disabled={!titoloMadreId}>
+            <FilePlus2 className="h-4 w-4 mr-1" /> Appendici
+          </Button>
+          {polizza.regolazione && (
+            <Button size="sm" variant="outline" onClick={() => navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${titoloMadreId}&quietanzaRefId=${titoloMadreId}`)} disabled={!titoloMadreId}>
+              <ScrollText className="h-4 w-4 mr-1" /> Regolazione
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(titoloMadreId || "")}&clienteId=${encodeURIComponent(cliente?.id || "")}`)} disabled={!titoloMadreId}>
+            <FileText className="h-4 w-4 mr-1" /> Precontrattuale
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="destructive" disabled={locked || !titoloMadreId || annullaLoading}>
+                <Ban className="h-4 w-4 mr-1" /> Annulla polizza
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Conferma annullamento</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Verranno rimosse tutte le quietanze, provvigioni, rimesse e movimenti collegati a questa polizza.
+                  L'operazione è irreversibile. La polizza resterà in stato "annullata" come ancora di log.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annulla</AlertDialogCancel>
+                <AlertDialogAction onClick={handleAnnulla}>
+                  {annullaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Conferma"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="contratto" className="w-full">
         <TabsList>
@@ -183,7 +282,7 @@ export default function PolizzaDetail() {
                 <CardTitle className="text-base">Stato contratto</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <Field label="Stato" value={polizza.stato} />
+                <Field label="Stato" value={stato} />
                 <Field label="Data sospensione" value={fmtDate(polizza.data_sospensione)} />
                 <Field label="Data riattivazione" value={fmtDate(polizza.data_riattivazione)} />
                 <Field label="Data annullamento" value={fmtDate(polizza.data_annullamento)} />
@@ -260,6 +359,17 @@ export default function PolizzaDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialogs */}
+      {titoloMadreId && (
+        <>
+          <SospensionePolizzaDialog open={sospensioneOpen} onOpenChange={setSospensioneOpen} titoloId={titoloMadreId} numeroPolizza={numPol} onDone={refreshAll} />
+          <RiattivazionePolizzaDialog open={riattivazioneOpen} onOpenChange={setRiattivazioneOpen} titoloId={titoloMadreId} numeroPolizza={numPol} onDone={refreshAll} />
+          <SostituzionePolizzaDialog open={sostituzioneOpen} onOpenChange={setSostituzioneOpen} titoloId={titoloMadreId} numeroPolizza={numPol} onDone={refreshAll} />
+          <EstinzionePolizzaDialog open={estinzioneOpen} onOpenChange={setEstinzioneOpen} titoloId={titoloMadreId} numeroPolizza={numPol} onDone={refreshAll} />
+          <StornoTitoloDialog open={stornoOpen} onOpenChange={setStornoOpen} titoloId={titoloMadreId} numeroPolizza={numPol} onDone={refreshAll} />
+        </>
+      )}
     </div>
   );
 }
