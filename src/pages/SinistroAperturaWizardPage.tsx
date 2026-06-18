@@ -165,18 +165,27 @@ export default function SinistroAperturaWizardPage() {
 
   // Ricerca clienti (debounced) — Step 1
   useEffect(() => {
-    const q = clientiSearchText.trim();
-    if (!q) { setClientiList([]); return; }
+    const raw = clientiSearchText.trim();
+    if (!raw) { setClientiList([]); setClientiLoading(false); return; }
+    // sanifica: rimuovi caratteri che romperebbero la sintassi .or() di PostgREST
+    const q = raw.replace(/[,()]/g, ' ').trim();
+    if (!q) { setClientiList([]); setClientiLoading(false); return; }
+    setClientiLoading(true);
     const t = setTimeout(async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('clienti')
         .select('id, nome, cognome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva')
         .or(`cognome.ilike.%${q}%,nome.ilike.%${q}%,ragione_sociale.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
+        .order('cognome', { ascending: true, nullsFirst: false })
         .limit(25);
+      if (error) console.error('Ricerca clienti error:', error);
       setClientiList(data || []);
+      setClientiLoading(false);
     }, 350);
     return () => clearTimeout(t);
   }, [clientiSearchText]);
+
+
 
   const selezionaCliente = (c: any) => {
     setSelectedClienteId(c.id);
