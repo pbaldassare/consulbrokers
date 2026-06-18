@@ -308,7 +308,14 @@ export default function SinistroAperturaWizardPage() {
       // Polizza opzionale: nessuna validazione bloccante
       fieldsToValidate = [];
     } else if (currentStep === 2) {
-      fieldsToValidate = ["data_evento", "data_denuncia", "tipo_sinistro", "descrizione", "luogo_sinistro", "importo_riserva"];
+      fieldsToValidate = ["data_evento", "data_denuncia", "descrizione", "importo_riserva"];
+      // Validazione custom: serve tipo standard OPPURE personalizzato (min 3 char)
+      const tStd = (getValues("tipo_sinistro") || "").trim();
+      const tCustom = (getValues("tipo_sinistro_personalizzato") || "").trim();
+      if (!tStd && tCustom.length < 3) {
+        toast.error("Specifica il tipo sinistro (predefinito o personalizzato, min 3 caratteri)");
+        return;
+      }
     } else if (currentStep === 3) {
       fieldsToValidate = ["documenti"];
     } else if (currentStep === 4) {
