@@ -408,7 +408,7 @@ const TitoliList = () => {
 
             {/* Riga 4 */}
             <div className="flex items-center gap-2">
-              <Label className="w-28 text-right text-sm shrink-0">Ramo</Label>
+              <Label className="w-28 text-right text-sm shrink-0">Garanzia</Label>
               <Select value={filtroRamo} onValueChange={setFiltroRamo}>
                 <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
                 <SelectContent>

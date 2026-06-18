@@ -112,7 +112,7 @@ const RinnoviPolizzaPage = () => {
               <select value={gruppoRamo} onChange={(e) => setGruppoRamo(e.target.value)} className={`${selectClass} flex-1`}>
                 <option value="">Tutti i gruppi rami</option>
               </select>
-              <Label className="shrink-0">Ramo</Label>
+              <Label className="shrink-0">Garanzia</Label>
               <select value={ramo} onChange={(e) => setRamo(e.target.value)} className={`${selectClass} flex-1`}>
                 <option value="">Tutti i rami</option>
               </select>

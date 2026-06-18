@@ -33,7 +33,7 @@ export default function ProvvigioniCompagnieRamoPage() {
         <div>
           <h1 className="text-2xl font-semibold">Provvigioni Compagnie / Ramo</h1>
           <p className="text-sm text-muted-foreground">
-            Gestione % provvigione per Rapporto × Ramo × Sottoramo. Inserimento manuale, import IA (PDF/immagine) o CSV.
+            Gestione % provvigione per Rapporto × Gruppo Ramo × Garanzia. Inserimento manuale, import IA (PDF/immagine) o CSV.
           </p>
         </div>
       </div>
@@ -69,7 +69,7 @@ export default function ProvvigioniCompagnieRamoPage() {
         </Card>
       </div>
 
-      {/* Matrice per Rapporto × Ramo × Sottoramo */}
+      {/* Matrice per Rapporto × Gruppo Ramo × Garanzia */}
       <ProvvigioniRapportiTab />
     </div>
   );

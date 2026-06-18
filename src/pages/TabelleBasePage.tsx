@@ -267,13 +267,13 @@ const RamiTab = () => {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3 gap-3">
-        <CardTitle className="text-lg whitespace-nowrap">Rami</CardTitle>
+        <CardTitle className="text-lg whitespace-nowrap">Garanzie</CardTitle>
         <div className="flex items-center gap-2 flex-1 justify-end">
           <div className="relative max-w-xs w-full">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca codice, descrizione, gruppo…" className="h-8 pl-7" />
           </div>
-          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo Ramo</Button>
+          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuova Garanzia</Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -290,7 +290,7 @@ const RamiTab = () => {
                 <button type="button" onClick={() => toggleSort("gruppo")} className="inline-flex items-center hover:text-foreground">Gruppo Ramo<SortIcon k="gruppo" /></button>
               </TableHead>
               <TableHead className="w-28 text-right">
-                <button type="button" onClick={() => toggleSort("tasse")} className="inline-flex items-center hover:text-foreground ml-auto">% Tasse Ramo<SortIcon k="tasse" /></button>
+                <button type="button" onClick={() => toggleSort("tasse")} className="inline-flex items-center hover:text-foreground ml-auto">% Tasse Garanzia<SortIcon k="tasse" /></button>
               </TableHead>
               <TableHead className="w-28 text-center">SSN</TableHead>
               <TableHead className="w-24 text-center">Attivo</TableHead>
@@ -315,7 +315,7 @@ const RamiTab = () => {
                 return getKey(a).localeCompare(getKey(b), "it", { numeric: true, sensitivity: "base" }) * dir;
               }) : filtered;
               if (isLoading) return (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
-              if (sorted.length === 0) return (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun ramo inserito"}</TableCell></TableRow>);
+              if (sorted.length === 0) return (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessuna garanzia inserita"}</TableCell></TableRow>);
               return sorted.map((r: any) => (
               <TableRow key={r.id}>
                 <TableCell className="font-mono font-semibold">{r.codice}</TableCell>
@@ -350,7 +350,7 @@ const RamiTab = () => {
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>{editing ? "Modifica Ramo" : "Nuovo Ramo"}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editing ? "Modifica Garanzia" : "Nuova Garanzia"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. 01" /></div>
               <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. Infortuni" /></div>
@@ -367,7 +367,7 @@ const RamiTab = () => {
                  />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>% Tasse Ramo</Label><Input type="number" step="0.01" value={aliquotaRamo} onChange={(e) => setAliquotaRamo(e.target.value)} /></div>
+                <div><Label>% Tasse Garanzia</Label><Input type="number" step="0.01" value={aliquotaRamo} onChange={(e) => setAliquotaRamo(e.target.value)} /></div>
                 <div className="space-y-2">
                   <Label className="flex items-center justify-between">
                     <span>Contributo SSN</span>
@@ -1521,10 +1521,10 @@ const CausaliCompensazioneTab = () => {
 
 const tabConfig: { value: string; label: string; tableName: LookupTableName; queryKey: string; title: string; custom?: string | boolean }[] = [
   { value: "gruppi_ramo", label: "Gruppi Ramo", tableName: "gruppi_ramo", queryKey: "gruppi-ramo", title: "Gruppo Ramo" },
-  { value: "rami", label: "Rami", tableName: "rami", queryKey: "rami-list", title: "Ramo", custom: true },
+  { value: "rami", label: "Garanzie", tableName: "rami", queryKey: "rami-list", title: "Garanzia", custom: true },
   
   { value: "rca_usi", label: "Usi RCA", tableName: "rca_usi", queryKey: "rca-usi", title: "Uso RCA", custom: "rca_usi" },
-  { value: "rca_garanzie", label: "Catalogo Garanzie", tableName: "rca_garanzie", queryKey: "rca-garanzie", title: "Garanzia", custom: "rca_garanzie" },
+  { value: "rca_garanzie", label: "Catalogo Garanzie RCA", tableName: "rca_garanzie", queryKey: "rca-garanzie", title: "Garanzia", custom: "rca_garanzie" },
   { value: "gruppi_statistici", label: "Gruppi Statistici", tableName: "gruppi_statistici", queryKey: "gruppi-statistici", title: "Gruppo Statistico" },
   { value: "gruppi_finanziari", label: "Gruppi Finanziari", tableName: "gruppi_finanziari", queryKey: "gruppi-finanziari", title: "Gruppo Finanziario", custom: "gruppi_finanziari" },
   { value: "tipi_mandatario", label: "Tipi Mandatario", tableName: "tipi_mandatario", queryKey: "tipi-mandatario", title: "Tipo Mandatario" },

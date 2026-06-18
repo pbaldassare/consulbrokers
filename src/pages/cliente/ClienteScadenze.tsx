@@ -149,7 +149,7 @@ const ClienteScadenze = () => {
             ))}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            <SearchableSelect options={ramiOptions} value={ramo} onValueChange={setRamo} placeholder="Ramo" />
+            <SearchableSelect options={ramiOptions} value={ramo} onValueChange={setRamo} placeholder="Garanzia" />
             <SearchableSelect options={compagnieOptions} value={compagnia} onValueChange={setCompagnia} placeholder="Compagnia" />
             <Input placeholder="Cerca n° polizza / targa" value={search} onChange={(e) => setSearch(e.target.value)} />
             {finestra === "custom" && (

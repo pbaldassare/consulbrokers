@@ -425,7 +425,7 @@ function ProvvigioniTabContent({ compagniaId }: { compagniaId: string | null }) 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Ramo</TableHead>
+              <TableHead>Garanzia</TableHead>
               <TableHead>Provvigione %</TableHead>
             </TableRow>
           </TableHeader>
@@ -985,7 +985,7 @@ function AgenzieCollegateDialog({
                     <TableHead>Agenzia</TableHead>
                     <TableHead className="w-32">Codice rapp.</TableHead>
                     <TableHead className="w-40">Tipo</TableHead>
-                    <TableHead>Rami</TableHead>
+                    <TableHead>Garanzie</TableHead>
                     <TableHead className="w-28">Inizio</TableHead>
                     <TableHead className="w-28">Fine</TableHead>
                     <TableHead className="w-20 text-right">% Provv.</TableHead>

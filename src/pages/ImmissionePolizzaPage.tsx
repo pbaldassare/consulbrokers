@@ -2240,7 +2240,7 @@ const ImmissionePolizzaPage = () => {
               }}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Il Sottoramo selezionato qui è il <b>default</b> proposto nelle nuove righe di Composizione Premio. Puoi cambiarlo riga per riga.
+              La Garanzia selezionata qui è il <b>default</b> proposta nelle nuove righe di Composizione Premio. Puoi cambiarla riga per riga.
             </p>
             {isRCA && (
               <p className="text-[11px] text-primary flex items-center gap-1 mt-1">

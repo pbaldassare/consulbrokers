@@ -360,7 +360,7 @@ const ECClientePdfPage = () => {
               <thead className="bg-primary/10 text-primary">
                 <tr>
                   <th className="text-left px-3 py-2 font-semibold">N. Titolo</th>
-                  <th className="text-left px-3 py-2 font-semibold">Ramo</th>
+                  <th className="text-left px-3 py-2 font-semibold">Garanzia</th>
                   <th className="text-left px-3 py-2 font-semibold">Rischio</th>
                   <th className="text-left px-3 py-2 font-semibold">Compagnia</th>
                   <th className="text-center px-3 py-2 font-semibold">Effetto</th>

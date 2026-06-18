@@ -391,8 +391,8 @@ const ProspectDetail = () => {
                   <DialogHeader><DialogTitle>Nuova Trattativa</DialogTitle></DialogHeader>
                   <div className="space-y-4 pt-2">
                     <div className="space-y-1.5">
-                      <Label>Ramo</Label>
-                      <SearchableSelect options={ramiOptions} value={trattativaForm.ramo_id} onValueChange={(v) => setTrattativaForm({ ...trattativaForm, ramo_id: v })} placeholder="Seleziona ramo..." />
+                      <Label>Garanzia</Label>
+                      <SearchableSelect options={ramiOptions} value={trattativaForm.ramo_id} onValueChange={(v) => setTrattativaForm({ ...trattativaForm, ramo_id: v })} placeholder="Seleziona garanzia..." />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Agenzia</Label>

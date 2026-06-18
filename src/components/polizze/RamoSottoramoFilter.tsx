@@ -51,15 +51,15 @@ export function RamoSottoramoFilter({ gruppoRamoId, ramoId, onChange, className,
         value={gruppoRamoId}
         onValueChange={handleGruppo}
         options={gruppi}
-        placeholder="Ramo"
+        placeholder="Gruppo Ramo"
         allLabel="Tutti i rami"
       />
       <FilterSearchableSelect
         value={ramoId}
         onValueChange={handleRamo}
         options={sottorami}
-        placeholder="Sottoramo"
-        allLabel={gruppoRamoId ? "Tutti i sottorami del ramo" : "Tutti i sottorami"}
+        placeholder="Garanzia"
+        allLabel={gruppoRamoId ? "Tutte le garanzie del gruppo" : "Tutte le garanzie"}
       />
     </div>
   );

@@ -203,7 +203,7 @@ export default function SinistroPrescrizioniPage() {
           "Numero Sinistro": s.numero_sinistro || "",
           "Cliente": getClienteNome(s.clienti),
           "Compagnia": s.compagnie?.nome || "",
-          "Ramo": s.titoli?.rami?.descrizione || "—",
+          "Garanzia": s.titoli?.rami?.descrizione || "—",
           "Data Accadimento": s.data_evento ? format(new Date(s.data_evento), "dd/MM/yyyy") : "",
           "Data Prescrizione": format(info.dataPrescrizione, "dd/MM/yyyy"),
           "Giorni alla Prescrizione": info.giorniMancanti >= 0 ? info.giorniMancanti : "Prescritto",
@@ -360,7 +360,7 @@ export default function SinistroPrescrizioniPage() {
                   <TableHead className="w-32">N° Sinistro</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Compagnia</TableHead>
-                  <TableHead>Ramo</TableHead>
+                  <TableHead>Garanzia</TableHead>
                   <TableHead className="w-32">Accadimento</TableHead>
                   <TableHead className="w-32">Prescrizione</TableHead>
                   <TableHead className="w-36 text-center">Giorni Residui</TableHead>

@@ -522,7 +522,7 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
                   <Table>
                     <TableHeader><TableRow>
                       <TableHead className="w-10"></TableHead>
-                      <TableHead>Numero</TableHead><TableHead>Ramo</TableHead><TableHead>Compagnia</TableHead>
+                      <TableHead>Numero</TableHead><TableHead>Garanzia</TableHead><TableHead>Compagnia</TableHead>
                       <TableHead className="text-right">Premio</TableHead><TableHead className="text-right w-32">Importo da collegare</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
@@ -574,7 +574,7 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
                       </div>
                       <Table>
                         <TableHeader><TableRow>
-                          <TableHead>Numero</TableHead><TableHead>Ramo</TableHead><TableHead>Compagnia</TableHead>
+                          <TableHead>Numero</TableHead><TableHead>Garanzia</TableHead><TableHead>Compagnia</TableHead>
                           <TableHead className="text-right">Premio</TableHead><TableHead className="text-right w-32">Importo</TableHead>
                           <TableHead className="w-10"></TableHead>
                         </TableRow></TableHeader>

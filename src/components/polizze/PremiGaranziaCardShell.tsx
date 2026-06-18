@@ -379,14 +379,14 @@ export function PremiGaranziaCardShell({
                               options={garanziaOptions}
                               value={r.sottoramoId || ""}
                               onValueChange={(v) => handleGaranziaSelect(idx, v)}
-                              placeholder={garanziaOptions.length ? "Seleziona sottoramo…" : "Caricamento…"}
+                              placeholder={garanziaOptions.length ? "Seleziona garanzia…" : "Caricamento…"}
                               className="flex-1 min-w-[280px]"
                             />
                           ) : (
                             <Input
                               value={r.descrizione}
                               onChange={(e) => updateRow(idx, { descrizione: e.target.value })}
-                              placeholder="Seleziona prima il Ramo"
+                              placeholder="Seleziona prima il Gruppo Ramo"
                               disabled
                               className="h-8 text-xs flex-1 min-w-[200px]"
                             />

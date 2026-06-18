@@ -79,7 +79,7 @@ export default function LibreriaCgaSection() {
           </SelectContent>
         </Select>
         <Select value={ramo} onValueChange={(v) => { setRamo(v); setPage(0); }}>
-          <SelectTrigger><SelectValue placeholder="Ramo" /></SelectTrigger>
+          <SelectTrigger><SelectValue placeholder="Garanzia" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">Tutti i rami</SelectItem>
             {rami.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
@@ -94,7 +94,7 @@ export default function LibreriaCgaSection() {
             <tr>
               <th className="text-left p-3">Compagnia</th>
               <th className="text-left p-3">Prodotto</th>
-              <th className="text-left p-3">Ramo</th>
+              <th className="text-left p-3">Garanzia</th>
               <th className="text-left p-3">Edizione</th>
               <th className="text-left p-3">Ultima analisi</th>
               <th className="text-center p-3">Versioni</th>

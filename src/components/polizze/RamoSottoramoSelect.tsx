@@ -84,7 +84,7 @@ export function RamoSottoramoSelect({
       <div>
         {!hideLabels && (
           <Label className="text-xs">
-            Ramo {required && <span className="text-destructive">*</span>}
+            Gruppo Ramo {required && <span className="text-destructive">*</span>}
           </Label>
         )}
         <SearchableSelect
@@ -99,7 +99,7 @@ export function RamoSottoramoSelect({
         <div>
           {!hideLabels && (
             <Label className="text-xs">
-              Sottoramo {required && <span className="text-destructive">*</span>}
+              Garanzia {required && <span className="text-destructive">*</span>}
             </Label>
           )}
           <SearchableSelect

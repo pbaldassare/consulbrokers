@@ -174,7 +174,7 @@ export default function ClienteSinistri() {
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-8"></TableHead>
                     <TableHead>N. Sinistro</TableHead>
-                    <TableHead>Ramo</TableHead>
+                    <TableHead>Garanzia</TableHead>
                     <TableHead>Polizza</TableHead>
                     <TableHead>Stato</TableHead>
                     <TableHead>Luogo</TableHead>
