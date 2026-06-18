@@ -20,7 +20,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { FilePlus, Search, ArrowLeft, ArrowRight, Trash2, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
-import { TIPI_SINISTRO } from "@/lib/tipiSinistro";
+import { TIPI_SINISTRO, formatTipoSinistro } from "@/lib/tipiSinistro";
+import { Checkbox } from "@/components/ui/checkbox";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const DRAFT_KEY = "sinistri:apertura:bozza";
@@ -35,10 +36,11 @@ const wizardSchema = z.object({
   // Step 2
   data_evento: z.string().min(1, "La data accadimento è obbligatoria"),
   data_denuncia: z.string().min(1, "La data denuncia è obbligatoria"),
-  tipo_sinistro: z.string().min(1, "Il tipo sinistro è obbligatorio"),
+  tipo_sinistro: z.string().optional(),
+  tipo_sinistro_personalizzato: z.string().optional(),
   numero_sinistro_compagnia: z.string().optional(),
   descrizione: z.string().min(20, "La descrizione deve contenere almeno 20 caratteri"),
-  luogo_sinistro: z.string().min(1, "Il luogo accadimento è obbligatorio"),
+  luogo_sinistro: z.string().optional(),
   importo_riserva: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().min(0, "L'importo non può essere negativo").optional()),
   
   // Step 3
@@ -90,8 +92,9 @@ export default function SinistroAperturaWizardPage() {
     defaultValues: {
       titolo_id: "",
       data_evento: "",
-      data_denuncia: "",
+      data_denuncia: new Date().toISOString().slice(0, 10),
       tipo_sinistro: "",
+      tipo_sinistro_personalizzato: "",
       numero_sinistro_compagnia: "",
       descrizione: "",
       luogo_sinistro: "",
@@ -305,7 +308,15 @@ export default function SinistroAperturaWizardPage() {
       // Polizza opzionale: nessuna validazione bloccante
       fieldsToValidate = [];
     } else if (currentStep === 2) {
-      fieldsToValidate = ["data_evento", "data_denuncia", "tipo_sinistro", "descrizione", "luogo_sinistro", "importo_riserva"];
+      fieldsToValidate = ["data_evento", "data_denuncia", "descrizione", "importo_riserva"];
+      // Validazione custom: serve tipo standard OPPURE personalizzato (min 3 char)
+      const tStdRaw = (getValues("tipo_sinistro") || "").trim();
+      const tStd = tStdRaw === "__custom__" ? "" : tStdRaw;
+      const tCustom = (getValues("tipo_sinistro_personalizzato") || "").trim();
+      if (!tStd && tCustom.length < 3) {
+        toast.error("Specifica il tipo sinistro (predefinito o personalizzato, min 3 caratteri)");
+        return;
+      }
     } else if (currentStep === 3) {
       fieldsToValidate = ["documenti"];
     } else if (currentStep === 4) {
@@ -352,9 +363,10 @@ export default function SinistroAperturaWizardPage() {
           cliente_anagrafica_id: clienteAnagraficaId,
           compagnia_id: compagniaId,
           ufficio_id: ufficioId,
-          tipo_sinistro: values.tipo_sinistro,
+          tipo_sinistro: (values.tipo_sinistro_personalizzato || "").trim() || values.tipo_sinistro === "__custom__" ? null : (values.tipo_sinistro || null),
+          tipo_sinistro_personalizzato: (values.tipo_sinistro_personalizzato || "").trim() || null,
           descrizione: values.descrizione,
-          luogo_sinistro: values.luogo_sinistro,
+          luogo_sinistro: values.luogo_sinistro || undefined,
           data_evento: values.data_evento,
           data_denuncia: values.data_denuncia,
           numero_sinistro_compagnia: values.numero_sinistro_compagnia || undefined,
@@ -636,14 +648,43 @@ export default function SinistroAperturaWizardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="tipo_sinistro">Tipo Sinistro *</Label>
-                    <SearchableSelect
-                      options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
-                      value={watch("tipo_sinistro") || ""}
-                      onValueChange={(val) => setValue("tipo_sinistro", val, { shouldValidate: true })}
-                      placeholder="Seleziona tipo sinistro..."
-                      searchPlaceholder="Cerca tipo..."
-                    />
-                    {errors.tipo_sinistro && <p className="text-xs text-destructive">{errors.tipo_sinistro.message}</p>}
+                    {(watch("tipo_sinistro_personalizzato") || "").length > 0 || watch("tipo_sinistro") === "__custom__" ? (
+                      <Input
+                        id="tipo_sinistro_personalizzato"
+                        placeholder="Descrivi il tipo di sinistro (min 3 caratteri)"
+                        value={watch("tipo_sinistro_personalizzato") || ""}
+                        onChange={(e) => {
+                          setValue("tipo_sinistro_personalizzato", e.target.value, { shouldValidate: true });
+                          setValue("tipo_sinistro", "", { shouldValidate: true });
+                        }}
+                        maxLength={500}
+                      />
+                    ) : (
+                      <SearchableSelect
+                        options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
+                        value={watch("tipo_sinistro") || ""}
+                        onValueChange={(val) => setValue("tipo_sinistro", val, { shouldValidate: true })}
+                        placeholder="Seleziona tipo sinistro..."
+                        searchPlaceholder="Cerca tipo..."
+                      />
+                    )}
+                    <div className="flex items-center gap-2 pt-1">
+                      <Checkbox
+                        id="usa_tipo_personalizzato"
+                        checked={(watch("tipo_sinistro_personalizzato") || "").length > 0 || watch("tipo_sinistro") === "__custom__"}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setValue("tipo_sinistro", "__custom__");
+                          } else {
+                            setValue("tipo_sinistro", "");
+                            setValue("tipo_sinistro_personalizzato", "");
+                          }
+                        }}
+                      />
+                      <Label htmlFor="usa_tipo_personalizzato" className="text-xs font-normal cursor-pointer">
+                        Tipo non in elenco (personalizzato)
+                      </Label>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="numero_sinistro_compagnia">Numero Sinistro Compagnia (opzionale)</Label>
@@ -653,7 +694,7 @@ export default function SinistroAperturaWizardPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="luogo_sinistro">Luogo Accadimento *</Label>
+                    <Label htmlFor="luogo_sinistro">Luogo Accadimento</Label>
                     <AddressAutocomplete
                       value={watch("luogo_sinistro") || ""}
                       onChange={(v) => setValue("luogo_sinistro", v, { shouldValidate: true })}
@@ -878,7 +919,7 @@ export default function SinistroAperturaWizardPage() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Tipo Sinistro</span>
-                      <p className="font-semibold mt-0.5 capitalize">{(TIPI_SINISTRO.find(t => t.value === watch("tipo_sinistro"))?.label) || watch("tipo_sinistro")?.replace(/_/g, " ") || "—"}</p>
+                      <p className="font-semibold mt-0.5">{formatTipoSinistro({ tipo_sinistro: watch("tipo_sinistro") === "__custom__" ? null : watch("tipo_sinistro"), tipo_sinistro_personalizzato: watch("tipo_sinistro_personalizzato") })}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Numero Compagnia</span>
