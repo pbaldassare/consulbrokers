@@ -1296,7 +1296,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
           {filtroTipo === "quietanze" ? (
             flatQuietanze.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 11 : 10} className="text-center text-sm text-muted-foreground py-6">
+                <TableCell colSpan={isAdmin ? 12 : 11} className="text-center text-sm text-muted-foreground py-6">
                   Nessuna quietanza presente
                 </TableCell>
               </TableRow>
