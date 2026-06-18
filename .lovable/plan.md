@@ -1,32 +1,17 @@
 ## Obiettivo
-In `ImmissionePolizzaPage`, affiancare Ramo e Sottoramo nella card "Contratto" (sottoramo subito sotto al ramo) e usare il Sottoramo scelto come **default** per le righe di Composizione Premio (Firma + Quietanza), pur restando modificabile per riga.
+Nella tabella **Polizze del cliente** (`ClienteDetail.tsx`, tab "Polizze · Quietanze") aggiungere la colonna **Ramo** (sottoramo) accanto a **Gruppo Ramo**, mostrando il **primo sottoramo selezionato** sulla polizza.
 
-## Modifiche
+## Contesto
+La query polizze (riga ~1510) già carica `ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:...)`. `titoli.ramo_id` è per design il **primo sottoramo** delle righe garanzia (derivato in fase di immissione), quindi è già il dato richiesto — nessuna nuova query/JOIN necessario.
 
-### 1. Card "Contratto" — Ramo + Sottoramo vicini
-File: `src/pages/ImmissionePolizzaPage.tsx` (righe ~2181-2216).
+## Modifiche (solo `src/pages/ClienteDetail.tsx`)
 
-- Sostituire `<RamoSottoramoSelect gruppoOnly ... />` con `<RamoSottoramoSelect layout="stacked" gruppoRamoId={selectedGruppoRamoId} ramoId={defaultSottoramoId} onChange={...} />` (rimosso `gruppoOnly`, aggiunto `layout="stacked"` per impilare verticalmente).
-- L'`onChange` aggiorna sia `selectedGruppoRamoId` sia un nuovo stato `defaultSottoramoId`.
-- Cambio di Ramo → reset righe garanzia (logica conferma già esistente) + `defaultSottoramoId = null`.
-- Cambio di solo Sottoramo (stesso ramo) → **propagare** il nuovo sottoramo alle righe garanzia che sono ancora "vuote" (nessun netto/tasse) o che hanno lo stesso vecchio default. Le righe già compilate manualmente con un sottoramo diverso restano intatte.
-- Aggiornare il testo helper: "Sottoramo di default; puoi modificarlo riga per riga nelle Composizioni Premio sotto."
-
-### 2. Nuovo stato `defaultSottoramoId`
-- `const [defaultSottoramoId, setDefaultSottoramoId] = useState<string | null>(null);`
-- Aggiornare la helper `emptyGaranziaRow()` (o i punti dove si crea una nuova riga "+") perché preimposti `sottoramoId = defaultSottoramoId` e relativi `codice`/`descrizione`/`aliquotaTasse` derivati da `ramiList`.
-
-### 3. Bottoni "Aggiungi riga" Firma/Quietanza
-- Quando si clicca "+", la nuova riga eredita `defaultSottoramoId` (e i campi correlati: codice, descrizione, aliquota tasse dal record `rami`).
-- Se `defaultSottoramoId` è vuoto, comportamento attuale invariato.
-
-### 4. Inizializzazione su modifica esistente / import AI / rinnovo
-- Quando si caricano righe esistenti (es. madre polizza, AI, rinnovo) e tutte le righe usano lo stesso sottoramo, impostare `defaultSottoramoId` con quel valore così la UI Contratto resta coerente.
-
-### 5. Salvataggio
-- Nessun cambiamento sul DB: `titoli.ramo_id` continua a derivare dalla prima riga garanzia non vuota (come già fatto). Il `defaultSottoramoId` è solo stato UI.
+1. **Header tabella** (riga 1138): inserire `<TableHead>Ramo</TableHead>` subito dopo `Gruppo Ramo`.
+2. **Riga Quietanze (filtro = quietanze)** (riga 1163): aggiungere `<TableCell>{r.ramo?.descrizione || "—"}</TableCell>` dopo la cella Gruppo Ramo.
+3. **Riga Polizza madre** (riga 1202): aggiungere `<TableCell>{head.ramo?.descrizione || "—"}</TableCell>` dopo la cella Gruppo Ramo. Aggiungere variabile locale `const ramo = head.ramo?.descrizione || "—";` accanto a `gruppoRamo`.
+4. **Riga Quietanze figlie espanse** (riga 1228): aggiungere `<TableCell className="text-muted-foreground text-xs">{r.ramo?.descrizione || "—"}</TableCell>` dopo la cella Gruppo Ramo.
+5. Aggiornare i `colSpan` "Nessuna quietanza" (riga 1150) da `isAdmin ? 9 : 8` a `isAdmin ? 10 : 9`.
 
 ## Fuori scopo
-- `TitoloDetail` (modifica polizza esistente): nessuna modifica in questo passaggio.
-- Nessuna migration DB.
-- Logica provvigioni / RCA / sezioni veicolo: invariate.
+- Nessuna modifica al DB / alle query.
+- Nessuna modifica a Carico, Storico, Attive, ECClienti o altre liste (eventuale estensione in passaggio separato se richiesto).
