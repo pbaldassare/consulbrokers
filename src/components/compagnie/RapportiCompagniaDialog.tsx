@@ -14,7 +14,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, XCircle, Network, X, Check, ChevronsUpDown, ChevronDown, ChevronRight, FolderOpen, Copy, ListPlus } from "lucide-react";
+import { Plus, Pencil, Trash2, XCircle, Network, X, Check, ChevronsUpDown, ChevronDown, ChevronRight, FolderOpen, Copy, ListPlus, Percent } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import ProvvigioniRapportiTab from "./ProvvigioniRapportiTab";
 import { toast } from "sonner";
 import { validateIban } from "@/lib/validateIban";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -1181,6 +1183,24 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 </div>
               </div>
             )}
+
+            {/* Provvigioni per Ramo del singolo rapporto (solo per rapporti già salvati) */}
+            {form.id && (
+              <Accordion type="single" collapsible defaultValue="provv-rapporto" className="pt-2">
+                <AccordionItem value="provv-rapporto" className="border rounded-md px-3">
+                  <AccordionTrigger className="text-sm font-medium hover:no-underline">
+                    <span className="flex items-center gap-2">
+                      <Percent className="w-4 h-4 text-primary" />
+                      Provvigioni per Ramo / Sottoramo (di questo rapporto)
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ProvvigioniRapportiTab fixedRapportoId={form.id} />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
+
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setFormOpen(false)}>Annulla</Button>

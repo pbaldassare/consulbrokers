@@ -33,13 +33,23 @@ const LS_KEY = "provv-rapporti-ui-v1";
 type FilterStato = "all" | "configured" | "missing" | "only_default";
 
 
-export default function ProvvigioniRapportiTab() {
+type Props = {
+  /** Se valorizzato, il componente si "blocca" su un singolo rapporto:
+   *  nasconde l'elenco rapporti, il selettore prev/next e non persiste su localStorage. */
+  fixedRapportoId?: string;
+};
+
+export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) {
   const qc = useQueryClient();
-  // Stato UI (con persistenza localStorage)
+  const isFixed = !!fixedRapportoId;
+  // Stato UI (con persistenza localStorage solo in modalità globale)
   const persisted = useMemo(() => {
+    if (isFixed) return {} as any;
     try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return {}; }
-  }, []);
-  const [rapportoId, setRapportoId] = useState<string>(persisted.rapportoId || "");
+  }, [isFixed]);
+  const [rapportoIdState, setRapportoIdState] = useState<string>(persisted.rapportoId || "");
+  const rapportoId = isFixed ? (fixedRapportoId as string) : rapportoIdState;
+  const setRapportoId = (v: string) => { if (!isFixed) setRapportoIdState(v); };
   const [pasteOpen, setPasteOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -49,10 +59,11 @@ export default function ProvvigioniRapportiTab() {
   const [bulkConfirm, setBulkConfirm] = useState<{ kind: "apply" | "reset"; gruppoId: string; perc?: number; overwrite?: boolean } | null>(null);
 
   useEffect(() => {
+    if (isFixed) return;
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({ rapportoId, filterStato, expanded }));
     } catch {}
-  }, [rapportoId, filterStato, expanded]);
+  }, [isFixed, rapportoId, filterStato, expanded]);
 
 
   // Rapporti elenco
@@ -379,7 +390,8 @@ export default function ProvvigioniRapportiTab() {
           </AccordionItem>
         </Accordion>
 
-        {/* Elenco rapporti attivi (collassabile) */}
+        {/* Elenco rapporti attivi (collassabile) — nascosto in modalità rapporto-fisso */}
+        {!isFixed && (
         <Accordion type="single" collapsible>
           <AccordionItem value="elenco" className="border rounded-md px-3">
             <AccordionTrigger className="text-sm font-medium hover:no-underline">
@@ -452,12 +464,14 @@ export default function ProvvigioniRapportiTab() {
             </AccordionContent>
           </AccordionItem>
         </Accordion>
+        )}
 
         {/* Toolbar sticky: selettore rapporto + azioni */}
         <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
           <Card>
             <CardContent className="pt-4 pb-4 space-y-3">
-              {/* Riga 1: selettore rapporto con prev/next */}
+              {/* Riga 1: selettore rapporto con prev/next (nascosto in modalità fissa) */}
+              {!isFixed && (
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Rapporto Agenzia ↔ Compagnia</Label>
                 <div className="flex items-center gap-2">
@@ -477,6 +491,7 @@ export default function ProvvigioniRapportiTab() {
                   </Button>
                 </div>
               </div>
+              )}
 
               {/* Riga 2: tipo rapporto + azioni */}
               <div className="flex items-center justify-between flex-wrap gap-2">

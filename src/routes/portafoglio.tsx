@@ -15,7 +15,7 @@ import EstrazioniStampePage from "@/pages/EstrazioniStampePage";
 
 import DocumentalePage from "@/pages/DocumentalePage";
 import ProvvigioniMaturatePage from "@/pages/ProvvigioniMaturatePage";
-import ProvvigioniCompagnieRamoPage from "@/pages/ProvvigioniCompagnieRamoPage";
+
 import PortafoglioAttivePage from "@/pages/PortafoglioAttivePage";
 import PortafoglioCaricoPage from "@/pages/PortafoglioCaricoPage";
 import PortafoglioStoricoPage from "@/pages/PortafoglioStoricoPage";
@@ -56,6 +56,5 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/collettive" element={<PlaceholderPage title="Collettive / Libri Matricola" description="Gestione polizze collettive e libri matricola" icon={BookOpen} />} />
     <Route path="/portafoglio/documentale" element={<DocumentalePage />} />
     <Route path="/provvigioni-maturate" element={<ProvvigioniMaturatePage />} />
-    <Route path="/provvigioni-compagnie-ramo" element={<ProvvigioniCompagnieRamoPage />} />
   </>
 );

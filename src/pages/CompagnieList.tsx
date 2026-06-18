@@ -19,7 +19,7 @@ import { Plus, Building2, Search, Percent, Pencil, Layers, Trash2, Network, Aler
 const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
 
 import RapportiCompagniaDialog from "@/components/compagnie/RapportiCompagniaDialog";
-import ProvvigioniRapportiTab from "@/components/compagnie/ProvvigioniRapportiTab";
+
 
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { toast } from "sonner";
@@ -1585,9 +1585,6 @@ const CompagnieList = () => {
           <TabsTrigger value="anagrafica" className="gap-2">
             <Building2 className="w-4 h-4" />Agenzie
           </TabsTrigger>
-          <TabsTrigger value="provvigioni" className="gap-2">
-            <Percent className="w-4 h-4" />Provvigioni
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="agenzie" className="mt-4">
@@ -1724,9 +1721,8 @@ const CompagnieList = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="provvigioni" className="mt-4">
-          <ProvvigioniRapportiTab />
-        </TabsContent>
+
+
 
 
       </Tabs>
