@@ -1070,7 +1070,9 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
   const matchTitolo = (t: any) => {
     if (filtroNumero) {
       const q = filtroNumero.toLowerCase();
-      if (!String(t.numero_titolo || "").toLowerCase().includes(q)) return false;
+      const num = String(t.numero_titolo || "").toLowerCase();
+      const targa = String(t.targa_telaio || "").toLowerCase();
+      if (!num.includes(q) && !targa.includes(q)) return false;
     }
     if (filtroGruppoRamo && t.ramo?.gruppo_ramo?.descrizione !== filtroGruppoRamo) return false;
     if (filtroGaranzia && t.ramo?.descrizione !== filtroGaranzia) return false;
