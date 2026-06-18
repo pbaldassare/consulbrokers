@@ -1,12 +1,21 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileText, Loader2, Pencil } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, FileText, Loader2, Pencil, Banknote, Undo2, RotateCcw } from "lucide-react";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
+import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
+import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
 
@@ -21,6 +30,11 @@ const STATO_QUIETANZA: Record<string, { label: string; cls: string }> = {
 export default function QuietanzaDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  const [cassaOpen, setCassaOpen] = useState(false);
+  const [stornoOpen, setStornoOpen] = useState(false);
+  const [annullaLoading, setAnnullaLoading] = useState(false);
 
   const { data: q, isLoading } = useQuery({
     queryKey: ["quietanza", id],
@@ -30,7 +44,7 @@ export default function QuietanzaDetail() {
         .select(`
           *,
           polizze:polizza_id (
-            id, numero_polizza, stato, cliente_anagrafica_id, compagnia_id, ramo_id,
+            id, numero_polizza, stato, cliente_anagrafica_id, compagnia_id, ramo_id, ufficio_id,
             clienti:cliente_anagrafica_id (id, nome, cognome, ragione_sociale),
             compagnie:compagnia_id (id, nome),
             rami:ramo_id (id, codice, descrizione)
@@ -43,6 +57,8 @@ export default function QuietanzaDetail() {
     },
     enabled: !!id,
   });
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ["quietanza", id] });
 
   if (isLoading) {
     return (
@@ -65,7 +81,40 @@ export default function QuietanzaDetail() {
   const polizza: any = (q as any).polizze;
   const cliente: any = polizza?.clienti;
   const clienteNome = cliente?.ragione_sociale || [cliente?.cognome, cliente?.nome].filter(Boolean).join(" ") || "—";
-  const st = STATO_QUIETANZA[q.stato as string] || { label: q.stato as string, cls: "" };
+  const stato = q.stato as string;
+  const st = STATO_QUIETANZA[stato] || { label: stato, cls: "" };
+  const titoloId: string | null = (q as any).titolo_id;
+  const numPol = polizza?.numero_polizza || (q as any).numero_polizza_snapshot || "";
+
+  const isMessaCassa = !!q.data_messa_cassa;
+  const isIncassata = stato === "incassato";
+  const lockedQ = ["annullata", "stornata"].includes(stato);
+
+  async function handleAnnullaMessaCassa() {
+    if (!titoloId) {
+      toast.error("Quietanza senza titolo collegato.");
+      return;
+    }
+    setAnnullaLoading(true);
+    const res = await annullaMessaACassa(titoloId);
+    setAnnullaLoading(false);
+    if (!res.ok) {
+      toast.error(res.error || "Errore durante l'annullamento messa a cassa");
+      return;
+    }
+    toast.success(`Messa a cassa annullata · ${res.provvigioniEliminate ?? 0} provvigioni rimosse`);
+    refresh();
+  }
+
+  const titoloMin = titoloId
+    ? [{
+        id: titoloId,
+        numero_titolo: numPol,
+        premio_lordo: q.premio_lordo,
+        cliente_anagrafica_id: polizza?.cliente_anagrafica_id ?? null,
+        ufficio_id: polizza?.ufficio_id ?? null,
+      }]
+    : [];
 
   return (
     <div className="space-y-6">
@@ -92,16 +141,62 @@ export default function QuietanzaDetail() {
             · {clienteNome} · {polizza?.compagnie?.nome || "—"}
           </p>
         </div>
-        <div className="flex gap-2">
-          {(q as any).titolo_id && (
-            <Button variant="outline" asChild>
-              <Link to={`/titoli/${(q as any).titolo_id}`}>
-                <Pencil className="h-4 w-4 mr-2" /> Apri editing completo
-              </Link>
-            </Button>
-          )}
-        </div>
+        {titoloId && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link to={`/titoli/${titoloId}`}>
+              <Pencil className="h-4 w-4 mr-2" /> Apri editing completo
+            </Link>
+          </Button>
+        )}
       </div>
+
+      {/* === AZIONI === */}
+      <Card>
+        <CardContent className="py-3 flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            onClick={() => setCassaOpen(true)}
+            disabled={!titoloId || isMessaCassa || lockedQ}
+            title={isMessaCassa ? "Quietanza già messa a cassa" : undefined}
+          >
+            <Banknote className="h-4 w-4 mr-1" /> Messa a cassa
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!titoloId || !isMessaCassa || isIncassata || annullaLoading}
+                title={!isMessaCassa ? "Quietanza non messa a cassa" : isIncassata ? "Già incassata" : undefined}
+              >
+                <RotateCcw className="h-4 w-4 mr-1" /> Annulla messa a cassa
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Annullare la messa a cassa?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Verranno eliminate provvigioni non pagate e movimenti contabili collegati a questa quietanza.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annulla</AlertDialogCancel>
+                <AlertDialogAction onClick={handleAnnullaMessaCassa}>
+                  {annullaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Conferma"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setStornoOpen(true)}
+            disabled={!titoloId || lockedQ}
+          >
+            <Undo2 className="h-4 w-4 mr-1" /> Storno
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
@@ -146,10 +241,10 @@ export default function QuietanzaDetail() {
           <CardContent className="space-y-2 text-sm">
             <Field label="N° polizza (snapshot)" value={q.numero_polizza_snapshot} />
             <Field label="Appendice" value={q.appendice} />
-            {(q as any).titolo_id && (
+            {titoloId && (
               <div className="pt-2 border-t mt-2 flex items-center justify-between">
                 <span className="text-muted-foreground">Titolo legacy</span>
-                <Link to={`/titoli/${(q as any).titolo_id}`} className="text-primary hover:underline text-xs inline-flex items-center gap-1">
+                <Link to={`/titoli/${titoloId}`} className="text-primary hover:underline text-xs inline-flex items-center gap-1">
                   <FileText className="h-3 w-3" /> Apri
                 </Link>
               </div>
@@ -157,6 +252,24 @@ export default function QuietanzaDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {titoloId && (
+        <>
+          <MessaCassaDialog
+            open={cassaOpen}
+            onOpenChange={setCassaOpen}
+            titoli={titoloMin}
+            onSuccess={refresh}
+          />
+          <StornoTitoloDialog
+            open={stornoOpen}
+            onOpenChange={setStornoOpen}
+            titoloId={titoloId}
+            numeroPolizza={numPol}
+            onDone={refresh}
+          />
+        </>
+      )}
     </div>
   );
 }
