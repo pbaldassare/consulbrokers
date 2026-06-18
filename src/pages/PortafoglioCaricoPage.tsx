@@ -664,7 +664,7 @@ const PortafoglioCaricoPage = () => {
                   return (
                     <TableRow
                       key={p.id}
-                      className={`cursor-pointer ${isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : ""}`}
+                      className={`cursor-pointer ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : ""}`}
                       onClick={() => navigate(`/titoli/${p.id}`)}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -673,9 +673,14 @@ const PortafoglioCaricoPage = () => {
                           onCheckedChange={() => toggleSelect(p.id)}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
+                      <TableCell className="font-medium">
+                        {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
+                        {p.numero_titolo || "—"}
+                      </TableCell>
                       <TableCell>
-                        {p.sostituisce_polizza ? (
+                        {p.is_regolazione ? (
+                          <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">Regolazione</Badge>
+                        ) : p.sostituisce_polizza ? (
                           <Badge variant="secondary" title={`Rata della polizza ${p.numero_titolo || ""}`}>Quietanza</Badge>
                         ) : (
                           <Badge variant="default">Polizza</Badge>
