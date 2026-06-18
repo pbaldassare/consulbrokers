@@ -1205,14 +1205,16 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
           <span className="font-medium text-foreground">{allPol.length}</span> polizze ·{" "}
           <span className="font-medium text-foreground">{allQuiet.length}</span> quietanze · totale premio{" "}
           <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
+          {" · "}totale provvigioni{" "}
+          <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
         </div>
       </div>
 
       {/* Filtri di ricerca */}
       <div className="flex flex-wrap items-end gap-2 p-2 rounded-md border bg-muted/30">
         <div className="flex flex-col gap-1">
-          <Label className="text-[10px] text-muted-foreground uppercase">N. Polizza</Label>
-          <Input value={filtroNumero} onChange={(e) => setFiltroNumero(e.target.value)} placeholder="Cerca numero…" className="h-8 w-[160px]" />
+          <Label className="text-[10px] text-muted-foreground uppercase">N. Polizza / Targa</Label>
+          <Input value={filtroNumero} onChange={(e) => setFiltroNumero(e.target.value)} placeholder="Cerca numero o targa…" className="h-8 w-[180px]" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-[10px] text-muted-foreground uppercase">Gruppo Ramo</Label>
