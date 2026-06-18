@@ -918,7 +918,7 @@ export default function SinistroAperturaWizardPage() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Tipo Sinistro</span>
-                      <p className="font-semibold mt-0.5 capitalize">{(TIPI_SINISTRO.find(t => t.value === watch("tipo_sinistro"))?.label) || watch("tipo_sinistro")?.replace(/_/g, " ") || "—"}</p>
+                      <p className="font-semibold mt-0.5">{formatTipoSinistro({ tipo_sinistro: watch("tipo_sinistro") === "__custom__" ? null : watch("tipo_sinistro"), tipo_sinistro_personalizzato: watch("tipo_sinistro_personalizzato") })}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Numero Compagnia</span>
