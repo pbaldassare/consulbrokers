@@ -157,7 +157,7 @@ const PortafoglioCaricoPage = () => {
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, dateDa, dateA, sortField, sortDirection],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_titoli").select(
+      let q = supabase.from("v_portafoglio_quietanze").select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, regolazione_quietanza_id",
         { count: "exact" }
       );
@@ -188,7 +188,7 @@ const PortafoglioCaricoPage = () => {
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, dateDa, dateA],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_titoli").select("premio_lordo, sostituisce_polizza");
+      let q = supabase.from("v_portafoglio_quietanze").select("premio_lordo, sostituisce_polizza");
       q = applyPeriodoFilter(q);
       q = applySearch(q);
       const { data } = await q;
@@ -212,7 +212,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico-pending", dateDa, dateA],
     queryFn: async () => {
       let q = supabase
-        .from("v_portafoglio_titoli")
+        .from("v_portafoglio_quietanze")
         .select("id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza")
         .eq("stato", "in_attesa_rinnovo");
       q = applyDateRange(q, "data_scadenza");
