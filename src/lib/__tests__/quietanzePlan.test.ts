@@ -60,7 +60,7 @@ describe("computeQuietanzePlan", () => {
     expect(computeQuietanzePlan({ frazionamento: "Mensile", anniDurata: 1 })).toEqual([]);
   });
 
-  it("frazionamento invalido → plan vuoto", () => {
-    expect(computeQuietanzePlan({ ...base, frazionamento: "boh" as any, anniDurata: 1 })).toEqual([]);
+  it("frazionamento mancante → plan vuoto", () => {
+    expect(computeQuietanzePlan({ ...base, frazionamento: "", anniDurata: 1 })).toEqual([]);
   });
 });
