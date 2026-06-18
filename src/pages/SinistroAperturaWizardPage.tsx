@@ -260,55 +260,8 @@ export default function SinistroAperturaWizardPage() {
     }
   });
 
-  // Ricerca polizze in tempo reale (Step 1)
-  const handleCercaPolizze = async () => {
-    if (!polizzaSearchText.trim()) {
-      toast.warning("Inserisci un criterio di ricerca");
-      return;
-    }
-    setPolizzeLoading(true);
-    try {
-      const search = polizzaSearchText.trim();
+  // (ricerca polizze globale rimossa: ora le polizze derivano dal cliente selezionato)
 
-      // Query semplificata con FK esplicita
-      const { data, error } = await supabase
-        .from("titoli")
-        .select(`
-          id,
-          numero_titolo,
-          stato,
-          cliente_id,
-          compagnia_id,
-          ramo_id,
-          ufficio_id,
-          clienti(nome, cognome, ragione_sociale),
-          compagnie(nome),
-          rami(nome)
-        `)
-        .in("stato", ["attivo", "sospeso"])
-        .ilike("numero_titolo", `%${search}%`)
-        .range(0, 24);
-
-      if (error) throw error;
-
-      const results = (data || []).map((p: any) => ({
-        ...p,
-        clienteNome: p.clienti
-          ? `${p.clienti.cognome || ""} ${p.clienti.nome || ""} ${p.clienti.ragione_sociale || ""}`.trim()
-          : "Cliente non trovato",
-      }));
-
-      setPolizzeList(results);
-      if (results.length === 0) {
-        toast.info("Nessuna polizza attiva trovata con questi criteri");
-      }
-    } catch (err: any) {
-      console.error("Errore ricerca polizze:", err);
-      toast.error("Errore nella ricerca polizze: " + err.message);
-    } finally {
-      setPolizzeLoading(false);
-    }
-  };
 
   const selezionaPolizza = (polizza: any) => {
     setSelectedPolizzaData(polizza);
