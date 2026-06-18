@@ -50,7 +50,7 @@ const PortafoglioCaricoPage = () => {
   const [dateDa, setDateDa] = useState<string>(searchParams.get("dal") || "");
   const [dateA, setDateA] = useState<string>(searchParams.get("al") || "");
   const isDefaultExtended = !userTouched && filtroPeriodo === "mese_corrente" && !dateDa && !dateA;
-  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
+  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze" | "regolazioni">("tutti");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
