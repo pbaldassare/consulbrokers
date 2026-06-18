@@ -120,11 +120,11 @@ export function useDashboardData(ruolo: string) {
       { data: incassiMese, count: incassiMeseCount },
       { data: polizzeDaCassa, count: polizzeDaCassaCount },
     ] = await Promise.all([
-      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth).in("stato", ["attivo", "incassato"]).limit(10000),
-      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("data_scadenza", oggi).in("stato", ["attivo", "incassato"]).limit(10000),
-      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("data_messa_cassa", ieri).limit(10000),
-      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth).limit(10000),
-      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("stato", "attivo").is("data_messa_cassa", null).gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth).limit(10000),
+      supabase.from("v_portafoglio_quietanze").select("premio_lordo", { count: "exact" }).gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth).in("stato", ["attivo", "incassato"]).limit(10000),
+      supabase.from("v_portafoglio_quietanze").select("premio_lordo", { count: "exact" }).eq("data_scadenza", oggi).in("stato", ["attivo", "incassato"]).limit(10000),
+      supabase.from("v_portafoglio_quietanze").select("premio_lordo", { count: "exact" }).eq("data_messa_cassa", ieri).limit(10000),
+      supabase.from("v_portafoglio_quietanze").select("premio_lordo", { count: "exact" }).gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth).limit(10000),
+      supabase.from("v_portafoglio_quietanze").select("premio_lordo", { count: "exact" }).eq("stato", "attivo").is("data_messa_cassa", null).gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth).limit(10000),
     ]);
 
     const sumPremio = (arr: any[] | null) => (arr || []).reduce((s: number, t: any) => s + (t.premio_lordo || 0), 0);
@@ -221,11 +221,11 @@ export function useDashboardData(ruolo: string) {
       // Titoli già messi in rimessa
       supabase.from("rimessa_dettaglio").select("titolo_id").limit(10000),
       // Incassi ultimi 6 mesi per grafico
-      supabase.from("v_portafoglio_titoli").select("premio_lordo, data_messa_cassa")
+      supabase.from("v_portafoglio_quietanze").select("premio_lordo, data_messa_cassa")
         .gte("data_messa_cassa", new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().substring(0, 10))
         .limit(10000),
       // Scadenze prossimi 30gg con agenzia
-      supabase.from("v_portafoglio_titoli").select("premio_lordo, compagnia_nome")
+      supabase.from("v_portafoglio_quietanze").select("premio_lordo, compagnia_nome")
         .gte("data_scadenza", oggi).lte("data_scadenza", in30gg)
         .in("stato", ["attivo", "incassato"]).limit(10000),
     ]);
