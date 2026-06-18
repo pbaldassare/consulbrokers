@@ -2442,6 +2442,55 @@ const ImmissionePolizzaPage = () => {
             <Input type="number" value={disdettaMesi} onChange={(e) => setDisdettaMesi(e.target.value)} placeholder="0" className="h-8 text-xs" />
           </div>
         </div>
+
+        {/* Preview quietanze pre-generate */}
+        {(() => {
+          const plan = computeQuietanzePlan({
+            frazionamento,
+            anniDurata: parseInt(anniDurata) || 1,
+            garanziaDa,
+            garanziaA,
+            dataCompetenza,
+          });
+          const quietanze = plan.filter((r) => r.idx >= 2);
+          if (quietanze.length === 0) return null;
+          const fmt = (iso: string) => {
+            const [y, m, d] = iso.split("-");
+            return `${d}/${m}/${y}`;
+          };
+          return (
+            <div className="mt-4 rounded-md border border-sky-200 bg-sky-50/60 p-3">
+              <div className="text-xs font-medium text-sky-900 mb-2">
+                Quietanze che verranno generate automaticamente: {quietanze.length}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="text-sky-800/70">
+                    <tr className="text-left">
+                      <th className="px-2 py-1 font-medium">Rata</th>
+                      <th className="px-2 py-1 font-medium">Garanzia da</th>
+                      <th className="px-2 py-1 font-medium">Garanzia a</th>
+                      <th className="px-2 py-1 font-medium">Competenza</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quietanze.map((r) => (
+                      <tr key={r.idx} className="border-t border-sky-200/60">
+                        <td className="px-2 py-1">Quietanza {r.idx}</td>
+                        <td className="px-2 py-1 tabular-nums">{fmt(r.garanzia_da)}</td>
+                        <td className="px-2 py-1 tabular-nums">{fmt(r.garanzia_a)}</td>
+                        <td className="px-2 py-1 tabular-nums">{r.data_competenza ? fmt(r.data_competenza) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-2 text-[11px] text-sky-800/80">
+                Le rate saranno create al salvataggio in stato <b>attivo</b>, in attesa di messa a cassa. Importi e date sono modificabili dopo la creazione.
+              </div>
+            </div>
+          );
+        })()}
       </PolizzaSection>
 
       {/* REGOLAZIONE */}
