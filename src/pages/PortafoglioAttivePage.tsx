@@ -276,7 +276,8 @@ const PortafoglioAttivePage = () => {
                     <TableCell className="text-sm">{p.specialist || "—"}</TableCell>
                     <TableCell className="text-sm">{p.produttore_nome || "—"}</TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
