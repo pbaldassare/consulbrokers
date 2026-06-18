@@ -1125,11 +1125,14 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
 
   // Flat quietanze filtrate (vista "Solo quietanze")
   const flatQuietanze = useMemo(() => {
-    const out: { rata: any; madreNum: string | null; idx: number }[] = [];
+    const out: { rata: any; madreNum: string | null; madreId: string | null; idx: number; totale: number }[] = [];
     filteredCatene.forEach((c: any) => {
-      const madreNum = (c.madre || c.all[0])?.numero_titolo || null;
+      const head = c.madre || c.all[0];
+      const madreNum = head?.numero_titolo || null;
+      const madreId = head?.id || null;
+      const totale = c.all.length;
       c.rate.forEach((r: any, i: number) => {
-        if (matchTitolo(r)) out.push({ rata: r, madreNum, idx: i + 2 });
+        if (matchTitolo(r)) out.push({ rata: r, madreNum, madreId, idx: i + 2, totale });
       });
     });
     return out;
