@@ -27,6 +27,8 @@ interface SearchableSelectProps {
   searchPlaceholder?: string;
   clearable?: boolean;
   clearLabel?: string;
+  /** Disabilita il filtro client di cmdk: usa quando le `options` sono già filtrate dal server. */
+  serverSideSearch?: boolean;
 }
 
 export function SearchableSelect({
