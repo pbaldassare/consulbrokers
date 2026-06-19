@@ -611,7 +611,7 @@ const ImmissionePolizzaPage = () => {
     durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, frazionamento, moraGiorni,
     garanziaDa, garanziaDaTouched, garanziaA, garanziaATouched, dataCompetenza, dataCompetenzaTouched,
     limiteMora, limiteMoraTouched, disdettaMesi,
-    regolazione, tipoLetteraRegolazione, tipoScadenza, giorniPresentazione, periodicita, libroMatricola,
+    regolazione, regolazioneDataPresunta, regolazioneFattore, regolazioneNote,
     premiFirmaRows, premiQuietanzaRows, addizionali, valuta, addizionaliQuietanza,
     rimborso, indicizzata, noCalcoloTasse, pagDirettoCompagnia, emissioneFee, formatoElettronico, cambio,
     percentualeCommercialeAuto,
