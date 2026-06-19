@@ -328,6 +328,24 @@ const TitoloDetail = () => {
     },
   });
 
+  // Stato del contratto (tabella `polizze`) — separato dallo stato della quietanza (titoli.stato).
+  // Nel nuovo modello la polizza NON viene mai messa a cassa: lo è la quietanza.
+  const polizzaIdLookup = (titolo as any)?.polizza_id || null;
+  const { data: polizzaStato } = useQuery({
+    queryKey: ["polizza-stato", polizzaIdLookup],
+    enabled: !!polizzaIdLookup,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("polizze")
+        .select("stato")
+        .eq("id", polizzaIdLookup!)
+        .maybeSingle();
+      return (data as any)?.stato as string | null;
+    },
+  });
+
+
+
 
   // --- Cassa dialog state ---
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
