@@ -1,51 +1,41 @@
-## Obiettivo
-Eliminare i doppioni di date nelle card Quietanza: **Garanzia Da/A** restano solo nella card **Periodo**; le quietanze ereditano le finestre temporali calcolate automaticamente da `garanzia_da` + `garanzia_a` + `frazionamento` (12/6/4/3/1 mesi · poliennale = 1/anno).
 
-## Cosa cambia nella UI
+## Ho capito
 
-### Card Periodo (resta sorgente unica)
-- `durata_da`, `durata_a`, `anni_durata`, `frazionamento`
-- `garanzia_da`, `garanzia_a` (← unica fonte)
-- `data_competenza`, `limite_mora`, `tacito_rinnovo`, `gg_mora`, `disdetta`
+La card "Quietanze (rate da pagare)" nel form Nuova Polizza **non serve**. Tutto deriva automaticamente da:
 
-### Card Quietanze (snellita)
-Ogni card "Rata N/M" mostra in **header read-only**:
-- `Rata N/M` · `garanzia_da → garanzia_a` (calcolate) · `competenza` · `scadenza`
+- **Durata Da / Durata A** (card Periodo) → finestra totale della polizza
+- **Frazionamento** → quante quietanze creare e come spezzare le finestre
 
-Campi **editabili** per riga (solo importi/provvigioni):
-- `premio_netto`, `tasse`, `ssn`, `addizionali`, `premio_lordo` (auto)
-- `provv_firma`, `provv_quietanza`
+### Regola di calcolo (lato trigger DB, niente UI)
 
-**Rimossi** dalle card quietanza: i 4 datepicker `Garanzia Da/A` + `Competenza/Scadenza` (diventano label nell'header, non input).
+- **Annuale** (durata 1/7/2026 → 1/7/2027): 1 quietanza, garanzia 1/7/2026 → 1/7/2027 (coincide con la durata).
+- **Semestrale** stessa durata: 2 quietanze
+  - Rata 1: 1/7/2026 → 1/1/2027
+  - Rata 2: 1/1/2027 → 1/7/2027
+- **Trimestrale**: 4 quietanze da 3 mesi · **Quadrimestrale**: 3 da 4 · **Mensile**: 12 da 1 · **Poliennale Nanni**: N quietanze annuali consecutive.
 
-Pulsante "Modifica finestre" (opzionale, collassato) per casi rari in cui serve override manuale di una singola finestra — apre i datepicker inline solo per quella rata.
+Gli importi (netto/tasse/SSN/addizionali/provvigioni) delle quietanze li calcola il trigger pro-quota dai totali della polizza, come già fa oggi. Eventuali aggiustamenti per-rata si fanno **dopo**, dal dettaglio della singola quietanza, non in creazione.
 
-## Logica di calcolo finestre (`computeQuietanzePlan`)
-Già supporta tutto. Per ogni rata `i ∈ [1..N]`:
-- `garanzia_da_i = garanzia_da + (i-1) × passo`
-- `garanzia_a_i = garanzia_da + i × passo − 1 giorno` (ultima rata clampa a `garanzia_a`)
-- `competenza_i = garanzia_da_i`
-- `scadenza_i = garanzia_da_i + gg_mora`
+## Cosa cambia
 
-Passo per frazionamento: Mensile=1m, Bimestrale=2m, Trimestrale=3m, Quadrimestrale=4m, Semestrale=6m, Annuale=12m, Poliennale=12m (N=anni_durata).
+### `src/pages/ImmissionePolizzaPage.tsx`
+1. Rimuovere l'import e il render di `<QuietanzeEditor />` dalla sezione "Quietanze (rate da pagare)" (incluso il `Collapsible`/Card contenitore se introdotto solo per questo).
+2. Rimuovere lo stato `quietanzeDrafts` e il blocco post-insert che fa `SELECT polizza_id` + loop di `UPDATE quietanze` con i draft. La generazione resta interamente al trigger `tg_polizza_after_insert_genera_quietanze`.
+3. Lasciare invariate Periodo (Durata Da/A, Anni Durata, Frazionamento, Garanzia Da/A, Data Competenza, GG Mora, Tacito Rinnovo, Disdetta, Limite Mora) e la card Importi.
 
-## File da modificare
-1. **`src/components/polizze/QuietanzeEditor.tsx`**
-   - Rimuovere i 4 `<DatePicker>` (garanzia/competenza/scadenza) dal corpo card.
-   - Spostare le date come testo nell'header card (`Rata N/M · gg/mm/aa → gg/mm/aa`).
-   - Mantenere solo Netto, Tasse, SSN, Addiz., Lordo, Provv. Firma, Provv. Quietanza.
-   - Toggle "Personalizza finestre" → mostra inline i datepicker solo se serve override.
-2. **`src/pages/ImmissionePolizzaPage.tsx`**
-   - Assicurarsi che cambi a `garanzia_da/a` o `frazionamento` nella card Periodo rigenerino `quietanzeDrafts` con le nuove finestre (preservando importi/provvigioni già editati per indice).
-   - Effect: `useEffect([garanzia_da, garanzia_a, frazionamento, anni_durata, gg_mora]) → recomputePlan + merge importi esistenti`.
+### `src/components/polizze/QuietanzeEditor.tsx`
+- File **eliminato** (non più usato altrove).
 
-## Comportamento al save
-Invariato: `INSERT polizze` → trigger genera N quietanze → loop `UPDATE` con i draft (ora solo importi/provvigioni, le finestre coincidono già con quelle del trigger).
+### `src/lib/quietanzePlan.ts` e i suoi test
+- **Restano** come sono: già usati per i test di regressione del calcolo e potenzialmente da altre viste (dettaglio polizza). Non li tocco.
 
-## Override manuale (edge case)
-Se l'utente attiva "Personalizza finestre" su una rata, salviamo anche `garanzia_da/a/competenza/scadenza` di quella rata nell'UPDATE (oggi già lo facciamo).
+### DB
+- **Nessuna migrazione**. Il trigger `fn_polizza_genera_quietanze` (aggiornato il 19/06 per gestire Poliennale come N quietanze annuali) è già coerente con la regola richiesta. Il backfill già eseguito resta valido.
+
+### Memory
+- Aggiornare `mem://insurance/quietanze-editor-immissione` per riflettere la rimozione: la card non esiste più, la generazione è 100% server-side dal trigger su `polizze` partendo da durata + frazionamento.
 
 ## Out of scope
-- Backfill polizze esistenti (già fatto).
-- Logica frazionamento/poliennale (già OK).
-- Schema DB invariato.
+- Editing per-rata in creazione (rimosso per scelta).
+- Modifica delle regole di calcolo finestre/importi del trigger.
+- Card Carico / badge Quietanza N/M (già a posto).
