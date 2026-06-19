@@ -225,7 +225,7 @@ export default function PolizzaDetail() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="contratto" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
           <TabsTrigger value="contratto">Contratto</TabsTrigger>
           <TabsTrigger value="quietanze">Quietanze ({quietanze.length})</TabsTrigger>
