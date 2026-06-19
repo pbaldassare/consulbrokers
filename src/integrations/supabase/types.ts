@@ -3857,6 +3857,54 @@ export type Database = {
           },
         ]
       }
+      libro_matricola_mezzi: {
+        Row: {
+          created_at: string
+          data_esclusione: string | null
+          data_inclusione: string | null
+          id: string
+          note: string | null
+          targa: string | null
+          titolo_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_esclusione?: string | null
+          data_inclusione?: string | null
+          id?: string
+          note?: string | null
+          targa?: string | null
+          titolo_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_esclusione?: string | null
+          data_inclusione?: string | null
+          id?: string
+          note?: string | null
+          targa?: string | null
+          titolo_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "libro_matricola_mezzi_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "libro_matricola_mezzi_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       log_attivita: {
         Row: {
           azione: string | null
