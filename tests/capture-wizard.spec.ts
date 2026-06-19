@@ -91,16 +91,13 @@ test.describe('Cattura Screenshot Sinistri', () => {
     await page.click('button:has-text("Avanti")');
 
     // Step 4: Assegnazione
-    await expect(page.locator('text=Step 4: Assegnazione Pratica e Priorità')).toBeVisible({ timeout: 15000 });
-    
-    // Seleziona responsabile e liquidatore
-    await page.click('div:has(> label:has-text("Responsabile Interno")) >> button[role="combobox"]');
-    await page.locator('div[role="option"]').first().click();
+    await expect(page.locator('text=Step 4: Assegnazione Pratica')).toBeVisible({ timeout: 15000 });
+
+    // Seleziona liquidatore esterno
     await page.click('div:has(> label:has-text("Liquidatore Esterno")) >> button[role="combobox"]');
     await page.locator('div[role="option"]').first().click();
-    
-    await page.click('label[for="priorita-alta"]');
-    await page.fill('#note_interne', 'Test screenshot priorità alta.');
+
+    await page.fill('#note_interne', 'Test screenshot note interne.');
     await page.screenshot({ path: path.join(artifactDir, 'wizard_step4.png') });
     await page.click('button:has-text("Avanti")');
 

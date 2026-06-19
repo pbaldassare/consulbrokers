@@ -111,12 +111,9 @@ test.describe('E2E Sinistri Flow Completo', () => {
     await page.click('button:has-text("Avanti")');
 
     // Step 4 Assegnazione
-    await expect(page.locator('text=Step 4: Assegnazione Pratica e Priorità')).toBeVisible({ timeout: 15000 });
-    await page.click('div:has(> label:has-text("Responsabile Interno")) >> button[role="combobox"]');
-    await page.locator('div[role="option"]').first().click();
+    await expect(page.locator('text=Step 4: Assegnazione Pratica')).toBeVisible({ timeout: 15000 });
     await page.click('div:has(> label:has-text("Liquidatore Esterno")) >> button[role="combobox"]');
     await page.locator('div[role="option"]').first().click();
-    await page.click('label[for="priorita-alta"]');
     await page.click('button:has-text("Avanti")');
 
     // Step 5 Riepilogo
