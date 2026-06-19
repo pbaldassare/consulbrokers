@@ -170,7 +170,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, dateDa, dateA, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_quietanze").select(
-        "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, regolazione_quietanza_id",
+        "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, regolazione_quietanza_id, numero_rata, numero_rate_totali",
         { count: "exact" }
       );
       q = applyPeriodoFilter(q);
@@ -704,10 +704,12 @@ const PortafoglioCaricoPage = () => {
                       <TableCell>
                         {p.is_regolazione ? (
                           <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">Regolazione</Badge>
-                        ) : isQ ? (
-                          <TipoPolizzaBadge tipo="quietanza" />
                         ) : (
-                          <TipoPolizzaBadge tipo="polizza" />
+                          <TipoPolizzaBadge
+                            tipo="quietanza"
+                            numero={p.numero_rata || (isQ ? undefined : 1)}
+                            totale={p.numero_rate_totali || (isQ ? undefined : 1)}
+                          />
                         )}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
