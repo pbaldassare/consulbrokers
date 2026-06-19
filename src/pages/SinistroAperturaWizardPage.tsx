@@ -811,58 +811,20 @@ export default function SinistroAperturaWizardPage() {
             {/* STEP 4: ASSEGNAZIONE */}
             {currentStep === 4 && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Responsabile Interno <span className="text-muted-foreground text-xs">(facoltativo)</span></Label>
-                    <SearchableSelect
-                      value={watch("responsabile_id")}
-                      onValueChange={(val) => setValue("responsabile_id", val, { shouldValidate: true })}
-                      placeholder="Seleziona responsabile..."
-                      options={responsabiliList.map((r: any) => ({
-                        value: r.id,
-                        label: `${r.cognome || ""} ${r.nome || ""}`.trim(),
-                        description: `Ruolo: ${r.ruolo}`
-                      }))}
-                    />
-                    {errors.responsabile_id && <p className="text-xs text-destructive">{errors.responsabile_id.message}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Liquidatore Esterno <span className="text-muted-foreground text-xs">(facoltativo)</span></Label>
-                    <SearchableSelect
-                      value={watch("liquidatore_id")}
-                      onValueChange={(val) => setValue("liquidatore_id", val, { shouldValidate: true })}
-                      placeholder="Seleziona liquidatore..."
-                      options={liquidatoriList.map((l: any) => ({
-                        value: l.id,
-                        label: l.ragione_sociale || `${l.cognome || ""} ${l.nome || ""}`.trim()
-                      }))}
-                    />
-                    {errors.liquidatore_id && <p className="text-xs text-destructive">{errors.liquidatore_id.message}</p>}
-                  </div>
-                </div>
-
                 <div className="space-y-2">
-                  <Label>Priorità di Apertura *</Label>
-                  <RadioGroup 
-                    value={watch("priorita")} 
-                    onValueChange={(val) => setValue("priorita", val as any)}
-                    className="grid grid-cols-3 gap-4 pt-2"
-                  >
-                    <Label htmlFor="priorita-normale" className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-muted/30">
-                      <RadioGroupItem value="normale" id="priorita-normale" />
-                      <span>Normale</span>
-                    </Label>
-                    <Label htmlFor="priorita-alta" className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-muted/30 text-orange-600">
-                      <RadioGroupItem value="alta" id="priorita-alta" />
-                      <span>Alta</span>
-                    </Label>
-                    <Label htmlFor="priorita-urgente" className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-muted/30 text-destructive">
-                      <RadioGroupItem value="urgente" id="priorita-urgente" />
-                      <span className="font-bold">Urgente</span>
-                    </Label>
-                  </RadioGroup>
+                  <Label>Liquidatore Esterno <span className="text-muted-foreground text-xs">(facoltativo)</span></Label>
+                  <SearchableSelect
+                    value={watch("liquidatore_id")}
+                    onValueChange={(val) => setValue("liquidatore_id", val, { shouldValidate: true })}
+                    placeholder="Seleziona liquidatore..."
+                    options={liquidatoriList.map((l: any) => ({
+                      value: l.id,
+                      label: l.ragione_sociale || `${l.cognome || ""} ${l.nome || ""}`.trim()
+                    }))}
+                  />
+                  {errors.liquidatore_id && <p className="text-xs text-destructive">{errors.liquidatore_id.message}</p>}
                 </div>
+
 
                 <div className="space-y-2">
                   <Label htmlFor="note_interne">Note Interne Operatore (opzionale)</Label>
