@@ -252,9 +252,20 @@ const ClienteComunicazioni = () => {
             </Badge>
           )}
         </h1>
-        <Button data-tour="cl-chat-new" onClick={() => setDialogOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Nuova conversazione
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExportPdf}
+            disabled={!canaleAttivoId}
+            className="gap-2"
+            title={canaleAttivoId ? "Esporta la conversazione in PDF" : "Seleziona una conversazione"}
+          >
+            <Download className="h-4 w-4" /> Esporta PDF
+          </Button>
+          <Button data-tour="cl-chat-new" onClick={() => setDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Nuova conversazione
+          </Button>
+        </div>
       </div>
 
       <div className="flex h-[calc(100vh-14rem)] border rounded-lg overflow-hidden">
