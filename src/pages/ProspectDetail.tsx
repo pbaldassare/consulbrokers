@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTabParam } from "@/hooks/useTabParam";
+
+const PROSPECT_TABS = ["documenti", "chat"] as const;
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { logAttivita } from "@/lib/logAttivita";
