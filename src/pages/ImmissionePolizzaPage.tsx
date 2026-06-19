@@ -47,7 +47,7 @@ import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
 import { FieldHint } from "@/components/ui/field-hint";
 import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPersistence";
 import { computeQuietanzePlan } from "@/lib/quietanzePlan";
-import { QuietanzeEditor, type QuietanzaDraft } from "@/components/polizze/QuietanzeEditor";
+
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
