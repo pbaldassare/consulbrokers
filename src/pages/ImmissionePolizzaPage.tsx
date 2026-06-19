@@ -10,8 +10,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 
-import { Search, Car, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck } from "lucide-react";
+import { Search, Car, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck, Truck } from "lucide-react";
 import { PremiGaranziaCardShell, emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
+import { LibroMatricolaDialog, filterRigheValide, type LibroMatricolaRiga } from "@/components/polizze/LibroMatricolaDialog";
 import {
   syncQuietanzaFromFirma,
   markQuietanzaEdits,
