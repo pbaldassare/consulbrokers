@@ -201,9 +201,10 @@ const PortafoglioCaricoPage = () => {
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, dateDa, dateA],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_quietanze").select("premio_lordo, sostituisce_polizza");
+      let q = supabase.from("v_portafoglio_quietanze").select("premio_lordo, sostituisce_polizza, is_regolazione, numero_rata, numero_rate_totali");
       q = applyPeriodoFilter(q);
       q = applySearch(q);
+      q = applyExcludeMadreConRate(q);
       const { data } = await q;
       const rows = (data || []);
       const sumAll = rows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0);
