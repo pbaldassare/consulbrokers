@@ -1736,6 +1736,17 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
+  // Realtime: badge "Sinistri" aggiornato in tempo reale anche se il tab non è montato
+  useEffect(() => {
+    if (!id) return;
+    const ch = supabase
+      .channel(`cliente-sinistri-rt-${id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sinistri", filter: `cliente_anagrafica_id=eq.${id}` },
+        () => queryClient.invalidateQueries({ queryKey: ["cliente_related_ids", id] }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [id, queryClient]);
+
   const { data: relazioni = [] } = useQuery({
     queryKey: ["relazioni_cliente", id],
     queryFn: async () => {
