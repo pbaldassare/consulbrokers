@@ -63,6 +63,7 @@ const ProspectDetail = () => {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const [trattativaOpen, setTrattativaOpen] = useState(false);
+  const [activeTab, setActiveTab] = useTabParam(PROSPECT_TABS, "documenti");
   const [trattativaForm, setTrattativaForm] = useState({
     ramo_id: "", compagnia_id: "", premio_previsto: "", note: "",
   });
