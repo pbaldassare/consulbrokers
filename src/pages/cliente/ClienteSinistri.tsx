@@ -9,10 +9,58 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon } from "lucide-react";
+import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon, Check } from "lucide-react";
+
+// MultiSelect filter: array of values, "all" when empty
+function MultiSelectFilter({ label, values, options, onChange, formatOption }: {
+  label: string;
+  values: string[];
+  options: string[];
+  onChange: (v: string[]) => void;
+  formatOption?: (v: string) => string;
+}) {
+  const display = values.length === 0
+    ? label
+    : values.length === 1
+      ? (formatOption?.(values[0]) ?? values[0])
+      : `${values.length} selezionati`;
+  const toggle = (v: string) => {
+    onChange(values.includes(v) ? values.filter(x => x !== v) : [...values, v]);
+  };
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="w-full justify-between font-normal">
+          <span className={cn("truncate", values.length === 0 && "text-muted-foreground")}>{display}</span>
+          <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="p-1 w-[var(--radix-popover-trigger-width)] max-h-72 overflow-auto" align="start">
+        {options.length === 0 ? (
+          <div className="px-2 py-1.5 text-sm text-muted-foreground">Nessuna opzione</div>
+        ) : (
+          <>
+            {values.length > 0 && (
+              <button type="button" onClick={() => onChange([])} className="w-full text-left px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent rounded">
+                ✕ Pulisci selezione
+              </button>
+            )}
+            {options.map((opt) => (
+              <button key={opt} type="button" onClick={() => toggle(opt)} className="flex items-center gap-2 w-full px-2 py-1.5 text-sm hover:bg-accent rounded">
+                <div className={cn("h-4 w-4 border rounded flex items-center justify-center", values.includes(opt) && "bg-primary border-primary")}>
+                  {values.includes(opt) && <Check className="h-3 w-3 text-primary-foreground" />}
+                </div>
+                <span className="truncate">{formatOption?.(opt) ?? opt}</span>
+              </button>
+            ))}
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
 import { format } from "date-fns";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import NuovaDenunciaSinistroDialog from "@/components/cliente/NuovaDenunciaSinistroDialog";
