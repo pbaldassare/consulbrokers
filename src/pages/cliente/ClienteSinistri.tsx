@@ -316,42 +316,12 @@ export default function ClienteSinistri() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <Input placeholder="Cerca: n°, controparte, targa…" value={fSearch} onChange={(e) => setFSearch(e.target.value)} />
-            <Select value={fStato} onValueChange={setFStato}>
-              <SelectTrigger><SelectValue placeholder="Stato" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutti gli stati</SelectItem>
-                {optStati.map((v) => <SelectItem key={v} value={v}>{v.replace(/_/g, " ")}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fRamo} onValueChange={setFRamo}>
-              <SelectTrigger><SelectValue placeholder="Garanzia" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutte le garanzie</SelectItem>
-                {optRami.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fCompagnia} onValueChange={setFCompagnia}>
-              <SelectTrigger><SelectValue placeholder="Compagnia" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutte le compagnie</SelectItem>
-                {optCompagnie.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fPolizza} onValueChange={setFPolizza}>
-              <SelectTrigger><SelectValue placeholder="Polizza" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutte le polizze</SelectItem>
-                {optPolizze.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fProvincia} onValueChange={setFProvincia}>
-              <SelectTrigger><SelectValue placeholder="Provincia" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutte le province</SelectItem>
-                {optProvince.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fCitta} onValueChange={setFCitta}>
-              <SelectTrigger><SelectValue placeholder="Città" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutte le città</SelectItem>
-                {optCitta.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter label="Tutti gli stati" values={fStati} options={optStati} onChange={setFStati} formatOption={(v) => v.replace(/_/g, " ")} />
+            <MultiSelectFilter label="Tutte le garanzie" values={fRami} options={optRami} onChange={setFRami} />
+            <MultiSelectFilter label="Tutte le compagnie" values={fCompagnie} options={optCompagnie} onChange={setFCompagnie} />
+            <MultiSelectFilter label="Tutte le polizze" values={fPolizze} options={optPolizze} onChange={setFPolizze} />
+            <MultiSelectFilter label="Tutte le città" values={fCitta} options={optCitta} onChange={setFCitta} />
+
             <div className="flex gap-2">
               <Popover>
                 <PopoverTrigger asChild>
