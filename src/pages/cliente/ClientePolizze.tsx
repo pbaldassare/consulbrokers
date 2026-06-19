@@ -270,7 +270,6 @@ const ClientePolizze = () => {
               <TableHeader>
                 <TableRow className="bg-teal-700 hover:bg-teal-700">
                   <TableHead className="text-white w-10"></TableHead>
-                  <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Stato</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Mandato / Agenzia</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Prodotto</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">N° Polizza / Targa</TableHead>
@@ -288,19 +287,18 @@ const ClientePolizze = () => {
                   const prodotto = t.rami?.descrizione ?? t.prodotto_nome ?? t.descrizione_polizza ?? "—";
                   const polizzaTarga = [t.numero_titolo, t.targa_telaio].filter(Boolean).join(" / ") || "N/D";
                   const isExpanded = expandedId === t.id;
+                  const expData = expandedData[t.id];
 
                   return (
                     <Fragment key={t.id}>
                     <TableRow
-                      onClick={() => setExpandedId(isExpanded ? null : t.id)}
+                      onClick={() => toggleExpand(t)}
                       className={`cursor-pointer transition-colors hover:bg-teal-50 ${idx % 2 === 0 ? "bg-white" : "bg-muted/30"} ${isExpanded ? "bg-teal-50" : ""}`}
                     >
                       <TableCell className="py-2.5 w-10">
                         {isExpanded ? <ChevronDown className="h-4 w-4 text-teal-700" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                       </TableCell>
-                      <TableCell className="py-2.5">
-                        <Badge className={`text-[10px] ${statoBadge[t.stato] ?? "bg-muted text-muted-foreground"}`}>{t.stato}</Badge>
-                      </TableCell>
+
                       <TableCell className="py-2.5">
                         <p className="font-semibold text-sm text-foreground">{compagnia}</p>
                         {t.produttore_nome && <p className="text-xs text-muted-foreground">{t.produttore_nome}</p>}
