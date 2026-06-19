@@ -26,13 +26,21 @@ describe('mergePolizze', () => {
   const quietanza2 = { id: 't3', numero_titolo: 'POL-001', sostituisce_polizza: 't1' };
   const altraMadre = { id: 't4', numero_titolo: 'POL-002', sostituisce_polizza: null };
 
-  it('mostra TUTTE le occorrenze quando si passano madri + quietanze (no dedup)', () => {
+  it('deduplica per numero_titolo: 1 sola riga per POL-001 (preferendo la madre)', () => {
     const merged = mergePolizze([madre, quietanza1, quietanza2, altraMadre], []);
-    expect(merged).toHaveLength(4);
-    const numeri = merged.map((r: any) => r.numero_titolo);
-    // POL-001 deve comparire 3 volte (1 madre + 2 quietanze)
-    expect(numeri.filter((n) => n === 'POL-001')).toHaveLength(3);
-    expect(numeri).toContain('POL-002');
+    expect(merged).toHaveLength(2);
+    const numeri = merged.map((r: any) => r.numero_titolo).sort();
+    expect(numeri).toEqual(['POL-001', 'POL-002']);
+    const pol001: any = merged.find((r: any) => r.numero_titolo === 'POL-001');
+    expect(pol001.sostituisce_polizza).toBeNull();
+  });
+
+  it('se manca la madre, tiene la quietanza più recente per numero', () => {
+    const q1 = { id: 't2', numero_titolo: 'POL-001', sostituisce_polizza: 't1', created_at: '2026-01-01T00:00:00Z' };
+    const q2 = { id: 't3', numero_titolo: 'POL-001', sostituisce_polizza: 't1', created_at: '2026-06-01T00:00:00Z' };
+    const merged = mergePolizze([q1, q2], []);
+    expect(merged).toHaveLength(1);
+    expect((merged[0] as any).id).toBe('t3');
   });
 
   it('quando il caller passa solo le madri, restituisce solo le madri', () => {

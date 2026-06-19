@@ -31,9 +31,10 @@ export function applySoloMadriFilter<T extends { is: (col: string, val: any) => 
 }
 
 /**
- * Unisce i risultati titoli + CGA mantenendo TUTTE le occorrenze
- * (nessuna deduplica su numero_titolo: madri e quietanze devono comparire).
- * Filtra solo le righe senza numero_titolo.
+ * Unisce i risultati titoli + CGA. Effettua la deduplica per `numero_titolo`:
+ * a parità di numero viene mantenuta la madre (sostituisce_polizza IS NULL)
+ * se presente, altrimenti la riga più recente per `created_at`.
+ * Filtra le righe senza numero_titolo.
  */
 export function mergePolizze(titoli: TitoloRow[], cga: CgaRow[]) {
   const fromTitoli = (titoli ?? []).map((t) => ({ ...t, _isCga: false as const }));
@@ -43,6 +44,8 @@ export function mergePolizze(titoli: TitoloRow[], cga: CgaRow[]) {
     stato: 'attivo' as const,
     cliente_anagrafica_id: c.cliente_id ?? null,
     ufficio_id: null,
+    sostituisce_polizza: null,
+    created_at: (c as any).created_at ?? null,
     prodotti: {
       nome_prodotto: c.prodotti_cga?.nome_prodotto,
       compagnie: { id: null, nome: c.prodotti_cga?.compagnia },
@@ -50,5 +53,21 @@ export function mergePolizze(titoli: TitoloRow[], cga: CgaRow[]) {
     clienti: null,
     _isCga: true as const,
   }));
-  return [...fromTitoli, ...fromCga].filter((p: any) => p.numero_titolo);
+  const all = [...fromTitoli, ...fromCga].filter((p: any) => p.numero_titolo);
+
+  const byNumero = new Map<string, any>();
+  for (const row of all) {
+    const key = String(row.numero_titolo);
+    const prev = byNumero.get(key);
+    if (!prev) { byNumero.set(key, row); continue; }
+    const prevIsMother = prev.sostituisce_polizza == null;
+    const rowIsMother = row.sostituisce_polizza == null;
+    if (rowIsMother && !prevIsMother) { byNumero.set(key, row); continue; }
+    if (prevIsMother && !rowIsMother) continue;
+    // stesso "tipo": tieni la più recente
+    const prevTs = (prev as any).created_at ? Date.parse((prev as any).created_at) : 0;
+    const rowTs = (row as any).created_at ? Date.parse((row as any).created_at) : 0;
+    if (rowTs > prevTs) byNumero.set(key, row);
+  }
+  return Array.from(byNumero.values());
 }
