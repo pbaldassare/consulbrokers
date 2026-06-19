@@ -50,6 +50,7 @@ export default function SinistroDetail() {
   const qc = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
   const canManage = isAdmin || hasPermission("sinistri");
+  const [activeTab, setActiveTab] = useTabParam(SINISTRO_TABS, "checklist");
   const [checklistDialog, setChecklistDialog] = useState(false);
   const [eventoDialog, setEventoDialog] = useState(false);
   const [newChecklist, setNewChecklist] = useState({ descrizione: "", obbligatorio: true });
