@@ -356,13 +356,11 @@ const ImmissionePolizzaPage = () => {
   const [disdettaMesi, setDisdettaMesi] = useState("");
 
 
-  // Regolazione
+  // Regolazione (promemoria) — allineato a TitoloDetail
   const [regolazione, setRegolazione] = useState(false);
-  const [tipoLetteraRegolazione, setTipoLetteraRegolazione] = useState("");
-  const [tipoScadenza, setTipoScadenza] = useState("no_scadenza");
-  const [giorniPresentazione, setGiorniPresentazione] = useState("");
-  const [periodicita, setPeriodicita] = useState("annuale");
-  const [libroMatricola, setLibroMatricola] = useState("no");
+  const [regolazioneDataPresunta, setRegolazioneDataPresunta] = useState("");
+  const [regolazioneFattore, setRegolazioneFattore] = useState("");
+  const [regolazioneNote, setRegolazioneNote] = useState("");
 
   // Importi — multi-row garanzie
   const [premiFirmaRows, setPremiFirmaRows] = useState<GaranziaRow[]>([emptyGaranziaRow()]);
