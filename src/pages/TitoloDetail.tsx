@@ -1479,6 +1479,9 @@ const TitoloDetail = () => {
       {/* Header — sticky sotto la topbar globale */}
       <TitoloHeaderBar
         t={t}
+        polizzaStato={polizzaStato ?? null}
+        rataIndex={rataIndex}
+        totRate={totRate}
         onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`) : navigate("/portafoglio/carico")}
         madre={madreQuietanza ? {
           id: (madreQuietanza as any).id,
@@ -1490,6 +1493,7 @@ const TitoloDetail = () => {
             : "Polizza",
         } : null}
       />
+
 
 
       {/* Banner di blocco + banner scope quietanza */}
