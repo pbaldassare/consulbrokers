@@ -65,8 +65,8 @@ export function mergePolizze(titoli: TitoloRow[], cga: CgaRow[]) {
     if (rowIsMother && !prevIsMother) { byNumero.set(key, row); continue; }
     if (prevIsMother && !rowIsMother) continue;
     // stesso "tipo": tieni la più recente
-    const prevTs = prev.created_at ? Date.parse(prev.created_at) : 0;
-    const rowTs = row.created_at ? Date.parse(row.created_at) : 0;
+    const prevTs = (prev as any).created_at ? Date.parse((prev as any).created_at) : 0;
+    const rowTs = (row as any).created_at ? Date.parse((row as any).created_at) : 0;
     if (rowTs > prevTs) byNumero.set(key, row);
   }
   return Array.from(byNumero.values());
