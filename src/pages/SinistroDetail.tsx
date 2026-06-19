@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,6 +93,24 @@ export default function SinistroDetail() {
     qc.invalidateQueries({ queryKey: ["sinistro-eventi", id] });
     qc.invalidateQueries({ queryKey: ["timeline", "sinistro", id] });
   };
+
+  // Realtime: aggiorna dettaglio sinistro, checklist ed eventi su qualsiasi change
+  useEffect(() => {
+    if (!id) return;
+    const ch = supabase
+      .channel(`sinistro-rt-${id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sinistri", filter: `id=eq.${id}` },
+        () => qc.invalidateQueries({ queryKey: ["sinistro", id] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "sinistro_checklist", filter: `sinistro_id=eq.${id}` },
+        () => qc.invalidateQueries({ queryKey: ["sinistro-checklist", id] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "sinistro_eventi", filter: `sinistro_id=eq.${id}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["sinistro-eventi", id] });
+          qc.invalidateQueries({ queryKey: ["timeline", "sinistro", id] });
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [id, qc]);
 
   const toggleChecklist = async (item: any) => {
     await supabase.from("sinistro_checklist").update({ completato: !item.completato }).eq("id", item.id);
@@ -233,11 +251,16 @@ export default function SinistroDetail() {
         <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Eventi Attivi</p><p className="font-semibold">{eventi?.filter((e: any) => e.stato === "attivo").length}</p></CardContent></Card>
       </div>
 
-      {/* Cambio stato — solo admin / gestori sinistri */}
-      {canManage && !isChiuso && (
+      {/* Cambio stato — admin sempre; altri gestori solo se pratica non chiusa */}
+      {((canManage && !isChiuso) || isAdmin) && (
         <Card>
           <CardHeader><CardTitle className="text-base">Gestione Stato Pratica</CardTitle></CardHeader>
           <CardContent className="space-y-3">
+            {isChiuso && isAdmin && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                Pratica {sinistro.stato}: la riapertura/modifica è consentita solo agli amministratori.
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-3 items-end">
               <div>
                 <Label className="text-xs">Nuovo stato</Label>
