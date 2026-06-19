@@ -1865,8 +1865,8 @@ const TitoloDetail = () => {
                       >
                         <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
                         <div className="flex-1">
-                          <strong>Polizza già messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}.</strong>{" "}
-                          Le azioni <em>Incassa</em> e <em>Garantito</em> non sono disponibili.
+                          <strong>Quietanza già messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}.</strong>{" "}
+                          Le azioni <em>Incassa</em> e <em>Garantito</em> non sono disponibili su questa rata.
                           <span className="ml-1 underline decoration-dotted">Maggiori dettagli</span>
                         </div>
                       </button>
@@ -1874,16 +1874,17 @@ const TitoloDetail = () => {
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
-                          <Info className="w-5 h-5 text-blue-600" /> Polizza già incassata
+                          <Info className="w-5 h-5 text-blue-600" /> Quietanza già incassata
                         </AlertDialogTitle>
                         <AlertDialogDescription asChild>
                           <div className="space-y-2 text-sm">
                             <p>
-                              Questa polizza è stata <strong>messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}</strong> e non può essere incassata una seconda volta: il sistema applica una protezione anti-doppio-incasso a livello di database.
+                              Questa quietanza è stata <strong>messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}</strong> e non può essere incassata una seconda volta: il sistema applica una protezione anti-doppio-incasso a livello di database. La polizza (contratto) resta invece attiva: la messa a cassa è una proprietà della rata, non del contratto.
                             </p>
                             <p className="text-muted-foreground">
                               Le azioni <em>Incassa</em> e <em>Garantito</em> tornano disponibili solo dopo l'annullamento della messa a cassa precedente.
                             </p>
+
                             {isAdmin ? (
                               <p className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-amber-900">
                                 In quanto <strong>Amministratore</strong> puoi usare il pulsante <em>Annulla Incasso / Messa a Cassa</em> qui sotto per sbloccare la polizza, quindi procedere con un nuovo incasso.
