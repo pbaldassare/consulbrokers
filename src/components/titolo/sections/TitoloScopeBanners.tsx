@@ -22,11 +22,15 @@ export function TitoloScopeBanners({ t, isLocked, isQuietanzaCorrente, totRate, 
         <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 shrink-0" />
           <span>
-            <strong>Polizza {t.stato === "stornato" ? "stornata" : "messa a cassa"}</strong> — modifiche dirette bloccate.
+            <strong>
+              Quietanza{totRate > 1 ? ` (Rata ${rataIndex} di ${totRate})` : ""} {t.stato === "stornato" ? "stornata" : "messa a cassa"}
+            </strong>{" "}
+            — modifiche dirette bloccate (la polizza/contratto resta attiva).
             {t.stato === "incassato" && " Per riaprirla usa Annulla Incasso / Annulla Messa a Cassa."}
           </span>
         </div>
       )}
+
 
       {totRate > 1 && (
         isQuietanzaCorrente ? (
