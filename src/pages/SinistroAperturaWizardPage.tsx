@@ -579,7 +579,7 @@ export default function SinistroAperturaWizardPage() {
                         options={polizzeList.map((p: any) => ({
                           value: p.id,
                           label: `${p.numero_titolo}${p.sostituisce_polizza ? " (quietanza)" : ""}`,
-                          description: `${p.prodotti?.nome_prodotto || "—"}${p.prodotti?.compagnie?.nome ? " · " + p.prodotti.compagnie.nome : ""}${p.stato ? " · " + p.stato : ""}${p.data_decorrenza ? " · dec. " + p.data_decorrenza : ""}`,
+                          description: `${p.prodotti?.nome_prodotto || "—"}${p.prodotti?.compagnie?.nome ? " · " + p.prodotti.compagnie.nome : ""}${p.stato ? " · " + p.stato : ""}${p.data_competenza ? " · dec. " + p.data_competenza : ""}`,
                           searchText: `${p.numero_titolo} ${p.prodotti?.nome_prodotto || ""} ${p.stato || ""}`,
                         }))}
                         value={watchTitoloId ?? ""}
