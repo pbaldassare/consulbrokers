@@ -1,35 +1,38 @@
+## Modifiche a `src/pages/cliente/ClientePolizze.tsx`
 
-## Hai ragione: la card Regolazione è disallineata
+### 1) Rimuovere lo stato polizza
+- Eliminare la colonna **Stato** dalla tabella (header + cella).
+- Eliminare il filtro **Stato** (SearchableSelect + state `stato` + `statiOptions`) e relativa logica in `filtered`/`resetFiltri`/`buildExportRows`.
+- Mantenere tutti gli altri filtri (Garanzia, Compagnia, ricerca, scadenze).
+- Aggiornare `colSpan` della riga espansa da 10 → 9.
 
-Nello screenshot la card mostra ancora i **campi legacy** (Regolazione Sì checkbox, Periodicità, Tipo Scadenza, GG Presentazione, Tipo Lettera, Libro Matricola). Ma per memoria progetto (`regolazione-reminder-flag` + `titolo-detail-allineato-immissione`) la card deve essere **promemoria**, identica a quella di `TitoloDetail`:
+### 2) Annualità (quietanze) nella riga espansa
+Sotto il blocco dati attuale, aggiungere una sezione **"Annualità / Quietanze"**:
+- Caricamento on-demand quando la riga viene espansa (no fetch globale per non rallentare la lista).
+- Query: `titoli` con `sostituisce_polizza = t.id` OR `id = t.id`, ordinati per `durata_da`.
+  - Include la polizza madre + tutte le quietanze figlie (modello `polizza-quietanza-split-model`).
+- Tabella compatta con colonne: N° Titolo, Decorrenza, Scadenza, Frazionamento/Rata, Premio Lordo, Stato pagamento (badge "Pagata" se `data_messa_cassa` valorizzata, altrimenti "Da pagare").
+- Solo per righe `_source === "titoli"` (le CGA non hanno quietanze).
 
-- **Switch** "Polizza in regolazione (promemoria)" (al posto della checkbox + label "Regolazione Sì").
-- Quando ON appare un **blocco ambra** con 3 soli campi:
-  - **Data presunta** (`regolazione_data_presunta`, date)
-  - **Fattore** (`regolazione_fattore`, SearchableSelect: `fatturato | num_dipendenti | retribuzioni | altro`)
-  - **Note** (`regolazione_note`, textarea)
-- Quando OFF: campi nascosti e azzerati al submit.
+### 3) Documenti inline nella riga espansa
+Sotto le annualità, sezione **"Documenti"**:
+- Caricamento on-demand contestuale all'espansione.
+- Query: `documenti` con `entita_tipo='titolo'` e `entita_id=t.id`.
+- Lista con nome file, data caricamento, dimensione e bottone **Scarica** (signed URL via `supabase.storage.from('documenti').createSignedUrl(...)`, stesso pattern usato in `ClientePolizzaDetail.tsx`).
+- Stato vuoto: "Nessun documento disponibile".
+- Solo per `_source === "titoli"`.
 
-I campi legacy (`periodicita`, `tipo_scadenza`, `giorni_presentazione`, `tipo_lettera_regolazione`, `libro_matricola`) **restano in DB** (convivono) ma **escono dalla UI** della card Regolazione in creazione, come già fatto in TitoloDetail.
+### 4) Pulizia minore
+- Rimuovere `statoBadge`, l'import `Badge` resta (usato per "gg" scadenza), `stato` rimosso da export CSV/Excel.
+- Il bottone **Apri dettaglio polizza** resta invariato.
 
-## Modifiche
+## Dettagli tecnici
 
-### `src/pages/ImmissionePolizzaPage.tsx`
+- Nuovo hook locale per riga espansa: `useEffect` che si attiva quando `expandedId === t.id` e popola due `useState` (`annualita`, `documenti`) con cache per-id in un `Map` (evita refetch al riapri).
+- Skeleton di 2-3 righe durante il caricamento delle sezioni.
+- Nessuna modifica a RLS / schema: `titoli`, `documenti`, storage `documenti` già accessibili al cliente via `get_my_cliente_ids()` e policy esistenti.
 
-1. **Stato (riga ~358-368)**: rimuovere `tipoLetteraRegolazione`, `tipoScadenza`, `giorniPresentazione`, `periodicita`, `libroMatricola`; aggiungere `regolazioneDataPresunta`, `regolazioneFattore`, `regolazioneNote`. Mantenere `regolazione` boolean.
-2. **AI prefill map (~520-528)**: rimuovere i setter legacy, aggiungere i nuovi.
-3. **draft persistence (~618)**: aggiornare la lista campi serializzati.
-4. **Insert payload (~1505-1531)**: sostituire le colonne legacy con
-   ```ts
-   regolazione: regolazione,
-   regolazione_data_presunta: regolazione ? (regolazioneDataPresunta || null) : null,
-   regolazione_fattore: regolazione ? (regolazioneFattore || null) : null,
-   regolazione_note: regolazione ? (regolazioneNote || null) : null,
-   ```
-   Lasciare `periodicita/tipo_scadenza/...` **non valorizzati** (le colonne in DB restano nullable).
-5. **Render card (~2497-2550)**: sostituire il blocco con lo stesso markup di `TitoloDetail` (Switch + blocco ambra condizionale con i 3 campi). Riusare `SearchableSelect` per il Fattore con le 4 opzioni.
+## File toccato
+- `src/pages/cliente/ClientePolizze.tsx` (unico file)
 
-### Out of scope
-- DB: nessuna migrazione (le colonne nuove già esistono, le legacy restano per back-compat / dati storici).
-- `RegolazionePremioPage` / mode=regolazione: invariato (è un altro flusso, regolazione **eseguita**).
-- Libro Matricola: rimane gestito altrove dal selettore "Tipo Operazione".
+Nessuna modifica a `ClientePolizzaDetail.tsx` (che continua a mostrare il dettaglio completo per chi preferisce aprire la pagina).
