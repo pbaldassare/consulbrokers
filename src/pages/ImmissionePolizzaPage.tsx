@@ -2015,6 +2015,7 @@ const ImmissionePolizzaPage = () => {
             {[
               { value: "polizza", label: "Polizza" },
               { value: "emittenda", label: "Emittenda" },
+              { value: "libro_matricola", label: "Polizza Libro Matricola" },
             ].map((opt) => (
               <div key={opt.value} className="flex items-center gap-2">
                 <RadioGroupItem value={opt.value} id={`tipo-${opt.value}`} />
@@ -2027,6 +2028,20 @@ const ImmissionePolizzaPage = () => {
           <Checkbox id="polizza-auto" checked={polizzaAuto} onCheckedChange={(v) => setPolizzaAuto(v === true)} />
           <Label htmlFor="polizza-auto" className="font-normal cursor-pointer text-xs">Polizza Auto</Label>
         </div>
+        {isLibroMatricola && (
+          <div className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMatricolaDialogOpen(true)}
+              className="text-xs border-primary/40 text-primary hover:bg-primary/5"
+            >
+              <Truck className="h-3.5 w-3.5 mr-1.5" />
+              Gestisci Libro Matricola ({filterRigheValide(righeMatricola).length} mezzi)
+            </Button>
+          </div>
+        )}
       </PolizzaSection>
 
       {/* CONTRATTO */}
