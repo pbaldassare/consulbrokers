@@ -90,14 +90,13 @@ export default function ClienteSinistri() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [openNuovo, setOpenNuovo] = useState(false);
 
-  // Filtri
+  // Filtri (multi-select)
   const [fSearch, setFSearch] = useState("");
-  const [fStato, setFStato] = useState<string>("all");
-  const [fRamo, setFRamo] = useState<string>("all");
-  const [fCompagnia, setFCompagnia] = useState<string>("all");
-  const [fPolizza, setFPolizza] = useState<string>("all");
-  const [fProvincia, setFProvincia] = useState<string>("all");
-  const [fCitta, setFCitta] = useState<string>("all");
+  const [fStati, setFStati] = useState<string[]>(["aperto", "in_lavorazione"]);
+  const [fRami, setFRami] = useState<string[]>([]);
+  const [fCompagnie, setFCompagnie] = useState<string[]>([]);
+  const [fPolizze, setFPolizze] = useState<string[]>([]);
+  const [fCitta, setFCitta] = useState<string[]>([]);
   const [fDataDa, setFDataDa] = useState<Date | undefined>();
   const [fDataA, setFDataA] = useState<Date | undefined>();
 
@@ -128,18 +127,16 @@ export default function ClienteSinistri() {
   const optRami = distinct((s) => s.ramo_sinistro);
   const optCompagnie = distinct((s) => s.compagnie?.nome);
   const optPolizze = distinct((s) => s.titoli?.numero_titolo);
-  const optProvince = distinct((s) => s.provincia_sinistro);
   const optCitta = distinct((s) => s.citta_sinistro);
 
   const filteredSinistri = useMemo(() => {
     const q = fSearch.trim().toLowerCase();
     return sinistri.filter((s: any) => {
-      if (fStato !== "all" && s.stato !== fStato) return false;
-      if (fRamo !== "all" && s.ramo_sinistro !== fRamo) return false;
-      if (fCompagnia !== "all" && s.compagnie?.nome !== fCompagnia) return false;
-      if (fPolizza !== "all" && s.titoli?.numero_titolo !== fPolizza) return false;
-      if (fProvincia !== "all" && s.provincia_sinistro !== fProvincia) return false;
-      if (fCitta !== "all" && s.citta_sinistro !== fCitta) return false;
+      if (fStati.length && !fStati.includes(s.stato)) return false;
+      if (fRami.length && !fRami.includes(s.ramo_sinistro)) return false;
+      if (fCompagnie.length && !fCompagnie.includes(s.compagnie?.nome)) return false;
+      if (fPolizze.length && !fPolizze.includes(s.titoli?.numero_titolo)) return false;
+      if (fCitta.length && !fCitta.includes(s.citta_sinistro)) return false;
       if (fDataDa && (!s.data_evento || new Date(s.data_evento) < fDataDa)) return false;
       if (fDataA && (!s.data_evento || new Date(s.data_evento) > fDataA)) return false;
       if (q) {
@@ -149,13 +146,14 @@ export default function ClienteSinistri() {
       }
       return true;
     });
-  }, [sinistri, fSearch, fStato, fRamo, fCompagnia, fPolizza, fProvincia, fCitta, fDataDa, fDataA]);
+  }, [sinistri, fSearch, fStati, fRami, fCompagnie, fPolizze, fCitta, fDataDa, fDataA]);
 
   const resetFilters = () => {
-    setFSearch(""); setFStato("all"); setFRamo("all"); setFCompagnia("all");
-    setFPolizza("all"); setFProvincia("all"); setFCitta("all");
+    setFSearch(""); setFStati([]); setFRami([]); setFCompagnie([]);
+    setFPolizze([]); setFCitta([]);
     setFDataDa(undefined); setFDataA(undefined);
   };
+
 
   const aperti = filteredSinistri.filter((s: any) => !["chiuso", "respinto"].includes(s.stato)).length;
   const chiusi = filteredSinistri.length - aperti;
