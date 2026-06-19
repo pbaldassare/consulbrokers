@@ -281,7 +281,7 @@ export default function SinistroDetail() {
         <Card><CardHeader><CardTitle className="text-base">Note Perito</CardTitle></CardHeader><CardContent><p className="whitespace-pre-wrap">{sinistro.note_perito}</p></CardContent></Card>
       )}
 
-      <Tabs defaultValue="checklist">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="checklist">Checklist</TabsTrigger>
           <TabsTrigger value="eventi">Eventi</TabsTrigger>
