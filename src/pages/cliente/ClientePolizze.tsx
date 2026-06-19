@@ -9,19 +9,21 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell, TableFooter } from "@/components/ui/table";
-import { Shield, Calendar, X, FileSpreadsheet, FileText, ChevronRight, ChevronDown, ExternalLink } from "lucide-react";
+import { Shield, Calendar, X, FileSpreadsheet, FileText, ChevronRight, ChevronDown, ExternalLink, Download, Receipt, Paperclip } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { it } from "date-fns/locale";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { fmtEuro as fmt } from "@/lib/formatCurrency";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 
-const statoBadge: Record<string, string> = {
-  attivo: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  scaduto: "bg-red-100 text-red-800 border-red-300",
-  sospeso: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  incassato: "bg-blue-100 text-blue-800 border-blue-300",
+const statoQuietanzaBadge: Record<string, string> = {
+  da_incassare: "bg-amber-100 text-amber-800 border-amber-300",
+  incassato: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  sospesa: "bg-yellow-100 text-yellow-800 border-yellow-300",
+  annullata: "bg-red-100 text-red-800 border-red-300",
+  stornata: "bg-orange-100 text-orange-800 border-orange-300",
 };
+
 
 
 const ClientePolizze = () => {
