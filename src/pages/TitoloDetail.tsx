@@ -328,6 +328,24 @@ const TitoloDetail = () => {
     },
   });
 
+  // Stato del contratto (tabella `polizze`) — separato dallo stato della quietanza (titoli.stato).
+  // Nel nuovo modello la polizza NON viene mai messa a cassa: lo è la quietanza.
+  const polizzaIdLookup = (titolo as any)?.polizza_id || null;
+  const { data: polizzaStato } = useQuery({
+    queryKey: ["polizza-stato", polizzaIdLookup],
+    enabled: !!polizzaIdLookup,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("polizze")
+        .select("stato")
+        .eq("id", polizzaIdLookup!)
+        .maybeSingle();
+      return (data as any)?.stato as string | null;
+    },
+  });
+
+
+
 
   // --- Cassa dialog state ---
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
@@ -1461,6 +1479,9 @@ const TitoloDetail = () => {
       {/* Header — sticky sotto la topbar globale */}
       <TitoloHeaderBar
         t={t}
+        polizzaStato={polizzaStato ?? null}
+        rataIndex={rataIndex}
+        totRate={totRate}
         onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`) : navigate("/portafoglio/carico")}
         madre={madreQuietanza ? {
           id: (madreQuietanza as any).id,
@@ -1472,6 +1493,7 @@ const TitoloDetail = () => {
             : "Polizza",
         } : null}
       />
+
 
 
       {/* Banner di blocco + banner scope quietanza */}
@@ -1843,8 +1865,8 @@ const TitoloDetail = () => {
                       >
                         <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
                         <div className="flex-1">
-                          <strong>Polizza già messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}.</strong>{" "}
-                          Le azioni <em>Incassa</em> e <em>Garantito</em> non sono disponibili.
+                          <strong>Quietanza già messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}.</strong>{" "}
+                          Le azioni <em>Incassa</em> e <em>Garantito</em> non sono disponibili su questa rata.
                           <span className="ml-1 underline decoration-dotted">Maggiori dettagli</span>
                         </div>
                       </button>
@@ -1852,16 +1874,17 @@ const TitoloDetail = () => {
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
-                          <Info className="w-5 h-5 text-blue-600" /> Polizza già incassata
+                          <Info className="w-5 h-5 text-blue-600" /> Quietanza già incassata
                         </AlertDialogTitle>
                         <AlertDialogDescription asChild>
                           <div className="space-y-2 text-sm">
                             <p>
-                              Questa polizza è stata <strong>messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}</strong> e non può essere incassata una seconda volta: il sistema applica una protezione anti-doppio-incasso a livello di database.
+                              Questa quietanza è stata <strong>messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}</strong> e non può essere incassata una seconda volta: il sistema applica una protezione anti-doppio-incasso a livello di database. La polizza (contratto) resta invece attiva: la messa a cassa è una proprietà della rata, non del contratto.
                             </p>
                             <p className="text-muted-foreground">
                               Le azioni <em>Incassa</em> e <em>Garantito</em> tornano disponibili solo dopo l'annullamento della messa a cassa precedente.
                             </p>
+
                             {isAdmin ? (
                               <p className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-amber-900">
                                 In quanto <strong>Amministratore</strong> puoi usare il pulsante <em>Annulla Incasso / Messa a Cassa</em> qui sotto per sbloccare la polizza, quindi procedere con un nuovo incasso.
@@ -2046,7 +2069,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Contratto" icon={FileText}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingContratto ? (
-            <Button variant="ghost" size="sm" onClick={startEditContratto} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button variant="ghost" size="sm" onClick={startEditContratto} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -2317,7 +2340,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Periodo" icon={Calendar}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingPeriodo ? (
-            <Button variant="ghost" size="sm" onClick={startEditPeriodo} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button variant="ghost" size="sm" onClick={startEditPeriodo} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -2478,7 +2501,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Regolazione" icon={Shield} defaultOpen={false}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingReg ? (
-            <Button variant="ghost" size="sm" onClick={startEditReg} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button variant="ghost" size="sm" onClick={startEditReg} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -2770,7 +2793,7 @@ const TitoloDetail = () => {
                 </div>
               );
             })()}
-            <Button size="sm" variant="outline" className="mt-3" onClick={startEditComm} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button size="sm" variant="outline" className="mt-3" onClick={startEditComm} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-3 h-3 mr-1" /> Modifica
             </Button>
           </>
@@ -2852,7 +2875,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Importi" icon={DollarSign}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingImporti ? (
-            <Button variant="ghost" size="sm" onClick={startEditImporti} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button variant="ghost" size="sm" onClick={startEditImporti} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -3126,7 +3149,7 @@ const TitoloDetail = () => {
           </div>
           <div className="flex gap-2">
           {!editingVeicolo ? (
-            <Button variant="ghost" size="sm" onClick={startEditVeicolo} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button variant="ghost" size="sm" onClick={startEditVeicolo} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> {veicolo ? "Modifica" : "Aggiungi"}
             </Button>
           ) : (

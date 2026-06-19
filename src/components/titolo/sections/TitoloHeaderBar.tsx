@@ -16,6 +16,12 @@ interface Props {
   t: any;
   onBack: () => void;
   madre?: MadreInfo | null;
+  /** Stato della polizza (tabella `polizze`). Nel nuovo modello la polizza non viene mai messa a cassa. */
+  polizzaStato?: string | null;
+  /** Indice della rata corrente nella catena (1-based). */
+  rataIndex?: number;
+  /** Numero totale di rate della catena. */
+  totRate?: number;
 }
 
 /**
@@ -23,9 +29,10 @@ interface Props {
  * Aggiunge un badge "Regolazione" e il riferimento alla quietanza madre
  * quando t.is_regolazione = true.
  */
-export function TitoloHeaderBar({ t, onBack, madre }: Props) {
+export function TitoloHeaderBar({ t, onBack, madre, polizzaStato, rataIndex, totRate }: Props) {
   const isRegolazione = !!t.is_regolazione;
   const fmtD = (d?: string | null) => (d ? new Date(d).toLocaleDateString("it-IT") : "");
+  const rataLbl = rataIndex && totRate && totRate > 1 ? `Rata ${rataIndex}/${totRate}` : "Rata unica";
 
   return (
     <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60">
@@ -90,11 +97,33 @@ export function TitoloHeaderBar({ t, onBack, madre }: Props) {
             In attesa rinnovo
           </Badge>
         ) : (
-          <Badge variant={t.stato === "incassato" ? "default" : t.stato === "stornato" ? "destructive" : "secondary"} className="text-sm shrink-0">
-            {t.stato}
-          </Badge>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {polizzaStato && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Polizza</span>
+                <Badge
+                  variant={polizzaStato === "attiva" ? "default" : polizzaStato === "annullata" ? "destructive" : "secondary"}
+                  className={`text-xs ${polizzaStato === "attiva" ? "bg-teal-600 hover:bg-teal-700 text-white" : ""}`}
+                  title="Stato del contratto (tabella polizze)"
+                >
+                  {polizzaStato}
+                </Badge>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{rataLbl}</span>
+              <Badge
+                variant={t.stato === "incassato" ? "default" : t.stato === "stornato" ? "destructive" : "secondary"}
+                className="text-xs"
+                title="Stato della quietanza (rata)"
+              >
+                {t.stato}
+              </Badge>
+            </div>
+          </div>
         )}
       </div>
     </div>
   );
 }
+
