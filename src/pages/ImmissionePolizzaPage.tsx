@@ -2527,27 +2527,9 @@ const ImmissionePolizzaPage = () => {
 
       </PolizzaSection>
 
-      {/* QUIETANZE — sezione separata, editabile rata per rata */}
-      {!regolazioneMode && (
-        <PolizzaSection title="Quietanze (rate da pagare)" icon={Receipt}>
-          <QuietanzeEditor
-            frazionamento={frazionamento}
-            anniDurata={parseInt(anniDurata) || 1}
-            garanziaDa={garanziaDa}
-            garanziaA={garanziaA}
-            dataCompetenza={dataCompetenza}
-            defaultsFirstRata={{
-              premio_netto: premioNetto || "",
-              tasse: String(tasseNum || ""),
-              ssn: String(ssnFirmaNum || ""),
-              addizionali: addizionali || "",
-              provvigioni_firma: String(provvFirma || ""),
-              provvigioni_quietanza: String(provvQuietanza || ""),
-            }}
-            onChange={setQuietanzeDrafts}
-          />
-        </PolizzaSection>
-      )}
+      {/* QUIETANZE: generate automaticamente dal trigger DB
+          (durata + frazionamento). Niente UI in creazione: si editano dal
+          dettaglio della singola quietanza. */}
 
       {/* REGOLAZIONE */}
       <PolizzaSection title="Regolazione" icon={Shield} defaultOpen={false}>
