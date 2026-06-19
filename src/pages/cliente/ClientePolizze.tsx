@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell, TableFooter } from "@/components/ui/table";
-import { Shield, Calendar, X, FileSpreadsheet, FileText } from "lucide-react";
+import { Shield, Calendar, X, FileSpreadsheet, FileText, ChevronRight, ChevronDown, ExternalLink } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { it } from "date-fns/locale";
 import { SearchableSelect } from "@/components/SearchableSelect";
