@@ -1499,7 +1499,7 @@ const ImmissionePolizzaPage = () => {
         durata_a: durataA || null,
         anni_durata: parseInt(anniDurata) || 1,
         tacito_rinnovo: tacitoRinnovo,
-        periodicita,
+        // periodicita legacy: non valorizzato dalla UI (resta NULL)
         rate: frazionamentoToRate(frazionamento, parseInt(anniDurata) || 1),
         frazionamento,
         mora_giorni: parseInt(moraGiorni) || 15,
