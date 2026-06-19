@@ -1600,6 +1600,23 @@ const ImmissionePolizzaPage = () => {
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
       } as any);
 
+      // Libro Matricola: salva righe mezzi (solo se Tipo Operazione = libro_matricola)
+      if (isLibroMatricola) {
+        const righeValide = filterRigheValide(righeMatricola);
+        if (righeValide.length > 0) {
+          const { error: lmErr } = await supabase.from("libro_matricola_mezzi").insert(
+            righeValide.map((r) => ({
+              titolo_id: newTitolo.id,
+              targa: r.targa?.trim() || null,
+              data_inclusione: r.data_inclusione || null,
+              data_esclusione: r.data_esclusione || null,
+              note: r.note?.trim() || null,
+            }))
+          );
+          if (lmErr) console.error("Errore salvataggio mezzi libro matricola:", lmErr);
+        }
+      }
+
       // Snapshot regolazione (collegamento con polizza madre + quietanza di riferimento)
       if (regolazioneMode && polizzaMadre) {
         await supabase.from("titoli_regolazioni").insert({
