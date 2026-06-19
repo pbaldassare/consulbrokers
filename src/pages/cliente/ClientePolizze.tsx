@@ -265,9 +265,8 @@ const ClientePolizze = () => {
                   const isExpanded = expandedId === t.id;
 
                   return (
-                    <>
+                    <Fragment key={t.id}>
                     <TableRow
-                      key={t.id}
                       onClick={() => setExpandedId(isExpanded ? null : t.id)}
                       className={`cursor-pointer transition-colors hover:bg-teal-50 ${idx % 2 === 0 ? "bg-white" : "bg-muted/30"} ${isExpanded ? "bg-teal-50" : ""}`}
                     >
