@@ -47,6 +47,7 @@ import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
 import { FieldHint } from "@/components/ui/field-hint";
 import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPersistence";
 import { computeQuietanzePlan } from "@/lib/quietanzePlan";
+import { QuietanzeEditor, type QuietanzaDraft } from "@/components/polizze/QuietanzeEditor";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -353,6 +354,11 @@ const ImmissionePolizzaPage = () => {
   const [limiteMora, setLimiteMora] = useState("");
   const [limiteMoraTouched, setLimiteMoraTouched] = useState(false);
   const [disdettaMesi, setDisdettaMesi] = useState("");
+
+  // Quietanze editor: drafts per-rata raccolti dalla sezione "Quietanze" del form.
+  // Vengono applicati DOPO l'insert del titolo: il trigger DB crea polizza+quietanze,
+  // poi noi sovrascriviamo i campi editati dall'utente rata per rata.
+  const [quietanzeDrafts, setQuietanzeDrafts] = useState<QuietanzaDraft[]>([]);
 
   // Regolazione
   const [regolazione, setRegolazione] = useState(false);
@@ -1699,6 +1705,45 @@ const ImmissionePolizzaPage = () => {
         await supabase.from("premi_garanzia_polizza").insert(premiPayload);
       }
 
+      // Applica drafts delle Quietanze (rate editate riga-per-riga nel form):
+      // il trigger DB ha già creato le quietanze in base a polizza+frazionamento.
+      // Qui sovrascriviamo i campi editati dall'utente per ogni rata.
+      if (!regolazioneMode && quietanzeDrafts.length > 0) {
+        try {
+          const { data: titoloRow } = await supabase
+            .from("titoli")
+            .select("polizza_id")
+            .eq("id", newTitolo.id)
+            .single();
+          const polizzaId = (titoloRow as any)?.polizza_id;
+          if (polizzaId) {
+            for (const d of quietanzeDrafts) {
+              const patch = {
+                garanzia_da: d.garanzia_da || null,
+                garanzia_a: d.garanzia_a || null,
+                data_competenza: d.data_competenza || null,
+                data_scadenza: d.data_scadenza || null,
+                premio_netto: parseFloat(d.premio_netto) || 0,
+                tasse: parseFloat(d.tasse) || 0,
+                ssn: parseFloat(d.ssn) || 0,
+                addizionali: parseFloat(d.addizionali) || 0,
+                premio_lordo: parseFloat(d.premio_lordo) || 0,
+                provvigioni_firma: parseFloat(d.provvigioni_firma) || 0,
+                provvigioni_quietanza: parseFloat(d.provvigioni_quietanza) || 0,
+              };
+              await (supabase.from("quietanze") as any)
+                .update(patch)
+                .eq("polizza_id", polizzaId)
+                .eq("numero_rata", d.idx);
+            }
+          }
+        } catch (e) {
+          console.error("Errore applicazione drafts quietanze:", e);
+        }
+      }
+
+
+
 
       // Archivia il PDF della scansione AI fra i documenti della polizza
       if (aiSourcePdf) {
@@ -2480,55 +2525,29 @@ const ImmissionePolizzaPage = () => {
           </div>
         </div>
 
-        {/* Preview quietanze pre-generate */}
-        {(() => {
-          const plan = computeQuietanzePlan({
-            frazionamento,
-            anniDurata: parseInt(anniDurata) || 1,
-            garanziaDa,
-            garanziaA,
-            dataCompetenza,
-          });
-          const quietanze = plan.filter((r) => r.idx >= 2);
-          if (quietanze.length === 0) return null;
-          const fmt = (iso: string) => {
-            const [y, m, d] = iso.split("-");
-            return `${d}/${m}/${y}`;
-          };
-          return (
-            <div className="mt-4 rounded-md border border-sky-200 bg-sky-50/60 p-3">
-              <div className="text-xs font-medium text-sky-900 mb-2">
-                Quietanze che verranno generate automaticamente: {quietanze.length}
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="text-sky-800/70">
-                    <tr className="text-left">
-                      <th className="px-2 py-1 font-medium">Rata</th>
-                      <th className="px-2 py-1 font-medium">Garanzia da</th>
-                      <th className="px-2 py-1 font-medium">Garanzia a</th>
-                      <th className="px-2 py-1 font-medium">Competenza</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {quietanze.map((r) => (
-                      <tr key={r.idx} className="border-t border-sky-200/60">
-                        <td className="px-2 py-1">Quietanza {r.idx}</td>
-                        <td className="px-2 py-1 tabular-nums">{fmt(r.garanzia_da)}</td>
-                        <td className="px-2 py-1 tabular-nums">{fmt(r.garanzia_a)}</td>
-                        <td className="px-2 py-1 tabular-nums">{r.data_competenza ? fmt(r.data_competenza) : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-2 text-[11px] text-sky-800/80">
-                Le rate saranno create al salvataggio in stato <b>attivo</b>, in attesa di messa a cassa. Importi e date sono modificabili dopo la creazione.
-              </div>
-            </div>
-          );
-        })()}
       </PolizzaSection>
+
+      {/* QUIETANZE — sezione separata, editabile rata per rata */}
+      {!regolazioneMode && (
+        <PolizzaSection title="Quietanze (rate da pagare)" icon={Receipt}>
+          <QuietanzeEditor
+            frazionamento={frazionamento}
+            anniDurata={parseInt(anniDurata) || 1}
+            garanziaDa={garanziaDa}
+            garanziaA={garanziaA}
+            dataCompetenza={dataCompetenza}
+            defaultsFirstRata={{
+              premio_netto: premioNetto || "",
+              tasse: String(tasseNum || ""),
+              ssn: String(ssnFirmaNum || ""),
+              addizionali: addizionali || "",
+              provvigioni_firma: String(provvFirma || ""),
+              provvigioni_quietanza: String(provvQuietanza || ""),
+            }}
+            onChange={setQuietanzeDrafts}
+          />
+        </PolizzaSection>
+      )}
 
       {/* REGOLAZIONE */}
       <PolizzaSection title="Regolazione" icon={Shield} defaultOpen={false}>

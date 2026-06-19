@@ -46,8 +46,16 @@ describe("computeQuietanzePlan", () => {
     expect(plan[2].garanzia_da).toBe("2026-09-01");
   });
 
-  it("Poliennale → 0 righe (solo madre, gestita altrove)", () => {
-    expect(computeQuietanzePlan({ ...base, frazionamento: "Poliennale", anniDurata: 5 })).toEqual([]);
+  it("Poliennale 3 anni → 3 quietanze annuali", () => {
+    const plan = computeQuietanzePlan({ ...base, frazionamento: "Poliennale", anniDurata: 3 });
+    expect(plan).toHaveLength(3);
+    expect(plan[0].garanzia_da).toBe("2026-01-01");
+    expect(plan[1].garanzia_da).toBe("2027-01-01");
+    expect(plan[2].garanzia_da).toBe("2028-01-01");
+  });
+
+  it("Poliennale 1 anno → 1 quietanza", () => {
+    expect(computeQuietanzePlan({ ...base, frazionamento: "Poliennale", anniDurata: 1 })).toHaveLength(1);
   });
 
   it("data_competenza opzionale: trasla in parallelo alla garanzia", () => {
