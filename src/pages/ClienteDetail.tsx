@@ -1724,11 +1724,12 @@ export default function ClienteDetail() {
     queryKey: ["cliente_related_ids", id],
     queryFn: async () => {
       const [{ data: sin }, { data: tra }] = await Promise.all([
-        supabase.from("sinistri").select("id").eq("cliente_anagrafica_id", id!),
+        supabase.from("sinistri").select("id, stato").eq("cliente_anagrafica_id", id!),
         supabase.from("trattative").select("id").eq("cliente_id", id!),
       ]);
       return {
         sinistri: (sin || []).map((s: any) => s.id),
+        sinistriAperti: (sin || []).filter((s: any) => !["chiuso", "respinto"].includes(s.stato)).length,
         trattative: (tra || []).map((t: any) => t.id),
       };
     },
@@ -2067,7 +2068,15 @@ export default function ClienteDetail() {
               );
             })()}
             <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
-            <TabsTrigger value="sinistri"><AlertTriangle className="w-4 h-4 mr-1" />Sinistri</TabsTrigger>
+            <TabsTrigger value="sinistri">
+              <AlertTriangle className="w-4 h-4 mr-1" />
+              Sinistri
+              {(relatedIds?.sinistriAperti ?? 0) > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-orange-500 text-white text-xs font-semibold">
+                  {relatedIds!.sinistriAperti}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
             <TabsTrigger value="documenti">Documenti</TabsTrigger>
             <TabsTrigger value="chat">Chat</TabsTrigger>

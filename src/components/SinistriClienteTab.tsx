@@ -44,7 +44,7 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
           <CardContent className="pt-4"><p className="text-sm text-muted-foreground">Totale Sinistri</p><p className="text-2xl font-bold">{sinistri.length}</p></CardContent>
         </Card>
         <Card className="border-l-4" style={{ borderLeftColor: "#ea580c" }}>
-          <CardContent className="pt-4"><p className="text-sm text-muted-foreground">Aperti</p><p className="text-2xl font-bold text-orange-600">{aperti}</p></CardContent>
+          <CardContent className="pt-4"><p className="text-sm text-muted-foreground">Aperti / In Lavorazione</p><p className="text-2xl font-bold text-orange-600">{aperti}</p></CardContent>
         </Card>
         <Card className="border-l-4" style={{ borderLeftColor: "#dc2626" }}>
           <CardContent className="pt-4"><p className="text-sm text-muted-foreground">Riserva Totale</p><p className="text-2xl font-bold font-mono">€ {totaleRiserva.toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent>
