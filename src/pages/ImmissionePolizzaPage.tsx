@@ -1705,6 +1705,45 @@ const ImmissionePolizzaPage = () => {
         await supabase.from("premi_garanzia_polizza").insert(premiPayload);
       }
 
+      // Applica drafts delle Quietanze (rate editate riga-per-riga nel form):
+      // il trigger DB ha già creato le quietanze in base a polizza+frazionamento.
+      // Qui sovrascriviamo i campi editati dall'utente per ogni rata.
+      if (!regolazioneMode && quietanzeDrafts.length > 0) {
+        try {
+          const { data: titoloRow } = await supabase
+            .from("titoli")
+            .select("polizza_id")
+            .eq("id", newTitolo.id)
+            .single();
+          const polizzaId = (titoloRow as any)?.polizza_id;
+          if (polizzaId) {
+            for (const d of quietanzeDrafts) {
+              const patch = {
+                garanzia_da: d.garanzia_da || null,
+                garanzia_a: d.garanzia_a || null,
+                data_competenza: d.data_competenza || null,
+                data_scadenza: d.data_scadenza || null,
+                premio_netto: parseFloat(d.premio_netto) || 0,
+                tasse: parseFloat(d.tasse) || 0,
+                ssn: parseFloat(d.ssn) || 0,
+                addizionali: parseFloat(d.addizionali) || 0,
+                premio_lordo: parseFloat(d.premio_lordo) || 0,
+                provvigioni_firma: parseFloat(d.provvigioni_firma) || 0,
+                provvigioni_quietanza: parseFloat(d.provvigioni_quietanza) || 0,
+              };
+              await (supabase.from("quietanze") as any)
+                .update(patch)
+                .eq("polizza_id", polizzaId)
+                .eq("numero_rata", d.idx);
+            }
+          }
+        } catch (e) {
+          console.error("Errore applicazione drafts quietanze:", e);
+        }
+      }
+
+
+
 
       // Archivia il PDF della scansione AI fra i documenti della polizza
       if (aiSourcePdf) {
