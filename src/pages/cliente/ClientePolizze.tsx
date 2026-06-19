@@ -37,6 +37,7 @@ const ClientePolizze = () => {
   const [search, setSearch] = useState("");
   const [scadDa, setScadDa] = useState<Date | null>(null);
   const [scadA, setScadA] = useState<Date | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
