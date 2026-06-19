@@ -333,8 +333,8 @@ const ClientePolizze = () => {
                     </TableRow>
                     {isExpanded && (
                       <TableRow key={`${t.id}-exp`} className="bg-teal-50/60 hover:bg-teal-50/60">
-                        <TableCell colSpan={10} className="py-4">
-                          <div className="px-4 space-y-3">
+                        <TableCell colSpan={9} className="py-4">
+                          <div className="px-4 space-y-4">
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3 text-sm">
                               <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Decorrenza</p><p>{t.durata_da ? format(new Date(t.durata_da), "dd/MM/yyyy", { locale: it }) : "—"}</p></div>
                               <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Scadenza</p><p>{t.data_scadenza ? format(new Date(t.data_scadenza), "dd/MM/yyyy", { locale: it }) : "—"}</p></div>
@@ -349,6 +349,80 @@ const ClientePolizze = () => {
                               <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Premio Imponibile</p><p>{t.premio_netto ? fmt(t.premio_netto) : "—"}</p></div>
                               <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Premio Lordo</p><p className="font-bold">{t.premio_lordo ? fmt(t.premio_lordo) : "—"}</p></div>
                             </div>
+
+                            {t._source === "titoli" && (
+                              <div className="pt-3 border-t border-teal-200" onClick={(e) => e.stopPropagation()}>
+                                <p className="text-xs uppercase text-teal-700 font-semibold tracking-wider mb-2 flex items-center gap-1.5">
+                                  <Receipt className="h-3.5 w-3.5" /> Annualità / Quietanze
+                                </p>
+                                {expData?.loading ? (
+                                  <Skeleton className="h-16 w-full" />
+                                ) : !expData || expData.quietanze.length === 0 ? (
+                                  <p className="text-xs text-muted-foreground italic">Nessuna quietanza registrata.</p>
+                                ) : (
+                                  <div className="rounded border border-teal-200 overflow-hidden bg-white">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow className="bg-teal-100 hover:bg-teal-100">
+                                          <TableHead className="text-teal-900 text-[10px] uppercase">Rata</TableHead>
+                                          <TableHead className="text-teal-900 text-[10px] uppercase">Da</TableHead>
+                                          <TableHead className="text-teal-900 text-[10px] uppercase">A</TableHead>
+                                          <TableHead className="text-teal-900 text-[10px] uppercase">Scadenza</TableHead>
+                                          <TableHead className="text-teal-900 text-[10px] uppercase text-right">Premio</TableHead>
+                                          <TableHead className="text-teal-900 text-[10px] uppercase">Stato</TableHead>
+                                          <TableHead className="text-teal-900 text-[10px] uppercase">Incasso</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {expData.quietanze.map((q: any) => (
+                                          <TableRow key={q.id} className="text-xs">
+                                            <TableCell className="py-1.5">{q.numero_rata ?? "—"}{q.numero_rate_totali ? ` / ${q.numero_rate_totali}` : ""}</TableCell>
+                                            <TableCell className="py-1.5">{q.garanzia_da ? format(new Date(q.garanzia_da), "dd/MM/yyyy") : "—"}</TableCell>
+                                            <TableCell className="py-1.5">{q.garanzia_a ? format(new Date(q.garanzia_a), "dd/MM/yyyy") : "—"}</TableCell>
+                                            <TableCell className="py-1.5">{q.data_scadenza ? format(new Date(q.data_scadenza), "dd/MM/yyyy") : "—"}</TableCell>
+                                            <TableCell className="py-1.5 text-right font-medium">{q.premio_lordo != null ? fmt(q.premio_lordo) : "—"}</TableCell>
+                                            <TableCell className="py-1.5">
+                                              <Badge className={`text-[10px] ${statoQuietanzaBadge[q.stato] ?? "bg-muted text-muted-foreground"}`}>{q.stato?.replace(/_/g, " ") ?? "—"}</Badge>
+                                            </TableCell>
+                                            <TableCell className="py-1.5">{q.data_incasso ? format(new Date(q.data_incasso), "dd/MM/yyyy") : "—"}</TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {t._source === "titoli" && (
+                              <div className="pt-3 border-t border-teal-200" onClick={(e) => e.stopPropagation()}>
+                                <p className="text-xs uppercase text-teal-700 font-semibold tracking-wider mb-2 flex items-center gap-1.5">
+                                  <Paperclip className="h-3.5 w-3.5" /> Documenti della polizza
+                                </p>
+                                {expData?.loading ? (
+                                  <Skeleton className="h-12 w-full" />
+                                ) : !expData || expData.documenti.length === 0 ? (
+                                  <p className="text-xs text-muted-foreground italic">Nessun documento disponibile.</p>
+                                ) : (
+                                  <div className="space-y-1 bg-white rounded border border-teal-200 p-2">
+                                    {expData.documenti.map((d: any) => (
+                                      <div key={d.id} className="flex items-center justify-between gap-2 py-1.5 px-2 hover:bg-teal-50 rounded">
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                          <FileText className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                                          <span className="text-xs truncate">{d.nome_file}</span>
+                                          {d.categoria && <Badge variant="secondary" className="text-[10px] shrink-0">{d.categoria}</Badge>}
+                                          {d.created_at && <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(d.created_at), "dd/MM/yyyy", { locale: it })}</span>}
+                                        </div>
+                                        <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => downloadDoc(d)}>
+                                          <Download className="h-3.5 w-3.5" /> Scarica
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             <div className="flex justify-end pt-2 border-t border-teal-200">
                               <Button
                                 size="sm"
@@ -368,11 +442,12 @@ const ClientePolizze = () => {
               </TableBody>
               <TableFooter>
                 <TableRow className="bg-teal-50 border-t-2 border-teal-700">
-                  <TableCell colSpan={8} className="font-bold text-sm text-teal-900 uppercase">Totale</TableCell>
+                  <TableCell colSpan={7} className="font-bold text-sm text-teal-900 uppercase">Totale</TableCell>
                   <TableCell className="text-right font-bold text-sm text-teal-900">{fmt(totaleImponibile)}</TableCell>
                   <TableCell className="text-right font-bold text-base text-teal-900">{fmt(totale)}</TableCell>
                 </TableRow>
               </TableFooter>
+
             </Table>
           </div>
         </div>
