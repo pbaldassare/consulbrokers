@@ -127,6 +127,11 @@ const PortafoglioCaricoPage = () => {
     return q;
   };
 
+  // Esclude le polizze madre che hanno rate successive: non sono incassabili,
+  // l'incasso avviene sulla singola quietanza. Le regolazioni e le monorata restano.
+  const applyExcludeMadreConRate = (q: any) =>
+    q.or("is_regolazione.eq.true,numero_rata.gt.1,numero_rate_totali.lte.1,numero_rate_totali.is.null");
+
   const applyDateRange = (q: any, col: string) => {
     if (dateDa) q = q.gte(col, dateDa);
     if (dateA) q = q.lte(col, dateA);
@@ -171,6 +176,7 @@ const PortafoglioCaricoPage = () => {
       q = applyPeriodoFilter(q);
       q = applySearch(q);
       q = applyTipoFilter(q);
+      q = applyExcludeMadreConRate(q);
 
       const { data, count } = await q
         .order(orderField, { ascending: sortDirection === "asc" })
@@ -195,9 +201,10 @@ const PortafoglioCaricoPage = () => {
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, dateDa, dateA],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_quietanze").select("premio_lordo, sostituisce_polizza");
+      let q = supabase.from("v_portafoglio_quietanze").select("premio_lordo, sostituisce_polizza, is_regolazione, numero_rata, numero_rate_totali");
       q = applyPeriodoFilter(q);
       q = applySearch(q);
+      q = applyExcludeMadreConRate(q);
       const { data } = await q;
       const rows = (data || []);
       const sumAll = rows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0);

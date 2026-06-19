@@ -1,33 +1,47 @@
 ## Obiettivo
-Sulla pagina della **polizza madre** (titolo con rate successive, `riga=0` + esistono successori) l'incasso NON deve essere possibile. L'incasso si fa solo aprendo la singola **quietanza/rata** dalla lista "Quietanze di questa polizza".
+Allineare **Portafoglio › Carico** alla regola "l'incasso si fa solo dalla quietanza": nella lista Carico la **polizza madre con rate successive** NON deve comparire (non è incassabile). Devono comparire solo le righe realmente da mettere a cassa:
 
-## Cosa cambia (solo UI in `src/pages/TitoloDetail.tsx`)
+- Polizze "monorata" (madri senza quietanze successive) → SI
+- Quietanze (rate 2..N) → SI
+- Regolazioni → SI (invariato)
+- **Madri che hanno almeno una rata successiva** → NO (nascoste dalla lista e dai KPI in alto)
 
-1. **Rilevamento "è madre con rate"**
-   Già disponibile via la query che popola "Quietanze di questa polizza (N)". Definisco `isMadreConRate = quietanzeSuccessive.length > 0` (oppure il flag già esistente usato per il banner azzurro "Polizza madre — questa polizza ha N rate successive").
+## Cosa cambia
 
-2. **Sezione "Messa a Cassa" + bottoni "Incassa" / "Garantito"**
-   - Se `isMadreConRate === true` → **nascondo** completamente il blocco "Messa a Cassa" (le 3 date) e i due bottoni `Incassa` / `Garantito`.
-   - Al loro posto mostro un piccolo callout informativo:
-     > "L'incasso si effettua sulla singola **quietanza/rata**. Apri la rata da incassare dalla lista *Quietanze di questa polizza* qui sopra."
-     con un bottone **"Vai alla prima rata da incassare"** che fa `navigate(`/titoli/${primaRataDaIncassare.id}`)` (prima quietanza con `stato='attivo'` e `!data_messa_cassa`). Se non esiste, il bottone è disabilitato.
+### 1. Vista `v_portafoglio_quietanze` (DB)
+Migrazione `CREATE OR REPLACE VIEW` per aggiungere una sola colonna:
 
-3. **Badge "Da incassare" in alto a destra del blocco**
-   - Rimosso sulla madre (non è incassabile).
+```sql
+EXISTS (
+  SELECT 1
+  FROM titoli t2
+  WHERE t2.sostituisce_polizza = t.numero_titolo
+) AS ha_rate_successive
+```
 
-4. **Operazioni che restano sulla madre** (invariate)
-   Sospensione, Riattivazione, Sostituzione, Estinzione, Appendici, Storno, Regolazione, Precontrattuale, Scansione AI, Annullamento, Reinvia notifica → tutte rimangono perché sono operazioni a livello contratto.
+Nessun'altra modifica alla view. GRANT invariati.
 
-5. **Pagine singola rata (successori, riga>0)**
-   Nessun cambiamento: continuano a mostrare Messa a Cassa + Incassa/Garantito come oggi.
+### 2. `src/pages/PortafoglioCaricoPage.tsx`
+- Aggiungo `ha_rate_successive` alla `select(...)` (sia query lista che query totali).
+- Applico un filtro server-side che **esclude le madri-con-rate**:
+  ```ts
+  // escludi madri (sostituisce_polizza IS NULL) che hanno figli (ha_rate_successive = true)
+  q = q.or("sostituisce_polizza.not.is.null,ha_rate_successive.eq.false");
+  ```
+  Si applica in `useQuery` lista, in `useQuery` totaleData e nella query "tutte da incassare" usata altrove nel file (riga ~222), in modo che KPI e selezione massiva restino coerenti.
+- Le card KPI in alto (numero/totale polizze, numero/totale quietanze, totale da incassare) ricalcolano sui dati filtrati → automaticamente coerenti.
 
-6. **Caso polizza non poliennale a rata unica** (nessuna rata successiva)
-   `isMadreConRate === false` → comportamento attuale invariato (Incassa/Garantito visibili sulla madre, che coincide con la rata unica).
+### 3. Pagine NON toccate
+- `PortafoglioAttivePage` e `PortafoglioStoricoPage`: nessuna modifica (lì le madri restano visibili come "anagrafica contratto").
+- `TitoloDetail`: già aggiornata (callout "Vai alla prima rata da incassare").
+- Schema dati, trigger, generazione quietanze, provvigioni: invariati.
 
 ## File toccati
-- **Modificato**: `src/pages/TitoloDetail.tsx` (solo presentazione: nasconde blocco Messa a Cassa + bottoni quando madre-con-rate, aggiunge callout + CTA "Vai alla prima rata da incassare").
+- **Nuovo**: `supabase/migrations/<timestamp>_v_portafoglio_quietanze_ha_rate.sql` (CREATE OR REPLACE VIEW + GRANT).
+- **Modificato**: `src/pages/PortafoglioCaricoPage.tsx` (select + filtro OR su 3 query).
 
-## Cosa NON cambia
-- Schema DB, trigger, RPC, contabilità, provvigioni, flussi di incasso.
-- Logica di calcolo `data_messa_cassa` / `data_incasso`.
-- Tutte le altre pagine (Carico, Attive, Storico, ecc.).
+## Verifica
+1. Caso 332437574 in screenshot (madre senza cliente in Carico): se ha figli quietanza → sparisce dalla lista; le sue rate restano visibili come righe Quietanza.
+2. Polizza annuale singola rata → resta visibile come "Polizza" e si incassa da Carico.
+3. Regolazioni (`/RG1`) → restano visibili.
+4. KPI in alto: il conteggio polizze cala del numero di madri-con-rate nascoste; il conteggio quietanze invariato.
