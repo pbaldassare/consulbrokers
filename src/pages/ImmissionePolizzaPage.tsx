@@ -10,8 +10,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 
-import { Search, Car, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck } from "lucide-react";
+import { Search, Car, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck, Truck } from "lucide-react";
 import { PremiGaranziaCardShell, emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
+import { LibroMatricolaDialog, filterRigheValide, type LibroMatricolaRiga } from "@/components/polizze/LibroMatricolaDialog";
 import {
   syncQuietanzaFromFirma,
   markQuietanzaEdits,
@@ -310,6 +311,10 @@ const ImmissionePolizzaPage = () => {
   const [numeroPolizza, setNumeroPolizza] = useState("");
   const [tipoOperazione, setTipoOperazione] = useState("polizza");
   const [polizzaAuto, setPolizzaAuto] = useState(false);
+  const [righeMatricola, setRigheMatricola] = useState<LibroMatricolaRiga[]>([]);
+  const [matricolaDialogOpen, setMatricolaDialogOpen] = useState(false);
+  const isLibroMatricola = tipoOperazione === "libro_matricola";
+  
   
 
   // Contratto
@@ -1520,7 +1525,7 @@ const ImmissionePolizzaPage = () => {
         tipo_lettera_regolazione: tipoLetteraRegolazione || null,
         tipo_scadenza: tipoScadenza,
         giorni_presentazione: giorniPresentazione ? parseInt(giorniPresentazione) : null,
-        libro_matricola: libroMatricola,
+        libro_matricola: isLibroMatricola ? "auto" : libroMatricola,
         premio_netto_quietanza: premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null,
         addizionali_quietanza: addizionaliQuietanza ? parseFloat(addizionaliQuietanza) : null,
         tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
@@ -1594,6 +1599,23 @@ const ImmissionePolizzaPage = () => {
         stato: "attivo",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
       } as any);
+
+      // Libro Matricola: salva righe mezzi (solo se Tipo Operazione = libro_matricola)
+      if (isLibroMatricola) {
+        const righeValide = filterRigheValide(righeMatricola);
+        if (righeValide.length > 0) {
+          const { error: lmErr } = await supabase.from("libro_matricola_mezzi").insert(
+            righeValide.map((r) => ({
+              titolo_id: newTitolo.id,
+              targa: r.targa?.trim() || null,
+              data_inclusione: r.data_inclusione || null,
+              data_esclusione: r.data_esclusione || null,
+              note: r.note?.trim() || null,
+            }))
+          );
+          if (lmErr) console.error("Errore salvataggio mezzi libro matricola:", lmErr);
+        }
+      }
 
       // Snapshot regolazione (collegamento con polizza madre + quietanza di riferimento)
       if (regolazioneMode && polizzaMadre) {
@@ -2010,6 +2032,7 @@ const ImmissionePolizzaPage = () => {
             {[
               { value: "polizza", label: "Polizza" },
               { value: "emittenda", label: "Emittenda" },
+              { value: "libro_matricola", label: "Polizza Libro Matricola" },
             ].map((opt) => (
               <div key={opt.value} className="flex items-center gap-2">
                 <RadioGroupItem value={opt.value} id={`tipo-${opt.value}`} />
@@ -2022,6 +2045,20 @@ const ImmissionePolizzaPage = () => {
           <Checkbox id="polizza-auto" checked={polizzaAuto} onCheckedChange={(v) => setPolizzaAuto(v === true)} />
           <Label htmlFor="polizza-auto" className="font-normal cursor-pointer text-xs">Polizza Auto</Label>
         </div>
+        {isLibroMatricola && (
+          <div className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMatricolaDialogOpen(true)}
+              className="text-xs border-primary/40 text-primary hover:bg-primary/5"
+            >
+              <Truck className="h-3.5 w-3.5 mr-1.5" />
+              Gestisci Libro Matricola ({filterRigheValide(righeMatricola).length} mezzi)
+            </Button>
+          </div>
+        )}
       </PolizzaSection>
 
       {/* CONTRATTO */}
@@ -3229,6 +3266,12 @@ const ImmissionePolizzaPage = () => {
         </div>
       </div>
 
+      <LibroMatricolaDialog
+        open={matricolaDialogOpen}
+        onOpenChange={setMatricolaDialogOpen}
+        righe={righeMatricola}
+        onChange={setRigheMatricola}
+      />
     </div>
   );
 };

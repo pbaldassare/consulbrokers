@@ -1,73 +1,52 @@
 ## Obiettivo
+Aggiungere **"Polizza Libro Matricola"** come **nuovo Tipo Operazione** (radio), accanto a Polizza / Emittenda / Polizza Auto. Quando selezionato, in aggiunta al form polizza normale appare un **modale dedicato** per gestire la lista mezzi.
 
-Distinguere visivamente Polizze e Quietanze nelle tabelle ClienteDetail e Portafoglio (Attive/Carico/Storico), con segmented control, badge colorati, bordo sinistro per riga, indentazione/connettore figlie, e link cliccabile sulla colonna "Polizza madre".
+## Conferma di comprensione (rivista)
+- "Libro Matricola" è una **quarta opzione** nel radio "Tipo Operazione" (`Polizza`, `Emittenda`, `Polizza Auto`, **`Polizza Libro Matricola`**).
+- Il form generale resta uguale (Contratto, Premio, Garanzie ecc.).
+- In più appare un bottone "Gestisci Libro Matricola (N mezzi)" che apre un modale con una tabella di righe.
+- Riga: **Targa, Data inclusione, Data esclusione, Note** — tutti opzionali, nessuna validazione bloccante.
+- Bottone "+ Aggiungi mezzo" per nuova riga; icona cestino per rimuovere.
+- Le righe sono persistite in DB nella nuova tabella `libro_matricola_mezzi` collegata a `titoli.id` (cascade delete).
+- Niente generazione automatica di quietanze per mezzo; niente integrazione con `veicoli_polizza`.
 
-## Design tokens
+## Implementazione
 
-Aggiungo in `src/index.css` (HSL, design system):
+### 1. Migrazione DB
+- Nuova tabella `public.libro_matricola_mezzi`:
+  - `id uuid pk default gen_random_uuid()`
+  - `titolo_id uuid not null references titoli(id) on delete cascade`
+  - `targa text`, `data_inclusione date`, `data_esclusione date`, `note text`
+  - `created_at`, `updated_at` con trigger `update_updated_at_column`
+  - index su `titolo_id`
+- GRANT a `authenticated` (SELECT/INSERT/UPDATE/DELETE) e `service_role` (ALL).
+- RLS abilitata; policy: accessibile agli authenticated (riusa pattern delle altre tabelle figlie di `titoli`, es. `premi_garanzia_polizza`).
+- Marker per riconoscere la modalità: usare `titoli.tipo_operazione = 'libro_matricola'` (verificare valori esistenti su `titoli` prima della migrazione; se vincolato da enum/check, estendere).
 
-```css
---polizza: 173 80% 30%;          /* teal, alias di primary */
---polizza-foreground: 0 0% 100%;
---quietanza: 38 92% 50%;         /* amber */
---quietanza-foreground: 26 83% 14%;
---quietanza-soft: 38 92% 95%;    /* bg riga light */
---quietanza-soft-dark: 38 30% 12%; /* bg riga dark */
-```
+### 2. Nuovo componente
+`src/components/polizze/LibroMatricolaDialog.tsx`
+- Props: `open`, `onOpenChange`, `righe`, `onChange(nuoveRighe)`, `readOnly?`.
+- Dialog (shadcn) con tabella editabile: Targa (uppercase auto), Data inclusione (Shadcn DatePicker), Data esclusione (DatePicker), Note (Input), bottone rimuovi per riga.
+- Footer: "+ Aggiungi mezzo" + Conferma/Annulla.
+- Nessuna validazione obbligatoria; righe completamente vuote vengono filtrate al salvataggio.
 
-Aggiungo in `tailwind.config.ts` i colori `polizza`, `quietanza`, `quietanza-soft` mappati sulle variabili.
+### 3. `ImmissionePolizzaPage.tsx`
+- Aggiungere radio "Polizza Libro Matricola" in Tipo Operazione.
+- Stato `righeMatricola: LibroMatricolaRiga[]`.
+- Quando tipo === libro_matricola: mostrare bottone "Gestisci Libro Matricola (N mezzi)" e aprire `LibroMatricolaDialog`.
+- In `handleSubmit`: dopo insert titolo, bulk insert delle righe non-vuote in `libro_matricola_mezzi`.
 
-## Componente condiviso `TipoPolizzaBadge`
+### 4. `TitoloDetail.tsx`
+- Caricare righe esistenti se `tipo_operazione === 'libro_matricola'`.
+- Stesso bottone + dialog.
+- Update: diff delle righe (delete rimosse / insert nuove / update modificate).
+- Rispettare lock UI esistente (messa a cassa / stornata) → `readOnly` nel dialog.
 
-Nuovo file `src/components/polizze/TipoPolizzaBadge.tsx`:
-- Props: `tipo: "polizza" | "quietanza"`, `numero?: number`, `totale?: number`.
-- "Polizza" → badge pieno teal con icona `FileText`.
-- "Quietanza N/M" → badge outline ambra con icona `Receipt`.
-- Usa `Badge` shadcn con variant custom via `cva`.
+### 5. Memoria
+- Nuovo file `mem://insurance/libro-matricola.md`: descrizione del Tipo Operazione, tabella DB, comportamento UI, opzionalità campi.
+- Aggiornare `mem://index.md`.
 
-## Componente condiviso `TipoFilterSegmented`
-
-Nuovo file `src/components/polizze/TipoFilterSegmented.tsx`:
-- Sostituisce il `Select` "Tipo".
-- 3 chip: `Tutti` (neutro) · `Polizze` (teal pieno quando attivo) · `Quietanze` (ambra pieno quando attivo).
-- Rounded-full container, smooth transition sullo sfondo del chip attivo.
-- Props: `value`, `onChange`, opzionale `counts: { tutti, polizze, quietanze }` per chip con conteggio.
-
-## Modifiche `PolizzeClienteTable` in `src/pages/ClienteDetail.tsx`
-
-1. Sostituire il `Select` Tipo con `<TipoFilterSegmented>`.
-2. Sostituire il badge testuale corrente con `<TipoPolizzaBadge>` (calcolando idx rata su catena).
-3. Aggiungere classi `border-l-4 border-l-polizza` per madri e `border-l-quietanza` per quietanze sulla `<TableRow>`.
-4. Background riga quietanza: `bg-quietanza-soft/40` (override sopra la zebra).
-5. Colonna "N. Polizza": per le figlie aggiungere `pl-8` + glifo `└` davanti, font `text-muted-foreground font-normal`; madri restano `font-medium`.
-6. Colonna "Polizza madre" nella vista flat quietanze: il numero diventa `<Button variant="link">` → `navigate(`/titoli/${madreId}`)`. Per ottenerlo, `computeFlatQuietanze` deve esporre anche `madreId` (`madre?.id ?? all[0].id`).
-
-## Modifiche helper
-
-`src/lib/polizzeClienteView.ts`:
-- `computeFlatQuietanze` → ritorna `{ rata, madreNum, madreId, idx }`. Test esistenti aggiornati (campo opzionale, nessuna rottura).
-- Aggiungo `computeTotaleRate(catena)` per `Quietanza N/M` (M = `catena.all.length`).
-
-## Modifiche Portafoglio
-
-Stesso pattern applicato a:
-- `src/pages/PortafoglioAttivePage.tsx`
-- `src/pages/PortafoglioCaricoPage.tsx`
-- `src/pages/PortafoglioStoricoPage.tsx`
-
-In queste 3 pagine: sostituire il filtro Tipo con `TipoFilterSegmented`, badge con `TipoPolizzaBadge`, bordo sinistro colorato per riga, colonna "Polizza madre" cliccabile (già presente la colonna in caso usi `v_portafoglio_titoli`, altrimenti aggiunta). Niente indentazione perché in Portafoglio non c'è la vista nested madre+figlie (le righe sono già flat).
-
-## Test
-
-Aggiornare `src/lib/__tests__/polizzeClienteView.test.ts` per `madreId` nel `computeFlatQuietanze` (1 test in più, gli 11 esistenti restano verdi).
-
-## Cosa NON cambia
-
-- Nessuna nuova libreria.
-- Nessuna modifica a logica dati, RLS, query, paginazione.
-- Stessa struttura tabella `Table` shadcn.
-- Filtro `tutti | polizze | quietanze` invariato a livello logico — cambia solo il controllo UI.
-
-## Memoria
-
-Aggiornare `.lovable/memory/insurance/polizza-vs-quietanza-filtering.md` con i nuovi token visivi (`--polizza` / `--quietanza`) e i due nuovi componenti condivisi.
+## Fuori scope
+- Nessun import CSV/Excel dei mezzi.
+- Nessun calcolo di premio per mezzo.
+- Nessuna sincronizzazione con `veicoli_polizza` / `rca_dati`.
