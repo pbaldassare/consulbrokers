@@ -78,9 +78,12 @@ export default function CanaleContextHeader({ canaleId }: Props) {
     return (
       <Wrapper tone="primary">
         <FileText className="h-4 w-4 text-primary shrink-0" />
-        <Badge variant="default" className="font-mono text-[11px]">
-          {t.numero_titolo ? `Polizza N° ${t.numero_titolo}` : "Polizza senza numero"}
-        </Badge>
+        <Link to={`/cliente/polizze/${data.canale.entita_id}`} className="inline-flex items-center gap-1 hover:opacity-80 transition-opacity">
+          <Badge variant="default" className="font-mono text-[11px] cursor-pointer">
+            {t.numero_titolo ? `Polizza N° ${t.numero_titolo}` : "Polizza senza numero"}
+          </Badge>
+          <ExternalLink className="h-3 w-3 text-primary" />
+        </Link>
         {t.targa_telaio && (
           <Badge variant="secondary" className="font-mono text-[11px] gap-1">
             <Car className="h-3 w-3" /> {t.targa_telaio}
@@ -96,6 +99,7 @@ export default function CanaleContextHeader({ canaleId }: Props) {
       </Wrapper>
     );
   }
+
 
   if (data.tipo === "sinistro") {
     const s: any = data.sinistro;
