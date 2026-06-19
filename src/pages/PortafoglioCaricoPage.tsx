@@ -176,6 +176,7 @@ const PortafoglioCaricoPage = () => {
       q = applyPeriodoFilter(q);
       q = applySearch(q);
       q = applyTipoFilter(q);
+      q = applyExcludeMadreConRate(q);
 
       const { data, count } = await q
         .order(orderField, { ascending: sortDirection === "asc" })
