@@ -9,10 +9,58 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon } from "lucide-react";
+import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon, Check } from "lucide-react";
+
+// MultiSelect filter: array of values, "all" when empty
+function MultiSelectFilter({ label, values, options, onChange, formatOption }: {
+  label: string;
+  values: string[];
+  options: string[];
+  onChange: (v: string[]) => void;
+  formatOption?: (v: string) => string;
+}) {
+  const display = values.length === 0
+    ? label
+    : values.length === 1
+      ? (formatOption?.(values[0]) ?? values[0])
+      : `${values.length} selezionati`;
+  const toggle = (v: string) => {
+    onChange(values.includes(v) ? values.filter(x => x !== v) : [...values, v]);
+  };
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="w-full justify-between font-normal">
+          <span className={cn("truncate", values.length === 0 && "text-muted-foreground")}>{display}</span>
+          <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="p-1 w-[var(--radix-popover-trigger-width)] max-h-72 overflow-auto" align="start">
+        {options.length === 0 ? (
+          <div className="px-2 py-1.5 text-sm text-muted-foreground">Nessuna opzione</div>
+        ) : (
+          <>
+            {values.length > 0 && (
+              <button type="button" onClick={() => onChange([])} className="w-full text-left px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent rounded">
+                ✕ Pulisci selezione
+              </button>
+            )}
+            {options.map((opt) => (
+              <button key={opt} type="button" onClick={() => toggle(opt)} className="flex items-center gap-2 w-full px-2 py-1.5 text-sm hover:bg-accent rounded">
+                <div className={cn("h-4 w-4 border rounded flex items-center justify-center", values.includes(opt) && "bg-primary border-primary")}>
+                  {values.includes(opt) && <Check className="h-3 w-3 text-primary-foreground" />}
+                </div>
+                <span className="truncate">{formatOption?.(opt) ?? opt}</span>
+              </button>
+            ))}
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
 import { format } from "date-fns";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import NuovaDenunciaSinistroDialog from "@/components/cliente/NuovaDenunciaSinistroDialog";
@@ -42,14 +90,13 @@ export default function ClienteSinistri() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [openNuovo, setOpenNuovo] = useState(false);
 
-  // Filtri
+  // Filtri (multi-select)
   const [fSearch, setFSearch] = useState("");
-  const [fStato, setFStato] = useState<string>("all");
-  const [fRamo, setFRamo] = useState<string>("all");
-  const [fCompagnia, setFCompagnia] = useState<string>("all");
-  const [fPolizza, setFPolizza] = useState<string>("all");
-  const [fProvincia, setFProvincia] = useState<string>("all");
-  const [fCitta, setFCitta] = useState<string>("all");
+  const [fStati, setFStati] = useState<string[]>(["aperto", "in_lavorazione"]);
+  const [fRami, setFRami] = useState<string[]>([]);
+  const [fCompagnie, setFCompagnie] = useState<string[]>([]);
+  const [fPolizze, setFPolizze] = useState<string[]>([]);
+  const [fCitta, setFCitta] = useState<string[]>([]);
   const [fDataDa, setFDataDa] = useState<Date | undefined>();
   const [fDataA, setFDataA] = useState<Date | undefined>();
 
@@ -80,18 +127,16 @@ export default function ClienteSinistri() {
   const optRami = distinct((s) => s.ramo_sinistro);
   const optCompagnie = distinct((s) => s.compagnie?.nome);
   const optPolizze = distinct((s) => s.titoli?.numero_titolo);
-  const optProvince = distinct((s) => s.provincia_sinistro);
   const optCitta = distinct((s) => s.citta_sinistro);
 
   const filteredSinistri = useMemo(() => {
     const q = fSearch.trim().toLowerCase();
     return sinistri.filter((s: any) => {
-      if (fStato !== "all" && s.stato !== fStato) return false;
-      if (fRamo !== "all" && s.ramo_sinistro !== fRamo) return false;
-      if (fCompagnia !== "all" && s.compagnie?.nome !== fCompagnia) return false;
-      if (fPolizza !== "all" && s.titoli?.numero_titolo !== fPolizza) return false;
-      if (fProvincia !== "all" && s.provincia_sinistro !== fProvincia) return false;
-      if (fCitta !== "all" && s.citta_sinistro !== fCitta) return false;
+      if (fStati.length && !fStati.includes(s.stato)) return false;
+      if (fRami.length && !fRami.includes(s.ramo_sinistro)) return false;
+      if (fCompagnie.length && !fCompagnie.includes(s.compagnie?.nome)) return false;
+      if (fPolizze.length && !fPolizze.includes(s.titoli?.numero_titolo)) return false;
+      if (fCitta.length && !fCitta.includes(s.citta_sinistro)) return false;
       if (fDataDa && (!s.data_evento || new Date(s.data_evento) < fDataDa)) return false;
       if (fDataA && (!s.data_evento || new Date(s.data_evento) > fDataA)) return false;
       if (q) {
@@ -101,13 +146,14 @@ export default function ClienteSinistri() {
       }
       return true;
     });
-  }, [sinistri, fSearch, fStato, fRamo, fCompagnia, fPolizza, fProvincia, fCitta, fDataDa, fDataA]);
+  }, [sinistri, fSearch, fStati, fRami, fCompagnie, fPolizze, fCitta, fDataDa, fDataA]);
 
   const resetFilters = () => {
-    setFSearch(""); setFStato("all"); setFRamo("all"); setFCompagnia("all");
-    setFPolizza("all"); setFProvincia("all"); setFCitta("all");
+    setFSearch(""); setFStati([]); setFRami([]); setFCompagnie([]);
+    setFPolizze([]); setFCitta([]);
     setFDataDa(undefined); setFDataA(undefined);
   };
+
 
   const aperti = filteredSinistri.filter((s: any) => !["chiuso", "respinto"].includes(s.stato)).length;
   const chiusi = filteredSinistri.length - aperti;
@@ -270,42 +316,12 @@ export default function ClienteSinistri() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <Input placeholder="Cerca: n°, controparte, targa…" value={fSearch} onChange={(e) => setFSearch(e.target.value)} />
-            <Select value={fStato} onValueChange={setFStato}>
-              <SelectTrigger><SelectValue placeholder="Stato" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutti gli stati</SelectItem>
-                {optStati.map((v) => <SelectItem key={v} value={v}>{v.replace(/_/g, " ")}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fRamo} onValueChange={setFRamo}>
-              <SelectTrigger><SelectValue placeholder="Garanzia" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutte le garanzie</SelectItem>
-                {optRami.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fCompagnia} onValueChange={setFCompagnia}>
-              <SelectTrigger><SelectValue placeholder="Compagnia" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutte le compagnie</SelectItem>
-                {optCompagnie.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fPolizza} onValueChange={setFPolizza}>
-              <SelectTrigger><SelectValue placeholder="Polizza" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutte le polizze</SelectItem>
-                {optPolizze.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fProvincia} onValueChange={setFProvincia}>
-              <SelectTrigger><SelectValue placeholder="Provincia" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutte le province</SelectItem>
-                {optProvince.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fCitta} onValueChange={setFCitta}>
-              <SelectTrigger><SelectValue placeholder="Città" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutte le città</SelectItem>
-                {optCitta.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter label="Tutti gli stati" values={fStati} options={optStati} onChange={setFStati} formatOption={(v) => v.replace(/_/g, " ")} />
+            <MultiSelectFilter label="Tutte le garanzie" values={fRami} options={optRami} onChange={setFRami} />
+            <MultiSelectFilter label="Tutte le compagnie" values={fCompagnie} options={optCompagnie} onChange={setFCompagnie} />
+            <MultiSelectFilter label="Tutte le polizze" values={fPolizze} options={optPolizze} onChange={setFPolizze} />
+            <MultiSelectFilter label="Tutte le città" values={fCitta} options={optCitta} onChange={setFCitta} />
+
             <div className="flex gap-2">
               <Popover>
                 <PopoverTrigger asChild>
