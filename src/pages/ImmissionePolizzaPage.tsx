@@ -356,13 +356,11 @@ const ImmissionePolizzaPage = () => {
   const [disdettaMesi, setDisdettaMesi] = useState("");
 
 
-  // Regolazione
+  // Regolazione (promemoria) — allineato a TitoloDetail
   const [regolazione, setRegolazione] = useState(false);
-  const [tipoLetteraRegolazione, setTipoLetteraRegolazione] = useState("");
-  const [tipoScadenza, setTipoScadenza] = useState("no_scadenza");
-  const [giorniPresentazione, setGiorniPresentazione] = useState("");
-  const [periodicita, setPeriodicita] = useState("annuale");
-  const [libroMatricola, setLibroMatricola] = useState("no");
+  const [regolazioneDataPresunta, setRegolazioneDataPresunta] = useState("");
+  const [regolazioneFattore, setRegolazioneFattore] = useState("");
+  const [regolazioneNote, setRegolazioneNote] = useState("");
 
   // Importi — multi-row garanzie
   const [premiFirmaRows, setPremiFirmaRows] = useState<GaranziaRow[]>([emptyGaranziaRow()]);
@@ -519,11 +517,9 @@ const ImmissionePolizzaPage = () => {
         limiteMoraTouched: setLimiteMoraTouched,
         disdettaMesi: setDisdettaMesi,
         regolazione: setRegolazione,
-        tipoLetteraRegolazione: setTipoLetteraRegolazione,
-        tipoScadenza: setTipoScadenza,
-        giorniPresentazione: setGiorniPresentazione,
-        periodicita: setPeriodicita,
-        libroMatricola: setLibroMatricola,
+        regolazioneDataPresunta: setRegolazioneDataPresunta,
+        regolazioneFattore: setRegolazioneFattore,
+        regolazioneNote: setRegolazioneNote,
         premiFirmaRows: setPremiFirmaRows,
         premiQuietanzaRows: setPremiQuietanzaRows,
         addizionali: setAddizionali,
@@ -615,7 +611,7 @@ const ImmissionePolizzaPage = () => {
     durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, frazionamento, moraGiorni,
     garanziaDa, garanziaDaTouched, garanziaA, garanziaATouched, dataCompetenza, dataCompetenzaTouched,
     limiteMora, limiteMoraTouched, disdettaMesi,
-    regolazione, tipoLetteraRegolazione, tipoScadenza, giorniPresentazione, periodicita, libroMatricola,
+    regolazione, regolazioneDataPresunta, regolazioneFattore, regolazioneNote,
     premiFirmaRows, premiQuietanzaRows, addizionali, valuta, addizionaliQuietanza,
     rimborso, indicizzata, noCalcoloTasse, pagDirettoCompagnia, emissioneFee, formatoElettronico, cambio,
     percentualeCommercialeAuto,
@@ -1503,7 +1499,7 @@ const ImmissionePolizzaPage = () => {
         durata_a: durataA || null,
         anni_durata: parseInt(anniDurata) || 1,
         tacito_rinnovo: tacitoRinnovo,
-        periodicita,
+        // periodicita legacy: non valorizzato dalla UI (resta NULL)
         rate: frazionamentoToRate(frazionamento, parseInt(anniDurata) || 1),
         frazionamento,
         mora_giorni: parseInt(moraGiorni) || 15,
@@ -1524,10 +1520,10 @@ const ImmissionePolizzaPage = () => {
         limite_mora: limiteMora || null,
         disdetta_mesi: disdettaMesi ? parseInt(disdettaMesi) : null,
         regolazione,
-        tipo_lettera_regolazione: tipoLetteraRegolazione || null,
-        tipo_scadenza: tipoScadenza,
-        giorni_presentazione: giorniPresentazione ? parseInt(giorniPresentazione) : null,
-        libro_matricola: isLibroMatricola ? "auto" : libroMatricola,
+        regolazione_data_presunta: regolazione ? (regolazioneDataPresunta || null) : null,
+        regolazione_fattore: regolazione ? (regolazioneFattore || null) : null,
+        regolazione_note: regolazione ? (regolazioneNote || null) : null,
+        libro_matricola: isLibroMatricola ? "auto" : null,
         premio_netto_quietanza: premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null,
         addizionali_quietanza: addizionaliQuietanza ? parseFloat(addizionaliQuietanza) : null,
         tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
@@ -2495,78 +2491,56 @@ const ImmissionePolizzaPage = () => {
 
       {/* REGOLAZIONE */}
       <PolizzaSection title="Regolazione" icon={Shield} defaultOpen={false}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
-          <div className="flex items-center gap-2 h-8">
-            <Checkbox id="regolazione" checked={regolazione} onCheckedChange={(v) => setRegolazione(v === true)} />
-            <Label htmlFor="regolazione" className="font-normal cursor-pointer text-xs flex items-center gap-1">
-              Regolazione Sì
-              <FieldHint>Attiva se il premio è soggetto a regolazione periodica (es. polizze con conguaglio a consuntivo sui dati dichiarati).</FieldHint>
-            </Label>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs flex items-center gap-1">
-              Periodicità
-              <FieldHint>Cadenza con cui la compagnia richiede i dati per la regolazione del premio.</FieldHint>
-            </Label>
-            <SearchableSelect className="h-8 text-xs" value={periodicita} onValueChange={setPeriodicita} placeholder="—"
-              options={[
-                { value: "annuale", label: "Annuale" },
-                { value: "semestrale", label: "Semestrale" },
-                { value: "trimestrale", label: "Trimestrale" },
-                { value: "mensile", label: "Mensile" },
-              ]}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 rounded-md border bg-muted/40 p-3">
+            <Switch
+              id="reg-check"
+              checked={regolazione}
+              onCheckedChange={(v) => setRegolazione(!!v)}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs flex items-center gap-1">
-              Tipo Scadenza
-              <FieldHint>"A scadenza": la regolazione è dovuta entro una data fissa. "No scadenza": gestione libera.</FieldHint>
+            <Label htmlFor="reg-check" className="font-medium text-sm">
+              Polizza in regolazione (promemoria)
             </Label>
-            <SearchableSelect className="h-8 text-xs" value={tipoScadenza} onValueChange={setTipoScadenza} placeholder="—"
-              options={[
-                { value: "no_scadenza", label: "No Scadenza" },
-                { value: "a_scadenza", label: "A Scadenza" },
-              ]}
-            />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs flex items-center gap-1">
-              GG Presentazione
-              <FieldHint>Giorni a disposizione del cliente per presentare i dati di regolazione dopo la scadenza periodica.</FieldHint>
-            </Label>
-            <Input type="number" value={giorniPresentazione} onChange={(e) => setGiorniPresentazione(e.target.value)} placeholder="0" className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs flex items-center gap-1">
-              Tipo Lettera Regolazione
-              <FieldHint>Modello di comunicazione inviata al cliente per richiedere i dati di regolazione.</FieldHint>
-            </Label>
-            <SearchableSelect className="h-8 text-xs" value={tipoLetteraRegolazione} onValueChange={setTipoLetteraRegolazione} placeholder="— Tipo lettera —"
-              options={[
-                { value: "standard", label: "Standard" },
-                { value: "personalizzata", label: "Personalizzata" },
-                { value: "nessuna", label: "Nessuna" },
-              ]}
-            />
-          </div>
-          <div className="space-y-1.5 col-span-2">
-            <Label className="text-xs flex items-center gap-1">
-              Libro Matricola
-              <FieldHint>Indica se la polizza è gestita a libro matricola (es. flotte veicoli, dipendenti) con aggiornamenti periodici del parco assicurato.</FieldHint>
-            </Label>
-            <RadioGroup value={libroMatricola} onValueChange={setLibroMatricola} className="flex gap-4 h-8 items-center">
-              {[
-                { value: "no", label: "No" },
-                { value: "auto", label: "Auto" },
-                { value: "altro", label: "Altro" },
-              ].map((opt) => (
-                <div key={opt.value} className="flex items-center gap-1.5">
-                  <RadioGroupItem value={opt.value} id={`lm-${opt.value}`} />
-                  <Label htmlFor={`lm-${opt.value}`} className="font-normal cursor-pointer text-xs">{opt.label}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
+
+          {regolazione && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 rounded-md border border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 p-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Data presunta regolazione</Label>
+                <Input
+                  type="date"
+                  value={regolazioneDataPresunta}
+                  onChange={(e) => setRegolazioneDataPresunta(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Fattore di regolazione</Label>
+                <SearchableSelect
+                  className="h-8 text-xs"
+                  options={[
+                    { value: "fatturato", label: "Fatturato" },
+                    { value: "num_dipendenti", label: "N° dipendenti" },
+                    { value: "retribuzioni", label: "Retribuzioni" },
+                    { value: "altro", label: "Altro" },
+                  ]}
+                  value={regolazioneFattore}
+                  onValueChange={setRegolazioneFattore}
+                  placeholder="Seleziona fattore"
+                  clearable
+                />
+              </div>
+              <div className="space-y-1 md:col-span-3">
+                <Label className="text-xs">Note</Label>
+                <Input
+                  value={regolazioneNote}
+                  onChange={(e) => setRegolazioneNote(e.target.value)}
+                  placeholder="Eventuali note sul promemoria"
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </PolizzaSection>
 
