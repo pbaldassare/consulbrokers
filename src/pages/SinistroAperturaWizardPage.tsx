@@ -100,10 +100,8 @@ export default function SinistroAperturaWizardPage() {
       luogo_sinistro: "",
       importo_riserva: undefined,
       documenti: [],
-      responsabile_id: "",
       liquidatore_id: "",
       note_interne: "",
-      priorita: "normale"
     }
   });
 
