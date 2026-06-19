@@ -47,6 +47,7 @@ import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
 import { FieldHint } from "@/components/ui/field-hint";
 import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPersistence";
 import { computeQuietanzePlan } from "@/lib/quietanzePlan";
+import { QuietanzeEditor, type QuietanzaDraft } from "@/components/polizze/QuietanzeEditor";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -353,6 +354,11 @@ const ImmissionePolizzaPage = () => {
   const [limiteMora, setLimiteMora] = useState("");
   const [limiteMoraTouched, setLimiteMoraTouched] = useState(false);
   const [disdettaMesi, setDisdettaMesi] = useState("");
+
+  // Quietanze editor: drafts per-rata raccolti dalla sezione "Quietanze" del form.
+  // Vengono applicati DOPO l'insert del titolo: il trigger DB crea polizza+quietanze,
+  // poi noi sovrascriviamo i campi editati dall'utente rata per rata.
+  const [quietanzeDrafts, setQuietanzeDrafts] = useState<QuietanzaDraft[]>([]);
 
   // Regolazione
   const [regolazione, setRegolazione] = useState(false);
