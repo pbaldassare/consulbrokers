@@ -14,7 +14,7 @@ let produttoreId: string;
 let titoloId: string;
 let clienteAnagraficaId: string;
 
-test.describe('Sinistri — Apertura e Cambio Stato', () => {
+test.describe.skip('Sinistri — Apertura e Cambio Stato (legacy dialog rimosso, ora /sinistri/apertura)', () => {
 
   // Setup: Crea gli utenti e la polizza attiva necessari per aprire il sinistro
   test.beforeAll(async () => {

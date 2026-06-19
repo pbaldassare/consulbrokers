@@ -15,15 +15,10 @@ test.describe('Sinistri', () => {
     await expect(page.getByRole('button', { name: 'Nuovo Sinistro' })).toBeVisible();
   });
 
-  test('il wizard "Nuovo Sinistro" si apre allo step 1 (Seleziona Polizza)', async ({ page }) => {
+  test('il bottone "Nuovo Sinistro" porta al wizard di apertura', async ({ page }) => {
     await page.getByRole('button', { name: 'Nuovo Sinistro' }).click();
-
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByText('Seleziona Polizza')).toBeVisible();
-
-    await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(/\/sinistri\/apertura/);
+    await expect(page.getByRole('heading', { name: /Apertura Nuovo Sinistro/i })).toBeVisible();
   });
 
   test('le sottopagine Sinistri si caricano', async ({ page }) => {

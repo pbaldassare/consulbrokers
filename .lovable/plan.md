@@ -1,52 +1,35 @@
 ## Obiettivo
-Aggiungere **"Polizza Libro Matricola"** come **nuovo Tipo Operazione** (radio), accanto a Polizza / Emittenda / Polizza Auto. Quando selezionato, in aggiunta al form polizza normale appare un **modale dedicato** per gestire la lista mezzi.
+Unificare l'apertura sinistro: il bottone **"Nuovo Sinistro"** in `/sinistri` deve usare lo stesso flusso (stesso schema, stessi step, stessi campi, stessa UX) della pagina **"Apertura Sinistro"** (`/sinistri/apertura`, `SinistroAperturaWizardPage`), che oggi è più ricca e completa.
 
-## Conferma di comprensione (rivista)
-- "Libro Matricola" è una **quarta opzione** nel radio "Tipo Operazione" (`Polizza`, `Emittenda`, `Polizza Auto`, **`Polizza Libro Matricola`**).
-- Il form generale resta uguale (Contratto, Premio, Garanzie ecc.).
-- In più appare un bottone "Gestisci Libro Matricola (N mezzi)" che apre un modale con una tabella di righe.
-- Riga: **Targa, Data inclusione, Data esclusione, Note** — tutti opzionali, nessuna validazione bloccante.
-- Bottone "+ Aggiungi mezzo" per nuova riga; icona cestino per rimuovere.
-- Le righe sono persistite in DB nella nuova tabella `libro_matricola_mezzi` collegata a `titoli.id` (cascade delete).
-- Niente generazione automatica di quietanze per mezzo; niente integrazione con `veicoli_polizza`.
+## Stato attuale
+- `SinistriList.tsx` → bottone "Nuovo Sinistro" apre un **Dialog inline** con un mini-wizard custom (form ridotto, campi diversi, niente bozza, niente conferma annullamento).
+- `SinistroAperturaWizardPage.tsx` → wizard completo con `react-hook-form` + zod, draft persistente, step multipli, priorità, riserva, ecc. Raggiungibile da menu / link diretto a `/sinistri/apertura`.
 
-## Implementazione
+Risultato: due esperienze divergenti per la stessa azione.
 
-### 1. Migrazione DB
-- Nuova tabella `public.libro_matricola_mezzi`:
-  - `id uuid pk default gen_random_uuid()`
-  - `titolo_id uuid not null references titoli(id) on delete cascade`
-  - `targa text`, `data_inclusione date`, `data_esclusione date`, `note text`
-  - `created_at`, `updated_at` con trigger `update_updated_at_column`
-  - index su `titolo_id`
-- GRANT a `authenticated` (SELECT/INSERT/UPDATE/DELETE) e `service_role` (ALL).
-- RLS abilitata; policy: accessibile agli authenticated (riusa pattern delle altre tabelle figlie di `titoli`, es. `premi_garanzia_polizza`).
-- Marker per riconoscere la modalità: usare `titoli.tipo_operazione = 'libro_matricola'` (verificare valori esistenti su `titoli` prima della migrazione; se vincolato da enum/check, estendere).
+## Approccio proposto
+Eliminare il mini-wizard inline e far sì che "Nuovo Sinistro" porti all'unico wizard ufficiale.
 
-### 2. Nuovo componente
-`src/components/polizze/LibroMatricolaDialog.tsx`
-- Props: `open`, `onOpenChange`, `righe`, `onChange(nuoveRighe)`, `readOnly?`.
-- Dialog (shadcn) con tabella editabile: Targa (uppercase auto), Data inclusione (Shadcn DatePicker), Data esclusione (DatePicker), Note (Input), bottone rimuovi per riga.
-- Footer: "+ Aggiungi mezzo" + Conferma/Annulla.
-- Nessuna validazione obbligatoria; righe completamente vuote vengono filtrate al salvataggio.
+1. In `src/pages/SinistriList.tsx`:
+   - Rimuovere l'intero blocco `Dialog` del nuovo sinistro e tutto lo stato wizard correlato (`dialogOpen`, step state, handler `resetDialog`, submit, ricerca polizza inline, ecc.).
+   - Rimuovere gli import non più usati (`Dialog*`, eventuali hook/zod schema locali, icone non più referenziate).
+   - Sostituire il bottone con un semplice `Button` che fa `navigate("/sinistri/apertura")` (usando `useNavigate` di `react-router-dom`, già presumibilmente disponibile o da importare).
+   - Mantenere etichetta "Nuovo Sinistro" e icona `Plus` per non cambiare la UI percepita.
 
-### 3. `ImmissionePolizzaPage.tsx`
-- Aggiungere radio "Polizza Libro Matricola" in Tipo Operazione.
-- Stato `righeMatricola: LibroMatricolaRiga[]`.
-- Quando tipo === libro_matricola: mostrare bottone "Gestisci Libro Matricola (N mezzi)" e aprire `LibroMatricolaDialog`.
-- In `handleSubmit`: dopo insert titolo, bulk insert delle righe non-vuote in `libro_matricola_mezzi`.
+2. Nessuna modifica a `SinistroAperturaWizardPage.tsx` né alle edge function (`gestione-sinistri`): il wizard esistente resta la singola fonte di verità.
 
-### 4. `TitoloDetail.tsx`
-- Caricare righe esistenti se `tipo_operazione === 'libro_matricola'`.
-- Stesso bottone + dialog.
-- Update: diff delle righe (delete rimosse / insert nuove / update modificate).
-- Rispettare lock UI esistente (messa a cassa / stornata) → `readOnly` nel dialog.
+3. Verifica rapida che gli altri punti di ingresso ("Apertura" dal menu Sinistri, link da polizza, ecc.) continuino a funzionare — puntano già a `/sinistri/apertura`.
 
-### 5. Memoria
-- Nuovo file `mem://insurance/libro-matricola.md`: descrizione del Tipo Operazione, tabella DB, comportamento UI, opzionalità campi.
-- Aggiornare `mem://index.md`.
+## Test/regression da aggiornare
+- `tests/e2e/06-sinistri.spec.ts`: il test "il wizard Nuovo Sinistro si apre allo step 1 (Seleziona Polizza)" oggi si aspetta un `dialog`. Va aggiornato per attendersi la **navigazione** a `/sinistri/apertura` e la presenza dell'heading "Apertura Nuovo Sinistro".
+- `tests/sinistri.spec.ts`: lo scenario completo cerca placeholder/etichette del vecchio dialog inline ("Numero polizza", "Cerca Polizze", "Es. SIN-2026-001", ecc.). Va riallineato al flusso del wizard ufficiale (oppure marcato `test.skip` se la copertura è già garantita da test del wizard).
+
+## File toccati
+- `src/pages/SinistriList.tsx` — rimozione dialog inline + redirect.
+- `tests/e2e/06-sinistri.spec.ts` — aggiornamento assert.
+- `tests/sinistri.spec.ts` — aggiornamento/skip selettori.
 
 ## Fuori scope
-- Nessun import CSV/Excel dei mezzi.
-- Nessun calcolo di premio per mezzo.
-- Nessuna sincronizzazione con `veicoli_polizza` / `rca_dati`.
+- Nessuna modifica allo schema DB o alle edge function.
+- Nessun ridisegno del wizard `SinistroAperturaWizardPage`.
+- Le altre tab/persistenza `?tab=` introdotte in precedenza restano invariate.
