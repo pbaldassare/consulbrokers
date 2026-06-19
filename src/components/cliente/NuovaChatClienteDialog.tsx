@@ -44,15 +44,34 @@ export default function NuovaChatClienteDialog({ open, onClose, onCreated }: Pro
     queryKey: ["cliente_titoli_chat", clienteIds],
     queryFn: async () => {
       if (!clienteIds?.length) return [];
-      const { data } = await supabase
-        .from("titoli")
-        .select("id, numero_titolo, targa_telaio, prodotto_nome, stato, compagnie:compagnia_id(nome), rami:ramo_id(nome)")
-        .in("cliente_anagrafica_id", clienteIds)
-        .order("numero_titolo");
-      return data || [];
+      const [titoliRes, cgaRes] = await Promise.all([
+        supabase
+          .from("titoli")
+          .select("id, numero_titolo, targa_telaio, prodotto_nome, stato, compagnie:compagnia_id(nome), rami:ramo_id(nome)")
+          .in("cliente_anagrafica_id", clienteIds)
+          .order("numero_titolo"),
+        supabase
+          .from("polizza_cga")
+          .select("id, numero_polizza, stato, prodotti_cga(nome_prodotto, compagnia, ramo)")
+          .in("cliente_id", clienteIds)
+          .eq("stato", "approvato"),
+      ]);
+      const fromTitoli = (titoliRes.data || []).map((t: any) => ({ ...t, _source: "titoli" }));
+      const fromCga = (cgaRes.data || []).map((p: any) => ({
+        id: p.id,
+        numero_titolo: p.numero_polizza,
+        targa_telaio: null,
+        prodotto_nome: p.prodotti_cga?.nome_prodotto ?? p.prodotti_cga?.ramo ?? null,
+        stato: p.stato,
+        compagnie: p.prodotti_cga?.compagnia ? { nome: p.prodotti_cga.compagnia } : null,
+        rami: p.prodotti_cga?.ramo ? { nome: p.prodotti_cga.ramo } : null,
+        _source: "cga",
+      }));
+      return [...fromTitoli, ...fromCga];
     },
     enabled: open && tab === "polizza" && !!clienteIds?.length,
   });
+
 
   const { data: sinistri } = useQuery({
     queryKey: ["cliente_sinistri_chat", clienteIds],
