@@ -155,6 +155,92 @@ const ClienteComunicazioni = () => {
     toast.success("Polizza collegata alla conversazione");
   };
 
+  const handleExportPdf = async () => {
+    if (!canaleAttivoId) return;
+    try {
+      toast.loading("Generazione PDF...", { id: "chat-pdf" });
+      const { data: canale } = await supabase
+        .from("chat_canali")
+        .select("id, nome, entita_tipo, entita_id, created_at")
+        .eq("id", canaleAttivoId)
+        .maybeSingle();
+      if (!canale) throw new Error("Canale non trovato");
+
+      const { data: msgs } = await supabase
+        .from("chat_messaggi_interni")
+        .select("id, created_at, messaggio, mittente_id, profiles:mittente_id(nome, cognome, ruolo)")
+        .eq("canale_id", canaleAttivoId)
+        .order("created_at", { ascending: true });
+
+      const { data: mems } = await supabase
+        .from("chat_canali_membri")
+        .select("user_id, profiles:user_id(nome, cognome, ruolo)")
+        .eq("canale_id", canaleAttivoId);
+
+      let entitaLabel: string | null = null;
+      let entitaNumero: string | null = null;
+      let statoLabel: string | null = null;
+      if (canale.entita_tipo === "titolo" && canale.entita_id) {
+        const { data: t } = await supabase
+          .from("titoli").select("numero_titolo").eq("id", canale.entita_id).maybeSingle();
+        entitaLabel = "Polizza";
+        entitaNumero = (t as any)?.numero_titolo || null;
+      } else if (canale.entita_tipo === "sinistro" && canale.entita_id) {
+        const { data: s } = await supabase
+          .from("sinistri").select("numero_sinistro, stato").eq("id", canale.entita_id).maybeSingle();
+        entitaLabel = "Sinistro";
+        entitaNumero = (s as any)?.numero_sinistro || null;
+        statoLabel = (s as any)?.stato || null;
+      } else if (canale.entita_tipo === "argomento") {
+        entitaLabel = "Argomento";
+      } else if (canale.entita_tipo === "cliente") {
+        entitaLabel = "Generale";
+      }
+
+      const clienteNome = `${profile?.nome || ""} ${profile?.cognome || ""}`.trim() || "Cliente";
+
+      // Build log: created + messages timeline summary
+      const log: { data: string; evento: string; attore?: string | null }[] = [];
+      log.push({ data: canale.created_at as string, evento: "Conversazione creata" });
+      for (const m of (msgs || [])) {
+        const p: any = (m as any).profiles;
+        const who = p ? `${p.nome || ""} ${p.cognome || ""}`.trim() : "";
+        log.push({
+          data: m.created_at as string,
+          evento: "Messaggio inviato",
+          attore: who || null,
+        });
+      }
+
+      await exportChatToPdf({
+        canaleNome: canale.nome || entitaLabel || "Conversazione",
+        canaleTipo: canale.entita_tipo,
+        entitaLabel,
+        entitaNumero,
+        statoLabel,
+        createdAt: canale.created_at,
+        clienteNome,
+        membri: (mems || []).map((x: any) => ({
+          nome: x.profiles?.nome, cognome: x.profiles?.cognome, ruolo: x.profiles?.ruolo,
+        })),
+        messaggi: (msgs || []).map((m: any) => ({
+          id: m.id,
+          created_at: m.created_at,
+          messaggio: m.messaggio || "",
+          mittente_nome: m.profiles?.nome,
+          mittente_cognome: m.profiles?.cognome,
+          mittente_ruolo: m.profiles?.ruolo,
+          is_self: m.mittente_id === profile?.id,
+        })),
+        log,
+      });
+      toast.success("PDF generato", { id: "chat-pdf" });
+    } catch (e: any) {
+      console.error(e);
+      toast.error("Errore generazione PDF: " + (e?.message || ""), { id: "chat-pdf" });
+    }
+  };
+
   return (
     <div data-tour="cl-chat-page" className="space-y-4">
       <div className="flex items-center justify-between">
