@@ -204,6 +204,64 @@ export default function ClienteSinistri() {
 
       <NuovaDenunciaSinistroDialog open={openNuovo} onOpenChange={setOpenNuovo} onCreated={() => refetch()} />
 
+
+      {/* KPI */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {kpis.map(k => (
+          <Card key={k.label} className="border-l-4" style={{ borderLeftColor: k.border }}>
+            <CardContent className="pt-3 pb-3">
+              <div className="flex items-center gap-2">
+                <div className={`h-8 w-8 rounded-full ${k.bg} flex items-center justify-center`}>
+                  <k.icon className={`h-4 w-4 ${k.color}`} />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{k.label}</p>
+                  <p className={`text-lg font-bold ${k.color}`}>{k.value}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Charts */}
+      {sinistri.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Sinistri per Ramo (Aperti vs Chiusi)</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={sinPerRamo} cx="50%" cy="50%" innerRadius={50} outerRadius={95} paddingAngle={3} dataKey="value" label={({ name, value }) => `${value}`} labelLine={false}>
+                    {sinPerRamo.map((entry, i) => (
+                      <Cell key={i} fill={entry.isOpen ? COLORS_OPEN[i % COLORS_OPEN.length] : COLORS_CLOSED[i % COLORS_CLOSED.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Riserve vs Liquidato</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={barData}>
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(v: number) => fmt(v)} />
+                  <Legend />
+                  <Bar dataKey="riserva" name="Riserva" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="liquidato" name="Liquidato" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Filtri */}
       <Card>
         <CardContent className="pt-4 pb-4 space-y-3">
@@ -280,63 +338,6 @@ export default function ClienteSinistri() {
           </div>
         </CardContent>
       </Card>
-
-      {/* KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {kpis.map(k => (
-          <Card key={k.label} className="border-l-4" style={{ borderLeftColor: k.border }}>
-            <CardContent className="pt-3 pb-3">
-              <div className="flex items-center gap-2">
-                <div className={`h-8 w-8 rounded-full ${k.bg} flex items-center justify-center`}>
-                  <k.icon className={`h-4 w-4 ${k.color}`} />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{k.label}</p>
-                  <p className={`text-lg font-bold ${k.color}`}>{k.value}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Charts */}
-      {sinistri.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Sinistri per Ramo (Aperti vs Chiusi)</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={sinPerRamo} cx="50%" cy="50%" innerRadius={50} outerRadius={95} paddingAngle={3} dataKey="value" label={({ name, value }) => `${value}`} labelLine={false}>
-                    {sinPerRamo.map((entry, i) => (
-                      <Cell key={i} fill={entry.isOpen ? COLORS_OPEN[i % COLORS_OPEN.length] : COLORS_CLOSED[i % COLORS_CLOSED.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Riserve vs Liquidato</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={barData}>
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => fmt(v)} />
-                  <Legend />
-                  <Bar dataKey="riserva" name="Riserva" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="liquidato" name="Liquidato" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* Table */}
       <Card>
