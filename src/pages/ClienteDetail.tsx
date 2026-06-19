@@ -4,7 +4,7 @@ import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { logAttivita } from "@/lib/logAttivita";
 import { useAuth } from "@/contexts/AuthContext";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
