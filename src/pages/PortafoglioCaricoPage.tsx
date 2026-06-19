@@ -127,6 +127,11 @@ const PortafoglioCaricoPage = () => {
     return q;
   };
 
+  // Esclude le polizze madre che hanno rate successive: non sono incassabili,
+  // l'incasso avviene sulla singola quietanza. Le regolazioni e le monorata restano.
+  const applyExcludeMadreConRate = (q: any) =>
+    q.or("is_regolazione.eq.true,numero_rata.gt.1,numero_rate_totali.lte.1,numero_rate_totali.is.null");
+
   const applyDateRange = (q: any, col: string) => {
     if (dateDa) q = q.gte(col, dateDa);
     if (dateA) q = q.lte(col, dateA);
