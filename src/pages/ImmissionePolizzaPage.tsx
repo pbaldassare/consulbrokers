@@ -311,6 +311,10 @@ const ImmissionePolizzaPage = () => {
   const [numeroPolizza, setNumeroPolizza] = useState("");
   const [tipoOperazione, setTipoOperazione] = useState("polizza");
   const [polizzaAuto, setPolizzaAuto] = useState(false);
+  const [righeMatricola, setRigheMatricola] = useState<LibroMatricolaRiga[]>([]);
+  const [matricolaDialogOpen, setMatricolaDialogOpen] = useState(false);
+  const isLibroMatricola = tipoOperazione === "libro_matricola";
+  
   
 
   // Contratto
