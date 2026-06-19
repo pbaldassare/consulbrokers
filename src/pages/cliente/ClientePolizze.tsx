@@ -33,13 +33,14 @@ const ClientePolizze = () => {
   const [loading, setLoading] = useState(true);
 
   // filtri
-  const [stato, setStato] = useState<string>("");
   const [ramo, setRamo] = useState<string>("");
   const [compagnia, setCompagnia] = useState<string>("");
   const [search, setSearch] = useState("");
   const [scadDa, setScadDa] = useState<Date | null>(null);
   const [scadA, setScadA] = useState<Date | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedData, setExpandedData] = useState<Record<string, { loading: boolean; quietanze: any[]; documenti: any[] }>>({});
+
 
   useEffect(() => {
     if (!user) return;
