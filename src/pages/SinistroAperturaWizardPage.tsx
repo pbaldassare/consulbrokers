@@ -56,10 +56,8 @@ const wizardSchema = z.object({
   ).optional(),
   
   // Step 4
-  responsabile_id: z.string().optional(),
   liquidatore_id: z.string().optional(),
   note_interne: z.string().optional(),
-  priorita: z.enum(["normale", "alta", "urgente"])
 });
 
 type WizardFormValues = z.infer<typeof wizardSchema>;
