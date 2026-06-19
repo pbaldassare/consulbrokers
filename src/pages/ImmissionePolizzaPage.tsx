@@ -1525,7 +1525,7 @@ const ImmissionePolizzaPage = () => {
         tipo_lettera_regolazione: tipoLetteraRegolazione || null,
         tipo_scadenza: tipoScadenza,
         giorni_presentazione: giorniPresentazione ? parseInt(giorniPresentazione) : null,
-        libro_matricola: libroMatricola,
+        libro_matricola: isLibroMatricola ? "auto" : libroMatricola,
         premio_netto_quietanza: premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null,
         addizionali_quietanza: addizionaliQuietanza ? parseFloat(addizionaliQuietanza) : null,
         tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
