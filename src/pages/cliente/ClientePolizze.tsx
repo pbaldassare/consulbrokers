@@ -339,7 +339,7 @@ const ClientePolizze = () => {
                         </TableCell>
                       </TableRow>
                     )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </TableBody>
