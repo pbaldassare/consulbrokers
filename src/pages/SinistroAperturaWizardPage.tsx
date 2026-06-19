@@ -489,7 +489,7 @@ export default function SinistroAperturaWizardPage() {
               {currentStep === 1 && "Step 1: Cliente e Polizza"}
               {currentStep === 2 && "Step 2: Dettagli dell'Accadimento"}
               {currentStep === 3 && "Step 3: Documenti Iniziali"}
-              {currentStep === 4 && "Step 4: Assegnazione Pratica e Priorità"}
+              {currentStep === 4 && "Step 4: Assegnazione Pratica"}
               {currentStep === 5 && "Step 5: Riepilogo e Conferma"}
             </CardTitle>
             <CardDescription>
