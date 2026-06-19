@@ -107,17 +107,8 @@ const ClientePolizze = () => {
     return [{ value: "", label: "Tutte le compagnie" }, ...Array.from(set.values()).sort().map(c => ({ value: c, label: c }))];
   }, [titoli]);
 
-  const statiOptions = [
-    { value: "", label: "Tutti gli stati" },
-    { value: "attivo", label: "Attivo" },
-    { value: "sospeso", label: "Sospeso" },
-    { value: "scaduto", label: "Scaduto" },
-    { value: "incassato", label: "Incassato" },
-  ];
-
   const filtered = useMemo(() => {
     return titoli.filter(t => {
-      if (stato && t.stato !== stato) return false;
       if (ramo && t.rami?.descrizione !== ramo) return false;
       if (compagnia && t.compagnie?.nome !== compagnia) return false;
       if (scadDa && (!t.data_scadenza || new Date(t.data_scadenza) < scadDa)) return false;
@@ -129,20 +120,51 @@ const ClientePolizze = () => {
       }
       return true;
     });
-  }, [titoli, stato, ramo, compagnia, scadDa, scadA, search]);
+  }, [titoli, ramo, compagnia, scadDa, scadA, search]);
 
   const resetFiltri = () => {
-    setStato(""); setRamo(""); setCompagnia(""); setSearch(""); setScadDa(null); setScadA(null);
+    setRamo(""); setCompagnia(""); setSearch(""); setScadDa(null); setScadA(null);
   };
 
-  const filtriAttivi = stato || ramo || compagnia || search || scadDa || scadA;
+  const filtriAttivi = ramo || compagnia || search || scadDa || scadA;
+
+  const toggleExpand = async (t: any) => {
+    const willOpen = expandedId !== t.id;
+    setExpandedId(willOpen ? t.id : null);
+    if (!willOpen) return;
+    if (t._source !== "titoli") return;
+    if (expandedData[t.id]) return;
+    setExpandedData(prev => ({ ...prev, [t.id]: { loading: true, quietanze: [], documenti: [] } }));
+    const [qRes, dRes] = await Promise.all([
+      supabase
+        .from("quietanze")
+        .select("id, numero_rata, numero_rate_totali, garanzia_da, garanzia_a, data_scadenza, premio_lordo, stato, data_incasso")
+        .eq("titolo_id", t.id)
+        .order("numero_rata", { ascending: true }),
+      supabase
+        .from("documenti")
+        .select("id, nome_file, bucket_name, path_storage, created_at, categoria")
+        .eq("entita_tipo", "titolo")
+        .eq("entita_id", t.id)
+        .order("created_at", { ascending: false }),
+    ]);
+    setExpandedData(prev => ({
+      ...prev,
+      [t.id]: { loading: false, quietanze: qRes.data ?? [], documenti: dRes.data ?? [] },
+    }));
+  };
+
+  const downloadDoc = async (d: any) => {
+    const { data } = await supabase.storage.from(d.bucket_name).createSignedUrl(d.path_storage, 300);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+  };
 
   const buildExportRows = () =>
     filtered.map(t => ({
-      Stato: t.stato ?? "",
       Compagnia: t.compagnie?.nome ?? "",
       Produttore: t.produttore_nome ?? "",
       Prodotto: t.rami?.descrizione ?? t.prodotto_nome ?? t.descrizione_polizza ?? "",
+
       "N° Polizza": t.numero_titolo ?? "",
       Targa: t.targa_telaio ?? "",
       CIG: t.cig_rif ?? "",
