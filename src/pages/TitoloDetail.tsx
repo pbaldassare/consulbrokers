@@ -1473,6 +1473,14 @@ const TitoloDetail = () => {
       ]
     : [t.id];
 
+  // "Polizza madre" con rate successive: l'incasso si fa solo sulle singole quietanze, NON qui.
+  const isMadreConRate = !!catenaCorrente && !!madre && madre.id === t.id && totRate > 1;
+  const primaRataDaIncassare = isMadreConRate
+    ? (catenaCorrente!.all
+        .filter((x: any) => x.id !== madre!.id)
+        .find((x: any) => x.stato === "attivo" && !x.data_messa_cassa) || null)
+    : null;
+
 
   return (
     <div className="space-y-4 max-w-5xl">
