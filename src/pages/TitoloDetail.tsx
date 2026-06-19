@@ -2069,7 +2069,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Contratto" icon={FileText}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingContratto ? (
-            <Button variant="ghost" size="sm" onClick={startEditContratto} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button variant="ghost" size="sm" onClick={startEditContratto} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -2340,7 +2340,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Periodo" icon={Calendar}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingPeriodo ? (
-            <Button variant="ghost" size="sm" onClick={startEditPeriodo} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button variant="ghost" size="sm" onClick={startEditPeriodo} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -2501,7 +2501,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Regolazione" icon={Shield} defaultOpen={false}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingReg ? (
-            <Button variant="ghost" size="sm" onClick={startEditReg} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button variant="ghost" size="sm" onClick={startEditReg} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -2793,7 +2793,7 @@ const TitoloDetail = () => {
                 </div>
               );
             })()}
-            <Button size="sm" variant="outline" className="mt-3" onClick={startEditComm} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button size="sm" variant="outline" className="mt-3" onClick={startEditComm} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-3 h-3 mr-1" /> Modifica
             </Button>
           </>
@@ -2875,7 +2875,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Importi" icon={DollarSign}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingImporti ? (
-            <Button variant="ghost" size="sm" onClick={startEditImporti} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button variant="ghost" size="sm" onClick={startEditImporti} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -3149,7 +3149,7 @@ const TitoloDetail = () => {
           </div>
           <div className="flex gap-2">
           {!editingVeicolo ? (
-            <Button variant="ghost" size="sm" onClick={startEditVeicolo} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
+            <Button variant="ghost" size="sm" onClick={startEditVeicolo} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> {veicolo ? "Modifica" : "Aggiungi"}
             </Button>
           ) : (
