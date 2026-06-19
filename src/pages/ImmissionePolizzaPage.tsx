@@ -2498,7 +2498,7 @@ const ImmissionePolizzaPage = () => {
               checked={regolazione}
               onCheckedChange={(v) => setRegolazione(!!v)}
             />
-            <Label htmlFor="reg-check" className="font-medium text-sm">
+            <Label htmlFor="reg-check" className="font-medium">
               Polizza in regolazione (promemoria)
             </Label>
           </div>
@@ -2511,13 +2511,11 @@ const ImmissionePolizzaPage = () => {
                   type="date"
                   value={regolazioneDataPresunta}
                   onChange={(e) => setRegolazioneDataPresunta(e.target.value)}
-                  className="h-8 text-xs"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Fattore di regolazione</Label>
                 <SearchableSelect
-                  className="h-8 text-xs"
                   options={[
                     { value: "fatturato", label: "Fatturato" },
                     { value: "num_dipendenti", label: "N° dipendenti" },
@@ -2536,7 +2534,6 @@ const ImmissionePolizzaPage = () => {
                   value={regolazioneNote}
                   onChange={(e) => setRegolazioneNote(e.target.value)}
                   placeholder="Eventuali note sul promemoria"
-                  className="h-8 text-xs"
                 />
               </div>
             </div>
