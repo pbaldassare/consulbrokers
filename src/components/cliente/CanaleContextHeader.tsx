@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, AlertTriangle, MessageSquare, Car, Building2, Calendar, Info } from "lucide-react";
+import { FileText, AlertTriangle, MessageSquare, Car, Building2, Calendar, Info, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
+
 
 interface Props {
   canaleId: string;
@@ -76,9 +78,12 @@ export default function CanaleContextHeader({ canaleId }: Props) {
     return (
       <Wrapper tone="primary">
         <FileText className="h-4 w-4 text-primary shrink-0" />
-        <Badge variant="default" className="font-mono text-[11px]">
-          {t.numero_titolo ? `Polizza N° ${t.numero_titolo}` : "Polizza senza numero"}
-        </Badge>
+        <Link to={`/cliente/polizze/${data.canale.entita_id}`} className="inline-flex items-center gap-1 hover:opacity-80 transition-opacity">
+          <Badge variant="default" className="font-mono text-[11px] cursor-pointer">
+            {t.numero_titolo ? `Polizza N° ${t.numero_titolo}` : "Polizza senza numero"}
+          </Badge>
+          <ExternalLink className="h-3 w-3 text-primary" />
+        </Link>
         {t.targa_telaio && (
           <Badge variant="secondary" className="font-mono text-[11px] gap-1">
             <Car className="h-3 w-3" /> {t.targa_telaio}
@@ -95,6 +100,7 @@ export default function CanaleContextHeader({ canaleId }: Props) {
     );
   }
 
+
   if (data.tipo === "sinistro") {
     const s: any = data.sinistro;
     if (!s) {
@@ -108,9 +114,12 @@ export default function CanaleContextHeader({ canaleId }: Props) {
     return (
       <Wrapper tone="amber">
         <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-        <Badge variant="default" className="bg-amber-600 hover:bg-amber-700 font-mono text-[11px]">
-          {s.numero_sinistro ? `Sinistro N° ${s.numero_sinistro}` : "Sinistro senza numero"}
-        </Badge>
+        <Link to={`/cliente/sinistri/${data.canale.entita_id}`} className="inline-flex items-center gap-1 hover:opacity-80 transition-opacity">
+          <Badge variant="default" className="bg-amber-600 hover:bg-amber-700 font-mono text-[11px] cursor-pointer">
+            {s.numero_sinistro ? `Sinistro N° ${s.numero_sinistro}` : "Sinistro senza numero"}
+          </Badge>
+          <ExternalLink className="h-3 w-3 text-amber-700" />
+        </Link>
         {s.targa_veicolo && (
           <Badge variant="secondary" className="font-mono text-[11px] gap-1">
             <Car className="h-3 w-3" /> {s.targa_veicolo}
@@ -129,6 +138,7 @@ export default function CanaleContextHeader({ canaleId }: Props) {
       </Wrapper>
     );
   }
+
 
   if (data.tipo === "argomento") {
     return (
