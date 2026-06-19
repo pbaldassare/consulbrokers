@@ -1,41 +1,35 @@
 
-## Ho capito
+## Hai ragione: la card Regolazione è disallineata
 
-La card "Quietanze (rate da pagare)" nel form Nuova Polizza **non serve**. Tutto deriva automaticamente da:
+Nello screenshot la card mostra ancora i **campi legacy** (Regolazione Sì checkbox, Periodicità, Tipo Scadenza, GG Presentazione, Tipo Lettera, Libro Matricola). Ma per memoria progetto (`regolazione-reminder-flag` + `titolo-detail-allineato-immissione`) la card deve essere **promemoria**, identica a quella di `TitoloDetail`:
 
-- **Durata Da / Durata A** (card Periodo) → finestra totale della polizza
-- **Frazionamento** → quante quietanze creare e come spezzare le finestre
+- **Switch** "Polizza in regolazione (promemoria)" (al posto della checkbox + label "Regolazione Sì").
+- Quando ON appare un **blocco ambra** con 3 soli campi:
+  - **Data presunta** (`regolazione_data_presunta`, date)
+  - **Fattore** (`regolazione_fattore`, SearchableSelect: `fatturato | num_dipendenti | retribuzioni | altro`)
+  - **Note** (`regolazione_note`, textarea)
+- Quando OFF: campi nascosti e azzerati al submit.
 
-### Regola di calcolo (lato trigger DB, niente UI)
+I campi legacy (`periodicita`, `tipo_scadenza`, `giorni_presentazione`, `tipo_lettera_regolazione`, `libro_matricola`) **restano in DB** (convivono) ma **escono dalla UI** della card Regolazione in creazione, come già fatto in TitoloDetail.
 
-- **Annuale** (durata 1/7/2026 → 1/7/2027): 1 quietanza, garanzia 1/7/2026 → 1/7/2027 (coincide con la durata).
-- **Semestrale** stessa durata: 2 quietanze
-  - Rata 1: 1/7/2026 → 1/1/2027
-  - Rata 2: 1/1/2027 → 1/7/2027
-- **Trimestrale**: 4 quietanze da 3 mesi · **Quadrimestrale**: 3 da 4 · **Mensile**: 12 da 1 · **Poliennale Nanni**: N quietanze annuali consecutive.
-
-Gli importi (netto/tasse/SSN/addizionali/provvigioni) delle quietanze li calcola il trigger pro-quota dai totali della polizza, come già fa oggi. Eventuali aggiustamenti per-rata si fanno **dopo**, dal dettaglio della singola quietanza, non in creazione.
-
-## Cosa cambia
+## Modifiche
 
 ### `src/pages/ImmissionePolizzaPage.tsx`
-1. Rimuovere l'import e il render di `<QuietanzeEditor />` dalla sezione "Quietanze (rate da pagare)" (incluso il `Collapsible`/Card contenitore se introdotto solo per questo).
-2. Rimuovere lo stato `quietanzeDrafts` e il blocco post-insert che fa `SELECT polizza_id` + loop di `UPDATE quietanze` con i draft. La generazione resta interamente al trigger `tg_polizza_after_insert_genera_quietanze`.
-3. Lasciare invariate Periodo (Durata Da/A, Anni Durata, Frazionamento, Garanzia Da/A, Data Competenza, GG Mora, Tacito Rinnovo, Disdetta, Limite Mora) e la card Importi.
 
-### `src/components/polizze/QuietanzeEditor.tsx`
-- File **eliminato** (non più usato altrove).
+1. **Stato (riga ~358-368)**: rimuovere `tipoLetteraRegolazione`, `tipoScadenza`, `giorniPresentazione`, `periodicita`, `libroMatricola`; aggiungere `regolazioneDataPresunta`, `regolazioneFattore`, `regolazioneNote`. Mantenere `regolazione` boolean.
+2. **AI prefill map (~520-528)**: rimuovere i setter legacy, aggiungere i nuovi.
+3. **draft persistence (~618)**: aggiornare la lista campi serializzati.
+4. **Insert payload (~1505-1531)**: sostituire le colonne legacy con
+   ```ts
+   regolazione: regolazione,
+   regolazione_data_presunta: regolazione ? (regolazioneDataPresunta || null) : null,
+   regolazione_fattore: regolazione ? (regolazioneFattore || null) : null,
+   regolazione_note: regolazione ? (regolazioneNote || null) : null,
+   ```
+   Lasciare `periodicita/tipo_scadenza/...` **non valorizzati** (le colonne in DB restano nullable).
+5. **Render card (~2497-2550)**: sostituire il blocco con lo stesso markup di `TitoloDetail` (Switch + blocco ambra condizionale con i 3 campi). Riusare `SearchableSelect` per il Fattore con le 4 opzioni.
 
-### `src/lib/quietanzePlan.ts` e i suoi test
-- **Restano** come sono: già usati per i test di regressione del calcolo e potenzialmente da altre viste (dettaglio polizza). Non li tocco.
-
-### DB
-- **Nessuna migrazione**. Il trigger `fn_polizza_genera_quietanze` (aggiornato il 19/06 per gestire Poliennale come N quietanze annuali) è già coerente con la regola richiesta. Il backfill già eseguito resta valido.
-
-### Memory
-- Aggiornare `mem://insurance/quietanze-editor-immissione` per riflettere la rimozione: la card non esiste più, la generazione è 100% server-side dal trigger su `polizze` partendo da durata + frazionamento.
-
-## Out of scope
-- Editing per-rata in creazione (rimosso per scelta).
-- Modifica delle regole di calcolo finestre/importi del trigger.
-- Card Carico / badge Quietanza N/M (già a posto).
+### Out of scope
+- DB: nessuna migrazione (le colonne nuove già esistono, le legacy restano per back-compat / dati storici).
+- `RegolazionePremioPage` / mode=regolazione: invariato (è un altro flusso, regolazione **eseguita**).
+- Libro Matricola: rimane gestito altrove dal selettore "Tipo Operazione".
