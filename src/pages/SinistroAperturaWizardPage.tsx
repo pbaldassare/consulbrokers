@@ -56,10 +56,8 @@ const wizardSchema = z.object({
   ).optional(),
   
   // Step 4
-  responsabile_id: z.string().optional(),
   liquidatore_id: z.string().optional(),
   note_interne: z.string().optional(),
-  priorita: z.enum(["normale", "alta", "urgente"])
 });
 
 type WizardFormValues = z.infer<typeof wizardSchema>;
@@ -102,10 +100,8 @@ export default function SinistroAperturaWizardPage() {
       luogo_sinistro: "",
       importo_riserva: undefined,
       documenti: [],
-      responsabile_id: "",
       liquidatore_id: "",
       note_interne: "",
-      priorita: "normale"
     }
   });
 
@@ -313,9 +309,8 @@ export default function SinistroAperturaWizardPage() {
       }
     } else if (currentStep === 3) {
       fieldsToValidate = ["documenti"];
-    } else if (currentStep === 4) {
-      fieldsToValidate = ["priorita"];
     }
+
 
     const isValid = await trigger(fieldsToValidate);
     if (isValid) {
@@ -365,9 +360,7 @@ export default function SinistroAperturaWizardPage() {
           data_denuncia: values.data_denuncia,
           numero_sinistro_compagnia: values.numero_sinistro_compagnia || undefined,
           importo_riserva: values.importo_riserva ?? null,
-          responsabile_id: values.responsabile_id || null,
           liquidatore_id: values.liquidatore_id || null,
-          priorita: values.priorita,
           note_interne: values.note_interne || undefined,
           user_id: user.id,
           stato_iniziale: "aperto",
@@ -811,58 +804,20 @@ export default function SinistroAperturaWizardPage() {
             {/* STEP 4: ASSEGNAZIONE */}
             {currentStep === 4 && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Responsabile Interno <span className="text-muted-foreground text-xs">(facoltativo)</span></Label>
-                    <SearchableSelect
-                      value={watch("responsabile_id")}
-                      onValueChange={(val) => setValue("responsabile_id", val, { shouldValidate: true })}
-                      placeholder="Seleziona responsabile..."
-                      options={responsabiliList.map((r: any) => ({
-                        value: r.id,
-                        label: `${r.cognome || ""} ${r.nome || ""}`.trim(),
-                        description: `Ruolo: ${r.ruolo}`
-                      }))}
-                    />
-                    {errors.responsabile_id && <p className="text-xs text-destructive">{errors.responsabile_id.message}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Liquidatore Esterno <span className="text-muted-foreground text-xs">(facoltativo)</span></Label>
-                    <SearchableSelect
-                      value={watch("liquidatore_id")}
-                      onValueChange={(val) => setValue("liquidatore_id", val, { shouldValidate: true })}
-                      placeholder="Seleziona liquidatore..."
-                      options={liquidatoriList.map((l: any) => ({
-                        value: l.id,
-                        label: l.ragione_sociale || `${l.cognome || ""} ${l.nome || ""}`.trim()
-                      }))}
-                    />
-                    {errors.liquidatore_id && <p className="text-xs text-destructive">{errors.liquidatore_id.message}</p>}
-                  </div>
-                </div>
-
                 <div className="space-y-2">
-                  <Label>Priorità di Apertura *</Label>
-                  <RadioGroup 
-                    value={watch("priorita")} 
-                    onValueChange={(val) => setValue("priorita", val as any)}
-                    className="grid grid-cols-3 gap-4 pt-2"
-                  >
-                    <Label htmlFor="priorita-normale" className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-muted/30">
-                      <RadioGroupItem value="normale" id="priorita-normale" />
-                      <span>Normale</span>
-                    </Label>
-                    <Label htmlFor="priorita-alta" className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-muted/30 text-orange-600">
-                      <RadioGroupItem value="alta" id="priorita-alta" />
-                      <span>Alta</span>
-                    </Label>
-                    <Label htmlFor="priorita-urgente" className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-muted/30 text-destructive">
-                      <RadioGroupItem value="urgente" id="priorita-urgente" />
-                      <span className="font-bold">Urgente</span>
-                    </Label>
-                  </RadioGroup>
+                  <Label>Liquidatore Esterno <span className="text-muted-foreground text-xs">(facoltativo)</span></Label>
+                  <SearchableSelect
+                    value={watch("liquidatore_id")}
+                    onValueChange={(val) => setValue("liquidatore_id", val, { shouldValidate: true })}
+                    placeholder="Seleziona liquidatore..."
+                    options={liquidatoriList.map((l: any) => ({
+                      value: l.id,
+                      label: l.ragione_sociale || `${l.cognome || ""} ${l.nome || ""}`.trim()
+                    }))}
+                  />
+                  {errors.liquidatore_id && <p className="text-xs text-destructive">{errors.liquidatore_id.message}</p>}
                 </div>
+
 
                 <div className="space-y-2">
                   <Label htmlFor="note_interne">Note Interne Operatore (opzionale)</Label>
@@ -979,16 +934,7 @@ export default function SinistroAperturaWizardPage() {
                     <span className="text-sm font-semibold text-primary">4. Gestione e Assegnazione</span>
                     <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(4)} className="text-xs h-7">Modifica</Button>
                   </div>
-                  <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Responsabile Interno</span>
-                      <p className="font-semibold mt-0.5">
-                        {(() => {
-                          const resp = responsabiliList.find((r: any) => r.id === watch("responsabile_id"));
-                          return resp ? `${resp.cognome || ""} ${resp.nome || ""}`.trim() : "—";
-                        })()}
-                      </p>
-                    </div>
+                  <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                     <div>
                       <span className="text-muted-foreground">Liquidatore Esterno</span>
                       <p className="font-semibold mt-0.5">
@@ -998,16 +944,8 @@ export default function SinistroAperturaWizardPage() {
                         })()}
                       </p>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Priorità</span>
-                      <p className="font-semibold mt-0.5 capitalize">
-                        <Badge variant={watch("priorita") === "urgente" ? "destructive" : watch("priorita") === "alta" ? "default" : "outline"}>
-                          {watch("priorita")}
-                        </Badge>
-                      </p>
-                    </div>
                     {watch("note_interne") && (
-                      <div className="col-span-1 md:col-span-3">
+                      <div className="col-span-1 md:col-span-2">
                         <span className="text-muted-foreground">Note Operatore</span>
                         <p className="mt-1 text-muted-foreground italic bg-muted/10 p-2 border rounded">{watch("note_interne")}</p>
                       </div>
