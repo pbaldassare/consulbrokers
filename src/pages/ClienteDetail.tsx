@@ -2052,11 +2052,10 @@ export default function ClienteDetail() {
       </div>
 
       {/* Tabs - positioned right after header */}
-      <Tabs defaultValue="anagrafica">
+      <Tabs defaultValue="polizze">
 
         <div className="flex items-center flex-wrap gap-1">
           <TabsList className="flex-wrap">
-            <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
             {(() => {
               const nQuiet = polizze.filter((p) => !!p.sostituisce_polizza).length;
               const nPol = polizze.length - nQuiet;
@@ -2064,6 +2063,7 @@ export default function ClienteDetail() {
                 <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({nPol}) · Quietanze ({nQuiet})</TabsTrigger>
               );
             })()}
+            <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
             <TabsTrigger value="sinistri"><AlertTriangle className="w-4 h-4 mr-1" />Sinistri</TabsTrigger>
             <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
             <TabsTrigger value="documenti">Documenti</TabsTrigger>
