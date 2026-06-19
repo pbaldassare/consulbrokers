@@ -1,11 +1,11 @@
-// Helper PURO per calcolare in anticipo le quietanze che verranno generate
-// dal trigger DB `genera_quietanze_su_insert_madre` alla creazione della polizza madre.
-// Usato dalla preview UI in ImmissionePolizzaPage e dai test di regressione.
+// Helper PURO per calcolare le quietanze (rate) di una polizza.
+// Usato dalla UI di Immissione Polizza per editare le rate prima del salvataggio,
+// e dai test di regressione.
 
 import { frazionamentoMesi, type Frazionamento } from "./frazionamento";
 
 export type QuietanzaPlanRow = {
-  idx: number; // 1-based: 1 = madre, 2..N = quietanze pre-generate
+  idx: number; // 1-based: 1 = rata alla firma, 2..N = rate successive
   garanzia_da: string; // ISO yyyy-mm-dd
   garanzia_a: string;
   data_competenza: string | null;
@@ -37,9 +37,13 @@ function iso(d: Date): string {
 }
 
 /**
- * Calcola la lista completa delle rate (madre + quietanze). La riga idx=1 è la
- * madre; le righe idx>=2 sono le quietanze che il trigger DB genererà.
- * Ritorna [] se mancano dati indispensabili o se è poliennale.
+ * Calcola la lista completa delle quietanze. idx=1 e' la rata 1 (alla firma),
+ * idx>=2 sono le rate successive.
+ *
+ * Poliennale: 1 quietanza annuale per ogni anno della durata (es. 3y -> 3 rate).
+ * Altri frazionamenti: (12/mesi_rata) rate per ogni anno della durata.
+ *
+ * Ritorna [] se mancano dati indispensabili (garanzia_da/a o frazionamento).
  */
 export function computeQuietanzePlan(input: QuietanzaPlanInput): QuietanzaPlanRow[] {
   const garDa = toDate(input.garanziaDa);
@@ -47,13 +51,20 @@ export function computeQuietanzePlan(input: QuietanzaPlanInput): QuietanzaPlanRo
   if (!garDa || !garA) return [];
 
   const f = String(input.frazionamento || "").toLowerCase();
-  if (!f || f === "poliennale") return [];
-
-  const mesiRata = frazionamentoMesi(f.charAt(0).toUpperCase() + f.slice(1), 1);
-  if (mesiRata <= 0 || mesiRata > 12) return [];
+  if (!f) return [];
 
   const anni = Math.max(1, Number(input.anniDurata) || 1);
-  const nTot = Math.floor(12 / mesiRata) * anni;
+
+  let mesiRata: number;
+  let nTot: number;
+  if (f === "poliennale") {
+    mesiRata = 12;
+    nTot = anni;
+  } else {
+    mesiRata = frazionamentoMesi(f.charAt(0).toUpperCase() + f.slice(1), 1);
+    if (mesiRata <= 0 || mesiRata > 12) return [];
+    nTot = Math.floor(12 / mesiRata) * anni;
+  }
   if (nTot < 1) return [];
 
   const competenza = toDate(input.dataCompetenza);
@@ -71,7 +82,7 @@ export function computeQuietanzePlan(input: QuietanzaPlanInput): QuietanzaPlanRo
   return rows;
 }
 
-/** Solo le quietanze pre-generate (idx >= 2). */
+/** Solo le quietanze successive alla prima (idx >= 2). */
 export function computeQuietanzeOnly(input: QuietanzaPlanInput): QuietanzaPlanRow[] {
   return computeQuietanzePlan(input).filter((r) => r.idx >= 2);
 }
