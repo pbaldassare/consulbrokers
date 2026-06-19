@@ -244,6 +244,7 @@ const ClientePolizze = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-teal-700 hover:bg-teal-700">
+                  <TableHead className="text-white w-10"></TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Stato</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Mandato / Agenzia</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Prodotto</TableHead>
@@ -261,13 +262,18 @@ const ClientePolizze = () => {
                   const compagnia = t.compagnie?.nome ?? "—";
                   const prodotto = t.rami?.descrizione ?? t.prodotto_nome ?? t.descrizione_polizza ?? "—";
                   const polizzaTarga = [t.numero_titolo, t.targa_telaio].filter(Boolean).join(" / ") || "N/D";
+                  const isExpanded = expandedId === t.id;
 
                   return (
+                    <>
                     <TableRow
                       key={t.id}
-                      onClick={() => navigate(t._detailPath)}
-                      className={`cursor-pointer transition-colors hover:bg-teal-50 ${idx % 2 === 0 ? "bg-white" : "bg-muted/30"}`}
+                      onClick={() => setExpandedId(isExpanded ? null : t.id)}
+                      className={`cursor-pointer transition-colors hover:bg-teal-50 ${idx % 2 === 0 ? "bg-white" : "bg-muted/30"} ${isExpanded ? "bg-teal-50" : ""}`}
                     >
+                      <TableCell className="py-2.5 w-10">
+                        {isExpanded ? <ChevronDown className="h-4 w-4 text-teal-700" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                      </TableCell>
                       <TableCell className="py-2.5">
                         <Badge className={`text-[10px] ${statoBadge[t.stato] ?? "bg-muted text-muted-foreground"}`}>{t.stato}</Badge>
                       </TableCell>
@@ -303,12 +309,44 @@ const ClientePolizze = () => {
                         <span className="text-sm font-bold text-foreground">{t.premio_lordo ? fmt(t.premio_lordo) : "—"}</span>
                       </TableCell>
                     </TableRow>
+                    {isExpanded && (
+                      <TableRow key={`${t.id}-exp`} className="bg-teal-50/60 hover:bg-teal-50/60">
+                        <TableCell colSpan={10} className="py-4">
+                          <div className="px-4 space-y-3">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3 text-sm">
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Decorrenza</p><p>{t.durata_da ? format(new Date(t.durata_da), "dd/MM/yyyy", { locale: it }) : "—"}</p></div>
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Scadenza</p><p>{t.data_scadenza ? format(new Date(t.data_scadenza), "dd/MM/yyyy", { locale: it }) : "—"}</p></div>
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Periodicità</p><p>{t.periodicita ?? "—"}</p></div>
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Compagnia</p><p>{compagnia}</p></div>
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Produttore</p><p>{t.produttore_nome ?? "—"}</p></div>
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Ramo / Prodotto</p><p>{prodotto}</p></div>
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">N° Polizza</p><p className="font-mono">{t.numero_titolo ?? "—"}</p></div>
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Targa / Telaio</p><p className="font-mono">{t.targa_telaio ?? "—"}</p></div>
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">CIG</p><p className="font-mono">{t.cig_rif ?? "—"}</p></div>
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Descrizione</p><p>{t.descrizione_polizza ?? "—"}</p></div>
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Premio Imponibile</p><p>{t.premio_netto ? fmt(t.premio_netto) : "—"}</p></div>
+                              <div><p className="text-xs uppercase text-teal-700 font-semibold tracking-wider">Premio Lordo</p><p className="font-bold">{t.premio_lordo ? fmt(t.premio_lordo) : "—"}</p></div>
+                            </div>
+                            <div className="flex justify-end pt-2 border-t border-teal-200">
+                              <Button
+                                size="sm"
+                                onClick={(e) => { e.stopPropagation(); navigate(t._detailPath); }}
+                                className="bg-teal-700 hover:bg-teal-800 text-white gap-1.5"
+                              >
+                                <ExternalLink className="h-4 w-4" /> Apri dettaglio polizza
+                              </Button>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    </>
                   );
                 })}
               </TableBody>
               <TableFooter>
                 <TableRow className="bg-teal-50 border-t-2 border-teal-700">
-                  <TableCell colSpan={7} className="font-bold text-sm text-teal-900 uppercase">Totale</TableCell>
+                  <TableCell colSpan={8} className="font-bold text-sm text-teal-900 uppercase">Totale</TableCell>
                   <TableCell className="text-right font-bold text-sm text-teal-900">{fmt(totaleImponibile)}</TableCell>
                   <TableCell className="text-right font-bold text-base text-teal-900">{fmt(totale)}</TableCell>
                 </TableRow>
