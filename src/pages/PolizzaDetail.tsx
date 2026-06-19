@@ -21,6 +21,9 @@ import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePoli
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
 import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
 import { annullaPolizza } from "@/lib/annullaPolizza";
+import { useTabParam } from "@/hooks/useTabParam";
+
+const POLIZZA_TABS = ["contratto", "quietanze"] as const;
 
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
 
@@ -44,6 +47,7 @@ export default function PolizzaDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useTabParam(POLIZZA_TABS, "contratto");
 
   const [sospensioneOpen, setSospensioneOpen] = useState(false);
   const [riattivazioneOpen, setRiattivazioneOpen] = useState(false);
@@ -221,7 +225,7 @@ export default function PolizzaDetail() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="contratto" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
           <TabsTrigger value="contratto">Contratto</TabsTrigger>
           <TabsTrigger value="quietanze">Quietanze ({quietanze.length})</TabsTrigger>

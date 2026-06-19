@@ -4,7 +4,8 @@ import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { logAttivita } from "@/lib/logAttivita";
 import { useAuth } from "@/contexts/AuthContext";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { useTabParam } from "@/hooks/useTabParam";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
@@ -1461,15 +1462,8 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
 export default function ClienteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const VALID_TABS = ["polizze", "anagrafica", "sinistri", "relazioni", "documenti", "chat", "timeline", "trattative"] as const;
-  const tabFromUrl = searchParams.get("tab") || "";
-  const activeTab = (VALID_TABS as readonly string[]).includes(tabFromUrl) ? tabFromUrl : "polizze";
-  const handleTabChange = (v: string) => {
-    const sp = new URLSearchParams(searchParams);
-    sp.set("tab", v);
-    setSearchParams(sp, { replace: true });
-  };
+  const [activeTab, handleTabChange] = useTabParam(VALID_TABS, "polizze");
   const queryClient = useQueryClient();
   const [relazioneOpen, setRelazioneOpen] = useState(false);
   const [searchCliente, setSearchCliente] = useState("");

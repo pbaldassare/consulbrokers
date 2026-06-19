@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTabParam } from "@/hooks/useTabParam";
+
+const PROSPECT_TABS = ["documenti", "chat"] as const;
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { logAttivita } from "@/lib/logAttivita";
@@ -60,6 +63,7 @@ const ProspectDetail = () => {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const [trattativaOpen, setTrattativaOpen] = useState(false);
+  const [activeTab, setActiveTab] = useTabParam(PROSPECT_TABS, "documenti");
   const [trattativaForm, setTrattativaForm] = useState({
     ramo_id: "", compagnia_id: "", premio_previsto: "", note: "",
   });
@@ -465,7 +469,7 @@ const ProspectDetail = () => {
         </div>
       </div>
       {/* Documenti e Chat */}
-      <Tabs defaultValue="documenti">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="documenti">Documenti</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>

@@ -13,6 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Plus, CheckCircle, AlertTriangle, MapPin, User as UserIcon, FileText, Building2 } from "lucide-react";
+import { useTabParam } from "@/hooks/useTabParam";
+
+const SINISTRO_TABS = ["checklist", "eventi", "documenti", "chat", "timeline"] as const;
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
@@ -47,6 +50,7 @@ export default function SinistroDetail() {
   const qc = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
   const canManage = isAdmin || hasPermission("sinistri");
+  const [activeTab, setActiveTab] = useTabParam(SINISTRO_TABS, "checklist");
   const [checklistDialog, setChecklistDialog] = useState(false);
   const [eventoDialog, setEventoDialog] = useState(false);
   const [newChecklist, setNewChecklist] = useState({ descrizione: "", obbligatorio: true });
@@ -277,7 +281,7 @@ export default function SinistroDetail() {
         <Card><CardHeader><CardTitle className="text-base">Note Perito</CardTitle></CardHeader><CardContent><p className="whitespace-pre-wrap">{sinistro.note_perito}</p></CardContent></Card>
       )}
 
-      <Tabs defaultValue="checklist">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="checklist">Checklist</TabsTrigger>
           <TabsTrigger value="eventi">Eventi</TabsTrigger>
