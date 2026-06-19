@@ -1753,8 +1753,33 @@ const TitoloDetail = () => {
               </Button>
             )}
 
+            {/* ===== Callout: sulla Polizza madre l'incasso si fa sulle singole quietanze ===== */}
+            {isMadreConRate && (
+              <div className="w-full mt-2 pt-4 border-t">
+                <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-900 flex items-start gap-2">
+                  <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <strong>L'incasso si effettua sulla singola quietanza/rata.</strong>{" "}
+                    Apri la rata da incassare dalla lista <em>Quietanze di questa polizza</em> qui sopra. La polizza madre non si mette a cassa.
+                    <div className="mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                        disabled={!primaRataDaIncassare}
+                        onClick={() => primaRataDaIncassare && navigate(`/titoli/${(primaRataDaIncassare as any).id}`)}
+                      >
+                        <ArrowLeft className="w-4 h-4 mr-1 rotate-180" />
+                        {primaRataDaIncassare ? "Vai alla prima rata da incassare" : "Nessuna rata da incassare"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ===== Sotto-sezione Messa a Cassa unificata ===== */}
-            {(t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
+            {!isMadreConRate && (t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
               <div className="w-full mt-2 pt-4 border-t">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold flex items-center gap-2 text-teal-900 dark:text-teal-100">
