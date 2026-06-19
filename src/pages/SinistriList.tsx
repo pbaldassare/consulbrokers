@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,16 @@ export default function SinistriList() {
   const [filtroCompagnia, setFiltroCompagnia] = useState<string>("tutti");
   const [search, setSearch] = useState("");
   const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato, filtroCompagnia, search]);
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("sinistri-list-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sinistri" },
+        () => qc.invalidateQueries({ queryKey: ["sinistri"] }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
 
   const { data: sinistriResult } = useQuery({
     queryKey: ["sinistri", filtroStato, filtroCompagnia, search, page],

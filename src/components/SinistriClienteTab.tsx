@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,6 +20,20 @@ const statoBadge: Record<string, string> = {
 
 export default function SinistriClienteTab({ clienteId }: { clienteId: string }) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!clienteId) return;
+    const ch = supabase
+      .channel(`sinistri-cliente-rt-${clienteId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sinistri", filter: `cliente_anagrafica_id=eq.${clienteId}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["sinistri-cliente", clienteId] });
+          qc.invalidateQueries({ queryKey: ["cliente_related_ids", clienteId] });
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [clienteId, qc]);
 
   const { data: sinistri = [] } = useQuery({
     queryKey: ["sinistri-cliente", clienteId],
