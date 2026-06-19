@@ -47,6 +47,7 @@ export default function PolizzaDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useTabParam(POLIZZA_TABS, "contratto");
 
   const [sospensioneOpen, setSospensioneOpen] = useState(false);
   const [riattivazioneOpen, setRiattivazioneOpen] = useState(false);
