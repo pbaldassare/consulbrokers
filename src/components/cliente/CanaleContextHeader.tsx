@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, AlertTriangle, MessageSquare, Car, Building2, Calendar, Info } from "lucide-react";
+import { FileText, AlertTriangle, MessageSquare, Car, Building2, Calendar, Info, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
+
 
 interface Props {
   canaleId: string;
