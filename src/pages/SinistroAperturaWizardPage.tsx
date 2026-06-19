@@ -935,16 +935,7 @@ export default function SinistroAperturaWizardPage() {
                     <span className="text-sm font-semibold text-primary">4. Gestione e Assegnazione</span>
                     <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(4)} className="text-xs h-7">Modifica</Button>
                   </div>
-                  <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Responsabile Interno</span>
-                      <p className="font-semibold mt-0.5">
-                        {(() => {
-                          const resp = responsabiliList.find((r: any) => r.id === watch("responsabile_id"));
-                          return resp ? `${resp.cognome || ""} ${resp.nome || ""}`.trim() : "—";
-                        })()}
-                      </p>
-                    </div>
+                  <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                     <div>
                       <span className="text-muted-foreground">Liquidatore Esterno</span>
                       <p className="font-semibold mt-0.5">
@@ -954,16 +945,8 @@ export default function SinistroAperturaWizardPage() {
                         })()}
                       </p>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Priorità</span>
-                      <p className="font-semibold mt-0.5 capitalize">
-                        <Badge variant={watch("priorita") === "urgente" ? "destructive" : watch("priorita") === "alta" ? "default" : "outline"}>
-                          {watch("priorita")}
-                        </Badge>
-                      </p>
-                    </div>
                     {watch("note_interne") && (
-                      <div className="col-span-1 md:col-span-3">
+                      <div className="col-span-1 md:col-span-2">
                         <span className="text-muted-foreground">Note Operatore</span>
                         <p className="mt-1 text-muted-foreground italic bg-muted/10 p-2 border rounded">{watch("note_interne")}</p>
                       </div>
