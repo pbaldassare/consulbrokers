@@ -2510,9 +2510,6 @@ const ImmissionePolizzaPage = () => {
         </PolizzaSection>
       )}
 
-      {/* spacer per chiusura della sezione PERIODO precedente */}
-      {false && (
-
       {/* REGOLAZIONE */}
       <PolizzaSection title="Regolazione" icon={Shield} defaultOpen={false}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
