@@ -3266,6 +3266,12 @@ const ImmissionePolizzaPage = () => {
         </div>
       </div>
 
+      <LibroMatricolaDialog
+        open={matricolaDialogOpen}
+        onOpenChange={setMatricolaDialogOpen}
+        righe={righeMatricola}
+        onChange={setRigheMatricola}
+      />
     </div>
   );
 };
