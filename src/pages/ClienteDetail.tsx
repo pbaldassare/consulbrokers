@@ -2061,7 +2061,7 @@ export default function ClienteDetail() {
       </div>
 
       {/* Tabs - positioned right after header */}
-      <Tabs defaultValue="polizze">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
 
         <div className="flex items-center flex-wrap gap-1">
           <TabsList className="flex-wrap">
