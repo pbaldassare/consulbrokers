@@ -119,7 +119,7 @@ export default function SinistroAperturaWizardPage() {
     setPolizzeLoading(true);
     try {
       const baseTitQuery = supabase.from('titoli')
-        .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, sostituisce_polizza, data_decorrenza, data_scadenza,
+        .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, sostituisce_polizza, data_competenza, data_scadenza,
           prodotti(nome_prodotto, compagnie(id, nome)),
           clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
         .eq('cliente_anagrafica_id', clienteId)
@@ -579,7 +579,7 @@ export default function SinistroAperturaWizardPage() {
                         options={polizzeList.map((p: any) => ({
                           value: p.id,
                           label: `${p.numero_titolo}${p.sostituisce_polizza ? " (quietanza)" : ""}`,
-                          description: `${p.prodotti?.nome_prodotto || "—"}${p.prodotti?.compagnie?.nome ? " · " + p.prodotti.compagnie.nome : ""}${p.stato ? " · " + p.stato : ""}${p.data_decorrenza ? " · dec. " + p.data_decorrenza : ""}`,
+                          description: `${p.prodotti?.nome_prodotto || "—"}${p.prodotti?.compagnie?.nome ? " · " + p.prodotti.compagnie.nome : ""}${p.stato ? " · " + p.stato : ""}${p.data_competenza ? " · dec. " + p.data_competenza : ""}`,
                           searchText: `${p.numero_titolo} ${p.prodotti?.nome_prodotto || ""} ${p.stato || ""}`,
                         }))}
                         value={watchTitoloId ?? ""}
