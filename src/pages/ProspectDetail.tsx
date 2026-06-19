@@ -469,7 +469,7 @@ const ProspectDetail = () => {
         </div>
       </div>
       {/* Documenti e Chat */}
-      <Tabs defaultValue="documenti">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="documenti">Documenti</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
