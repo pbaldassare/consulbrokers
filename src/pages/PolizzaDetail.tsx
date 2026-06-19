@@ -21,6 +21,9 @@ import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePoli
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
 import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
 import { annullaPolizza } from "@/lib/annullaPolizza";
+import { useTabParam } from "@/hooks/useTabParam";
+
+const POLIZZA_TABS = ["contratto", "quietanze"] as const;
 
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
 
