@@ -1461,6 +1461,15 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
 export default function ClienteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const VALID_TABS = ["polizze", "anagrafica", "sinistri", "relazioni", "documenti", "chat", "timeline", "trattative"] as const;
+  const tabFromUrl = searchParams.get("tab") || "";
+  const activeTab = (VALID_TABS as readonly string[]).includes(tabFromUrl) ? tabFromUrl : "polizze";
+  const handleTabChange = (v: string) => {
+    const sp = new URLSearchParams(searchParams);
+    sp.set("tab", v);
+    setSearchParams(sp, { replace: true });
+  };
   const queryClient = useQueryClient();
   const [relazioneOpen, setRelazioneOpen] = useState(false);
   const [searchCliente, setSearchCliente] = useState("");
