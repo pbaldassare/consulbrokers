@@ -105,7 +105,7 @@ const ClienteScadenze = () => {
 
   const filtered = useMemo(() => {
     return withDays.filter(p => {
-      if (finestra === "30" && p.giorni > 30) return false;
+      if (finestra === "20" && p.giorni > 20) return false;
       if (finestra === "60" && p.giorni > 60) return false;
       if (finestra === "90" && p.giorni > 90) return false;
       if (finestra === "custom") {
@@ -124,12 +124,12 @@ const ClienteScadenze = () => {
     });
   }, [withDays, finestra, ramo, compagnia, search, dataDa, dataA]);
 
-  const entro30 = filtered.filter(p => p.giorni <= 30).length;
+  const entro20 = filtered.filter(p => p.giorni <= 20).length;
   const entro60 = filtered.filter(p => p.giorni <= 60).length;
   const entro90 = filtered.filter(p => p.giorni <= 90).length;
 
   const kpis = [
-    { label: "Entro 30 gg", value: entro30, color: "text-red-600", border: "#dc2626" },
+    { label: "Entro 20 gg", value: entro20, color: "text-red-600", border: "#dc2626" },
     { label: "Entro 60 gg", value: entro60, color: "text-orange-600", border: "#ea580c" },
     { label: "Entro 90 gg", value: entro90, color: "text-yellow-600", border: "#ca8a04" },
   ];
@@ -144,7 +144,7 @@ const ClienteScadenze = () => {
 
   const finestre: { v: Finestra; l: string }[] = [
     { v: "tutte", l: "Tutte" },
-    { v: "30", l: "≤ 30 gg" },
+    { v: "20", l: "≤ 20 gg" },
     { v: "60", l: "≤ 60 gg" },
     { v: "90", l: "≤ 90 gg" },
     { v: "custom", l: "Range date" },
