@@ -251,6 +251,7 @@ export default function PolizzaDetail() {
                     })}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
