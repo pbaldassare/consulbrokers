@@ -70,6 +70,7 @@ import { exportSinistriXlsx } from "@/lib/exportSinistriXlsx";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import InfoHint from "@/components/cliente/InfoHint";
+import SinistriMap from "@/components/cliente/SinistriMap";
 
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
 const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
@@ -295,18 +296,13 @@ export default function ClienteSinistri() {
           </Card>
 
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Riserve vs Liquidato</CardTitle></CardHeader>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-teal-700" /> Mappa Sinistri
+              </CardTitle>
+            </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={barData}>
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => fmt(v)} />
-                  <Legend />
-                  <Bar dataKey="riserva" name="Riserva" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="liquidato" name="Liquidato" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <SinistriMap sinistri={filteredSinistri} />
             </CardContent>
           </Card>
         </div>
