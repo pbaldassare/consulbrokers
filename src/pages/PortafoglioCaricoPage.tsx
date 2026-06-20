@@ -33,10 +33,13 @@ import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { rowBorderClass, isQuietanzaRow, displayStatoPolizza } from "@/lib/polizzeDisplay";
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
-const rowHref = (p: any) =>
-  p?.sostituisce_polizza
-    ? `/quietanze/${p.quietanza_id}`
-    : `/polizze/${p.polizza_id}`;
+const rowHref = (p: any) => {
+  const isQ = !!p?.sostituisce_polizza || (Number(p?.numero_rata) || 0) > 1;
+  if (isQ && p?.polizza_id) return `/polizze/${p.polizza_id}`;
+  if (p?.sostituisce_polizza && p?.quietanza_id) return `/quietanze/${p.quietanza_id}`;
+  return `/polizze/${p?.polizza_id}`;
+};
+
 
 const PortafoglioCaricoPage = () => {
   const navigate = useNavigate();
@@ -677,8 +680,9 @@ const PortafoglioCaricoPage = () => {
                   return (
                     <TableRow
                       key={p.id}
-                      className={`${isQ ? "" : "cursor-pointer"} ${rowBorderClass(p)} ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : isQ ? "bg-quietanza-soft/40" : ""}`}
-                      onClick={isQ ? undefined : () => navigate(rowHref(p))}
+                      className={`cursor-pointer ${rowBorderClass(p)} ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : isQ ? "bg-quietanza-soft/40" : ""}`}
+                      onClick={() => navigate(rowHref(p))}
+
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
