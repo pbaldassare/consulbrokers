@@ -36,10 +36,11 @@ function colorForTipo(t?: string | null): string {
   return "#64748b"; // slate
 }
 
-async function ensureMapsReady(): Promise<void> {
-  const g: any = (window as any).google;
-  if (g?.maps?.Map && g?.maps?.Geocoder) return;
-  // If script tag exists but libraries not ready, wait then importLibrary
+type MapsLibs = {
+  Map: any; Marker: any; Geocoder: any; InfoWindow: any; LatLngBounds: any; SymbolPath: any;
+};
+
+async function ensureMapsLibs(): Promise<MapsLibs> {
   const existing = document.querySelector<HTMLScriptElement>('script[src*="maps.googleapis.com/maps/api/js"]');
   if (!existing) {
     if (!GOOGLE_MAPS_API_KEY) throw new Error("VITE_GOOGLE_MAPS_API_KEY non configurata");
@@ -49,25 +50,38 @@ async function ensureMapsReady(): Promise<void> {
       s.async = true;
       s.defer = true;
       s.onload = () => resolve();
-      s.onerror = () => reject(new Error("maps load failed"));
+      s.onerror = () => reject(new Error("Google Maps: caricamento script fallito"));
       document.head.appendChild(s);
     });
-  } else if (!(window as any).google?.maps) {
-    await new Promise<void>((resolve, reject) => {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("maps load failed")), { once: true });
-    });
+  }
+  // wait until window.google.maps is at least available
+  const start = Date.now();
+  while (!(window as any).google?.maps && Date.now() - start < 8000) {
+    await new Promise((r) => setTimeout(r, 50));
   }
   const gm: any = (window as any).google?.maps;
   if (!gm) throw new Error("Google Maps non inizializzato");
-  // With loading=async, core classes are not exposed until importLibrary is called
   if (typeof gm.importLibrary === "function") {
-    await Promise.all([
+    const [mapsLib, markerLib, geoLib, coreLib] = await Promise.all([
       gm.importLibrary("maps"),
-      gm.importLibrary("geocoding"),
       gm.importLibrary("marker"),
+      gm.importLibrary("geocoding"),
+      gm.importLibrary("core"),
     ]);
+    return {
+      Map: mapsLib.Map,
+      InfoWindow: mapsLib.InfoWindow,
+      Marker: markerLib.Marker,
+      Geocoder: geoLib.Geocoder,
+      LatLngBounds: coreLib.LatLngBounds || mapsLib.LatLngBounds,
+      SymbolPath: mapsLib.SymbolPath || gm.SymbolPath,
+    };
   }
+  // legacy fallback
+  return {
+    Map: gm.Map, Marker: gm.Marker, Geocoder: gm.Geocoder,
+    InfoWindow: gm.InfoWindow, LatLngBounds: gm.LatLngBounds, SymbolPath: gm.SymbolPath,
+  };
 }
 
 function readCache(): Record<string, { lat: number; lng: number }> {
@@ -104,26 +118,25 @@ export function SinistriMap({ sinistri }: Props) {
 
     (async () => {
       try {
-        await ensureMapsReady();
+        const libs = await ensureMapsLibs();
         if (cancelled || !containerRef.current) return;
-        const g = (window as any).google;
         if (!mapRef.current) {
-          mapRef.current = new g.maps.Map(containerRef.current, {
+          mapRef.current = new libs.Map(containerRef.current, {
             center: VARESE_CENTER,
             zoom: 9,
             mapTypeControl: false,
             streetViewControl: false,
             fullscreenControl: true,
           });
-          infoRef.current = new g.maps.InfoWindow();
+          infoRef.current = new libs.InfoWindow();
         }
         // clear previous markers
         markersRef.current.forEach(m => m.setMap(null));
         markersRef.current = [];
 
         const cache = readCache();
-        const geocoder = new g.maps.Geocoder();
-        const bounds = new g.maps.LatLngBounds();
+        const geocoder = new libs.Geocoder();
+        const bounds = new libs.LatLngBounds();
         let placed = 0;
 
         for (const s of sinistri) {
@@ -147,12 +160,12 @@ export function SinistriMap({ sinistri }: Props) {
           }
           if (cancelled) return;
           const color = colorForTipo(s.tipo_sinistro);
-          const marker = new g.maps.Marker({
+          const marker = new libs.Marker({
             position: coords,
             map: mapRef.current,
             title: s.numero_sinistro || "",
             icon: {
-              path: g.maps.SymbolPath.CIRCLE,
+              path: libs.SymbolPath?.CIRCLE ?? 0,
               scale: 9,
               fillColor: color,
               fillOpacity: 0.95,
