@@ -309,7 +309,7 @@ export default function ClienteSinistri() {
       )}
 
       {/* Filtri */}
-      <Card>
+      <Card data-tour="cl-sin-filters">
         <CardContent className="pt-4 pb-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
             <Filter className="h-4 w-4" /> Filtri
@@ -359,7 +359,7 @@ export default function ClienteSinistri() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-base">Elenco Sinistri</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" data-tour="cl-sin-export">
             <span className="text-xs text-muted-foreground">{selectedIds.size} selezionati</span>
             <Button size="sm" variant="outline" disabled={!selectedIds.size || exporting} onClick={() => handleExport("selected")} className="gap-1.5">
               <Download className="h-4 w-4" /> Esporta selezionati

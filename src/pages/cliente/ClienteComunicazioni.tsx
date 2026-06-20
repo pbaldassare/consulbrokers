@@ -254,6 +254,7 @@ const ClienteComunicazioni = () => {
         </h1>
         <div className="flex items-center gap-2">
           <Button
+            data-tour="cl-chat-export"
             variant="outline"
             onClick={handleExportPdf}
             disabled={!canaleAttivoId}

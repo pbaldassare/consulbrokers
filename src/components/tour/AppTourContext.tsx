@@ -103,7 +103,7 @@ export const CLIENTE_TOUR_STEPS: TourStep[] = [
   { selector: "cl-logo", title: "Buon lavoro! 🎉", description: "Hai visto tutte le sezioni della tua Area Clienti, comprese le novità (export PDF chat, nuovo archivio documenti, filtri sinistri). La tua agenzia è a un click. A presto!", page: "/cliente" },
 ];
 
-const STORAGE_KEY = "cbnet_cliente_tour_done";
+const STORAGE_KEY = "cbnet_cliente_tour_done_v2";
 
 export const TourProvider = ({ children }: { children: ReactNode }) => {
   const [isActive, setIsActive] = useState(false);
