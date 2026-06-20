@@ -12,8 +12,12 @@ import { differenceInDays, format } from "date-fns";
 import { it } from "date-fns/locale";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-type Finestra = "tutte" | "30" | "60" | "90" | "custom";
+type Finestra = "tutte" | "20" | "60" | "90" | "custom";
+
+const fmtShort = (d: string | Date) => format(new Date(d), "dd/MM/yy", { locale: it });
+const fmtFull = (d: string | Date) => format(new Date(d), "dd/MM/yyyy", { locale: it });
 
 const ClienteScadenze = () => {
   const { user } = useAuth();
