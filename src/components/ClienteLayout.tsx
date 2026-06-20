@@ -280,6 +280,7 @@ const ClienteLayout = () => {
               </span>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+              <TourTopbarButton />
               <NavLink
                 to="/cliente/notifiche"
                 title="Notifiche"
