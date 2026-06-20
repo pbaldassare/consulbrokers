@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getTipoSinistroLabel, formatTipoSinistro } from "@/lib/tipiSinistro";
+import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { format } from "date-fns";
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+const GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY || import.meta.env.VITE_GOOGLE_MAPS_API_KEY) as string | undefined;
+const GOOGLE_MAPS_CHANNEL = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
 const VARESE_CENTER = { lat: 45.8206, lng: 8.8251 };
 const CACHE_KEY = "cbnet_geocode_cache_v1";
 
@@ -40,48 +41,84 @@ type MapsLibs = {
   Map: any; Marker: any; Geocoder: any; InfoWindow: any; LatLngBounds: any; SymbolPath: any;
 };
 
+async function loadGoogleMapsScript(): Promise<void> {
+  const w = window as any;
+  if (w.google?.maps?.importLibrary || typeof w.google?.maps?.Map === "function") return;
+  if (w.__cbnetGoogleMapsPromise) return w.__cbnetGoogleMapsPromise;
+  if (!GOOGLE_MAPS_API_KEY) throw new Error("chiave Google Maps non configurata");
+
+  w.__cbnetGoogleMapsPromise = new Promise<void>((resolve, reject) => {
+    const callbackName = "__cbnetSinistriMapReady";
+    const timeout = window.setTimeout(() => reject(new Error("inizializzazione Google Maps scaduta")), 10000);
+    w[callbackName] = () => {
+      window.clearTimeout(timeout);
+      resolve();
+    };
+
+    const existing = document.querySelector<HTMLScriptElement>('script[src*="maps.googleapis.com/maps/api/js"]');
+    if (existing) {
+      const started = Date.now();
+      const waitExisting = () => {
+        if (w.google?.maps?.importLibrary || typeof w.google?.maps?.Map === "function") {
+          window.clearTimeout(timeout);
+          resolve();
+          return;
+        }
+        if (Date.now() - started > 10000) {
+          reject(new Error("Google Maps già presente ma non inizializzato"));
+          return;
+        }
+        window.setTimeout(waitExisting, 80);
+      };
+      waitExisting();
+      return;
+    }
+
+    const channel = GOOGLE_MAPS_CHANNEL ? `&channel=${encodeURIComponent(GOOGLE_MAPS_CHANNEL)}` : "";
+    const s = document.createElement("script");
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&language=it&loading=async&callback=${callbackName}&v=weekly${channel}`;
+    s.async = true;
+    s.defer = true;
+    s.onerror = () => {
+      window.clearTimeout(timeout);
+      reject(new Error("caricamento Google Maps fallito"));
+    };
+    document.head.appendChild(s);
+  });
+
+  return w.__cbnetGoogleMapsPromise;
+}
+
 async function ensureMapsLibs(): Promise<MapsLibs> {
-  const existing = document.querySelector<HTMLScriptElement>('script[src*="maps.googleapis.com/maps/api/js"]');
-  if (!existing) {
-    if (!GOOGLE_MAPS_API_KEY) throw new Error("VITE_GOOGLE_MAPS_API_KEY non configurata");
-    await new Promise<void>((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=it&loading=async&v=weekly`;
-      s.async = true;
-      s.defer = true;
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error("Google Maps: caricamento script fallito"));
-      document.head.appendChild(s);
-    });
-  }
-  // wait until window.google.maps is at least available
-  const start = Date.now();
-  while (!(window as any).google?.maps && Date.now() - start < 8000) {
-    await new Promise((r) => setTimeout(r, 50));
-  }
+  await loadGoogleMapsScript();
   const gm: any = (window as any).google?.maps;
   if (!gm) throw new Error("Google Maps non inizializzato");
   if (typeof gm.importLibrary === "function") {
     const [mapsLib, markerLib, geoLib, coreLib] = await Promise.all([
       gm.importLibrary("maps"),
-      gm.importLibrary("marker"),
-      gm.importLibrary("geocoding"),
-      gm.importLibrary("core"),
+      gm.importLibrary("marker").catch(() => ({})),
+      gm.importLibrary("geocoding").catch(() => ({})),
+      gm.importLibrary("core").catch(() => ({})),
     ]);
-    return {
-      Map: mapsLib.Map,
-      InfoWindow: mapsLib.InfoWindow,
-      Marker: markerLib.Marker,
-      Geocoder: geoLib.Geocoder,
-      LatLngBounds: coreLib.LatLngBounds || mapsLib.LatLngBounds,
-      SymbolPath: mapsLib.SymbolPath || gm.SymbolPath,
+    const libs = {
+      Map: mapsLib.Map || gm.Map,
+      InfoWindow: mapsLib.InfoWindow || gm.InfoWindow,
+      Marker: markerLib.Marker || gm.Marker,
+      Geocoder: geoLib.Geocoder || gm.Geocoder,
+      LatLngBounds: coreLib.LatLngBounds || mapsLib.LatLngBounds || gm.LatLngBounds,
+      SymbolPath: gm.SymbolPath || mapsLib.SymbolPath,
     };
+    if (typeof libs.Map !== "function") throw new Error("costruttore mappa non disponibile");
+    if (typeof libs.Marker !== "function") throw new Error("marker mappa non disponibili");
+    return libs;
   }
   // legacy fallback
-  return {
+  const libs = {
     Map: gm.Map, Marker: gm.Marker, Geocoder: gm.Geocoder,
     InfoWindow: gm.InfoWindow, LatLngBounds: gm.LatLngBounds, SymbolPath: gm.SymbolPath,
   };
+  if (typeof libs.Map !== "function") throw new Error("costruttore mappa non disponibile");
+  return libs;
 }
 
 function readCache(): Record<string, { lat: number; lng: number }> {
