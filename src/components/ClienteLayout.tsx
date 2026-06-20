@@ -14,8 +14,24 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { TourProvider, useTour } from "@/components/tour/AppTourContext";
+import { TourProvider, useTour, hasSeenAIAssistant } from "@/components/tour/AppTourContext";
 import AppTour from "@/components/tour/AppTour";
+
+const TourTopbarButton = () => {
+  const { startTour, isActive } = useTour();
+  if (isActive) return null;
+  return (
+    <button
+      onClick={() => startTour()}
+      title="Ricomincia tour guidato"
+      aria-label="Ricomincia tour guidato"
+      data-tour="cl-topbar-tour"
+      className="relative p-2 rounded-md hover:bg-primary/10 text-primary min-h-[40px] min-w-[40px] flex items-center justify-center transition-colors"
+    >
+      <Sparkles className="h-4 w-4" />
+    </button>
+  );
+};
 
 const TourSidebarButton = ({ compact }: { compact?: boolean }) => {
   const { startTour, isActive } = useTour();
