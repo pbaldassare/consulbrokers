@@ -12,8 +12,12 @@ import { differenceInDays, format } from "date-fns";
 import { it } from "date-fns/locale";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-type Finestra = "tutte" | "30" | "60" | "90" | "custom";
+type Finestra = "tutte" | "20" | "60" | "90" | "custom";
+
+const fmtShort = (d: string | Date) => format(new Date(d), "dd/MM/yy", { locale: it });
+const fmtFull = (d: string | Date) => format(new Date(d), "dd/MM/yyyy", { locale: it });
 
 const ClienteScadenze = () => {
   const { user } = useAuth();
@@ -101,7 +105,7 @@ const ClienteScadenze = () => {
 
   const filtered = useMemo(() => {
     return withDays.filter(p => {
-      if (finestra === "30" && p.giorni > 30) return false;
+      if (finestra === "20" && p.giorni > 20) return false;
       if (finestra === "60" && p.giorni > 60) return false;
       if (finestra === "90" && p.giorni > 90) return false;
       if (finestra === "custom") {
@@ -120,12 +124,12 @@ const ClienteScadenze = () => {
     });
   }, [withDays, finestra, ramo, compagnia, search, dataDa, dataA]);
 
-  const entro30 = filtered.filter(p => p.giorni <= 30).length;
+  const entro20 = filtered.filter(p => p.giorni <= 20).length;
   const entro60 = filtered.filter(p => p.giorni <= 60).length;
   const entro90 = filtered.filter(p => p.giorni <= 90).length;
 
   const kpis = [
-    { label: "Entro 30 gg", value: entro30, color: "text-red-600", border: "#dc2626" },
+    { label: "Entro 20 gg", value: entro20, color: "text-red-600", border: "#dc2626" },
     { label: "Entro 60 gg", value: entro60, color: "text-orange-600", border: "#ea580c" },
     { label: "Entro 90 gg", value: entro90, color: "text-yellow-600", border: "#ca8a04" },
   ];
@@ -140,7 +144,7 @@ const ClienteScadenze = () => {
 
   const finestre: { v: Finestra; l: string }[] = [
     { v: "tutte", l: "Tutte" },
-    { v: "30", l: "≤ 30 gg" },
+    { v: "20", l: "≤ 20 gg" },
     { v: "60", l: "≤ 60 gg" },
     { v: "90", l: "≤ 90 gg" },
     { v: "custom", l: "Range date" },
@@ -206,7 +210,7 @@ const ClienteScadenze = () => {
         {filtered.length === 0 ? (
           <p className="text-muted-foreground text-center py-12">Nessuna scadenza con i filtri selezionati</p>
         ) : filtered.map(p => {
-          const urgente = p.giorni <= 30;
+          const urgente = p.giorni <= 20;
           const inScadenza = p.giorni <= 60;
           const barWidth = Math.max(5, Math.min(100, 100 - (p.giorni / 365) * 100));
           const barColor = urgente ? "bg-red-500" : inScadenza ? "bg-orange-400" : "bg-yellow-400";
@@ -234,7 +238,14 @@ const ClienteScadenze = () => {
                         <span className={`text-2xl font-bold ${urgente ? "text-red-600" : inScadenza ? "text-orange-600" : "text-foreground"}`}>{p.giorni}</span>
                         <span className="text-xs text-muted-foreground">gg</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{format(new Date(p.data_scadenza), "dd/MM/yy", { locale: it })}</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <p className="text-xs text-muted-foreground mt-1 cursor-help underline decoration-dotted underline-offset-2">
+                            {fmtShort(p.data_scadenza)}
+                          </p>
+                        </TooltipTrigger>
+                        <TooltipContent>{fmtFull(p.data_scadenza)}</TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
                 </CardContent>
