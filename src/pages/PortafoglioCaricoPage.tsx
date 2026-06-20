@@ -681,7 +681,7 @@ const PortafoglioCaricoPage = () => {
                     <TableRow
                       key={p.id}
                       className={`cursor-pointer ${rowBorderClass(p)} ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : isQ ? "bg-quietanza-soft/40" : ""}`}
-                      onClick={() => navigate(rowHref(p))}
+                      onClick={() => { const h = rowHref(p); if (h) navigate(h); }}
 
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
