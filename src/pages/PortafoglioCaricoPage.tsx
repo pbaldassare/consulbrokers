@@ -472,7 +472,7 @@ const PortafoglioCaricoPage = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <CardContent className="flex items-center gap-4 p-4">
             <div className="rounded-lg bg-accent/50 p-3">
@@ -482,18 +482,6 @@ const PortafoglioCaricoPage = () => {
               <p className="text-sm text-muted-foreground">Totale titoli</p>
               <p className="text-2xl font-bold text-foreground">{totalCount}</p>
               <p className="text-xs text-muted-foreground">{fmtCurrency(totalePremio)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="rounded-lg bg-primary/10 p-3">
-              <Euro className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Polizze</p>
-              <p className="text-2xl font-bold text-foreground">{totaleData?.polizzeCount ?? 0}</p>
-              <p className="text-xs text-muted-foreground">{fmtCurrency(totaleData?.polizzeTotale ?? 0)}</p>
             </div>
           </CardContent>
         </Card>
