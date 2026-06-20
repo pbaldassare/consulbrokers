@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Send, Loader2, BookOpen, FileSearch } from "lucide-react";
 import { toast } from "sonner";
+import InfoHint from "@/components/cliente/InfoHint";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
