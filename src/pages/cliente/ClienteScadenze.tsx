@@ -234,7 +234,7 @@ const ClienteScadenze = () => {
                         <span className={`text-2xl font-bold ${urgente ? "text-red-600" : inScadenza ? "text-orange-600" : "text-foreground"}`}>{p.giorni}</span>
                         <span className="text-xs text-muted-foreground">gg</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{format(new Date(p.data_scadenza), "dd MMM yyyy", { locale: it })}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{format(new Date(p.data_scadenza), "dd/MM/yy", { locale: it })}</p>
                     </div>
                   </div>
                 </CardContent>
