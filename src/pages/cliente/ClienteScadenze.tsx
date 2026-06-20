@@ -210,7 +210,7 @@ const ClienteScadenze = () => {
         {filtered.length === 0 ? (
           <p className="text-muted-foreground text-center py-12">Nessuna scadenza con i filtri selezionati</p>
         ) : filtered.map(p => {
-          const urgente = p.giorni <= 30;
+          const urgente = p.giorni <= 20;
           const inScadenza = p.giorni <= 60;
           const barWidth = Math.max(5, Math.min(100, 100 - (p.giorni / 365) * 100));
           const barColor = urgente ? "bg-red-500" : inScadenza ? "bg-orange-400" : "bg-yellow-400";
@@ -238,7 +238,14 @@ const ClienteScadenze = () => {
                         <span className={`text-2xl font-bold ${urgente ? "text-red-600" : inScadenza ? "text-orange-600" : "text-foreground"}`}>{p.giorni}</span>
                         <span className="text-xs text-muted-foreground">gg</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{format(new Date(p.data_scadenza), "dd/MM/yy", { locale: it })}</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <p className="text-xs text-muted-foreground mt-1 cursor-help underline decoration-dotted underline-offset-2">
+                            {fmtShort(p.data_scadenza)}
+                          </p>
+                        </TooltipTrigger>
+                        <TooltipContent>{fmtFull(p.data_scadenza)}</TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
                 </CardContent>
