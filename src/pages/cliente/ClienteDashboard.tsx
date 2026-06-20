@@ -209,24 +209,35 @@ const ClienteDashboard = () => {
                 <CalendarClock className="h-4 w-4 text-red-500" /> Prossime Scadenze
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-1">
               {scadenzeVicine.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">Nessuna scadenza nei prossimi 90 giorni</p>
               ) : scadenzeVicine.map(s => (
-                <div key={s.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">{s.numero_titolo}</p>
-                    <p className="text-xs text-muted-foreground">{s.rami?.descrizione}</p>
+                <Link
+                  key={s.id}
+                  to={`/cliente/polizze/${s.id}#scadenziario`}
+                  className="flex items-center justify-between py-2 px-2 -mx-2 rounded-md border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="min-w-0 pr-2">
+                    <p className="text-sm font-medium truncate">{s.numero_titolo}</p>
+                    <p className="text-xs text-muted-foreground truncate">{s.rami?.descrizione}</p>
+                    {s.compagnie?.nome && <p className="text-[11px] text-muted-foreground/80 truncate">{s.compagnie.nome}</p>}
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <Badge className={s.giorni <= 30 ? "bg-red-100 text-red-800" : s.giorni <= 60 ? "bg-orange-100 text-orange-800" : "bg-yellow-100 text-yellow-800"}>
                       {s.giorni} gg
                     </Badge>
                     <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(s.data_scadenza), "dd MMM yyyy", { locale: it })}</p>
                   </div>
-                </div>
+                </Link>
               ))}
+              {scadenzeVicine.length > 0 && (
+                <div className="pt-2 text-right">
+                  <Link to="/cliente/scadenze" className="text-xs text-teal-700 hover:underline">Vedi tutte →</Link>
+                </div>
+              )}
             </CardContent>
+
           </Card>
 
           {/* Pie - Sinistri per Ramo (Aperti vs Chiusi) */}

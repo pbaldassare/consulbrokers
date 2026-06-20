@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
+import { differenceInDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ const boolLabel = (v: any) => v === true ? "Sì" : v === false ? "No" : "—";
 const ClientePolizzaDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [titolo, setTitolo] = useState<any>(null);
   const [docs, setDocs] = useState<any[]>([]);
   const [sinistri, setSinistri] = useState<any[]>([]);
@@ -66,6 +68,23 @@ const ClientePolizzaDetail = () => {
       setLoading(false);
     });
   }, [id]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (location.hash === "#scadenziario") {
+      const el = document.getElementById("scadenziario");
+      if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    }
+  }, [loading, location.hash]);
+
+  const prossimaRata = useMemo(() => {
+    const today = new Date();
+    return quietanze
+      .filter((q: any) => q.stato !== "incassato" && q.stato !== "annullata" && q.stato !== "stornata")
+      .map((q: any) => ({ ...q, _date: q.garanzia_a ?? q.data_scadenza }))
+      .filter((q: any) => q._date && new Date(q._date) >= new Date(today.toDateString()))
+      .sort((a: any, b: any) => new Date(a._date).getTime() - new Date(b._date).getTime())[0];
+  }, [quietanze]);
 
   const handleDownload = async (doc: any) => {
     const { data } = await supabase.storage.from(doc.bucket_name).createSignedUrl(doc.path_storage, 300);
@@ -204,10 +223,18 @@ const ClientePolizzaDetail = () => {
         </Card>
       )}
 
-      {/* Quietanze */}
-      <Card>
+      {/* Scadenziario (Rate / Quietanze) */}
+      <Card id="scadenziario" className="scroll-mt-24">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2"><Receipt className="h-4 w-4 text-teal-600" />Rate / Quietanze</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-base flex items-center gap-2"><Receipt className="h-4 w-4 text-teal-600" />Scadenziario (Rate / Quietanze)</CardTitle>
+            {prossimaRata && (
+              <div className="text-xs text-muted-foreground">
+                Prossima rata: <span className="font-medium text-foreground">{fmtDate(prossimaRata._date)}</span>
+                {prossimaRata.premio_lordo != null && <> — <span className="font-medium text-foreground">{fmt(prossimaRata.premio_lordo)}</span></>}
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {quietanze.length === 0 ? (
@@ -219,29 +246,47 @@ const ClientePolizzaDetail = () => {
                   <TableHead>Rata</TableHead>
                   <TableHead>Decorrenza</TableHead>
                   <TableHead>Scadenza</TableHead>
+                  <TableHead>Giorni</TableHead>
                   <TableHead className="text-right">Premio lordo</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Incasso</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {quietanze.map((q: any) => (
-                  <TableRow key={q.id}>
-                    <TableCell className="font-medium">{q.numero_rata}{q.numero_rate_totali ? ` / ${q.numero_rate_totali}` : ""}</TableCell>
-                    <TableCell>{fmtDate(q.garanzia_da)}</TableCell>
-                    <TableCell>{fmtDate(q.garanzia_a ?? q.data_scadenza)}</TableCell>
-                    <TableCell className="text-right">{q.premio_lordo != null ? fmt(q.premio_lordo) : "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={statoQuietanza[q.stato] ?? ""}>{q.stato}</Badge>
-                    </TableCell>
-                    <TableCell>{fmtDate(q.data_incasso)}</TableCell>
-                  </TableRow>
-                ))}
+                {quietanze.map((q: any) => {
+                  const scad = q.garanzia_a ?? q.data_scadenza;
+                  const gg = scad ? differenceInDays(new Date(scad), new Date()) : null;
+                  const incassata = q.stato === "incassato";
+                  const ggBadge = gg == null || incassata ? "bg-muted text-muted-foreground" :
+                    gg < 0 ? "bg-red-200 text-red-900" :
+                    gg <= 30 ? "bg-red-100 text-red-800" :
+                    gg <= 60 ? "bg-orange-100 text-orange-800" :
+                    gg <= 90 ? "bg-yellow-100 text-yellow-800" :
+                    "bg-muted text-muted-foreground";
+                  return (
+                    <TableRow key={q.id}>
+                      <TableCell className="font-medium">{q.numero_rata}{q.numero_rate_totali ? ` / ${q.numero_rate_totali}` : ""}</TableCell>
+                      <TableCell>{fmtDate(q.garanzia_da)}</TableCell>
+                      <TableCell>{fmtDate(scad)}</TableCell>
+                      <TableCell>
+                        {gg == null ? "—" : incassata ? <span className="text-xs text-muted-foreground">—</span> : (
+                          <Badge variant="outline" className={`${ggBadge} border-transparent`}>{gg < 0 ? `${Math.abs(gg)} gg fa` : `${gg} gg`}</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">{q.premio_lordo != null ? fmt(q.premio_lordo) : "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={statoQuietanza[q.stato] ?? ""}>{q.stato}</Badge>
+                      </TableCell>
+                      <TableCell>{fmtDate(q.data_incasso)}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
 
       {/* Copertura */}
       {titolo.descrizione_polizza && (
