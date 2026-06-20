@@ -23,6 +23,7 @@ interface TourContextType {
   steps: TourStep[];
   totalSteps: number;
   startTour: () => void;
+  startTourAt: (selector: string) => void;
   stopTour: () => void;
   nextStep: () => void;
   prevStep: () => void;
