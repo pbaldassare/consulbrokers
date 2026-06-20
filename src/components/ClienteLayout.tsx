@@ -14,8 +14,24 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { TourProvider, useTour } from "@/components/tour/AppTourContext";
+import { TourProvider, useTour, hasSeenAIAssistant } from "@/components/tour/AppTourContext";
 import AppTour from "@/components/tour/AppTour";
+
+const TourTopbarButton = () => {
+  const { startTour, isActive } = useTour();
+  if (isActive) return null;
+  return (
+    <button
+      onClick={() => startTour()}
+      title="Ricomincia tour guidato"
+      aria-label="Ricomincia tour guidato"
+      data-tour="cl-topbar-tour"
+      className="relative p-2 rounded-md hover:bg-primary/10 text-primary min-h-[40px] min-w-[40px] flex items-center justify-center transition-colors"
+    >
+      <Sparkles className="h-4 w-4" />
+    </button>
+  );
+};
 
 const TourSidebarButton = ({ compact }: { compact?: boolean }) => {
   const { startTour, isActive } = useTour();
@@ -82,6 +98,14 @@ const ClienteLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [areaType, setAreaType] = useState<string>("completa");
+  const [aiSeen, setAiSeen] = useState<boolean>(() => hasSeenAIAssistant());
+
+  // Re-check AI seen flag on route change (mark dismissed when user lands on /cliente/assistente)
+  useEffect(() => {
+    const handler = () => setAiSeen(hasSeenAIAssistant());
+    window.addEventListener("cbnet:ai-seen", handler);
+    return () => window.removeEventListener("cbnet:ai-seen", handler);
+  }, []);
 
   // Lock body scroll when mobile drawer open
   useEffect(() => {
@@ -176,6 +200,17 @@ const ClienteLayout = () => {
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
+            {item.to === "/cliente/assistente" && !aiSeen && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[9px] font-bold leading-none px-1.5 py-0.5 shadow animate-pulse",
+                  compact && "absolute translate-x-3 -translate-y-2 px-1"
+                )}
+                title="Novità!"
+              >
+                {compact ? "✨" : "NUOVO ✨"}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -245,6 +280,7 @@ const ClienteLayout = () => {
               </span>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+              <TourTopbarButton />
               <NavLink
                 to="/cliente/notifiche"
                 title="Notifiche"

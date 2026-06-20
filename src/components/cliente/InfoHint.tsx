@@ -1,52 +1,67 @@
 import { Info } from "lucide-react";
+import { useState } from "react";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 interface InfoHintProps {
   text: string;
+  title?: string;
   className?: string;
   size?: "xs" | "sm";
-  /** Se true, non avvolge in TooltipProvider (usalo quando il provider esiste già a monte) */
+  /** retained for backward compatibility — ignored (Popover non richiede provider) */
   inProvider?: boolean;
 }
 
 /**
- * Piccola icona "i" con tooltip esplicativo.
- * Usato nelle KPI card / header tabelle del portale cliente per spiegare
- * meglio cosa rappresenta un valore o una sezione.
+ * Piccola icona "i" CLICCABILE con popover esplicativo.
+ * Mostrato su KPI card / header del portale cliente per spiegare cosa
+ * rappresenta un valore. Funziona anche su touch (click), non solo hover.
  */
-const InfoHint = ({ text, className, size = "sm", inProvider = false }: InfoHintProps) => {
-  const iconCls =
-    size === "xs" ? "h-3 w-3" : "h-3.5 w-3.5";
+const InfoHint = ({ text, title, className, size = "sm" }: InfoHintProps) => {
+  const [open, setOpen] = useState(false);
+  const iconCls = size === "xs" ? "h-3.5 w-3.5" : "h-4 w-4";
 
-  const content = (
-    <Tooltip>
-      <TooltipTrigger asChild>
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label="Informazioni"
-          onClick={(e) => e.stopPropagation()}
+          aria-label={title || "Informazioni"}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setOpen((v) => !v);
+          }}
+          onMouseEnter={() => setOpen(true)}
           className={cn(
-            "inline-flex items-center justify-center text-muted-foreground/70 hover:text-primary transition-colors align-middle",
+            "inline-flex items-center justify-center rounded-full text-primary/70 hover:text-primary hover:bg-primary/10 transition-colors align-middle p-0.5",
             className
           )}
         >
           <Info className={iconCls} />
         </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-[260px] text-xs leading-snug">
-        {text}
-      </TooltipContent>
-    </Tooltip>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="center"
+        sideOffset={6}
+        onMouseLeave={() => setOpen(false)}
+        onClick={(e) => e.stopPropagation()}
+        className="max-w-[280px] text-xs leading-relaxed p-3 border-primary/20 shadow-lg"
+      >
+        {title && (
+          <div className="text-[11px] font-bold uppercase tracking-wider text-primary mb-1">
+            {title}
+          </div>
+        )}
+        <p className="text-foreground/90">{text}</p>
+      </PopoverContent>
+    </Popover>
   );
-
-  if (inProvider) return content;
-  return <TooltipProvider delayDuration={150}>{content}</TooltipProvider>;
 };
 
 export default InfoHint;

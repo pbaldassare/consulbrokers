@@ -23,6 +23,7 @@ interface TourContextType {
   steps: TourStep[];
   totalSteps: number;
   startTour: () => void;
+  startTourAt: (selector: string) => void;
   stopTour: () => void;
   nextStep: () => void;
   prevStep: () => void;
@@ -115,6 +116,12 @@ export const TourProvider = ({ children }: { children: ReactNode }) => {
     setIsActive(true);
   }, []);
 
+  const startTourAt = useCallback((selector: string) => {
+    const idx = steps.findIndex((s) => s.selector === selector);
+    setCurrentStep(idx >= 0 ? idx : 0);
+    setIsActive(true);
+  }, [steps]);
+
   const stopTour = useCallback(() => {
     setIsActive(false);
     setCurrentStep(0);
@@ -142,6 +149,7 @@ export const TourProvider = ({ children }: { children: ReactNode }) => {
         steps,
         totalSteps: steps.length,
         startTour,
+        startTourAt,
         stopTour,
         nextStep,
         prevStep,
@@ -154,4 +162,12 @@ export const TourProvider = ({ children }: { children: ReactNode }) => {
 
 export const hasSeenClienteTour = () => {
   try { return localStorage.getItem(STORAGE_KEY) === "1"; } catch { return false; }
+};
+
+const AI_SEEN_KEY = "cbnet_cliente_ai_seen";
+export const hasSeenAIAssistant = () => {
+  try { return localStorage.getItem(AI_SEEN_KEY) === "1"; } catch { return false; }
+};
+export const markAIAssistantSeen = () => {
+  try { localStorage.setItem(AI_SEEN_KEY, "1"); } catch {}
 };
