@@ -22,6 +22,7 @@ export function TipoFilterSegmented({
   onChange,
   counts,
   withRegolazioni = false,
+  hidePolizze = false,
   className,
 }: TipoFilterSegmentedProps) {
   const items: Array<{
@@ -36,12 +37,16 @@ export function TipoFilterSegmented({
       count: counts?.tutti,
       activeClasses: "bg-foreground text-background shadow-sm",
     },
-    {
-      key: "polizze",
-      label: "Polizze",
-      count: counts?.polizze,
-      activeClasses: "bg-polizza text-polizza-foreground shadow-sm",
-    },
+    ...(hidePolizze
+      ? []
+      : [
+          {
+            key: "polizze" as FiltroTipo,
+            label: "Polizze",
+            count: counts?.polizze,
+            activeClasses: "bg-polizza text-polizza-foreground shadow-sm",
+          },
+        ]),
     {
       key: "quietanze",
       label: "Quietanze",
