@@ -8,6 +8,8 @@ export type TipoFilterSegmentedProps = {
   counts?: { tutti?: number; polizze?: number; quietanze?: number; regolazioni?: number };
   /** Mostra anche il chip Regolazioni (solo portafoglio). Default: false. */
   withRegolazioni?: boolean;
+  /** Nasconde il chip Polizze (es. pagina Carico dove ci sono solo quietanze). Default: false. */
+  hidePolizze?: boolean;
   className?: string;
 };
 
@@ -20,6 +22,7 @@ export function TipoFilterSegmented({
   onChange,
   counts,
   withRegolazioni = false,
+  hidePolizze = false,
   className,
 }: TipoFilterSegmentedProps) {
   const items: Array<{
@@ -34,12 +37,16 @@ export function TipoFilterSegmented({
       count: counts?.tutti,
       activeClasses: "bg-foreground text-background shadow-sm",
     },
-    {
-      key: "polizze",
-      label: "Polizze",
-      count: counts?.polizze,
-      activeClasses: "bg-polizza text-polizza-foreground shadow-sm",
-    },
+    ...(hidePolizze
+      ? []
+      : [
+          {
+            key: "polizze" as FiltroTipo,
+            label: "Polizze",
+            count: counts?.polizze,
+            activeClasses: "bg-polizza text-polizza-foreground shadow-sm",
+          },
+        ]),
     {
       key: "quietanze",
       label: "Quietanze",
