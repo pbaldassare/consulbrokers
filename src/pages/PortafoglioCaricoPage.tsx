@@ -560,7 +560,7 @@ const PortafoglioCaricoPage = () => {
                   <TableRow
                     key={p.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => { setPendingDialogOpen(false); navigate(rowHref(p)); }}
+                    onClick={() => { const h = rowHref(p); if (h) { setPendingDialogOpen(false); navigate(h); } }}
                   >
                     <TableCell className="font-mono text-sm">{p.numero_titolo}</TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
