@@ -160,10 +160,13 @@ export function SinistriMap({ sinistri }: Props) {
         if (!mapRef.current) {
           mapRef.current = new libs.Map(containerRef.current, {
             center: VARESE_CENTER,
-            zoom: 9,
+            zoom: 13,
+            minZoom: 11,
+            maxZoom: 16,
             mapTypeControl: false,
             streetViewControl: false,
             fullscreenControl: true,
+            gestureHandling: "greedy",
           });
           infoRef.current = new libs.InfoWindow();
         }
