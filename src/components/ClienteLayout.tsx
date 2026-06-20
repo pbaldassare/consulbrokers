@@ -200,6 +200,17 @@ const ClienteLayout = () => {
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
+            {item.to === "/cliente/assistente" && !aiSeen && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[9px] font-bold leading-none px-1.5 py-0.5 shadow animate-pulse",
+                  compact && "absolute translate-x-3 -translate-y-2 px-1"
+                )}
+                title="Novità!"
+              >
+                {compact ? "✨" : "NUOVO ✨"}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
