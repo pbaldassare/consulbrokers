@@ -671,13 +671,14 @@ const PortafoglioCaricoPage = () => {
                 {polizze.map((p: any) => {
                   const isIncassato = p.stato === "incassato";
                   const isProcessing = loadingIds.has(p.id);
-                  const isQ = isQuietanzaRow(p);
+                  const isQ = isQuietanzaRow(p) || (Number(p.numero_rata) || 0) > 1;
                   const statoShown = displayStatoPolizza(p);
+                  const polizzaMadreNumero = p.numero_polizza_snapshot || p.numero_titolo;
                   return (
                     <TableRow
                       key={p.id}
-                      className={`cursor-pointer ${rowBorderClass(p)} ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : isQ ? "bg-quietanza-soft/40" : ""}`}
-                      onClick={() => navigate(rowHref(p))}
+                      className={`${isQ ? "" : "cursor-pointer"} ${rowBorderClass(p)} ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : isQ ? "bg-quietanza-soft/40" : ""}`}
+                      onClick={isQ ? undefined : () => navigate(rowHref(p))}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
@@ -690,7 +691,7 @@ const PortafoglioCaricoPage = () => {
                         {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
                         {p.numero_titolo || "—"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         {p.is_regolazione ? (
                           <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">Regolazione</Badge>
                         ) : (
@@ -710,12 +711,13 @@ const PortafoglioCaricoPage = () => {
                             onClick={() => navigate(`/polizze/${p.polizza_id}`)}
                             title="Vai alla polizza madre"
                           >
-                            {p.numero_titolo || "—"}
+                            {polizzaMadreNumero || "—"}
                           </Button>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
+
                       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         {(() => {

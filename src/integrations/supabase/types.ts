@@ -6573,13 +6573,6 @@ export type Database = {
             foreignKeyName: "produttori_provvigioni_ramo_ramo_codice_fkey"
             columns: ["ramo_codice"]
             isOneToOne: false
-            referencedRelation: "v_portafoglio_quietanze"
-            referencedColumns: ["ramo_codice"]
-          },
-          {
-            foreignKeyName: "produttori_provvigioni_ramo_ramo_codice_fkey"
-            columns: ["ramo_codice"]
-            isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["ramo_codice"]
           },
@@ -10161,24 +10154,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "polizze_compagnia_id_fkey"
-            columns: ["compagnia_id"]
-            isOneToOne: false
-            referencedRelation: "compagnie"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "polizze_produttore_anagrafica_id_fkey"
             columns: ["produttore_id"]
             isOneToOne: false
             referencedRelation: "anagrafiche_professionali"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "polizze_ramo_id_fkey"
-            columns: ["ramo_id"]
-            isOneToOne: false
-            referencedRelation: "rami"
             referencedColumns: ["id"]
           },
           {
@@ -10190,13 +10169,6 @@ export type Database = {
           },
           {
             foreignKeyName: "quietanze_titolo_id_fkey"
-            columns: ["id"]
-            isOneToOne: false
-            referencedRelation: "titoli"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quietanze_titolo_id_fkey"
             columns: ["titolo_legacy_id"]
             isOneToOne: false
             referencedRelation: "titoli"
@@ -10205,13 +10177,20 @@ export type Database = {
           {
             foreignKeyName: "quietanze_titolo_id_fkey"
             columns: ["id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quietanze_titolo_id_fkey"
+            columns: ["titolo_legacy_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "quietanze_titolo_id_fkey"
-            columns: ["titolo_legacy_id"]
+            columns: ["id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
