@@ -98,6 +98,14 @@ const ClienteLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [areaType, setAreaType] = useState<string>("completa");
+  const [aiSeen, setAiSeen] = useState<boolean>(() => hasSeenAIAssistant());
+
+  // Re-check AI seen flag on route change (mark dismissed when user lands on /cliente/assistente)
+  useEffect(() => {
+    const handler = () => setAiSeen(hasSeenAIAssistant());
+    window.addEventListener("cbnet:ai-seen", handler);
+    return () => window.removeEventListener("cbnet:ai-seen", handler);
+  }, []);
 
   // Lock body scroll when mobile drawer open
   useEffect(() => {
