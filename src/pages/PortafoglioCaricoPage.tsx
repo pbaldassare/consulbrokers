@@ -633,9 +633,10 @@ const PortafoglioCaricoPage = () => {
           <ToggleGroupItem value="tutte" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Tutte</ToggleGroupItem>
         </ToggleGroup>
         <TipoFilterSegmented
-          value={filtroTipo}
+          value={filtroTipo === "polizze" ? "tutti" : filtroTipo}
           onChange={(v) => { setFiltroTipo(v); setPage(0); }}
           withRegolazioni
+          hidePolizze
         />
         {hasActiveFilters && (
           <Button variant="outline" size="sm" onClick={resetFilters} className="gap-1">
