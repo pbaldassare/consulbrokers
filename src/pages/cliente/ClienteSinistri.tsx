@@ -162,16 +162,18 @@ export default function ClienteSinistri() {
   const riserve = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
   const liquidato = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
 
-  // Pie - Sinistri per Ramo (aperti vs chiusi)
-  const sinPerRamo = filteredSinistri.reduce((acc: any[], s: any) => {
-    const ramo = s.ramo_sinistro || "Altro";
-    const isOpen = !["chiuso", "respinto"].includes(s.stato);
-    const key = `${ramo} (${isOpen ? "Aperti" : "Chiusi"})`;
-    const existing = acc.find(a => a.name === key);
-    if (existing) existing.value++;
-    else acc.push({ name: key, value: 1, ramo, isOpen });
-    return acc;
-  }, []);
+  // Istogramma - Sinistri per Ramo (aperti vs chiusi)
+  const sinPerRamo = (() => {
+    const map = new Map<string, { ramo: string; aperti: number; chiusi: number }>();
+    filteredSinistri.forEach((s: any) => {
+      const ramo = s.ramo_sinistro || "Altro";
+      const isOpen = !["chiuso", "respinto"].includes(s.stato);
+      const cur = map.get(ramo) || { ramo, aperti: 0, chiusi: 0 };
+      if (isOpen) cur.aperti++; else cur.chiusi++;
+      map.set(ramo, cur);
+    });
+    return Array.from(map.values());
+  })();
 
   // Bar data riserve vs liquidato
   const barData = filteredSinistri.map((s: any) => ({
@@ -282,15 +284,14 @@ export default function ClienteSinistri() {
             <CardHeader className="pb-2"><CardTitle className="text-base">Sinistri per Ramo (Aperti vs Chiusi)</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={sinPerRamo} cx="50%" cy="50%" innerRadius={50} outerRadius={95} paddingAngle={3} dataKey="value" label={({ name, value }) => `${value}`} labelLine={false}>
-                    {sinPerRamo.map((entry, i) => (
-                      <Cell key={i} fill={entry.isOpen ? COLORS_OPEN[i % COLORS_OPEN.length] : COLORS_CLOSED[i % COLORS_CLOSED.length]} />
-                    ))}
-                  </Pie>
+                <BarChart data={sinPerRamo} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
+                  <XAxis dataKey="ramo" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={50} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                </PieChart>
+                  <Bar dataKey="aperti" name="Aperti" stackId="a" fill="#ea580c" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="chiusi" name="Chiusi" stackId="a" fill="#059669" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
