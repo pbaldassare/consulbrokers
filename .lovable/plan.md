@@ -1,73 +1,40 @@
-# Tour guidato + Info tooltip — aggiornamento
+## Obiettivo
+Sostituire la card "Riserve vs Liquidato" nella pagina `/cliente/sinistri` con una **mappa Google** che mostra i sinistri geolocalizzati, con marker colorati per tipologia e popup con i dettagli.
 
-Obiettivo: aggiornare il tour del portale cliente con le nuove feature (export chat PDF, nuovo layout Documentazione Ente a tab, filtri avanzati Sinistri, Assistente AI) e aggiungere icone **(i)** con tooltip esplicativo sui punti chiave delle card per renderli auto-spiegati anche fuori dal tour.
+## Modifiche
 
-## 1. Tour guidato (`src/components/tour/AppTourContext.tsx`)
+### 1. Nuovo componente `src/components/cliente/SinistriMap.tsx`
+- Carica Google Maps JS API (riusa `loadGoogleMapsScript` già presente in `AddressAutocomplete.tsx` — estraibile in `src/lib/googleMapsLoader.ts` per condivisione).
+- Riceve `sinistri[]` (lista filtrata già disponibile nella pagina).
+- Per ogni sinistro: geocoding indirizzo (`indirizzo_sinistro, cap, città, provincia`) → coordinate; cache in `useMemo` + `Map<string, LatLng>` per evitare richieste duplicate.
+- Marker `google.maps.Marker` (no AdvancedMarker → niente `mapId`) con colore in base a `tipo_sinistro`:
+  - `furto / atti_vandalici_auto` → rosso
+  - `rc_patrimoniale / rc_*` → blu
+  - `rca_* / cristalli` → arancio
+  - `infortunio_*` → viola
+  - default → grigio teal
+- `InfoWindow` su click con: N. sinistro, tipologia (label leggibile da `tipiSinistro.ts`), garanzia, data evento, luogo, riserva.
+- Bounds auto-fit su tutti i marker; fallback centro su Varese (45.8206, 8.8251) zoom 9 quando nessun marker geocodificabile.
+- Altezza fissa ~360px per allinearsi alla card grafico a fianco.
+- Legenda compatta in basso con i colori delle macro-tipologie.
 
-Estensione di `CLIENTE_TOUR_STEPS` con nuovi step ancorati alle feature recenti. Aggiunta dei `data-tour` mancanti nelle pagine corrispondenti.
+### 2. `src/pages/cliente/ClienteSinistri.tsx`
+- Rimuovere la card "Riserve vs Liquidato" (righe ~297-311) e il `BarChart` relativo + import `Bar` se non più usato.
+- Inserire `<SinistriMap sinistri={filteredSinistri} />` dentro una `Card` con header `"Mappa Sinistri"` + breve `InfoHint`.
+- La KPI card "Liquidato" in alto resta (è il KPI numerico, non il grafico).
 
-**Nuovi step aggiunti / riscritti:**
+### 3. Helper `src/lib/googleMapsLoader.ts` (estratto)
+- Esporta `loadGoogleMapsScript()` e costante `GOOGLE_MAPS_API_KEY` da `VITE_GOOGLE_MAPS_API_KEY` (o `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` se presente, fallback).
+- `AddressAutocomplete.tsx` aggiornato per importare da qui (no duplicazione).
 
-- **Polizze** — nuovo step su KPI strip (`cl-pol-kpi`), filtri avanzati (`cl-pol-filters`) e ricerca full-text estesa.
-- **Sinistri** — step su filtri multipli (stato, garanzia, polizza, città, intervallo date), export selezione/tutti, badge stato colorati.
-- **Documentazione Ente** (rifatta) — step dedicati ai 3 tab:
-  - `cl-doc-tab-polizza`: "Per Polizza — accordion con documenti raggruppati per polizza e sotto-tipo (CGA, Polizza firmata, Quietanze, Appendici…)"
-  - `cl-doc-tab-ente`: "Ente — documenti generali non legati a una polizza"
-  - `cl-doc-tab-tutti`: "Tutti — vista zebrata completa"
-  - `cl-doc-kpi`, `cl-doc-filters` (filtri per tipo doc e polizza)
-- **Chat / Comunicazioni** — nuovi step su:
-  - `cl-chat-new`: "Apri una nuova conversazione legata a polizza, sinistro o argomento libero"
-  - `cl-chat-search`: ricerca tra le conversazioni
-  - `cl-chat-export`: **NUOVO** "Esporta in PDF — la conversazione viene scaricata con header brandizzato, partecipanti, bolle alternate, timestamp e log attività"
-  - `cl-chat-context`: header contestuale (mostra polizza/sinistro collegato)
-- **Assistente AI** — step esistenti mantenuti, aggiunto step sui **suggerimenti contestuali** e sulla **citazione fonte** (già presente, riposizionato).
-- **Scadenziario** — step su priorità colorate e filtri 30/60/90 giorni.
-
-**Step rimossi/accorpati:** nessuno; tutti gli step storici restano per compatibilità.
-
-**Totale step:** da 28 → ~36.
-
-## 2. Nuovi `data-tour` da aggiungere nelle pagine
-
-- `src/pages/cliente/ClienteComunicazioni.tsx`: `cl-chat-export` sul bottone "Esporta PDF", `cl-chat-context` sull'header `CanaleContextHeader`.
-- `src/pages/cliente/ClienteDocumenti.tsx`: `cl-doc-kpi` sulla KPI strip, `cl-doc-filters` sulla riga filtri, `cl-doc-tab-polizza` / `cl-doc-tab-ente` / `cl-doc-tab-tutti` sui `TabsTrigger`.
-- `src/pages/cliente/ClienteSinistri.tsx`: `cl-sin-filters`, `cl-sin-export` (bottone Esporta tutti).
-- `src/pages/cliente/ClientePolizze.tsx`: `cl-pol-kpi`, `cl-pol-filters`.
-
-## 3. Icone "i" con tooltip esplicativo
-
-Pattern unico riusabile: piccolo componente `<InfoHint text="..." />` (icona `Info` di lucide, h-3.5 w-3.5, `text-muted-foreground hover:text-primary`) avvolto in shadcn `Tooltip`. File nuovo `src/components/cliente/InfoHint.tsx`.
-
-Inserimento dei tooltip nei punti che meritano spiegazione:
-
-- **ClienteDashboard** — accanto al titolo di ciascuna KPI card (4 card: Polizze attive, Premi totali, Sinistri aperti, Prossime scadenze) con definizione esatta del valore.
-- **ClienteDocumenti** — accanto al titolo di ogni gruppo "tipo documento" (CGA, Polizza firmata, Quietanze, Appendici, Privacy, Visure) con descrizione breve di cosa contiene; accanto al titolo dell'accordion polizza con info su stato e ramo.
-- **ClienteSinistri** — accanto a "Riserva" e "Liquidato" nell'header tabella per spiegare i due importi; accanto al badge stato.
-- **ClientePolizze** — accanto a "Premio", "Frazionamento" e "Scadenza" sulle card.
-- **ClienteScadenze** — accanto al badge "giorni mancanti".
-- **ClienteAssistente** — accanto al badge "Polizze indicizzate" (es. "L'AI consulta queste polizze + le CGA approvate").
-- **ClienteComunicazioni** — accanto al bottone Esporta PDF e accanto all'header contestuale.
-
-I testi sono brevi (max 2 righe), in italiano, senza emoji.
-
-## 4. Note tecniche
-
-- Nessuna modifica a backend/RLS/edge functions.
-- Lo `STORAGE_KEY` del tour NON viene cambiato (no flag versione): chi vuole rivedere il tour usa il pulsante ✨ in basso a destra. Opzionale: introdurre `cbnet_cliente_tour_done_v2` per ri-auto-aprire il tour una sola volta agli utenti esistenti — **da confermare**.
-- `Tooltip` shadcn è già usato altrove; nessuna nuova dipendenza.
-- I `data-tour` aggiunti sono no-op senza tour attivo: zero impatto runtime.
+## Note tecniche
+- Geocoding lato browser tramite `new google.maps.Geocoder()` (già usato in AddressAutocomplete) — nessun edge function necessaria.
+- Risultati di geocoding salvati in `sessionStorage` con chiave hash dell'indirizzo per evitare richieste ripetute tra navigazioni.
+- Marker nascosti se geocoding fallisce; counter "X di Y sinistri mappati" sotto la mappa.
+- Nessun cambio DB.
 
 ## File toccati
-
-- `src/components/tour/AppTourContext.tsx` (estensione step)
-- `src/components/cliente/InfoHint.tsx` (nuovo)
-- `src/pages/cliente/ClienteDashboard.tsx`
-- `src/pages/cliente/ClientePolizze.tsx`
-- `src/pages/cliente/ClienteSinistri.tsx`
-- `src/pages/cliente/ClienteScadenze.tsx`
-- `src/pages/cliente/ClienteDocumenti.tsx`
-- `src/pages/cliente/ClienteComunicazioni.tsx`
-- `src/pages/cliente/ClienteAssistente.tsx`
-
-## Domanda aperta
-Vuoi che il tour si riapra automaticamente una volta sola agli utenti che l'avevano già visto (nuovo storage key `_v2`)? Default proposto: **sì**.
+- `src/components/cliente/SinistriMap.tsx` (nuovo)
+- `src/lib/googleMapsLoader.ts` (nuovo, estratto)
+- `src/components/AddressAutocomplete.tsx` (refactor import)
+- `src/pages/cliente/ClienteSinistri.tsx` (sostituzione card)
