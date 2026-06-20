@@ -156,21 +156,38 @@ const AppTour = () => {
 
   if (!isActive || !step) return null;
 
+  // Se l'elemento bersaglio è enorme (intera pagina/contenitore principale) lo
+  // trattiamo come step "page-level": niente spotlight ritagliato, tooltip
+  // centrato, niente cursore che svolazza.
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const isPageLevel = !!targetRect && (
+    (targetRect.width * targetRect.height) > (vw * vh * 0.55) ||
+    targetRect.width > vw * 0.85 ||
+    targetRect.height > vh * 0.8
+  );
+
   const tooltipStyle: React.CSSProperties = {};
   let tooltipPosition: "top" | "bottom" = "bottom";
-  if (targetRect) {
-    const spaceBelow = window.innerHeight - targetRect.bottom;
+  const tooltipWidth = 340;
+
+  if (isPageLevel) {
+    tooltipPosition = "bottom";
+    tooltipStyle.top = Math.max(24, vh / 2 - 90);
+    tooltipStyle.left = Math.max(16, vw / 2 - tooltipWidth / 2);
+    tooltipStyle.width = tooltipWidth;
+  } else if (targetRect) {
+    const spaceBelow = vh - targetRect.bottom;
     const spaceAbove = targetRect.top;
     if (spaceBelow > 220 || spaceBelow > spaceAbove) {
       tooltipPosition = "bottom";
       tooltipStyle.top = targetRect.bottom + 16;
     } else {
       tooltipPosition = "top";
-      tooltipStyle.bottom = window.innerHeight - targetRect.top + 16;
+      tooltipStyle.bottom = vh - targetRect.top + 16;
     }
     const centerX = targetRect.left + targetRect.width / 2;
-    const tooltipWidth = 320;
-    tooltipStyle.left = Math.max(16, Math.min(centerX - tooltipWidth / 2, window.innerWidth - tooltipWidth - 16));
+    tooltipStyle.left = Math.max(16, Math.min(centerX - tooltipWidth / 2, vw - tooltipWidth - 16));
     tooltipStyle.width = tooltipWidth;
   }
 
@@ -180,7 +197,7 @@ const AppTour = () => {
         <defs>
           <mask id="cbnet-tour-mask">
             <rect width="100%" height="100%" fill="white" />
-            {targetRect && (
+            {targetRect && !isPageLevel && (
               <rect
                 x={targetRect.left - 8}
                 y={targetRect.top - 8}
@@ -192,10 +209,10 @@ const AppTour = () => {
             )}
           </mask>
         </defs>
-        <rect width="100%" height="100%" fill="rgba(0,0,0,0.65)" mask="url(#cbnet-tour-mask)" style={{ pointerEvents: "auto" }} />
+        <rect width="100%" height="100%" fill={isPageLevel ? "rgba(0,0,0,0.45)" : "rgba(0,0,0,0.65)"} mask="url(#cbnet-tour-mask)" style={{ pointerEvents: "auto" }} />
       </svg>
 
-      {targetRect && (
+      {targetRect && !isPageLevel && (
         <div
           className="absolute rounded-2xl border-2 border-primary transition-all duration-500 ease-out"
           style={{
@@ -209,14 +226,16 @@ const AppTour = () => {
         />
       )}
 
-      <div
-        className="absolute z-[10001] transition-all duration-500 ease-out"
-        style={{ left: cursorPos.x - 12, top: cursorPos.y - 4, pointerEvents: "none", opacity: showTooltip ? 0 : 1 }}
-      >
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-          <path d="M5 3L19 12L12 13L9 20L5 3Z" fill="hsl(var(--primary))" stroke="white" strokeWidth="1.5" strokeLinejoin="round" />
-        </svg>
-      </div>
+      {!isPageLevel && (
+        <div
+          className="absolute z-[10001] transition-all duration-500 ease-out"
+          style={{ left: cursorPos.x - 12, top: cursorPos.y - 4, pointerEvents: "none", opacity: showTooltip ? 0 : 1 }}
+        >
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M5 3L19 12L12 13L9 20L5 3Z" fill="hsl(var(--primary))" stroke="white" strokeWidth="1.5" strokeLinejoin="round" />
+          </svg>
+        </div>
+      )}
 
       {showTooltip && targetRect && (
         <div

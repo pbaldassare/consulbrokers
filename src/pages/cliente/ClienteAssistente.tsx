@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, Send, Loader2, BookOpen, FileSearch } from "lucide-react";
 import { toast } from "sonner";
 import InfoHint from "@/components/cliente/InfoHint";
-import { useTour, hasSeenAIAssistant, markAIAssistantSeen } from "@/components/tour/AppTourContext";
+import { hasSeenAIAssistant, markAIAssistantSeen } from "@/components/tour/AppTourContext";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -27,23 +27,17 @@ export default function ClienteAssistente() {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<{ polizze_amministrative: number; polizze_con_cga: number } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  const { startTourAt, isActive } = useTour();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messaggi, loading]);
 
-  // Prima visita all'Assistente AI: marca come visto, notifica la sidebar,
-  // e avvia un mini-tour focalizzato (parte dallo step "cl-assist-page").
+  // Prima visita: rimuove solo il badge "NUOVO" dalla sidebar (nessun tour auto).
   useEffect(() => {
     if (hasSeenAIAssistant()) return;
     markAIAssistantSeen();
     window.dispatchEvent(new Event("cbnet:ai-seen"));
-    if (!isActive) {
-      const t = setTimeout(() => startTourAt("cl-assist-page"), 600);
-      return () => clearTimeout(t);
-    }
-  }, [startTourAt, isActive]);
+  }, []);
 
   const ask = async (q: string) => {
     if (!q.trim() || loading) return;
