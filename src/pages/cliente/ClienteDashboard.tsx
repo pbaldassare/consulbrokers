@@ -39,6 +39,8 @@ const ClienteDashboard = () => {
 
       const cgaMapped = (cgaRes.data ?? []).map((c: any) => ({
         id: c.id,
+        _source: "cga" as const,
+        _detailPath: `/cliente/assistente?polizza=${c.id}`,
         numero_titolo: c.numero_polizza,
         stato: "attivo",
         premio_lordo: c.premio_lordo_totale || 0,
@@ -49,7 +51,14 @@ const ClienteDashboard = () => {
         rami: { descrizione: c.prodotti_cga?.ramo || "Altro" },
       }));
 
-      setPolizze([...(polRes.data ?? []), ...cgaMapped]);
+      const titoliMapped = (polRes.data ?? []).map((t: any) => ({
+        ...t,
+        _source: "titoli" as const,
+        _detailPath: `/cliente/polizze/${t.id}#scadenziario`,
+      }));
+
+      setPolizze([...titoliMapped, ...cgaMapped]);
+
       setSinistri(sinRes.data ?? []);
       setNotifiche(notRes.count ?? 0);
       setLoading(false);
@@ -215,7 +224,8 @@ const ClienteDashboard = () => {
               ) : scadenzeVicine.map(s => (
                 <Link
                   key={s.id}
-                  to={`/cliente/polizze/${s.id}#scadenziario`}
+                  to={s._detailPath ?? `/cliente/polizze/${s.id}#scadenziario`}
+
                   className="flex items-center justify-between py-2 px-2 -mx-2 rounded-md border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
                 >
                   <div className="min-w-0 pr-2">

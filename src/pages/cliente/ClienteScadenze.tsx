@@ -33,18 +33,52 @@ const ClienteScadenze = () => {
     const load = async () => {
       const { data: clienteIds } = await supabase.rpc("get_my_cliente_ids");
       if (!clienteIds?.length) { setLoading(false); return; }
-      const { data } = await supabase
-        .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, data_scadenza, targa_telaio, compagnie(nome), rami(descrizione)")
-        .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
-        .eq("stato", "attivo")
-        .not("data_scadenza", "is", null)
-        .order("data_scadenza", { ascending: true });
-      setPolizze(data ?? []);
+      const ids = clienteIds.map((c: any) => c);
+
+      const [titoliRes, cgaRes] = await Promise.all([
+        supabase
+          .from("titoli")
+          .select("id, numero_titolo, stato, premio_lordo, data_scadenza, targa_telaio, compagnie(nome), rami(descrizione)")
+          .in("cliente_anagrafica_id", ids)
+          .eq("stato", "attivo")
+          .not("data_scadenza", "is", null)
+          .order("data_scadenza", { ascending: true }),
+        supabase
+          .from("polizza_cga")
+          .select("id, numero_polizza, data_scadenza, premio_lordo_totale, prodotti_cga(nome_prodotto, compagnia, ramo)")
+          .in("cliente_id", ids)
+          .eq("stato", "approvato")
+          .not("data_scadenza", "is", null)
+          .order("data_scadenza", { ascending: true }),
+      ]);
+
+      const fromTitoli = (titoliRes.data ?? []).map((t: any) => ({
+        ...t,
+        _source: "titoli" as const,
+        _detailPath: `/cliente/polizze/${t.id}#scadenziario`,
+      }));
+
+      const fromCga = (cgaRes.data ?? []).map((p: any) => ({
+        id: p.id,
+        _source: "cga" as const,
+        _detailPath: `/cliente/assistente?polizza=${p.id}`,
+        numero_titolo: p.numero_polizza ?? "—",
+        stato: "attivo",
+        premio_lordo: p.premio_lordo_totale,
+        data_scadenza: p.data_scadenza,
+        targa_telaio: null,
+        compagnie: p.prodotti_cga?.compagnia ? { nome: p.prodotti_cga.compagnia } : null,
+        rami: p.prodotti_cga?.ramo ? { descrizione: p.prodotti_cga.ramo } : null,
+      }));
+
+      setPolizze([...fromTitoli, ...fromCga].sort((a: any, b: any) =>
+        new Date(a.data_scadenza).getTime() - new Date(b.data_scadenza).getTime()
+      ));
       setLoading(false);
     };
     load();
   }, [user]);
+
 
   const today = useMemo(() => new Date(), []);
 
@@ -178,7 +212,7 @@ const ClienteScadenze = () => {
           const barColor = urgente ? "bg-red-500" : inScadenza ? "bg-orange-400" : "bg-yellow-400";
 
           return (
-            <Link key={p.id} to={`/cliente/polizze/${p.id}#scadenziario`} className="block">
+            <Link key={p.id} to={p._detailPath ?? `/cliente/polizze/${p.id}#scadenziario`} className="block">
               <Card className="hover:shadow-md hover:border-teal-300 transition-all cursor-pointer">
                 <CardContent className="py-4">
                   <div className="flex items-center justify-between gap-4">
