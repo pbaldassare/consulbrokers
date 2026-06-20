@@ -70,13 +70,13 @@ const AppTour = () => {
     if (!step) return;
     const el = document.querySelector(`[data-tour="${step.selector}"]`);
     if (!el) {
-      if (retryRef.current < 30) {
+      if (retryRef.current < 14) {
         retryRef.current++;
         rafRef.current = window.setTimeout(findAndHighlight, 150);
         return;
       }
       console.warn(
-        `[AppTour] data-tour="${step.selector}" non trovato su ${location.pathname} dopo ${retryRef.current} tentativi (step ${currentStep + 1}/${totalSteps}). Salto allo step successivo.`
+        `[AppTour] data-tour="${step.selector}" non trovato su ${location.pathname} (step ${currentStep + 1}/${totalSteps}). Salto.`
       );
       setShowTooltip(false);
       nextStep();
