@@ -160,12 +160,12 @@ export function SinistriMap({ sinistri }: Props) {
           }
           if (cancelled) return;
           const color = colorForTipo(s.tipo_sinistro);
-          const marker = new g.maps.Marker({
+          const marker = new libs.Marker({
             position: coords,
             map: mapRef.current,
             title: s.numero_sinistro || "",
             icon: {
-              path: g.maps.SymbolPath.CIRCLE,
+              path: libs.SymbolPath?.CIRCLE ?? 0,
               scale: 9,
               fillColor: color,
               fillOpacity: 0.95,
