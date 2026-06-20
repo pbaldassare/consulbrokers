@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Download, Eye, FileText, Trash2, Upload, User, X, Shield,
-  FolderOpen, Building2, Layers, FileStack,
+  FolderOpen, Building2, Layers, FileStack, Info,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
@@ -459,16 +459,28 @@ const ClienteDocumenti = () => {
   );
 };
 
-function KpiCard({ icon: Icon, label, value }: { icon: any; label: string; value: number }) {
+function KpiCard({ icon: Icon, label, value, hint }: { icon: any; label: string; value: number; hint?: string }) {
   return (
     <Card className="bg-gradient-to-br from-teal-50 to-white border-teal-100">
       <CardContent className="p-4 flex items-center gap-3">
         <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center">
           <Icon className="h-5 w-5 text-teal-700" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <div className="text-2xl font-bold text-teal-900 leading-none">{value}</div>
-          <div className="text-[11px] text-muted-foreground mt-1 uppercase tracking-wide">{label}</div>
+          <div className="text-[11px] text-muted-foreground mt-1 uppercase tracking-wide flex items-center gap-1">
+            <span className="truncate">{label}</span>
+            {hint && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" aria-label="Info" className="text-muted-foreground/70 hover:text-teal-700">
+                    <Info className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[240px] text-xs leading-snug">{hint}</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
