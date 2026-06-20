@@ -240,11 +240,16 @@ export function SinistriMap({ sinistri }: Props) {
         if (!cancelled) {
           setMappedCount(placed);
           if (placed > 0) {
-            mapRef.current.fitBounds(bounds);
-            if (placed === 1) mapRef.current.setZoom(13);
+            mapRef.current.fitBounds(bounds, 60);
+            const listener = mapRef.current.addListener?.("idle", () => {
+              const z = mapRef.current.getZoom?.() ?? 13;
+              if (z > 14) mapRef.current.setZoom(14);
+              if (placed === 1) mapRef.current.setZoom(14);
+              (window as any).google?.maps?.event?.removeListener(listener);
+            });
           } else {
             mapRef.current.setCenter(VARESE_CENTER);
-            mapRef.current.setZoom(9);
+            mapRef.current.setZoom(13);
           }
           setLoading(false);
         }
