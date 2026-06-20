@@ -2072,8 +2072,14 @@ export default function ClienteDetail() {
         <div className="flex items-center flex-wrap gap-1">
           <TabsList className="flex-wrap">
             {(() => {
-              const nQuiet = polizze.filter((p) => !!p.sostituisce_polizza).length;
-              const nPol = polizze.length - nQuiet;
+              // Conteggio basato sul numero polizza: ogni numero_titolo distinto = 1 polizza,
+              // le rate ulteriori sono quietanze. Robusto anche quando sostituisce_polizza è NULL
+              // (titoli legacy o generati dal trigger di auto-quietanza).
+              const numeriUnici = new Set(
+                polizze.map((p: any) => p.numero_titolo).filter(Boolean)
+              );
+              const nPol = numeriUnici.size;
+              const nQuiet = Math.max(0, polizze.length - nPol);
               return (
                 <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({nPol}) · Quietanze ({nQuiet})</TabsTrigger>
               );
