@@ -63,7 +63,7 @@ export default function PolizzaDetail() {
         .from("polizze")
         .select(`
           *,
-          clienti:cliente_anagrafica_id (id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, codice),
+          clienti:cliente_anagrafica_id (id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, codice_cliente),
           compagnie:compagnia_id (id, nome, codice),
           rami:ramo_id (id, codice, descrizione)
         `)
