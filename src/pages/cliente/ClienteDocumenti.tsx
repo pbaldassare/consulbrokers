@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Download, Eye, FileText, Trash2, Upload, User, X, Shield,
-  FolderOpen, Building2, Layers, FileStack,
+  FolderOpen, Building2, Layers, FileStack, Info,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
@@ -264,15 +264,15 @@ const ClienteDocumenti = () => {
       </div>
 
       {/* KPI strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard icon={FileStack} label="Documenti totali" value={stats.totale} />
-        <KpiCard icon={Shield} label="Polizze documentate" value={stats.polizzeCount} />
-        <KpiCard icon={Layers} label="Condizioni / CGA" value={stats.cga} />
-        <KpiCard icon={User} label="Caricati da te" value={stats.miei} />
+      <div data-tour="cl-doc-kpi" className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard icon={FileStack} label="Documenti totali" value={stats.totale} hint="Numero complessivo di documenti accessibili al tuo ente (ente + polizze + CGA)." />
+        <KpiCard icon={Shield} label="Polizze documentate" value={stats.polizzeCount} hint="Polizze che hanno almeno un documento associato (contratto, quietanza, CGA, appendice…)." />
+        <KpiCard icon={Layers} label="Condizioni / CGA" value={stats.cga} hint="Set di Condizioni Generali (CGA) caricati e analizzati: alimentano l'Assistente AI." />
+        <KpiCard icon={User} label="Caricati da te" value={stats.miei} hint="Documenti che hai caricato tu dal portale. Puoi eliminarli; gli altri sono read-only." />
       </div>
 
       {/* Toolbar */}
-      <Card>
+      <Card data-tour="cl-doc-filters">
         <CardContent className="pt-4 pb-4">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
             <div className="md:col-span-5">
@@ -301,15 +301,15 @@ const ClienteDocumenti = () => {
       ) : (
         <Tabs value={tab} onValueChange={setTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 max-w-xl">
-            <TabsTrigger value="polizza" className="gap-2">
+            <TabsTrigger data-tour="cl-doc-tab-polizza" value="polizza" className="gap-2">
               <Shield className="h-4 w-4" /> Per Polizza
               <Badge variant="secondary" className="ml-1">{perPolizza.length}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="ente" className="gap-2">
+            <TabsTrigger data-tour="cl-doc-tab-ente" value="ente" className="gap-2">
               <Building2 className="h-4 w-4" /> Ente
               <Badge variant="secondary" className="ml-1">{docsEnteOnly.length}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="tutti" className="gap-2">
+            <TabsTrigger data-tour="cl-doc-tab-tutti" value="tutti" className="gap-2">
               <FolderOpen className="h-4 w-4" /> Tutti
               <Badge variant="secondary" className="ml-1">{filtered.length}</Badge>
             </TabsTrigger>
@@ -459,16 +459,28 @@ const ClienteDocumenti = () => {
   );
 };
 
-function KpiCard({ icon: Icon, label, value }: { icon: any; label: string; value: number }) {
+function KpiCard({ icon: Icon, label, value, hint }: { icon: any; label: string; value: number; hint?: string }) {
   return (
     <Card className="bg-gradient-to-br from-teal-50 to-white border-teal-100">
       <CardContent className="p-4 flex items-center gap-3">
         <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center">
           <Icon className="h-5 w-5 text-teal-700" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <div className="text-2xl font-bold text-teal-900 leading-none">{value}</div>
-          <div className="text-[11px] text-muted-foreground mt-1 uppercase tracking-wide">{label}</div>
+          <div className="text-[11px] text-muted-foreground mt-1 uppercase tracking-wide flex items-center gap-1">
+            <span className="truncate">{label}</span>
+            {hint && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" aria-label="Info" className="text-muted-foreground/70 hover:text-teal-700">
+                    <Info className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[240px] text-xs leading-snug">{hint}</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

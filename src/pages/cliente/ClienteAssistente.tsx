@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Send, Loader2, BookOpen, FileSearch } from "lucide-react";
 import { toast } from "sonner";
+import InfoHint from "@/components/cliente/InfoHint";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -58,13 +59,14 @@ export default function ClienteAssistente() {
           <Sparkles className="h-5 w-5 text-primary" /> Assistente Polizze
         </h1>
         {stats && (
-          <div className="flex gap-2 text-xs" data-tour="cl-assist-stats">
+          <div className="flex gap-2 items-center text-xs" data-tour="cl-assist-stats">
             <Badge variant="secondary" className="gap-1">
               <FileSearch className="h-3 w-3" /> {stats.polizze_amministrative} polizze
             </Badge>
             <Badge variant="secondary" className="gap-1">
               <BookOpen className="h-3 w-3" /> {stats.polizze_con_cga} con CGA
             </Badge>
+            <InfoHint text="L'AI consulta in tempo reale i dati amministrativi di tutte le tue polizze + le Condizioni Generali (CGA) approvate. Ogni risposta cita la polizza di origine." />
           </div>
         )}
       </div>

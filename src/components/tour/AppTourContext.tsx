@@ -38,39 +38,50 @@ export const useTour = () => {
 
 export const CLIENTE_TOUR_STEPS: TourStep[] = [
   // Sidebar
-  { selector: "cl-logo", title: "Benvenuto in CBnet! 👋", description: "Questa è la tua Area Clienti: polizze, scadenze, sinistri e documenti del tuo ente, tutto in un solo posto e in tempo reale.", page: "/cliente" },
-  { selector: "cl-nav-dashboard", title: "Dashboard 📊", description: "Il tuo punto di partenza: KPI, prossime scadenze, sinistri aperti e premi totali aggiornati in tempo reale.", page: "/cliente" },
+  { selector: "cl-logo", title: "Benvenuto in CBnet! 👋", description: "Questa è la tua Area Clienti: polizze, scadenze, sinistri, chat e documenti del tuo ente — tutto in un solo posto, in tempo reale.", page: "/cliente" },
+  { selector: "cl-nav-dashboard", title: "Dashboard 📊", description: "Il tuo punto di partenza: KPI, prossime scadenze, sinistri aperti e premi totali, sempre aggiornati.", page: "/cliente" },
 
   // Dashboard
-  { selector: "cl-dash-kpi", title: "Le tue polizze a colpo d'occhio 📈", description: "Polizze attive, premi totali, sinistri aperti e prossime scadenze: i numeri chiave del tuo ente, sempre sincronizzati.", page: "/cliente", action: { type: "navigate", target: "/cliente", delay: 400 } },
+  { selector: "cl-dash-kpi", title: "Le tue polizze a colpo d'occhio 📈", description: "Polizze attive, premi totali, sinistri aperti e prossime scadenze: i numeri chiave del tuo ente. Passa il mouse sulle icone ⓘ per la definizione esatta.", page: "/cliente", action: { type: "navigate", target: "/cliente", delay: 400 } },
 
   // Polizze
   { selector: "cl-nav-polizze", title: "Le tue Polizze 🛡️", description: "Tutte le polizze del tuo ente: stato, premio, scadenza, ramo e compagnia. Filtra e apri il dettaglio con un click.", page: "/cliente" },
-  { selector: "cl-pol-page", title: "Pagina Polizze 🛡️", description: "Qui filtri per stato, ramo, compagnia e data scadenza. Clicca una riga per vedere il dettaglio completo della polizza.", page: "/cliente/polizze", action: { type: "navigate", target: "/cliente/polizze", delay: 500 } },
+  { selector: "cl-pol-page", title: "Pagina Polizze 🛡️", description: "Tabella zebrata con riga espandibile: clicca per vedere decorrenza, periodicità, quietanze e documenti senza cambiare pagina.", page: "/cliente/polizze", action: { type: "navigate", target: "/cliente/polizze", delay: 500 } },
+  { selector: "cl-pol-filters", title: "Filtri avanzati & ricerca 🔍", description: "Cerca per numero polizza, targa, prodotto o CIG. Combina filtri per garanzia, compagnia e intervallo di scadenza. Esporta CSV/Excel in un click.", page: "/cliente/polizze" },
 
   // Scadenziario
   { selector: "cl-nav-scadenziario", title: "Scadenziario 📅", description: "Niente più sorprese: vedi cosa scade nei prossimi 30, 60 o 90 giorni e organizza i rinnovi in anticipo.", page: "/cliente" },
-  { selector: "cl-scad-page", title: "Le tue Scadenze ⏰", description: "Lista ordinata per data: filtri su finestra temporale, ramo e compagnia. I giorni mancanti sono evidenziati per priorità.", page: "/cliente/scadenze", action: { type: "navigate", target: "/cliente/scadenze", delay: 500 } },
+  { selector: "cl-scad-page", title: "Le tue Scadenze ⏰", description: "Lista ordinata per priorità: badge 🔴 URGENTE (≤30gg), 🟠 IN SCADENZA (≤60gg). La barra colorata mostra a colpo d'occhio quanto manca alla scadenza.", page: "/cliente/scadenze", action: { type: "navigate", target: "/cliente/scadenze", delay: 500 } },
 
   // Sinistri
-  { selector: "cl-nav-sinistri", title: "Sinistri 🚨", description: "Apri una nuova denuncia, allega foto e documenti e segui ogni aggiornamento dal tuo perito direttamente dal portale.", page: "/cliente" },
-  { selector: "cl-sin-page", title: "Gestione Sinistri 📋", description: "Stato, riserve, importi liquidati e dettagli per ramo. Apri un sinistro con il pulsante in alto a destra in pochi secondi.", page: "/cliente/sinistri", action: { type: "navigate", target: "/cliente/sinistri", delay: 500 } },
+  { selector: "cl-nav-sinistri", title: "Sinistri 🚨", description: "Apri una nuova denuncia, allega foto e documenti, e segui ogni aggiornamento del perito direttamente dal portale.", page: "/cliente" },
+  { selector: "cl-sin-page", title: "Gestione Sinistri 📋", description: "5 KPI in alto (Totale, Aperti, Chiusi, Riserve, Liquidato) e due grafici interattivi per ramo e per importo. Apri un sinistro con il pulsante in alto a destra.", page: "/cliente/sinistri", action: { type: "navigate", target: "/cliente/sinistri", delay: 500 } },
+  { selector: "cl-sin-filters", title: "Filtri multi-selezione 🎯", description: "Filtra per stato, garanzia, compagnia, polizza, città e intervallo date evento. Tutti i filtri sono multipli e combinabili.", page: "/cliente/sinistri" },
+  { selector: "cl-sin-export", title: "Export Excel 📤", description: "Esporta in XLSX solo i sinistri selezionati (checkbox) oppure l'intero set filtrato. Utile per analisi offline e report interni.", page: "/cliente/sinistri" },
 
   // Chat
   { selector: "cl-nav-chat", title: "Chat con la tua agenzia 💬", description: "Parla direttamente con i tuoi referenti: una conversazione per ogni polizza, sinistro o argomento. Tutto tracciato.", page: "/cliente" },
-  { selector: "cl-chat-page", title: "Le tue Conversazioni 💬", description: "Sulla sinistra l'elenco dei canali, a destra la chat. Niente email perse: tutto in un unico posto sicuro.", page: "/cliente/chat", action: { type: "navigate", target: "/cliente/chat", delay: 500 } },
+  { selector: "cl-chat-page", title: "Le tue Conversazioni 💬", description: "Sulla sinistra l'elenco dei canali con anteprima, conteggio non letti e timestamp. A destra la chat con header contestuale (polizza/sinistro collegato).", page: "/cliente/chat", action: { type: "navigate", target: "/cliente/chat", delay: 500 } },
+  { selector: "cl-chat-search", title: "Ricerca conversazioni 🔎", description: "Cerca nei titoli E dentro i messaggi: bastano 2 caratteri. I canali con match nei messaggi mostrano il badge 'match'.", page: "/cliente/chat" },
+  { selector: "cl-chat-new", title: "Nuova conversazione ➕", description: "Apri un canale legato a una specifica polizza, a un sinistro, oppure un argomento libero. Scegli i destinatari interni dell'agenzia.", page: "/cliente/chat" },
+  { selector: "cl-chat-export", title: "Esporta la chat in PDF 📄", description: "NOVITÀ: scarica l'intera conversazione in PDF brandizzato CBnet — header, partecipanti, bolle messaggi con timestamp e log attività completo. Perfetto per archivio o per portarla in agenzia.", page: "/cliente/chat" },
 
-  // Assistente Polizze (AI) — NEW
-  { selector: "cl-nav-assistente", title: "Assistente Polizze ✨", description: "La novità: un assistente AI che conosce TUTTE le tue polizze e risponde alle tue domande in linguaggio naturale.", page: "/cliente" },
+  // Assistente Polizze (AI)
+  { selector: "cl-nav-assistente", title: "Assistente Polizze ✨", description: "Un assistente AI che conosce TUTTE le tue polizze e risponde in linguaggio naturale, citando sempre la fonte.", page: "/cliente" },
   { selector: "cl-assist-page", title: "Chiedi all'AI 🤖", description: "Interroga il tuo intero portafoglio: coperture, massimali, franchigie, esclusioni, scadenze. L'AI consulta sia i dati amministrativi sia le condizioni contrattuali (CGA) analizzate.", page: "/cliente/assistente", action: { type: "navigate", target: "/cliente/assistente", delay: 500 } },
-  { selector: "cl-assist-stats", title: "Polizze indicizzate 📚", description: "Il badge mostra quante polizze e quanti set di Condizioni Generali l'assistente sta consultando in tempo reale per rispondere alle tue domande.", page: "/cliente/assistente" },
+  { selector: "cl-assist-stats", title: "Polizze indicizzate 📚", description: "Il badge mostra quante polizze e quanti set di CGA l'assistente sta consultando in tempo reale per rispondere alle tue domande.", page: "/cliente/assistente" },
   { selector: "cl-assist-suggerimenti", title: "Domande di esempio 💡", description: "Non sai da dove iniziare? Clicca uno degli esempi: 'Ho un sinistro: sono coperto?', 'Quali franchigie ho?', 'Ho copertura cyber?' e tante altre.", page: "/cliente/assistente" },
-  { selector: "cl-assist-page", title: "Citazione delle fonti 🔖", description: "Ogni risposta cita SEMPRE la polizza di origine tra parentesi quadre, es: [All Risks Property · n° K24IT018712 · AXA XL]. Così sai esattamente da dove arriva l'informazione.", page: "/cliente/assistente" },
+  { selector: "cl-assist-page", title: "Citazione delle fonti 🔖", description: "Ogni risposta cita SEMPRE la polizza di origine tra parentesi quadre, es: [All Risks Property · n° K24IT018712 · AXA XL]. Sai sempre da dove arriva l'informazione.", page: "/cliente/assistente" },
 
-  // Documentazione Ente
-  { selector: "cl-nav-documenti", title: "Documentazione Ente 📁", description: "L'archivio dei documenti generali del tuo ente: contratti, certificati, allegati. Accesso protetto e privato.", page: "/cliente" },
-  { selector: "cl-doc-page", title: "Archivio Documenti 🗂️", description: "Filtra per nome o tipologia, scarica, anteprima e — se l'hai caricato tu — elimina con conferma. Il bucket è privato e cifrato.", page: "/cliente/documenti", action: { type: "navigate", target: "/cliente/documenti", delay: 500 } },
-  { selector: "cl-doc-upload", title: "Carica un documento 📤", description: "Trascina o seleziona un file: sarà archiviato nel bucket privato del tuo ente e visibile solo a te e all'agenzia.", page: "/cliente/documenti" },
+  // Documentazione Ente — rifatta
+  { selector: "cl-nav-documenti", title: "Documentazione Ente 📁", description: "L'archivio completo del tuo ente: contratti, CGA, polizze firmate, quietanze, appendici e privacy. Accesso protetto.", page: "/cliente" },
+  { selector: "cl-doc-page", title: "Archivio Documenti 🗂️", description: "Layout rinnovato: KPI in alto, filtri potenti e 3 tab dedicate. Ogni documento è classificato per tipologia con icona e colore.", page: "/cliente/documenti", action: { type: "navigate", target: "/cliente/documenti", delay: 500 } },
+  { selector: "cl-doc-kpi", title: "I tuoi KPI documentali 📊", description: "Totale documenti, polizze documentate, set CGA caricati e file caricati da te: tutto in un colpo d'occhio.", page: "/cliente/documenti" },
+  { selector: "cl-doc-filters", title: "Filtri intelligenti 🎯", description: "Cerca per nome/categoria/polizza/compagnia, oppure filtra per tipologia (CGA, Polizza firmata, Quietanze, Appendici, Privacy…) o per singola polizza.", page: "/cliente/documenti" },
+  { selector: "cl-doc-tab-polizza", title: "Tab 'Per Polizza' 🛡️", description: "Accordion per ogni polizza: vedi quanti documenti ha, quando è stata aggiornata e i file raggruppati per tipologia. Ideale per trovare subito CGA o quietanze.", page: "/cliente/documenti" },
+  { selector: "cl-doc-tab-ente", title: "Tab 'Ente' 🏢", description: "Solo i documenti generali dell'ente, non legati a una specifica polizza: visure, statuti, deleghe, ecc.", page: "/cliente/documenti" },
+  { selector: "cl-doc-tab-tutti", title: "Tab 'Tutti' 📜", description: "Vista cronologica completa con badge della polizza di appartenenza. Utile per scaricamenti massivi e ricerche trasversali.", page: "/cliente/documenti" },
+  { selector: "cl-doc-upload", title: "Carica un documento 📤", description: "Trascina o seleziona un file: sarà archiviato nel bucket privato del tuo ente. Solo tu e l'agenzia potete accedervi.", page: "/cliente/documenti" },
 
   // Notifiche
   { selector: "cl-nav-notifiche", title: "Notifiche 🔔", description: "Tutti gli aggiornamenti che ti riguardano: nuove polizze, scadenze, sinistri e messaggi dall'agenzia.", page: "/cliente" },
@@ -89,10 +100,10 @@ export const CLIENTE_TOUR_STEPS: TourStep[] = [
   { selector: "cl-topbar-logout", title: "Esci in sicurezza 🔐", description: "Quando hai finito, premi Esci per chiudere la sessione. Per riaprire il tour usa il pulsante ✨ in basso a destra.", page: "/cliente" },
 
   // Final
-  { selector: "cl-logo", title: "Buon lavoro! 🎉", description: "Hai visto tutte le sezioni della tua Area Clienti. Per qualsiasi necessità la tua agenzia è a un click di distanza. A presto!", page: "/cliente" },
+  { selector: "cl-logo", title: "Buon lavoro! 🎉", description: "Hai visto tutte le sezioni della tua Area Clienti, comprese le novità (export PDF chat, nuovo archivio documenti, filtri sinistri). La tua agenzia è a un click. A presto!", page: "/cliente" },
 ];
 
-const STORAGE_KEY = "cbnet_cliente_tour_done";
+const STORAGE_KEY = "cbnet_cliente_tour_done_v2";
 
 export const TourProvider = ({ children }: { children: ReactNode }) => {
   const [isActive, setIsActive] = useState(false);
