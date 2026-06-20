@@ -36,26 +36,38 @@ function colorForTipo(t?: string | null): string {
   return "#64748b"; // slate
 }
 
-function loadMapsScript(): Promise<void> {
-  if ((window as any).google?.maps?.Geocoder) return Promise.resolve();
+async function ensureMapsReady(): Promise<void> {
+  const g: any = (window as any).google;
+  if (g?.maps?.Map && g?.maps?.Geocoder) return;
+  // If script tag exists but libraries not ready, wait then importLibrary
   const existing = document.querySelector<HTMLScriptElement>('script[src*="maps.googleapis.com/maps/api/js"]');
-  if (existing) {
-    return new Promise((resolve, reject) => {
-      if ((window as any).google?.maps) return resolve();
+  if (!existing) {
+    if (!GOOGLE_MAPS_API_KEY) throw new Error("VITE_GOOGLE_MAPS_API_KEY non configurata");
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=it&loading=async&v=weekly`;
+      s.async = true;
+      s.defer = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("maps load failed"));
+      document.head.appendChild(s);
+    });
+  } else if (!(window as any).google?.maps) {
+    await new Promise<void>((resolve, reject) => {
       existing.addEventListener("load", () => resolve(), { once: true });
       existing.addEventListener("error", () => reject(new Error("maps load failed")), { once: true });
     });
   }
-  if (!GOOGLE_MAPS_API_KEY) return Promise.reject(new Error("VITE_GOOGLE_MAPS_API_KEY non configurata"));
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=it&loading=async&v=weekly`;
-    s.async = true;
-    s.defer = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("maps load failed"));
-    document.head.appendChild(s);
-  });
+  const gm: any = (window as any).google?.maps;
+  if (!gm) throw new Error("Google Maps non inizializzato");
+  // With loading=async, core classes are not exposed until importLibrary is called
+  if (typeof gm.importLibrary === "function") {
+    await Promise.all([
+      gm.importLibrary("maps"),
+      gm.importLibrary("geocoding"),
+      gm.importLibrary("marker"),
+    ]);
+  }
 }
 
 function readCache(): Record<string, { lat: number; lng: number }> {
