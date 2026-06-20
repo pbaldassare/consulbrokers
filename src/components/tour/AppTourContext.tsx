@@ -116,6 +116,12 @@ export const TourProvider = ({ children }: { children: ReactNode }) => {
     setIsActive(true);
   }, []);
 
+  const startTourAt = useCallback((selector: string) => {
+    const idx = steps.findIndex((s) => s.selector === selector);
+    setCurrentStep(idx >= 0 ? idx : 0);
+    setIsActive(true);
+  }, [steps]);
+
   const stopTour = useCallback(() => {
     setIsActive(false);
     setCurrentStep(0);
@@ -143,6 +149,7 @@ export const TourProvider = ({ children }: { children: ReactNode }) => {
         steps,
         totalSteps: steps.length,
         startTour,
+        startTourAt,
         stopTour,
         nextStep,
         prevStep,
