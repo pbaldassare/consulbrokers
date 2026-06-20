@@ -9,6 +9,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { format, differenceInDays } from "date-fns";
 import { it } from "date-fns/locale";
 import { fmtEuro0 as fmt } from "@/lib/formatCurrency";
+import InfoHint from "@/components/cliente/InfoHint";
 
 const COLORS = ["#0d9488", "#f59e0b", "#6366f1", "#ef4444", "#10b981", "#8b5cf6", "#ec4899", "#06b6d4"];
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
