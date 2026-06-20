@@ -224,7 +224,8 @@ const ClienteDashboard = () => {
               ) : scadenzeVicine.map(s => (
                 <Link
                   key={s.id}
-                  to={`/cliente/polizze/${s.id}#scadenziario`}
+                  to={s._detailPath ?? `/cliente/polizze/${s.id}#scadenziario`}
+
                   className="flex items-center justify-between py-2 px-2 -mx-2 rounded-md border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
                 >
                   <div className="min-w-0 pr-2">
