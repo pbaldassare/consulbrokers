@@ -163,3 +163,11 @@ export const TourProvider = ({ children }: { children: ReactNode }) => {
 export const hasSeenClienteTour = () => {
   try { return localStorage.getItem(STORAGE_KEY) === "1"; } catch { return false; }
 };
+
+const AI_SEEN_KEY = "cbnet_cliente_ai_seen";
+export const hasSeenAIAssistant = () => {
+  try { return localStorage.getItem(AI_SEEN_KEY) === "1"; } catch { return false; }
+};
+export const markAIAssistantSeen = () => {
+  try { localStorage.setItem(AI_SEEN_KEY, "1"); } catch {}
+};
