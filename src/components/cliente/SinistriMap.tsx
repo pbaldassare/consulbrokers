@@ -118,26 +118,25 @@ export function SinistriMap({ sinistri }: Props) {
 
     (async () => {
       try {
-        await ensureMapsReady();
+        const libs = await ensureMapsLibs();
         if (cancelled || !containerRef.current) return;
-        const g = (window as any).google;
         if (!mapRef.current) {
-          mapRef.current = new g.maps.Map(containerRef.current, {
+          mapRef.current = new libs.Map(containerRef.current, {
             center: VARESE_CENTER,
             zoom: 9,
             mapTypeControl: false,
             streetViewControl: false,
             fullscreenControl: true,
           });
-          infoRef.current = new g.maps.InfoWindow();
+          infoRef.current = new libs.InfoWindow();
         }
         // clear previous markers
         markersRef.current.forEach(m => m.setMap(null));
         markersRef.current = [];
 
         const cache = readCache();
-        const geocoder = new g.maps.Geocoder();
-        const bounds = new g.maps.LatLngBounds();
+        const geocoder = new libs.Geocoder();
+        const bounds = new libs.LatLngBounds();
         let placed = 0;
 
         for (const s of sinistri) {
