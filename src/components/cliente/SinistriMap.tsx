@@ -104,7 +104,7 @@ export function SinistriMap({ sinistri }: Props) {
 
     (async () => {
       try {
-        await loadMapsScript();
+        await ensureMapsReady();
         if (cancelled || !containerRef.current) return;
         const g = (window as any).google;
         if (!mapRef.current) {
