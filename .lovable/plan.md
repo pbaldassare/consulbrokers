@@ -1,86 +1,73 @@
-… (riferito a `src/pages/cliente/ClienteDocumenti.tsx` — solo frontend)
+# Tour guidato + Info tooltip — aggiornamento
 
-## Obiettivo
-Trasformare la pagina "Documentazione Ente" del portale cliente da lista piatta a vista organizzata, ricca e accattivante, con i documenti raggruppati per **Polizza** e per **Tipo di condizione/documento**, mantenendo i documenti generali dell'ente in una sezione dedicata.
+Obiettivo: aggiornare il tour del portale cliente con le nuove feature (export chat PDF, nuovo layout Documentazione Ente a tab, filtri avanzati Sinistri, Assistente AI) e aggiungere icone **(i)** con tooltip esplicativo sui punti chiave delle card per renderli auto-spiegati anche fuori dal tour.
 
-## Layout nuovo
+## 1. Tour guidato (`src/components/tour/AppTourContext.tsx`)
 
-```text
-┌─ Header ──────────────────────────────────────────────┐
-│ Documentazione Ente            [⬆ Carica documento]  │
-│ Sottotitolo + breadcrumb compatto                     │
-└───────────────────────────────────────────────────────┘
-┌─ KPI strip (4 card piccole, gradient teal) ──────────┐
-│ Totale doc · Polizze documentate · CGA · Caricati da te
-└───────────────────────────────────────────────────────┘
-┌─ Toolbar ─────────────────────────────────────────────┐
-│ [Cerca…]  [Tipo doc ▾]  [Polizza ▾]  [Vista: ▣ Card / ☰ Lista]  [Reset] │
-└───────────────────────────────────────────────────────┘
+Estensione di `CLIENTE_TOUR_STEPS` con nuovi step ancorati alle feature recenti. Aggiunta dei `data-tour` mancanti nelle pagine corrispondenti.
 
-┌─ TAB: "Per Polizza" │ "Documenti Ente" │ "Tutti" ────┐
+**Nuovi step aggiunti / riscritti:**
 
-▸ TAB "Per Polizza" → Accordion per ogni polizza:
-   ┌────────────────────────────────────────────┐
-   │ 🛡 POLIZZA ALL RISKS — N° M15888042       │
-   │    Compagnia · Ramo · Stato (badge)        │
-   │    📎 6 documenti  │ ultimo: 11/06/2026   │
-   │ ▾  ────────────────────────────────────── │
-   │   ▸ Capitolato / CGA          (2)          │
-   │     • G00304257_Capitolato.pdf  [👁][⬇]   │
-   │   ▸ Polizza firmata           (1)          │
-   │   ▸ Quietanze                 (1)          │
-   │   ▸ Altri documenti           (2)          │
-   └────────────────────────────────────────────┘
+- **Polizze** — nuovo step su KPI strip (`cl-pol-kpi`), filtri avanzati (`cl-pol-filters`) e ricerca full-text estesa.
+- **Sinistri** — step su filtri multipli (stato, garanzia, polizza, città, intervallo date), export selezione/tutti, badge stato colorati.
+- **Documentazione Ente** (rifatta) — step dedicati ai 3 tab:
+  - `cl-doc-tab-polizza`: "Per Polizza — accordion con documenti raggruppati per polizza e sotto-tipo (CGA, Polizza firmata, Quietanze, Appendici…)"
+  - `cl-doc-tab-ente`: "Ente — documenti generali non legati a una polizza"
+  - `cl-doc-tab-tutti`: "Tutti — vista zebrata completa"
+  - `cl-doc-kpi`, `cl-doc-filters` (filtri per tipo doc e polizza)
+- **Chat / Comunicazioni** — nuovi step su:
+  - `cl-chat-new`: "Apri una nuova conversazione legata a polizza, sinistro o argomento libero"
+  - `cl-chat-search`: ricerca tra le conversazioni
+  - `cl-chat-export`: **NUOVO** "Esporta in PDF — la conversazione viene scaricata con header brandizzato, partecipanti, bolle alternate, timestamp e log attività"
+  - `cl-chat-context`: header contestuale (mostra polizza/sinistro collegato)
+- **Assistente AI** — step esistenti mantenuti, aggiunto step sui **suggerimenti contestuali** e sulla **citazione fonte** (già presente, riposizionato).
+- **Scadenziario** — step su priorità colorate e filtri 30/60/90 giorni.
 
-▸ TAB "Documenti Ente" → cards generiche non legate a polizza
-   (visure, statuti, deleghe, privacy…)
+**Step rimossi/accorpati:** nessuno; tutti gli step storici restano per compatibilità.
 
-▸ TAB "Tutti" → la lista zebrata attuale ma migliorata
-```
+**Totale step:** da 28 → ~36.
 
-## Logica dati (solo frontend)
-- Carica come oggi `documenti` filtrati su `entita_tipo='cliente' AND entita_id IN get_my_cliente_ids()`.
-- In parallelo carica i documenti collegati alle polizze del cliente:
-  - `titoli` del cliente → `documenti` con `entita_tipo='titolo' AND entita_id IN (...)`.
-  - `polizza_cga` del cliente (stato approvato) → `documenti` con `entita_tipo='polizza_cga' AND entita_id IN (...)`.
-- Unisce tutto in un'unica struttura `{ doc, polizza?, tipo, group }`.
-- Mappa `categoria` → **tipo documento normalizzato** con label + icona + colore:
-  - `cga_polizza`, `capitolato` → "Condizioni / CGA" 📘
-  - `polizza_firmata`, `polizza_def` → "Polizza firmata" ✍️
-  - `quietanza` → "Quietanze" 💳
-  - `appendice` → "Appendici" 📎
-  - `privacy`, `informativa` → "Privacy" 🔒
-  - default → "Altri documenti" 📄
-- Determina la polizza di appartenenza tramite:
-  1. `entita_tipo='titolo'` → join in memoria con `titoli` (numero/compagnia/ramo).
-  2. `entita_tipo='polizza_cga'` → join con `polizza_cga` (numero/oggetto).
-  3. Pattern nel `nome_file` (es. `POLIZZA_<NUM>_…`) come fallback.
+## 2. Nuovi `data-tour` da aggiungere nelle pagine
 
-## Componenti UI (shadcn esistenti)
-- `Tabs` (Per Polizza / Documenti Ente / Tutti).
-- `Accordion` per polizza con header ricco (icona scudo teal, numero, badge ramo/stato, contatore documenti, data ultimo aggiornamento).
-- Sotto-raggruppamento per "tipo documento" con piccoli pill colorati.
-- Card documento: icona tipo (colorata per categoria), nome file truncato con tooltip, badge "Caricato da te"/"Visibile", data relativa ("2 giorni fa") + assoluta in tooltip, azioni `Anteprima` / `Scarica` / `Elimina` (solo se caricato da cliente).
-- Toggle vista **Griglia/Lista** (persistito in `localStorage`).
-- Empty state illustrato (icona grande teal, CTA "Carica il primo documento").
+- `src/pages/cliente/ClienteComunicazioni.tsx`: `cl-chat-export` sul bottone "Esporta PDF", `cl-chat-context` sull'header `CanaleContextHeader`.
+- `src/pages/cliente/ClienteDocumenti.tsx`: `cl-doc-kpi` sulla KPI strip, `cl-doc-filters` sulla riga filtri, `cl-doc-tab-polizza` / `cl-doc-tab-ente` / `cl-doc-tab-tutti` sui `TabsTrigger`.
+- `src/pages/cliente/ClienteSinistri.tsx`: `cl-sin-filters`, `cl-sin-export` (bottone Esporta tutti).
+- `src/pages/cliente/ClientePolizze.tsx`: `cl-pol-kpi`, `cl-pol-filters`.
 
-## Estetica
-- Palette teal/dark petrol coerente (già in uso).
-- KPI: card con sfondo `bg-gradient-to-br from-teal-50 to-white border-teal-100`, numero grande, label muted, mini-icona.
-- Header polizza: striscia teal sottile a sinistra, hover lift leggero.
-- Riga doc: zebra + hover `bg-teal-50/40`, icona tipo in cerchio colorato.
-- Date: formato relativo + assoluto in tooltip via `date-fns/formatDistanceToNow`.
+## 3. Icone "i" con tooltip esplicativo
 
-## Funzionalità extra
-- **Ricerca** estesa a nome file, categoria, numero polizza, compagnia.
-- **Filtro Tipo doc** alimentato dalla mappa normalizzata (non più stringhe grezze).
-- **Filtro Polizza** con `SearchableSelect` (numero + compagnia).
-- **Ordinamento** all'interno di ogni gruppo: per data discendente di default.
-- **Conteggio** per tab e per gruppo.
-- Persistenza vista (griglia/lista) e tab attivo in `localStorage`.
+Pattern unico riusabile: piccolo componente `<InfoHint text="..." />` (icona `Info` di lucide, h-3.5 w-3.5, `text-muted-foreground hover:text-primary`) avvolto in shadcn `Tooltip`. File nuovo `src/components/cliente/InfoHint.tsx`.
+
+Inserimento dei tooltip nei punti che meritano spiegazione:
+
+- **ClienteDashboard** — accanto al titolo di ciascuna KPI card (4 card: Polizze attive, Premi totali, Sinistri aperti, Prossime scadenze) con definizione esatta del valore.
+- **ClienteDocumenti** — accanto al titolo di ogni gruppo "tipo documento" (CGA, Polizza firmata, Quietanze, Appendici, Privacy, Visure) con descrizione breve di cosa contiene; accanto al titolo dell'accordion polizza con info su stato e ramo.
+- **ClienteSinistri** — accanto a "Riserva" e "Liquidato" nell'header tabella per spiegare i due importi; accanto al badge stato.
+- **ClientePolizze** — accanto a "Premio", "Frazionamento" e "Scadenza" sulle card.
+- **ClienteScadenze** — accanto al badge "giorni mancanti".
+- **ClienteAssistente** — accanto al badge "Polizze indicizzate" (es. "L'AI consulta queste polizze + le CGA approvate").
+- **ClienteComunicazioni** — accanto al bottone Esporta PDF e accanto all'header contestuale.
+
+I testi sono brevi (max 2 righe), in italiano, senza emoji.
+
+## 4. Note tecniche
+
+- Nessuna modifica a backend/RLS/edge functions.
+- Lo `STORAGE_KEY` del tour NON viene cambiato (no flag versione): chi vuole rivedere il tour usa il pulsante ✨ in basso a destra. Opzionale: introdurre `cbnet_cliente_tour_done_v2` per ri-auto-aprire il tour una sola volta agli utenti esistenti — **da confermare**.
+- `Tooltip` shadcn è già usato altrove; nessuna nuova dipendenza.
+- I `data-tour` aggiunti sono no-op senza tour attivo: zero impatto runtime.
 
 ## File toccati
-- `src/pages/cliente/ClienteDocumenti.tsx` (riscrittura UI + fetch esteso a documenti polizza, solo lettura).
-- Eventuale piccolo helper `src/lib/clienteDocumentiTypes.ts` per la mappa categoria→tipo normalizzato (etichetta, icona, colore).
 
-Nessuna modifica DB/RLS/edge functions. Nessun cambio a permessi: i documenti polizza sono già letti dai clienti via RLS esistente sul portale.
+- `src/components/tour/AppTourContext.tsx` (estensione step)
+- `src/components/cliente/InfoHint.tsx` (nuovo)
+- `src/pages/cliente/ClienteDashboard.tsx`
+- `src/pages/cliente/ClientePolizze.tsx`
+- `src/pages/cliente/ClienteSinistri.tsx`
+- `src/pages/cliente/ClienteScadenze.tsx`
+- `src/pages/cliente/ClienteDocumenti.tsx`
+- `src/pages/cliente/ClienteComunicazioni.tsx`
+- `src/pages/cliente/ClienteAssistente.tsx`
+
+## Domanda aperta
+Vuoi che il tour si riapra automaticamente una volta sola agli utenti che l'avevano già visto (nuovo storage key `_v2`)? Default proposto: **sì**.
