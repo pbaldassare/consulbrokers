@@ -1,21 +1,13 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
-} from "@/components/ui/alert-dialog";
-import { ArrowLeft, FileText, Loader2, Pencil, Banknote, Undo2, RotateCcw } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, Pencil } from "lucide-react";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { format } from "date-fns";
-import { toast } from "sonner";
-import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
-import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
-import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
+import { AzioniPolizzaToolbar, type ToolbarQuietanza } from "@/components/titolo/AzioniPolizzaToolbar";
 
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
 
@@ -32,19 +24,15 @@ export default function QuietanzaDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const [cassaOpen, setCassaOpen] = useState(false);
-  const [stornoOpen, setStornoOpen] = useState(false);
-  const [annullaLoading, setAnnullaLoading] = useState(false);
-
   const { data: q, isLoading } = useQuery({
     queryKey: ["quietanza", id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("quietanze")
-        .select(`
-          *,
+        .select(`*,
           polizze:polizza_id (
             id, numero_polizza, stato, cliente_anagrafica_id, compagnia_id, ramo_id, ufficio_id,
+            titolo_madre_id, regolazione,
             clienti:cliente_anagrafica_id (id, nome, cognome, ragione_sociale),
             compagnie:compagnia_id (id, nome),
             rami:ramo_id (id, codice, descrizione)
@@ -58,7 +46,26 @@ export default function QuietanzaDetail() {
     enabled: !!id,
   });
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ["quietanza", id] });
+  const polizzaId: string | undefined = (q as any)?.polizze?.id;
+
+  const { data: quietanzeSorelle = [] } = useQuery({
+    queryKey: ["polizza-quietanze", polizzaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("quietanze")
+        .select("id, numero_rata, numero_rate_totali, garanzia_da, garanzia_a, data_scadenza, premio_lordo, stato, data_messa_cassa, titolo_id")
+        .eq("polizza_id", polizzaId!)
+        .order("numero_rata", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!polizzaId,
+  });
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["quietanza", id] });
+    if (polizzaId) qc.invalidateQueries({ queryKey: ["polizza-quietanze", polizzaId] });
+  };
 
   if (isLoading) {
     return (
@@ -86,38 +93,21 @@ export default function QuietanzaDetail() {
   const titoloId: string | null = (q as any).titolo_id;
   const numPol = polizza?.numero_polizza || (q as any).numero_polizza_snapshot || "";
 
-  const isMessaCassa = !!q.data_messa_cassa;
-  const isIncassata = stato === "incassato";
-  const lockedQ = ["annullata", "stornata"].includes(stato);
-
-  async function handleAnnullaMessaCassa() {
-    if (!titoloId) {
-      toast.error("Quietanza senza titolo collegato.");
-      return;
-    }
-    setAnnullaLoading(true);
-    const res = await annullaMessaACassa(titoloId);
-    setAnnullaLoading(false);
-    if (!res.ok) {
-      toast.error(res.error || "Errore durante l'annullamento messa a cassa");
-      return;
-    }
-    toast.success(`Messa a cassa annullata · ${res.provvigioniEliminate ?? 0} provvigioni rimosse`);
-    refresh();
-  }
-
-  const titoloMin = titoloId
-    ? [{
-        id: titoloId,
-        numero_titolo: numPol,
-        premio_lordo: q.premio_lordo,
-        cliente_anagrafica_id: polizza?.cliente_anagrafica_id ?? null,
-        ufficio_id: polizza?.ufficio_id ?? null,
-      }]
-    : [];
+  const current: ToolbarQuietanza | null = {
+    id: q.id,
+    numero_rata: q.numero_rata,
+    numero_rate_totali: q.numero_rate_totali,
+    garanzia_da: q.garanzia_da,
+    garanzia_a: q.garanzia_a,
+    data_scadenza: q.data_scadenza,
+    premio_lordo: q.premio_lordo,
+    stato: q.stato,
+    data_messa_cassa: q.data_messa_cassa,
+    titolo_id: titoloId,
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 max-w-6xl mx-auto">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -150,136 +140,86 @@ export default function QuietanzaDetail() {
         )}
       </div>
 
-      {/* === AZIONI === */}
-      <Card>
-        <CardContent className="py-3 flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            onClick={() => setCassaOpen(true)}
-            disabled={!titoloId || isMessaCassa || lockedQ}
-            title={isMessaCassa ? "Quietanza già messa a cassa" : undefined}
-          >
-            <Banknote className="h-4 w-4 mr-1" /> Messa a cassa
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!titoloId || !isMessaCassa || isIncassata || annullaLoading}
-                title={!isMessaCassa ? "Quietanza non messa a cassa" : isIncassata ? "Già incassata" : undefined}
-              >
-                <RotateCcw className="h-4 w-4 mr-1" /> Annulla messa a cassa
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Annullare la messa a cassa?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Verranno eliminate provvigioni non pagate e movimenti contabili collegati a questa quietanza.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Annulla</AlertDialogCancel>
-                <AlertDialogAction onClick={handleAnnullaMessaCassa}>
-                  {annullaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Conferma"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setStornoOpen(true)}
-            disabled={!titoloId || lockedQ}
-          >
-            <Undo2 className="h-4 w-4 mr-1" /> Storno
-          </Button>
-        </CardContent>
-      </Card>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader><CardTitle className="text-base">Periodo & scadenze</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Field label="Decorrenza" value={fmtDate(q.garanzia_da)} />
-            <Field label="Scadenza garanzia" value={fmtDate(q.garanzia_a)} />
-            <Field label="Competenza" value={fmtDate(q.data_competenza)} />
-            <Field label="Scadenza pagamento" value={fmtDate(q.data_scadenza)} />
-            <Field label="Limite mora" value={fmtDate(q.limite_mora)} />
-            <Field label="Giorni mora" value={q.mora_giorni?.toString()} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle className="text-base">Importi</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Field label="Premio netto" value={fmtEuro(q.premio_netto)} />
-            <Field label="Tasse" value={fmtEuro(q.tasse)} />
-            <Field label="Addizionali" value={fmtEuro(q.addizionali)} />
-            <Field label="SSN" value={fmtEuro(q.ssn)} />
-            <Field label="Premio lordo" value={fmtEuro(q.premio_lordo)} highlight />
-            <Field label="Provv. firma" value={fmtEuro(q.provvigioni_firma)} />
-            <Field label="Provv. quietanza" value={fmtEuro(q.provvigioni_quietanza)} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle className="text-base">Messa a cassa & incasso</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Field label="Data messa a cassa" value={fmtDate(q.data_messa_cassa)} />
-            <Field label="Data pagamento" value={fmtDate(q.data_pagamento)} />
-            <Field label="Data incasso" value={fmtDate(q.data_incasso)} />
-            <Field label="Importo incassato" value={q.importo_incassato != null ? fmtEuro(q.importo_incassato) : "—"} highlight />
-            <Field label="Tipo incasso" value={q.tipo_incasso} />
-            <Field label="Conto incasso" value={q.conto_incasso} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle className="text-base">Riferimenti</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Field label="N° polizza (snapshot)" value={q.numero_polizza_snapshot} />
-            <Field label="Appendice" value={q.appendice} />
-            {titoloId && (
-              <div className="pt-2 border-t mt-2 flex items-center justify-between">
-                <span className="text-muted-foreground">Titolo legacy</span>
-                <Link to={`/titoli/${titoloId}`} className="text-primary hover:underline text-xs inline-flex items-center gap-1">
-                  <FileText className="h-3 w-3" /> Apri
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {titoloId && (
-        <>
-          <MessaCassaDialog
-            open={cassaOpen}
-            onOpenChange={setCassaOpen}
-            titoli={titoloMin}
-            onSuccess={refresh}
-          />
-          <StornoTitoloDialog
-            open={stornoOpen}
-            onOpenChange={setStornoOpen}
-            titoloId={titoloId}
-            numeroPolizza={numPol}
-            onDone={refresh}
-          />
-        </>
+      {polizza && (
+        <AzioniPolizzaToolbar
+          polizzaId={polizza.id}
+          numeroPolizza={numPol}
+          statoPolizza={polizza.stato}
+          titoloMadreId={polizza.titolo_madre_id ?? null}
+          clienteId={polizza.cliente_anagrafica_id ?? null}
+          uffizioId={polizza.ufficio_id ?? null}
+          regolazione={!!polizza.regolazione}
+          quietanze={quietanzeSorelle as ToolbarQuietanza[]}
+          currentQuietanza={current}
+          onRefresh={refresh}
+        />
       )}
+
+      <div className="grid md:grid-cols-2 gap-3">
+        <CompactCard title="Periodo & scadenze">
+          <Field label="Decorrenza" value={fmtDate(q.garanzia_da)} />
+          <Field label="Scadenza garanzia" value={fmtDate(q.garanzia_a)} />
+          <Field label="Competenza" value={fmtDate(q.data_competenza)} />
+          <Field label="Scadenza pagamento" value={fmtDate(q.data_scadenza)} />
+          <Field label="Limite mora" value={fmtDate(q.limite_mora)} />
+          <Field label="Giorni mora" value={q.mora_giorni?.toString()} />
+        </CompactCard>
+
+        <CompactCard title="Importi">
+          <Field label="Premio netto" value={fmtEuro(q.premio_netto)} />
+          <Field label="Tasse" value={fmtEuro(q.tasse)} />
+          <Field label="Addizionali" value={fmtEuro(q.addizionali)} />
+          <Field label="SSN" value={fmtEuro(q.ssn)} />
+          <Field label="Premio lordo" value={fmtEuro(q.premio_lordo)} highlight />
+          <Field label="Provv. firma" value={fmtEuro(q.provvigioni_firma)} />
+          <Field label="Provv. quietanza" value={fmtEuro(q.provvigioni_quietanza)} />
+        </CompactCard>
+
+        <CompactCard title="Messa a cassa & incasso">
+          <Field label="Data messa a cassa" value={fmtDate(q.data_messa_cassa)} />
+          <Field label="Data pagamento" value={fmtDate(q.data_pagamento)} />
+          <Field label="Data incasso" value={fmtDate(q.data_incasso)} />
+          <Field label="Importo incassato" value={q.importo_incassato != null ? fmtEuro(q.importo_incassato) : "—"} highlight />
+          <Field label="Tipo incasso" value={q.tipo_incasso} />
+          <Field label="Conto incasso" value={q.conto_incasso} />
+        </CompactCard>
+
+        <CompactCard title="Riferimenti">
+          <Field label="N° polizza (snapshot)" value={q.numero_polizza_snapshot} />
+          <Field label="Appendice" value={q.appendice} />
+          {titoloId && (
+            <div className="pt-2 mt-1 border-t border-border/40 flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">Titolo legacy</span>
+              <Link to={`/titoli/${titoloId}`} className="text-primary hover:underline text-xs inline-flex items-center gap-1">
+                <FileText className="h-3 w-3" /> Apri
+              </Link>
+            </div>
+          )}
+        </CompactCard>
+      </div>
     </div>
+  );
+}
+
+function CompactCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card>
+      <CardHeader className="py-3 px-4">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-3 pt-0 text-sm">
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
 function Field({ label, value, highlight }: { label: string; value: any; highlight?: boolean }) {
   return (
-    <div className="flex justify-between gap-4">
+    <div className="flex justify-between gap-4 py-1.5 border-b border-border/40 last:border-0">
       <span className="text-muted-foreground">{label}</span>
-      <span className={"text-right " + (highlight ? "font-bold text-foreground" : "font-medium")}>
-        {value || value === 0 ? value : "—"}
+      <span className={"text-right tabular-nums " + (highlight ? "font-bold text-foreground" : "font-medium")}>
+        {value || value === 0 ? value : <span className="text-muted-foreground font-normal">—</span>}
       </span>
     </div>
   );
