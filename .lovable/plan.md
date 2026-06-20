@@ -1,19 +1,27 @@
-## Causa
-Google Maps è caricato con `loading=async`: in questa modalità `google.maps.Map`, `Marker` e `Geocoder` **non sono disponibili come costruttori globali** finché non si chiama `importLibrary()`. Il mio fix precedente provava `importLibrary` ma usava ancora i riferimenti globali `g.maps.Map` / `g.maps.Marker`, che restano stub e tirano "is not a constructor".
+## Collegare "Prossime Scadenze" → Polizza → Scadenziario
 
-## Fix in `src/components/cliente/SinistriMap.tsx`
+### Stato attuale
+- **Dashboard cliente** (`ClienteDashboard.tsx`): il widget "Prossime Scadenze" mostra le polizze in scadenza nei prossimi 90gg ma le righe **non sono cliccabili**.
+- **Lista Scadenze** (`ClienteScadenze.tsx`): già collega ogni card a `/cliente/polizze/:id` ✅.
+- **Dettaglio polizza** (`ClientePolizzaDetail.tsx`): contiene già la card "Rate / Quietanze" con le date di decorrenza/scadenza di tutte le rate — è di fatto lo **scadenziario** della polizza, ma non ha un ancoraggio dedicato e l'etichetta non lo evidenzia.
 
-1. Rimuovere il check iniziale "se `google.maps.Map` esiste salta" — non è affidabile.
-2. Cambiare `ensureMapsReady()` per **restituire** le classi importate:
-   ```ts
-   async function ensureMapsLibs(): Promise<{ Map: any; Marker: any; Geocoder: any; InfoWindow: any; LatLngBounds: any; SymbolPath: any }>
-   ```
-   - garantisce che il tag `<script>` sia in pagina (riusa esistente);
-   - aspetta `window.google.maps.importLibrary`;
-   - esegue `const [{ Map, InfoWindow }, { Marker }, { Geocoder }, core] = await Promise.all([importLibrary('maps'), importLibrary('marker'), importLibrary('geocoding'), importLibrary('core')])`;
-   - estrae `LatLngBounds` e `SymbolPath` da `core` / `maps`.
-3. Nell'`useEffect`: chiamare `const libs = await ensureMapsLibs()` e usare `new libs.Map(...)`, `new libs.Marker(...)`, `new libs.Geocoder()`, `new libs.InfoWindow()`, `new libs.LatLngBounds()`, `libs.SymbolPath.CIRCLE`.
-4. Aggiungere un fallback se `importLibrary` non è una funzione (vecchia API): usare `window.google.maps.Map` direttamente.
-5. Loggare in console l'errore reale per facilitare il debug futuro.
+### Modifiche
 
-Nessun cambio fuori da `SinistriMap.tsx`. Niente DB, niente nuovi pacchetti.
+1. **`ClienteDashboard.tsx` — widget Prossime Scadenze**
+   - Avvolgere ogni riga in `<Link to={"/cliente/polizze/${s.id}#scadenziario"}>` con hover (stesso stile delle card lista scadenze).
+   - Mostrare anche il nome compagnia sotto al ramo per coerenza con la lista.
+   - Aggiungere in fondo un link "Vedi tutte →" a `/cliente/scadenze`.
+
+2. **`ClienteScadenze.tsx`**
+   - Cambiare il target dei link in `/cliente/polizze/${p.id}#scadenziario` così atterrando in dettaglio si scrolla direttamente sulla sezione rate.
+
+3. **`ClientePolizzaDetail.tsx` — sezione Scadenziario**
+   - Rinominare la card "Rate / Quietanze" in **"Scadenziario (Rate / Quietanze)"** e aggiungere `id="scadenziario"` al `<Card>`.
+   - Aggiungere un `useEffect` che, se `location.hash === "#scadenziario"`, fa `scrollIntoView({ behavior: "smooth" })` sull'elemento.
+   - Aggiungere una colonna "Giorni" (gg mancanti alla scadenza della rata) con badge colorato (rosso ≤30, arancio ≤60, giallo ≤90, grigio oltre) per allineare visivamente al concetto di scadenziario.
+   - Aggiungere in alto alla card un mini-riepilogo: "Prossima rata: <data> — <importo>" calcolato dalla prima quietanza con `stato != "incassata"` e `data_scadenza >= oggi`.
+
+### Note
+- Nessuna modifica DB: lo scadenziario è già rappresentato dalla tabella `quietanze` (una riga per rata) collegata a `titoli`.
+- Nessuna modifica a permessi/RLS: le pagine usano già le RLS cliente esistenti.
+- Lavoro solo di frontend (presentazione + navigazione).
