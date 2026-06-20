@@ -111,10 +111,10 @@ const ClienteDashboard = () => {
     .sort((a, b) => a.anno.localeCompare(b.anno));
 
   const kpis = [
-    { title: "Polizze Attive", value: attive.length, icon: Shield, color: "text-emerald-600", bg: "bg-emerald-100", link: "/cliente/polizze" },
-    { title: "Premi Totali", value: fmt(premiTotali), icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-100", link: "/cliente/polizze" },
-    { title: "Sinistri Aperti", value: sinAperti, icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-100", link: "/cliente/sinistri" },
-    { title: "Scadenze 90gg", value: prossimeScadenze, icon: CalendarClock, color: "text-red-600", bg: "bg-red-100", link: "/cliente/scadenze" },
+    { title: "Polizze Attive", value: attive.length, icon: Shield, color: "text-emerald-600", bg: "bg-emerald-100", link: "/cliente/polizze", hint: "Polizze in stato 'attivo' del tuo ente. Esclude polizze scadute, annullate o sospese." },
+    { title: "Premi Totali", value: fmt(premiTotali), icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-100", link: "/cliente/polizze", hint: "Somma dei premi lordi annui delle polizze attive (importo che l'ente paga per la copertura)." },
+    { title: "Sinistri Aperti", value: sinAperti, icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-100", link: "/cliente/sinistri", hint: "Sinistri non ancora chiusi o respinti: in valutazione, lavorazione, attesa documenti o liquidazione." },
+    { title: "Scadenze 90gg", value: prossimeScadenze, icon: CalendarClock, color: "text-red-600", bg: "bg-red-100", link: "/cliente/scadenze", hint: "Polizze attive che scadono nei prossimi 90 giorni: pianifica i rinnovi per tempo." },
   ];
 
   const scadenzeVicine = attive
@@ -139,7 +139,10 @@ const ClienteDashboard = () => {
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{k.title}</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                      {k.title}
+                      {k.hint && <InfoHint text={k.hint} size="xs" />}
+                    </p>
                     <p className="text-2xl font-bold text-foreground mt-1">{loading ? "…" : k.value}</p>
                   </div>
                   <div className={`h-11 w-11 rounded-full ${k.bg} flex items-center justify-center`}>
