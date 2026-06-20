@@ -33,11 +33,11 @@ import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { rowBorderClass, isQuietanzaRow, displayStatoPolizza } from "@/lib/polizzeDisplay";
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
-const rowHref = (p: any) => {
-  const isQ = !!p?.sostituisce_polizza || (Number(p?.numero_rata) || 0) > 1;
-  if (isQ && p?.polizza_id) return `/polizze/${p.polizza_id}`;
-  if (p?.sostituisce_polizza && p?.quietanza_id) return `/quietanze/${p.quietanza_id}`;
-  return `/polizze/${p?.polizza_id}`;
+const rowHref = (p: any): string | null => {
+  if (p?.polizza_id) return `/polizze/${p.polizza_id}`;
+  if (p?.quietanza_id) return `/quietanze/${p.quietanza_id}`;
+  if (p?.id) return `/polizze/${p.id}`;
+  return null;
 };
 
 
