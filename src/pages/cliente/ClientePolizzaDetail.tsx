@@ -69,6 +69,23 @@ const ClientePolizzaDetail = () => {
     });
   }, [id]);
 
+  useEffect(() => {
+    if (loading) return;
+    if (location.hash === "#scadenziario") {
+      const el = document.getElementById("scadenziario");
+      if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    }
+  }, [loading, location.hash]);
+
+  const prossimaRata = useMemo(() => {
+    const today = new Date();
+    return quietanze
+      .filter((q: any) => q.stato !== "incassato" && q.stato !== "annullata" && q.stato !== "stornata")
+      .map((q: any) => ({ ...q, _date: q.garanzia_a ?? q.data_scadenza }))
+      .filter((q: any) => q._date && new Date(q._date) >= new Date(today.toDateString()))
+      .sort((a: any, b: any) => new Date(a._date).getTime() - new Date(b._date).getTime())[0];
+  }, [quietanze]);
+
   const handleDownload = async (doc: any) => {
     const { data } = await supabase.storage.from(doc.bucket_name).createSignedUrl(doc.path_storage, 300);
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
