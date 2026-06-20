@@ -37,6 +37,7 @@ const boolLabel = (v: any) => v === true ? "Sì" : v === false ? "No" : "—";
 const ClientePolizzaDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [titolo, setTitolo] = useState<any>(null);
   const [docs, setDocs] = useState<any[]>([]);
   const [sinistri, setSinistri] = useState<any[]>([]);
