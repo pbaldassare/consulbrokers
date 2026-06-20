@@ -162,16 +162,18 @@ export default function ClienteSinistri() {
   const riserve = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
   const liquidato = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
 
-  // Pie - Sinistri per Ramo (aperti vs chiusi)
-  const sinPerRamo = filteredSinistri.reduce((acc: any[], s: any) => {
-    const ramo = s.ramo_sinistro || "Altro";
-    const isOpen = !["chiuso", "respinto"].includes(s.stato);
-    const key = `${ramo} (${isOpen ? "Aperti" : "Chiusi"})`;
-    const existing = acc.find(a => a.name === key);
-    if (existing) existing.value++;
-    else acc.push({ name: key, value: 1, ramo, isOpen });
-    return acc;
-  }, []);
+  // Istogramma - Sinistri per Ramo (aperti vs chiusi)
+  const sinPerRamo = (() => {
+    const map = new Map<string, { ramo: string; aperti: number; chiusi: number }>();
+    filteredSinistri.forEach((s: any) => {
+      const ramo = s.ramo_sinistro || "Altro";
+      const isOpen = !["chiuso", "respinto"].includes(s.stato);
+      const cur = map.get(ramo) || { ramo, aperti: 0, chiusi: 0 };
+      if (isOpen) cur.aperti++; else cur.chiusi++;
+      map.set(ramo, cur);
+    });
+    return Array.from(map.values());
+  })();
 
   // Bar data riserve vs liquidato
   const barData = filteredSinistri.map((s: any) => ({
