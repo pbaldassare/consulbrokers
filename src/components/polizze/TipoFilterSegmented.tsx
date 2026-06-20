@@ -8,6 +8,8 @@ export type TipoFilterSegmentedProps = {
   counts?: { tutti?: number; polizze?: number; quietanze?: number; regolazioni?: number };
   /** Mostra anche il chip Regolazioni (solo portafoglio). Default: false. */
   withRegolazioni?: boolean;
+  /** Nasconde il chip Polizze (es. pagina Carico dove ci sono solo quietanze). Default: false. */
+  hidePolizze?: boolean;
   className?: string;
 };
 
