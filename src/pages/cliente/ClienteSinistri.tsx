@@ -284,15 +284,14 @@ export default function ClienteSinistri() {
             <CardHeader className="pb-2"><CardTitle className="text-base">Sinistri per Ramo (Aperti vs Chiusi)</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={sinPerRamo} cx="50%" cy="50%" innerRadius={50} outerRadius={95} paddingAngle={3} dataKey="value" label={({ name, value }) => `${value}`} labelLine={false}>
-                    {sinPerRamo.map((entry, i) => (
-                      <Cell key={i} fill={entry.isOpen ? COLORS_OPEN[i % COLORS_OPEN.length] : COLORS_CLOSED[i % COLORS_CLOSED.length]} />
-                    ))}
-                  </Pie>
+                <BarChart data={sinPerRamo} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
+                  <XAxis dataKey="ramo" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={50} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                </PieChart>
+                  <Bar dataKey="aperti" name="Aperti" stackId="a" fill="#ea580c" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="chiusi" name="Chiusi" stackId="a" fill="#059669" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
