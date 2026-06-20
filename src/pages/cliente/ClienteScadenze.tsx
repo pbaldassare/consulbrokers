@@ -212,7 +212,7 @@ const ClienteScadenze = () => {
           const barColor = urgente ? "bg-red-500" : inScadenza ? "bg-orange-400" : "bg-yellow-400";
 
           return (
-            <Link key={p.id} to={`/cliente/polizze/${p.id}#scadenziario`} className="block">
+            <Link key={p.id} to={p._detailPath ?? `/cliente/polizze/${p.id}#scadenziario`} className="block">
               <Card className="hover:shadow-md hover:border-teal-300 transition-all cursor-pointer">
                 <CardContent className="py-4">
                   <div className="flex items-center justify-between gap-4">
