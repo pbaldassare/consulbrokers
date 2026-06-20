@@ -70,6 +70,7 @@ import { exportSinistriXlsx } from "@/lib/exportSinistriXlsx";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import InfoHint from "@/components/cliente/InfoHint";
+import SinistriMap from "@/components/cliente/SinistriMap";
 
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
 const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
