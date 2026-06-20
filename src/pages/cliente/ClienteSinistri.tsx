@@ -69,6 +69,7 @@ import { fmtEuro0 as fmt } from "@/lib/formatCurrency";
 import { exportSinistriXlsx } from "@/lib/exportSinistriXlsx";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import InfoHint from "@/components/cliente/InfoHint";
 
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
 const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
@@ -179,11 +180,11 @@ export default function ClienteSinistri() {
   }));
 
   const kpis = [
-    { label: "Totale", value: filteredSinistri.length, icon: AlertTriangle, color: "text-blue-600", bg: "bg-blue-100", border: "#2563eb" },
-    { label: "Aperti", value: aperti, icon: Clock, color: "text-orange-600", bg: "bg-orange-100", border: "#ea580c" },
-    { label: "Chiusi", value: chiusi, icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-100", border: "#059669" },
-    { label: "Riserve Totali", value: fmt(riserve), icon: DollarSign, color: "text-red-600", bg: "bg-red-100", border: "#dc2626" },
-    { label: "Liquidato", value: fmt(liquidato), icon: DollarSign, color: "text-teal-600", bg: "bg-teal-100", border: "#0d9488" },
+    { label: "Totale", value: filteredSinistri.length, icon: AlertTriangle, color: "text-blue-600", bg: "bg-blue-100", border: "#2563eb", hint: "Numero totale di sinistri visibili con i filtri attualmente applicati." },
+    { label: "Aperti", value: aperti, icon: Clock, color: "text-orange-600", bg: "bg-orange-100", border: "#ea580c", hint: "Sinistri non ancora chiusi o respinti: in valutazione, lavorazione, attesa documenti o liquidazione." },
+    { label: "Chiusi", value: chiusi, icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-100", border: "#059669", hint: "Sinistri definiti: stato 'chiuso' (liquidato o senza seguito) o 'respinto' dalla compagnia." },
+    { label: "Riserve Totali", value: fmt(riserve), icon: DollarSign, color: "text-red-600", bg: "bg-red-100", border: "#dc2626", hint: "Somma stimata che la compagnia ha accantonato per i sinistri in corso. È una stima, non un pagato." },
+    { label: "Liquidato", value: fmt(liquidato), icon: DollarSign, color: "text-teal-600", bg: "bg-teal-100", border: "#0d9488", hint: "Somma effettivamente pagata dalla compagnia ai beneficiari per i sinistri filtrati." },
   ];
 
   const toggleExpand = (id: string) => {
@@ -260,8 +261,11 @@ export default function ClienteSinistri() {
                 <div className={`h-8 w-8 rounded-full ${k.bg} flex items-center justify-center`}>
                   <k.icon className={`h-4 w-4 ${k.color}`} />
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{k.label}</p>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    {k.label}
+                    {k.hint && <InfoHint text={k.hint} size="xs" />}
+                  </p>
                   <p className={`text-lg font-bold ${k.color}`}>{k.value}</p>
                 </div>
               </div>
