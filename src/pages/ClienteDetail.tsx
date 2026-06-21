@@ -1376,8 +1376,9 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                 <>
                   <TableRow
                     key={c.numero}
-                    className="cursor-pointer border-l-4 border-l-polizza hover:bg-muted/50"
+                    className="cursor-pointer border-l-4 border-l-polizza hover:bg-polizza/5 hover:ring-1 hover:ring-inset hover:ring-polizza/30 transition-colors"
                     onClick={() => navigate(`/titoli/${head.id}`)}
+                    title="Apri polizza madre"
                   >
                     <TableCell onClick={(e) => { e.stopPropagation(); if (showRate) toggle(c.numero); }}>
                       {showRate ? (isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />) : null}
