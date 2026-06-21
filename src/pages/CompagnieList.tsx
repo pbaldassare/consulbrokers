@@ -1375,6 +1375,7 @@ const CompagnieList = () => {
   const [filterTipo, setFilterTipo] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("agenzie");
   const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
+  const [provvigioniTarget, setProvvigioniTarget] = useState<{ id: string; nome: string } | null>(null);
   const [deleteCompagnia, setDeleteCompagnia] = useState<{ id: string; nome: string; attiva: boolean } | null>(null);
 
   const { data: compagnie = [], isLoading } = useQuery({
