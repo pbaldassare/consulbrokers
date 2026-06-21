@@ -1414,8 +1414,9 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   {showRate && isOpen && c.rate.map((r, i) => (
                     <TableRow
                       key={r.id}
-                      className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/30 hover:bg-quietanza-soft/60"
+                      className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/30 hover:bg-quietanza-soft/70 hover:ring-1 hover:ring-inset hover:ring-quietanza/40 transition-colors"
                       onClick={() => navigate(`/quietanze/${r.id}`)}
+                      title="Apri quietanza"
                     >
                       <TableCell></TableCell>
                       <TableCell className="pl-8 font-mono text-xs text-muted-foreground">
