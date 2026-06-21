@@ -109,20 +109,31 @@ export default function ProvvigioniCompagniaDialog({
                   {rapporti.map((r: any) => {
                     const active = r.id === selectedRapportoId;
                     const sub = r.gruppi_compagnia?.descrizione;
+                    const n = r.righe_provvigioni || 0;
                     return (
                       <button
                         key={r.id}
                         type="button"
                         onClick={() => setSelectedRapportoId(r.id)}
                         className={
-                          "px-3 py-1.5 rounded-md text-xs font-medium border transition-colors " +
+                          "px-3 py-1.5 rounded-md text-xs font-medium border transition-colors flex items-center gap-1.5 " +
                           (active
                             ? "bg-primary text-primary-foreground border-primary"
                             : "bg-muted/40 text-foreground border-border hover:bg-muted")
                         }
                       >
                         <span>{r.nome_rapporto}</span>
-                        {sub && <span className="opacity-70 ml-1">· {sub}</span>}
+                        {sub && <span className="opacity-70">· {sub}</span>}
+                        <span
+                          className={
+                            "ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold " +
+                            (n > 0
+                              ? active ? "bg-primary-foreground/20" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                              : active ? "bg-primary-foreground/20" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300")
+                          }
+                        >
+                          {n > 0 ? `✓ ${n}` : "vuoto"}
+                        </span>
                       </button>
                     );
                   })}
@@ -133,7 +144,7 @@ export default function ProvvigioniCompagniaDialog({
                   <SearchableSelect
                     options={rapporti.map((r: any) => ({
                       value: r.id,
-                      label: `${r.nome_rapporto}${r.gruppi_compagnia?.descrizione ? ` · ${r.gruppi_compagnia.descrizione}` : ""}`,
+                      label: `${r.nome_rapporto}${r.gruppi_compagnia?.descrizione ? ` · ${r.gruppi_compagnia.descrizione}` : ""} ${r.righe_provvigioni > 0 ? `· ✓ ${r.righe_provvigioni}` : "· vuoto"}`,
                     }))}
                     value={selectedRapportoId}
                     onValueChange={setSelectedRapportoId}
@@ -142,11 +153,23 @@ export default function ProvvigioniCompagniaDialog({
                 </div>
               )}
               {rapporti.length === 1 && (
-                <div className="text-xs text-muted-foreground">
-                  Rapporto: <span className="font-medium text-foreground">{rapporti[0].nome_rapporto}</span>
-                  {rapporti[0].gruppi_compagnia?.descrizione && (
-                    <span className="opacity-70"> · {rapporti[0].gruppi_compagnia.descrizione}</span>
-                  )}
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <span>
+                    Rapporto: <span className="font-medium text-foreground">{rapporti[0].nome_rapporto}</span>
+                    {rapporti[0].gruppi_compagnia?.descrizione && (
+                      <span className="opacity-70"> · {rapporti[0].gruppi_compagnia.descrizione}</span>
+                    )}
+                  </span>
+                  <span
+                    className={
+                      "px-1.5 py-0.5 rounded text-[10px] font-semibold " +
+                      ((rapporti[0].righe_provvigioni || 0) > 0
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300")
+                    }
+                  >
+                    {(rapporti[0].righe_provvigioni || 0) > 0 ? `✓ Configurato (${rapporti[0].righe_provvigioni} righe)` : "Vuoto — da configurare"}
+                  </span>
                 </div>
               )}
 
