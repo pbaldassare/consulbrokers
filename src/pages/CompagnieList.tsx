@@ -1748,6 +1748,19 @@ const CompagnieList = () => {
         compagniaNome={rapportiTarget?.nome || ""}
       />
 
+      <ProvvigioniCompagniaDialog
+        open={!!provvigioniTarget}
+        onOpenChange={(v) => !v && setProvvigioniTarget(null)}
+        compagniaId={provvigioniTarget?.id || null}
+        compagniaNome={provvigioniTarget?.nome || ""}
+        onOpenRapporti={() => {
+          const t = provvigioniTarget;
+          setProvvigioniTarget(null);
+          if (t) setRapportiTarget(t);
+        }}
+      />
+
+
       <DeleteWithImpactDialog
         open={!!deleteCompagnia}
         onOpenChange={(o) => !o && setDeleteCompagnia(null)}
