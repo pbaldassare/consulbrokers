@@ -19,6 +19,7 @@ import { Plus, Building2, Search, Percent, Pencil, Layers, Trash2, Network, Aler
 const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
 
 import RapportiCompagniaDialog from "@/components/compagnie/RapportiCompagniaDialog";
+import ProvvigioniCompagniaDialog from "@/components/compagnie/ProvvigioniCompagniaDialog";
 
 
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
@@ -1374,6 +1375,7 @@ const CompagnieList = () => {
   const [filterTipo, setFilterTipo] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("agenzie");
   const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
+  const [provvigioniTarget, setProvvigioniTarget] = useState<{ id: string; nome: string } | null>(null);
   const [deleteCompagnia, setDeleteCompagnia] = useState<{ id: string; nome: string; attiva: boolean } | null>(null);
 
   const { data: compagnie = [], isLoading } = useQuery({
@@ -1695,7 +1697,18 @@ const CompagnieList = () => {
                             </Button>
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
-                            <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Provvigioni per rapporto"
+                                onClick={() => setProvvigioniTarget({ id: c.id, nome: c.nome })}
+                              >
+                                <Percent className="w-4 h-4" />
+                              </Button>
+                              <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
+                            </div>
                           </TableCell>
                           <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                             <Button
@@ -1734,6 +1747,19 @@ const CompagnieList = () => {
         compagniaId={rapportiTarget?.id || null}
         compagniaNome={rapportiTarget?.nome || ""}
       />
+
+      <ProvvigioniCompagniaDialog
+        open={!!provvigioniTarget}
+        onOpenChange={(v) => !v && setProvvigioniTarget(null)}
+        compagniaId={provvigioniTarget?.id || null}
+        compagniaNome={provvigioniTarget?.nome || ""}
+        onOpenRapporti={() => {
+          const t = provvigioniTarget;
+          setProvvigioniTarget(null);
+          if (t) setRapportiTarget(t);
+        }}
+      />
+
 
       <DeleteWithImpactDialog
         open={!!deleteCompagnia}
