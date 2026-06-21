@@ -1362,7 +1362,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
               const isOpen = !!expanded[c.numero];
               const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
               const ramo = head.ramo?.descrizione || "—";
-              const totale = c.all.length;
+              const totale = c.rate.length;
 
               const agenzia = head.compagnia_diretta?.nome || "—";
               return (
