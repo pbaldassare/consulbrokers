@@ -1709,7 +1709,7 @@ export default function ClienteDetail() {
     onError: (err: any) => toast.error(err.message),
   });
 
-  const { data: polizze = [] } = useQuery({
+  const { data: polizze = [], isLoading: polizzeLoading } = useQuery({
     queryKey: ["polizze_cliente", id],
     queryFn: async () => {
       const { data, error } = await supabase
