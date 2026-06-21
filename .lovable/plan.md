@@ -1,34 +1,24 @@
-## Regola (da memoria)
+## Obiettivo
+Quando in ClienteDetail (tab Polizze) si clicca una riga **Quietanza**, aprire la pagina **QuietanzaDetail** (`/quietanze/:id`), non `TitoloDetail`. Le righe **Polizza** (madre) restano su `/titoli/:id`.
 
-- La **polizza** (madre, `sostituisce_polizza IS NULL`) è il contratto: **non** si mette a cassa, niente `data_messa_cassa`/`data_incasso`.
-- Le **quietanze** (`sostituisce_polizza = numero_titolo`) sono generate in automatico dal trigger `genera_quietanze_su_insert_madre` in base a frazionamento × durata.
-- Solo le quietanze si mettono a cassa.
-- **Annuale 1 anno → 1 polizza + 1 quietanza**. Etichetta: "Quietanza 1/1".
+## Modifiche
 
-Verifica in DB sulla polizza appena creata `12345` (Paolo Baldassare): ✔ 1 madre + 1 quietanza. Il dato è corretto, è solo la UI che mostra "Quietanza 2/2" e totale premio raddoppiato.
+File: `src/pages/ClienteDetail.tsx`
 
-## Fix UI (nessun cambio dati o trigger)
+1. Riga 1310 — vista flat "Quietanze":
+   `navigate(\`/titoli/${r.id}\`)` → `navigate(\`/quietanze/${r.id}\`)`
 
-### 1. Etichetta rata in `PolizzeClienteTable`
-File: `src/pages/ClienteDetail.tsx` (riga ~1032 in poi) + helper di raggruppamento in `src/lib/`.
+2. Riga 1410 — riga rata espansa in vista "Tutti":
+   `navigate(\`/titoli/${r.id}\`)` → `navigate(\`/quietanze/${r.id}\`)`
 
-Per ogni catena `numero_titolo`:
-- record con `sostituisce_polizza IS NULL` → **Polizza**
-- record con `sostituisce_polizza IS NOT NULL` → numerati `1..N` su N = numero di figli (la madre **non** entra nel conteggio)
-- Annuale 1y → "Quietanza 1/1" (oggi mostra 2/2)
+Invariati:
+- Riga 1322 e 1424 (link al numero polizza madre) → restano `/titoli/${madreId}` / `/titoli/${head.id}`.
+- Riga 1373 (click sulla riga madre) → resta `/titoli/${head.id}`.
 
-### 2. Totale premio nella barra "X polizze · Y quietanze · totale premio …"
-Sommare `premio_lordo` solo dei record quietanza (figli), **escludendo** la madre. Per annuale 1y il totale tornerà 1.222,50 € invece di 2.445,00 €.
+## Cosa NON cambia
+- Nessuna modifica DB, RLS, trigger, route, o a `QuietanzaDetail`/`TitoloDetail`.
+- Niente cambi alla logica di conteggio/etichette (già corretta nella iterazione precedente).
+- Altre pagine (Portafoglio Attive/Carico/Storico, GestionePolizze, ecc.) non toccate.
 
-### 3. Filtro segmentato "Tutti / Polizze / Quietanze"
-I contatori principali (1 polizza, 1 quietanza) sono già giusti. Verifico solo che le righe filtrate corrispondano.
-
-## Fuori scopo
-- Schema DB, trigger di generazione quietanze, RLS, modello polizze/titoli/quietanze: invariati.
-- Logica messa a cassa, provvigioni, rimesse, EC: invariata.
-- Altre viste portafoglio (Attive/Carico/Storico): se mostrano lo stesso bug le includo in un secondo passaggio mirato, su richiesta.
-
-## Verifica finale
-1. Ricarico `/archivi/clienti/2249f5de…?tab=polizze` → riga figlia = "Quietanza 1/1".
-2. Riepilogo: `1 polizze · 1 quietanze · totale premio € 1.222,50`.
-3. Caso mentale: semestrale 1y → "1/2" e "2/2", totale = somma delle 2 quietanze.
+## Verifica
+Ricarica `/archivi/clienti/2249f5de…?tab=polizze`, filtro "Quietanze": click sulla riga "Quietanza 1/1" → URL `/quietanze/<id>` e si apre la scheda quietanza. Click su numero polizza madre (link) → `/titoli/<id>`.

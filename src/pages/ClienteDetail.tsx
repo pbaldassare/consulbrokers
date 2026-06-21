@@ -1307,7 +1307,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                 <TableRow
                   key={r.id}
                   className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/40 hover:bg-quietanza-soft/70"
-                  onClick={() => navigate(`/titoli/${r.id}`)}
+                  onClick={() => navigate(`/quietanze/${r.id}`)}
                 >
                   <TableCell></TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
@@ -1407,7 +1407,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                     <TableRow
                       key={r.id}
                       className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/30 hover:bg-quietanza-soft/60"
-                      onClick={() => navigate(`/titoli/${r.id}`)}
+                      onClick={() => navigate(`/quietanze/${r.id}`)}
                     >
                       <TableCell></TableCell>
                       <TableCell className="pl-8 font-mono text-xs text-muted-foreground">
