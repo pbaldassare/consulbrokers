@@ -27,15 +27,16 @@ describe("shouldShowRate", () => {
 });
 
 describe("computeFlatQuietanze", () => {
-  it("emette una riga per rata con madreNum/madreId/totale corretti e idx 1-based partendo da 2", () => {
+  it("emette una riga per rata con madreNum/madreId/totale (= numero di figli) e idx 1-based partendo da 1", () => {
     const catene = groupTitoliByPolizza(titoli);
     const flat = computeFlatQuietanze(catene);
 
     expect(flat).toHaveLength(2);
     expect(flat.every((r) => r.madreNum === "POL-A")).toBe(true);
     expect(flat.every((r) => r.madreId === "a0")).toBe(true);
-    expect(flat.every((r) => r.totale === 3)).toBe(true);
-    expect(flat.map((r) => r.idx).sort()).toEqual([2, 3]);
+    // totale = numero di quietanze (figli), NON madre+figli
+    expect(flat.every((r) => r.totale === 2)).toBe(true);
+    expect(flat.map((r) => r.idx).sort()).toEqual([1, 2]);
     expect(flat.map((r) => r.rata.id).sort()).toEqual(["a1", "a2"]);
   });
 
@@ -53,8 +54,11 @@ describe("computeFlatQuietanze", () => {
     const flat = computeFlatQuietanze(catene);
     expect(flat).toHaveLength(1);
     expect(flat[0].madreNum).toBe("POL-X");
+    expect(flat[0].totale).toBe(1);
+    expect(flat[0].idx).toBe(1);
   });
 });
+
 
 describe("computeCounts", () => {
   it("conta polizze (madri) e quietanze separatamente", () => {
