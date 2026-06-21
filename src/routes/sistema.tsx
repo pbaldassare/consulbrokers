@@ -43,7 +43,7 @@ export const sistemaRoutes = (
     <Route path="/sitemap" element={<RoleGuard allowedRoles={["admin"]}><SitemapPage /></RoleGuard>} />
 
     {/* STANDALONE */}
-    <Route path="/portafoglio/gestione-polizze" element={<Navigate to="/portafoglio/attive" replace />} />
+    <Route path="/portafoglio/gestione-polizze" element={<Navigate to="/portafoglio/gestione" replace />} />
     <Route path="/anomalie-ko" element={<AnomalieKO />} />
     <Route path="/note-restituzione" element={<NoteRestituzioneList />} />
     <Route path="/note-restituzione/:id" element={<NotaRestituzioneDetail />} />
