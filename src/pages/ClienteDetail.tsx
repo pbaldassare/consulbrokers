@@ -2116,7 +2116,14 @@ export default function ClienteDetail() {
               <NuovaPolizzaButton clienteId={id} size="sm" />
             </CardHeader>
             <CardContent className="pt-2">
-              {polizze.length === 0 ? (
+              {polizzeLoading ? (
+                <div className="space-y-2 py-6">
+                  <div className="h-9 w-full animate-pulse rounded-md bg-muted/60" />
+                  <div className="h-9 w-full animate-pulse rounded-md bg-muted/40" />
+                  <div className="h-9 w-full animate-pulse rounded-md bg-muted/30" />
+                  <p className="text-center text-xs text-muted-foreground pt-2">Caricamento polizze e quietanze…</p>
+                </div>
+              ) : polizze.length === 0 ? (
                 <div className="flex flex-col items-center gap-4 py-12 border-2 border-dashed border-border rounded-lg bg-muted/20">
                   <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
                     <FileText className="w-7 h-7 text-primary" />
