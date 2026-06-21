@@ -1306,8 +1306,9 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
               flatQuietanze.map(({ rata: r, madreNum, madreId, idx, totale }) => (
                 <TableRow
                   key={r.id}
-                  className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/40 hover:bg-quietanza-soft/70"
+                  className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/40 hover:bg-quietanza-soft/80 hover:ring-1 hover:ring-inset hover:ring-quietanza/40 transition-colors"
                   onClick={() => navigate(`/quietanze/${r.id}`)}
+                  title="Apri quietanza"
                 >
                   <TableCell></TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
@@ -1354,6 +1355,12 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                 </TableRow>
               ))
             )
+          ) : filteredCatene.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={isAdmin ? 12 : 11} className="text-center text-sm text-muted-foreground py-6">
+                {filtroTipo === "polizze" ? "Nessuna polizza presente" : "Nessun risultato per i filtri selezionati"}
+              </TableCell>
+            </TableRow>
           ) : (
             filteredCatene.map((c) => {
               const head = c.madre || c.all[0];
@@ -1369,8 +1376,9 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                 <>
                   <TableRow
                     key={c.numero}
-                    className="cursor-pointer border-l-4 border-l-polizza hover:bg-muted/50"
+                    className="cursor-pointer border-l-4 border-l-polizza hover:bg-polizza/5 hover:ring-1 hover:ring-inset hover:ring-polizza/30 transition-colors"
                     onClick={() => navigate(`/titoli/${head.id}`)}
+                    title="Apri polizza madre"
                   >
                     <TableCell onClick={(e) => { e.stopPropagation(); if (showRate) toggle(c.numero); }}>
                       {showRate ? (isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />) : null}
@@ -1406,8 +1414,9 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   {showRate && isOpen && c.rate.map((r, i) => (
                     <TableRow
                       key={r.id}
-                      className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/30 hover:bg-quietanza-soft/60"
+                      className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/30 hover:bg-quietanza-soft/70 hover:ring-1 hover:ring-inset hover:ring-quietanza/40 transition-colors"
                       onClick={() => navigate(`/quietanze/${r.id}`)}
+                      title="Apri quietanza"
                     >
                       <TableCell></TableCell>
                       <TableCell className="pl-8 font-mono text-xs text-muted-foreground">
@@ -1709,7 +1718,7 @@ export default function ClienteDetail() {
     onError: (err: any) => toast.error(err.message),
   });
 
-  const { data: polizze = [] } = useQuery({
+  const { data: polizze = [], isLoading: polizzeLoading } = useQuery({
     queryKey: ["polizze_cliente", id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -2116,7 +2125,14 @@ export default function ClienteDetail() {
               <NuovaPolizzaButton clienteId={id} size="sm" />
             </CardHeader>
             <CardContent className="pt-2">
-              {polizze.length === 0 ? (
+              {polizzeLoading ? (
+                <div className="space-y-2 py-6">
+                  <div className="h-9 w-full animate-pulse rounded-md bg-muted/60" />
+                  <div className="h-9 w-full animate-pulse rounded-md bg-muted/40" />
+                  <div className="h-9 w-full animate-pulse rounded-md bg-muted/30" />
+                  <p className="text-center text-xs text-muted-foreground pt-2">Caricamento polizze e quietanze…</p>
+                </div>
+              ) : polizze.length === 0 ? (
                 <div className="flex flex-col items-center gap-4 py-12 border-2 border-dashed border-border rounded-lg bg-muted/20">
                   <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
                     <FileText className="w-7 h-7 text-primary" />

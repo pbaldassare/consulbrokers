@@ -8,6 +8,14 @@ import { ArrowLeft, FileText, Loader2, Pencil } from "lucide-react";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { format } from "date-fns";
 import { AzioniPolizzaToolbar, type ToolbarQuietanza } from "@/components/titolo/AzioniPolizzaToolbar";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
 
@@ -106,14 +114,64 @@ export default function QuietanzaDetail() {
     titolo_id: titoloId,
   };
 
+  const clienteId = polizza?.cliente_anagrafica_id;
+  const clienteHref = clienteId ? `/archivi/clienti/${clienteId}?tab=polizze` : null;
+  const totLabel = q.numero_rate_totali ? `${q.numero_rata}/${q.numero_rate_totali}` : `${q.numero_rata}`;
+
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/archivi/clienti">Clienti</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          {clienteHref && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to={clienteHref}>{clienteNome}</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to={clienteHref}>Polizze</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+            </>
+          )}
+          {polizza && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to={`/titoli/${polizza.id}`}>Polizza {polizza.numero_polizza}</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+            </>
+          )}
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Quietanza {totLabel}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <button onClick={() => navigate(-1)} className="hover:text-foreground inline-flex items-center gap-1">
-              <ArrowLeft className="h-3 w-3" /> Indietro
-            </button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 -ml-2"
+              onClick={() => (clienteHref ? navigate(clienteHref) : navigate(-1))}
+            >
+              <ArrowLeft className="h-3.5 w-3.5 mr-1" /> {clienteHref ? "Torna al cliente" : "Indietro"}
+            </Button>
             <span>·</span>
             <span>Quietanza</span>
           </div>
