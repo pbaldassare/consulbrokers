@@ -1697,7 +1697,18 @@ const CompagnieList = () => {
                             </Button>
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
-                            <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Provvigioni per rapporto"
+                                onClick={() => setProvvigioniTarget({ id: c.id, nome: c.nome })}
+                              >
+                                <Percent className="w-4 h-4" />
+                              </Button>
+                              <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
+                            </div>
                           </TableCell>
                           <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                             <Button
