@@ -19,6 +19,7 @@ import { Plus, Building2, Search, Percent, Pencil, Layers, Trash2, Network, Aler
 const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
 
 import RapportiCompagniaDialog from "@/components/compagnie/RapportiCompagniaDialog";
+import ProvvigioniCompagniaDialog from "@/components/compagnie/ProvvigioniCompagniaDialog";
 
 
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
