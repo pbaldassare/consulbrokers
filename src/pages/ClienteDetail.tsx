@@ -1414,7 +1414,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                         <span className="text-quietanza/70 mr-1">└</span>
                         {r.numero_titolo || "—"}
                       </TableCell>
-                      <TableCell><TipoPolizzaBadge tipo="quietanza" numero={i + 2} totale={totale} /></TableCell>
+                      <TableCell><TipoPolizzaBadge tipo="quietanza" numero={i + 1} totale={totale} /></TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button
                           type="button"
