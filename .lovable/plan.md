@@ -1,24 +1,22 @@
-## Obiettivo
-Quando in ClienteDetail (tab Polizze) si clicca una riga **Quietanza**, aprire la pagina **QuietanzaDetail** (`/quietanze/:id`), non `TitoloDetail`. Le righe **Polizza** (madre) restano su `/titoli/:id`.
+Nessuna modifica al codice — solo chiarimento.
 
-## Modifiche
+## Dove sono finite le provvigioni
 
-File: `src/pages/ClienteDetail.tsx`
+Dal reset compagnie del 16/05/2026 (memoria `compagnie-form-pulita`) la form "Modifica Agenzia" è stata ripulita e mostra solo 3 tab:
+- **Identificativi** (tipo, codice univoco, ragione sociale, compagnia madre, stato)
+- **Anagrafica**
+- **RUI & Bancario**
 
-1. Riga 1310 — vista flat "Quietanze":
-   `navigate(\`/titoli/${r.id}\`)` → `navigate(\`/quietanze/${r.id}\`)`
+Le provvigioni **non sono più dentro questa form per scelta progettuale**.
 
-2. Riga 1410 — riga rata espansa in vista "Tutti":
-   `navigate(\`/titoli/${r.id}\`)` → `navigate(\`/quietanze/${r.id}\`)`
+## Dove gestirle adesso
 
-Invariati:
-- Riga 1322 e 1424 (link al numero polizza madre) → restano `/titoli/${madreId}` / `/titoli/${head.id}`.
-- Riga 1373 (click sulla riga madre) → resta `/titoli/${head.id}`.
+- Pagina dedicata: **`/provvigioni-compagnie-ramo`** (memoria `provvigioni-compagnie-ramo-page`)
+- Modello: matrice **Rapporto compagnia × Ramo/Sottoramo**, filtrata sui rami abilitati nella tabella `compagnia_rapporto_rami` (memoria `compagnia-rapporto-rami-abilitati`)
+- Per agenzie plurimandatarie/broker con più rapporti contemporanei: tabella `compagnia_rapporti` (memoria `compagnia-rapporti-multipli`)
 
-## Cosa NON cambia
-- Nessuna modifica DB, RLS, trigger, route, o a `QuietanzaDetail`/`TitoloDetail`.
-- Niente cambi alla logica di conteggio/etichette (già corretta nella iterazione precedente).
-- Altre pagine (Portafoglio Attive/Carico/Storico, GestionePolizze, ecc.) non toccate.
+## Non si fa nulla
 
-## Verifica
-Ricarica `/archivi/clienti/2249f5de…?tab=polizze`, filtro "Quietanze": click sulla riga "Quietanza 1/1" → URL `/quietanze/<id>` e si apre la scheda quietanza. Click su numero polizza madre (link) → `/titoli/<id>`.
+L'utente ha scelto "Solo spiegazione, niente modifiche": non aggiungo pulsanti, link in sidebar né colonne nella lista Compagnie.
+
+Se in futuro vuoi un accesso rapido dalla scheda agenzia, basta chiedere: si può aggiungere un pulsante "Provvigioni" nella form che apre `/provvigioni-compagnie-ramo` precompilato sull'agenzia corrente.
