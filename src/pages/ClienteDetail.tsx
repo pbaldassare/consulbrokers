@@ -1354,6 +1354,12 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                 </TableRow>
               ))
             )
+          ) : filteredCatene.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={isAdmin ? 12 : 11} className="text-center text-sm text-muted-foreground py-6">
+                {filtroTipo === "polizze" ? "Nessuna polizza presente" : "Nessun risultato per i filtri selezionati"}
+              </TableCell>
+            </TableRow>
           ) : (
             filteredCatene.map((c) => {
               const head = c.madre || c.all[0];
