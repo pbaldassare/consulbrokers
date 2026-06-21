@@ -8,6 +8,14 @@ import { ArrowLeft, FileText, Loader2, Pencil } from "lucide-react";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { format } from "date-fns";
 import { AzioniPolizzaToolbar, type ToolbarQuietanza } from "@/components/titolo/AzioniPolizzaToolbar";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
 
