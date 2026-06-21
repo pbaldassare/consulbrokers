@@ -1115,13 +1115,16 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
 
   const allQuiet = useMemo(() => filteredTitoli.filter((p) => !!p.sostituisce_polizza), [filteredTitoli]);
   const allPol = useMemo(() => filteredTitoli.filter((p) => !p.sostituisce_polizza), [filteredTitoli]);
+  // La polizza madre è il contratto, non un titolo da incassare: il premio
+  // reale è la somma delle sole quietanze (rate). Sommare anche la madre
+  // raddoppierebbe il totale (es. annuale 1y: 1 madre + 1 quietanza).
   const totPremio = useMemo(
-    () => filteredTitoli.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
-    [filteredTitoli],
+    () => allQuiet.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
+    [allQuiet],
   );
   const totProvv = useMemo(
-    () => filteredTitoli.reduce((s, p) => s + (Number(p.provvigioni_firma) || 0) + (Number(p.provvigioni_quietanza) || 0), 0),
-    [filteredTitoli],
+    () => allQuiet.reduce((s, p) => s + (Number(p.provvigioni_firma) || 0) + (Number(p.provvigioni_quietanza) || 0), 0),
+    [allQuiet],
   );
 
   // Flat quietanze filtrate (vista "Solo quietanze")
@@ -1131,14 +1134,15 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
       const head = c.madre || c.all[0];
       const madreNum = head?.numero_titolo || null;
       const madreId = head?.id || null;
-      const totale = c.all.length;
+      const totale = c.rate.length;
       c.rate.forEach((r: any, i: number) => {
-        if (matchTitolo(r)) out.push({ rata: r, madreNum, madreId, idx: i + 2, totale });
+        if (matchTitolo(r)) out.push({ rata: r, madreNum, madreId, idx: i + 1, totale });
       });
     });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredCatene, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
+
 
   const isLocked = (t: any) =>
     t?.stato === "incassato" || t?.stato === "stornato" || !!t?.data_messa_cassa;
@@ -1358,7 +1362,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
               const isOpen = !!expanded[c.numero];
               const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
               const ramo = head.ramo?.descrizione || "—";
-              const totale = c.all.length;
+              const totale = c.rate.length;
 
               const agenzia = head.compagnia_diretta?.nome || "—";
               return (
@@ -1410,7 +1414,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                         <span className="text-quietanza/70 mr-1">└</span>
                         {r.numero_titolo || "—"}
                       </TableCell>
-                      <TableCell><TipoPolizzaBadge tipo="quietanza" numero={i + 2} totale={totale} /></TableCell>
+                      <TableCell><TipoPolizzaBadge tipo="quietanza" numero={i + 1} totale={totale} /></TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button
                           type="button"
@@ -1429,7 +1433,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                       <TableCell className="text-muted-foreground text-xs">{r.compagnia_diretta?.nome || "—"}</TableCell>
                       <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                       <TableCell className="font-mono">{fmtNum((Number(r.provvigioni_firma)||0) + (Number(r.provvigioni_quietanza)||0))}</TableCell>
-                      <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, i + 2)}</Badge></TableCell>
+                      <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, i + 1)}</Badge></TableCell>
                       <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
                       {isAdmin && (
                         <TableCell onClick={(e) => e.stopPropagation()}>

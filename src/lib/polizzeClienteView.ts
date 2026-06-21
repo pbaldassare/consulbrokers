@@ -12,6 +12,9 @@ export function shouldShowRate(filtroTipo: FiltroTipo, hasRate: boolean): boolea
 /**
  * Vista flat delle quietanze (mode="quietanze"): per ogni catena emette N righe
  * (una per rata) con il `madreNum` e `madreId` della polizza madre.
+ *
+ * NB: la polizza madre è il contratto, NON una rata. Le quietanze sono numerate
+ * 1..N su N = c.rate.length (numero di figli, esclusa la madre).
  */
 export function computeFlatQuietanze<T extends TitoloLike>(
   catene: CatenaPolizza<T>[],
@@ -21,11 +24,12 @@ export function computeFlatQuietanze<T extends TitoloLike>(
     const head = c.madre || c.all[0];
     const madreNum = head?.numero_titolo ?? null;
     const madreId = head?.id ?? null;
-    const totale = c.all.length;
-    c.rate.forEach((r, i) => out.push({ rata: r, madreNum, madreId, idx: i + 2, totale }));
+    const totale = c.rate.length;
+    c.rate.forEach((r, i) => out.push({ rata: r, madreNum, madreId, idx: i + 1, totale }));
   }
   return out;
 }
+
 
 /**
  * Conteggi mostrati nella toolbar (polizze / quietanze) — sono calcolati sui titoli
