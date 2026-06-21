@@ -34,7 +34,19 @@ export default function ProvvigioniCompagniaDialog({
         .eq("attivo", true)
         .order("nome_rapporto");
       if (error) throw error;
-      return data || [];
+      const rows = data || [];
+      if (rows.length === 0) return [] as any[];
+      const ids = rows.map((r: any) => r.id);
+      const { data: prov } = await supabase
+        .from("provvigioni_compagnia_ramo")
+        .select("compagnia_rapporto_id")
+        .in("compagnia_rapporto_id", ids)
+        .eq("attiva", true);
+      const counts = new Map<string, number>();
+      (prov || []).forEach((p: any) => {
+        counts.set(p.compagnia_rapporto_id, (counts.get(p.compagnia_rapporto_id) || 0) + 1);
+      });
+      return rows.map((r: any) => ({ ...r, righe_provvigioni: counts.get(r.id) || 0 }));
     },
     enabled: !!compagniaId && open,
   });
