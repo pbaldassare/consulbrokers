@@ -1,38 +1,34 @@
-## Cosa succede
+## Regola (da memoria)
 
-Sul cliente `Lo Giudice Emilia Concetta` la tab mostra **"Polizze (9) · Quietanze (0)"**, ma in realtà c'è **1 polizza** (`RCM00010074404`) con **9 rate**.
+- La **polizza** (madre, `sostituisce_polizza IS NULL`) è il contratto: **non** si mette a cassa, niente `data_messa_cassa`/`data_incasso`.
+- Le **quietanze** (`sostituisce_polizza = numero_titolo`) sono generate in automatico dal trigger `genera_quietanze_su_insert_madre` in base a frazionamento × durata.
+- Solo le quietanze si mettono a cassa.
+- **Annuale 1 anno → 1 polizza + 1 quietanza**. Etichetta: "Quietanza 1/1".
 
-Verificato in DB:
-- Tabella `titoli`: 9 record con `numero_titolo = RCM00010074404`, tutti con `sostituisce_polizza = NULL`.
-- Tabella `quietanze`: 9 record (`numero_rata 1/9 … 9/9`) tutti con lo stesso `polizza_id`.
+Verifica in DB sulla polizza appena creata `12345` (Paolo Baldassare): ✔ 1 madre + 1 quietanza. Il dato è corretto, è solo la UI che mostra "Quietanza 2/2" e totale premio raddoppiato.
 
-Il conteggio in `ClienteDetail.tsx` (riga 2075) usa:
-```ts
-const nQuiet = polizze.filter((p) => !!p.sostituisce_polizza).length;
-const nPol = polizze.length - nQuiet;
-```
-È un criterio fragile: funziona solo quando le rate figlie hanno `sostituisce_polizza` valorizzato. Per titoli legacy o generati dal trigger di auto-quietanza il campo è NULL, quindi vengono contati tutti come polizze.
+## Fix UI (nessun cambio dati o trigger)
 
-## Fix proposto
+### 1. Etichetta rata in `PolizzeClienteTable`
+File: `src/pages/ClienteDetail.tsx` (riga ~1032 in poi) + helper di raggruppamento in `src/lib/`.
 
-Sostituire il criterio con un raggruppamento per `numero_titolo` (= numero polizza), che è la verità funzionale:
+Per ogni catena `numero_titolo`:
+- record con `sostituisce_polizza IS NULL` → **Polizza**
+- record con `sostituisce_polizza IS NOT NULL` → numerati `1..N` su N = numero di figli (la madre **non** entra nel conteggio)
+- Annuale 1y → "Quietanza 1/1" (oggi mostra 2/2)
 
-```ts
-// File: src/pages/ClienteDetail.tsx ~ riga 2075
-const numeriUnici = new Set(polizze.map((p) => p.numero_titolo).filter(Boolean));
-const nPol = numeriUnici.size;
-const nQuiet = polizze.length - nPol;
-```
+### 2. Totale premio nella barra "X polizze · Y quietanze · totale premio …"
+Sommare `premio_lordo` solo dei record quietanza (figli), **escludendo** la madre. Per annuale 1y il totale tornerà 1.222,50 € invece di 2.445,00 €.
 
-Effetto: per il cliente in esame il badge diventa **"Polizze (1) · Quietanze (8)"** (1 polizza madre + 8 rate successive).
+### 3. Filtro segmentato "Tutti / Polizze / Quietanze"
+I contatori principali (1 polizza, 1 quietanza) sono già giusti. Verifico solo che le righe filtrate corrispondano.
 
-## Cosa NON tocco
-- Nessun cambio a query, schema o trigger DB.
-- Nessun cambio alla tabella mostrata o al filtro tipo (quelli usano già `groupTitoliByPolizza` che raggruppa correttamente).
-- Solo i due numeri nel badge del tab.
+## Fuori scopo
+- Schema DB, trigger di generazione quietanze, RLS, modello polizze/titoli/quietanze: invariati.
+- Logica messa a cassa, provvigioni, rimesse, EC: invariata.
+- Altre viste portafoglio (Attive/Carico/Storico): se mostrano lo stesso bug le includo in un secondo passaggio mirato, su richiesta.
 
-## Verifica
-1. Apro `/archivi/clienti/746aed8c-67fc-435e-9e88-70991ea03097?tab=polizze` → il badge mostra `Polizze (1) · Quietanze (8)`.
-2. Controllo un altro cliente con più polizze distinte per assicurarmi che il conteggio resti corretto.
-
-Procedo?
+## Verifica finale
+1. Ricarico `/archivi/clienti/2249f5de…?tab=polizze` → riga figlia = "Quietanza 1/1".
+2. Riepilogo: `1 polizze · 1 quietanze · totale premio € 1.222,50`.
+3. Caso mentale: semestrale 1y → "1/2" e "2/2", totale = somma delle 2 quietanze.
