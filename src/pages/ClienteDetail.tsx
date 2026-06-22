@@ -1144,6 +1144,13 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
   }, [filteredCatene, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
 
 
+  const fmtDate = (d: string | Date | null | undefined) => {
+    if (!d) return "—";
+    const parsed = new Date(d);
+    if (isNaN(parsed.getTime())) return "—";
+    return parsed.toLocaleDateString("it-IT");
+  };
+
   const isLocked = (t: any) =>
     t?.stato === "incassato" || t?.stato === "stornato" || !!t?.data_messa_cassa;
 
@@ -1314,8 +1321,8 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell><TipoPolizzaBadge tipo="quietanza" numero={idx} totale={totale} /></TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
-                  <TableCell className="text-xs">{r.garanzia_da ? new Date(r.garanzia_da).toLocaleDateString("it-IT") : "—"}</TableCell>
-                  <TableCell className="text-xs">{r.garanzia_a ? new Date(r.garanzia_a).toLocaleDateString("it-IT") : "—"}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
                   <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
                   <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                   <TableCell className="font-mono">{fmtNum((Number(r.provvigioni_firma)||0) + (Number(r.provvigioni_quietanza)||0))}</TableCell>
@@ -1407,8 +1414,8 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                       <TableCell><TipoPolizzaBadge tipo="quietanza" numero={i + 1} totale={totale} /></TableCell>
                       <TableCell className="text-muted-foreground text-xs">{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">{r.ramo?.descrizione || "—"}</TableCell>
-                      <TableCell className="text-xs">{r.garanzia_da ? new Date(r.garanzia_da).toLocaleDateString("it-IT") : "—"}</TableCell>
-                      <TableCell className="text-xs">{r.garanzia_a ? new Date(r.garanzia_a).toLocaleDateString("it-IT") : "—"}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">{r.compagnia_diretta?.nome || "—"}</TableCell>
                       <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                       <TableCell className="font-mono">{fmtNum((Number(r.provvigioni_firma)||0) + (Number(r.provvigioni_quietanza)||0))}</TableCell>
