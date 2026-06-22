@@ -270,7 +270,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       rows.push(`<tr><td>${c.segno} ${c.causale_codice} — ${c.causale_descrizione}${c.note ? " (" + c.note + ")" : ""}</td><td style="text-align:right">${c.segno === "+" ? "− " : "+ "}${fmtEuro(c.importo)}</td></tr>`);
     });
     rows.push(`<tr style="border-top:1px solid #999"><td><strong>Dovuto finale</strong></td><td style="text-align:right"><strong>${fmtEuro(dovutoFinale)}</strong></td></tr>`);
-    if (totaleAnticipiUsati > 0) rows.push(`<tr><td>Anticipi utilizzati</td><td style="text-align:right">− ${fmtEuro(totaleAnticipiUsati)}</td></tr>`);
+    if (totaleAnticipiUsati > 0) rows.push(`<tr><td>Acconti utilizzati</td><td style="text-align:right">− ${fmtEuro(totaleAnticipiUsati)}</td></tr>`);
     rows.push(`<tr><td>Cash/bonifico (${form.tipoPagamento})</td><td style="text-align:right">− ${fmtEuro(cashEffettivo)}</td></tr>`);
     rows.push(`<tr style="border-top:2px solid #000"><td><strong>Delta finale</strong></td><td style="text-align:right"><strong>${fmtEuro(delta)}</strong></td></tr>`);
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Riepilogo Messa a Cassa</title>
@@ -395,7 +395,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         }));
         const { error: errU } = await (supabase.from("cliente_anticipi_utilizzi") as any).insert(rows);
         if (errU) {
-          toast.error(`Errore registrazione anticipi su ${t.numero_titolo ?? t.id}: ${errU.message}`);
+          toast.error(`Errore registrazione acconti su ${t.numero_titolo ?? t.id}: ${errU.message}`);
         } else {
           const totUtilizzo = round2(utilizziPerTitolo.reduce((s, u: any) => s + Number(u.importo_utilizzato || 0), 0));
           if (totUtilizzo > 0) {
@@ -407,11 +407,11 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
               riferimento_id: t.id,
               importo: totUtilizzo,
               data_movimento: form.dataMessaCassa,
-              descrizione: `Utilizzo anticipo cliente su titolo ${t.numero_titolo ?? t.id}`,
+              descrizione: `Utilizzo acconto cliente su titolo ${t.numero_titolo ?? t.id}`,
               stato: "registrato",
               created_by: userId,
             });
-            if (errMA) toast.warning(`Anticipo registrato ma prima nota non aggiornata: ${errMA.message}`);
+            if (errMA) toast.warning(`Acconto registrato ma prima nota non aggiornata: ${errMA.message}`);
           }
         }
       }
@@ -588,7 +588,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           {clienteUnico && anticipi.length > 0 && (
             <div className="rounded-md border border-primary/40 bg-primary/5 p-3 space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                <Wallet className="w-4 h-4" /> Anticipi disponibili del cliente
+                <Wallet className="w-4 h-4" /> Acconti disponibili del cliente
               </div>
               {anticipi.map((a) => {
                 const selected = anticipiSel[a.id] !== undefined;
@@ -729,7 +729,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
             )}
             <div className="flex justify-between font-semibold border-t pt-1"><span>Dovuto finale</span><span>{fmtEuro(dovutoFinale)}</span></div>
             {totaleAnticipiUsati > 0 && (
-              <div className="flex justify-between text-primary"><span>− Anticipi utilizzati</span><span>− {fmtEuro(totaleAnticipiUsati)}</span></div>
+              <div className="flex justify-between text-primary"><span>− Acconti utilizzati</span><span>− {fmtEuro(totaleAnticipiUsati)}</span></div>
             )}
             <div className="flex justify-between"><span>− Cash/bonifico</span><span>− {fmtEuro(cashEffettivo)}</span></div>
             <div className={`flex justify-between font-bold border-t pt-1 ${quadrato ? "text-green-700" : "text-red-700"}`}>

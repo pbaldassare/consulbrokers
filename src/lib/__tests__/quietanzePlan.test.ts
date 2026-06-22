@@ -4,6 +4,23 @@ import { computeQuietanzePlan, computeQuietanzeOnly } from "../quietanzePlan";
 const base = { garanziaDa: "2026-01-01", garanziaA: "2027-01-01", dataCompetenza: "2026-01-15" };
 
 describe("computeQuietanzePlan", () => {
+  it("polizza temporanea → una sola quietanza sul periodo indicato", () => {
+    const plan = computeQuietanzePlan({
+      polizzaTemporanea: true,
+      garanziaDa: "2026-06-22",
+      garanziaA: "2026-07-15",
+      dataCompetenza: "2026-06-22",
+    });
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toEqual({
+      idx: 1,
+      garanzia_da: "2026-06-22",
+      garanzia_a: "2026-07-15",
+      data_competenza: "2026-06-22",
+    });
+    expect(computeQuietanzeOnly({ polizzaTemporanea: true, garanziaDa: "2026-06-22", garanziaA: "2026-07-15" })).toHaveLength(0);
+  });
+
   it("Annuale 1 anno → solo madre (1 riga)", () => {
     const plan = computeQuietanzePlan({ ...base, frazionamento: "Annuale", anniDurata: 1 });
     expect(plan).toHaveLength(1);

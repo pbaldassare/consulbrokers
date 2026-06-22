@@ -58,7 +58,7 @@ const PortafoglioCaricoPage = () => {
   const [dateDa, setDateDa] = useState<string>(searchParams.get("dal") || "");
   const [dateA, setDateA] = useState<string>(searchParams.get("al") || "");
   const isDefaultExtended = !userTouched && filtroPeriodo === "mese_corrente" && !dateDa && !dateA;
-  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze" | "regolazioni">("tutti");
+  const [filtroTipo, setFiltroTipo] = useState<"polizze" | "quietanze" | "regolazioni">("quietanze");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -68,7 +68,7 @@ const PortafoglioCaricoPage = () => {
   const [garantitoDialogOpen, setGarantitoDialogOpen] = useState(false);
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
-  const hasActiveFilters = !!dateDa || !!dateA || !!search || filtroPeriodo !== "mese_corrente" || userTouched || filtroTipo !== "tutti";
+  const hasActiveFilters = !!dateDa || !!dateA || !!search || filtroPeriodo !== "mese_corrente" || userTouched || filtroTipo !== "quietanze";
 
   const updateUrl = (next: { periodo?: Periodo | null; dal?: string | null; al?: string | null }) => {
     const sp = new URLSearchParams(searchParams);
@@ -90,7 +90,7 @@ const PortafoglioCaricoPage = () => {
     setSearch("");
     setFiltroPeriodo("mese_corrente");
     setUserTouched(false);
-    setFiltroTipo("tutti");
+    setFiltroTipo("quietanze");
     setPage(0);
     const sp = new URLSearchParams(searchParams);
     sp.delete("periodo"); sp.delete("dal"); sp.delete("al");
@@ -617,7 +617,7 @@ const PortafoglioCaricoPage = () => {
           <ToggleGroupItem value="tutte" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Tutte</ToggleGroupItem>
         </ToggleGroup>
         <TipoFilterSegmented
-          value={filtroTipo === "polizze" ? "tutti" : filtroTipo}
+          value={filtroTipo}
           onChange={(v) => { setFiltroTipo(v); setPage(0); }}
           withRegolazioni
           hidePolizze

@@ -39,7 +39,7 @@ export default function AnticipiCard({ clienteId }: Props) {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div className="flex items-center gap-2">
           <Wallet className="w-4 h-4 text-primary" />
-          <CardTitle className="text-base">Anticipi Cliente</CardTitle>
+          <CardTitle className="text-base">Acconti Cliente</CardTitle>
         </div>
         <Button size="sm" variant="outline" onClick={() => setOpenNuovo(true)}>
           <Plus className="w-3 h-3 mr-1" /> Nuovo
@@ -55,7 +55,7 @@ export default function AnticipiCard({ clienteId }: Props) {
           <div className="text-sm text-muted-foreground py-4 text-center">Caricamento...</div>
         ) : anticipi.length === 0 ? (
           <div className="text-sm text-muted-foreground py-6 text-center border-2 border-dashed rounded-md">
-            Nessun anticipo registrato
+            Nessun acconto registrato
           </div>
         ) : (
           <>
@@ -86,7 +86,7 @@ export default function AnticipiCard({ clienteId }: Props) {
                       {a.importo_residuo === a.importo && (
                         <Button size="icon" variant="ghost" className="h-7 w-7"
                           onClick={() => {
-                            if (confirm("Eliminare questo anticipo?")) elimina.mutate(a.id);
+                            if (confirm("Eliminare questo acconto?")) elimina.mutate(a.id);
                           }}>
                           <Trash2 className="w-3 h-3 text-destructive" />
                         </Button>
@@ -100,7 +100,7 @@ export default function AnticipiCard({ clienteId }: Props) {
             {esauriti.length > 0 && (
               <details className="mt-3">
                 <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                  Storico anticipi esauriti ({esauriti.length})
+                  Storico acconti esauriti ({esauriti.length})
                 </summary>
                 <Table className="mt-2">
                   <TableBody>

@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, Sparkles, ChevronRight, ChevronDown } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, Sparkles } from "lucide-react";
 import { groupTitoliByPolizza } from "@/lib/quietanze";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
@@ -1031,15 +1031,13 @@ Consulbrokers S.r.l.`;
 
 function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navigate: (to: string) => void; mode?: "polizze" | "quietanze" }) {
   const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [filtroTipoState, setFiltroTipoState] = useState<"tutti" | "polizze" | "quietanze">("tutti");
-  const filtroTipo: "tutti" | "polizze" | "quietanze" = mode ?? filtroTipoState;
+  const [filtroTipoState, setFiltroTipoState] = useState<"polizze" | "quietanze">("polizze");
+  const filtroTipo: "polizze" | "quietanze" = mode ?? filtroTipoState;
   const [filtroNumero, setFiltroNumero] = useState("");
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string>("");
   const [filtroGaranzia, setFiltroGaranzia] = useState<string>("");
   const [filtroAgenzia, setFiltroAgenzia] = useState<string>("");
   const [filtroStato, setFiltroStato] = useState<string>("");
-  const toggle = (k: string) => setExpanded((s) => ({ ...s, [k]: !s[k] }));
   const { profile } = useAuth();
   const isAdmin = profile?.ruolo === "admin";
   const queryClient = useQueryClient();
@@ -1209,8 +1207,8 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
         {mode ? <div /> : (
           <TipoFilterSegmented
             value={filtroTipo}
-            onChange={(v) => v !== "regolazioni" && setFiltroTipoState(v)}
-            counts={{ tutti: allPol.length + allQuiet.length, polizze: allPol.length, quietanze: allQuiet.length }}
+            onChange={setFiltroTipoState}
+            counts={{ polizze: allPol.length, quietanze: allQuiet.length }}
           />
         )}
         <div className="text-xs text-muted-foreground">
@@ -1348,96 +1346,50 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
           ) : filteredCatene.length === 0 ? (
             <TableRow>
               <TableCell colSpan={isAdmin ? 12 : 11} className="text-center text-sm text-muted-foreground py-6">
-                {filtroTipo === "polizze" ? "Nessuna polizza presente" : "Nessun risultato per i filtri selezionati"}
+                Nessuna polizza presente
               </TableCell>
             </TableRow>
           ) : (
             filteredCatene.map((c) => {
               const head = c.madre || c.all[0];
-              const hasRate = c.rate.length > 0;
-              const showRate = filtroTipo === "tutti" && hasRate;
-              const isOpen = !!expanded[c.numero];
               const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
               const ramo = head.ramo?.descrizione || "—";
-              const totale = c.rate.length;
 
               const agenzia = head.compagnia_diretta?.nome || "—";
               return (
-                <>
-                  <TableRow
-                    key={c.numero}
-                    className="cursor-pointer border-l-4 border-l-polizza hover:bg-polizza/5 hover:ring-1 hover:ring-inset hover:ring-polizza/30 transition-colors"
-                    onClick={() => navigate(`/titoli/${head.id}`)}
-                    title="Apri polizza madre"
-                  >
-                    <TableCell onClick={(e) => { e.stopPropagation(); if (showRate) toggle(c.numero); }}>
-                      {showRate ? (isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />) : null}
+                <TableRow
+                  key={c.numero}
+                  className="cursor-pointer border-l-4 border-l-polizza hover:bg-polizza/5 hover:ring-1 hover:ring-inset hover:ring-polizza/30 transition-colors"
+                  onClick={() => navigate(`/titoli/${head.id}`)}
+                  title="Apri polizza madre"
+                >
+                  <TableCell></TableCell>
+                  <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
+                  <TableCell><TipoPolizzaBadge tipo="polizza" /></TableCell>
+                  <TableCell>{gruppoRamo}</TableCell>
+                  <TableCell>{ramo}</TableCell>
+                  <TableCell className="text-muted-foreground">—</TableCell>
+                  <TableCell className="text-muted-foreground">—</TableCell>
+                  <TableCell>{agenzia}</TableCell>
+                  <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
+                  <TableCell className="font-mono">{fmtNum((Number(head.provvigioni_firma)||0) + (Number(head.provvigioni_quietanza)||0))}</TableCell>
+                  <TableCell>{head.data_messa_cassa || head.data_incasso || "—"}</TableCell>
+                  {isAdmin && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        disabled={deleting === head.id || isLocked(head)}
+                        title={isLocked(head) ? "Polizza bloccata (messa a cassa/stornata)" : "Elimina polizza e quietanze"}
+                        onClick={() => handleDeleteMadre(c)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </TableCell>
-                    <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
-                    <TableCell><TipoPolizzaBadge tipo="polizza" /></TableCell>
-                    <TableCell>{gruppoRamo}</TableCell>
-                    <TableCell>{ramo}</TableCell>
-                    <TableCell className="text-muted-foreground">—</TableCell>
-                    <TableCell className="text-muted-foreground">—</TableCell>
-                    <TableCell>{agenzia}</TableCell>
-                    <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
-                    <TableCell className="font-mono">{fmtNum((Number(head.provvigioni_firma)||0) + (Number(head.provvigioni_quietanza)||0))}</TableCell>
-                    <TableCell>{head.data_messa_cassa || head.data_incasso || "—"}</TableCell>
-                    {isAdmin && (
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          disabled={deleting === head.id || isLocked(head)}
-                          title={isLocked(head) ? "Polizza bloccata (messa a cassa/stornata)" : "Elimina polizza e quietanze"}
-                          onClick={() => handleDeleteMadre(c)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                  {showRate && isOpen && c.rate.map((r, i) => (
-                    <TableRow
-                      key={r.id}
-                      className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/30 hover:bg-quietanza-soft/70 hover:ring-1 hover:ring-inset hover:ring-quietanza/40 transition-colors"
-                      onClick={() => navigate(`/titoli/${r.id}`)}
-                      title="Apri quietanza"
-                    >
-                      <TableCell></TableCell>
-                      <TableCell className="pl-8 font-mono text-xs text-muted-foreground">
-                        <span className="text-quietanza/70 mr-1">└</span>
-                        {r.numero_titolo || "—"}
-                      </TableCell>
-                      <TableCell><TipoPolizzaBadge tipo="quietanza" numero={i + 1} totale={totale} /></TableCell>
-                      <TableCell className="text-muted-foreground text-xs">{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs">{r.ramo?.descrizione || "—"}</TableCell>
-                      <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
-                      <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs">{r.compagnia_diretta?.nome || "—"}</TableCell>
-                      <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
-                      <TableCell className="font-mono">{fmtNum((Number(r.provvigioni_firma)||0) + (Number(r.provvigioni_quietanza)||0))}</TableCell>
-                      <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
-                      {isAdmin && (
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            disabled={deleting === r.id || isLocked(r)}
-                            title={isLocked(r) ? "Quietanza bloccata (messa a cassa/stornata)" : "Elimina quietanza"}
-                            onClick={() => handleDeleteRata(r)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </>
+                  )}
+                </TableRow>
               );
             })
           )}

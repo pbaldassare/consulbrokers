@@ -41,10 +41,10 @@ export default function AnticipiChip({ clienteId }: Props) {
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
-        title="Anticipi cliente"
+        title="Acconti cliente"
       >
         <Wallet className="w-4 h-4 text-primary" />
-        <span>Anticipi</span>
+        <span>Acconti</span>
         <Badge variant="secondary" className="ml-1 font-semibold">{fmtEuro(totaleDisponibile)}</Badge>
       </button>
 
@@ -52,7 +52,7 @@ export default function AnticipiChip({ clienteId }: Props) {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-primary" /> Anticipi Cliente
+              <Wallet className="w-5 h-5 text-primary" /> Acconti Cliente
             </DialogTitle>
           </DialogHeader>
 
@@ -62,7 +62,7 @@ export default function AnticipiChip({ clienteId }: Props) {
               <div className="text-xl font-semibold text-primary">{fmtEuro(totaleDisponibile)}</div>
             </div>
             <Button size="sm" onClick={() => setOpenNuovo(true)}>
-              <Plus className="w-3 h-3 mr-1" /> Nuovo Anticipo
+              <Plus className="w-3 h-3 mr-1" /> Nuovo Acconto
             </Button>
           </div>
 
@@ -70,7 +70,7 @@ export default function AnticipiChip({ clienteId }: Props) {
             <div className="text-sm text-muted-foreground py-4 text-center">Caricamento...</div>
           ) : anticipi.length === 0 ? (
             <div className="text-sm text-muted-foreground py-6 text-center border-2 border-dashed rounded-md">
-              Nessun anticipo registrato
+              Nessun acconto registrato
             </div>
           ) : (
             <>
@@ -101,7 +101,7 @@ export default function AnticipiChip({ clienteId }: Props) {
                         {a.importo_residuo === a.importo && (
                           <Button size="icon" variant="ghost" className="h-7 w-7"
                             onClick={() => {
-                              if (confirm("Eliminare questo anticipo?")) elimina.mutate(a.id);
+                              if (confirm("Eliminare questo acconto?")) elimina.mutate(a.id);
                             }}>
                             <Trash2 className="w-3 h-3 text-destructive" />
                           </Button>
@@ -115,7 +115,7 @@ export default function AnticipiChip({ clienteId }: Props) {
               {esauriti.length > 0 && (
                 <details className="mt-3">
                   <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                    Storico anticipi esauriti ({esauriti.length})
+                    Storico acconti esauriti ({esauriti.length})
                   </summary>
                   <Table className="mt-2">
                     <TableBody>

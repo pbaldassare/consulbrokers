@@ -56,9 +56,9 @@ export default function NuovoAnticipoDialog({ open, onOpenChange, clienteId }: P
       qc.invalidateQueries({ queryKey: ["cliente-anticipi-disponibili", vars.cliente_id] });
       qc.invalidateQueries({ queryKey: ["anticipi-globale"] });
       qc.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
-      toast.success("Anticipo creato");
+      toast.success("Acconto creato");
     },
-    onError: (e: any) => toast.error(e?.message || "Errore creazione anticipo"),
+    onError: (e: any) => toast.error(e?.message || "Errore creazione acconto"),
   });
 
   const [data, setData] = useState(todayISO());
@@ -114,7 +114,7 @@ export default function NuovoAnticipoDialog({ open, onOpenChange, clienteId }: P
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Nuovo Anticipo Cliente</DialogTitle>
+          <DialogTitle>Nuovo Acconto Cliente</DialogTitle>
           <DialogDescription>Registra un versamento del cliente da utilizzare nelle messe a cassa future.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -165,7 +165,7 @@ export default function NuovoAnticipoDialog({ open, onOpenChange, clienteId }: P
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Annulla</Button>
           <Button onClick={handleSave} disabled={!canSubmit || isPending}>
-            {isPending ? "Salvataggio..." : "Salva Anticipo"}
+            {isPending ? "Salvataggio..." : "Salva Acconto"}
           </Button>
         </DialogFooter>
       </DialogContent>

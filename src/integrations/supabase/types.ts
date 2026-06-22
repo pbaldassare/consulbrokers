@@ -8505,6 +8505,7 @@ export type Database = {
           percentuale_riparto: number | null
           periodicita: string | null
           polizza_id: string | null
+          polizza_temporanea: boolean
           premio_lordo: number | null
           premio_netto: number | null
           premio_netto_quietanza: number | null
@@ -8628,6 +8629,7 @@ export type Database = {
           percentuale_riparto?: number | null
           periodicita?: string | null
           polizza_id?: string | null
+          polizza_temporanea?: boolean
           premio_lordo?: number | null
           premio_netto?: number | null
           premio_netto_quietanza?: number | null
@@ -8751,6 +8753,7 @@ export type Database = {
           percentuale_riparto?: number | null
           periodicita?: string | null
           polizza_id?: string | null
+          polizza_temporanea?: boolean
           premio_lordo?: number | null
           premio_netto?: number | null
           premio_netto_quietanza?: number | null

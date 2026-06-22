@@ -489,8 +489,8 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
                 <div className="flex items-center gap-2 text-sm">
                   <Wallet className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                   <span className="text-emerald-800 dark:text-emerald-300">
-                    Anticipi disponibili: <strong className="tabular-nums">{fmtEuro(anticipoSummary.totale)}</strong>
-                    {" "}({anticipoSummary.conteggio} anticip{anticipoSummary.conteggio === 1 ? "o" : "i"})
+                    Acconti disponibili: <strong className="tabular-nums">{fmtEuro(anticipoSummary.totale)}</strong>
+                    {" "}({anticipoSummary.conteggio} accont{anticipoSummary.conteggio === 1 ? "o" : "i"})
                   </span>
                   <Button
                     size="sm" variant="ghost" className="h-7 text-xs text-emerald-700 dark:text-emerald-400"
@@ -506,7 +506,7 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
                     const residuoMov = round2(Math.max(0, (Number(movimento.importo) || 0) - totalePolizze));
                     const da_usare = round2(Math.min(anticipoSummary.totale, residuoMov));
                     setAnticipo(da_usare);
-                    if (da_usare <= 0) toast.info("Nessun importo da coprire con l'anticipo");
+                    if (da_usare <= 0) toast.info("Nessun importo da coprire con l'acconto");
                   }}
                 >
                   Usa nel ricongiungimento
@@ -611,7 +611,7 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
             {/* Anticipi / Ammanchi */}
             <div className="grid md:grid-cols-2 gap-3">
               <div>
-                <Label>Anticipo (€)</Label>
+                <Label>Acconto (€)</Label>
                 <Input type="number" step="0.01" value={anticipo || ""} onChange={(e) => setAnticipo(Number(e.target.value) || 0)} />
               </div>
               <div>

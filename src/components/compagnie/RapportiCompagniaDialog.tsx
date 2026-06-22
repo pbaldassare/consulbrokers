@@ -576,7 +576,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
             <DialogTitle className="flex items-center gap-2">
               <Network className="w-5 h-5 text-primary" />
               Rapporti con Compagnie Assicurative — <span className="text-primary">{compagniaNome}</span>
-              <Badge variant="secondary" className="ml-2">{rapporti.length}</Badge>
+              <Badge variant="secondary" className="ml-2">
+                {(rapporti as any[]).filter((r) => r.attivo).length}
+                {(rapporti as any[]).some((r) => !r.attivo) ? `/${rapporti.length}` : ""}
+              </Badge>
             </DialogTitle>
           </DialogHeader>
 

@@ -18,10 +18,9 @@ const titoli = [
 ];
 
 describe("shouldShowRate", () => {
-  it("espande SOLO quando filtroTipo === 'tutti' e ci sono rate", () => {
-    expect(shouldShowRate("tutti", true)).toBe(true);
-    expect(shouldShowRate("tutti", false)).toBe(false);
+  it("non espande più le rate annidate (vista separata Polizze / Quietanze)", () => {
     expect(shouldShowRate("polizze", true)).toBe(false);
+    expect(shouldShowRate("polizze", false)).toBe(false);
     expect(shouldShowRate("quietanze", true)).toBe(false);
   });
 });
@@ -80,17 +79,8 @@ describe("computeRenderedRowCount — dataset differente per modalità", () => {
     expect(computeRenderedRowCount(catene, "quietanze")).toBe(2);
   });
 
-  it("'tutti' collassato → solo le madri (2)", () => {
-    expect(computeRenderedRowCount(catene, "tutti", {})).toBe(2);
-  });
-
-  it("'tutti' con POL-A espansa → madre + 2 rate + madre POL-B = 4", () => {
-    expect(computeRenderedRowCount(catene, "tutti", { "POL-A": true })).toBe(4);
-  });
-
   it("i conteggi della toolbar restano invariati al cambiare di filtroTipo", () => {
     const counts = computeCounts(titoli);
-    // simula i tre tab: i counts sono calcolati sui titoli filtrati, non sul render
     expect(counts).toEqual({ polizze: 2, quietanze: 2 });
   });
 });

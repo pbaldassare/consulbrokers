@@ -106,7 +106,7 @@ export default function RiepilogoAnticipiPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2">
-              <Wallet className="w-6 h-6 text-primary" /> Riepilogo Anticipi Clienti
+              <Wallet className="w-6 h-6 text-primary" /> Riepilogo Acconti Clienti
             </h1>
             <p className="text-sm text-muted-foreground">
               Versamenti dei clienti utilizzabili nelle messe a cassa — sincronizzato in tempo reale
@@ -118,7 +118,7 @@ export default function RiepilogoAnticipiPage() {
             <RefreshCw className={`w-4 h-4 mr-1 ${isFetching ? "animate-spin" : ""}`} /> Aggiorna
           </Button>
           <Button onClick={() => setOpenNuovo(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo Anticipo
+            <Plus className="w-4 h-4 mr-1" /> Nuovo Acconto
           </Button>
         </div>
       </div>
@@ -134,7 +134,7 @@ export default function RiepilogoAnticipiPage() {
           <CardContent className="text-2xl font-semibold">{fmtEuro(kpi.totVers)}</CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardDescription>Anticipi Attivi</CardDescription></CardHeader>
+          <CardHeader className="pb-2"><CardDescription>Acconti Attivi</CardDescription></CardHeader>
           <CardContent className="text-2xl font-semibold">{kpi.attivi}</CardContent>
         </Card>
       </div>
@@ -202,14 +202,14 @@ export default function RiepilogoAnticipiPage() {
       {/* Tabella */}
       <Card>
         <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">Anticipi ({rows.length})</CardTitle>
+          <CardTitle className="text-sm">Acconti ({rows.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="text-sm text-muted-foreground py-6 text-center">Caricamento...</div>
           ) : rows.length === 0 ? (
             <div className="text-sm text-muted-foreground py-8 text-center border-2 border-dashed rounded-md">
-              Nessun anticipo trovato con i filtri correnti
+              Nessun acconto trovato con i filtri correnti
             </div>
           ) : (
             <Table>
@@ -254,7 +254,7 @@ export default function RiepilogoAnticipiPage() {
                           variant="ghost"
                           className="h-7 w-7"
                           onClick={() => {
-                            if (confirm("Eliminare questo anticipo?")) elimina.mutate(r.id);
+                            if (confirm("Eliminare questo acconto?")) elimina.mutate(r.id);
                           }}
                         >
                           <Trash2 className="w-3 h-3 text-destructive" />

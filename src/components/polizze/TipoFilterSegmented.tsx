@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils";
 
-export type FiltroTipo = "tutti" | "polizze" | "quietanze" | "regolazioni";
+export type FiltroTipo = "polizze" | "quietanze" | "regolazioni";
 
 export type TipoFilterSegmentedProps = {
   value: FiltroTipo;
   onChange: (v: FiltroTipo) => void;
-  counts?: { tutti?: number; polizze?: number; quietanze?: number; regolazioni?: number };
+  counts?: { polizze?: number; quietanze?: number; regolazioni?: number };
   /** Mostra anche il chip Regolazioni (solo portafoglio). Default: false. */
   withRegolazioni?: boolean;
   /** Nasconde il chip Polizze (es. pagina Carico dove ci sono solo quietanze). Default: false. */
@@ -14,7 +14,7 @@ export type TipoFilterSegmentedProps = {
 };
 
 /**
- * Segmented control "Tipo": Tutti · Polizze · Quietanze · (Regolazioni).
+ * Segmented control "Tipo": Polizze · Quietanze · (Regolazioni).
  * Il chip attivo prende il colore del tipo (teal/ambra/arancio), così la modalità è leggibile a colpo d'occhio.
  */
 export function TipoFilterSegmented({
@@ -31,12 +31,6 @@ export function TipoFilterSegmented({
     count?: number;
     activeClasses: string;
   }> = [
-    {
-      key: "tutti",
-      label: "Tutti",
-      count: counts?.tutti,
-      activeClasses: "bg-foreground text-background shadow-sm",
-    },
     ...(hidePolizze
       ? []
       : [

@@ -1693,16 +1693,15 @@ const CompagnieList = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                            {/* +1 = rapporto principale implicito (l'agenzia stessa) */}
                             <Button
                               variant={rc.attivi >= 1 ? "default" : "outline"}
                               size="sm"
                               className="gap-1 h-7"
                               onClick={() => setRapportiTarget({ id: c.id, nome: c.nome })}
-                              title="Gestisci rapporti aggiuntivi (oltre al rapporto principale)"
+                              title="Gestisci rapporti con compagnie assicurative"
                             >
                               <Network className="w-3.5 h-3.5" />
-                              {rc.attivi + 1}{rc.tot > rc.attivi ? `/${rc.tot + 1}` : ""}
+                              {rc.attivi}{rc.tot > rc.attivi ? `/${rc.tot}` : ""}
                             </Button>
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>

@@ -17,6 +17,8 @@ export type QuietanzaPlanInput = {
   garanziaDa?: string | Date | null;
   garanziaA?: string | Date | null;
   dataCompetenza?: string | Date | null;
+  /** Se true: una sola quietanza sul periodo indicato, senza frazionamento. */
+  polizzaTemporanea?: boolean | null;
 };
 
 function toDate(v: string | Date | null | undefined): Date | null {
@@ -49,6 +51,16 @@ export function computeQuietanzePlan(input: QuietanzaPlanInput): QuietanzaPlanRo
   const garDa = toDate(input.garanziaDa);
   const garA = toDate(input.garanziaA);
   if (!garDa || !garA) return [];
+
+  if (input.polizzaTemporanea) {
+    const competenza = toDate(input.dataCompetenza);
+    return [{
+      idx: 1,
+      garanzia_da: iso(garDa),
+      garanzia_a: iso(garA),
+      data_competenza: competenza ? iso(competenza) : iso(garDa),
+    }];
+  }
 
   const f = String(input.frazionamento || "").toLowerCase();
   if (!f) return [];

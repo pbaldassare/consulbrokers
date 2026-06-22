@@ -343,6 +343,7 @@ const ImmissionePolizzaPage = () => {
   const [durataATouched, setDurataATouched] = useState(false);
   const [anniDurata, setAnniDurata] = useState("1");
   const [tacitoRinnovo, setTacitoRinnovo] = useState(true);
+  const [polizzaTemporanea, setPolizzaTemporanea] = useState(false);
   const [frazionamento, setFrazionamento] = useState<string>("Annuale");
   const [moraGiorni, setMoraGiorni] = useState("15");
   const [garanziaDa, setGaranziaDa] = useState("");
@@ -505,6 +506,7 @@ const ImmissionePolizzaPage = () => {
         durataATouched: setDurataATouched,
         anniDurata: setAnniDurata,
         tacitoRinnovo: setTacitoRinnovo,
+        polizzaTemporanea: setPolizzaTemporanea,
         frazionamento: setFrazionamento,
         moraGiorni: setMoraGiorni,
         garanziaDa: setGaranziaDa,
@@ -608,7 +610,7 @@ const ImmissionePolizzaPage = () => {
     numeroPolizza, tipoOperazione, polizzaAuto,
     selectedCompagnia, selectedGruppoCompagniaId, selectedRapportoId, selectedRamo, selectedGruppoRamoId, prodottoNome,
     cigRif, cigTemporaneo, vincolo, targaTelaio, descrizionePolizza,
-    durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, frazionamento, moraGiorni,
+    durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, polizzaTemporanea, frazionamento, moraGiorni,
     garanziaDa, garanziaDaTouched, garanziaA, garanziaATouched, dataCompetenza, dataCompetenzaTouched,
     limiteMora, limiteMoraTouched, disdettaMesi,
     regolazione, regolazioneDataPresunta, regolazioneFattore, regolazioneNote,
@@ -1399,6 +1401,7 @@ const ImmissionePolizzaPage = () => {
     return dt.toISOString().slice(0, 10);
   };
   useEffect(() => {
+    if (polizzaTemporanea) return;
     if (!durataDa) return;
     const anni = Math.max(1, parseInt(anniDurata) || 1);
     const mesiGar = frazionamentoMesi(frazionamento, anni);
@@ -1415,7 +1418,7 @@ const ImmissionePolizzaPage = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [durataDa, anniDurata, frazionamento]);
+  }, [durataDa, anniDurata, frazionamento, polizzaTemporanea]);
 
   // --- Handlers ---
 
@@ -1457,6 +1460,16 @@ const ImmissionePolizzaPage = () => {
       if (!vUso) { toast.error("Uso obbligatorio per RCA Auto"); return; }
       if (!vTipologiaGuida) { toast.error("Tipologia Guida obbligatoria per RCA Auto"); return; }
     }
+    if (polizzaTemporanea) {
+      if (!garanziaDa || !garanziaA) {
+        toast.error("Per una polizza temporanea indica Garanzia Da e Garanzia A");
+        return;
+      }
+      if (garanziaDa > garanziaA) {
+        toast.error("Garanzia Da non può essere successiva a Garanzia A");
+        return;
+      }
+    }
     const rapportoSel = (rapportiAgenzia || []).find((r: any) => r.id === selectedRapportoId);
     setSaving(true);
     try {
@@ -1497,11 +1510,11 @@ const ImmissionePolizzaPage = () => {
         descrizione_polizza: descrizionePolizza || null,
         durata_da: durataDa || null,
         durata_a: durataA || null,
-        anni_durata: parseInt(anniDurata) || 1,
-        tacito_rinnovo: tacitoRinnovo,
-        // periodicita legacy: non valorizzato dalla UI (resta NULL)
-        rate: frazionamentoToRate(frazionamento, parseInt(anniDurata) || 1),
-        frazionamento,
+        anni_durata: polizzaTemporanea ? null : (parseInt(anniDurata) || 1),
+        tacito_rinnovo: polizzaTemporanea ? false : tacitoRinnovo,
+        polizza_temporanea: polizzaTemporanea,
+        rate: polizzaTemporanea ? 1 : frazionamentoToRate(frazionamento, parseInt(anniDurata) || 1),
+        frazionamento: polizzaTemporanea ? null : frazionamento,
         mora_giorni: parseInt(moraGiorni) || 15,
         premio_netto: premioNetto ? parseFloat(premioNetto) : null,
         addizionali: addizionali ? parseFloat(addizionali) : 0,
@@ -2387,6 +2400,27 @@ const ImmissionePolizzaPage = () => {
       {/* PERIODO */}
       <PolizzaSection title="Periodo" icon={Calendar}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="space-y-1.5 md:col-span-2">
+            <Label className="text-xs flex items-center gap-1">
+              Polizza temporanea
+              <FieldHint>Copertura a periodo libero: genera una sola quietanza, senza frazionamento né rinnovi automatici. La quietanza si incassa normalmente.</FieldHint>
+            </Label>
+            <div className="flex items-center gap-2 h-8">
+              <Switch
+                checked={polizzaTemporanea}
+                onCheckedChange={(v) => {
+                  setPolizzaTemporanea(v);
+                  if (v) {
+                    setTacitoRinnovo(false);
+                    if (durataDa && !garanziaDaTouched) setGaranziaDa(durataDa);
+                    if (durataA && !garanziaATouched) setGaranziaA(durataA);
+                    if (!dataCompetenzaTouched && durataDa) setDataCompetenza(durataDa);
+                  }
+                }}
+              />
+              <span className="text-xs text-muted-foreground">{polizzaTemporanea ? "Sì" : "No"}</span>
+            </div>
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Durata Da</Label>
             <Input type="date" value={durataDa} onChange={(e) => setDurataDa(e.target.value)} className="h-8 text-xs" />
@@ -2397,7 +2431,7 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Anni Durata</Label>
-            <Input type="number" min="1" value={anniDurata} onChange={(e) => setAnniDurata(e.target.value)} className="h-8 text-xs" />
+            <Input type="number" min="1" value={anniDurata} onChange={(e) => setAnniDurata(e.target.value)} className="h-8 text-xs" disabled={polizzaTemporanea} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Frazionamento</Label>
@@ -2407,6 +2441,7 @@ const ImmissionePolizzaPage = () => {
               onValueChange={(v) => setFrazionamento(v || "Annuale")}
               options={FRAZIONAMENTO_OPTIONS}
               placeholder="—"
+              disabled={polizzaTemporanea}
             />
           </div>
           <div className="space-y-1.5">
@@ -2454,7 +2489,7 @@ const ImmissionePolizzaPage = () => {
               <FieldHint>Se attivo, la polizza si rinnova automaticamente alla scadenza salvo disdetta nei termini contrattuali.</FieldHint>
             </Label>
             <div className="flex items-center gap-2 h-8">
-              <Switch checked={tacitoRinnovo} onCheckedChange={setTacitoRinnovo} />
+              <Switch checked={tacitoRinnovo} onCheckedChange={setTacitoRinnovo} disabled={polizzaTemporanea} />
               <span className="text-xs text-muted-foreground">{tacitoRinnovo ? "Sì" : "No"}</span>
             </div>
           </div>

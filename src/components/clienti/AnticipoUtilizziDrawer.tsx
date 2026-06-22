@@ -19,12 +19,12 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
     <Dialog open={!!anticipoId} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Utilizzi Anticipo</DialogTitle>
+          <DialogTitle>Utilizzi Acconto</DialogTitle>
         </DialogHeader>
         {isLoading ? (
           <div className="text-sm text-muted-foreground py-4 text-center">Caricamento...</div>
         ) : utilizzi.length === 0 ? (
-          <div className="text-sm text-muted-foreground py-6 text-center">Anticipo non ancora utilizzato</div>
+          <div className="text-sm text-muted-foreground py-6 text-center">Acconto non ancora utilizzato</div>
         ) : (
           <Table>
             <TableHeader>

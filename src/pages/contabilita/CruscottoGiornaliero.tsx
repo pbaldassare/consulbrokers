@@ -646,7 +646,7 @@ const CruscottoGiornaliero = () => {
                 <SelectContent>
                   <SelectItem value="__tutte__">Tutte</SelectItem>
                   <SelectItem value="compensazione_titolo">Compensazioni</SelectItem>
-                  <SelectItem value="utilizzo_anticipo">Utilizzo anticipo</SelectItem>
+                  <SelectItem value="utilizzo_anticipo">Utilizzo acconto</SelectItem>
                   <SelectItem value="incasso_premio">Incasso premio</SelectItem>
                   <SelectItem value="rimessa">Rimessa</SelectItem>
                   <SelectItem value="provvigione">Provvigione</SelectItem>

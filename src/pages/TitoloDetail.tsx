@@ -788,6 +788,7 @@ const TitoloDetail = () => {
     limite_mora: "" as string,
     mora_giorni: "" as string,
     tacito_rinnovo: true as boolean,
+    polizza_temporanea: false as boolean,
     disdetta_mesi: "" as string,
   });
 
@@ -807,6 +808,7 @@ const TitoloDetail = () => {
         limite_mora: t.limite_mora ?? "",
         mora_giorni: t.mora_giorni != null ? String(t.mora_giorni) : "",
         tacito_rinnovo: t.tacito_rinnovo ?? true,
+        polizza_temporanea: !!t.polizza_temporanea,
         disdetta_mesi: t.disdetta_mesi != null ? String(t.disdetta_mesi) : "",
       });
     }
@@ -841,12 +843,16 @@ const TitoloDetail = () => {
       const after: Record<string, any> = {};
       const fields: (keyof typeof periodoForm)[] = [
         "durata_da", "durata_a", "anni_durata", "rate", "frazionamento", "garanzia_da", "garanzia_a",
-        "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tacito_rinnovo", "disdetta_mesi",
+        "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tacito_rinnovo", "polizza_temporanea", "disdetta_mesi",
       ];
       const numericFields = new Set(["anni_durata", "rate", "mora_giorni", "disdetta_mesi"]);
-      const booleanFields = new Set(["tacito_rinnovo"]);
-      // Sincronizza rate <- frazionamento (verità UI = frazionamento testuale)
-      if (periodoForm.frazionamento) {
+      const booleanFields = new Set(["tacito_rinnovo", "polizza_temporanea"]);
+      if (periodoForm.polizza_temporanea) {
+        periodoForm.tacito_rinnovo = false;
+        periodoForm.frazionamento = "";
+        periodoForm.rate = "1";
+        periodoForm.anni_durata = "";
+      } else if (periodoForm.frazionamento) {
         const anni = Number(periodoForm.anni_durata) || 1;
         periodoForm.rate = String(frazionamentoToRate(periodoForm.frazionamento, anni));
       }
@@ -2391,7 +2397,8 @@ const TitoloDetail = () => {
             <FieldRow label="Durata Da" value={fmtDate(t.durata_da)} />
             <FieldRow label="Durata A" value={fmtDate(t.durata_a)} />
             <FieldRow label="Anni Durata" value={fmt(t.anni_durata)} />
-            <FieldRow label="Frazionamento" value={t.frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata)} />
+            <FieldRow label="Frazionamento" value={t.polizza_temporanea ? "—" : (t.frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata))} />
+            <FieldRow label="Polizza temporanea" value={t.polizza_temporanea ? "Sì" : "No"} />
             <FieldRow label="Garanzia Da" value={fmtDate(t.garanzia_da)} />
             <FieldRow label="Garanzia A" value={fmtDate(t.garanzia_a)} />
             <FieldRow label="Data Competenza" value={fmtDate(t.data_competenza)} />
@@ -2410,6 +2417,26 @@ const TitoloDetail = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
+            {!t.sostituisce_polizza && (
+              <div className="col-span-2 md:col-span-4 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+                <Label className="text-xs">Polizza temporanea</Label>
+                <div className="flex items-center gap-2 h-9 mt-1">
+                  <Switch
+                    checked={periodoForm.polizza_temporanea}
+                    onCheckedChange={(v) => setPeriodoForm(p => ({
+                      ...p,
+                      polizza_temporanea: v,
+                      tacito_rinnovo: v ? false : p.tacito_rinnovo,
+                      frazionamento: v ? "" : (p.frazionamento || "Annuale"),
+                      rate: v ? "1" : p.rate,
+                    }))}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {periodoForm.polizza_temporanea ? "Sì — una sola quietanza, senza rinnovi" : "No"}
+                  </span>
+                </div>
+              </div>
+            )}
             {([
               ["durata_da", "Durata Da"],
               ["durata_a", "Durata A"],
@@ -2458,6 +2485,7 @@ const TitoloDetail = () => {
                 step="0.1"
                 value={periodoForm.anni_durata}
                 onChange={(e) => setPeriodoForm(p => ({ ...p, anni_durata: e.target.value }))}
+                disabled={periodoForm.polizza_temporanea}
               />
               {suggestedAnniDurata != null && (
                 <div className="flex items-center gap-2 mt-1">
@@ -2472,6 +2500,7 @@ const TitoloDetail = () => {
               <Select
                 value={periodoForm.frazionamento || "Annuale"}
                 onValueChange={(v) => setPeriodoForm(p => ({ ...p, frazionamento: v }))}
+                disabled={periodoForm.polizza_temporanea}
               >
                 <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
                 <SelectContent>
@@ -2520,6 +2549,7 @@ const TitoloDetail = () => {
                 <Switch
                   checked={periodoForm.tacito_rinnovo}
                   onCheckedChange={(v) => setPeriodoForm(p => ({ ...p, tacito_rinnovo: v }))}
+                  disabled={periodoForm.polizza_temporanea}
                 />
                 <span className="text-sm text-muted-foreground">
                   {periodoForm.tacito_rinnovo ? "Sì" : "No"}
