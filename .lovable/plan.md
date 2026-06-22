@@ -1,41 +1,40 @@
-## Capito — il problema
+## Analisi polizza 390721911 (Trotta Bus / Generali Venezia)
 
-Per `compagnie.tipo IN ('agenzia','direzione')` la regola è **1:1 con `compagnia_rapporti`** (memoria `rapporto-principale-agenzia-direzione`): il rapporto principale deve essere creato automaticamente al salvataggio della compagnia, copiando nome, codice, IBAN, sede, gruppo, note, conto bancario. Sync bidirezionale è già attivo.
+Confronto con la nuova logica "rapporto principale automatico per agenzia/direzione".
 
-**Stato reale del DB (oggi):**
+### Cosa funziona ✅
+- **Agenzia "Generali Venezia"** (`compagnie.codice=RER343`, `tipo=agenzia`, `gruppo_compagnia_id` valorizzato): dopo il backfill della migrazione precedente, ha ora **1 solo `compagnia_rapporti` con `is_principale=true`** (`ec437140-86fc-429c-8b10-af368372016d`, nome "Generali Venezia"). ✅
+- Le due rate (`377dfa54…` madre + `31c36a64…` rata 2) sono **due record `titoli` indipendenti** come da modello `quietanza-isolation`. ✅
+- `sostituisce_polizza='390721911'` (text, numero polizza madre) coerente con l'auto-quietanza. ✅
+- Sede Napoli, AE valorizzato, premio_lordo coerente, stato `attivo`. ✅
 
-| Situazione | Conteggio |
-|---|---|
-| Agenzie/Direzioni con esattamente 1 rapporto principale | 16 ✅ |
-| Agenzie/Direzioni con **0 rapporti** (anomalia) | **18 ❌** |
-| Agenzie/Direzioni con >1 rapporto | 0 |
+### Anomalia ❌ — `titoli.compagnia_rapporto_id` non popolato
 
-Le 18 anomalie (es. `Axa Assiprefin BG0013`, `Axa Mazzoleni BG0012`, `Bene Assicurazioni`, `D.A.S.`, `AIG EUROPE direzione`, `allianz direzione`, `Generali Venezia`, `Groupama Aelle`, `TRB`, `Zurich Giordani`, ecc.) sono state inserite prima/aggirando il trigger `trg_compagnie_auto_rapporto_principale` (creato in maggio 2026 con backfill one-shot). Tutte hanno già `gruppo_compagnia_id` valorizzato, quindi il rapporto si può ricreare deterministicamente dai loro dati.
+Entrambe le rate hanno `compagnia_rapporto_id = NULL`. Con la nuova logica ogni titolo su un'**agenzia/direzione** deve puntare al rapporto principale di quella compagnia, altrimenti:
+- la risoluzione provvigioni (`provvigioni_compagnia_ramo` → matrice per `compagnia_rapporto_id` + ramo) non trova la riga,
+- l'indirizzamento rimesse/E-C agenzia perde il rapporto,
+- l'email "messa a cassa" non sa quale referente compagnia usare.
 
-Inoltre la form "Nuova Agenzia/Direzione" attuale lascia opzionale `gruppo_compagnia_id` (il trigger esce silenziosamente se NULL → rapporto non creato): va reso **obbligatorio** per quei due tipi, così non si rigenerano nuove anomalie.
+Estensione del problema: **96 titoli totali** hanno `compagnia_rapporto_id=NULL` mentre la loro compagnia (agenzia/direzione) ha già un rapporto principale esistente. Sono tutti titoli inseriti prima del backfill o creati da percorsi che non passano dal trigger.
 
-## Cosa farò
+### Cosa farò
 
-### 1) Migrazione DB
-- **Backfill** delle 18 agenzie/direzioni senza rapporto: insert in `compagnia_rapporti` con `is_principale=true`, copiando dalla riga `compagnie` (stessi campi del trigger). Idempotente: solo dove `NOT EXISTS` rapporto.
-- **Hardening del trigger** `tg_compagnie_auto_rapporto_principale`: se `gruppo_compagnia_id` è NULL, sollevare `RAISE EXCEPTION` invece di uscire silenziosamente. Così ogni insert futuro fallisce esplicitamente finché il gruppo non è scelto.
-- **Vincolo aggiuntivo (soft)**: aggiungere un check via trigger BEFORE INSERT/UPDATE su `compagnie` che, per `tipo IN ('agenzia','direzione')`, esige `gruppo_compagnia_id NOT NULL`.
+**1) Migrazione DB**
 
-### 2) UI form Compagnia (`src/components/compagnie/CompagniaForm.tsx` o equivalente, da leggere)
-- Quando `tipo` = agenzia/direzione: campo "Gruppo Compagnia" marcato come **obbligatorio** con asterisco e validazione zod; il submit non parte senza.
-- Banner informativo: "Il Rapporto principale verrà creato automaticamente con questi dati. Per modificarlo successivamente, le modifiche su nome/codice/IBAN/sede/note/conto si propagano in automatico."
-- Nessun pulsante "Nuovo Rapporto" per questi tipi (già gestito in `RapportiCompagniaDialog.tsx`).
+- **Backfill `titoli.compagnia_rapporto_id`**: per ogni titolo con `compagnia_rapporto_id IS NULL` la cui `compagnia` è di tipo `agenzia`/`direzione`, settarlo al `compagnia_rapporti.id` con `is_principale=true` di quella compagnia. Idempotente (`WHERE compagnia_rapporto_id IS NULL`). Stima impatto: 96 righe + relative quietanze figlie già coperte dalla stessa WHERE.
 
-### 3) Verifica post-migrazione
-- Query di controllo: tutte le agenzie/direzioni hanno esattamente 1 rapporto principale.
-- Aprire `ProvvigioniCompagniaDialog` su una delle 18 ex-anomalie e confermare che ora mostra il rapporto (badge "vuoto").
+- **Trigger `tg_titoli_set_rapporto_principale`** (BEFORE INSERT OR UPDATE OF `compagnia_id` su `titoli`): se `compagnia_rapporto_id IS NULL` e la `compagnia` è agenzia/direzione, popolarlo col rapporto principale. Così i nuovi titoli non ricreano anomalie.
 
-## Cosa NON tocco
-- Tabella `compagnia_rapporti` (struttura invariata).
-- Logica per altri tipi (broker, plurimandataria, sub-agenzia, ecc.) → N:N resta com'è.
-- `ProvvigioniCompagniaDialog` appena rifatto.
-- Provvigioni esistenti.
+- **Allineamento con il trigger esistente** `tg_compagnie_auto_rapporto_principale`: nessuna modifica, già hardened.
 
-## Dettagli tecnici
-- Migrazione SQL singola: 1 backfill + 1 `CREATE OR REPLACE FUNCTION` (trigger esistente) + 1 nuovo trigger BEFORE INSERT/UPDATE su `compagnie`.
-- Edit frontend: solo zod schema + label/asterisco nel form compagnia. Nessun cambio di rotta o di RLS.
+**2) Verifica post-migrazione**
+
+- Query: zero titoli con `compagnia_rapporto_id IS NULL` per compagnie agenzia/direzione.
+- Riaprire la polizza 390721911: entrambe le rate ora con rapporto principale valorizzato; aprire `ProvvigioniCompagniaDialog` su Generali Venezia per verificare che la matrice provvigioni è raggiungibile.
+
+### Cosa NON tocco
+
+- Logica `sostituisce_polizza` (resta `text` = numero polizza, by design).
+- Tipologia agenzia/rapporto principale (già a posto).
+- Titoli su compagnie di tipo `broker`/`plurimandataria` (modello N:N, scelta esplicita del rapporto via UI).
+- Provvigioni, rimesse, quietanze esistenti.
