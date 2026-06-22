@@ -46,7 +46,7 @@ const PortafoglioCaricoPage = () => {
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
   const [search, setSearch] = useState("");
-  const [sortField, setSortField] = useState("data_scadenza");
+  const [sortField, setSortField] = useState("garanzia_a");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [searchParams, setSearchParams] = useSearchParams();
@@ -167,7 +167,9 @@ const PortafoglioCaricoPage = () => {
   const applySearch = (q: any) =>
     search ? q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`) : q;
 
-  const orderField = filtroPeriodo === "messe_cassa" ? (sortField === "data_scadenza" ? "data_messa_cassa" : sortField) : sortField;
+  const orderField = filtroPeriodo === "messe_cassa"
+    ? (sortField === "data_scadenza" || sortField === "garanzia_a" || sortField === "garanzia_da" ? "data_messa_cassa" : sortField)
+    : sortField;
 
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, dateDa, dateA, sortField, sortDirection],
@@ -655,13 +657,13 @@ const PortafoglioCaricoPage = () => {
                   </TableHead>
                   <SortableHeader field="numero_titolo">N° Polizza</SortableHeader>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Polizza madre</TableHead>
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
                   <TableHead>Anticipo</TableHead>
                   <SortableHeader field="compagnia_nome">Agenzia</SortableHeader>
                   <SortableHeader field="ramo_nome">Garanzia</SortableHeader>
+                  <SortableHeader field="garanzia_da">Inizio Garanzia</SortableHeader>
+                  <SortableHeader field="garanzia_a">Fine Garanzia</SortableHeader>
                   <SortableHeader field="targa_telaio">Targa</SortableHeader>
-                  <SortableHeader field="data_scadenza">Scadenza</SortableHeader>
                   <SortableHeader field="rate">Fraz</SortableHeader>
                   <SortableHeader field="premio_lordo" className="text-right">Lordo</SortableHeader>
                   <SortableHeader field="ae_nome">AE</SortableHeader>
@@ -706,22 +708,6 @@ const PortafoglioCaricoPage = () => {
                           />
                         )}
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        {isQ && p.polizza_id ? (
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0 font-mono text-xs"
-                            onClick={() => navigate(`/polizze/${p.polizza_id}`)}
-                            title="Vai alla polizza madre"
-                          >
-                            {polizzaMadreNumero || "—"}
-                          </Button>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-
                       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         {(() => {
@@ -741,8 +727,9 @@ const PortafoglioCaricoPage = () => {
                       </TableCell>
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
                       <TableCell>{p.ramo_nome || "—"}</TableCell>
+                      <TableCell>{fmtDate(p.garanzia_da)}</TableCell>
+                      <TableCell>{fmtDate(p.garanzia_a)}</TableCell>
                       <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
-                      <TableCell>{fmtDate(p.data_scadenza)}</TableCell>
                       <TableCell>{frazLabel(p.rate)}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
                       <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
