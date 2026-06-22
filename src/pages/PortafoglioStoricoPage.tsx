@@ -205,13 +205,13 @@ const PortafoglioStoricoPage = () => {
                 <TableRow>
                   <TableHead>N° Polizza</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Polizza madre</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Anticipo</TableHead>
                   <TableHead>Agenzia</TableHead>
                   <TableHead>Garanzia</TableHead>
+                  <TableHead>Inizio Garanzia</TableHead>
+                  <TableHead>Fine Garanzia</TableHead>
                   <TableHead>Targa</TableHead>
-                  <TableHead>Scadenza</TableHead>
                   <TableHead>Fraz</TableHead>
                   <TableHead className="text-right">Lordo</TableHead>
                   <TableHead className="text-right">Attive</TableHead>
@@ -245,21 +245,6 @@ const PortafoglioStoricoPage = () => {
                           ? <TipoPolizzaBadge tipo="quietanza" />
                           : <TipoPolizzaBadge tipo="polizza" />}
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {isQ && p.polizza_id ? (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 font-mono text-xs"
-                          onClick={() => navigate(`/polizze/${p.polizza_id}`)}
-                          title="Vai alla polizza madre"
-                        >
-                          {p.numero_titolo || "—"}
-                        </Button>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {(() => {
@@ -279,8 +264,9 @@ const PortafoglioStoricoPage = () => {
                     </TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>
                     <TableCell>{p.ramo_nome || "—"}</TableCell>
+                    <TableCell>{fmtDate(p.garanzia_da)}</TableCell>
+                    <TableCell>{fmtDate(p.garanzia_a)}</TableCell>
                     <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
-                    <TableCell>{fmtDate(p.data_scadenza)}</TableCell>
                     <TableCell>{frazLabel(p.rate)}</TableCell>
                     <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
                     <TableCell className="text-right">{fmtCurrency(p.provvigioni_firma)}</TableCell>
