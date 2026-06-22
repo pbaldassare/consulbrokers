@@ -1,43 +1,41 @@
-## Obiettivo
-Aggiungere accanto allo Switch Attiva/Disattiva in `/compagnie` un pulsante icona **%** che apre un popup con le provvigioni dell'agenzia per rapporto, riusando il componente esistente `ProvvigioniRapportiTab`. Aggiungere un piccolo indicatore di stato "configurato/vuoto" per ogni rapporto, dato che oggi solo 4 rapporti su 25 hanno righe in `provvigioni_compagnia_ramo`.
+## Capito — il problema
 
-## Stato attuale dei dati (verificato)
-Rapporti con righe configurate in `provvigioni_compagnia_ramo`:
-- Euroconsulting Srl → Unipol (36), Axa (19), Dual (1)
-- etisicura test → allianz roma (11)
+Per `compagnie.tipo IN ('agenzia','direzione')` la regola è **1:1 con `compagnia_rapporti`** (memoria `rapporto-principale-agenzia-direzione`): il rapporto principale deve essere creato automaticamente al salvataggio della compagnia, copiando nome, codice, IBAN, sede, gruppo, note, conto bancario. Sync bidirezionale è già attivo.
 
-Tutti gli altri 21 rapporti attivi hanno 0 righe: nel popup compariranno con matrice vuota da popolare (manuale / IA / CSV / copia da altro rapporto — già presenti in `ProvvigioniRapportiTab`).
+**Stato reale del DB (oggi):**
 
-## Modifiche
+| Situazione | Conteggio |
+|---|---|
+| Agenzie/Direzioni con esattamente 1 rapporto principale | 16 ✅ |
+| Agenzie/Direzioni con **0 rapporti** (anomalia) | **18 ❌** |
+| Agenzie/Direzioni con >1 rapporto | 0 |
 
-### 1. Nuovo `src/components/compagnie/ProvvigioniCompagniaDialog.tsx`
-Props: `open`, `onOpenChange`, `compagniaId`, `compagniaNome`, `onOpenRapporti`.
-Comportamento:
-- Carica `compagnia_rapporti` (attivi) per `compagnia_id` + per ognuno conta righe attive in `provvigioni_compagnia_ramo` (singola query con join o due query parallele in `useQuery`).
-- **0 rapporti** → empty state con icona `Network` + CTA "Apri Rapporti" che chiude il dialog e apre `RapportiCompagniaDialog`.
-- **1 rapporto** → header con nome rapporto + badge "Configurato (N righe)" o "Vuoto", poi `<ProvvigioniRapportiTab fixedRapportoId={...} />`.
-- **≥2 rapporti** → Tabs (≤4) o `SearchableSelect` (>4). Ogni tab/option mostra nome rapporto e un piccolo badge ✓ (N) o ○ vuoto. Sotto: `<ProvvigioniRapportiTab fixedRapportoId={selectedRapportoId} key={selectedRapportoId} />` (key forza remount).
-- Dialog `max-w-7xl max-h-[90vh] overflow-hidden`.
+Le 18 anomalie (es. `Axa Assiprefin BG0013`, `Axa Mazzoleni BG0012`, `Bene Assicurazioni`, `D.A.S.`, `AIG EUROPE direzione`, `allianz direzione`, `Generali Venezia`, `Groupama Aelle`, `TRB`, `Zurich Giordani`, ecc.) sono state inserite prima/aggirando il trigger `trg_compagnie_auto_rapporto_principale` (creato in maggio 2026 con backfill one-shot). Tutte hanno già `gruppo_compagnia_id` valorizzato, quindi il rapporto si può ricreare deterministicamente dai loro dati.
 
-### 2. `src/pages/CompagnieList.tsx`
-- Nuovo state `provvigioniTarget: { id, nome } | null`.
-- In cella Switch (agenzie), aggiungo bottone icona `Percent` prima dello Switch:
-  ```tsx
-  <Button variant="ghost" size="icon" className="h-8 w-8" title="Provvigioni"
-    onClick={() => setProvvigioniTarget({ id: c.id, nome: c.nome })}>
-    <Percent className="w-4 h-4" />
-  </Button>
-  ```
-- Monto `<ProvvigioniCompagniaDialog>` con `onOpenRapporti` che chiude questo dialog e apre `RapportiCompagniaDialog` con la stessa agenzia.
+Inoltre la form "Nuova Agenzia/Direzione" attuale lascia opzionale `gruppo_compagnia_id` (il trigger esce silenziosamente se NULL → rapporto non creato): va reso **obbligatorio** per quei due tipi, così non si rigenerano nuove anomalie.
 
-## Cosa NON cambio
-- Niente modifiche a schema DB, RLS, edge functions.
-- Niente modifiche a `ProvvigioniRapportiTab` (riusato in modalità `fixedRapportoId`).
-- Form "Modifica Agenzia" resta a 3 tab puliti (memoria `compagnie-form-pulita`).
-- Pagina `/provvigioni-compagnie-ramo` resta intatta.
+## Cosa farò
 
-## Verifica
-1. Click % su Euroconsulting → popup con 3 tab (Unipol ✓36, Axa ✓19, Dual ✓1) + Tabs/Select.
-2. Click % su agenzia con 1 rapporto vuoto (es. Angiulli) → matrice vuota con CTA import IA/CSV/copia, badge "Vuoto".
-3. Click % su agenzia senza rapporti → empty state con CTA "Apri Rapporti".
-4. Switch tra rapporti ricarica la matrice senza stati residui (key).
+### 1) Migrazione DB
+- **Backfill** delle 18 agenzie/direzioni senza rapporto: insert in `compagnia_rapporti` con `is_principale=true`, copiando dalla riga `compagnie` (stessi campi del trigger). Idempotente: solo dove `NOT EXISTS` rapporto.
+- **Hardening del trigger** `tg_compagnie_auto_rapporto_principale`: se `gruppo_compagnia_id` è NULL, sollevare `RAISE EXCEPTION` invece di uscire silenziosamente. Così ogni insert futuro fallisce esplicitamente finché il gruppo non è scelto.
+- **Vincolo aggiuntivo (soft)**: aggiungere un check via trigger BEFORE INSERT/UPDATE su `compagnie` che, per `tipo IN ('agenzia','direzione')`, esige `gruppo_compagnia_id NOT NULL`.
+
+### 2) UI form Compagnia (`src/components/compagnie/CompagniaForm.tsx` o equivalente, da leggere)
+- Quando `tipo` = agenzia/direzione: campo "Gruppo Compagnia" marcato come **obbligatorio** con asterisco e validazione zod; il submit non parte senza.
+- Banner informativo: "Il Rapporto principale verrà creato automaticamente con questi dati. Per modificarlo successivamente, le modifiche su nome/codice/IBAN/sede/note/conto si propagano in automatico."
+- Nessun pulsante "Nuovo Rapporto" per questi tipi (già gestito in `RapportiCompagniaDialog.tsx`).
+
+### 3) Verifica post-migrazione
+- Query di controllo: tutte le agenzie/direzioni hanno esattamente 1 rapporto principale.
+- Aprire `ProvvigioniCompagniaDialog` su una delle 18 ex-anomalie e confermare che ora mostra il rapporto (badge "vuoto").
+
+## Cosa NON tocco
+- Tabella `compagnia_rapporti` (struttura invariata).
+- Logica per altri tipi (broker, plurimandataria, sub-agenzia, ecc.) → N:N resta com'è.
+- `ProvvigioniCompagniaDialog` appena rifatto.
+- Provvigioni esistenti.
+
+## Dettagli tecnici
+- Migrazione SQL singola: 1 backfill + 1 `CREATE OR REPLACE FUNCTION` (trigger esistente) + 1 nuovo trigger BEFORE INSERT/UPDATE su `compagnie`.
+- Edit frontend: solo zod schema + label/asterisco nel form compagnia. Nessun cambio di rotta o di RLS.

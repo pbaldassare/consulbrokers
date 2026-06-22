@@ -630,6 +630,15 @@ function CompagniaFormDialog({
               {!form.gruppo_compagnia_id && (
                 <p className="text-xs text-destructive">Campo obbligatorio per agenzia/direzione</p>
               )}
+              <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-900 flex gap-2 mt-2">
+                <Network className="w-4 h-4 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-medium">Rapporto principale automatico</p>
+                  <p>
+                    Per {form.tipo === "agenzia" ? "le agenzie" : "le direzioni"} il sistema crea automaticamente <span className="font-semibold">un unico Rapporto principale</span> copiando questi dati (nome, codice, IBAN, sede, gruppo, conto bancario). Le modifiche successive su questi campi vengono propagate al rapporto.
+                  </p>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 flex gap-2">
