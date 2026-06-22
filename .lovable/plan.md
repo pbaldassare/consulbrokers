@@ -1,16 +1,23 @@
-## Bug
-In `src/pages/ClienteDetail.tsx` (tab Polizze del cliente) le righe quietanza navigano a `/quietanze/${r.id}`, ma `r.id` è un **`titoli.id`** (le rate vivono come record `titoli` collegati via `sostituisce_polizza`, non come righe della tabella `quietanze`).
+## Modifiche tabella "Polizze del cliente" (tab Polizze in ClienteDetail)
 
-Il route `/quietanze/:id` (`QuietanzaDetailRedirect`) interroga la tabella `quietanze` con quell'id, **non trova nulla** e fa `Navigate("/portafoglio/attive")`. Da qui la sensazione "non le trova".
+Nel file `src/pages/ClienteDetail.tsx`, sezione tabella polizze/quietanze (righe ~1278-1468):
 
-## Fix
-Sostituire la navigazione delle righe quietanza in `src/pages/ClienteDetail.tsx`:
+### Colonne da rimuovere
+1. **Polizza madre** — è un doppione del numero polizza/della catena già visibile. Rimuovo header e celle nelle 3 varianti di riga (quietanza flat, polizza madre, rata espansa).
+2. **Stato** — non serve. Rimuovo header e badge stato nelle 3 varianti.
 
-- riga ~1310 (tab "Quietanze" piatta): `navigate(\`/quietanze/${r.id}\`)` → `navigate(\`/titoli/${r.id}\`)`
-- riga ~1418 (rate espanse sotto la madre): stessa sostituzione
+### Colonne da aggiungere (solo per le quietanze)
+3. **Inizio Garanzia** → `r.data_decorrenza` della quietanza
+4. **Fine Garanzia** → `r.data_scadenza` della quietanza
 
-Nessuna altra modifica: il pannello `TitoloQuietanzePanel` già naviga correttamente a `/titoli/{id}`, e `PolizzaDetail.tsx` (che usa la tabella `quietanze` vera) resta invariato — lì `r.id` è davvero un `quietanze.id`.
+Posizionamento: subito dopo la colonna **Garanzia**, prima di Agenzia.
 
-## Verifica
-- Click su una quietanza dal cliente Trotta Bus → apre `/titoli/<id-rata>` (TitoloDetail della rata).
-- La rata corrente (Rata 2/2) non deve cambiare comportamento.
+Per le righe **polizza madre** (non quietanza) le due nuove colonne mostreranno `—` (la richiesta è esplicita: date della quietanza). Le polizze hanno già le proprie date visibili nel dettaglio.
+
+### Cosa NON tocco
+- Il filtro "Stato" in alto resta (utile per filtrare polizze attive/incassate dietro le quinte) — se vuoi lo rimuovo anche.
+- Nessuna modifica a logica dati, query, navigazione.
+- Nessuna modifica DB.
+
+### Risultato colonne finali
+`N. Polizza · Tipo · Gruppo Ramo · Garanzia · Inizio Garanzia · Fine Garanzia · Agenzia · Premio € · Provvigioni € · Data Incasso · [🗑 admin]`
