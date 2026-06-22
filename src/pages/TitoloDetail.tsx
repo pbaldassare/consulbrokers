@@ -1496,6 +1496,11 @@ const TitoloDetail = () => {
         polizzaStato={polizzaStato ?? null}
         rataIndex={rataIndex}
         totRate={totRate}
+        isQuietanzaCorrente={isQuietanzaCorrente}
+        polizzaMadre={isQuietanzaCorrente && madre ? {
+          id: madre.id,
+          numero_titolo: madre.numero_titolo,
+        } : null}
         onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`) : navigate("/portafoglio/carico")}
         madre={madreQuietanza ? {
           id: (madreQuietanza as any).id,

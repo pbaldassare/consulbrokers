@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 import { fmtEuro } from "@/lib/formatCurrency";
 
 interface MadreInfo {
@@ -15,7 +17,12 @@ interface MadreInfo {
 interface Props {
   t: any;
   onBack: () => void;
+  /** Quietanza madre collegata a una regolazione (RG). */
   madre?: MadreInfo | null;
+  /** Polizza madre della catena quando il titolo corrente è una quietanza. */
+  polizzaMadre?: MadreInfo | null;
+  /** Titolo corrente è una quietanza (sostituisce_polizza valorizzato). */
+  isQuietanzaCorrente?: boolean;
   /** Stato della polizza (tabella `polizze`). Nel nuovo modello la polizza non viene mai messa a cassa. */
   polizzaStato?: string | null;
   /** Indice della rata corrente nella catena (1-based). */
@@ -29,10 +36,31 @@ interface Props {
  * Aggiunge un badge "Regolazione" e il riferimento alla quietanza madre
  * quando t.is_regolazione = true.
  */
-export function TitoloHeaderBar({ t, onBack, madre, polizzaStato, rataIndex, totRate }: Props) {
+export function TitoloHeaderBar({
+  t,
+  onBack,
+  madre,
+  polizzaMadre,
+  isQuietanzaCorrente,
+  polizzaStato,
+  rataIndex,
+  totRate,
+}: Props) {
   const isRegolazione = !!t.is_regolazione;
-  const fmtD = (d?: string | null) => (d ? new Date(d).toLocaleDateString("it-IT") : "");
+  const isQuietanza = !!isQuietanzaCorrente && !isRegolazione;
+  const fmtD = (d?: string | null) => (d ? format(new Date(d), "dd/MM/yyyy", { locale: it }) : "");
   const rataLbl = rataIndex && totRate && totRate > 1 ? `Rata ${rataIndex}/${totRate}` : "Rata unica";
+  const rataHeader =
+    rataIndex && totRate && totRate > 1
+      ? `Rata ${rataIndex}/${totRate}`
+      : totRate === 1
+        ? "Rata unica"
+        : rataIndex
+          ? `Rata ${rataIndex}/${totRate ?? 1}`
+          : "";
+  const periodoGaranzia = t.garanzia_da
+    ? `${fmtD(t.garanzia_da)}${t.garanzia_a ? ` → ${fmtD(t.garanzia_a)}` : ""}`
+    : "";
 
   return (
     <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60">
@@ -41,20 +69,42 @@ export function TitoloHeaderBar({ t, onBack, madre, polizzaStato, rataIndex, tot
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground">
-              {isRegolazione ? "Regolazione" : "Polizza"} {t.numero_titolo || t.id.slice(0, 8)}
+              {isRegolazione ? (
+                <>Regolazione {t.numero_titolo || t.id.slice(0, 8)}</>
+              ) : isQuietanza ? (
+                <>
+                  Quietanza
+                  {rataHeader ? ` · ${rataHeader}` : ""}
+                  {periodoGaranzia ? ` · ${periodoGaranzia}` : ""}
+                </>
+              ) : (
+                <>Polizza {t.numero_titolo || t.id.slice(0, 8)}</>
+              )}
             </h1>
             {isRegolazione ? (
               <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">
                 <RefreshCw className="w-3 h-3 mr-1" /> Regolazione
               </Badge>
-            ) : t.sostituisce_polizza ? (
-              <Badge variant="secondary" title={`Sostituisce ${t.sostituisce_polizza}`}>
-                Quietanza{t.garanzia_da ? ` · dal ${t.garanzia_da}${t.garanzia_a ? ` al ${t.garanzia_a}` : ""}` : ""}
-              </Badge>
-            ) : (
+            ) : isQuietanza ? null : (
               <Badge variant="outline">Polizza originale</Badge>
             )}
           </div>
+
+          {isQuietanza && (
+            <p className="text-sm mt-0.5">
+              <span className="text-muted-foreground">Polizza n° </span>
+              {polizzaMadre?.id ? (
+                <Link
+                  to={`/titoli/${polizzaMadre.id}`}
+                  className="font-medium text-primary hover:underline"
+                >
+                  {polizzaMadre.numero_titolo || t.numero_titolo || "—"}
+                </Link>
+              ) : (
+                <span className="text-muted-foreground">{t.numero_titolo || "—"}</span>
+              )}
+            </p>
+          )}
 
           {isRegolazione && madre && (
             <p className="text-sm mt-0.5">
