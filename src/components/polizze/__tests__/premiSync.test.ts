@@ -26,6 +26,9 @@ describe("sameRowContent", () => {
   it("distingue righe con netto diverso", () => {
     expect(sameRowContent(row({ netto: "100" }), row({ netto: "200" }))).toBe(false);
   });
+  it("distingue righe con accessori diverso", () => {
+    expect(sameRowContent(row({ accessori: "10" }), row({ accessori: "20" }))).toBe(false);
+  });
   it("ignora il flag di personalizzazione nel confronto", () => {
     expect(sameRowContent(row({ quietanzaPersonalizzata: true }), row({ quietanzaPersonalizzata: false }))).toBe(true);
   });

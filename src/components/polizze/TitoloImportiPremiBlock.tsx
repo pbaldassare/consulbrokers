@@ -15,6 +15,14 @@ import {
   resetQuietanzaRow,
   isQuietanzaSincronizzata,
 } from "./premiSync";
+import {
+  calcProvvigioniGaranzia,
+  resolveRowPctNetto,
+  resolveRowPctAccessori,
+  provvPctBreakdown,
+  calcTasseRiga,
+  type MatriceProvvAccessori,
+} from "@/lib/calcProvvigioniGaranzia";
 
 /**
  * Sezione "Composizione Premio" (Firma + Quietanza) per TitoloDetail.
@@ -47,10 +55,13 @@ type DbPremio = {
   codice_garanzia: string | null;
   firma: number | null;
   rata: number | null;
+  accessori: number | null;
   aliquota_tasse_pct: number | null;
   ssn: number | null;
   ordine: number | null;
   quietanza_personalizzata: boolean | null;
+  provvigione_netto_pct: number | null;
+  provvigione_accessori_pct: number | null;
 };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -82,12 +93,73 @@ export function TitoloImportiPremiBlock({
     },
   });
 
+  const { data: titoloMeta } = useQuery({
+    queryKey: ["titolo-meta-premi", titoloId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("compagnia_rapporto_id")
+        .eq("id", titoloId)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: provvMatrice = null } = useQuery({
+    queryKey: ["provv-matrice-titolo", titoloMeta?.compagnia_rapporto_id, gruppoRamoId],
+    enabled: !!titoloMeta?.compagnia_rapporto_id && !!gruppoRamoId,
+    queryFn: async (): Promise<MatriceProvvAccessori | null> => {
+      const { data } = await supabase
+        .from("provvigioni_compagnia_ramo")
+        .select("ramo_id, percentuale_provvigione, percentuale_provvigione_accessori")
+        .eq("compagnia_rapporto_id", titoloMeta!.compagnia_rapporto_id!)
+        .eq("gruppo_ramo_id", gruppoRamoId!)
+        .eq("attiva", true);
+      const rows = (data || []) as Array<{
+        ramo_id: string | null;
+        percentuale_provvigione: number;
+        percentuale_provvigione_accessori: number | null;
+      }>;
+      if (!rows.length) return null;
+      const pctByRamoId = new Map<string, number>();
+      const pctAccessoriByRamoId = new Map<string, number>();
+      let pctDefault: number | null = null;
+      let pctAccessoriDefault: number | null = null;
+      const counts = new Map<number, number>();
+      for (const r of rows) {
+        const p = Number(r.percentuale_provvigione);
+        if (r.ramo_id) {
+          pctByRamoId.set(r.ramo_id, p);
+          if (r.percentuale_provvigione_accessori != null) {
+            pctAccessoriByRamoId.set(r.ramo_id, Number(r.percentuale_provvigione_accessori));
+          }
+        } else {
+          pctDefault = p;
+          if (r.percentuale_provvigione_accessori != null) {
+            pctAccessoriDefault = Number(r.percentuale_provvigione_accessori);
+          }
+        }
+        counts.set(p, (counts.get(p) || 0) + 1);
+      }
+      let bestP = 0, bestC = 0;
+      for (const [p, c] of counts) if (c > bestC) { bestC = c; bestP = p; }
+      return {
+        pctByRamoId,
+        pctAccessoriByRamoId,
+        pctDefault,
+        pctAccessoriDefault,
+        pctPrevalente: bestP,
+        isUniform: counts.size === 1,
+      };
+    },
+  });
+
   const { data: premi = [] } = useQuery({
     queryKey: ["premi-garanzia-import", titoloId],
     queryFn: async () => {
       const { data } = await supabase
         .from("premi_garanzia_polizza")
-        .select("id, titolo_id, tipo_premio, garanzia, codice_garanzia, firma, rata, aliquota_tasse_pct, ssn, ordine, quietanza_personalizzata")
+        .select("id, titolo_id, tipo_premio, garanzia, codice_garanzia, firma, rata, accessori, aliquota_tasse_pct, ssn, ordine, quietanza_personalizzata, provvigione_netto_pct, provvigione_accessori_pct")
         .eq("titolo_id", titoloId)
         .order("ordine");
       return (data as DbPremio[]) || [];
@@ -107,23 +179,26 @@ export function TitoloImportiPremiBlock({
     const ssnAttivo = !!cat?.ssn_attivo;
     const aliquotaSsn = ssnAttivo ? Number(cat?.aliquota_ssn ?? 10.5) || 10.5 : 0;
     const netto = p.tipo_premio === "firma" ? Number(p.firma ?? 0) : Number(p.rata ?? 0);
+    const accessori = Number(p.accessori ?? 0);
     const ssn = p.ssn != null ? Number(p.ssn) : 0;
-    // Heuristica: se l'SSN salvato si discosta dal calcolo automatico → override
     const ssnAuto = ssnAttivo ? round2((netto * aliquotaSsn) / 100) : 0;
     const ssnManualOverride = ssnAttivo && Math.abs(ssn - ssnAuto) > 0.01;
+    const tasseCalc = aliquotaTasse > 0 && (netto > 0 || accessori > 0)
+      ? calcTasseRiga(netto, accessori, aliquotaTasse)
+      : 0;
     return {
       codice: p.codice_garanzia || null,
       descrizione: cat?.descrizione || p.garanzia || "",
       netto: netto ? netto.toFixed(2) : "",
-      tasse: Number(p.aliquota_tasse_pct ?? 0) || aliquotaTasse > 0
-        ? (netto && aliquotaTasse > 0 ? round2((netto * aliquotaTasse) / 100).toFixed(2) : "")
-        : "",
+      accessori: accessori ? accessori.toFixed(2) : "",
+      tasse: tasseCalc ? tasseCalc.toFixed(2) : "",
       aliquotaTasse,
       sottoramoId: cat?.id || null,
       ssn: ssn ? ssn.toFixed(2) : "",
       aliquotaSsn,
       ssnAttivo,
       ssnManualOverride,
+      provvAccessoriPct: p.provvigione_accessori_pct != null ? Number(p.provvigione_accessori_pct) : undefined,
       quietanzaPersonalizzata: p.tipo_premio === "quietanza" ? !!p.quietanza_personalizzata : undefined,
     };
   };
@@ -172,10 +247,13 @@ export function TitoloImportiPremiBlock({
       tasso: 0,
       firma: tipo === "firma" ? parseFloat(r.netto || "0") || 0 : 0,
       rata: tipo === "quietanza" ? parseFloat(r.netto || "0") || 0 : 0,
+      accessori: parseFloat(r.accessori || "0") || 0,
       annuo: 0,
       ordine: idx,
       aliquota_tasse_pct: r.aliquotaTasse || null,
       ssn: parseFloat(r.ssn || "0") || 0,
+      provvigione_netto_pct: resolveRowPctNetto(r, provvMatrice).pct,
+      provvigione_accessori_pct: resolveRowPctAccessori(r, provvMatrice).pct,
       ...(tipo === "quietanza" ? { quietanza_personalizzata: !!r.quietanzaPersonalizzata } : {}),
     }));
 
@@ -197,22 +275,27 @@ export function TitoloImportiPremiBlock({
     }
 
     // Aggiorna aggregati su titoli
-    const sum = (rs: GaranziaRow[], k: "netto" | "tasse" | "ssn") =>
-      rs.reduce((s, r) => s + (parseFloat((r as any)[k] || "0") || 0), 0);
+    const sum = (rs: GaranziaRow[], k: "netto" | "tasse" | "ssn" | "accessori") =>
+      rs.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
     const totNetto = round2(sum(rows, "netto"));
+    const totAccessori = round2(sum(rows, "accessori"));
     const totTasse = round2(sum(rows, "tasse"));
     const totSsn = round2(sum(rows, "ssn"));
     const updates: any = {};
     if (tipo === "firma") {
-      const lordo = round2(totNetto + totTasse + totSsn + Number(addizionaliFirma || 0));
+      const lordo = round2(totNetto + totAccessori + totTasse + totSsn);
       updates.premio_netto = totNetto;
+      updates.addizionali = totAccessori;
       updates.tasse = totTasse;
       updates.ssn_firma = totSsn;
       updates.premio_lordo = lordo;
+      updates.provvigioni_firma = round2(calcProvvigioniGaranzia(rows, provvMatrice));
     } else {
       updates.premio_netto_quietanza = totNetto;
+      updates.addizionali_quietanza = totAccessori;
       updates.tasse_quietanza = totTasse;
       updates.ssn_quietanza = totSsn;
+      updates.provvigioni_quietanza = round2(calcProvvigioniGaranzia(rows, provvMatrice));
     }
     await supabase.from("titoli").update(updates).eq("id", titoloId);
     qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
@@ -263,53 +346,35 @@ export function TitoloImportiPremiBlock({
     scheduleSave("quietanza", updated);
   };
 
-  const onAddizionaliFirma = async (v: string) => {
-    if (isLocked) return;
-    const num = parseFloat(v || "0") || 0;
-    const sum = (rs: GaranziaRow[], k: "netto" | "tasse" | "ssn") =>
-      rs.reduce((s, r) => s + (parseFloat((r as any)[k] || "0") || 0), 0);
-    const lordo = round2(sum(firmaRows, "netto") + sum(firmaRows, "tasse") + sum(firmaRows, "ssn") + num);
-    await supabase.from("titoli").update({ addizionali: num, premio_lordo: lordo }).eq("id", titoloId);
-    qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
-  };
-  const onAddizionaliQuietanza = async (v: string) => {
-    if (isLocked) return;
-    const num = parseFloat(v || "0") || 0;
-    await supabase.from("titoli").update({ addizionali_quietanza: num }).eq("id", titoloId);
-    qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
-  };
+  const accessoriFirmaNum = firmaRows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
+  const accessoriQuietanzaNum = quietanzaRows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
+  const rowPctAccessoriFn = (row: GaranziaRow) => resolveRowPctAccessori(row, provvMatrice).pct;
+  const provvBreakdownFirma = provvPctBreakdown(firmaRows, provvMatrice);
+  const provvBreakdownQuietanza = provvPctBreakdown(quietanzaRows, provvMatrice);
 
-  const onPercentualeAgenziaFirma = async (v: string) => {
+  const totNettoFirma = firmaRows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
+  const totNettoQui = quietanzaRows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
+  const totBaseFirma = totNettoFirma + accessoriFirmaNum;
+  const totBaseQui = totNettoQui + accessoriQuietanzaNum;
+  const pctFirma = totBaseFirma > 0 && provvigioniFirma
+    ? ((Number(provvigioniFirma) / totBaseFirma) * 100).toFixed(4)
+    : "";
+  const pctQui = totBaseQui > 0 && provvigioniQuietanza
+    ? ((Number(provvigioniQuietanza) / totBaseQui) * 100).toFixed(4)
+    : "";
+
+  const onPercentualeAgenziaFirma = async (_v: string) => {
     if (isLocked) return;
-    // L'input "Totale Provvigione" della shell calcola la % e la passa qui.
-    // Il valore di provvigione effettivo lo deriviamo da % * netto / 100.
-    const sumNetto = firmaRows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
-    const pct = parseFloat((v || "0").replace(",", ".")) || 0;
-    const importo = round2((sumNetto * pct) / 100);
-    await supabase
-      .from("titoli")
-      .update({ provvigioni_firma: importo })
-      .eq("id", titoloId);
+    const importo = round2(calcProvvigioniGaranzia(firmaRows, provvMatrice));
+    await supabase.from("titoli").update({ provvigioni_firma: importo }).eq("id", titoloId);
     await qc.refetchQueries({ queryKey: ["titolo", titoloId] });
   };
-  const onPercentualeAgenziaQuietanza = async (v: string) => {
+  const onPercentualeAgenziaQuietanza = async (_v: string) => {
     if (isLocked) return;
-    const sumNetto = quietanzaRows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
-    const pct = parseFloat((v || "0").replace(",", ".")) || 0;
-    const importo = round2((sumNetto * pct) / 100);
+    const importo = round2(calcProvvigioniGaranzia(quietanzaRows, provvMatrice));
     await supabase.from("titoli").update({ provvigioni_quietanza: importo }).eq("id", titoloId);
     await qc.refetchQueries({ queryKey: ["titolo", titoloId] });
   };
-
-  // % corrente: deriva da provvigione corrente / netto
-  const totNettoFirma = firmaRows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
-  const totNettoQui = quietanzaRows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
-  const pctFirma = totNettoFirma > 0 && provvigioniFirma
-    ? ((Number(provvigioniFirma) / totNettoFirma) * 100).toFixed(4)
-    : "";
-  const pctQui = totNettoQui > 0 && provvigioniQuietanza
-    ? ((Number(provvigioniQuietanza) / totNettoQui) * 100).toFixed(4)
-    : "";
 
   // Specchio perfetto: nessuna riga Quietanza personalizzata.
   const sincronizzata = isQuietanzaSincronizzata(quietanzaRows);
@@ -329,9 +394,10 @@ export function TitoloImportiPremiBlock({
         gruppoRamoId={gruppoRamoId}
         rows={firmaRows}
         onRowsChange={onFirmaChange}
-        addizionali={addizionaliFirma != null ? String(addizionaliFirma) : ""}
-        onAddizionaliChange={(v) => onAddizionaliFirma(v)}
+        addizionali={String(round2(accessoriFirmaNum))}
         provvigioni={Number(provvigioniFirma || 0)}
+        provvPctBreakdown={provvBreakdownFirma}
+        rowPctAccessori={rowPctAccessoriFn}
         percentualeAgenzia={pctFirma}
         onPercentualeAgenziaChange={onPercentualeAgenziaFirma}
         headerExtra={
@@ -357,9 +423,10 @@ export function TitoloImportiPremiBlock({
         gruppoRamoId={gruppoRamoId}
         rows={quietanzaRows}
         onRowsChange={onQuietanzaChange}
-        addizionali={addizionaliQuietanza != null ? String(addizionaliQuietanza) : ""}
-        onAddizionaliChange={(v) => onAddizionaliQuietanza(v)}
+        addizionali={String(round2(accessoriQuietanzaNum))}
         provvigioni={Number(provvigioniQuietanza || 0)}
+        provvPctBreakdown={provvBreakdownQuietanza}
+        rowPctAccessori={rowPctAccessoriFn}
         percentualeAgenzia={pctQui}
         onPercentualeAgenziaChange={onPercentualeAgenziaQuietanza}
         sincronizzata={sincronizzata}

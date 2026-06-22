@@ -5875,6 +5875,7 @@ export type Database = {
       }
       premi_garanzia_polizza: {
         Row: {
+          accessori: number
           aliquota_tasse_pct: number | null
           annuo: number | null
           capitale: number | null
@@ -5888,6 +5889,8 @@ export type Database = {
           lordo_calcolato: number | null
           ordine: number | null
           polizza_id: string | null
+          provvigione_accessori_pct: number | null
+          provvigione_netto_pct: number | null
           quietanza_id: string | null
           quietanza_personalizzata: boolean
           rata: number | null
@@ -5898,6 +5901,7 @@ export type Database = {
           voce_origine_id: string | null
         }
         Insert: {
+          accessori?: number
           aliquota_tasse_pct?: number | null
           annuo?: number | null
           capitale?: number | null
@@ -5911,6 +5915,8 @@ export type Database = {
           lordo_calcolato?: number | null
           ordine?: number | null
           polizza_id?: string | null
+          provvigione_accessori_pct?: number | null
+          provvigione_netto_pct?: number | null
           quietanza_id?: string | null
           quietanza_personalizzata?: boolean
           rata?: number | null
@@ -5921,6 +5927,7 @@ export type Database = {
           voce_origine_id?: string | null
         }
         Update: {
+          accessori?: number
           aliquota_tasse_pct?: number | null
           annuo?: number | null
           capitale?: number | null
@@ -5934,6 +5941,8 @@ export type Database = {
           lordo_calcolato?: number | null
           ordine?: number | null
           polizza_id?: string | null
+          provvigione_accessori_pct?: number | null
+          provvigione_netto_pct?: number | null
           quietanza_id?: string | null
           quietanza_personalizzata?: boolean
           rata?: number | null
@@ -6982,6 +6991,7 @@ export type Database = {
           gruppo_ramo_id: string | null
           id: string
           percentuale_provvigione: number
+          percentuale_provvigione_accessori: number | null
           ramo_id: string | null
         }
         Insert: {
@@ -6993,6 +7003,7 @@ export type Database = {
           gruppo_ramo_id?: string | null
           id?: string
           percentuale_provvigione?: number
+          percentuale_provvigione_accessori?: number | null
           ramo_id?: string | null
         }
         Update: {
@@ -7004,6 +7015,7 @@ export type Database = {
           gruppo_ramo_id?: string | null
           id?: string
           percentuale_provvigione?: number
+          percentuale_provvigione_accessori?: number | null
           ramo_id?: string | null
         }
         Relationships: [

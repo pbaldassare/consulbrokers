@@ -22,6 +22,7 @@ export function sameRowContent(a?: GaranziaRow, b?: GaranziaRow): boolean {
     (a.descrizione || "") === (b.descrizione || "") &&
     (a.sottoramoId || "") === (b.sottoramoId || "") &&
     (a.netto || "") === (b.netto || "") &&
+    (a.accessori || "") === (b.accessori || "") &&
     (a.tasse || "") === (b.tasse || "") &&
     (a.ssn || "") === (b.ssn || "") &&
     (a.aliquotaTasse || 0) === (b.aliquotaTasse || 0)

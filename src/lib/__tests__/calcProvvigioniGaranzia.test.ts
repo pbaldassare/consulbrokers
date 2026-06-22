@@ -1,0 +1,61 @@
+import { describe, it, expect } from "vitest";
+import { emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
+import {
+  calcProvvigioniGaranzia,
+  calcTasseRiga,
+  resolveRowPctAccessori,
+  type MatriceProvvAccessori,
+} from "@/lib/calcProvvigioniGaranzia";
+
+const matrice: MatriceProvvAccessori = {
+  pctByRamoId: new Map([["sotto-1", 15]]),
+  pctAccessoriByRamoId: new Map([["sotto-1", 10]]),
+  pctDefault: 12,
+  pctAccessoriDefault: 8,
+  pctPrevalente: 15,
+  isUniform: false,
+};
+
+const row = (over: Partial<GaranziaRow> = {}): GaranziaRow => ({
+  ...emptyGaranziaRow(),
+  sottoramoId: "sotto-1",
+  netto: "100",
+  accessori: "20",
+  ...over,
+});
+
+describe("calcTasseRiga", () => {
+  it("calcola tasse su imponibile netto + accessori", () => {
+    expect(calcTasseRiga(100, 20, 2.5)).toBe(3);
+  });
+});
+
+describe("calcProvvigioniGaranzia", () => {
+  it("somma provvigione su netto e su accessori con % distinte", () => {
+    const provv = calcProvvigioniGaranzia([row()], matrice);
+    // 100 * 15% + 20 * 10% = 15 + 2 = 17
+    expect(provv).toBeCloseTo(17, 2);
+  });
+
+  it("usa fallback % accessori = % netto quando non configurata", () => {
+    const m: MatriceProvvAccessori = {
+      ...matrice,
+      pctAccessoriByRamoId: new Map(),
+    };
+    const provv = calcProvvigioniGaranzia([row()], m);
+    // 100 * 15% + 20 * 15% = 18
+    expect(provv).toBeCloseTo(18, 2);
+  });
+
+  it("esclude righe con escludiProvvigioni", () => {
+    expect(calcProvvigioniGaranzia([row({ escludiProvvigioni: true })], matrice)).toBe(0);
+  });
+});
+
+describe("resolveRowPctAccessori", () => {
+  it("rispetta override manuale sulla riga", () => {
+    const r = resolveRowPctAccessori(row({ provvAccessoriPct: 5 }), matrice);
+    expect(r.pct).toBe(5);
+    expect(r.matched).toBe(true);
+  });
+});

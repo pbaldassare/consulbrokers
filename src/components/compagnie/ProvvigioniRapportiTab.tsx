@@ -157,7 +157,7 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("provvigioni_compagnia_ramo")
-        .select("id, gruppo_ramo_id, ramo_id, percentuale_provvigione")
+        .select("id, gruppo_ramo_id, ramo_id, percentuale_provvigione, percentuale_provvigione_accessori")
         .eq("compagnia_rapporto_id", rapportoId)
         .eq("attiva", true);
       if (error) throw error;
@@ -166,10 +166,16 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
   });
 
   const provvMap = useMemo(() => {
-    const m: Record<string, { id: string; perc: number }> = {};
+    const m: Record<string, { id: string; perc: number; percAccessori: number | null }> = {};
     provvigioni.forEach((p: any) => {
       const key = `${p.gruppo_ramo_id || ""}|${p.ramo_id || ""}`;
-      m[key] = { id: p.id, perc: Number(p.percentuale_provvigione) };
+      m[key] = {
+        id: p.id,
+        perc: Number(p.percentuale_provvigione),
+        percAccessori: p.percentuale_provvigione_accessori != null
+          ? Number(p.percentuale_provvigione_accessori)
+          : null,
+      };
     });
     return m;
   }, [provvigioni]);
@@ -187,12 +193,16 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
   });
 
   const upsertMutation = useMutation({
-    mutationFn: async (rows: { gruppo_ramo_id: string; ramo_id: string | null; percentuale: number; id?: string }[]) => {
+    mutationFn: async (rows: {
+      gruppo_ramo_id: string;
+      ramo_id: string | null;
+      percentuale: number;
+      percentuale_accessori?: number | null;
+      id?: string;
+    }[]) => {
       if (!rapportoId) throw new Error("Seleziona un rapporto");
       if (!rows.length) return { inserted: 0, updated: 0 };
 
-      // Split UPDATE vs INSERT — no .upsert() to avoid PostgREST onConflict
-      // limitation (we only have a PARTIAL unique index, not a constraint).
       const toUpdate = rows.filter((r) => !!r.id);
       const toInsert = rows.filter((r) => !r.id);
 
@@ -200,7 +210,11 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
         toUpdate.map((r) =>
           supabase
             .from("provvigioni_compagnia_ramo")
-            .update({ percentuale_provvigione: r.percentuale, attiva: true } as any)
+            .update({
+              percentuale_provvigione: r.percentuale,
+              percentuale_provvigione_accessori: r.percentuale_accessori ?? null,
+              attiva: true,
+            } as any)
             .eq("id", r.id!)
         )
       );
@@ -214,6 +228,7 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
           gruppo_ramo_id: r.gruppo_ramo_id,
           ramo_id: r.ramo_id,
           percentuale_provvigione: r.percentuale,
+          percentuale_provvigione_accessori: r.percentuale_accessori ?? null,
           attiva: true,
         }));
         const { error } = await (supabase.from("provvigioni_compagnia_ramo") as any).insert(payload);
@@ -700,19 +715,33 @@ function RamoGroupCard({
   onSave, onDelete, onBulkApply, onBulkReset,
 }: any) {
   const [defVal, setDefVal] = useState<string>(defaultRow ? String(defaultRow.perc) : "");
+  const [defAccVal, setDefAccVal] = useState<string>(
+    defaultRow?.percAccessori != null ? String(defaultRow.percAccessori) : ""
+  );
   const [bulkVal, setBulkVal] = useState<string>("");
   const [overwrite, setOverwrite] = useState(false);
   const [flash, setFlash] = useState(false);
 
   useEffect(() => { setDefVal(defaultRow ? String(defaultRow.perc) : ""); }, [defaultRow?.id, defaultRow?.perc]);
+  useEffect(() => {
+    setDefAccVal(defaultRow?.percAccessori != null ? String(defaultRow.percAccessori) : "");
+  }, [defaultRow?.id, defaultRow?.percAccessori]);
 
   const triggerFlash = () => { setFlash(true); setTimeout(() => setFlash(false), 700); };
 
   const saveDefault = () => {
     const n = parseFloat(defVal);
     if (isNaN(n)) return;
-    if (defaultRow && n === defaultRow.perc) return;
-    onSave({ id: defaultRow?.id, gruppo_ramo_id: gr.id, ramo_id: null, percentuale: n });
+    const acc = defAccVal.trim() === "" ? null : parseFloat(defAccVal);
+    if (defAccVal.trim() !== "" && isNaN(acc!)) return;
+    if (defaultRow && n === defaultRow.perc && (acc ?? null) === (defaultRow.percAccessori ?? null)) return;
+    onSave({
+      id: defaultRow?.id,
+      gruppo_ramo_id: gr.id,
+      ramo_id: null,
+      percentuale: n,
+      percentuale_accessori: acc,
+    });
     triggerFlash();
   };
 
@@ -739,7 +768,7 @@ function RamoGroupCard({
           </div>
         </div>
         {/* Default ramo inline */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
           <Label className="text-[10px] text-muted-foreground mr-1">Default ramo</Label>
           <Input
             type="number" step="0.01"
@@ -748,7 +777,18 @@ function RamoGroupCard({
             onBlur={saveDefault}
             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
             className="h-8 w-20"
-            placeholder="—"
+            placeholder="% netto"
+            title="% Provvigione su netto"
+          />
+          <Input
+            type="number" step="0.01"
+            value={defAccVal}
+            onChange={(e) => setDefAccVal(e.target.value)}
+            onBlur={saveDefault}
+            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+            className="h-8 w-20"
+            placeholder="% acc."
+            title="% Provvigione su accessori (vuoto = come netto)"
           />
           {defaultRow && (
             <Tooltip>
@@ -799,6 +839,15 @@ function RamoGroupCard({
             <p className="text-xs text-muted-foreground italic px-3 py-3">Nessun sottoramo abilitato per questo Ramo.</p>
           ) : (
             <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-10">Garanzia</TableHead>
+                  <TableHead className="w-[110px]">% Provv.</TableHead>
+                  <TableHead className="w-[110px]">% Accessori</TableHead>
+                  <TableHead className="w-[160px]">Stato</TableHead>
+                  <TableHead className="w-[60px]"></TableHead>
+                </TableRow>
+              </TableHeader>
               <TableBody>
                 {sottorami.map((s: any, i: number) => {
                   const row = provvMap[`${gr.id}|${s.id}`];
@@ -811,8 +860,14 @@ function RamoGroupCard({
                       zebra={i % 2 === 1}
                       inheritedTipo={inheritedForRamo(s.id)}
                       hasDefaultRamo={!!defaultRow}
-                      onSave={(perc: number) =>
-                        onSave({ id: row?.id, gruppo_ramo_id: gr.id, ramo_id: s.id, percentuale: perc })
+                      onSave={(perc: number, percAcc: number | null) =>
+                        onSave({
+                          id: row?.id,
+                          gruppo_ramo_id: gr.id,
+                          ramo_id: s.id,
+                          percentuale: perc,
+                          percentuale_accessori: percAcc,
+                        })
                       }
                       onDelete={() => row && onDelete(row.id)}
                     />
@@ -829,14 +884,22 @@ function RamoGroupCard({
 
 function SottoramoRow({ ramo, existing, zebra, inheritedTipo, hasDefaultRamo, onSave, onDelete }: any) {
   const [val, setVal] = useState<string>(existing ? String(existing.perc) : "");
+  const [valAcc, setValAcc] = useState<string>(
+    existing?.percAccessori != null ? String(existing.percAccessori) : ""
+  );
   const [flash, setFlash] = useState(false);
   useEffect(() => { setVal(existing ? String(existing.perc) : ""); }, [existing?.id, existing?.perc]);
+  useEffect(() => {
+    setValAcc(existing?.percAccessori != null ? String(existing.percAccessori) : "");
+  }, [existing?.id, existing?.percAccessori]);
 
   const commit = () => {
     const n = parseFloat(val);
     if (isNaN(n)) return;
-    if (existing && n === existing.perc) return;
-    onSave(n);
+    const acc = valAcc.trim() === "" ? null : parseFloat(valAcc);
+    if (valAcc.trim() !== "" && isNaN(acc!)) return;
+    if (existing && n === existing.perc && (acc ?? null) === (existing.percAccessori ?? null)) return;
+    onSave(n, acc);
     setFlash(true); setTimeout(() => setFlash(false), 700);
   };
 
@@ -854,7 +917,7 @@ function SottoramoRow({ ramo, existing, zebra, inheritedTipo, hasDefaultRamo, on
         <span className="text-xs text-muted-foreground mr-2">{ramo.codice}</span>
         {ramo.descrizione}
       </TableCell>
-      <TableCell className="w-[120px]">
+      <TableCell className="w-[110px]">
         <Input
           type="number"
           step="0.01"
@@ -864,6 +927,19 @@ function SottoramoRow({ ramo, existing, zebra, inheritedTipo, hasDefaultRamo, on
           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
           className="h-8 w-24"
           placeholder="—"
+        />
+      </TableCell>
+      <TableCell className="w-[110px]">
+        <Input
+          type="number"
+          step="0.01"
+          value={valAcc}
+          onChange={(e) => setValAcc(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          className="h-8 w-24"
+          placeholder="= netto"
+          title="Vuoto = stessa % del netto"
         />
       </TableCell>
       <TableCell className="w-[180px]">

@@ -20,6 +20,13 @@ import {
   resetQuietanzaRow,
   isQuietanzaSincronizzata,
 } from "@/components/polizze/premiSync";
+import {
+  calcProvvigioniGaranzia,
+  resolveRowPctNetto,
+  resolveRowPctAccessori,
+  provvPctBreakdown,
+  type MatriceProvvAccessori,
+} from "@/lib/calcProvvigioniGaranzia";
 
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
@@ -1166,31 +1173,25 @@ const ImmissionePolizzaPage = () => {
   const isProvvigioneModified = false;
 
   // --- Computed: derive scalars from row arrays ---
-  const sumNum = (arr: GaranziaRow[], k: "netto" | "tasse" | "ssn") =>
+  const sumNum = (arr: GaranziaRow[], k: "netto" | "tasse" | "ssn" | "accessori") =>
     arr.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
   const premioNettoNum = sumNum(premiFirmaRows, "netto");
+  const accessoriFirmaNum = sumNum(premiFirmaRows, "accessori");
   const tasseNum = sumNum(premiFirmaRows, "tasse");
   const ssnFirmaNum = sumNum(premiFirmaRows, "ssn");
   const premioNetto = premioNettoNum ? String(premioNettoNum) : "";
   const tasse = tasseNum ? String(tasseNum) : "";
   const premioNettoQNum = sumNum(premiQuietanzaRows, "netto");
+  const accessoriQuietanzaNum = sumNum(premiQuietanzaRows, "accessori");
   const tasseQNum = sumNum(premiQuietanzaRows, "tasse");
   const ssnQuietanzaNum = sumNum(premiQuietanzaRows, "ssn");
   const premioNettoQuietanza = premioNettoQNum ? String(premioNettoQNum) : "";
   const tasseQuietanza = tasseQNum ? String(tasseQNum) : "";
 
-  const totFirma = premioNettoNum + (parseFloat(addizionali || "0") || 0) + tasseNum + ssnFirmaNum;
-  const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + tasseQNum + ssnQuietanzaNum;
+  const totFirma = premioNettoNum + accessoriFirmaNum + tasseNum + ssnFirmaNum;
+  const totQuietanza = premioNettoQNum + accessoriQuietanzaNum + tasseQNum + ssnQuietanzaNum;
 
-  // --- Matrice provvigioni per Rapporto + Gruppo Ramo: pct per sottoramo ---
-  type MatriceProvv = {
-    pctByRamoId: Map<string, number>;
-    pctDefault: number | null;
-    pctPrevalente: number;
-    isUniform: boolean;
-    totalRows: number;
-  };
-  const [provvMatrice, setProvvMatrice] = useState<MatriceProvv | null>(null);
+  const [provvMatrice, setProvvMatrice] = useState<MatriceProvvAccessori | null>(null);
   // Rapporto effettivo per matrice provvigioni: per monomandatarie deriva dalla coppia (compagnia, gruppo madre)
   const [resolvedRapportoId, setResolvedRapportoId] = useState<string | null>(null);
 
@@ -1218,20 +1219,13 @@ const ImmissionePolizzaPage = () => {
     return () => { cancelled = true; };
   }, [selectedCompagnia, selectedGruppoCompagniaId, selectedRapportoId, isBrokerLike]);
 
-  const resolveRowPct = (row: GaranziaRow): { pct: number; matched: boolean } => {
-    if (!provvMatrice) return { pct: 0, matched: false };
-    if (row.sottoramoId && provvMatrice.pctByRamoId.has(row.sottoramoId)) {
-      return { pct: provvMatrice.pctByRamoId.get(row.sottoramoId)!, matched: true };
-    }
-    if (provvMatrice.pctDefault != null) return { pct: provvMatrice.pctDefault, matched: true };
-    return { pct: provvMatrice.pctPrevalente, matched: provvMatrice.isUniform };
-  };
+  const resolveRowPct = (row: GaranziaRow) => resolveRowPctNetto(row, provvMatrice);
 
-  const calcProvvAuto = (rows: GaranziaRow[]) =>
-    rows.reduce((s, r) => {
-      const netto = parseFloat(r.netto || "0") || 0;
-      return s + (netto * resolveRowPct(r).pct) / 100;
-    }, 0);
+  const calcProvvAuto = (rows: GaranziaRow[]) => calcProvvigioniGaranzia(rows, provvMatrice);
+
+  const rowPctAccessoriFn = (row: GaranziaRow) => resolveRowPctAccessori(row, provvMatrice).pct;
+  const provvBreakdownFirma = provvPctBreakdown(premiFirmaRows, provvMatrice);
+  const provvBreakdownQuietanza = provvPctBreakdown(premiQuietanzaRows, provvMatrice);
 
   const provvFirma = percentualeProvvigioneAuto
     ? calcProvvAuto(premiFirmaRows)
@@ -1311,12 +1305,16 @@ const ImmissionePolizzaPage = () => {
     (async () => {
       const { data } = await supabase
         .from("provvigioni_compagnia_ramo")
-        .select("ramo_id, percentuale_provvigione")
+        .select("ramo_id, percentuale_provvigione, percentuale_provvigione_accessori")
         .eq("compagnia_rapporto_id", resolvedRapportoId)
         .eq("gruppo_ramo_id", selectedGruppoRamoId)
         .eq("attiva", true);
       if (cancelled) return;
-      const rows = (data || []) as Array<{ ramo_id: string | null; percentuale_provvigione: number }>;
+      const rows = (data || []) as Array<{
+        ramo_id: string | null;
+        percentuale_provvigione: number;
+        percentuale_provvigione_accessori: number | null;
+      }>;
       if (!rows.length) {
         setProvvMatrice(null);
         setProvvigioneFonte("");
@@ -1324,18 +1322,36 @@ const ImmissionePolizzaPage = () => {
         return;
       }
       const pctByRamoId = new Map<string, number>();
+      const pctAccessoriByRamoId = new Map<string, number>();
       let pctDefault: number | null = null;
+      let pctAccessoriDefault: number | null = null;
       const counts = new Map<number, number>();
       for (const r of rows) {
         const p = Number(r.percentuale_provvigione);
-        if (r.ramo_id) pctByRamoId.set(r.ramo_id, p);
-        else pctDefault = p;
+        if (r.ramo_id) {
+          pctByRamoId.set(r.ramo_id, p);
+          if (r.percentuale_provvigione_accessori != null) {
+            pctAccessoriByRamoId.set(r.ramo_id, Number(r.percentuale_provvigione_accessori));
+          }
+        } else {
+          pctDefault = p;
+          if (r.percentuale_provvigione_accessori != null) {
+            pctAccessoriDefault = Number(r.percentuale_provvigione_accessori);
+          }
+        }
         counts.set(p, (counts.get(p) || 0) + 1);
       }
       let bestP = 0, bestC = 0;
       for (const [p, c] of counts) if (c > bestC) { bestC = c; bestP = p; }
       const isUniform = counts.size === 1;
-      setProvvMatrice({ pctByRamoId, pctDefault, pctPrevalente: bestP, isUniform, totalRows: rows.length });
+      setProvvMatrice({
+        pctByRamoId,
+        pctAccessoriByRamoId,
+        pctDefault,
+        pctAccessoriDefault,
+        pctPrevalente: bestP,
+        isUniform,
+      });
       setProvvigioneFonte(
         isUniform
           ? `matrice ${rows.length} sottorami al ${bestP}% (uniforme)`
@@ -1348,9 +1364,9 @@ const ImmissionePolizzaPage = () => {
   // Sincronizza display % Agenzia (media ponderata) + warning quando in auto
   useEffect(() => {
     if (!percentualeProvvigioneAuto) return;
-    const totNetto = premioNettoNum + premioNettoQNum;
-    if (provvMatrice && totNetto > 0) {
-      const avg = ((provvFirma + provvQuietanza) / totNetto) * 100;
+    const totBase = premioNettoNum + accessoriFirmaNum + premioNettoQNum + accessoriQuietanzaNum;
+    if (provvMatrice && totBase > 0) {
+      const avg = ((provvFirma + provvQuietanza) / totBase) * 100;
       const rounded = String(Math.round(avg * 1000) / 1000);
       setPercentualeProvvigione((prev) => (prev === rounded ? prev : rounded));
     } else if (!provvMatrice) {
@@ -1358,7 +1374,7 @@ const ImmissionePolizzaPage = () => {
     }
     if (provvMatrice && !provvMatrice.isUniform) {
       const allRows = [...premiFirmaRows, ...premiQuietanzaRows].filter(
-        (r) => (parseFloat(r.netto || "0") || 0) > 0
+        (r) => (parseFloat(r.netto || "0") || 0) > 0 || (parseFloat(r.accessori || "0") || 0) > 0
       );
       const unmatched = allRows.some((r) => !resolveRowPct(r).matched);
       const msg = unmatched
@@ -1366,7 +1382,7 @@ const ImmissionePolizzaPage = () => {
         : "";
       setProvvigioneWarning((prev) => (prev === msg ? prev : msg));
     }
-  }, [percentualeProvvigioneAuto, provvMatrice, premioNettoNum, premioNettoQNum, provvFirma, provvQuietanza, premiFirmaRows, premiQuietanzaRows]);
+  }, [percentualeProvvigioneAuto, provvMatrice, premioNettoNum, accessoriFirmaNum, premioNettoQNum, accessoriQuietanzaNum, provvFirma, provvQuietanza, premiFirmaRows, premiQuietanzaRows]);
 
   // --- Frazionamento helpers + auto-calcolo Periodo ---
   const FRAZIONAMENTO_OPTIONS = [
@@ -1517,7 +1533,7 @@ const ImmissionePolizzaPage = () => {
         frazionamento: polizzaTemporanea ? null : frazionamento,
         mora_giorni: parseInt(moraGiorni) || 15,
         premio_netto: premioNetto ? parseFloat(premioNetto) : null,
-        addizionali: addizionali ? parseFloat(addizionali) : 0,
+        addizionali: accessoriFirmaNum,
         tasse: tasse ? parseFloat(tasse) : null,
         ssn_firma: ssnFirmaNum || 0,
         premio_lordo: totFirma || null,
@@ -1538,7 +1554,7 @@ const ImmissionePolizzaPage = () => {
         regolazione_note: regolazione ? (regolazioneNote || null) : null,
         libro_matricola: isLibroMatricola ? "auto" : null,
         premio_netto_quietanza: premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null,
-        addizionali_quietanza: addizionaliQuietanza ? parseFloat(addizionaliQuietanza) : null,
+        addizionali_quietanza: accessoriQuietanzaNum || null,
         tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
         ssn_quietanza: ssnQuietanzaNum || 0,
         provvigioni_quietanza: provvQuietanza || null,
@@ -1692,15 +1708,17 @@ const ImmissionePolizzaPage = () => {
             tipo_premio: tipo,
             garanzia: (r.descrizione && r.descrizione.trim()) || r.codice || "Premio",
             codice_garanzia: r.codice || null,
-            // ramo_id: r.sottoramoId || null,  // colonna non presente in premi_garanzia_polizza; il link si fa via codice_garanzia
             capitale: 0,
             tasso: 0,
             firma: tipo === "firma" ? parseFloat(r.netto || "0") || 0 : 0,
             rata: tipo === "quietanza" ? parseFloat(r.netto || "0") || 0 : 0,
+            accessori: parseFloat(r.accessori || "0") || 0,
             annuo: 0,
             ordine: idx,
             aliquota_tasse_pct: r.aliquotaTasse || null,
             ssn: parseFloat(r.ssn || "0") || 0,
+            provvigione_netto_pct: resolveRowPctNetto(r, provvMatrice).pct,
+            provvigione_accessori_pct: resolveRowPctAccessori(r, provvMatrice).pct,
           }));
       const premiPayload = [
         ...buildPremiInsert(premiFirmaRows, "firma"),
@@ -2612,7 +2630,7 @@ const ImmissionePolizzaPage = () => {
             const sincronizzata =
               isQuietanzaSincronizzata(premiQuietanzaRows) &&
               premiQuietanzaRows.length === premiFirmaRows.length &&
-              addizionaliQuietanza === addizionali;
+              accessoriQuietanzaNum === accessoriFirmaNum;
             const personalizzati = premiQuietanzaRows.map((r) => !!r.quietanzaPersonalizzata);
             return (
               <>
@@ -2626,12 +2644,10 @@ const ImmissionePolizzaPage = () => {
                     setPremiFirmaRows(next);
                     setPremiQuietanzaRows((prev) => syncQuietanzaFromFirma(next, prev));
                   }}
-                  addizionali={addizionali}
-                  onAddizionaliChange={(v) => {
-                    setAddizionali(v);
-                    setAddizionaliQuietanza(v);
-                  }}
+                  addizionali={String(accessoriFirmaNum)}
                   provvigioni={provvFirma}
+                  provvPctBreakdown={provvBreakdownFirma}
+                  rowPctAccessori={rowPctAccessoriFn}
                   {...commonProvvProps}
                   headerExtra={
                     <Button
@@ -2641,7 +2657,6 @@ const ImmissionePolizzaPage = () => {
                       className="h-7 text-xs"
                       onClick={() => {
                         setPremiQuietanzaRows(mirrorAllFromFirma(premiFirmaRows));
-                        setAddizionaliQuietanza(addizionali);
                         toast.success("Quietanza riallineata alla Firma");
                       }}
                       title="Riallinea l'intera Quietanza alla Firma, azzerando le personalizzazioni"
@@ -2659,9 +2674,10 @@ const ImmissionePolizzaPage = () => {
                   onRowsChange={(next) => {
                     setPremiQuietanzaRows((prev) => markQuietanzaEdits(prev, next));
                   }}
-                  addizionali={addizionaliQuietanza}
-                  onAddizionaliChange={setAddizionaliQuietanza}
+                  addizionali={String(accessoriQuietanzaNum)}
                   provvigioni={provvQuietanza}
+                  provvPctBreakdown={provvBreakdownQuietanza}
+                  rowPctAccessori={rowPctAccessoriFn}
                   {...commonProvvProps}
                   sincronizzata={sincronizzata}
                   personalizzati={personalizzati}
@@ -2677,7 +2693,6 @@ const ImmissionePolizzaPage = () => {
                       disabled={sincronizzata}
                       onClick={() => {
                         setPremiQuietanzaRows(mirrorAllFromFirma(premiFirmaRows));
-                        setAddizionaliQuietanza(addizionali);
                       }}
                       title="Riallinea tutte le voci alla Firma, azzerando le personalizzazioni"
                     >

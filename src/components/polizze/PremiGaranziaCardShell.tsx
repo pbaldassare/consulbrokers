@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
 import { parseDecimalIt, parseDecimalItOr } from "@/lib/number";
+import { calcTasseRiga } from "@/lib/calcProvvigioniGaranzia";
 
 /** Normalizza una stringa numerica inserita dall'utente al blur: "476,5" → "476.50". */
 function normalizeDecimalOnBlur(value: string, decimals = 2): string {
@@ -25,8 +26,12 @@ export interface GaranziaRow {
   codice: string | null;
   descrizione: string;
   netto: string;
+  /** Importo accessori per riga (imponibile = netto + accessori) */
+  accessori?: string;
   tasse: string;
   aliquotaTasse: number;
+  /** Override manuale % provvigione su accessori (opzionale) */
+  provvAccessoriPct?: number | null;
   /** Id del sottoramo selezionato (rami.id). Usato per derivare titoli.ramo_id in immissione. */
   sottoramoId?: string | null;
   /** Contributo SSN per la riga (importo €) — popolato solo se il sottoramo ha ssn_attivo */
@@ -50,6 +55,7 @@ export const emptyGaranziaRow = (): GaranziaRow => ({
   codice: null,
   descrizione: "",
   netto: "",
+  accessori: "",
   tasse: "",
   aliquotaTasse: 0,
   sottoramoId: null,
@@ -68,9 +74,14 @@ export interface PremiGaranziaCardShellProps {
   defaultSottoramoId?: string | null;
   rows: GaranziaRow[];
   onRowsChange: (next: GaranziaRow[]) => void;
+  /** Somma accessori righe (read-only; legacy addizionali card) */
   addizionali: string;
-  onAddizionaliChange: (v: string) => void;
+  onAddizionaliChange?: (v: string) => void;
   provvigioni: number;
+  /** Breakdown % provv netto vs accessori per footer (quando differiscono) */
+  provvPctBreakdown?: { pctNetto: number; pctAccessori: number } | null;
+  /** % provv accessori per riga (da matrice) — colonna compatta opzionale */
+  rowPctAccessori?: (row: GaranziaRow) => number | null;
   /** Slot opzionale (es. pulsante "Importa con AI") */
   headerExtra?: ReactNode;
   /** Mostra badge "Sincronizzata" sulla Quietanza quando è uno specchio della Firma */
@@ -113,8 +124,10 @@ export function PremiGaranziaCardShell({
   rows,
   onRowsChange,
   addizionali,
-  onAddizionaliChange,
+  onAddizionaliChange: _onAddizionaliChange,
   provvigioni,
+  provvPctBreakdown,
+  rowPctAccessori,
   headerExtra,
   sincronizzata,
   percentualeAgenzia,
@@ -144,11 +157,14 @@ export function PremiGaranziaCardShell({
   const titolo = isQuietanza ? "Premi per Garanzia — Quietanza" : "Premi per Garanzia — Firma";
 
   const totNetto = rows.reduce((s, r) => s + parseDecimalItOr(r.netto), 0);
+  const totAccessori = rows.reduce((s, r) => s + parseDecimalItOr(r.accessori), 0);
   const totTasse = rows.reduce((s, r) => s + parseDecimalItOr(r.tasse), 0);
   const totSsn = rows.reduce((s, r) => s + parseDecimalItOr(r.ssn), 0);
-  const add = parseDecimalItOr(addizionali);
-  const lordo = totNetto + totTasse + totSsn + add;
+  const lordo = totNetto + totAccessori + totTasse + totSsn;
   const hasSsnRows = rows.some((r) => r.ssnAttivo);
+  const showProvvAccCol = !!rowPctAccessori;
+  const provvBreakdownVisible = provvPctBreakdown
+    && Math.abs(provvPctBreakdown.pctNetto - provvPctBreakdown.pctAccessori) > 0.0001;
 
   // Catalogo sottorami filtrato per gruppo ramo selezionato.
   // I sottorami compongono le righe garanzia che formano il premio.
@@ -222,7 +238,10 @@ export function PremiGaranziaCardShell({
     const ssnAttivo = !escludi && !!sel.ssn_attivo;
     const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
     const netto = parseDecimalItOr(rows[idx]?.netto);
-    const tasseCalc = !escludi && netto > 0 && aliquota > 0 ? +((netto * aliquota) / 100).toFixed(2) : 0;
+    const accessori = parseDecimalItOr(rows[idx]?.accessori);
+    const tasseCalc = !escludi && (netto > 0 || accessori > 0) && aliquota > 0
+      ? calcTasseRiga(netto, accessori, aliquota)
+      : 0;
     updateRow(idx, {
       sottoramoId: sel.id,
       codice: sel.codice,
@@ -238,24 +257,50 @@ export function PremiGaranziaCardShell({
   };
 
 
+  const recalcTasseSsn = (r: GaranziaRow | undefined, netto: number, accessori: number) => {
+    const aliquota = r?.aliquotaTasse || 0;
+    const tasseNew = r?.escludiProvvigioni ? 0 : calcTasseRiga(netto, accessori, aliquota);
+    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
+      ? calcSsn(netto, tasseNew, r.aliquotaSsn || 0).toFixed(2)
+      : (r?.ssn || "");
+    return { tasseNew, ssnNew };
+  };
+
   const handleNettoChange = (idx: number, value: string) => {
     const r = rows[idx];
     if (value === "") {
       updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
     }
-    // Conserviamo la stringa così com'è digitata (può contenere "," o "."),
-    // così l'utente vede esattamente quello che scrive. La normalizzazione
-    // avviene su onBlur.
     const netto = parseDecimalIt(value);
-    const aliquota = r?.aliquotaTasse || 0;
+    const accessori = parseDecimalItOr(r?.accessori);
     const hasNetto = netto !== null;
-    const tasseNew = aliquota > 0 && hasNetto ? +((netto! * aliquota) / 100).toFixed(2) : null;
-    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride && hasNetto
-      ? calcSsn(netto!, tasseNew ?? 0, r.aliquotaSsn || 0).toFixed(2)
-      : (r?.ssn || "");
+    const { tasseNew, ssnNew } = hasNetto
+      ? recalcTasseSsn(r, netto!, accessori)
+      : { tasseNew: null as number | null, ssnNew: r?.ssn || "" };
     updateRow(idx, {
       netto: value,
+      tasse: tasseNew !== null ? tasseNew.toFixed(2) : (r?.tasse || ""),
+      ssn: ssnNew,
+    });
+  };
+
+  const handleAccessoriChange = (idx: number, value: string) => {
+    const r = rows[idx];
+    if (value === "") {
+      const netto = parseDecimalItOr(r?.netto);
+      const { tasseNew, ssnNew } = recalcTasseSsn(r, netto, 0);
+      updateRow(idx, { accessori: "", tasse: tasseNew.toFixed(2), ssn: ssnNew });
+      return;
+    }
+    const accessori = parseDecimalIt(value);
+    const netto = parseDecimalItOr(r?.netto);
+    const hasAcc = accessori !== null;
+    const { tasseNew, ssnNew } = hasAcc
+      ? recalcTasseSsn(r, netto, accessori!)
+      : { tasseNew: null as number | null, ssnNew: r?.ssn || "" };
+    updateRow(idx, {
+      accessori: value,
       tasse: tasseNew !== null ? tasseNew.toFixed(2) : (r?.tasse || ""),
       ssn: ssnNew,
     });
@@ -278,36 +323,36 @@ export function PremiGaranziaCardShell({
   const handleLordoChange = (idx: number, value: string) => {
     const r = rows[idx];
     if (value === "") {
-      updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
+      updateRow(idx, { netto: "", accessori: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
     }
     const lordo = parseDecimalIt(value);
     if (lordo === null) return;
     const aliquota = r?.aliquotaTasse || 0;
     const aliquotaSsn = r?.aliquotaSsn || 0;
+    const accessori = parseDecimalItOr(r?.accessori);
     const ssnAuto = !!r?.ssnAttivo && !r?.ssnManualOverride && aliquotaSsn > 0;
-    // Back-solve: lordo riga = netto + tasse + ssn.
-    // - tasse = netto * aliq/100
-    // - ssn   = netto * aliqSsn/100 (solo se auto). Se SSN manuale, lo sottraggo prima.
     const ssnManuale = !ssnAuto && r?.ssnAttivo ? parseDecimalItOr(r?.ssn) : 0;
+    const r1 = aliquota / 100;
+    const r2 = ssnAuto ? aliquotaSsn / 100 : 0;
     const lordoSenzaSsnManuale = Math.max(0, lordo - ssnManuale);
-    const totalRate = aliquota / 100 + (ssnAuto ? aliquotaSsn / 100 : 0);
-    let nettoCalc: number; let tasseCalc: number; let ssnCalc: number;
-    if (totalRate > 0) {
-      nettoCalc = lordoSenzaSsnManuale / (1 + totalRate);
-      tasseCalc = nettoCalc * (aliquota / 100);
-      ssnCalc = ssnAuto ? nettoCalc * (aliquotaSsn / 100) : ssnManuale;
+    let nettoCalc: number;
+    let tasseCalc: number;
+    let ssnCalc: number;
+    if (r1 + r2 > 0) {
+      nettoCalc = (lordoSenzaSsnManuale - accessori * (1 + r1)) / (1 + r1 + r2);
+      if (nettoCalc < 0) nettoCalc = 0;
+      tasseCalc = (nettoCalc + accessori) * r1;
+      ssnCalc = ssnAuto ? nettoCalc * r2 : ssnManuale;
     } else {
-      nettoCalc = lordoSenzaSsnManuale;
+      nettoCalc = Math.max(0, lordoSenzaSsnManuale - accessori);
       tasseCalc = 0;
       ssnCalc = ssnManuale;
     }
-    // Arrotonda netto e SSN, e fai assorbire alle tasse il residuo da arrotondamento
-    // così che netto + tasse + ssn === lordo digitato dall'utente (al centesimo).
     const round2 = (n: number) => Math.round(n * 100) / 100;
     const nettoR = round2(nettoCalc);
     const ssnR = r?.ssnAttivo ? round2(ssnCalc) : 0;
-    const tasseR = totalRate > 0 ? round2(lordo - nettoR - ssnR) : round2(tasseCalc);
+    const tasseR = r1 + r2 > 0 ? round2(lordo - nettoR - accessori - ssnR) : round2(tasseCalc);
     updateRow(idx, {
       netto: nettoR.toFixed(2),
       tasse: tasseR.toFixed(2),
@@ -347,24 +392,26 @@ export function PremiGaranziaCardShell({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="w-[38%]">Voce</TableHead>
-                <TableHead className="text-right">Premio Netto</TableHead>
-                <TableHead className="text-right w-[90px]">Aliquota %</TableHead>
-                <TableHead className="text-right">Tasse €</TableHead>
-                {hasSsnRows && <TableHead className="text-right w-[110px]">SSN €</TableHead>}
-                <TableHead className="text-right">Premio Lordo</TableHead>
+                <TableHead className="w-[30%]">Voce</TableHead>
+                <TableHead className="text-right">Netto</TableHead>
+                <TableHead className="text-right w-[90px]">Accessori</TableHead>
+                <TableHead className="text-right w-[80px]">Aliq%</TableHead>
+                <TableHead className="text-right">Tasse</TableHead>
+                {hasSsnRows && <TableHead className="text-right w-[100px]">SSN</TableHead>}
+                {showProvvAccCol && <TableHead className="text-right w-[72px] text-[10px]">% provv acc.</TableHead>}
+                <TableHead className="text-right">Lordo</TableHead>
                 <TableHead className="w-[40px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((r, idx) => {
                 const netto = parseDecimalItOr(r.netto);
+                const accessori = parseDecimalItOr(r.accessori);
                 const tax = parseDecimalItOr(r.tasse);
                 const ssnRow = parseDecimalItOr(r.ssn);
-                // L'aliquota è fissa: viene dal DB (ramo/sottoramo) e non si ricalcola
-                // dai valori immessi. Sono netto/tasse/lordo a muoversi in base all'aliquota.
                 const aliquotaFissa = r.aliquotaTasse || 0;
-                const lordoRow = netto + tax + ssnRow;
+                const lordoRow = netto + accessori + tax + ssnRow;
+                const pctAcc = rowPctAccessori?.(r);
                 const zebra = idx % 2 === 0
                   ? (isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/50 dark:bg-teal-950/15")
                   : "bg-card";
@@ -423,6 +470,17 @@ export function PremiGaranziaCardShell({
                       />
                     </TableCell>
                     <TableCell className="text-right">
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        pattern="[0-9.,\-]*"
+                        value={r.accessori || ""}
+                        onChange={(e) => handleAccessoriChange(idx, e.target.value)}
+                        onBlur={(e) => handleAccessoriChange(idx, normalizeDecimalOnBlur(e.target.value))}
+                        className="h-8 text-right font-mono ml-auto w-24"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
                       <span className="text-xs text-muted-foreground font-mono">{aliquotaFissa.toFixed(2)}</span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -459,6 +517,13 @@ export function PremiGaranziaCardShell({
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
+                      </TableCell>
+                    )}
+                    {showProvvAccCol && (
+                      <TableCell className="text-right">
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {pctAcc != null ? `${pctAcc.toFixed(2)}%` : "—"}
+                        </span>
                       </TableCell>
                     )}
                     <TableCell className="text-right">
@@ -509,10 +574,14 @@ export function PremiGaranziaCardShell({
         </div>
 
         {/* Totali */}
-        <div className={cn("grid grid-cols-2 gap-2 p-3 border-t bg-muted/20", hasSsnRows ? "md:grid-cols-5" : "md:grid-cols-4")}>
+        <div className={cn("grid grid-cols-2 gap-2 p-3 border-t bg-muted/20", hasSsnRows ? "md:grid-cols-6" : "md:grid-cols-5")}>
           <div className="rounded-md border bg-card p-2">
             <Label className="text-[10px] uppercase text-muted-foreground">Totale Netto</Label>
             <p className="text-sm font-mono font-semibold mt-0.5">{totNetto.toFixed(2)} €</p>
+          </div>
+          <div className="rounded-md border bg-card p-2">
+            <Label className="text-[10px] uppercase text-muted-foreground">Totale Accessori</Label>
+            <p className="text-sm font-mono font-semibold mt-0.5">{totAccessori.toFixed(2)} €</p>
           </div>
           <div className="rounded-md border bg-card p-2">
             <Label className="text-[10px] uppercase text-muted-foreground">Totale Tasse</Label>
@@ -525,15 +594,12 @@ export function PremiGaranziaCardShell({
             </div>
           )}
           <div className="rounded-md border bg-card p-2">
-            <Label className="text-[10px] uppercase text-muted-foreground">Addizionali</Label>
-            <Input
-              type="number"
-              step="0.01"
-              inputMode="decimal"
-              value={addizionali}
-              onChange={(e) => onAddizionaliChange(e.target.value)}
-              className="h-7 text-right font-mono mt-0.5"
-            />
+            <Label className="text-[10px] uppercase text-muted-foreground" title="Somma accessori righe (sincronizzata su titoli.addizionali)">
+              Addizionali
+            </Label>
+            <p className="text-sm font-mono font-semibold mt-0.5 text-muted-foreground" title="Read-only: somma degli accessori per riga">
+              {totAccessori.toFixed(2)} €
+            </p>
           </div>
           <div
             className={cn(
@@ -581,8 +647,9 @@ export function PremiGaranziaCardShell({
             const s = (raw ?? "").trim().replace(",", ".");
             if (s === "") { onPercentualeAgenziaChange!(""); return; }
             const n = parseFloat(s);
-            if (isNaN(n) || totNetto <= 0) return;
-            const newPct = (n / totNetto) * 100;
+            const base = totNetto + totAccessori;
+            if (isNaN(n) || base <= 0) return;
+            const newPct = (n / base) * 100;
             onPercentualeAgenziaChange!(newPct.toFixed(4));
           };
           const commitPct = (raw: string) => {
@@ -650,8 +717,8 @@ export function PremiGaranziaCardShell({
                     className="h-9 text-base font-mono font-bold"
                     placeholder="0,00"
                   />
-                  {editable && totNetto <= 0 && (
-                    <p className="text-[10px] text-muted-foreground italic">Inserire prima un Netto</p>
+                  {editable && totNetto + totAccessori <= 0 && (
+                    <p className="text-[10px] text-muted-foreground italic">Inserire prima un Netto o Accessori</p>
                   )}
                 </div>
                 <div className="space-y-1">
@@ -673,6 +740,11 @@ export function PremiGaranziaCardShell({
                     className="h-9 text-xs font-mono"
                     placeholder="0,00"
                   />
+                  {provvBreakdownVisible && provvPctBreakdown && (
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                      Netto {provvPctBreakdown.pctNetto.toFixed(2)}% | Accessori {provvPctBreakdown.pctAccessori.toFixed(2)}%
+                    </p>
+                  )}
                 </div>
               </div>
 
