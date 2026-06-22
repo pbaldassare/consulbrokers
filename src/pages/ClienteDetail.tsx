@@ -1281,14 +1281,13 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
             <TableHead className="w-8"></TableHead>
             <TableHead>N. Polizza</TableHead>
             <TableHead>Tipo</TableHead>
-            <TableHead>Polizza madre</TableHead>
             <TableHead>Gruppo Ramo</TableHead>
             <TableHead>Garanzia</TableHead>
-
+            <TableHead>Inizio Garanzia</TableHead>
+            <TableHead>Fine Garanzia</TableHead>
             <TableHead>Agenzia</TableHead>
             <TableHead>Premio €</TableHead>
             <TableHead>Provvigioni €</TableHead>
-            <TableHead>Stato</TableHead>
             <TableHead>Data Incasso</TableHead>
             {isAdmin && <TableHead className="w-12"></TableHead>}
           </TableRow>
@@ -1313,29 +1312,13 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell></TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
                   <TableCell><TipoPolizzaBadge tipo="quietanza" numero={idx} totale={totale} /></TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    {madreId ? (
-                      <Button
-                        type="button"
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 font-mono text-xs text-polizza hover:underline"
-                        onClick={() => navigate(`/titoli/${madreId}`)}
-                      >
-                        {madreNum || "—"}
-                      </Button>
-                    ) : (
-                      <span className="font-mono text-xs text-muted-foreground">{madreNum || "—"}</span>
-                    )}
-                  </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
-
-
+                  <TableCell className="text-xs">{r.garanzia_da ? new Date(r.garanzia_da).toLocaleDateString("it-IT") : "—"}</TableCell>
+                  <TableCell className="text-xs">{r.garanzia_a ? new Date(r.garanzia_a).toLocaleDateString("it-IT") : "—"}</TableCell>
                   <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
                   <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                   <TableCell className="font-mono">{fmtNum((Number(r.provvigioni_firma)||0) + (Number(r.provvigioni_quietanza)||0))}</TableCell>
-                  <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, idx)}</Badge></TableCell>
                   <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
@@ -1385,15 +1368,13 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                     </TableCell>
                     <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
                     <TableCell><TipoPolizzaBadge tipo="polizza" /></TableCell>
-                    <TableCell className="text-muted-foreground">—</TableCell>
                     <TableCell>{gruppoRamo}</TableCell>
                     <TableCell>{ramo}</TableCell>
-
-
+                    <TableCell className="text-muted-foreground">—</TableCell>
+                    <TableCell className="text-muted-foreground">—</TableCell>
                     <TableCell>{agenzia}</TableCell>
                     <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
                     <TableCell className="font-mono">{fmtNum((Number(head.provvigioni_firma)||0) + (Number(head.provvigioni_quietanza)||0))}</TableCell>
-                    <TableCell><Badge variant={stateVariant(head.stato)}>{stateLabel("madre", head.stato)}</Badge></TableCell>
                     <TableCell>{head.data_messa_cassa || head.data_incasso || "—"}</TableCell>
                     {isAdmin && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -1424,25 +1405,13 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                         {r.numero_titolo || "—"}
                       </TableCell>
                       <TableCell><TipoPolizzaBadge tipo="quietanza" numero={i + 1} totale={totale} /></TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          type="button"
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 font-mono text-xs text-polizza hover:underline"
-                          onClick={() => navigate(`/titoli/${head.id}`)}
-                        >
-                          {head.numero_titolo || "—"}
-                        </Button>
-                      </TableCell>
                       <TableCell className="text-muted-foreground text-xs">{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">{r.ramo?.descrizione || "—"}</TableCell>
-
-
+                      <TableCell className="text-xs">{r.garanzia_da ? new Date(r.garanzia_da).toLocaleDateString("it-IT") : "—"}</TableCell>
+                      <TableCell className="text-xs">{r.garanzia_a ? new Date(r.garanzia_a).toLocaleDateString("it-IT") : "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">{r.compagnia_diretta?.nome || "—"}</TableCell>
                       <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                       <TableCell className="font-mono">{fmtNum((Number(r.provvigioni_firma)||0) + (Number(r.provvigioni_quietanza)||0))}</TableCell>
-                      <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, i + 1)}</Badge></TableCell>
                       <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
                       {isAdmin && (
                         <TableCell onClick={(e) => e.stopPropagation()}>
