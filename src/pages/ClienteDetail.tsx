@@ -1281,14 +1281,13 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
             <TableHead className="w-8"></TableHead>
             <TableHead>N. Polizza</TableHead>
             <TableHead>Tipo</TableHead>
-            <TableHead>Polizza madre</TableHead>
             <TableHead>Gruppo Ramo</TableHead>
             <TableHead>Garanzia</TableHead>
-
+            <TableHead>Inizio Garanzia</TableHead>
+            <TableHead>Fine Garanzia</TableHead>
             <TableHead>Agenzia</TableHead>
             <TableHead>Premio €</TableHead>
             <TableHead>Provvigioni €</TableHead>
-            <TableHead>Stato</TableHead>
             <TableHead>Data Incasso</TableHead>
             {isAdmin && <TableHead className="w-12"></TableHead>}
           </TableRow>
