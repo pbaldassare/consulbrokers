@@ -9,14 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Archive, Search, Eye, Wallet } from "lucide-react";
+import { Archive, Search, Eye } from "lucide-react";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/RamoSottoramoFilter";
 import { useRamiAll } from "@/hooks/useRamiLookup";
-import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
-import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
@@ -90,14 +88,8 @@ const PortafoglioStoricoPage = () => {
   const polizze = result?.data || [];
   const totalCount = result?.count || 0;
 
-  const clienteIdsRiga = useMemo(
-    () => polizze.map((p: any) => p.cliente_anagrafica_id).filter(Boolean),
-    [polizze]
-  );
-  const { data: anticipiMap } = useAnticipiResiduoByClienti(clienteIdsRiga);
   const titoloIdsRiga = useMemo(() => polizze.map((p: any) => p.id), [polizze]);
   const { data: compensazioniMap } = useCompensazioniByTitoli(titoloIdsRiga);
-  const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
 
 
   const fmtCurrency = (v: number | null) =>
@@ -206,7 +198,7 @@ const PortafoglioStoricoPage = () => {
                   <TableHead>N° Polizza</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Anticipo</TableHead>
+                  
                   <TableHead>Agenzia</TableHead>
                   <TableHead>Garanzia</TableHead>
                   <TableHead>Inizio Garanzia</TableHead>
@@ -246,22 +238,6 @@ const PortafoglioStoricoPage = () => {
                           : <TipoPolizzaBadge tipo="polizza" />}
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {(() => {
-                        const summary = p.cliente_anagrafica_id ? anticipiMap?.get(p.cliente_anagrafica_id) : null;
-                        if (!summary || summary.totale <= 0) return <span className="text-xs text-muted-foreground">—</span>;
-                        return (
-                          <Badge
-                            className="bg-emerald-600 hover:bg-emerald-700 cursor-pointer gap-1"
-                            title={`${summary.conteggio} anticip${summary.conteggio === 1 ? "o" : "i"} disponibil${summary.conteggio === 1 ? "e" : "i"} — click per dettagli`}
-                            onClick={() => setAnticipoDrawerId(summary.primoAnticipoId)}
-                          >
-                            <Wallet className="h-3 w-3" />
-                            {fmtCurrency(summary.totale)}
-                          </Badge>
-                        );
-                      })()}
-                    </TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>
                     <TableCell>{p.ramo_nome || "—"}</TableCell>
                     <TableCell>{fmtDate(p.garanzia_da)}</TableCell>
@@ -302,7 +278,7 @@ const PortafoglioStoricoPage = () => {
           <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}
-      <AnticipoUtilizziDrawer anticipoId={anticipoDrawerId} onClose={() => setAnticipoDrawerId(null)} />
+      
     </div>
   );
 };

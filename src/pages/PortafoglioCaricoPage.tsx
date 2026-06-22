@@ -24,9 +24,7 @@ import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
 import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
-import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
-import { Wallet, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
@@ -193,15 +191,8 @@ const PortafoglioCaricoPage = () => {
   const polizze = (result?.data || []);
   const totalCount = result?.count || 0;
 
-  // Anticipi disponibili per cliente delle righe correnti
-  const clienteIdsRiga = useMemo(
-    () => polizze.map((p: any) => p.cliente_anagrafica_id).filter(Boolean),
-    [polizze]
-  );
-  const { data: anticipiMap } = useAnticipiResiduoByClienti(clienteIdsRiga);
   const titoloIdsRiga = useMemo(() => polizze.map((p: any) => p.id), [polizze]);
   const { data: compensazioniMap } = useCompensazioniByTitoli(titoloIdsRiga);
-  const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
 
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, dateDa, dateA],
@@ -658,7 +649,7 @@ const PortafoglioCaricoPage = () => {
                   <SortableHeader field="numero_titolo">N° Polizza</SortableHeader>
                   <TableHead>Tipo</TableHead>
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
-                  <TableHead>Anticipo</TableHead>
+                  
                   <SortableHeader field="compagnia_nome">Agenzia</SortableHeader>
                   <SortableHeader field="ramo_nome">Garanzia</SortableHeader>
                   <SortableHeader field="garanzia_da">Inizio Garanzia</SortableHeader>
@@ -709,22 +700,6 @@ const PortafoglioCaricoPage = () => {
                         )}
                       </TableCell>
                       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        {(() => {
-                          const summary = p.cliente_anagrafica_id ? anticipiMap?.get(p.cliente_anagrafica_id) : null;
-                          if (!summary || summary.totale <= 0) return <span className="text-xs text-muted-foreground">—</span>;
-                          return (
-                            <Badge
-                              className="bg-emerald-600 hover:bg-emerald-700 cursor-pointer gap-1"
-                              title={`${summary.conteggio} anticip${summary.conteggio === 1 ? "o" : "i"} disponibil${summary.conteggio === 1 ? "e" : "i"} — click per dettagli`}
-                              onClick={() => setAnticipoDrawerId(summary.primoAnticipoId)}
-                            >
-                              <Wallet className="h-3 w-3" />
-                              {fmtCurrency(summary.totale)}
-                            </Badge>
-                          );
-                        })()}
-                      </TableCell>
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
                       <TableCell>{p.ramo_nome || "—"}</TableCell>
                       <TableCell>{fmtDate(p.garanzia_da)}</TableCell>
@@ -813,10 +788,6 @@ const PortafoglioCaricoPage = () => {
         onSuccess={() => { setSelectedIds(new Set()); invalidateQueries(); }}
       />
 
-      <AnticipoUtilizziDrawer
-        anticipoId={anticipoDrawerId}
-        onClose={() => setAnticipoDrawerId(null)}
-      />
     </div>
   );
 };
