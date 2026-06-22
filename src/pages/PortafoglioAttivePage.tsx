@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { Shield, Search, Wallet } from "lucide-react";
+import { Shield, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
@@ -16,8 +16,6 @@ import { format, startOfMonth, endOfMonth } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/RamoSottoramoFilter";
 import { useRamiAll } from "@/hooks/useRamiLookup";
-import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
-import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
@@ -81,14 +79,8 @@ const PortafoglioAttivePage = () => {
   const polizze = result?.data || [];
   const totalCount = result?.count || 0;
 
-  const clienteIdsRiga = useMemo(
-    () => polizze.map((p: any) => p.cliente_anagrafica_id).filter(Boolean),
-    [polizze]
-  );
-  const { data: anticipiMap } = useAnticipiResiduoByClienti(clienteIdsRiga);
   const titoloIdsRiga = useMemo(() => polizze.map((p: any) => p.id), [polizze]);
   const { data: compensazioniMap } = useCompensazioniByTitoli(titoloIdsRiga);
-  const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
 
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-attive-totale", search, filterRamoIds, today, escludiMeseCorrente],
@@ -190,7 +182,7 @@ const PortafoglioAttivePage = () => {
                   <TableHead>N° Polizza</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Anticipo</TableHead>
+                  
                   <TableHead>Agenzia</TableHead>
                   <TableHead>Garanzia</TableHead>
                   <TableHead>Inizio Garanzia</TableHead>
@@ -233,22 +225,6 @@ const PortafoglioAttivePage = () => {
                       </div>
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {(() => {
-                        const summary = p.cliente_anagrafica_id ? anticipiMap?.get(p.cliente_anagrafica_id) : null;
-                        if (!summary || summary.totale <= 0) return <span className="text-xs text-muted-foreground">—</span>;
-                        return (
-                          <Badge
-                            className="bg-emerald-600 hover:bg-emerald-700 cursor-pointer gap-1"
-                            title={`${summary.conteggio} anticip${summary.conteggio === 1 ? "o" : "i"} disponibil${summary.conteggio === 1 ? "e" : "i"} — click per dettagli`}
-                            onClick={() => setAnticipoDrawerId(summary.primoAnticipoId)}
-                          >
-                            <Wallet className="h-3 w-3" />
-                            {fmtCurrency(summary.totale)}
-                          </Badge>
-                        );
-                      })()}
-                    </TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>
                     <TableCell>{p.ramo_nome || "—"}</TableCell>
                     <TableCell>{fmtDate(p.garanzia_da)}</TableCell>
@@ -270,7 +246,7 @@ const PortafoglioAttivePage = () => {
           <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}
-      <AnticipoUtilizziDrawer anticipoId={anticipoDrawerId} onClose={() => setAnticipoDrawerId(null)} />
+      
     </div>
   );
 };
