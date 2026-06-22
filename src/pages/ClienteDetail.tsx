@@ -1312,29 +1312,13 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell></TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
                   <TableCell><TipoPolizzaBadge tipo="quietanza" numero={idx} totale={totale} /></TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    {madreId ? (
-                      <Button
-                        type="button"
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 font-mono text-xs text-polizza hover:underline"
-                        onClick={() => navigate(`/titoli/${madreId}`)}
-                      >
-                        {madreNum || "—"}
-                      </Button>
-                    ) : (
-                      <span className="font-mono text-xs text-muted-foreground">{madreNum || "—"}</span>
-                    )}
-                  </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
-
-
+                  <TableCell className="text-xs">{r.garanzia_da ? new Date(r.garanzia_da).toLocaleDateString("it-IT") : "—"}</TableCell>
+                  <TableCell className="text-xs">{r.garanzia_a ? new Date(r.garanzia_a).toLocaleDateString("it-IT") : "—"}</TableCell>
                   <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
                   <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                   <TableCell className="font-mono">{fmtNum((Number(r.provvigioni_firma)||0) + (Number(r.provvigioni_quietanza)||0))}</TableCell>
-                  <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, idx)}</Badge></TableCell>
                   <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
