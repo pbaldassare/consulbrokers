@@ -139,14 +139,6 @@ const GestionePolizzePage = () => {
   const [scadAl, setScadAl] = useState("");
   const [clienteId, setClienteId] = useState<string>(searchParams.get("cliente") || "");
   const [compagniaId, setCompagniaId] = useState<string>("");
-  const [cigFilter, setCigFilter] = useState<"all" | "with" | "without">(() => {
-    const v = searchParams.get("cig");
-    return v === "with" || v === "without" ? v : "all";
-  });
-  const [regFilter, setRegFilter] = useState<"all" | "with" | "without">(() => {
-    const v = searchParams.get("reg");
-    return v === "with" || v === "without" ? v : "all";
-  });
 
   const [sortBy, setSortBy] = useState<"data_scadenza" | "numero_titolo">("data_scadenza");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -163,10 +155,8 @@ const GestionePolizzePage = () => {
     if (opKey) params.op = opKey;
     if (debouncedSearch) params.q = debouncedSearch;
     if (clienteId) params.cliente = clienteId;
-    if (cigFilter !== "all") params.cig = cigFilter;
-    if (regFilter !== "all") params.reg = regFilter;
     setSearchParams(params, { replace: true });
-  }, [opKey, debouncedSearch, clienteId, cigFilter, regFilter, setSearchParams]);
+  }, [opKey, debouncedSearch, clienteId, setSearchParams]);
 
   // dialog state
   const [target, setTarget] = useState<{ id: string; numero: string } | null>(null);
@@ -200,8 +190,6 @@ const GestionePolizzePage = () => {
     scadAl,
     clienteId,
     compagniaId,
-    cigFilter,
-    regFilter,
     sortBy,
     sortDir,
   ]);
@@ -277,18 +265,15 @@ const GestionePolizzePage = () => {
       scadAl,
       clienteId,
       compagniaId,
-      cigFilter,
-      regFilter,
       sortBy,
       sortDir,
       page,
     ],
     enabled: !!opKey,
     queryFn: async () => {
-      // Pre-filtro CIG (operazione dedicata o filtro multi)
+      // Pre-filtro CIG (operazione dedicata)
       let cigIds: string[] | null = null;
-      const needsCigWith = operazione?.richiedeCigTemporaneo || cigFilter === "with";
-      const needsCigWithout = cigFilter === "without" && !operazione?.richiedeCigTemporaneo;
+      const needsCigWith = operazione?.richiedeCigTemporaneo;
       if (needsCigWith) {
         const { data: cigRows } = await supabase
           .from("titoli")
@@ -296,19 +281,11 @@ const GestionePolizzePage = () => {
           .eq("cig_temporaneo", true);
         cigIds = (cigRows || []).map((r: any) => r.id);
         if (cigIds.length === 0) return { rows: [], count: 0, cigMap: {}, regMap: {} };
-      } else if (needsCigWithout) {
-        const { data: cigRows } = await supabase
-          .from("titoli")
-          .select("id")
-          .eq("cig_temporaneo", true);
-        const excludeIds = (cigRows || []).map((r: any) => r.id);
-        cigIds = excludeIds.length > 0 ? excludeIds : [];
       }
 
-      // Pre-filtro Regolazione (operazione dedicata o filtro multi)
+      // Pre-filtro Regolazione (operazione dedicata)
       let regIds: string[] | null = null;
-      const needsRegWith = operazione?.richiedeRegolazione || regFilter === "with";
-      const needsRegWithout = regFilter === "without" && !operazione?.richiedeRegolazione;
+      const needsRegWith = operazione?.richiedeRegolazione;
       if (needsRegWith) {
         const { data: regRows } = await supabase
           .from("titoli")
@@ -317,13 +294,6 @@ const GestionePolizzePage = () => {
           .order("regolazione_data_presunta", { ascending: true, nullsFirst: false });
         regIds = (regRows || []).map((r: any) => r.id);
         if (regIds.length === 0) return { rows: [], count: 0, cigMap: {}, regMap: {} };
-      } else if (needsRegWithout) {
-        const { data: regRows } = await supabase
-          .from("titoli")
-          .select("id")
-          .eq("regolazione", true);
-        const excludeIds = (regRows || []).map((r: any) => r.id);
-        regIds = excludeIds.length > 0 ? excludeIds : [];
       }
 
       let q = supabase
@@ -336,13 +306,7 @@ const GestionePolizzePage = () => {
         .range(range.from, range.to);
 
       if (needsCigWith && cigIds) q = q.in("id", cigIds);
-      if (needsCigWithout && cigIds && cigIds.length > 0) {
-        q = q.not("id", "in", `(${cigIds.map((i) => `"${i}"`).join(",")})`);
-      }
       if (needsRegWith && regIds) q = q.in("id", regIds);
-      if (needsRegWithout && regIds && regIds.length > 0) {
-        q = q.not("id", "in", `(${regIds.map((i) => `"${i}"`).join(",")})`);
-      }
       if (statiAttivi.length > 0) q = q.in("stato", statiAttivi);
       if (operazione?.richiedeMessaCassa) q = q.not("data_messa_cassa", "is", null);
       if (operazione?.escludeMessaCassa) q = q.is("data_messa_cassa", null);
@@ -399,8 +363,6 @@ const GestionePolizzePage = () => {
     setStatoFilter("");
     setClienteId("");
     setCompagniaId("");
-    setCigFilter("all");
-    setRegFilter("all");
     resetPage();
   };
 
@@ -616,7 +578,7 @@ const GestionePolizzePage = () => {
       {operazione && (
         <>
           <PolizzaSection title="2. Filtra polizza" icon={Filter} defaultOpen>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
                 <SearchableSelect
@@ -641,66 +603,6 @@ const GestionePolizzePage = () => {
                   />
                 </div>
               </div>
-              {!operazione.richiedeCigTemporaneo && (
-                <div className="space-y-1.5">
-                  <Label>CIG</Label>
-                  <div
-                    className="inline-flex w-full rounded-md border border-input bg-background p-0.5"
-                    role="group"
-                    aria-label="filtro-cig"
-                  >
-                    {([
-                      { v: "all", l: "Tutti" },
-                      { v: "with", l: "Con CIG" },
-                      { v: "without", l: "Senza" },
-                    ] as const).map((opt) => (
-                      <button
-                        key={opt.v}
-                        type="button"
-                        onClick={() => setCigFilter(opt.v)}
-                        data-cig-filter={opt.v}
-                        className={`flex-1 text-xs px-2 py-1.5 rounded transition ${
-                          cigFilter === opt.v
-                            ? "bg-teal-600 text-white"
-                            : "text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {opt.l}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {!operazione.richiedeRegolazione && (
-                <div className="space-y-1.5">
-                  <Label>Regolazione</Label>
-                  <div
-                    className="inline-flex w-full rounded-md border border-input bg-background p-0.5"
-                    role="group"
-                    aria-label="filtro-reg"
-                  >
-                    {([
-                      { v: "all", l: "Tutti" },
-                      { v: "with", l: "In reg." },
-                      { v: "without", l: "Senza" },
-                    ] as const).map((opt) => (
-                      <button
-                        key={opt.v}
-                        type="button"
-                        onClick={() => setRegFilter(opt.v)}
-                        data-reg-filter={opt.v}
-                        className={`flex-1 text-xs px-2 py-1.5 rounded transition ${
-                          regFilter === opt.v
-                            ? "bg-teal-600 text-white"
-                            : "text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {opt.l}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </PolizzaSection>
 

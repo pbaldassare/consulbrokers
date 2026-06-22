@@ -142,12 +142,10 @@ serve(async (req) => {
       rid: "RID / Addebito SEPA",
     };
     const modalita = tipoPagLabels[String(t.tipo_pagamento || "").toLowerCase()] || (t.tipo_pagamento || "—");
-    const banca = t.banca_pagamento ? ` — ${escapeHtml(t.banca_pagamento)}` : "";
 
     const numeroPolizza = t.numero_titolo || "—";
-    const periodoRata = `${fmtDate(t.garanzia_da)} – ${fmtDate(t.garanzia_a)}`;
+    const decorrenza = fmtDate(t.garanzia_da);
     const importo = fmtEuro(t.importo_incassato ?? t.premio_lordo);
-    const dataMessaCassa = fmtDate(t.data_messa_cassa);
 
     const subject = `Comunicazione messa a cassa — Polizza ${numeroPolizza} — ${clienteNome}`;
 
@@ -159,26 +157,19 @@ serve(async (req) => {
     <tr><td align="center">
       <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e0e6e4;">
         <tr><td style="background:#0d4f47;color:#ffffff;padding:18px 24px;font-size:18px;font-weight:600;">
-          Consulbrokers — Comunicazione formale di messa a cassa
+          Consulbrokers — Avviso incasso
         </td></tr>
         <tr><td style="padding:24px;font-size:14px;line-height:1.55;">
-          <p style="margin:0 0 14px;">Spettabile <strong>${escapeHtml(enteDestinatario)}</strong>,</p>
-          <p style="margin:0 0 14px;">con la presente si comunica formalmente l'avvenuta <strong>messa a cassa</strong> del premio relativo alla polizza in oggetto:</p>
+          <p style="margin:0 0 14px;">Spettabile Compagnia,</p>
+          <p style="margin:0 0 14px;">In data odierna abbiamo incassato per Vostro conto a mezzo <strong>${escapeHtml(modalita)}</strong> il seguente premio, come da accordi:</p>
           <table role="presentation" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;margin:8px 0 18px;">
-            <tr><td style="width:42%;color:#55615e;">Cliente</td><td><strong>${escapeHtml(clienteNome)}</strong> &nbsp;<span style="color:#55615e;">(${escapeHtml(clienteCF)})</span></td></tr>
-            <tr style="background:#f7faf9;"><td style="color:#55615e;">Compagnia</td><td>${escapeHtml(compagniaNome)}</td></tr>
-            <tr><td style="color:#55615e;">Rapporto</td><td>${escapeHtml(rapportoNome)}</td></tr>
-            <tr style="background:#f7faf9;"><td style="color:#55615e;">Polizza n°</td><td><strong>${escapeHtml(numeroPolizza)}</strong></td></tr>
-            <tr><td style="color:#55615e;">Ramo</td><td>${escapeHtml(ramoLabel)}</td></tr>
-            <tr style="background:#f7faf9;"><td style="color:#55615e;">Periodo rata</td><td>${escapeHtml(periodoRata)}</td></tr>
-            <tr><td style="color:#55615e;">Importo incassato</td><td><strong>${escapeHtml(importo)}</strong></td></tr>
-            <tr style="background:#f7faf9;"><td style="color:#55615e;">Modalità di pagamento</td><td>${escapeHtml(modalita)}${banca}</td></tr>
-            <tr><td style="color:#55615e;">Data messa a cassa</td><td>${escapeHtml(dataMessaCassa)}</td></tr>
-            <tr style="background:#f7faf9;"><td style="color:#55615e;">Specialist di riferimento</td><td>${escapeHtml(aeNome || "—")}</td></tr>
-            <tr><td style="color:#55615e;">Sede gestore</td><td>${escapeHtml(sedeLabel)}</td></tr>
+            <tr><td style="width:42%;color:#55615e;">Contraente</td><td><strong>${escapeHtml(clienteNome)}</strong></td></tr>
+            <tr style="background:#f7faf9;"><td style="color:#55615e;">Ramo</td><td>${escapeHtml(ramoLabel)}</td></tr>
+            <tr><td style="color:#55615e;">Polizza</td><td><strong>${escapeHtml(numeroPolizza)}</strong></td></tr>
+            <tr style="background:#f7faf9;"><td style="color:#55615e;">Decorrenza</td><td>${escapeHtml(decorrenza)}</td></tr>
+            <tr><td style="color:#55615e;">Premio</td><td><strong>${escapeHtml(importo)}</strong></td></tr>
           </table>
-          <p style="margin:0 0 14px;">Si richiede cortese conferma di registrazione della presente messa a cassa nei vostri sistemi.</p>
-          <p style="margin:0;">Cordiali saluti,<br/><strong>Consulbrokers S.p.A.</strong></p>
+          <p style="margin:0;">È gradita l'occasione per porgere cordiali saluti.</p>
         </td></tr>
         <tr><td style="background:#fafbfb;color:#7a8784;padding:14px 24px;font-size:11px;border-top:1px solid #e0e6e4;">
           Messaggio generato automaticamente dal gestionale CBnet. Non rispondere a questa email.
