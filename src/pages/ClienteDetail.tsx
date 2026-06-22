@@ -1144,6 +1144,13 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
   }, [filteredCatene, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
 
 
+  const fmtDate = (d: string | Date | null | undefined) => {
+    if (!d) return "—";
+    const parsed = new Date(d);
+    if (isNaN(parsed.getTime())) return "—";
+    return parsed.toLocaleDateString("it-IT");
+  };
+
   const isLocked = (t: any) =>
     t?.stato === "incassato" || t?.stato === "stornato" || !!t?.data_messa_cassa;
 
