@@ -1,42 +1,63 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const STORAGE_STATE = path.resolve(__dirname, 'tests/.auth/user.json');
 
 /**
  * Vedere https://playwright.dev/docs/test-configuration.
  */
+/** Cartelle legacy migrate — i test canonici sono nelle sottocartelle numerate. */
+const E2E_LEGACY_IGNORE = [
+  '**/e2e/contabilita/**',
+  '**/e2e/01-login.spec.ts',
+];
+
 export default defineConfig({
   testDir: './tests',
-  /* Esegue i test in file paralleli */
   fullyParallel: false,
-  /* Fallisce la build su CI se si dimentica un test.only nel codice */
   forbidOnly: !!process.env.CI,
-  /* Numero di retry per i test che falliscono */
   retries: process.env.CI ? 2 : 0,
-  /* Numero di worker paralleli */
-  workers: 1, // Impostato a 1 per evitare conflitti concorrenti sui dati di test nel DB di Supabase
-  /* Reporter da utilizzare */
+  workers: 1,
   reporter: 'html',
-  /* Condiviso tra tutti i progetti */
   use: {
-    /* Base URL per le chiamate navigate() dei test */
     baseURL: 'http://localhost:8080',
-    /* Raccoglie la traccia per i test falliti */
     trace: 'on-first-retry',
-    /* Disabilita i video e screenshot per velocizzare */
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
 
-  /* Configurazione dei browser da testare */
   projects: [
     {
+      name: 'setup',
+      testMatch: '**/e2e/00-auth.setup.ts',
+    },
+    {
+      name: 'e2e',
+      dependencies: ['setup'],
+      testMatch: '**/e2e/**/*.spec.ts',
+      testIgnore: E2E_LEGACY_IGNORE,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: STORAGE_STATE,
+      },
+    },
+    {
+      name: 'login',
+      testMatch: '**/e2e/01-login.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'chromium',
+      testMatch: '**/*.spec.ts',
+      testIgnore: '**/e2e/**',
       use: { ...devices['Desktop Chrome'] },
     },
   ],
 
-  /* Avvia il server locale di sviluppo prima dei test */
   webServer: {
-    command: 'npm run dev',
+    command: 'bun run dev',
     url: 'http://localhost:8080',
     reuseExistingServer: true,
     timeout: 120 * 1000,

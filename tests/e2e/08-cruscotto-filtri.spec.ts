@@ -15,7 +15,7 @@ test.use({ storageState: STORAGE_STATE });
  */
 test.describe("Contabilità · Cruscotto Giornaliero — filtri", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/contabilita/cruscotto-giornaliero");
+    await page.goto("/contabilita/cruscotto");
     await expect(page.getByRole("heading", { name: /cruscotto/i })).toBeVisible({ timeout: 15_000 });
   });
 

@@ -30,20 +30,36 @@ export const supabaseAdmin = serviceRoleKey
     })
   : null;
 
+export interface CreateTestUserOptions {
+  ufficioId?: string;
+  permessi_json?: Record<string, boolean>;
+  nome?: string;
+}
+
+const DEFAULT_TEST_UFFICIO_ID = 'f5163c49-1e7e-48b5-9ac6-5494a9d4ce4a';
+
 /**
  * Crea un utente temporaneo di test con il ruolo e l'ufficio specificati.
  */
-export async function createTestUser(email: string, password: string, role: string, cognome: string = 'Test') {
+export async function createTestUser(
+  email: string,
+  password: string,
+  role: string,
+  cognome: string = 'Test',
+  options: CreateTestUserOptions = {},
+) {
   if (!supabaseAdmin) {
     throw new Error('Impossibile creare l\'utente di test: SUPABASE_SERVICE_ROLE_KEY non configurata.');
   }
+
+  const nome = options.nome ?? 'User';
 
   // 1. Crea l'utente nell'Auth di Supabase
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { nome: 'User', cognome }
+    user_metadata: { nome, cognome }
   });
 
   if (authError) {
@@ -54,7 +70,7 @@ export async function createTestUser(email: string, password: string, role: stri
       if (existing) {
         await supabaseAdmin.auth.admin.updateUserById(existing.id, { password, email_confirm: true });
         // Forza l'aggiornamento del profilo e ruolo per consistenza
-        await setupProfileAndRole(existing.id, email, role, cognome);
+        await setupProfileAndRole(existing.id, email, role, cognome, options);
         return existing.id;
       }
     }
@@ -62,29 +78,38 @@ export async function createTestUser(email: string, password: string, role: stri
   }
 
   const userId = authData.user.id;
-  await setupProfileAndRole(userId, email, role, cognome);
+  await setupProfileAndRole(userId, email, role, cognome, options);
   return userId;
 }
 
 /**
  * Configura il profilo e il ruolo per l'ID utente nel DB public.
  */
-async function setupProfileAndRole(userId: string, email: string, role: string, cognome: string) {
+async function setupProfileAndRole(
+  userId: string,
+  email: string,
+  role: string,
+  cognome: string,
+  options: CreateTestUserOptions = {},
+) {
   if (!supabaseAdmin) return;
 
-  // L'ufficio predefinito per i test
-  const defaultUfficioId = 'f5163c49-1e7e-48b5-9ac6-5494a9d4ce4a';
-
-  // 2. Inserisce o aggiorna il profilo
-  const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
+  const ufficioId = options.ufficioId ?? DEFAULT_TEST_UFFICIO_ID;
+  const profilePayload: Record<string, unknown> = {
     id: userId,
-    nome: 'User',
+    nome: options.nome ?? 'User',
     cognome,
     email,
     ruolo: role,
-    ufficio_id: defaultUfficioId,
-    attivo: true
-  }, { onConflict: 'id' });
+    ufficio_id: ufficioId,
+    attivo: true,
+  };
+  if (options.permessi_json) {
+    profilePayload.permessi_json = options.permessi_json;
+  }
+
+  // 2. Inserisce o aggiorna il profilo
+  const { error: profileError } = await supabaseAdmin.from('profiles').upsert(profilePayload, { onConflict: 'id' });
 
   if (profileError) {
     throw new Error(`Errore creazione profilo per ${email}: ${profileError.message}`);
@@ -212,4 +237,143 @@ export async function cleanupTestTitolo(polizzaNumero: string, clienteAnagrafica
   if (clienteAnagraficaId) {
     await supabaseAdmin.from('clienti').delete().eq('id', clienteAnagraficaId);
   }
+}
+
+/**
+ * Crea un ufficio/sede di test attivo.
+ */
+export async function createTestUfficio(nomeUfficio: string) {
+  if (!supabaseAdmin) throw new Error('Supabase Admin non configurato');
+
+  const { data, error } = await supabaseAdmin
+    .from('uffici')
+    .insert({ nome_ufficio: nomeUfficio, attivo: true })
+    .select('id, nome_ufficio')
+    .single();
+
+  if (error) throw new Error(`Errore creazione ufficio: ${error.message}`);
+  return data;
+}
+
+/**
+ * Elimina un ufficio di test (solo se creato ad hoc).
+ */
+export async function deleteTestUfficio(ufficioId: string) {
+  if (!supabaseAdmin) return;
+  await supabaseAdmin.from('uffici').delete().eq('id', ufficioId);
+}
+
+/**
+ * Crea un'anagrafica cliente collegata a una sede.
+ */
+export async function createTestClienteAnagrafica(params: {
+  ufficioId: string;
+  cognome: string;
+  nome?: string;
+  codiceRicerca?: string;
+  email?: string;
+}) {
+  if (!supabaseAdmin) throw new Error('Supabase Admin non configurato');
+
+  const { data, error } = await supabaseAdmin
+    .from('clienti')
+    .insert({
+      tipo_cliente: 'privato',
+      nome: params.nome ?? 'Test',
+      cognome: params.cognome,
+      codice_ricerca: params.codiceRicerca ?? null,
+      email: params.email ?? null,
+      attivo: true,
+      ufficio_id: params.ufficioId,
+      area_riservata_tipo: 'nessuna',
+    })
+    .select('id, cognome, codice_ricerca')
+    .single();
+
+  if (error) throw new Error(`Errore creazione cliente anagrafica: ${error.message}`);
+  return data;
+}
+
+/**
+ * Collega un utente portale cliente all'anagrafica e abilita l'area riservata.
+ */
+export async function linkClientePortalUser(params: {
+  userId: string;
+  clienteAnagraficaId: string;
+  email: string;
+}) {
+  if (!supabaseAdmin) throw new Error('Supabase Admin non configurato');
+
+  const { error } = await supabaseAdmin
+    .from('clienti')
+    .update({
+      user_id: params.userId,
+      email: params.email,
+      area_riservata_tipo: 'standard',
+    })
+    .eq('id', params.clienteAnagraficaId);
+
+  if (error) throw new Error(`Errore collegamento portale cliente: ${error.message}`);
+}
+
+/**
+ * Crea una polizza di test visibile via RLS per sede/cliente.
+ */
+export async function createTestTitoloForUfficio(params: {
+  numeroTitolo: string;
+  ufficioId: string;
+  clienteAnagraficaId: string;
+  stato?: string;
+}) {
+  if (!supabaseAdmin) throw new Error('Supabase Admin non configurato');
+
+  let { data: compagnie } = await supabaseAdmin.from('compagnie').select('id').eq('attiva', true).limit(1);
+  let compagniaId = compagnie?.[0]?.id;
+  if (!compagniaId) {
+    const { data: newComp, error: compErr } = await supabaseAdmin
+      .from('compagnie')
+      .insert({ nome: 'Compagnia Test Auth e2e', attiva: true })
+      .select('id')
+      .single();
+    if (compErr) throw new Error(`Errore creazione compagnia test: ${compErr.message}`);
+    compagniaId = newComp.id;
+  }
+
+  let { data: prodotti } = await supabaseAdmin.from('prodotti').select('id').eq('attivo', true).limit(1);
+  let prodottoId = prodotti?.[0]?.id;
+  if (!prodottoId) {
+    const { data: newProd, error: prodErr } = await supabaseAdmin
+      .from('prodotti')
+      .insert({ nome_prodotto: 'Prodotto Test Auth e2e', attivo: true, compagnia_id: compagniaId })
+      .select('id')
+      .single();
+    if (prodErr) throw new Error(`Errore creazione prodotto test: ${prodErr.message}`);
+    prodottoId = newProd.id;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('titoli')
+    .insert({
+      numero_titolo: params.numeroTitolo,
+      cliente_anagrafica_id: params.clienteAnagraficaId,
+      ufficio_id: params.ufficioId,
+      prodotto_id: prodottoId,
+      premio_lordo: 100,
+      stato: params.stato ?? 'attivo',
+      regolazione: false,
+    })
+    .select('id, numero_titolo')
+    .single();
+
+  if (error) throw new Error(`Errore creazione titolo auth e2e: ${error.message}`);
+  return data;
+}
+
+/**
+ * Elimina anagrafica cliente e titoli collegati (per teardown test auth).
+ */
+export async function deleteTestClienteAnagrafica(clienteAnagraficaId: string) {
+  if (!supabaseAdmin) return;
+  await supabaseAdmin.from('titoli').delete().eq('cliente_anagrafica_id', clienteAnagraficaId);
+  await supabaseAdmin.from('clienti').delete().eq('id', clienteAnagraficaId);
 }

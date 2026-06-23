@@ -15,6 +15,35 @@ export const TEST_PASSWORD = process.env.TEST_USER_PASSWORD || 'Leone123!';
  */
 export const STORAGE_STATE = path.resolve(process.cwd(), 'tests/.auth/user.json');
 
+/** Rotte riservate esclusivamente al ruolo admin (RoleGuard). */
+export const ADMIN_ONLY_ROUTES: { label: string; path: string }[] = [
+  { label: 'Centro Utenti & Privilegi', path: '/utenti-privilegi' },
+  { label: 'Backup & Export', path: '/backup-export' },
+  { label: 'Manutenzione', path: '/manutenzione' },
+  { label: 'Tabelle di Base', path: '/tabelle-base' },
+  { label: 'Compagnie / Agenzie', path: '/compagnie' },
+  { label: 'Gestione Uffici', path: '/gestione-uffici' },
+  { label: 'Sitemap', path: '/sitemap' },
+];
+
+/** Rotte del portale cliente (ClienteGuard). */
+export const CLIENTE_PORTAL_ROUTES: { label: string; path: string; heading?: RegExp }[] = [
+  { label: 'Dashboard cliente', path: '/cliente', heading: /Benvenuto nella tua Area Clienti/i },
+  { label: 'Polizze cliente', path: '/cliente/polizze', heading: /Polizze/i },
+  { label: 'Documenti cliente', path: '/cliente/documenti' },
+  { label: 'Scadenze cliente', path: '/cliente/scadenze' },
+  { label: 'Anagrafica cliente', path: '/cliente/anagrafica' },
+];
+
+/** Rotte del gestionale che un utente cliente non deve raggiungere. */
+export const GESTIONALE_BLOCKED_FOR_CLIENTE: string[] = [
+  '/',
+  '/archivi/clienti',
+  '/titoli',
+  '/utenti-privilegi',
+  '/contabilita',
+];
+
 /**
  * Esegue il login via UI partendo dalla pagina /login e attende il redirect
  * verso una rotta autenticata (qualsiasi rotta diversa da /login).
@@ -35,6 +64,49 @@ export async function login(
 
   // onAuthStateChange aggiorna il context e il guard fa il <Navigate> reattivo.
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 });
+}
+
+/**
+ * Attende che la pagina si trovi su una URL attesa (regex o stringa).
+ */
+export async function expectOnRoute(page: Page, pattern: RegExp | string, timeout = 15_000): Promise<void> {
+  if (typeof pattern === 'string') {
+    await expect(page).toHaveURL(new RegExp(`${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\?|$)`), { timeout });
+  } else {
+    await expect(page).toHaveURL(pattern, { timeout });
+  }
+}
+
+/**
+ * Naviga a una rotta protetta e verifica il redirect verso la home attesa del ruolo.
+ */
+export async function expectRouteBlocked(
+  page: Page,
+  path: string,
+  expectedUrl: RegExp,
+): Promise<void> {
+  await page.goto(path, { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await expect(page, `accesso a ${path} deve essere bloccato`).toHaveURL(expectedUrl, { timeout: 15_000 });
+}
+
+/**
+ * Cerca un cliente per cognome nella lista anagrafica clienti.
+ */
+export async function searchClienti(page: Page, query: string): Promise<void> {
+  await page.goto('/archivi/clienti');
+  await page.getByPlaceholder('Cerca per nome, CF, P.IVA...').fill(query);
+  await page.waitForTimeout(500);
+}
+
+/**
+ * Cerca una polizza per numero nell'elenco titoli (premendo CERCA).
+ */
+export async function searchTitoli(page: Page, numeroPolizza: string): Promise<void> {
+  await page.goto('/titoli');
+  await page.getByPlaceholder('Numero polizza...').fill(numeroPolizza);
+  await page.getByRole('button', { name: 'CERCA' }).click();
+  await page.waitForTimeout(800);
 }
 
 /**
@@ -94,6 +166,7 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Polizze Attive', path: '/portafoglio/attive' },
   { label: 'Carico', path: '/portafoglio/carico' },
   { label: 'Storico Polizze', path: '/portafoglio/storico' },
+  { label: 'Gestione Polizze', path: '/portafoglio/gestione' },
   { label: 'Immissione Polizza', path: '/portafoglio/immissione' },
   { label: 'Appendici', path: '/portafoglio/appendici' },
   { label: 'Rinnovi', path: '/portafoglio/rinnovi' },
@@ -127,12 +200,13 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'E/C Produttori', path: '/contabilita/ec-produttori' },
   { label: 'Storico E/C Produttori', path: '/contabilita/ec-produttore/storico' },
   { label: 'Storico Rimesse', path: '/contabilita/storico-rimesse' },
-  { label: 'Stampa Sospesi', path: '/contabilita/stampa-sospesi' },
+  { label: 'Riepilogo Acconti', path: '/contabilita/anticipi-clienti' },
+  { label: 'Caricamento Mov. Bancari', path: '/contabilita/caricamento-mov-bancari' },
+  { label: 'Ricongiungimento Bancario', path: '/contabilita/ricongiungimento-bancario' },
   { label: 'Report IVA', path: '/report-iva' },
 
   // Provvigioni
   { label: 'Provvigioni Maturate', path: '/provvigioni-maturate' },
-  { label: 'Provvigioni Compagnie/Ramo', path: '/provvigioni-compagnie-ramo' },
   { label: 'Pagamenti Provvigioni', path: '/pagamenti-provvigioni' },
 
   // Sistema / Admin
@@ -146,6 +220,7 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Template Email', path: '/template' },
   { label: 'Comunicazioni', path: '/comunicazioni' },
   { label: 'Anomalie Sistema', path: '/anomalie-sistema' },
+  { label: 'Anomalie KO', path: '/anomalie-ko' },
   { label: 'Sitemap', path: '/sitemap' },
   { label: 'Note di Restituzione', path: '/note-restituzione' },
   { label: 'Spedizioni', path: '/spedizioni' },

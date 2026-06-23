@@ -69,6 +69,19 @@ test.describe('Sicurezza — Row Level Security (RLS) su Titoli', () => {
     await expect(page.locator(`text=Polizza ${polizzaNumero}`).first()).toBeVisible({ timeout: 10000 });
   });
 
+  test('Cliente utente auth viene reindirizzato dal gestionale titoli', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('#email', clienteEmail);
+    await page.fill('#password', password);
+    await page.click('button[type="submit"]');
+    await expect(page).toHaveURL(/\/cliente(\?|$)/, { timeout: 15_000 });
+
+    await page.goto(`/titoli/${titoloId}`);
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await expect(page).toHaveURL(/\/cliente(\?|$)/);
+    await expect(page.getByText(polizzaNumero)).toHaveCount(0);
+  });
+
   test('Produttore B NON deve visualizzare nè accedere alla polizza del Produttore A', async ({ page }) => {
     // 1. Esegui il login come Produttore B
     await page.goto('/login');
