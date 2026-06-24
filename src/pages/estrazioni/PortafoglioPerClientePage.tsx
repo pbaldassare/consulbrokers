@@ -28,7 +28,8 @@ const PortafoglioPerClientePage = () => {
       let query = supabase
         .from("titoli")
         .select("premio_lordo, importo_incassato, stato, cliente_anagrafica_id, ufficio_id, produttore_id, prodotto_id, clienti!titoli_cliente_anagrafica_id_fkey(id, nome, cognome, ragione_sociale, tipo_cliente), prodotti(compagnia_id)")
-        .not("cliente_anagrafica_id", "is", null);
+        .not("cliente_anagrafica_id", "is", null)
+        .is("sostituisce_polizza", null);
 
       if (filters.dateFrom) query = query.gte("data_incasso", format(filters.dateFrom, "yyyy-MM-dd"));
       if (filters.dateTo) query = query.lte("data_incasso", format(filters.dateTo, "yyyy-MM-dd"));

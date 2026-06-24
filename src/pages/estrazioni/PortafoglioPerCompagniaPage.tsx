@@ -25,7 +25,8 @@ const PortafoglioPerCompagniaPage = () => {
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("premio_lordo, importo_incassato, ufficio_id, produttore_id, prodotti!inner(nome_prodotto, compagnia_id, compagnie!inner(nome))");
+        .select("premio_lordo, importo_incassato, ufficio_id, produttore_id, prodotti!inner(nome_prodotto, compagnia_id, compagnie!inner(nome))")
+        .is("sostituisce_polizza", null);
 
       if (filters.dateFrom) query = query.gte("data_incasso", format(filters.dateFrom, "yyyy-MM-dd"));
       if (filters.dateTo) query = query.lte("data_incasso", format(filters.dateTo, "yyyy-MM-dd"));
