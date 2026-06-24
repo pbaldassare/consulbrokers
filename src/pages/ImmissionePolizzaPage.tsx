@@ -55,6 +55,7 @@ import { FieldHint } from "@/components/ui/field-hint";
 import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPersistence";
 import { computeQuietanzePlan } from "@/lib/quietanzePlan";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
+import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
 
 
 const ImmissionePolizzaPage = () => {
@@ -352,6 +353,7 @@ const ImmissionePolizzaPage = () => {
   const [anniDurata, setAnniDurata] = useState("1");
   const [tacitoRinnovo, setTacitoRinnovo] = useState(true);
   const [polizzaTemporanea, setPolizzaTemporanea] = useState(false);
+  const [polizzaRateo, setPolizzaRateo] = useState(false);
   const [frazionamento, setFrazionamento] = useState<string>("Annuale");
   const [moraGiorni, setMoraGiorni] = useState("15");
   const [garanziaDa, setGaranziaDa] = useState("");
@@ -515,6 +517,7 @@ const ImmissionePolizzaPage = () => {
         anniDurata: setAnniDurata,
         tacitoRinnovo: setTacitoRinnovo,
         polizzaTemporanea: setPolizzaTemporanea,
+        polizzaRateo: setPolizzaRateo,
         frazionamento: setFrazionamento,
         moraGiorni: setMoraGiorni,
         garanziaDa: setGaranziaDa,
@@ -618,7 +621,7 @@ const ImmissionePolizzaPage = () => {
     numeroPolizza, tipoOperazione, polizzaAuto,
     selectedCompagnia, selectedGruppoCompagniaId, selectedRapportoId, selectedRamo, selectedGruppoRamoId, prodottoNome,
     cigRif, cigTemporaneo, vincolo, targaTelaio, descrizionePolizza,
-    durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, polizzaTemporanea, frazionamento, moraGiorni,
+    durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, polizzaTemporanea, polizzaRateo, frazionamento, moraGiorni,
     garanziaDa, garanziaDaTouched, garanziaA, garanziaATouched, dataCompetenza, dataCompetenzaTouched,
     limiteMora, limiteMoraTouched, disdettaMesi,
     regolazione, regolazioneDataPresunta, regolazioneFattore, regolazioneNote,
@@ -1431,6 +1434,17 @@ const ImmissionePolizzaPage = () => {
       }
       return;
     }
+    if (polizzaRateo) {
+      const synced = syncPeriodoRateo({ garanziaDa });
+      if (!dataCompetenzaTouched) setDataCompetenza(synced.data_competenza);
+      if (!limiteMoraTouched && synced.data_competenza) {
+        const gg = parseInt(moraGiorni || "0") || 0;
+        const d = new Date(synced.data_competenza);
+        d.setDate(d.getDate() + gg);
+        setLimiteMora(d.toISOString().slice(0, 10));
+      }
+      return;
+    }
     if (!durataDa) return;
     const anni = Math.max(1, parseInt(anniDurata) || 1);
     const mesiGar = frazionamentoMesi(frazionamento, anni);
@@ -1447,7 +1461,7 @@ const ImmissionePolizzaPage = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [durataDa, durataA, anniDurata, frazionamento, polizzaTemporanea]);
+  }, [durataDa, durataA, anniDurata, frazionamento, polizzaTemporanea, polizzaRateo, garanziaDa]);
 
   // --- Handlers ---
 
@@ -1542,6 +1556,7 @@ const ImmissionePolizzaPage = () => {
         anni_durata: polizzaTemporanea ? null : (parseInt(anniDurata) || 1),
         tacito_rinnovo: polizzaTemporanea ? false : tacitoRinnovo,
         polizza_temporanea: polizzaTemporanea,
+        polizza_rateo: polizzaRateo,
         rate: polizzaTemporanea ? 1 : frazionamentoToRate(frazionamento, parseInt(anniDurata) || 1),
         frazionamento: polizzaTemporanea ? null : frazionamento,
         mora_giorni: parseInt(moraGiorni) || 15,
@@ -2441,10 +2456,31 @@ const ImmissionePolizzaPage = () => {
                 checked={polizzaTemporanea}
                 onCheckedChange={(v) => {
                   setPolizzaTemporanea(v);
-                  if (v) setTacitoRinnovo(false);
+                  if (v) {
+                    setPolizzaRateo(false);
+                    setTacitoRinnovo(false);
+                  }
                 }}
+                disabled={polizzaRateo}
               />
               <span className="text-xs text-muted-foreground">{polizzaTemporanea ? "Sì" : "No"}</span>
+            </div>
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label className="text-xs flex items-center gap-1">
+              Polizza rateo
+              <FieldHint>Primo periodo garanzia libero (rateo); le quietanze successive seguono il frazionamento fino a Durata A. Premio manuale, senza pro-rata automatico.</FieldHint>
+            </Label>
+            <div className="flex items-center gap-2 h-8">
+              <Switch
+                checked={polizzaRateo}
+                onCheckedChange={(v) => {
+                  setPolizzaRateo(v);
+                  if (v) setPolizzaTemporanea(false);
+                }}
+                disabled={polizzaTemporanea}
+              />
+              <span className="text-xs text-muted-foreground">{polizzaRateo ? "Sì" : "No"}</span>
             </div>
           </div>
           <div className="space-y-1.5">

@@ -8,6 +8,7 @@ import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { annullaPolizza } from "@/lib/annullaPolizza";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
+import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { Button } from "@/components/ui/button";
@@ -790,6 +791,7 @@ const TitoloDetail = () => {
     mora_giorni: "" as string,
     tacito_rinnovo: true as boolean,
     polizza_temporanea: false as boolean,
+    polizza_rateo: false as boolean,
     disdetta_mesi: "" as string,
   });
 
@@ -811,6 +813,15 @@ const TitoloDetail = () => {
     });
   }, [editingPeriodo, periodoForm.polizza_temporanea, periodoForm.durata_da, periodoForm.durata_a]);
 
+  useEffect(() => {
+    if (!editingPeriodo || !periodoForm.polizza_rateo || periodoForm.polizza_temporanea) return;
+    const synced = syncPeriodoRateo({ garanziaDa: periodoForm.garanzia_da });
+    setPeriodoForm((p) => {
+      if (p.data_competenza === synced.data_competenza) return p;
+      return { ...p, data_competenza: synced.data_competenza };
+    });
+  }, [editingPeriodo, periodoForm.polizza_rateo, periodoForm.polizza_temporanea, periodoForm.garanzia_da]);
+
   const startEditPeriodo = () => {
     if (titolo) {
       const t: any = titolo;
@@ -828,6 +839,7 @@ const TitoloDetail = () => {
         mora_giorni: t.mora_giorni != null ? String(t.mora_giorni) : "",
         tacito_rinnovo: t.tacito_rinnovo ?? true,
         polizza_temporanea: !!t.polizza_temporanea,
+        polizza_rateo: !!t.polizza_rateo,
         disdetta_mesi: t.disdetta_mesi != null ? String(t.disdetta_mesi) : "",
       });
     }
@@ -862,15 +874,18 @@ const TitoloDetail = () => {
       const after: Record<string, any> = {};
       const fields: (keyof typeof periodoForm)[] = [
         "durata_da", "durata_a", "anni_durata", "rate", "frazionamento", "garanzia_da", "garanzia_a",
-        "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tacito_rinnovo", "polizza_temporanea", "disdetta_mesi",
+        "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tacito_rinnovo", "polizza_temporanea", "polizza_rateo", "disdetta_mesi",
       ];
       const numericFields = new Set(["anni_durata", "rate", "mora_giorni", "disdetta_mesi"]);
-      const booleanFields = new Set(["tacito_rinnovo", "polizza_temporanea"]);
+      const booleanFields = new Set(["tacito_rinnovo", "polizza_temporanea", "polizza_rateo"]);
       if (periodoForm.polizza_temporanea) {
         periodoForm.tacito_rinnovo = false;
         periodoForm.frazionamento = "";
         periodoForm.rate = "1";
         periodoForm.anni_durata = "";
+        periodoForm.polizza_rateo = false;
+      } else if (periodoForm.polizza_rateo) {
+        periodoForm.polizza_temporanea = false;
       } else if (periodoForm.frazionamento) {
         const anni = Number(periodoForm.anni_durata) || 1;
         periodoForm.rate = String(frazionamentoToRate(periodoForm.frazionamento, anni));
@@ -2421,6 +2436,7 @@ const TitoloDetail = () => {
             <FieldRow label="Anni Durata" value={fmt(t.anni_durata)} />
             <FieldRow label="Frazionamento" value={t.polizza_temporanea ? "—" : (t.frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata))} />
             <FieldRow label="Polizza temporanea" value={t.polizza_temporanea ? "Sì" : "No"} />
+            <FieldRow label="Polizza rateo" value={t.polizza_rateo ? "Sì" : "No"} />
             <FieldRow label="Garanzia Da" value={fmtDate(t.garanzia_da)} />
             <FieldRow label="Garanzia A" value={fmtDate(t.garanzia_a)} />
             <FieldRow label="Data Competenza" value={fmtDate(t.data_competenza)} />
@@ -2448,13 +2464,34 @@ const TitoloDetail = () => {
                     onCheckedChange={(v) => setPeriodoForm(p => ({
                       ...p,
                       polizza_temporanea: v,
+                      polizza_rateo: v ? false : p.polizza_rateo,
                       tacito_rinnovo: v ? false : p.tacito_rinnovo,
                       frazionamento: v ? "" : (p.frazionamento || "Annuale"),
                       rate: v ? "1" : p.rate,
                     }))}
+                    disabled={periodoForm.polizza_rateo}
                   />
                   <span className="text-sm text-muted-foreground">
                     {periodoForm.polizza_temporanea ? "Sì — una sola quietanza, senza rinnovi" : "No"}
+                  </span>
+                </div>
+              </div>
+            )}
+            {!t.sostituisce_polizza && (
+              <div className="col-span-2 md:col-span-4 rounded-md border border-blue-500/30 bg-blue-500/5 px-3 py-2">
+                <Label className="text-xs">Polizza rateo</Label>
+                <div className="flex items-center gap-2 h-9 mt-1">
+                  <Switch
+                    checked={periodoForm.polizza_rateo}
+                    onCheckedChange={(v) => setPeriodoForm(p => ({
+                      ...p,
+                      polizza_rateo: v,
+                      polizza_temporanea: v ? false : p.polizza_temporanea,
+                    }))}
+                    disabled={periodoForm.polizza_temporanea}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {periodoForm.polizza_rateo ? "Sì — primo rateo libero, successive per frazionamento" : "No"}
                   </span>
                 </div>
               </div>

@@ -16,9 +16,13 @@ export type QuietanzaPlanInput = {
   anniDurata?: number | null;
   garanziaDa?: string | Date | null;
   garanziaA?: string | Date | null;
+  durataDa?: string | Date | null;
+  durataA?: string | Date | null;
   dataCompetenza?: string | Date | null;
   /** Se true: una sola quietanza sul periodo indicato, senza frazionamento. */
   polizzaTemporanea?: boolean | null;
+  /** Se true: primo rateo a periodo libero, successive per frazionamento fino a durata_a. */
+  polizzaRateo?: boolean | null;
 };
 
 function toDate(v: string | Date | null | undefined): Date | null {
@@ -34,8 +38,53 @@ function addMonths(d: Date, m: number): Date {
   return out;
 }
 
+function addDays(d: Date, days: number): Date {
+  const out = new Date(d.getTime());
+  out.setDate(out.getDate() + days);
+  return out;
+}
+
 function iso(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function mesiRataFromFrazionamento(frazionamento: string): number {
+  const f = frazionamento.toLowerCase();
+  if (f === "poliennale") return 12;
+  return frazionamentoMesi(f.charAt(0).toUpperCase() + f.slice(1), 1);
+}
+
+function computeRateoPlan(
+  garDa: Date,
+  garA: Date,
+  durA: Date,
+  mesiRata: number,
+): QuietanzaPlanRow[] {
+  const rows: QuietanzaPlanRow[] = [{
+    idx: 1,
+    garanzia_da: iso(garDa),
+    garanzia_a: iso(garA),
+    data_competenza: iso(garDa),
+  }];
+
+  let da = addDays(garA, 1);
+  let idx = 2;
+  while (da < durA) {
+    let a = addMonths(da, mesiRata);
+    if (a > durA) a = durA;
+    rows.push({
+      idx: idx++,
+      garanzia_da: iso(da),
+      garanzia_a: iso(a),
+      data_competenza: iso(da),
+    });
+    if (a >= durA) break;
+    da = a;
+  }
+  return rows;
 }
 
 /**
@@ -65,6 +114,14 @@ export function computeQuietanzePlan(input: QuietanzaPlanInput): QuietanzaPlanRo
   const f = String(input.frazionamento || "").toLowerCase();
   if (!f) return [];
 
+  if (input.polizzaRateo) {
+    const durA = toDate(input.durataA);
+    if (!durA) return [];
+    const mesiRata = mesiRataFromFrazionamento(f);
+    if (mesiRata <= 0 || mesiRata > 12) return [];
+    return computeRateoPlan(garDa, garA, durA, mesiRata);
+  }
+
   const anni = Math.max(1, Number(input.anniDurata) || 1);
 
   let mesiRata: number;
@@ -73,7 +130,7 @@ export function computeQuietanzePlan(input: QuietanzaPlanInput): QuietanzaPlanRo
     mesiRata = 12;
     nTot = anni;
   } else {
-    mesiRata = frazionamentoMesi(f.charAt(0).toUpperCase() + f.slice(1), 1);
+    mesiRata = mesiRataFromFrazionamento(f);
     if (mesiRata <= 0 || mesiRata > 12) return [];
     nTot = Math.floor(12 / mesiRata) * anni;
   }

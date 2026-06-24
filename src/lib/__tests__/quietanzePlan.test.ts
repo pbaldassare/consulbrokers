@@ -88,4 +88,50 @@ describe("computeQuietanzePlan", () => {
   it("frazionamento mancante → plan vuoto", () => {
     expect(computeQuietanzePlan({ ...base, frazionamento: "", anniDurata: 1 })).toEqual([]);
   });
+
+  it("polizza rateo semestrale → primo rateo libero + slot frazionamento fino a durata_a", () => {
+    const plan = computeQuietanzePlan({
+      polizzaRateo: true,
+      frazionamento: "Semestrale",
+      anniDurata: 1,
+      garanziaDa: "2026-03-15",
+      garanziaA: "2026-04-30",
+      durataA: "2027-03-14",
+    });
+    expect(plan).toHaveLength(3);
+    expect(plan[0]).toEqual({
+      idx: 1,
+      garanzia_da: "2026-03-15",
+      garanzia_a: "2026-04-30",
+      data_competenza: "2026-03-15",
+    });
+    expect(plan[1]).toEqual({
+      idx: 2,
+      garanzia_da: "2026-05-01",
+      garanzia_a: "2026-11-01",
+      data_competenza: "2026-05-01",
+    });
+    expect(plan[2]).toEqual({
+      idx: 3,
+      garanzia_da: "2026-11-01",
+      garanzia_a: "2027-03-14",
+      data_competenza: "2026-11-01",
+    });
+    expect(computeQuietanzeOnly({
+      polizzaRateo: true,
+      frazionamento: "Semestrale",
+      garanziaDa: "2026-03-15",
+      garanziaA: "2026-04-30",
+      durataA: "2027-03-14",
+    })).toHaveLength(2);
+  });
+
+  it("polizza rateo senza durata_a → plan vuoto", () => {
+    expect(computeQuietanzePlan({
+      polizzaRateo: true,
+      frazionamento: "Semestrale",
+      garanziaDa: "2026-03-15",
+      garanziaA: "2026-04-30",
+    })).toEqual([]);
+  });
 });
