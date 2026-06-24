@@ -1032,7 +1032,7 @@ Consulbrokers S.r.l.`;
 
 function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navigate: (to: string) => void; mode?: "polizze" | "quietanze" }) {
   const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
-  const [filtroTipoState, setFiltroTipoState] = useState<"polizze" | "quietanze">("polizze");
+  const [filtroTipoState, setFiltroTipoState] = useState<"polizze" | "quietanze" | "regolazioni">("polizze");
   const filtroTipo: "polizze" | "quietanze" = mode ?? filtroTipoState;
   const [filtroNumero, setFiltroNumero] = useState("");
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string>("");
