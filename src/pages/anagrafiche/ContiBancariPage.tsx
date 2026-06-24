@@ -18,7 +18,10 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import ServerPagination from "@/components/ServerPagination";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
+import ContoSediMultiSelect from "@/components/anagrafiche/ContoSediMultiSelect";
 import { validateIban } from "@/lib/validateIban";
+import { isConsulbrokersContoTipo, validateContoBancarioSedi } from "@/lib/contiBancariSedi";
+import { saveSediContoBancario, fetchSediContoBancario } from "@/lib/contiBancariSediDb";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface ContoBancario {
@@ -34,11 +37,16 @@ interface ContoBancario {
   tipo: string;
   is_default: boolean;
   ufficio_id: string | null;
+  ufficio_ids?: string[];
   compagnia_id: string | null;
   rapporto_id: string | null;
   piano_conti_conto_id: string | null;
   attivo: boolean;
   note: string | null;
+  conti_bancari_uffici?: Array<{
+    ufficio_id: string;
+    ufficio?: { nome_ufficio: string; codice_ufficio: string } | null;
+  }>;
 }
 
 // Tipi Consul (sottocategorie) — usate solo nella tab Consulbrokers
@@ -101,6 +109,7 @@ const emptyForm: Partial<ContoBancario> = {
   tipo: "incasso_clienti",
   is_default: false,
   ufficio_id: null,
+  ufficio_ids: [],
   compagnia_id: null,
   rapporto_id: null,
   attivo: true,
@@ -161,7 +170,7 @@ export default function ContiBancariPage() {
   const { data: result, isLoading } = useQuery({
     queryKey: ["conti_bancari_admin", categoria, search, page, soloAttivi],
     queryFn: async () => {
-      let q = supabase.from("conti_bancari").select("*, compagnia:compagnie!conti_bancari_compagnia_id_fkey(id,nome,codice,tipo), rapporto:compagnia_rapporti!conti_bancari_rapporto_id_fkey(id,codice_rapporto,gruppo_compagnia:gruppi_compagnia(descrizione))", { count: "exact" });
+      let q = supabase.from("conti_bancari").select("*, compagnia:compagnie!conti_bancari_compagnia_id_fkey(id,nome,codice,tipo), rapporto:compagnia_rapporti!conti_bancari_rapporto_id_fkey(id,codice_rapporto,gruppo_compagnia:gruppi_compagnia(descrizione)), conti_bancari_uffici(ufficio_id, ufficio:uffici(nome_ufficio, codice_ufficio))", { count: "exact" });
       if (tipiCorrenti) q = q.in("tipo", tipiCorrenti);
       if (soloAttivi) q = q.eq("attivo", true);
       if (search) {
@@ -180,14 +189,6 @@ export default function ContiBancariPage() {
 
   const conti = result?.rows || [];
   const total = result?.total || 0;
-
-  const { data: uffici = [] } = useQuery({
-    queryKey: ["uffici_for_conti"],
-    queryFn: async () => {
-      const { data } = await supabase.from("uffici").select("id, nome_ufficio").eq("attivo", true).order("nome_ufficio");
-      return (data || []) as unknown as Array<{ id: string; nome_ufficio: string }>;
-    },
-  });
 
   // Compagnie filtrate per tipo selezionato nella form
   const { data: compagnieForType = [] } = useQuery({
@@ -222,6 +223,9 @@ export default function ContiBancariPage() {
   const upsert = useMutation({
     mutationFn: async (payload: Partial<ContoBancario>) => {
       const isEntity = isEntityTipo(payload.tipo);
+      const sediValidation = validateContoBancarioSedi(payload.tipo, payload.ufficio_ids || []);
+      if (!sediValidation.valid) throw new Error(sediValidation.error);
+
       const data: any = {
         etichetta: payload.etichetta?.trim(),
         iban: payload.iban?.trim(),
@@ -233,7 +237,6 @@ export default function ContiBancariPage() {
         citta_banca: payload.citta_banca?.trim() || null,
         tipo: payload.tipo,
         is_default: !!payload.is_default,
-        ufficio_id: payload.ufficio_id || null,
         compagnia_id: isEntity ? (payload.compagnia_id || null) : null,
         rapporto_id: supportsRapporto(payload.tipo) ? (payload.rapporto_id || null) : null,
         attivo: payload.attivo ?? true,
@@ -242,12 +245,19 @@ export default function ContiBancariPage() {
       if (data.is_default) {
         await supabase.from("conti_bancari").update({ is_default: false }).eq("tipo", data.tipo).eq("is_default", true);
       }
-      if (payload.id) {
-        const { error } = await supabase.from("conti_bancari").update(data).eq("id", payload.id);
+
+      let contoId = payload.id;
+      if (contoId) {
+        const { error } = await supabase.from("conti_bancari").update(data).eq("id", contoId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("conti_bancari").insert(data);
+        const { data: inserted, error } = await supabase.from("conti_bancari").insert(data).select("id").single();
         if (error) throw error;
+        contoId = inserted.id;
+      }
+
+      if (isConsulbrokersContoTipo(payload.tipo) && contoId) {
+        await saveSediContoBancario(contoId, payload.ufficio_ids || []);
       }
     },
     onSuccess: () => {
@@ -291,10 +301,15 @@ export default function ContiBancariPage() {
   });
 
   const openNew = () => {
-    setForm({ ...emptyForm, tipo: CATEGORIE[categoria].defaultTipo });
+    setForm({ ...emptyForm, tipo: CATEGORIE[categoria].defaultTipo, ufficio_ids: [] });
     setDialogOpen(true);
   };
-  const openEdit = (c: ContoBancario) => { setForm(c); setDialogOpen(true); };
+  const openEdit = async (c: ContoBancario) => {
+    const ufficioIds = c.conti_bancari_uffici?.map((r) => r.ufficio_id)
+      ?? (c.id ? await fetchSediContoBancario(c.id) : []);
+    setForm({ ...c, ufficio_ids: ufficioIds });
+    setDialogOpen(true);
+  };
 
   const ibanValidation = validateIban(form.iban || "");
 
@@ -311,10 +326,16 @@ export default function ContiBancariPage() {
       toast.error(`Per tipo "${TIPO_LABEL[form.tipo!]}" devi selezionare la compagnia intestataria`);
       return;
     }
+    const sediValidation = validateContoBancarioSedi(form.tipo, form.ufficio_ids || []);
+    if (!sediValidation.valid) {
+      toast.error(sediValidation.error || "Seleziona almeno una sede abilitata");
+      return;
+    }
     upsert.mutate({ ...form, iban: ibanValidation.normalized });
   };
 
   const mostraDefault = categoria === "consul" || categoria === "all";
+  const mostraSedi = categoria === "consul" || categoria === "all";
   const mostraCompagnia = categoria !== "consul";
   const mostraRapporto = categoria === "broker" || categoria === "plurimandatari" || categoria === "all";
 
@@ -394,6 +415,7 @@ export default function ContiBancariPage() {
                     <TableHead>Tipo</TableHead>
                     {mostraCompagnia && <TableHead>Compagnia</TableHead>}
                     {mostraRapporto && <TableHead>Rapporto</TableHead>}
+                    {mostraSedi && <TableHead>Sedi abilitate</TableHead>}
                     <TableHead>IBAN</TableHead>
                     <TableHead>Banca</TableHead>
                     <TableHead>Stato</TableHead>
@@ -435,6 +457,25 @@ export default function ContiBancariPage() {
                           {c.rapporto ? formatRapportoLabel(c.rapporto) : <span className="text-muted-foreground">— (generico)</span>}
                         </TableCell>
                       )}
+                      {mostraSedi && (
+                        <TableCell className="text-sm">
+                          {isConsulbrokersContoTipo(c.tipo) ? (
+                            <div className="flex flex-wrap gap-1 max-w-[220px]">
+                              {(c.conti_bancari_uffici || []).length > 0 ? (
+                                c.conti_bancari_uffici!.map((r: any) => (
+                                  <Badge key={r.ufficio_id} variant="outline" className="text-[10px] font-normal">
+                                    {r.ufficio?.codice_ufficio || r.ufficio?.nome_ufficio || "?"}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-destructive text-xs">Nessuna sede</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell className="font-mono text-xs">{maskIban(c.iban)}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{c.banca || "—"}</TableCell>
                       <TableCell>
@@ -448,7 +489,7 @@ export default function ContiBancariPage() {
                   ))}
                   {conti.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={3 + (mostraDefault ? 1 : 0) + (mostraCompagnia ? 1 : 0) + (mostraRapporto ? 1 : 0) + 3} className="text-center text-muted-foreground py-10">
+                      <TableCell colSpan={3 + (mostraDefault ? 1 : 0) + (mostraCompagnia ? 1 : 0) + (mostraRapporto ? 1 : 0) + (mostraSedi ? 1 : 0) + 3} className="text-center text-muted-foreground py-10">
                         {search ? (
                           <>Nessun conto trovato per "<span className="font-medium">{search}</span>"</>
                         ) : (
@@ -481,7 +522,7 @@ export default function ContiBancariPage() {
               <Label>Tipo conto *</Label>
               <Select
                 value={form.tipo}
-                onValueChange={(v) => setForm({ ...form, tipo: v, compagnia_id: null, rapporto_id: null })}
+                onValueChange={(v) => setForm({ ...form, tipo: v, compagnia_id: null, rapporto_id: null, ufficio_ids: isConsulbrokersContoTipo(v) ? (form.ufficio_ids || []) : [] })}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -599,16 +640,13 @@ export default function ContiBancariPage() {
               </div>
             </div>
 
-            <div>
-              <Label>Sede di riferimento (opzionale)</Label>
-              <Select value={form.ufficio_id || "none"} onValueChange={(v) => setForm({ ...form, ufficio_id: v === "none" ? null : v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Tutte le sedi —</SelectItem>
-                  {uffici.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            {isConsulbrokersContoTipo(form.tipo) && (
+              <ContoSediMultiSelect
+                value={form.ufficio_ids || []}
+                onChange={(ufficio_ids) => setForm({ ...form, ufficio_ids })}
+                required
+              />
+            )}
 
             <div>
               <Label>Note</Label>

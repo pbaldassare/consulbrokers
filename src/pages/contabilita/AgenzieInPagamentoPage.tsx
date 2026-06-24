@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildRimessaPdf, type RimessaPdfData } from "@/lib/rimessa-pdf";
+import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
 
 const fmt = (n: number) => Number(n || 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 const cleanIban = (s: string) => String(s || "").replace(/\s+/g, "").toUpperCase();
@@ -44,7 +45,7 @@ type LastError = {
 } | null;
 
 const AgenzieInPagamentoPage = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -67,12 +68,12 @@ const AgenzieInPagamentoPage = () => {
   const [contoFilter, setContoFilter] = useState<string>("all"); // all|<id>|none
 
   // Conti mittenti
-  const { data: contiMittente = [] } = useQuery({
+  const { data: contiMittenteRaw = [] } = useQuery({
     queryKey: ["conti-bancari-generico"],
     queryFn: async () => {
       const { data } = await supabase
         .from("conti_bancari")
-        .select("id, etichetta, iban, intestato_a, banca, bic, is_default")
+        .select("id, etichetta, iban, intestato_a, banca, bic, is_default, tipo, conti_bancari_uffici(ufficio_id)")
         .eq("tipo", "generico")
         .eq("attivo", true)
         .order("is_default", { ascending: false })
@@ -80,6 +81,14 @@ const AgenzieInPagamentoPage = () => {
       return (data || []);
     },
   });
+  const contiMittente = useMemo(
+    () =>
+      filterContiBancariPerSede(contiMittenteRaw, {
+        ruolo: profile?.ruolo,
+        ufficioId: profile?.ufficio_id,
+      }),
+    [contiMittenteRaw, profile?.ruolo, profile?.ufficio_id],
+  );
 
   // Rimesse in pagamento o pronte
   const { data: rimesse = [], isLoading } = useQuery<Rimessa[]>({

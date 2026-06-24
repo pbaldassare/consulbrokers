@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildRimessaPdf, type RimessaPdfData } from "@/lib/rimessa-pdf";
 import { validateIban } from "@/lib/validateIban";
+import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
 
 const formatIbanMask = (s: string) =>
   (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})/g, "$1 ").trim();
@@ -94,12 +95,12 @@ const ECCompagniaContabPage = () => {
   const set = (partial: Partial<Filters>) => setFilters((f) => ({ ...f, ...partial }));
 
   // Conti correnti Consulbrokers (tipo 'generico') — sorgente del bonifico verso l'agenzia
-  const { data: contiMittente = [] } = useQuery({
+  const { data: contiMittenteRaw = [] } = useQuery({
     queryKey: ["conti-bancari-generico"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("conti_bancari")
-        .select("id, etichetta, iban, intestato_a, banca, is_default")
+        .select("id, etichetta, iban, intestato_a, banca, is_default, tipo, conti_bancari_uffici(ufficio_id)")
         .eq("tipo", "generico")
         .eq("attivo", true)
         .order("is_default", { ascending: false })
@@ -108,6 +109,14 @@ const ECCompagniaContabPage = () => {
       return (data || []);
     },
   });
+  const contiMittente = useMemo(
+    () =>
+      filterContiBancariPerSede(contiMittenteRaw, {
+        ruolo: profile?.ruolo,
+        ufficioId: profile?.ufficio_id,
+      }),
+    [contiMittenteRaw, profile?.ruolo, profile?.ufficio_id],
+  );
   const contoMittenteDefault = contiMittente.find((c: any) => c.is_default) || contiMittente[0] || null;
 
   const toggleExpand = (compagniaId: string) => {

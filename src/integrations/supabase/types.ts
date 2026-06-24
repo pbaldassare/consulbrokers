@@ -2833,6 +2833,39 @@ export type Database = {
           },
         ]
       }
+      conti_bancari_uffici: {
+        Row: {
+          conto_bancario_id: string
+          created_at: string
+          ufficio_id: string
+        }
+        Insert: {
+          conto_bancario_id: string
+          created_at?: string
+          ufficio_id: string
+        }
+        Update: {
+          conto_bancario_id?: string
+          created_at?: string
+          ufficio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conti_bancari_uffici_conto_bancario_id_fkey"
+            columns: ["conto_bancario_id"]
+            isOneToOne: false
+            referencedRelation: "conti_bancari"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conti_bancari_uffici_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dettaglio_riparto: {
         Row: {
           addizionali: number | null

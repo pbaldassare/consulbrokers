@@ -1,6 +1,9 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { useAuth } from "@/contexts/AuthContext";
+import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
 
 interface Props {
   value: string | null | undefined;
@@ -40,10 +43,15 @@ export default function ContoBancarioSelect({
   showPreview = true,
   className,
 }: Props) {
-  const { data: conti = [] } = useQuery({
+  const { profile } = useAuth();
+
+  const { data: contiRaw = [] } = useQuery({
     queryKey: ["conti_bancari", tipi?.join(",") || "all"],
     queryFn: async () => {
-      let q = supabase.from("conti_bancari" as any).select("*").eq("attivo", true);
+      let q = supabase
+        .from("conti_bancari" as any)
+        .select("*, conti_bancari_uffici(ufficio_id)")
+        .eq("attivo", true);
       if (tipi && tipi.length) q = q.in("tipo", tipi);
       const { data, error } = await q.order("is_default", { ascending: false }).order("etichetta");
       if (error) throw error;
@@ -51,6 +59,15 @@ export default function ContoBancarioSelect({
     },
     staleTime: 300000 * 60 * 5,
   });
+
+  const conti = useMemo(
+    () =>
+      filterContiBancariPerSede(contiRaw, {
+        ruolo: profile?.ruolo,
+        ufficioId: profile?.ufficio_id,
+      }),
+    [contiRaw, profile?.ruolo, profile?.ufficio_id],
+  );
 
   const options = conti.map((c) => ({
     value: c.id,

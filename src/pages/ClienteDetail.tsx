@@ -1316,7 +1316,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                 >
                   <TableCell></TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
-                  <TableCell><TipoPolizzaBadge tipo="quietanza" numero={idx} totale={totale} /></TableCell>
+                  <TableCell><TipoPolizzaBadge tipo="quietanza" /></TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>

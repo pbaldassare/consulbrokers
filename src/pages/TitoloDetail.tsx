@@ -52,7 +52,7 @@ import { TitoloHeaderBar } from "@/components/titolo/sections/TitoloHeaderBar";
 import { TitoloScopeBanners } from "@/components/titolo/sections/TitoloScopeBanners";
 import { TitoloQuietanzePanel } from "@/components/titolo/sections/TitoloQuietanzePanel";
 import { TitoloDataPersistenceInfo } from "@/components/titolo/sections/TitoloDataPersistenceInfo";
-import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza } from "@/lib/quietanze";
+import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza, getTotQuietanze, getQuietanzaRataIndex } from "@/lib/quietanze";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 // Guard difensivo: garantisce che ogni mutation aggiorni SOLO il record corrente.
@@ -1466,10 +1466,8 @@ const TitoloDetail = () => {
     ? groupTitoliByPolizza(catenaTitoli)
     : [];
   const catenaCorrente = catene.find((c) => (c.all || []).some((x) => x.id === t.id));
-  const rataIndex = catenaCorrente
-    ? (catenaCorrente.all.findIndex((x) => x.id === t.id) + 1)
-    : 0;
-  const totRate = catenaCorrente ? catenaCorrente.all.length : 1;
+  const totRate = catenaCorrente ? getTotQuietanze(catenaCorrente) : 0;
+  const rataIndex = catenaCorrente ? getQuietanzaRataIndex(t, catenaCorrente) : 0;
   const madre = catenaCorrente?.madre || null;
   // Catena di id (madre per prima, poi le rate) per condividere i Documenti su tutta la polizza+quietanze.
   const chainIds: string[] = catenaCorrente
@@ -1480,11 +1478,9 @@ const TitoloDetail = () => {
     : [t.id];
 
   // "Polizza madre" con rate successive: l'incasso si fa solo sulle singole quietanze, NON qui.
-  const isMadreConRate = !!catenaCorrente && !!madre && madre.id === t.id && totRate > 1;
+  const isMadreConRate = !!catenaCorrente && !!madre && madre.id === t.id && totRate > 0;
   const primaRataDaIncassare = isMadreConRate
-    ? (catenaCorrente!.all
-        .filter((x: any) => x.id !== madre!.id)
-        .find((x: any) => x.stato === "attivo" && !x.data_messa_cassa) || null)
+    ? (catenaCorrente!.rate.find((x: any) => x.stato === "attivo" && !x.data_messa_cassa) || null)
     : null;
 
 

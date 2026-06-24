@@ -56,7 +56,7 @@ export function TitoloScopeBanners({ t, isLocked, isQuietanzaCorrente, totRate, 
           <div className="rounded-md border border-sky-300 bg-sky-50 dark:bg-sky-950/20 px-3 py-2 text-sm text-sky-900 dark:text-sky-200 flex items-start gap-2">
             <Info className="w-4 h-4 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <strong>Polizza madre</strong> — questa polizza ha {totRate - 1} {totRate - 1 === 1 ? "rata" : "rate"} successive.
+              <strong>Polizza madre</strong> — questa polizza ha {totRate} {totRate === 1 ? "quietanza" : "quietanze"}.
               Ogni quietanza ha premi e dati propri: le modifiche su questa pagina valgono solo per la madre.
             </div>
           </div>

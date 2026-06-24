@@ -9,7 +9,7 @@ import { fmtEuro } from "@/lib/formatCurrency";
 interface Props {
   t: any;
   totRate: number;
-  catena: { all: any[] } | null;
+  catena: { all: any[]; rate: any[] } | null;
   onNavigate: (id: string) => void;
 }
 
@@ -43,8 +43,9 @@ export function TitoloQuietanzePanel({ t, totRate, catena, onNavigate }: Props) 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {catena.all.map((r: any, i: number) => {
+                {catena.all.map((r: any) => {
                   const isCurrent = r.id === t.id;
+                  const rateIdx = catena.rate.findIndex((x) => x.id === r.id);
                   return (
                     <TableRow
                       key={r.id}
@@ -52,10 +53,10 @@ export function TitoloQuietanzePanel({ t, totRate, catena, onNavigate }: Props) 
                       onClick={() => !isCurrent && onNavigate(r.id)}
                     >
                       <TableCell>
-                        {i === 0 && !r.sostituisce_polizza ? (
+                        {!r.sostituisce_polizza ? (
                           <Badge variant="outline">Polizza</Badge>
                         ) : (
-                          <Badge variant="secondary">Rata {i + 1}</Badge>
+                          <Badge variant="secondary">Rata {rateIdx + 1}</Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">

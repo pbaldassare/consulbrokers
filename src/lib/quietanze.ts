@@ -51,17 +51,32 @@ export function groupTitoliByPolizza<T extends TitoloLike>(titoli: T[]): CatenaP
   return out;
 }
 
-/** Ritorna l'indice 1-based del titolo nella catena (1 = madre). 0 se non trovato. */
-export function getRataIndex<T extends TitoloLike>(titolo: T, catena: CatenaPolizza<T>): number {
-  const idx = catena.all.findIndex((x) => x.id === titolo.id);
+/** Numero di quietanze nella catena (esclusa la madre). */
+export function getTotQuietanze<T extends TitoloLike>(catena: CatenaPolizza<T>): number {
+  return catena.rate.length;
+}
+
+/**
+ * Indice 1-based della quietanza tra le rate (1..N).
+ * Ritorna 0 se il titolo è la polizza madre o non è nella catena.
+ */
+export function getQuietanzaRataIndex<T extends TitoloLike>(titolo: T, catena: CatenaPolizza<T>): number {
+  if (!isQuietanza(titolo)) return 0;
+  const idx = catena.rate.findIndex((x) => x.id === titolo.id);
   return idx < 0 ? 0 : idx + 1;
+}
+
+/** @deprecated Usare getQuietanzaRataIndex — stessa semantica (0 = madre, 1..N = quietanze). */
+export function getRataIndex<T extends TitoloLike>(titolo: T, catena: CatenaPolizza<T>): number {
+  return getQuietanzaRataIndex(titolo, catena);
 }
 
 export function tipoLabel<T extends TitoloLike>(titolo: T, catena?: CatenaPolizza<T>): string {
   if (!isQuietanza(titolo)) return "Polizza";
   if (catena) {
-    const n = getRataIndex(titolo, catena);
-    return n > 1 ? `Rata ${n}` : "Quietanza";
+    const n = getQuietanzaRataIndex(titolo, catena);
+    const tot = getTotQuietanze(catena);
+    return tot > 1 ? `Rata ${n}` : "Quietanza";
   }
   return "Quietanza";
 }

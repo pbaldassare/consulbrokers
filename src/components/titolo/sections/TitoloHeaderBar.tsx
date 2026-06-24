@@ -49,15 +49,20 @@ export function TitoloHeaderBar({
   const isRegolazione = !!t.is_regolazione;
   const isQuietanza = !!isQuietanzaCorrente && !isRegolazione;
   const fmtD = (d?: string | null) => (d ? format(new Date(d), "dd/MM/yyyy", { locale: it }) : "");
-  const rataLbl = rataIndex && totRate && totRate > 1 ? `Rata ${rataIndex}/${totRate}` : "Rata unica";
-  const rataHeader =
-    rataIndex && totRate && totRate > 1
+  const rataLbl = isQuietanza
+    ? rataIndex && totRate && totRate > 1
+      ? `Rata ${rataIndex}/${totRate}`
+      : "Rata unica"
+    : "";
+  const rataHeader = isQuietanza
+    ? rataIndex && totRate && totRate > 1
       ? `Rata ${rataIndex}/${totRate}`
       : totRate === 1
         ? "Rata unica"
         : rataIndex
           ? `Rata ${rataIndex}/${totRate ?? 1}`
-          : "";
+          : ""
+    : "";
   const periodoGaranzia = t.garanzia_da
     ? `${fmtD(t.garanzia_da)}${t.garanzia_a ? ` → ${fmtD(t.garanzia_a)}` : ""}`
     : "";
@@ -161,11 +166,13 @@ export function TitoloHeaderBar({
               </div>
             )}
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{rataLbl}</span>
+              {isQuietanza && rataLbl ? (
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{rataLbl}</span>
+              ) : null}
               <Badge
                 variant={t.stato === "incassato" ? "default" : t.stato === "stornato" ? "destructive" : "secondary"}
                 className="text-xs"
-                title="Stato della quietanza (rata)"
+                title={isQuietanza ? "Stato della quietanza (rata)" : "Stato del titolo"}
               >
                 {t.stato}
               </Badge>
