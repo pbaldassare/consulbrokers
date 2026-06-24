@@ -6,23 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, Eye, FileText, Search } from "lucide-react";
+import { Download, FileText, Search } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
-import PdfPreview from "@/components/PdfPreview";
 const ECClientiStoricoPage = () => {
   const [q, setQ] = useState("");
   const [numeroPolizza, setNumeroPolizza] = useState("");
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
-  const [previewName, setPreviewName] = useState<string>("");
-
-
 
   const { data: clientiOpts = [] } = useQuery({
     queryKey: ["ec-clienti-storico-clienti"],
@@ -121,20 +115,6 @@ const ECClientiStoricoPage = () => {
     }
   };
 
-  const handlePreview = async (row: any) => {
-    try {
-      const { data: blob, error } = await supabase.storage
-        .from(row.bucket_name || "documenti_generali")
-        .download(row.path_storage);
-      if (error) throw error;
-      const buf = await blob.arrayBuffer();
-      setPreviewBytes(new Uint8Array(buf));
-      setPreviewName(row.nome_file);
-    } catch (e: any) {
-      toast.error("Errore anteprima: " + (e?.message || e));
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -182,7 +162,7 @@ const ECClientiStoricoPage = () => {
               <TableHead>Data</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Nome File</TableHead>
-              <TableHead className="w-[220px] text-right">Azioni</TableHead>
+              <TableHead className="w-[120px] text-right">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -195,10 +175,7 @@ const ECClientiStoricoPage = () => {
                 <TableCell className="text-sm">{d.created_at ? format(new Date(d.created_at), "dd/MM/yyyy HH:mm") : "—"}</TableCell>
                 <TableCell className="font-medium">{d.cliente_nome}</TableCell>
                 <TableCell className="text-sm font-mono">{d.nome_file}</TableCell>
-                <TableCell className="text-right space-x-1">
-                  <Button size="sm" variant="outline" onClick={() => handlePreview(d)}>
-                    <Eye className="h-3.5 w-3.5 mr-1" /> Anteprima
-                  </Button>
+                <TableCell className="text-right">
                   <Button size="sm" variant="outline" onClick={() => handleDownload(d)}>
                     <Download className="h-3.5 w-3.5 mr-1" /> Scarica
                   </Button>
@@ -210,15 +187,6 @@ const ECClientiStoricoPage = () => {
       </div>
 
       <ServerPagination page={page} pageSize={pageSize} totalCount={total} onPageChange={setPage} />
-
-      <Dialog open={!!previewBytes} onOpenChange={(o) => { if (!o) setPreviewBytes(null); }}>
-        <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle className="text-base font-mono">{previewName}</DialogTitle>
-          </DialogHeader>
-          <PdfPreview data={previewBytes} />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

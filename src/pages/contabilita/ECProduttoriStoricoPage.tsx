@@ -7,13 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, Eye, FileText, Search, FilePlus2 } from "lucide-react";
+import { Download, FileText, Search, FilePlus2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
-import PdfPreview from "@/components/PdfPreview";
 const ECProduttoriStoricoPage = () => {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
@@ -21,8 +19,6 @@ const ECProduttoriStoricoPage = () => {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const { page, setPage, pageSize, range } = useServerPagination(25, [q, produttoreId, dateFrom, dateTo]);
-  const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
-  const [previewName, setPreviewName] = useState<string>("");
 
   useEffect(() => { setPage(0); }, [q, produttoreId, dateFrom, dateTo]);
 
@@ -86,15 +82,6 @@ const ECProduttoriStoricoPage = () => {
       setTimeout(() => URL.revokeObjectURL(url), 1500);
     } catch (e: any) { toast.error("Errore download: " + (e?.message || e)); }
   };
-  const handlePreview = async (row: any) => {
-    try {
-      const { data: blob, error } = await supabase.storage.from(row.bucket_name || "documenti_generali").download(row.path_storage);
-      if (error) throw error;
-      const buf = await blob.arrayBuffer();
-      setPreviewBytes(new Uint8Array(buf)); setPreviewName(row.nome_file);
-    } catch (e: any) { toast.error("Errore anteprima: " + (e?.message || e)); }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -123,7 +110,7 @@ const ECProduttoriStoricoPage = () => {
             <TableHead>Data</TableHead>
             <TableHead>Produttore</TableHead>
             <TableHead>Nome File</TableHead>
-            <TableHead className="w-[200px] text-right">Azioni</TableHead>
+            <TableHead className="w-[220px] text-right">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
@@ -136,7 +123,6 @@ const ECProduttoriStoricoPage = () => {
                 <TableCell className="font-medium">{d.produttore_nome}</TableCell>
                 <TableCell className="text-sm font-mono">{d.nome_file}</TableCell>
                 <TableCell className="text-right space-x-1">
-                  <Button size="sm" variant="outline" onClick={() => handlePreview(d)}><Eye className="h-3.5 w-3.5 mr-1" /> Anteprima</Button>
                   <Button size="sm" variant="outline" onClick={() => handleDownload(d)}><Download className="h-3.5 w-3.5 mr-1" /> Scarica</Button>
                   <Button size="sm" variant="outline" onClick={() => navigate(`/contabilita/ec-produttori`)}><FilePlus2 className="h-3.5 w-3.5 mr-1" /> Nuova E/C</Button>
                 </TableCell>
@@ -147,13 +133,6 @@ const ECProduttoriStoricoPage = () => {
       </div>
 
       <ServerPagination page={page} pageSize={pageSize} totalCount={total} onPageChange={setPage} />
-
-      <Dialog open={!!previewBytes} onOpenChange={(o) => { if (!o) setPreviewBytes(null); }}>
-        <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0">
-          <DialogHeader className="p-4 border-b"><DialogTitle className="text-base font-mono">{previewName}</DialogTitle></DialogHeader>
-          <PdfPreview data={previewBytes} />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

@@ -6,12 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, TrendingUp, Percent, Filter, FileText, Eye, Printer, Save } from "lucide-react";
+import { Download, TrendingUp, Percent, Filter, Printer, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { toast } from "sonner";
-import PdfPreview from "@/components/PdfPreview";
 import { buildECProduttorePdf, type ECProduttoreData, type ECProduttoreRow } from "@/lib/ec-produttore-pdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
@@ -32,9 +30,6 @@ const ECProduttoriContabPage = () => {
   const [mese, setMese] = useState<MeseFiltro>("corrente");
   const [produttoreId, setProduttoreId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewProdId, setPreviewProdId] = useState<string | null>(null);
 
   const range = useMemo(() => meseRange(mese), [mese]);
   const fromIso = format(range.from, "yyyy-MM-dd");
@@ -176,17 +171,6 @@ const ECProduttoriContabPage = () => {
     try { fn(url); } finally { setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, 5000); }
   };
 
-  const handleAnteprima = async (prodId: string) => {
-    try {
-      setBusy(true);
-      const { bytes } = await buildPdfFor(prodId);
-      setPreviewBytes(bytes);
-      setPreviewProdId(prodId);
-      setPreviewOpen(true);
-    } catch (e: any) { toast.error("Errore anteprima: " + (e?.message || e)); }
-    finally { setBusy(false); }
-  };
-
   const handleStampa = async (prodId: string) => {
     try {
       setBusy(true);
@@ -288,7 +272,7 @@ const ECProduttoriContabPage = () => {
           <TableHeader><TableRow>
             <TableHead>Codice</TableHead><TableHead>Produttore</TableHead><TableHead>Località</TableHead><TableHead>Email</TableHead>
             <TableHead className="text-right">Lordo</TableHead><TableHead className="text-right">Provvigioni</TableHead>
-            <TableHead className="text-right w-[280px]">Azioni</TableHead>
+            <TableHead className="text-right w-[200px]">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
@@ -305,7 +289,6 @@ const ECProduttoriContabPage = () => {
                 <TableCell className="text-right">{fmt(r.provvigioni)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="outline" disabled={busy} onClick={() => handleAnteprima(r.id)}><Eye className="h-3.5 w-3.5 mr-1" />Anteprima</Button>
                     <Button size="sm" variant="outline" disabled={busy} onClick={() => handleStampa(r.id)}><Printer className="h-3.5 w-3.5 mr-1" />Stampa</Button>
                     <Button size="sm" disabled={busy} onClick={() => handleSalva(r.id)}><Save className="h-3.5 w-3.5 mr-1" />Salva</Button>
                   </div>
@@ -321,19 +304,6 @@ const ECProduttoriContabPage = () => {
           </TableRow></TableFooter>}
         </Table>
       </div>
-
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Anteprima E/C Produttore — {range.label}</DialogTitle>
-          </DialogHeader>
-          <PdfPreview data={previewBytes} />
-          <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={() => previewProdId && handleStampa(previewProdId)} disabled={busy}><Printer className="h-4 w-4 mr-1" />Stampa</Button>
-            <Button onClick={() => previewProdId && handleSalva(previewProdId)} disabled={busy}><Save className="h-4 w-4 mr-1" />Salva in archivio</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

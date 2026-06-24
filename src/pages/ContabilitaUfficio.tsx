@@ -6,8 +6,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Package, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ExternalLink, FileText, Coins, Receipt, Hash, Search, Eye, Printer, Save } from "lucide-react";
+import { Package, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ExternalLink, FileText, Coins, Receipt, Hash, Search, Printer, Save } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
@@ -16,7 +15,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { buildIncassiCoperturePdf, type IncassiCoperturaGruppo } from "@/lib/incassi-coperture-pdf";
 import { fmtEuro } from "@/lib/formatCurrency";
-import PdfPreview from "@/components/PdfPreview";
 
 type TitoloCassa = {
   id: string;
@@ -105,10 +103,9 @@ const ContabilitaUfficio = () => {
     return c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim() || "—";
   };
 
-  // ===== PDF: Anteprima / Stampa / Salva =====
+  // ===== PDF: Stampa / Salva =====
   const { profile } = useAuth() as any;
   const [busy, setBusy] = useState(false);
-  const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
 
   type Scope = { type: "globale" } | { type: "agenzia"; gruppo: GruppoCompagnia };
 
@@ -164,12 +161,6 @@ const ContabilitaUfficio = () => {
       return `Incassi_Coperture_${slug}_${ym}.pdf`;
     }
     return `Incassi_Coperture_${ym}.pdf`;
-  };
-
-  const handleAnteprima = async (scope: Scope = { type: "globale" }) => {
-    try { setBusy(true); setPreviewBytes(await buildIncassiCoperturePdf(buildPdfData(scope))); }
-    catch (e: any) { toast.error("Errore anteprima: " + (e?.message || e)); }
-    finally { setBusy(false); }
   };
 
   const handleStampa = async (scope: Scope = { type: "globale" }) => {
@@ -239,7 +230,6 @@ const ContabilitaUfficio = () => {
           <p className="text-muted-foreground">Riepilogo consultivo delle polizze messe a cassa</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleAnteprima()} disabled={busy}><Eye className="w-4 h-4 mr-1" />Anteprima</Button>
           <Button variant="outline" size="sm" onClick={() => handleStampa()} disabled={busy}><Printer className="w-4 h-4 mr-1" />Stampa</Button>
           <Button size="sm" onClick={() => handleSalva()} disabled={busy}><Save className="w-4 h-4 mr-1" />Salva PDF</Button>
         </div>
@@ -336,7 +326,6 @@ const ContabilitaUfficio = () => {
                         <TableCell className="text-right font-mono font-semibold">€ {g.da_rimettere.toFixed(2)}</TableCell>
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7" title="Anteprima PDF agenzia" disabled={busy} onClick={() => handleAnteprima({ type: "agenzia", gruppo: g })}><Eye className="w-3.5 h-3.5" /></Button>
                             <Button size="icon" variant="ghost" className="h-7 w-7" title="Stampa PDF agenzia" disabled={busy} onClick={() => handleStampa({ type: "agenzia", gruppo: g })}><Printer className="w-3.5 h-3.5" /></Button>
                             <Button size="icon" variant="ghost" className="h-7 w-7" title="Salva PDF agenzia" disabled={busy} onClick={() => handleSalva({ type: "agenzia", gruppo: g })}><Save className="w-3.5 h-3.5" /></Button>
                           </div>
@@ -416,15 +405,6 @@ const ContabilitaUfficio = () => {
           </CardContent>
         </Card>
       </div>
-
-      <Dialog open={!!previewBytes} onOpenChange={(o) => { if (!o) setPreviewBytes(null); }}>
-        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-4 pt-3">
-            <DialogTitle>Anteprima Incassi e Coperture — {meseLabel}</DialogTitle>
-          </DialogHeader>
-          <PdfPreview data={previewBytes} />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

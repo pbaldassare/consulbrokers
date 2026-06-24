@@ -6,10 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import PdfPreview from "@/components/PdfPreview";
 import { buildECClientePdf, type ECClienteData, type ECClienteRow } from "@/lib/ec-cliente-pdf";
 import { exportECClienteXlsx } from "@/lib/ec-cliente-xlsx";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,7 +45,6 @@ const ECClientePdfPage = () => {
   const [iban, setIban] = useState("");
   const [ragioneSocialeFooter, setRagioneSocialeFooter] = useState("Consulbrokers Digital s.r.l.");
   const [noteFinali, setNoteFinali] = useState("");
-  const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [busy, setBusy] = useState(false);
 
   // Cliente
@@ -219,12 +216,6 @@ const ECClientePdfPage = () => {
     return `EC_${cli}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
   };
 
-  const handleAnteprima = async () => {
-    try { setBusy(true); setPreviewBytes(await buildECClientePdf(buildData())); }
-    catch (e: any) { toast.error("Errore anteprima: " + (e?.message || e)); }
-    finally { setBusy(false); }
-  };
-
   const handleStampa = async () => {
     try {
       setBusy(true);
@@ -338,7 +329,7 @@ const ECClientePdfPage = () => {
     <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold">Estratto Conto Cliente</h1>
-        <p className="text-sm text-muted-foreground mt-1">Genera anteprima, stampa e salva l'E/C verso il cliente</p>
+        <p className="text-sm text-muted-foreground mt-1">Stampa e salva l'E/C verso il cliente</p>
       </div>
 
       <fieldset className="border border-border rounded-lg p-5 space-y-4">
@@ -452,22 +443,12 @@ const ECClientePdfPage = () => {
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => navigate(-1)}>Chiudi</Button>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleAnteprima} disabled={busy}>Anteprima</Button>
           <Button variant="outline" onClick={handleStampa} disabled={busy}>Stampa</Button>
           <Button variant="outline" onClick={handleScarica} disabled={busy}>Scarica PDF</Button>
           <Button variant="outline" onClick={handleEsportaExcel} disabled={busy}>Esporta Excel</Button>
           <Button onClick={handleSalva} disabled={busy}>Salva PDF</Button>
         </div>
       </div>
-
-      <Dialog open={!!previewBytes} onOpenChange={(o) => { if (!o) setPreviewBytes(null); }}>
-        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-4 pt-3">
-            <DialogTitle>Anteprima E/C Cliente</DialogTitle>
-          </DialogHeader>
-          <PdfPreview data={previewBytes} />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
