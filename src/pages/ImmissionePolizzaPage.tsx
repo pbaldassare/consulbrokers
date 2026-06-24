@@ -2710,11 +2710,7 @@ const ImmissionePolizzaPage = () => {
         <div className="flex flex-wrap gap-x-5 gap-y-2 pt-2">
           {[
             { id: "rimborso", label: "Rimborso", checked: rimborso, onChange: setRimborso },
-            { id: "indicizzata", label: "Indicizzata", checked: indicizzata, onChange: setIndicizzata },
             { id: "noCalcoloTasse", label: "No Calcolo Tasse", checked: noCalcoloTasse, onChange: setNoCalcoloTasse },
-            { id: "pagDiretto", label: "Pag. Diretto Agenzia", checked: pagDirettoCompagnia, onChange: setPagDirettoCompagnia },
-            { id: "emissioneFee", label: "Emissione Fee", checked: emissioneFee, onChange: setEmissioneFee },
-            { id: "formatoElett", label: "Formato Elettronico", checked: formatoElettronico, onChange: setFormatoElettronico },
           ].map((flag) => (
             <div key={flag.id} className="flex items-center gap-1.5">
               <Checkbox id={flag.id} checked={flag.checked} onCheckedChange={(v) => flag.onChange(v === true)} />
@@ -2722,19 +2718,6 @@ const ImmissionePolizzaPage = () => {
             </div>
           ))}
         </div>
-
-        {/* Solo valuta — i dati di incasso/copertura vengono valorizzati nel flusso "Messa a Cassa" su TitoloDetail */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Valuta</Label>
-            <SearchableSelect className="h-8 text-xs" value={valuta} onValueChange={setValuta} placeholder="—"
-              options={[{ value: "EUR", label: "EUR" }, { value: "USD", label: "USD" }, { value: "GBP", label: "GBP" }]}
-            />
-          </div>
-        </div>
-        <p className="text-[11px] text-muted-foreground italic pt-1">
-          ℹ️ Fax/Copertura/Data Incasso vengono compilati nella <b>Messa a Cassa</b> dopo la creazione del titolo.
-        </p>
       </PolizzaSection>
 
       {/* PROVVIGIONI — solo selezione Commerciale (% Agenzia, totale e ripartizione sono nelle card Firma/Quietanza) */}
