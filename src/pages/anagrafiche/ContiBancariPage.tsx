@@ -21,7 +21,11 @@ import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import ContoSediMultiSelect from "@/components/anagrafiche/ContoSediMultiSelect";
 import { validateIban } from "@/lib/validateIban";
 import { isConsulbrokersContoTipo, validateContoBancarioSedi } from "@/lib/contiBancariSedi";
-import { saveSediContoBancario, fetchSediContoBancario } from "@/lib/contiBancariSediDb";
+import {
+  saveSediContoBancario,
+  fetchSediContoBancario,
+  formatContoBancarioSaveError,
+} from "@/lib/contiBancariSediDb";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface ContoBancario {
@@ -268,7 +272,7 @@ export default function ContiBancariPage() {
       setDialogOpen(false);
       setForm(emptyForm);
     },
-    onError: (e: any) => toast.error(e.message || "Errore"),
+    onError: (e: unknown) => toast.error(formatContoBancarioSaveError(e)),
   });
 
   const del = useMutation({
