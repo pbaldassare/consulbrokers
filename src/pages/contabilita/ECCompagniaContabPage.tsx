@@ -666,6 +666,23 @@ Consulbrokers`;
                         >
                           <FileText className="h-3 w-3" /> Stampa E/C
                         </Button>
+                        {isAgenzia && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1"
+                            title="Invia Estratto Conto via email all'agenzia"
+                            disabled={sendingEmailId === r.compagnia_id}
+                            onClick={() => handleInviaEmail(r, daRimettere)}
+                          >
+                            {sendingEmailId === r.compagnia_id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Mail className="h-3 w-3" />
+                            )}
+                            Invia Mail
+                          </Button>
+                        )}
                         {daRimettere > 0 && (
                           <Button
                             size="sm"
