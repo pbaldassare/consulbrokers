@@ -106,7 +106,7 @@ export function RamoSottoramoSelect({
             options={sottorami}
             value={ramoId || ""}
             onValueChange={handleRamoChange}
-            placeholder={effectiveGruppo ? "— Seleziona sottoramo —" : "Tutti i sottorami"}
+            placeholder={effectiveGruppo ? "— Seleziona garanzia —" : "— Seleziona ramo prima —"}
             disabled={disabled}
           />
         </div>

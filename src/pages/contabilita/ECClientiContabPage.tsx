@@ -76,6 +76,8 @@ const ECClientiContabPage = () => {
         .from("titoli")
         .select("id, premio_lordo, importo_incassato, stato, data_incasso, data_messa_cassa, garanzia_da, ufficio_id, produttore_id, cliente_anagrafica_id, clienti!titoli_cliente_anagrafica_id_fkey(id, cognome, nome, ragione_sociale)")
         .not("cliente_anagrafica_id", "is", null)
+        // Dare E/C: solo quietanze (rate), non la polizza madre (evita doppio conteggio)
+        .not("sostituisce_polizza", "is", null)
         // E/C Cliente "vivo": titoli generati alla creazione polizza, non ancora messi a cassa
         .is("data_messa_cassa", null)
         // Solo premio in corso: la rata deve essere già decorsa (esclude quietanze future)

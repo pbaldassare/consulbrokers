@@ -28,7 +28,9 @@ const ECClientiPage = () => {
       let query = supabase
         .from("titoli")
         .select("premio_lordo, importo_incassato, ufficio_id, data_incasso, cliente_anagrafica_id, clienti!titoli_cliente_anagrafica_id_fkey(id, cognome, nome, ragione_sociale)")
-        .not("cliente_anagrafica_id", "is", null);
+        .not("cliente_anagrafica_id", "is", null)
+        // Dare E/C: solo quietanze (rate), non la polizza madre (evita doppio conteggio)
+        .not("sostituisce_polizza", "is", null);
 
       if (filters.dateFrom) query = query.gte("data_incasso", format(filters.dateFrom, "yyyy-MM-dd"));
       if (filters.dateTo) query = query.lte("data_incasso", format(filters.dateTo, "yyyy-MM-dd"));

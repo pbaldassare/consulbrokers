@@ -13,6 +13,7 @@ import PdfPreview from "@/components/PdfPreview";
 import { buildECAgenziaPdf, type ECAgenziaData, type ECAgenziaTitolo } from "@/lib/ec-agenzia-pdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
+import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 
 const mapTipoToMI = (tp?: string | null): string => {
   if (!tp) return "B";
@@ -110,7 +111,7 @@ const ECAgenziaPdfPage = () => {
     queryFn: async () => {
       let q = supabase
         .from("titoli")
-        .select("id, numero_titolo, riga, premio_lordo, provvigioni_firma, provvigioni_quietanza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, ufficio_id, rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
+        .select("id, numero_titolo, riga, premio_lordo, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, ufficio_id, rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
         .eq("compagnia_id", compagniaId)
         .eq("stato", "incassato");
       if (titoliIds.length > 0) {
@@ -193,7 +194,7 @@ const ECAgenziaPdfPage = () => {
         ? `${dFrom ? format(new Date(dFrom), "dd/MM/yyyy") : "—"} ${dTo ? format(new Date(dTo), "dd/MM/yyyy") : ""}`.trim()
         : "";
       const polizzaRiga = `${t.numero_titolo || ""}${t.riga ? " - " + t.riga : ""}`.trim();
-      const provv = (Number(t.provvigioni_firma) || 0) + (Number(t.provvigioni_quietanza) || 0);
+      const provv = getProvvigioneEC(t);
       return {
         polizza: polizzaRiga,
         cliente,

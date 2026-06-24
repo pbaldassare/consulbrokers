@@ -4,6 +4,7 @@ import {
   getTotQuietanze,
   getQuietanzaRataIndex,
   tipoLabel,
+  isQuietanza,
 } from "../quietanze";
 
 const titoli = [
@@ -43,5 +44,19 @@ describe("getTotQuietanze / getQuietanzaRataIndex", () => {
   it("tipoLabel: più quietanze → Rata N", () => {
     expect(tipoLabel(catenaA.rate[0], catenaA)).toBe("Rata 1");
     expect(tipoLabel(catenaA.rate[1], catenaA)).toBe("Rata 2");
+  });
+});
+
+describe("isQuietanza — E/C Cliente Dare", () => {
+  it("somma solo quietanze, escludendo la polizza madre (no doppio conteggio)", () => {
+    const titoli = [
+      { id: "m", sostituisce_polizza: null as string | null, premio_lordo: 1222.5, importo_incassato: 0 },
+      { id: "q", sostituisce_polizza: "m", premio_lordo: 1222.5, importo_incassato: 0 },
+    ];
+    const dare = titoli.filter(isQuietanza).reduce((s, t) => s + (Number(t.premio_lordo) || 0), 0);
+    const avere = titoli.filter(isQuietanza).reduce((s, t) => s + (Number(t.importo_incassato) || 0), 0);
+    expect(dare).toBe(1222.5);
+    expect(avere).toBe(0);
+    expect(dare - avere).toBe(1222.5);
   });
 });

@@ -109,6 +109,7 @@ interface CompensazioneRow {
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TOLLERANZA_QUADRATURA = 0.01;
+const isBonificoTipo = (tipo: string) => tipo === "bonifico";
 
 interface MovimentoPreview {
   tipo: "entrata" | "uscita";
@@ -124,7 +125,6 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
   const [form, setForm] = useState({
     dataMessaCassa: todayISO(),
     dataPagamento: todayISO(),
-    dataDecorrenza: todayISO(),
     tipoPagamento: "contanti",
     banca: "",
     cashImporto: 0,
@@ -172,13 +172,20 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     },
   });
 
+  const handleTipoPagamentoChange = (tipo: string) => {
+    setForm((f) => ({
+      ...f,
+      tipoPagamento: tipo,
+      banca: "",
+    }));
+  };
+
   useEffect(() => {
     if (open) {
       const t = todayISO();
       setForm({
         dataMessaCassa: t,
         dataPagamento: t,
-        dataDecorrenza: t,
         tipoPagamento: "contanti",
         banca: "",
         cashImporto: round2(totaleLordo),
@@ -323,7 +330,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       toast.error(`Non quadra: delta ${fmtEuro(delta)}`);
       return;
     }
-    if (cashEffettivo > 0 && form.tipoPagamento === "bonifico" && !form.banca) {
+    if (cashEffettivo > 0 && isBonificoTipo(form.tipoPagamento) && !form.banca) {
       toast.error("Seleziona la banca per il bonifico");
       return;
     }
@@ -365,7 +372,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           : form.tipoPagamento;
 
       let bancaLabel: string | null = null;
-      if (residuoCash > 0 && form.tipoPagamento === "bonifico" && form.banca) {
+      if (residuoCash > 0 && isBonificoTipo(form.tipoPagamento) && form.banca) {
         const { data: conto } = await (supabase.from("conti_bancari") as any)
           .select("etichetta, banca, iban").eq("id", form.banca).maybeSingle();
         bancaLabel = conto?.etichetta || conto?.banca || form.banca;
@@ -375,7 +382,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         stato: "incassato",
         data_messa_cassa: form.dataMessaCassa,
         data_pagamento: form.dataPagamento,
-        data_decorrenza_rinnovo: form.dataDecorrenza,
+        data_decorrenza_rinnovo: form.dataMessaCassa,
         data_incasso: form.dataMessaCassa,
         tipo_pagamento: tipoPag,
         importo_incassato: residuoCash,
@@ -570,7 +577,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Data Messa a Cassa</Label>
               <Input type="date" value={form.dataMessaCassa} onChange={(e) => setForm(f => ({ ...f, dataMessaCassa: e.target.value }))} className="mt-1" />
@@ -578,10 +585,6 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
             <div>
               <Label className="text-xs">Data Pagamento</Label>
               <Input type="date" value={form.dataPagamento} onChange={(e) => setForm(f => ({ ...f, dataPagamento: e.target.value }))} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Data Decorrenza Rinnovo</Label>
-              <Input type="date" value={form.dataDecorrenza} onChange={(e) => setForm(f => ({ ...f, dataDecorrenza: e.target.value }))} className="mt-1" />
             </div>
           </div>
 
@@ -613,50 +616,6 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
             </div>
           )}
 
-          {/* Compensazioni — single titolo: pannello singolo */}
-          {!isMulti && titoli[0] && (
-            <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
-              {renderCompensazioniPanel(titoli[0].id)}
-            </div>
-          )}
-
-          {/* Compensazioni — bulk: accordion per titolo */}
-          {isMulti && (
-            <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
-              <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2 mb-2">
-                <Calculator className="w-4 h-4" /> Compensazioni per polizza
-                {allCompensazioni.length > 0 && (
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {allCompensazioni.length} righe su {Object.keys(compensazioniByTitolo).filter(k => (compensazioniByTitolo[k] || []).length > 0).length} polizze
-                  </span>
-                )}
-              </div>
-              <Accordion type="multiple" className="w-full">
-                {titoli.map((t) => {
-                  const n = getComp(t.id).length;
-                  return (
-                    <AccordionItem key={t.id} value={t.id} className="border-b last:border-0">
-                      <AccordionTrigger className="text-xs py-2 hover:no-underline">
-                        <div className="flex items-center gap-2 flex-1">
-                          <span className="font-mono">{t.numero_titolo || t.id.slice(0, 8)}</span>
-                          <span className="text-muted-foreground">— {fmtEuro(Number(t.premio_lordo) || 0)}</span>
-                          {n > 0 && (
-                            <span className="ml-auto mr-2 px-1.5 py-0.5 rounded text-[10px] bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100">
-                              {n} comp.
-                            </span>
-                          )}
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-2 pb-3">
-                        {renderCompensazioniPanel(t.id)}
-                      </AccordionContent>
-                    </AccordionItem>
-                  );
-                })}
-              </Accordion>
-            </div>
-          )}
-
           {/* Cash + tipo pagamento (single titolo) */}
           {!isMulti && cashEffettivo >= 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -675,7 +634,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
               </div>
               <div>
                 <Label className="text-xs">Tipo Pagamento</Label>
-                <Select value={form.tipoPagamento} onValueChange={(v) => setForm(f => ({ ...f, tipoPagamento: v, banca: "" }))}>
+                <Select value={form.tipoPagamento} onValueChange={handleTipoPagamentoChange}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="contanti">Contanti</SelectItem>
@@ -692,7 +651,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           {isMulti && cashEffettivo > 0 && (
             <div>
               <Label className="text-xs">Tipo Pagamento {totaleAnticipiUsati > 0 && <span className="text-muted-foreground">(parte residua)</span>}</Label>
-              <Select value={form.tipoPagamento} onValueChange={(v) => setForm(f => ({ ...f, tipoPagamento: v, banca: "" }))}>
+              <Select value={form.tipoPagamento} onValueChange={handleTipoPagamentoChange}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="contanti">Contanti</SelectItem>
@@ -704,7 +663,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
             </div>
           )}
 
-          {cashEffettivo > 0 && form.tipoPagamento === "bonifico" && (
+          {cashEffettivo > 0 && isBonificoTipo(form.tipoPagamento) && (
             <div>
               <Label className="text-xs">Conto Consulbrokers</Label>
               <ContoBancarioSelect
@@ -713,6 +672,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
                 onChange={(id) => setForm(f => ({ ...f, banca: id || "" }))}
                 placeholder="Cerca conto..."
                 showPreview
+                autoSelectDefault
                 className="mt-1"
               />
             </div>
@@ -762,6 +722,50 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
             </div>
           )}
 
+          {/* Compensazioni — single titolo: pannello singolo */}
+          {!isMulti && titoli[0] && (
+            <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
+              {renderCompensazioniPanel(titoli[0].id)}
+            </div>
+          )}
+
+          {/* Compensazioni — bulk: accordion per titolo */}
+          {isMulti && (
+            <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
+              <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2 mb-2">
+                <Calculator className="w-4 h-4" /> Compensazioni per polizza
+                {allCompensazioni.length > 0 && (
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {allCompensazioni.length} righe su {Object.keys(compensazioniByTitolo).filter(k => (compensazioniByTitolo[k] || []).length > 0).length} polizze
+                  </span>
+                )}
+              </div>
+              <Accordion type="multiple" className="w-full">
+                {titoli.map((t) => {
+                  const n = getComp(t.id).length;
+                  return (
+                    <AccordionItem key={t.id} value={t.id} className="border-b last:border-0">
+                      <AccordionTrigger className="text-xs py-2 hover:no-underline">
+                        <div className="flex items-center gap-2 flex-1">
+                          <span className="font-mono">{t.numero_titolo || t.id.slice(0, 8)}</span>
+                          <span className="text-muted-foreground">— {fmtEuro(Number(t.premio_lordo) || 0)}</span>
+                          {n > 0 && (
+                            <span className="ml-auto mr-2 px-1.5 py-0.5 rounded text-[10px] bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100">
+                              {n} comp.
+                            </span>
+                          )}
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2 pb-3">
+                        {renderCompensazioniPanel(t.id)}
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+            </div>
+          )}
+
           <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
             <p className="text-sm font-medium text-destructive">
               ⚠️ Operazione irreversibile senza privilegi admin. Tolleranza quadratura: {fmtEuro(TOLLERANZA_QUADRATURA)}.
@@ -777,7 +781,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Annulla</Button>
           <Button
             className="bg-green-600 hover:bg-green-700 text-white"
-            disabled={loading || !quadrato || (cashEffettivo > 0 && form.tipoPagamento === "bonifico" && !form.banca)}
+            disabled={loading || !quadrato || (cashEffettivo > 0 && isBonificoTipo(form.tipoPagamento) && !form.banca)}
             onClick={handleConferma}
           >
             <CheckSquare className="w-4 h-4 mr-1" />

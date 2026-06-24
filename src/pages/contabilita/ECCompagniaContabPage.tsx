@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { buildRimessaPdf, type RimessaPdfData } from "@/lib/rimessa-pdf";
 import { validateIban } from "@/lib/validateIban";
 import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
+import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 
 const formatIbanMask = (s: string) =>
   (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})/g, "$1 ").trim();
@@ -181,7 +182,7 @@ const ECCompagniaContabPage = () => {
 
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, compagnie(nome, codice, mail)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, compagnie(nome, codice, mail)")
         .not("compagnia_id", "is", null)
         .eq("stato", "incassato");
 
@@ -221,7 +222,7 @@ const ECCompagniaContabPage = () => {
           };
         }
         grouped[cId].lordo += Number(t.premio_lordo) || 0;
-        grouped[cId].provvigioni += (Number(t.provvigioni_firma) || 0) + (Number(t.provvigioni_quietanza) || 0);
+        grouped[cId].provvigioni += getProvvigioneEC(t);
         grouped[cId].titoli.push({
           id: t.id,
           numero_titolo: t.numero_titolo,

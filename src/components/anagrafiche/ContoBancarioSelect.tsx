@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -14,6 +14,8 @@ interface Props {
   disabled?: boolean;
   /** Mostra anteprima testuale del conto selezionato */
   showPreview?: boolean;
+  /** Se true e value è vuoto, seleziona il conto default (o il primo disponibile). */
+  autoSelectDefault?: boolean;
   className?: string;
 }
 
@@ -41,12 +43,13 @@ export default function ContoBancarioSelect({
   placeholder = "Seleziona conto bancario…",
   disabled,
   showPreview = true,
+  autoSelectDefault = false,
   className,
 }: Props) {
   const { profile } = useAuth();
 
   const { data: contiRaw = [] } = useQuery({
-    queryKey: ["conti_bancari", tipi?.join(",") || "all"],
+    queryKey: ["conti_bancari", "select", tipi?.join(",") || "all"],
     queryFn: async () => {
       let q = supabase
         .from("conti_bancari" as any)
@@ -69,9 +72,19 @@ export default function ContoBancarioSelect({
     [contiRaw, profile?.ruolo, profile?.ufficio_id],
   );
 
+  const defaultContoId = useMemo(() => {
+    const def = conti.find((c) => c.is_default) || conti[0];
+    return def?.id ?? null;
+  }, [conti]);
+
+  useEffect(() => {
+    if (!autoSelectDefault || value || !defaultContoId) return;
+    onChange(defaultContoId);
+  }, [autoSelectDefault, value, defaultContoId, onChange]);
+
   const options = conti.map((c) => ({
     value: c.id,
-    label: c.etichetta + (c.is_default ? " ⭐" : ""),
+    label: (c.etichetta || c.banca || "Conto") + (c.is_default ? " ⭐" : ""),
     description: `${maskIban(c.iban)} — ${c.intestato_a}`,
     searchText: `${c.iban} ${c.intestato_a} ${c.banca || ""}`,
   }));
