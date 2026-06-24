@@ -90,6 +90,7 @@ const ECCompagniaContabPage = () => {
   const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedTitoli, setSelectedTitoli] = useState<Record<string, Set<string>>>({});
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
   const [pagaDialog, setPagaDialog] = useState<PagaRimessaState>({
     open: false, compagniaId: "", compagniaNome: "", iban: "", contoMittenteId: null, ibanMittente: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0, titoli: [],
   });
