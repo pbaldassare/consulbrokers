@@ -620,6 +620,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                         <TableHead>Inizio</TableHead>
                         <TableHead>Fine</TableHead>
                         <TableHead className="text-right">% Provv.</TableHead>
+                        <TableHead className="text-right">% RA</TableHead>
                         <TableHead>Stato</TableHead>
                         <TableHead className="text-right">Azioni</TableHead>
                       </TableRow>
@@ -668,6 +669,9 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                           <TableCell className="text-sm">{r.data_fine || "—"}</TableCell>
                           <TableCell className="text-right text-sm">
                             {r.percentuale_provvigione != null ? `${r.percentuale_provvigione}%` : "—"}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {r.percentuale_ra != null ? `${r.percentuale_ra}%` : "4.60%"}
                           </TableCell>
                           <TableCell>
                             {r.attivo ? (
@@ -925,6 +929,29 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               )}
             </div>
 
+            <div className="grid grid-cols-2 gap-3 border-t pt-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">% Provvigione</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="es. 15.00"
+                  value={form.percentuale_provvigione}
+                  onChange={(e) => setForm((p) => ({ ...p, percentuale_provvigione: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">% Ritenuta d'acconto</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="4.60"
+                  value={form.percentuale_ra}
+                  onChange={(e) => setForm((p) => ({ ...p, percentuale_ra: e.target.value }))}
+                />
+              </div>
+            </div>
+
             <div className="border-t pt-3 space-y-2">
               <Label className="text-sm font-medium">Conto bancario del rapporto *</Label>
               <div className="space-y-1">
@@ -990,7 +1017,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   </div>
                 </div>
 
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Data Inizio</Label>
                     <Input
@@ -1005,25 +1032,6 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                       type="date"
                       value={form.data_fine}
                       onChange={(e) => setForm((p) => ({ ...p, data_fine: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">% Provvigione</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={form.percentuale_provvigione}
-                      onChange={(e) => setForm((p) => ({ ...p, percentuale_provvigione: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">% Ritenuta d'acconto</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="4.60"
-                      value={form.percentuale_ra}
-                      onChange={(e) => setForm((p) => ({ ...p, percentuale_ra: e.target.value }))}
                     />
                   </div>
                 </div>

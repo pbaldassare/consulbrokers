@@ -14,6 +14,7 @@ import { buildECAgenziaPdf, type ECAgenziaData, type ECAgenziaTitolo } from "@/l
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
+import { calcolaRitenutaAcconto, resolvePercentualeRA } from "@/lib/resolvePercentualeRA";
 
 const mapTipoToMI = (tp?: string | null): string => {
   if (!tp) return "B";
@@ -111,7 +112,7 @@ const ECAgenziaPdfPage = () => {
     queryFn: async () => {
       let q = supabase
         .from("titoli")
-        .select("id, numero_titolo, riga, premio_lordo, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, ufficio_id, rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
+        .select("id, numero_titolo, riga, premio_lordo, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, ufficio_id, compagnia_rapporto_id, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra), rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
         .eq("compagnia_id", compagniaId)
         .eq("stato", "incassato");
       if (titoliIds.length > 0) {
@@ -209,7 +210,15 @@ const ECAgenziaPdfPage = () => {
     });
     const totalePremio = rows.reduce((s, r) => s + r.premio, 0);
     const totaleProvvigioni = rows.reduce((s, r) => s + r.provvigioni, 0);
-    const ra = (Number(compagnia?.percentuale_ra) || 0) * totaleProvvigioni / 100;
+    const compagniaRA = Number(compagnia?.percentuale_ra) || null;
+    const ritenutaAcconto = (titoli || []).reduce((sum: number, t: any) => {
+      const provv = getProvvigioneEC(t);
+      const raEffettiva = resolvePercentualeRA({
+        rapporto_percentuale_ra: t.compagnia_rapporti?.percentuale_ra,
+        compagnia_percentuale_ra: compagniaRA,
+      });
+      return sum + calcolaRitenutaAcconto(provv, raEffettiva);
+    }, 0);
 
     return {
       sedeNome,
@@ -235,7 +244,7 @@ const ECAgenziaPdfPage = () => {
       titoli: rows,
       totalePremio,
       totaleProvvigioni,
-      ritenutaAcconto: ra,
+      ritenutaAcconto,
       noteFinali,
     };
   };
