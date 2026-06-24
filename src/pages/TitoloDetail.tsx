@@ -7,6 +7,7 @@ import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { annullaPolizza } from "@/lib/annullaPolizza";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
+import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { Button } from "@/components/ui/button";
@@ -791,6 +792,24 @@ const TitoloDetail = () => {
     polizza_temporanea: false as boolean,
     disdetta_mesi: "" as string,
   });
+
+  useEffect(() => {
+    if (!editingPeriodo || !periodoForm.polizza_temporanea) return;
+    const synced = syncPeriodoTemporanea({
+      durataDa: periodoForm.durata_da,
+      durataA: periodoForm.durata_a,
+    });
+    setPeriodoForm((p) => {
+      if (
+        p.garanzia_da === synced.garanzia_da &&
+        p.garanzia_a === synced.garanzia_a &&
+        p.data_competenza === synced.data_competenza
+      ) {
+        return p;
+      }
+      return { ...p, ...synced };
+    });
+  }, [editingPeriodo, periodoForm.polizza_temporanea, periodoForm.durata_da, periodoForm.durata_a]);
 
   const startEditPeriodo = () => {
     if (titolo) {

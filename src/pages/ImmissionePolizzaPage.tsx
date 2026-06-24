@@ -54,6 +54,7 @@ import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
 import { FieldHint } from "@/components/ui/field-hint";
 import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPersistence";
 import { computeQuietanzePlan } from "@/lib/quietanzePlan";
+import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 
 
 const ImmissionePolizzaPage = () => {
@@ -1417,7 +1418,19 @@ const ImmissionePolizzaPage = () => {
     return dt.toISOString().slice(0, 10);
   };
   useEffect(() => {
-    if (polizzaTemporanea) return;
+    if (polizzaTemporanea) {
+      const synced = syncPeriodoTemporanea({ durataDa, durataA });
+      setGaranziaDa(synced.garanzia_da);
+      setGaranziaA(synced.garanzia_a);
+      setDataCompetenza(synced.data_competenza);
+      if (!limiteMoraTouched && synced.data_competenza) {
+        const gg = parseInt(moraGiorni || "0") || 0;
+        const d = new Date(synced.data_competenza);
+        d.setDate(d.getDate() + gg);
+        setLimiteMora(d.toISOString().slice(0, 10));
+      }
+      return;
+    }
     if (!durataDa) return;
     const anni = Math.max(1, parseInt(anniDurata) || 1);
     const mesiGar = frazionamentoMesi(frazionamento, anni);
@@ -1434,7 +1447,7 @@ const ImmissionePolizzaPage = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [durataDa, anniDurata, frazionamento, polizzaTemporanea]);
+  }, [durataDa, durataA, anniDurata, frazionamento, polizzaTemporanea]);
 
   // --- Handlers ---
 
@@ -2428,12 +2441,7 @@ const ImmissionePolizzaPage = () => {
                 checked={polizzaTemporanea}
                 onCheckedChange={(v) => {
                   setPolizzaTemporanea(v);
-                  if (v) {
-                    setTacitoRinnovo(false);
-                    if (durataDa && !garanziaDaTouched) setGaranziaDa(durataDa);
-                    if (durataA && !garanziaATouched) setGaranziaA(durataA);
-                    if (!dataCompetenzaTouched && durataDa) setDataCompetenza(durataDa);
-                  }
+                  if (v) setTacitoRinnovo(false);
                 }}
               />
               <span className="text-xs text-muted-foreground">{polizzaTemporanea ? "Sì" : "No"}</span>
