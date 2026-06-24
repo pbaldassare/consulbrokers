@@ -1967,7 +1967,6 @@ export default function ClienteDetail() {
           </Label>
         </div>
         <div className="flex items-center gap-2">
-          <NuovaPolizzaButton clienteId={id} size="sm" />
           <Button
             variant="outline"
             size="sm"
