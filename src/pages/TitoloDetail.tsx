@@ -1695,6 +1695,7 @@ const TitoloDetail = () => {
                 }}
               />
             )}
+            {!isQuietanzaCorrente && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -1704,17 +1705,17 @@ const TitoloDetail = () => {
                   disabled={t.stato === "annullato"}
                   title={t.stato === "annullato" ? "Polizza già annullata" : undefined}
                 >
-                  <XCircle className="w-4 h-4 mr-1" /> Annullamento
+                  <XCircle className="w-4 h-4 mr-1" /> Annulla polizza (irreversibile)
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Conferma Annullamento</AlertDialogTitle>
+                  <AlertDialogTitle>Conferma annullamento polizza</AlertDialogTitle>
                   <AlertDialogDescription>
                     Annullando la polizza {t.numero_titolo} verranno <strong>eliminati in transazione</strong>:
                     quietanze successive, provvigioni (anche se già pagate), righe pagamento provvigioni,
                     righe rimessa, testate rimessa rimaste vuote, movimenti contabili, movimenti polizza
-                    e split commerciali collegati. Resterà solo il log dell'operazione come traccia.
+                    e split commerciali collegati. Resterà solo il log dell&apos;operazione come traccia.
                     Questa azione è irreversibile.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -1732,11 +1733,12 @@ const TitoloDetail = () => {
                     }}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
-                    Conferma Annullamento
+                    Conferma annullamento
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            )}
 
             {!isRegolazione && (
               <Button
@@ -1967,7 +1969,7 @@ const TitoloDetail = () => {
                   )}
                   {(t.stato === "incassato" || t.data_messa_cassa) && isAdmin && (
                     <Button variant="outline" size="sm" className="text-orange-600 border-orange-400 hover:bg-orange-50" onClick={() => { setAnnullaPassword(""); setAnnullaDialogOpen(true); }} disabled={changeStatoMutation.isPending}>
-                      <XCircle className="w-4 h-4 mr-1" /> Annulla {t.stato === "incassato" ? "Incasso" : "Messa a Cassa"}
+                      <XCircle className="w-4 h-4 mr-1" /> {t.stato === "incassato" ? "Annulla incasso" : "Annulla messa a cassa"}
                     </Button>
                   )}
                 </div>
@@ -2055,8 +2057,8 @@ const TitoloDetail = () => {
       <Dialog open={annullaDialogOpen} onOpenChange={setAnnullaDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Conferma Annullamento Incasso</DialogTitle>
-            <DialogDescription>Verifica la tua identità per procedere.</DialogDescription>
+            <DialogTitle>{t?.stato === "incassato" ? "Conferma annullamento incasso" : "Conferma annullamento messa a cassa"}</DialogTitle>
+            <DialogDescription>Verifica la tua identità per procedere. La polizza madre non verrà modificata.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
@@ -2085,7 +2087,7 @@ const TitoloDetail = () => {
                   return;
                 }
                 toast.success(
-                  `Incasso annullato (${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov. rimossi)`
+                  `${t?.stato === "incassato" ? "Incasso annullato" : "Messa a cassa annullata"} (${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov.${res.rataSuccessivaEliminata ? ", rata successiva rimossa" : ""})`
                 );
                 queryClient.invalidateQueries({ queryKey: ["titolo", id] });
                 queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });

@@ -10540,6 +10540,7 @@ export type Database = {
       }
       ai_user_briefing: { Args: never; Returns: Json }
       annulla_polizza_cascade: { Args: { p_titolo_id: string }; Returns: Json }
+      annulla_quietanza_incasso: { Args: { p_titolo_id: string }; Returns: Json }
       archivia_notifiche_vecchie: { Args: never; Returns: Json }
       cfo_distribuzione_clienti_fascia: {
         Args: { _data_a?: string; _data_da?: string }

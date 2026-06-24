@@ -1,28 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { logAttivita, fromMock } = vi.hoisted(() => ({
-  logAttivita: vi.fn().mockResolvedValue(undefined),
-  fromMock: vi.fn(),
-}));
-
-type ChainResult = { data: unknown; error: null | { message: string } };
-
-function makeChain(final: ChainResult) {
-  const chain: Record<string, unknown> = {};
-  const self = () => chain;
-  for (const m of ["select", "eq", "limit", "delete", "update", "insert"]) {
-    chain[m] = vi.fn(self);
-  }
-  chain.then = (resolve: (v: ChainResult) => void) => Promise.resolve(final).then(resolve);
-  chain.single = vi.fn().mockResolvedValue(final);
-  return chain;
-}
+const rpcMock = vi.fn();
 
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { from: (...args: unknown[]) => fromMock(...args) },
+  supabase: { rpc: (...args: unknown[]) => rpcMock(...args) },
 }));
-
-vi.mock("@/lib/logAttivita", () => ({ logAttivita }));
 
 import { annullaMessaACassa } from "../annullaMessaACassa";
 
@@ -31,91 +13,71 @@ describe("annullaMessaACassa", () => {
     vi.clearAllMocks();
   });
 
-  it("blocca se esistono provvigioni già pagate", async () => {
-    fromMock.mockImplementation((table: string) => {
-      if (table === "provvigioni_generate") {
-        return makeChain({ data: [{ id: "prov-1" }], error: null });
-      }
-      return makeChain({ data: null, error: null });
+  it("delega alla RPC annulla_quietanza_incasso", async () => {
+    rpcMock.mockResolvedValue({
+      data: {
+        ok: true,
+        provvigioni_eliminate: 2,
+        movimenti_eliminati: 1,
+        rata_successiva_eliminata: true,
+      },
+      error: null,
     });
 
-    const res = await annullaMessaACassa("titolo-1");
-    expect(res.ok).toBe(false);
-    expect(res.error).toMatch(/provvigioni già pagate/i);
+    const res = await annullaMessaACassa("titolo-abc");
+    expect(rpcMock).toHaveBeenCalledWith("annulla_quietanza_incasso", { p_titolo_id: "titolo-abc" });
+    expect(res.ok).toBe(true);
+    expect(res.provvigioniEliminate).toBe(2);
+    expect(res.movimentiEliminati).toBe(1);
+    expect(res.rataSuccessivaEliminata).toBe(true);
   });
 
-  it("propaga errore query provvigioni pagate", async () => {
-    fromMock.mockImplementation((table: string) => {
-      if (table === "provvigioni_generate") {
-        return makeChain({ data: null, error: { message: "DB down" } });
-      }
-      return makeChain({ data: null, error: null });
-    });
-
+  it("propaga errore RPC transport", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { message: "DB down" } });
     const res = await annullaMessaACassa("titolo-1");
     expect(res.ok).toBe(false);
     expect(res.error).toBe("DB down");
   });
 
-  it("completa annullamento: elimina provvigioni/movimenti e resetta titolo", async () => {
-    let call = 0;
-    fromMock.mockImplementation((table: string) => {
-      call += 1;
-      if (table === "provvigioni_generate" && call === 1) {
-        return makeChain({ data: [], error: null });
-      }
-      if (table === "provvigioni_generate") {
-        const c = makeChain({ data: [{ id: "p1" }, { id: "p2" }], error: null });
-        c.select = vi.fn(() => c);
-        return c;
-      }
-      if (table === "movimenti_contabili") {
-        const c = makeChain({ data: [{ id: "m1" }], error: null });
-        c.select = vi.fn(() => c);
-        return c;
-      }
-      if (table === "cliente_anticipi_utilizzi" || table === "titoli_compensazioni") {
-        return makeChain({ data: null, error: null });
-      }
-      if (table === "titoli") {
-        return makeChain({ data: null, error: null });
-      }
-      return makeChain({ data: null, error: null });
+  it("propaga errore business dalla RPC", async () => {
+    rpcMock.mockResolvedValue({
+      data: { ok: false, error: "Impossibile annullare: esistono provvigioni già pagate per questo titolo." },
+      error: null,
     });
-
-    const res = await annullaMessaACassa("titolo-abc");
-    expect(res.ok).toBe(true);
-    expect(res.provvigioniEliminate).toBe(2);
-    expect(res.movimentiEliminati).toBe(1);
-    expect(logAttivita).toHaveBeenCalledWith(
-      expect.objectContaining({
-        azione: "annulla_messa_a_cassa",
-        entita_tipo: "titolo",
-        entita_id: "titolo-abc",
-      }),
-    );
+    const res = await annullaMessaACassa("titolo-1");
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/provvigioni già pagate/i);
   });
 
-  it("propaga errore eliminazione movimenti contabili", async () => {
-    let provCall = 0;
-    fromMock.mockImplementation((table: string) => {
-      if (table === "provvigioni_generate") {
-        provCall += 1;
-        if (provCall === 1) return makeChain({ data: [], error: null });
-        const c = makeChain({ data: [], error: null });
-        c.select = vi.fn(() => c);
-        return c;
-      }
-      if (table === "movimenti_contabili") {
-        const c = makeChain({ data: null, error: { message: "FK violation" } });
-        c.select = vi.fn(() => c);
-        return c;
-      }
-      return makeChain({ data: null, error: null });
+  it("maappa tutti i contatori di rollback", async () => {
+    rpcMock.mockResolvedValue({
+      data: {
+        ok: true,
+        provvigioni_eliminate: 3,
+        pagamenti_righe_eliminate: 1,
+        rimessa_dettagli_eliminati: 2,
+        rimesse_testate_eliminate: 1,
+        movimenti_eliminati: 4,
+        anticipi_eliminati: 1,
+        compensazioni_eliminate: 1,
+        rata_successiva_eliminata: false,
+        quietanze_aggiornate: 1,
+      },
+      error: null,
     });
 
     const res = await annullaMessaACassa("titolo-x");
-    expect(res.ok).toBe(false);
-    expect(res.error).toBe("FK violation");
+    expect(res).toEqual({
+      ok: true,
+      provvigioniEliminate: 3,
+      pagamentiRigheEliminate: 1,
+      rimessaDettagliEliminati: 2,
+      rimesseTestateEliminate: 1,
+      movimentiEliminati: 4,
+      anticipiEliminati: 1,
+      compensazioniEliminate: 1,
+      rataSuccessivaEliminata: false,
+      quietanzeAggiornate: 1,
+    });
   });
 });

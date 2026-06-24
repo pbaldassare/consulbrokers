@@ -50,7 +50,7 @@ export type ToolbarQuietanza = {
   titolo_id: string | null;
 };
 
-type RataAction = "storno" | "messa_cassa" | "annulla_mc";
+type RataAction = "storno" | "messa_cassa" | "annulla_mc" | "annulla_incasso";
 
 interface Props {
   polizzaId: string;
@@ -123,7 +123,21 @@ export function AzioniPolizzaToolbar({
       toast.error(res.error || "Errore annullamento messa a cassa");
       return;
     }
-    toast.success(`Messa a cassa annullata · ${res.provvigioniEliminate ?? 0} provvigioni rimosse`);
+    const extra = res.rataSuccessivaEliminata ? " · rata successiva rimossa" : "";
+    toast.success(`Messa a cassa annullata · ${res.provvigioniEliminate ?? 0} provvigioni rimosse${extra}`);
+    onRefresh();
+  }
+
+  async function runAnnullaIncasso(titoloId: string) {
+    setAnnullaMcLoading(true);
+    const res = await annullaMessaACassa(titoloId);
+    setAnnullaMcLoading(false);
+    if (!res.ok) {
+      toast.error(res.error || "Errore annullamento incasso");
+      return;
+    }
+    const extra = res.rataSuccessivaEliminata ? " · rata successiva rimossa" : "";
+    toast.success(`Incasso annullato · ${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov.${extra}`);
     onRefresh();
   }
 
@@ -155,6 +169,8 @@ export function AzioniPolizzaToolbar({
       setCassaOpen(true);
     } else if (action === "annulla_mc") {
       runAnnullaMc(q.titolo_id);
+    } else if (action === "annulla_incasso") {
+      runAnnullaIncasso(q.titolo_id);
     }
   }
 
@@ -171,6 +187,7 @@ export function AzioniPolizzaToolbar({
     if (action === "storno") return !locked;
     if (action === "messa_cassa") return !q.data_messa_cassa && !locked;
     if (action === "annulla_mc") return !!q.data_messa_cassa && q.stato !== "incassato";
+    if (action === "annulla_incasso") return q.stato === "incassato";
     return true;
   };
 
@@ -192,14 +209,42 @@ export function AzioniPolizzaToolbar({
           >
             <Banknote className="h-4 w-4 mr-1" /> Messa a cassa
           </Button>
-          {onQuietanza ? (
+          {onQuietanza && qIncassata ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-orange-600 border-orange-400 hover:bg-orange-50"
+                  disabled={!titoloMadreId || annullaMcLoading}
+                >
+                  <RotateCcw className="h-4 w-4 mr-1" /> Annulla incasso
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Annullare l&apos;incasso?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Verranno eliminate provvigioni non pagate, movimenti contabili, rimesse in bozza
+                    e l&apos;eventuale rata successiva auto-generata. La polizza madre non viene toccata.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => currentQuietanza?.titolo_id && runAnnullaIncasso(currentQuietanza.titolo_id)}>
+                    {annullaMcLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Conferma"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : onQuietanza ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
                   size="sm"
                   variant="outline"
                   disabled={!titoloMadreId || !qIsMC || qIncassata || annullaMcLoading}
-                  title={!qIsMC ? "Non messa a cassa" : qIncassata ? "Già incassata" : undefined}
+                  title={!qIsMC ? "Non messa a cassa" : undefined}
                 >
                   <RotateCcw className="h-4 w-4 mr-1" /> Annulla messa a cassa
                 </Button>
@@ -283,7 +328,7 @@ export function AzioniPolizzaToolbar({
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button size="sm" variant="destructive" disabled={locked || !titoloMadreId || annullaLoading}>
-                <Ban className="h-4 w-4 mr-1" /> Annulla polizza
+                <Ban className="h-4 w-4 mr-1" /> Annulla polizza (irreversibile)
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
