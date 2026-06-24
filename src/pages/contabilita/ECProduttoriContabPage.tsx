@@ -1,12 +1,16 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { Download, TrendingUp, Percent, Filter, Printer, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Download, TrendingUp, Percent, Filter, Printer, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { toast } from "sonner";
@@ -15,6 +19,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 
 type MeseFiltro = "corrente" | "scorso";
+
+type ConfermaDlg = {
+  open: boolean;
+  prodId: string | null;
+  nome: string;
+  provvigioni: number;
+  note: string;
+};
 
 const meseRange = (m: MeseFiltro) => {
   const ref = m === "corrente" ? new Date() : subMonths(new Date(), 1);
@@ -27,9 +39,18 @@ const meseRange = (m: MeseFiltro) => {
 
 const ECProduttoriContabPage = () => {
   const { profile } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [mese, setMese] = useState<MeseFiltro>("corrente");
   const [produttoreId, setProduttoreId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confermaDlg, setConfermaDlg] = useState<ConfermaDlg>({
+    open: false,
+    prodId: null,
+    nome: "",
+    provvigioni: 0,
+    note: "",
+  });
 
   const range = useMemo(() => meseRange(mese), [mese]);
   const fromIso = format(range.from, "yyyy-MM-dd");
@@ -46,15 +67,15 @@ const ECProduttoriContabPage = () => {
     },
   });
 
-  // Provvigioni del periodo (solo titoli messi a cassa nel mese)
   const { data: provvAll, isLoading } = useQuery({
     queryKey: ["ec-produttori-mese", fromIso, toIso],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("provvigioni_generate")
-        .select("user_id, anagrafica_commerciale_id, importo_provvigione, tipo_destinatario, solo_statistico, titolo_id, titoli!provvigioni_generate_titolo_id_fkey(id, numero_titolo, riga, appendice, sostituisce_polizza, premio_lordo, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, ramo_id, cliente_anagrafica_id, produttore_id, anagrafica_commerciale_id, rami:ramo_id(descrizione, codice), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale))")
+        .select("user_id, anagrafica_commerciale_id, importo_provvigione, tipo_destinatario, solo_statistico, pagata, titolo_id, titoli!provvigioni_generate_titolo_id_fkey(id, numero_titolo, riga, appendice, sostituisce_polizza, premio_lordo, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, ramo_id, cliente_anagrafica_id, produttore_id, anagrafica_commerciale_id, rami:ramo_id(descrizione, codice), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale))")
         .in("tipo_destinatario", ["commerciale", "ae"])
-        .eq("solo_statistico", false);
+        .eq("solo_statistico", false)
+        .eq("pagata", false);
       if (error) throw error;
       return (data || []).filter((p: any) => {
         const t = p.titoli; if (!t || !t.data_messa_cassa) return false;
@@ -96,7 +117,6 @@ const ECProduttoriContabPage = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Sede mittente (utente loggato)
   const { data: sede } = useQuery({
     queryKey: ["ec-prod-sede", profile?.ufficio_id],
     enabled: !!profile?.ufficio_id,
@@ -183,41 +203,87 @@ const ECProduttoriContabPage = () => {
     finally { setBusy(false); }
   };
 
-  const handleSalva = async (prodId: string) => {
-    try {
-      setBusy(true);
+  const openConfermaDlg = (row: { id: string; nome: string; provvigioni: number }) => {
+    setConfermaDlg({
+      open: true,
+      prodId: row.id,
+      nome: row.nome,
+      provvigioni: row.provvigioni,
+      note: "",
+    });
+  };
+
+  const closeConfermaDlg = () => {
+    setConfermaDlg({ open: false, prodId: null, nome: "", provvigioni: 0, note: "" });
+  };
+
+  const confermaPagamentoMutation = useMutation({
+    mutationFn: async ({ prodId, note }: { prodId: string; note: string }) => {
       const { bytes, filename } = await buildPdfFor(prodId);
       const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
-      withObjectUrl(bytes, (url) => {
-        const a = document.createElement("a"); a.href = url; a.download = filename;
-        document.body.appendChild(a); a.click(); a.remove();
-      });
       const path = `${prodId}/ec_produttore/${Date.now()}_${filename}`;
       const { error: upErr } = await supabase.storage.from("documenti_generali")
         .upload(path, blob, { contentType: "application/pdf", upsert: false });
       if (upErr) throw upErr;
+
       const { data: u } = await supabase.auth.getUser();
-      const { error: dbErr } = await supabase.from("documenti").insert({
-        nome_file: filename, path_storage: path, bucket_name: "documenti_generali",
-        entita_tipo: "anagrafica_professionale", entita_id: prodId,
-        categoria: "EC Produttore", visibile_al_cliente: false,
+      const { data: doc, error: dbErr } = await supabase.from("documenti").insert({
+        nome_file: filename,
+        path_storage: path,
+        bucket_name: "documenti_generali",
+        entita_tipo: "anagrafica_professionale",
+        entita_id: prodId,
+        categoria: "EC Produttore",
+        visibile_al_cliente: false,
         caricato_da: u?.user?.id ?? null,
-      } as any);
+      } as any).select("id").single();
       if (dbErr) throw dbErr;
-      await logAttivita({
-        azione: "stampa_ec_produttore",
-        entita_tipo: "anagrafica_professionale", entita_id: prodId,
-        dettagli_json: { periodo: range.label, mese },
+
+      const { data: res, error: rpcErr } = await supabase.rpc("segna_ec_produttore_pagato", {
+        p_anagrafica_id: prodId,
+        p_periodo_da: fromIso,
+        p_periodo_a: toIso,
+        p_documento_id: doc.id,
+        p_note: note.trim() || null,
       });
-      toast.success("E/C Produttore salvato e archiviato");
-    } catch (e: any) { toast.error("Errore salvataggio: " + (e?.message || e)); }
-    finally { setBusy(false); }
-  };
+      if (rpcErr) throw rpcErr;
+      const result = res as { ok?: boolean; error?: string; count?: number };
+      if (!result?.ok) throw new Error(result?.error || "Conferma pagamento fallita");
+
+      await logAttivita({
+        azione: "conferma_pagamento_ec_produttore",
+        entita_tipo: "anagrafica_professionale",
+        entita_id: prodId,
+        dettagli_json: {
+          periodo: range.label,
+          mese,
+          documento_id: doc.id,
+          provvigioni_count: result.count,
+          note: note.trim() || null,
+        },
+      });
+
+      return result;
+    },
+    onSuccess: (res) => {
+      toast.success(`Pagamento confermato — ${res.count} provvigioni archiviate nello storico`);
+      closeConfermaDlg();
+      queryClient.invalidateQueries({ queryKey: ["ec-produttori-mese"] });
+      queryClient.invalidateQueries({ queryKey: ["ec-prod-storico"] });
+      queryClient.invalidateQueries({ queryKey: ["provvigioni-maturate"] });
+      navigate("/contabilita/ec-produttore/storico");
+    },
+    onError: (e: any) => {
+      toast.error("Errore conferma pagamento: " + (e?.message || e));
+    },
+  });
 
   const kpiCards = [
     { label: "Totale Lordo", value: fmt(totLordo), icon: TrendingUp, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
     { label: "Totale Provvigioni", value: fmt(totProvv), icon: Percent, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
   ];
+
+  const isConfermaBusy = busy || confermaPagamentoMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -226,7 +292,7 @@ const ECProduttoriContabPage = () => {
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Percent className="w-5 h-5 text-primary" /></div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">E/C Produttori</h1>
-            <p className="text-sm text-muted-foreground">Estratto conto produttori — solo titoli messi a cassa</p>
+            <p className="text-sm text-muted-foreground">Estratto conto produttori — solo titoli messi a cassa, provvigioni da pagare</p>
           </div>
         </div>
         <Button variant="outline" onClick={exportCSV} disabled={!aggregati.length}><Download className="mr-2 h-4 w-4" /> Esporta CSV</Button>
@@ -272,13 +338,13 @@ const ECProduttoriContabPage = () => {
           <TableHeader><TableRow>
             <TableHead>Codice</TableHead><TableHead>Produttore</TableHead><TableHead>Località</TableHead><TableHead>Email</TableHead>
             <TableHead className="text-right">Lordo</TableHead><TableHead className="text-right">Provvigioni</TableHead>
-            <TableHead className="text-right w-[200px]">Azioni</TableHead>
+            <TableHead className="text-right w-[260px]">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
             ) : aggregati.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun produttore con movimenti messi a cassa nel mese selezionato</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun produttore con provvigioni da pagare nel mese selezionato</TableCell></TableRow>
             ) : aggregati.map((r, i) => (
               <TableRow key={r.id} className={i % 2 === 0 ? "bg-muted/20" : ""}>
                 <TableCell>{r.codice}</TableCell>
@@ -289,8 +355,10 @@ const ECProduttoriContabPage = () => {
                 <TableCell className="text-right">{fmt(r.provvigioni)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="outline" disabled={busy} onClick={() => handleStampa(r.id)}><Printer className="h-3.5 w-3.5 mr-1" />Stampa</Button>
-                    <Button size="sm" disabled={busy} onClick={() => handleSalva(r.id)}><Save className="h-3.5 w-3.5 mr-1" />Salva</Button>
+                    <Button size="sm" variant="outline" disabled={isConfermaBusy} onClick={() => handleStampa(r.id)}><Printer className="h-3.5 w-3.5 mr-1" />Stampa</Button>
+                    <Button size="sm" disabled={isConfermaBusy} onClick={() => openConfermaDlg(r)}>
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Conferma pagamento
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -304,6 +372,44 @@ const ECProduttoriContabPage = () => {
           </TableRow></TableFooter>}
         </Table>
       </div>
+
+      <Dialog open={confermaDlg.open} onOpenChange={(o) => !o && closeConfermaDlg()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Conferma pagamento</DialogTitle>
+            <DialogDescription>
+              Verrà generato e archiviato il PDF E/C, e le provvigioni di <strong>{confermaDlg.nome}</strong> saranno marcate come pagate.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
+              <p><span className="text-muted-foreground">Periodo:</span> {range.label} ({fromIso} → {toIso})</p>
+              <p><span className="text-muted-foreground">Totale provvigioni:</span> <strong>{fmt(confermaDlg.provvigioni)}</strong></p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ec-prod-note">Note (opzionale)</Label>
+              <Textarea
+                id="ec-prod-note"
+                value={confermaDlg.note}
+                onChange={(e) => setConfermaDlg((p) => ({ ...p, note: e.target.value }))}
+                placeholder="Riferimento bonifico, note interne..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeConfermaDlg} disabled={confermaPagamentoMutation.isPending}>Annulla</Button>
+            <Button
+              disabled={!confermaDlg.prodId || confermaPagamentoMutation.isPending}
+              onClick={() => confermaDlg.prodId && confermaPagamentoMutation.mutate({ prodId: confermaDlg.prodId, note: confermaDlg.note })}
+            >
+              {confermaPagamentoMutation.isPending
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Conferma in corso...</>
+                : <><CheckCircle2 className="h-4 w-4 mr-2" /> Conferma pagamento</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
