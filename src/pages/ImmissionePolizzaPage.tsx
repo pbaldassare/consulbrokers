@@ -319,6 +319,7 @@ const ImmissionePolizzaPage = () => {
 
   // Form state — Polizza
   const [numeroPolizza, setNumeroPolizza] = useState("");
+  const [notePolizza, setNotePolizza] = useState("");
   const [tipoOperazione, setTipoOperazione] = useState("polizza");
   const [polizzaAuto, setPolizzaAuto] = useState(false);
   const [righeMatricola, setRigheMatricola] = useState<LibroMatricolaRiga[]>([]);
@@ -498,6 +499,7 @@ const ImmissionePolizzaPage = () => {
         selectedUfficioId: setSelectedUfficioId,
         selectedBackofficeId: setSelectedBackofficeId,
         numeroPolizza: setNumeroPolizza,
+        notePolizza: setNotePolizza,
         tipoOperazione: setTipoOperazione,
         polizzaAuto: setPolizzaAuto,
         selectedCompagnia: setSelectedCompagnia,
@@ -618,7 +620,7 @@ const ImmissionePolizzaPage = () => {
 
   const draftSnapshot = {
     selectedAE, selectedAccountExecutiveId, selectedClienteId, selectedUfficioId, selectedBackofficeId,
-    numeroPolizza, tipoOperazione, polizzaAuto,
+    numeroPolizza, notePolizza, tipoOperazione, polizzaAuto,
     selectedCompagnia, selectedGruppoCompagniaId, selectedRapportoId, selectedRamo, selectedGruppoRamoId, prodottoNome,
     cigRif, cigTemporaneo, vincolo, targaTelaio, descrizionePolizza,
     durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, polizzaTemporanea, polizzaRateo, frazionamento, moraGiorni,
@@ -1535,6 +1537,7 @@ const ImmissionePolizzaPage = () => {
       }
       const payload: Record<string, any> = {
         numero_titolo: numeroPolizza || null,
+        note: notePolizza.trim() || null,
         riga: regolazioneMode ? regolazioneRiga : 0,
         appendice: "000",
         // gruppo_compagnia_id non è una colonna di titoli: si deriva via compagnia_rapporti
@@ -1624,7 +1627,10 @@ const ImmissionePolizzaPage = () => {
       if (regolazioneMode && polizzaMadre) {
         payload.sostituisce_polizza = polizzaMadre.numero_titolo;
         payload.sostituisce_riga = polizzaMadre.riga;
-        payload.note = regolazioneNote;
+        const userNote = notePolizza.trim();
+        payload.note = userNote
+          ? [regolazioneNote, userNote].filter(Boolean).join("\n")
+          : regolazioneNote;
       }
 
       const { data: newTitolo, error } = await supabase
@@ -2388,6 +2394,15 @@ const ImmissionePolizzaPage = () => {
             {!numeroPolizza.trim() && (
               <p className="text-[10px] text-destructive mt-0.5">Obbligatorio</p>
             )}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Note</Label>
+            <Input
+              value={notePolizza}
+              onChange={(e) => setNotePolizza(e.target.value)}
+              placeholder="Note opzionali"
+              className="h-8 text-xs"
+            />
           </div>
         </div>
 

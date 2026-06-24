@@ -573,6 +573,7 @@ const TitoloDetail = () => {
     vincolo_attivo: false,
     descrizione_polizza: "",
     prodotto_nome: "",
+    note: "",
     compagnia_id: "" as string | null,
     gruppo_compagnia_id: "" as string | null,
     compagnia_rapporto_id: "" as string | null,
@@ -703,6 +704,7 @@ const TitoloDetail = () => {
         vincolo_attivo: !!t.vincolo_attivo,
         descrizione_polizza: t.descrizione_polizza ?? "",
         prodotto_nome: t.prodotto_nome ?? "",
+        note: t.note ?? "",
         compagnia_id: t.compagnia_id ?? null,
         gruppo_compagnia_id: t.compagnia_diretta?.gruppo_compagnia_id ?? null,
         compagnia_rapporto_id: t.compagnia_rapporto_id ?? null,
@@ -725,6 +727,7 @@ const TitoloDetail = () => {
         { key: "vincolo_attivo", newVal: vincoloAttivo },
         { key: "descrizione_polizza", newVal: contrattoForm.descrizione_polizza || null },
         { key: "prodotto_nome", newVal: contrattoForm.prodotto_nome || null },
+        { key: "note", newVal: contrattoForm.note.trim() || null },
         { key: "compagnia_id", newVal: contrattoForm.compagnia_id || null },
         { key: "compagnia_rapporto_id", newVal: contrattoForm.compagnia_rapporto_id || null },
         { key: "ramo_id", newVal: contrattoForm.ramo_id || null },
@@ -748,6 +751,7 @@ const TitoloDetail = () => {
           vincolo_attivo: vincoloAttivo,
           descrizione_polizza: contrattoForm.descrizione_polizza || null,
           prodotto_nome: contrattoForm.prodotto_nome || null,
+          note: contrattoForm.note.trim() || null,
           compagnia_id: contrattoForm.compagnia_id || null,
           compagnia_rapporto_id: contrattoForm.compagnia_rapporto_id || null,
           codice_rapporto: rapportoSel?.codice_rapporto || null,
@@ -2171,6 +2175,7 @@ const TitoloDetail = () => {
             <FieldRow label="Garanzia" value={`${t.ramo?.codice || ""} ${t.ramo?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt(t.prodotto_nome || t.prodotti?.nome_prodotto)} />
             <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
+            <FieldRow label="Note" value={fmt(t.note)} />
             {t.cliente_anagrafica ? (
               <div className="flex justify-between py-1">
                 <span className="text-xs text-muted-foreground">Cliente</span>
@@ -2325,6 +2330,17 @@ const TitoloDetail = () => {
                 <div className="h-8 px-2 flex items-center text-xs font-mono rounded-md border bg-muted/30">{fmt(t.numero_titolo)}</div>
               </div>
               <div className="space-y-1.5">
+                <Label className="text-xs">Note</Label>
+                <Input
+                  value={contrattoForm.note}
+                  onChange={(e) => setContrattoForm(p => ({ ...p, note: e.target.value }))}
+                  placeholder="Note opzionali"
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5 md:col-span-2">
                 <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Cliente</Label>
                 <div className="h-8 px-2 flex items-center text-xs rounded-md border bg-muted/30">
                   {t.cliente_anagrafica
@@ -3420,15 +3436,6 @@ const TitoloDetail = () => {
             {conducente.note && <div className="col-span-full"><FieldRow label="Note" value={conducente.note} /></div>}
           </div>
         </SectionCollapsible>
-      )}
-
-      {t.note && (
-        <Card>
-          <CardContent className="pt-4">
-            <span className="text-xs text-muted-foreground">Note:</span>
-            <p className="text-sm mt-1">{t.note}</p>
-          </CardContent>
-        </Card>
       )}
 
       {/* Tabs */}
