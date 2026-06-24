@@ -121,6 +121,86 @@ const ECCompagniaContabPage = () => {
   );
   const contoMittenteDefault = contiMittente.find((c: any) => c.is_default) || contiMittente[0] || null;
 
+  const fmtEuro = (n: number) =>
+    new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
+
+  const handleInviaEmail = async (r: GroupedRow, daRimettere: number) => {
+    try {
+      setSendingEmailId(r.compagnia_id);
+      // Risolvi destinatario: rapporto.email_messe_a_cassa → compagnie.email_messe_a_cassa → mail → fallback
+      const { data: comp } = await supabase
+        .from("compagnie")
+        .select("nome, email_messe_a_cassa, mail")
+        .eq("id", r.compagnia_id)
+        .maybeSingle();
+      const { data: rapp } = await supabase
+        .from("compagnia_rapporti")
+        .select("email_messe_a_cassa")
+        .eq("compagnia_id", r.compagnia_id)
+        .order("is_default", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const to =
+        (rapp as any)?.email_messe_a_cassa?.trim() ||
+        (comp as any)?.email_messe_a_cassa?.trim() ||
+        (comp as any)?.mail?.trim() ||
+        r.mail?.trim() ||
+        "pscarpelli@consulbrokers.it";
+
+      const ragSoc = (comp as any)?.nome || r.nome;
+      const oggi = format(new Date(), "dd/MM/yyyy");
+      const periodoTxt =
+        filters.periodo_dal && filters.periodo_al
+          ? `per il periodo ${format(filters.periodo_dal, "dd/MM/yyyy")} - ${format(filters.periodo_al, "dd/MM/yyyy")}`
+          : `aggiornato al ${oggi}`;
+
+      const subject = `Estratto Conto Agenzia — ${ragSoc} — ${oggi}`;
+      const body = `Spett.le ${ragSoc},
+
+trasmettiamo l'estratto conto relativo ai titoli in attesa di rimessa ${periodoTxt}.
+
+Numero titoli: ${r.titoli.length}
+Totale lordo: ${fmtEuro(r.lordo)}
+Totale provvigioni: ${fmtEuro(r.provvigioni)}
+Totale da rimettere: ${fmtEuro(daRimettere)}
+
+Per il dettaglio analitico vi invieremo a breve il documento PDF.
+
+Restiamo a disposizione per ogni chiarimento.
+
+Cordiali saluti,
+Consulbrokers`;
+
+      const { error } = await supabase.functions.invoke("send-email", {
+        body: { to, subject, html: body, apply_branding: true },
+      });
+      if (error) throw error;
+
+      // Log best-effort
+      try {
+        await supabase.from("log_attivita").insert({
+          azione: "invio_ec_agenzia_email",
+          entita_tipo: "agenzia",
+          entita_id: r.compagnia_id,
+          dettagli_json: {
+            destinatario: to,
+            num_titoli: r.titoli.length,
+            totale_lordo: r.lordo,
+            totale_provvigioni: r.provvigioni,
+            da_rimettere: daRimettere,
+          },
+        } as any);
+      } catch {}
+
+      toast.success(`Email inviata a ${to}`);
+    } catch (e: any) {
+      toast.error("Errore invio email: " + (e?.message || e));
+    } finally {
+      setSendingEmailId(null);
+    }
+  };
+
   const toggleExpand = (compagniaId: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
