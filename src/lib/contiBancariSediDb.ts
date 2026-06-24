@@ -6,7 +6,7 @@ export const fetchSediContoBancario = async (contoId: string): Promise<string[]>
     .select("ufficio_id")
     .eq("conto_bancario_id", contoId);
   if (error) throw error;
-  return ((data || []) as Array<{ ufficio_id: string }>).map((r) => r.ufficio_id);
+  return ((data || []) as unknown as Array<{ ufficio_id: string }>).map((r) => r.ufficio_id);
 };
 
 export const saveSediContoBancario = async (contoId: string, ufficioIds: string[]) => {
