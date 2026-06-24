@@ -23,6 +23,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, Sparkles } from "lucide-react";
 import { groupTitoliByPolizza } from "@/lib/quietanze";
+import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
@@ -1121,7 +1122,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
     [allQuiet],
   );
   const totProvv = useMemo(
-    () => allQuiet.reduce((s, p) => s + (Number(p.provvigioni_firma) || 0) + (Number(p.provvigioni_quietanza) || 0), 0),
+    () => allQuiet.reduce((s, p) => s + getProvvigioneEC(p), 0),
     [allQuiet],
   );
 
@@ -1323,7 +1324,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
                   <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
                   <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
-                  <TableCell className="font-mono">{fmtNum((Number(r.provvigioni_firma)||0) + (Number(r.provvigioni_quietanza)||0))}</TableCell>
+                  <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
                   <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
@@ -1372,7 +1373,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell className="text-muted-foreground">—</TableCell>
                   <TableCell>{agenzia}</TableCell>
                   <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
-                  <TableCell className="font-mono">{fmtNum((Number(head.provvigioni_firma)||0) + (Number(head.provvigioni_quietanza)||0))}</TableCell>
+                  <TableCell className="font-mono">{fmtNum(getProvvigioneEC(head))}</TableCell>
                   <TableCell>{head.data_messa_cassa || head.data_incasso || "—"}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
