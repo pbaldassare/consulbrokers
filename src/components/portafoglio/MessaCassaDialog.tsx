@@ -13,6 +13,11 @@ import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import { fmtEuro } from "@/lib/formatCurrency";
+import {
+  buildTrattenutaCtx,
+  calcIncassoConTrattenutaProvvigioni,
+  type TrattenutaTitoloCtx,
+} from "@/lib/trattenutaProvvigioniIncasso";
 
 /**
  * Input importo per riga di compensazione contabile.
@@ -172,6 +177,64 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     },
   });
 
+  const titoloIds = useMemo(() => titoli.map((t) => t.id), [titoli]);
+
+  const { data: titoliTrattenutaDet = [] } = useQuery({
+    queryKey: ["messa-cassa-titoli-trattenuta", titoloIds],
+    enabled: open && titoloIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("titoli") as any)
+        .select("id, anagrafica_commerciale_id, provvigioni_quietanza, percentuale_commerciale")
+        .in("id", titoloIds);
+      if (error) throw error;
+      return data as Array<{
+        id: string;
+        anagrafica_commerciale_id: string | null;
+        provvigioni_quietanza: number | null;
+        percentuale_commerciale: number | null;
+      }>;
+    },
+  });
+
+  const prodIdsTrattenuta = useMemo(
+    () => Array.from(new Set(titoliTrattenutaDet.map((t) => t.anagrafica_commerciale_id).filter(Boolean))) as string[],
+    [titoliTrattenutaDet],
+  );
+
+  const { data: produttoriTrattenuta = [] } = useQuery({
+    queryKey: ["messa-cassa-prod-trattenuta", prodIdsTrattenuta],
+    enabled: open && prodIdsTrattenuta.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("anagrafiche_professionali") as any)
+        .select("id, trattenuta_provvigioni_incasso, percentuale_ra, ragione_sociale, cognome, nome")
+        .in("id", prodIdsTrattenuta);
+      if (error) throw error;
+      return data as Array<{
+        id: string;
+        trattenuta_provvigioni_incasso: boolean | null;
+        percentuale_ra: number | null;
+        ragione_sociale: string | null;
+        cognome: string | null;
+        nome: string | null;
+      }>;
+    },
+  });
+
+  const trattenutaByTitolo = useMemo(() => {
+    const prodById = new Map(produttoriTrattenuta.map((p) => [p.id, p]));
+    const detById = new Map(titoliTrattenutaDet.map((t) => [t.id, t]));
+    const m = new Map<string, TrattenutaTitoloCtx>();
+    for (const t of titoli) {
+      const det = detById.get(t.id);
+      if (!det) continue;
+      const ctx = buildTrattenutaCtx(det, prodById);
+      if (ctx) m.set(t.id, ctx);
+    }
+    return m;
+  }, [titoli, titoliTrattenutaDet, produttoriTrattenuta]);
+
+  const haTrattenuta = trattenutaByTitolo.size > 0;
+
   const handleTipoPagamentoChange = (tipo: string) => {
     setForm((f) => ({
       ...f,
@@ -242,12 +305,35 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
   const totaleCompPlus = round2(allCompensazioni.filter((c) => c.segno === "+").reduce((s, c) => s + c.importo, 0));
   const totaleCompMinus = round2(allCompensazioni.filter((c) => c.segno === "-").reduce((s, c) => s + c.importo, 0));
   const dovutoFinale = round2(totaleLordo + totaleCompMinus - totaleCompPlus);
+
+  const totaleDovutoConsul = useMemo(() => {
+    return round2(
+      titoli.reduce((sum, t) => {
+        const lordo = Number(t.premio_lordo) || 0;
+        const compForThis = compensazioniByTitolo[t.id] || [];
+        const compPlusT = compForThis.filter((c) => c.segno === "+").reduce((s, c) => s + c.importo, 0);
+        const compMinusT = compForThis.filter((c) => c.segno === "-").reduce((s, c) => s + c.importo, 0);
+        const dovutoT = round2(lordo + compMinusT - compPlusT);
+        const tr = trattenutaByTitolo.get(t.id);
+        if (tr) {
+          return sum + calcIncassoConTrattenutaProvvigioni(dovutoT, tr.provvigioneLorda, tr.percentualeRa).importoVersatoConsul;
+        }
+        return sum + dovutoT;
+      }, 0),
+    );
+  }, [titoli, compensazioniByTitolo, trattenutaByTitolo]);
+
   const cashEffettivo = isMulti
-    ? round2(Math.max(0, dovutoFinale - totaleAnticipiUsati))
+    ? round2(Math.max(0, totaleDovutoConsul - totaleAnticipiUsati))
     : round2(Number(form.cashImporto) || 0);
   const coperto = round2(cashEffettivo + totaleAnticipiUsati);
-  const delta = round2(dovutoFinale - coperto);
+  const delta = round2(totaleDovutoConsul - coperto);
   const quadrato = Math.abs(delta) < TOLLERANZA_QUADRATURA;
+
+  useEffect(() => {
+    if (!open || isMulti || !haTrattenuta) return;
+    setForm((f) => ({ ...f, cashImporto: round2(Math.max(0, totaleDovutoConsul - totaleAnticipiUsati)) }));
+  }, [open, isMulti, haTrattenuta, totaleDovutoConsul, totaleAnticipiUsati]);
 
   // === Anteprima scritture contabili ===
   const movimentiPreview: MovimentoPreview[] = useMemo(() => {
@@ -300,7 +386,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         return rest;
       }
       const giaUsato = Object.values(prev).reduce((s, v) => s + v, 0);
-      const daCoprire = Math.max(0, dovutoFinale - giaUsato - (isMulti ? 0 : cashEffettivo));
+      const daCoprire = Math.max(0, totaleDovutoConsul - giaUsato - (isMulti ? 0 : cashEffettivo));
       return { ...prev, [aId]: Math.min(residuo, daCoprire) };
     });
   };
@@ -313,7 +399,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         const altriAnticipi = Object.entries(anticipiSel)
           .filter(([k]) => k !== aId)
           .reduce((s, [, v]) => s + v, 0);
-        const newCash = round2(Math.max(0, dovutoFinale - altriAnticipi - n));
+        const newCash = round2(Math.max(0, totaleDovutoConsul - altriAnticipi - n));
         return { ...f, cashImporto: newCash };
       });
     }
@@ -321,7 +407,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
 
   const autoQuadra = () => {
     if (isMulti) return;
-    setForm((f) => ({ ...f, cashImporto: round2(Math.max(0, dovutoFinale - totaleAnticipiUsati)) }));
+    setForm((f) => ({ ...f, cashImporto: round2(Math.max(0, totaleDovutoConsul - totaleAnticipiUsati)) }));
   };
 
   const handleConferma = async () => {
@@ -363,7 +449,15 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       }
 
       const usatoTitolo = round2(utilizziPerTitolo.reduce((s, u) => s + u.importo_utilizzato, 0));
-      const residuoCash = round2(dovutoT - usatoTitolo);
+      let residuoCash = round2(dovutoT - usatoTitolo);
+      const tr = trattenutaByTitolo.get(t.id);
+      if (tr) {
+        residuoCash = calcIncassoConTrattenutaProvvigioni(
+          round2(dovutoT - usatoTitolo),
+          tr.provvigioneLorda,
+          tr.percentualeRa,
+        ).importoVersatoConsul;
+      }
       const haCompensazioni = compForThis.length > 0;
       const tipoPag = haCompensazioni
         ? (usatoTitolo > 0 ? "misto_compensato" : "compensato")
@@ -466,10 +560,32 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           anticipi_usati: utilizziPerTitolo,
           compensazioni: compForThis.map((c) => ({ codice: c.causale_codice, segno: c.segno, importo: c.importo })),
           residuo_cash: residuoCash,
+          trattenuta_provvigioni: tr
+            ? {
+                prod_id: tr.prodId,
+                provvigione_lorda: tr.provvigioneLorda,
+                ritenuta: tr.ritenutaAcconto,
+                trattenuto_netto: tr.trattenutoNetto,
+              }
+            : null,
           bulk: isMulti,
         },
       });
-      supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: t.id } }).catch(() => {});
+      try {
+        await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: t.id } });
+        if (tr?.prodId) {
+          const { error: errPag } = await (supabase.from("provvigioni_generate") as any)
+            .update({ pagata: true })
+            .eq("titolo_id", t.id)
+            .eq("anagrafica_commerciale_id", tr.prodId)
+            .eq("tipo_destinatario", "commerciale");
+          if (errPag) {
+            toast.warning(`Provvigione non segnata pagata su ${t.numero_titolo ?? t.id}: ${errPag.message}`);
+          }
+        }
+      } catch {
+        toast.warning(`Calcolo provvigioni non completato su ${t.numero_titolo ?? t.id}`);
+      }
       supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } })
         .then((res: any) => { if (res?.error) toast.warning(`Notifica non inviata (${t.numero_titolo ?? t.id})`); })
         .catch(() => {});
@@ -486,6 +602,8 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       queryClient.invalidateQueries({ queryKey: ["anticipi-globale"] });
       queryClient.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
       queryClient.invalidateQueries({ queryKey: ["titoli-compensazioni"] });
+      queryClient.invalidateQueries({ queryKey: ["provvigioni-generate"] });
+      queryClient.invalidateQueries({ queryKey: ["ec-produttori"] });
       onSuccess?.();
       onOpenChange(false);
     } else {
@@ -620,7 +738,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           {!isMulti && cashEffettivo >= 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Importo cash incassato</Label>
+                <Label className="text-xs">{haTrattenuta ? "Importo versato a Consulbrokers" : "Importo cash incassato"}</Label>
                 <div className="flex gap-1 mt-1">
                   <Input
                     type="number" step="0.01" min="0"
@@ -687,7 +805,18 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
             {totaleCompPlus > 0 && (
               <div className="flex justify-between text-green-600"><span>− Compensazioni che riducono dovuto</span><span>− {fmtEuro(totaleCompPlus)}</span></div>
             )}
-            <div className="flex justify-between font-semibold border-t pt-1"><span>Dovuto finale</span><span>{fmtEuro(dovutoFinale)}</span></div>
+            <div className="flex justify-between font-semibold border-t pt-1"><span>Dovuto cliente</span><span>{fmtEuro(dovutoFinale)}</span></div>
+            {Array.from(trattenutaByTitolo.values()).map((tr) => (
+              <div key={tr.titoloId} className="rounded border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 p-2 space-y-0.5 my-1">
+                <div className="font-medium text-amber-800 dark:text-amber-300">Trattenuta provvigioni — {tr.prodNome}</div>
+                <div className="flex justify-between"><span>− Provvigione trattenuta</span><span>− {fmtEuro(tr.provvigioneLorda)}</span></div>
+                <div className="flex justify-between"><span>+ RA versata ({tr.percentualeRa}%)</span><span>+ {fmtEuro(tr.ritenutaAcconto)}</span></div>
+                <div className="flex justify-between text-muted-foreground"><span>Netto trattenuto produttore</span><span>{fmtEuro(tr.trattenutoNetto)}</span></div>
+              </div>
+            ))}
+            {haTrattenuta && (
+              <div className="flex justify-between font-semibold"><span>Da incassare (Consulbrokers)</span><span>{fmtEuro(totaleDovutoConsul)}</span></div>
+            )}
             {totaleAnticipiUsati > 0 && (
               <div className="flex justify-between text-primary"><span>− Acconti utilizzati</span><span>− {fmtEuro(totaleAnticipiUsati)}</span></div>
             )}

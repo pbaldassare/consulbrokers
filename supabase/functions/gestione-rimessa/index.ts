@@ -388,17 +388,21 @@ Deno.serve(async (req) => {
         .createSignedUrl(filePath, 60 * 60 * 24 * 365);
 
       // Inserisci documento "Flusso SEPA"
-      const { data: doc } = await supabaseAdmin
+      const { data: doc, error: docErr } = await supabaseAdmin
         .from("documenti")
         .insert({
           nome_file: fileName,
           path_storage: filePath,
           bucket_name: "rimesse-pdf",
           categoria: "Flusso SEPA",
+          entita_tipo: "rimessa_premi",
+          entita_id: ids[0],
+          visibile_al_cliente: false,
           caricato_da: created_by || null,
         } as any)
         .select("id")
         .single();
+      if (docErr) throw docErr;
 
       // Aggiorna ogni rimessa: stato pronta, xml_output, flusso_xml_id
       const nowIso = new Date().toISOString();

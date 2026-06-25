@@ -119,6 +119,7 @@ interface Anagrafica {
   codice_fornitore: string | null;
   percentuale_ra: number | null;
   percentuale_consulenza: number | null;
+  trattenuta_provvigioni_incasso: boolean | null;
   abi: string | null;
   cab: string | null;
   iban: string | null;
@@ -138,6 +139,7 @@ const emptyForm = {
   nome_rui: "", iscrizione_rui: "", data_iscrizione_rui: "", numero_rui: "", sezione_rui: "",
   // Produttori / commerciali
   percentuale_base: "", percentuale_consulenza: "", codice_fornitore: "", percentuale_ra: "4.60",
+  trattenuta_provvigioni_incasso: false,
   abi: "", cab: "", iban: "", intestatario_cc: "",
 };
 
@@ -251,6 +253,7 @@ const AnagraficheInternePage = () => {
         percentuale_consulenza: form.percentuale_consulenza ? Number(form.percentuale_consulenza) : 0,
         codice_fornitore: form.codice_fornitore || null,
         percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 4.60,
+        trattenuta_provvigioni_incasso: isCorr ? form.trattenuta_provvigioni_incasso : false,
         abi: form.abi || null,
         cab: form.cab || null,
         iban: form.iban || null,
@@ -326,6 +329,7 @@ const AnagraficheInternePage = () => {
         percentuale_consulenza: form.percentuale_consulenza ? Number(form.percentuale_consulenza) : 0,
         codice_fornitore: form.codice_fornitore || null,
         percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 4.60,
+        trattenuta_provvigioni_incasso: isCorr ? form.trattenuta_provvigioni_incasso : false,
         abi: form.abi || null,
         cab: form.cab || null,
         iban: form.iban || null,
@@ -387,6 +391,7 @@ const AnagraficheInternePage = () => {
       percentuale_consulenza: item.percentuale_consulenza?.toString() || "",
       codice_fornitore: item.codice_fornitore || "",
       percentuale_ra: item.percentuale_ra?.toString() || "4.60",
+      trattenuta_provvigioni_incasso: !!item.trattenuta_provvigioni_incasso,
       abi: item.abi || "",
       cab: item.cab || "",
       iban: item.iban || "",
@@ -722,6 +727,21 @@ const AnagraficheInternePage = () => {
                   <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
                 </div>
               </div>
+              {isCorr && (
+                <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/30">
+                  <div className="space-y-0.5 pr-4">
+                    <Label htmlFor="trattenuta-provv-incasso">Trattenuta provvigioni in incasso</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Il produttore incassa dal cliente e trattiene la provvigione al netto RA; su messa a cassa l&apos;importo versato a Consulbrokers è premio − provvigione + RA e la provvigione risulta già pagata in E/C.
+                    </p>
+                  </div>
+                  <Switch
+                    id="trattenuta-provv-incasso"
+                    checked={form.trattenuta_provvigioni_incasso}
+                    onCheckedChange={(v) => setForm({ ...form, trattenuta_provvigioni_incasso: v })}
+                  />
+                </div>
+              )}
               <div>
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Provvigioni per Ramo</p>
                 <ProduttoreProvvigioniRamoTab

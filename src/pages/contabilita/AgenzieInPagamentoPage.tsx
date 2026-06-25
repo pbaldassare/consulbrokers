@@ -363,7 +363,11 @@ const AgenzieInPagamentoPage = () => {
     if (existing) {
       const { error: updDocErr } = await supabase
         .from("documenti")
-        .update({ caricato_da: user?.id || null } as any)
+        .update({
+          caricato_da: user?.id || null,
+          entita_tipo: "agenzia",
+          visibile_al_cliente: false,
+        } as any)
         .eq("id", existing.id);
       if (updDocErr) throw new Error(`Archivio documenti: ${updDocErr.message}`);
     } else {
@@ -372,7 +376,9 @@ const AgenzieInPagamentoPage = () => {
         path_storage: path,
         bucket_name: "rimesse-pdf",
         categoria: "EC Agenzia",
+        entita_tipo: "agenzia",
         entita_id: rimessa.compagnia_id,
+        visibile_al_cliente: false,
         caricato_da: user?.id || null,
       } as any);
       if (docErr) throw new Error(`Archivio documenti: ${docErr.message}`);

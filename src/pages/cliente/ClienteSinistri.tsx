@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon, Check } from "lucide-react";
+import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon, Check, FileDown } from "lucide-react";
 
 // MultiSelect filter: array of values, "all" when empty
 function MultiSelectFilter({ label, values, options, onChange, formatOption }: {
@@ -67,6 +67,17 @@ import NuovaDenunciaSinistroDialog from "@/components/cliente/NuovaDenunciaSinis
 import SinistroDocumentiCliente from "@/components/cliente/SinistroDocumentiCliente";
 import { fmtEuro0 as fmt } from "@/lib/formatCurrency";
 import { exportSinistriXlsx } from "@/lib/exportSinistriXlsx";
+import { buildSinistriEnteReportPdf } from "@/lib/sinistri-ente-report-pdf";
+import {
+  aggregateSinPerRamo,
+  buildEnteInfoFromCliente,
+  buildFilterSummary,
+  buildReportFilename,
+  captureElementAsPng,
+  computeKpis,
+  fetchStaticMapImage,
+  mapSinistriToPdfRows,
+} from "@/lib/sinistriEnteReportData";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import InfoHint from "@/components/cliente/InfoHint";
@@ -88,7 +99,9 @@ const statoBadge: Record<string, string> = {
 
 
 export default function ClienteSinistri() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const chartRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [openNuovo, setOpenNuovo] = useState(false);
 
@@ -105,6 +118,26 @@ export default function ClienteSinistri() {
   // Selezione
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const { data: cliente } = useQuery({
+    queryKey: ["cliente-ente-profile", user?.id],
+    queryFn: async () => {
+      const { data: clienteIds } = await supabase.rpc("get_my_cliente_ids");
+      if (!clienteIds?.length) return null;
+      const id = typeof clienteIds[0] === "string" ? clienteIds[0] : (clienteIds[0] as any)?.id;
+      const { data, error } = await supabase
+        .from("clienti")
+        .select("tipo_cliente, ragione_sociale, nome, cognome, partita_iva, codice_fiscale, codice_fiscale_azienda, indirizzo_sede, cap_sede, citta_sede, provincia_sede, indirizzo_residenza, cap_residenza, citta_residenza, provincia_residenza, email, pec, telefono")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const isEnte = cliente?.tipo_cliente === "ente";
 
   const { data: sinistri = [], refetch } = useQuery({
     queryKey: ["cliente-sinistri", user?.id],
@@ -231,6 +264,71 @@ export default function ClienteSinistri() {
     }
   };
 
+  const handleGeneratePdf = async (mode: "selected" | "filtered") => {
+    const list = mode === "selected"
+      ? filteredSinistri.filter((s: any) => selectedIds.has(s.id))
+      : filteredSinistri;
+    if (!list.length) {
+      toast.error("Nessun sinistro da includere nel report");
+      return;
+    }
+    if (!cliente) {
+      toast.error("Dati ente non disponibili");
+      return;
+    }
+
+    setGeneratingPdf(true);
+    toast.info("Generazione report PDF in corso…");
+    try {
+      const [chartImageBytes, staticMapBytes] = await Promise.all([
+        captureElementAsPng(chartRef.current),
+        fetchStaticMapImage(list),
+      ]);
+      let mapImageBytes = staticMapBytes;
+      if (!mapImageBytes) {
+        mapImageBytes = await captureElementAsPng(mapRef.current);
+      }
+
+      const ente = buildEnteInfoFromCliente(cliente);
+      const generatedBy = profile ? `${profile.nome || ""} ${profile.cognome || ""}`.trim() || profile.email || "" : "";
+      const filterLines = buildFilterSummary(
+        { search: fSearch, stati: fStati, rami: fRami, compagnie: fCompagnie, polizze: fPolizze, citta: fCitta, dataDa: fDataDa, dataA: fDataA },
+        filteredSinistri.length,
+        sinistri.length,
+      );
+      if (mode === "selected") {
+        filterLines.push(`Report su selezione: ${list.length} sinistri`);
+      }
+
+      const bytes = await buildSinistriEnteReportPdf({
+        ente,
+        titolo: `Report Sinistri — ${ente.ragioneSociale}`,
+        generatedAt: format(new Date(), "dd/MM/yyyy HH:mm"),
+        generatedBy,
+        filterLines,
+        kpis: computeKpis(list),
+        sinPerRamo: aggregateSinPerRamo(list),
+        sinistri: mapSinistriToPdfRows(list),
+        chartImageBytes,
+        mapImageBytes,
+      });
+
+      const filename = buildReportFilename(ente.ragioneSociale);
+      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      toast.success(`Report PDF generato (${list.length} sinistri)`);
+    } catch (e: any) {
+      toast.error("Errore generazione PDF: " + (e?.message || e));
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
   return (
     <div data-tour="cl-sin-page" className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -280,7 +378,7 @@ export default function ClienteSinistri() {
       {/* Charts */}
       {sinistri.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
+          <Card ref={chartRef}>
             <CardHeader className="pb-2"><CardTitle className="text-base">Sinistri per Ramo (Aperti vs Chiusi)</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={280}>
@@ -302,7 +400,7 @@ export default function ClienteSinistri() {
                 <MapPin className="h-4 w-4 text-teal-700" /> Mappa Sinistri
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent ref={mapRef}>
               <SinistriMap sinistri={filteredSinistri} />
             </CardContent>
           </Card>
@@ -360,12 +458,34 @@ export default function ClienteSinistri() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-base">Elenco Sinistri</CardTitle>
-          <div className="flex items-center gap-2" data-tour="cl-sin-export">
+          <div className="flex items-center gap-2 flex-wrap" data-tour="cl-sin-export">
             <span className="text-xs text-muted-foreground">{selectedIds.size} selezionati</span>
-            <Button size="sm" variant="outline" disabled={!selectedIds.size || exporting} onClick={() => handleExport("selected")} className="gap-1.5">
+            {isEnte && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!selectedIds.size || generatingPdf || exporting}
+                  onClick={() => handleGeneratePdf("selected")}
+                  className="gap-1.5"
+                >
+                  <FileDown className="h-4 w-4" /> PDF selezionati
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!filteredSinistri.length || generatingPdf || exporting}
+                  onClick={() => handleGeneratePdf("filtered")}
+                  className="gap-1.5"
+                >
+                  <FileDown className="h-4 w-4" /> PDF tutti ({filteredSinistri.length})
+                </Button>
+              </>
+            )}
+            <Button size="sm" variant="outline" disabled={!selectedIds.size || exporting || generatingPdf} onClick={() => handleExport("selected")} className="gap-1.5">
               <Download className="h-4 w-4" /> Esporta selezionati
             </Button>
-            <Button size="sm" disabled={!filteredSinistri.length || exporting} onClick={() => handleExport("filtered")} className="gap-1.5">
+            <Button size="sm" disabled={!filteredSinistri.length || exporting || generatingPdf} onClick={() => handleExport("filtered")} className="gap-1.5">
               <Download className="h-4 w-4" /> Esporta tutti ({filteredSinistri.length})
             </Button>
           </div>

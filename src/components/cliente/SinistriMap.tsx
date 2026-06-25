@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { format } from "date-fns";
+import {
+  buildSinistroAddress,
+  colorForTipo,
+  readGeocodeCache,
+  writeGeocodeCache,
+} from "@/lib/sinistriMapUtils";
 
 const GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY || import.meta.env.VITE_GOOGLE_MAPS_API_KEY) as string | undefined;
 const GOOGLE_MAPS_CHANNEL = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
 const VARESE_CENTER = { lat: 45.8206, lng: 8.8251 };
-const CACHE_KEY = "cbnet_geocode_cache_v1";
 
 type Sinistro = {
   id: string;
@@ -25,16 +30,6 @@ type Sinistro = {
 
 interface Props {
   sinistri: Sinistro[];
-}
-
-function colorForTipo(t?: string | null): string {
-  const v = (t || "").toLowerCase();
-  if (v.includes("furto") || v.includes("vandal")) return "#dc2626"; // red
-  if (v.startsWith("rc_") || v.includes("patrimon") || v.includes("difesa")) return "#2563eb"; // blue
-  if (v.startsWith("rca") || v.includes("cristall") || v.includes("urto") || v.includes("auto")) return "#f59e0b"; // amber
-  if (v.includes("infortun") || v.includes("malatt")) return "#7c3aed"; // violet
-  if (v.includes("incend") || v.includes("evento") || v.includes("grandine") || v.includes("acqua") || v.includes("elettr")) return "#0d9488"; // teal
-  return "#64748b"; // slate
 }
 
 type MapsLibs = {
@@ -121,20 +116,6 @@ async function ensureMapsLibs(): Promise<MapsLibs> {
   return libs;
 }
 
-function readCache(): Record<string, { lat: number; lng: number }> {
-  try { return JSON.parse(sessionStorage.getItem(CACHE_KEY) || "{}"); } catch { return {}; }
-}
-function writeCache(c: Record<string, { lat: number; lng: number }>) {
-  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch { /* noop */ }
-}
-
-function buildAddress(s: Sinistro): string {
-  const parts = [s.indirizzo_sinistro, s.cap_sinistro, s.citta_sinistro, s.provincia_sinistro && `(${s.provincia_sinistro})`, "Italia"]
-    .filter(Boolean)
-    .join(", ");
-  return parts || s.luogo_sinistro || "";
-}
-
 const fmtEur = (v?: number | null) => v == null ? "—" : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
 
 export function SinistriMap({ sinistri }: Props) {
@@ -174,13 +155,13 @@ export function SinistriMap({ sinistri }: Props) {
         markersRef.current.forEach(m => m.setMap(null));
         markersRef.current = [];
 
-        const cache = readCache();
+        const cache = readGeocodeCache();
         const geocoder = new libs.Geocoder();
         const bounds = new libs.LatLngBounds();
         let placed = 0;
 
         for (const s of sinistri) {
-          const addr = buildAddress(s);
+          const addr = buildSinistroAddress(s);
           if (!addr) continue;
           let coords = cache[addr];
           if (!coords) {
@@ -235,7 +216,7 @@ export function SinistriMap({ sinistri }: Props) {
           placed++;
         }
 
-        writeCache(cache);
+        writeGeocodeCache(cache);
 
         if (!cancelled) {
           setMappedCount(placed);
