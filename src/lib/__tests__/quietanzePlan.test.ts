@@ -140,22 +140,34 @@ describe("computeQuietanzePlan", () => {
       polizzaRateo: true,
       frazionamento: "Annuale",
       anniDurata: 1,
-      garanziaDa: "2026-03-15",
-      garanziaA: "2026-06-30",
-      durataA: "2027-03-14",
+      garanziaDa: "2026-06-25",
+      garanziaA: "2027-01-01",
+      durataA: "2028-01-01",
     });
     expect(plan).toHaveLength(2);
     expect(plan[0]).toEqual({
       idx: 1,
-      garanzia_da: "2026-03-15",
-      garanzia_a: "2026-06-30",
-      data_competenza: "2026-03-15",
+      garanzia_da: "2026-06-25",
+      garanzia_a: "2027-01-01",
+      data_competenza: "2026-06-25",
     });
     expect(plan[1]).toEqual({
       idx: 2,
-      garanzia_da: "2026-07-01",
-      garanzia_a: "2027-03-14",
-      data_competenza: "2026-07-01",
+      garanzia_da: "2027-01-02",
+      garanzia_a: "2028-01-01",
+      data_competenza: "2027-01-02",
     });
+  });
+
+  it("polizza rateo annuale con durata_a = garanzia_a → solo rateo (1 riga)", () => {
+    const plan = computeQuietanzePlan({
+      polizzaRateo: true,
+      frazionamento: "Annuale",
+      anniDurata: 1,
+      garanziaDa: "2026-06-25",
+      garanziaA: "2027-01-01",
+      durataA: "2027-01-01",
+    });
+    expect(plan).toHaveLength(1);
   });
 });

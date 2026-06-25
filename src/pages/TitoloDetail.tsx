@@ -819,12 +819,42 @@ const TitoloDetail = () => {
 
   useEffect(() => {
     if (!editingPeriodo || !periodoForm.polizza_rateo || periodoForm.polizza_temporanea) return;
-    const synced = syncPeriodoRateo({ garanziaDa: periodoForm.garanzia_da });
-    setPeriodoForm((p) => {
-      if (p.data_competenza === synced.data_competenza) return p;
-      return { ...p, data_competenza: synced.data_competenza };
+    const synced = syncPeriodoRateo({
+      garanziaDa: periodoForm.garanzia_da,
+      durataDa: periodoForm.durata_da,
+      garanziaA: periodoForm.garanzia_a,
+      frazionamento: periodoForm.frazionamento,
+      durataATouched: true,
+      currentDurataA: periodoForm.durata_a,
+      anniDurata: Math.max(1, parseInt(periodoForm.anni_durata) || 1),
     });
-  }, [editingPeriodo, periodoForm.polizza_rateo, periodoForm.polizza_temporanea, periodoForm.garanzia_da]);
+    setPeriodoForm((p) => {
+      const next = {
+        ...p,
+        ...(synced.garanzia_da ? { garanzia_da: synced.garanzia_da } : {}),
+        data_competenza: synced.data_competenza,
+        ...(synced.applyDurataA && synced.durata_a ? { durata_a: synced.durata_a } : {}),
+      };
+      if (
+        p.garanzia_da === next.garanzia_da &&
+        p.data_competenza === next.data_competenza &&
+        p.durata_a === next.durata_a
+      ) {
+        return p;
+      }
+      return next;
+    });
+  }, [
+    editingPeriodo,
+    periodoForm.polizza_rateo,
+    periodoForm.polizza_temporanea,
+    periodoForm.garanzia_da,
+    periodoForm.garanzia_a,
+    periodoForm.durata_da,
+    periodoForm.durata_a,
+    periodoForm.frazionamento,
+    periodoForm.anni_durata,
+  ]);
 
   const startEditPeriodo = () => {
     if (titolo) {

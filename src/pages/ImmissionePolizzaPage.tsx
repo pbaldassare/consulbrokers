@@ -1452,11 +1452,19 @@ const ImmissionePolizzaPage = () => {
       const synced = syncPeriodoRateo({
         garanziaDa,
         durataDa,
+        garanziaA,
+        frazionamento,
         durataATouched,
+        currentDurataA: durataA,
         anniDurata: Math.max(1, parseInt(anniDurata) || 1),
       });
       if (!garanziaDaTouched && synced.garanzia_da) setGaranziaDa(synced.garanzia_da);
-      if (!durataATouched && synced.durata_a) setDurataA(synced.durata_a);
+      if (synced.applyDurataA && synced.durata_a) {
+        setDurataA(synced.durata_a);
+        if (durataATouched && garanziaA && durataA && durataA <= garanziaA) {
+          setDurataATouched(false);
+        }
+      }
       if (!dataCompetenzaTouched) setDataCompetenza(synced.data_competenza);
       if (!limiteMoraTouched && synced.data_competenza) {
         const gg = parseInt(moraGiorni || "0") || 0;
@@ -1482,7 +1490,7 @@ const ImmissionePolizzaPage = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [durataDa, durataA, durataATouched, anniDurata, frazionamento, polizzaTemporanea, polizzaRateo, garanziaDa, garanziaDaTouched]);
+  }, [durataDa, durataA, durataATouched, anniDurata, frazionamento, polizzaTemporanea, polizzaRateo, garanziaDa, garanziaDaTouched, garanziaA]);
 
   // --- Handlers ---
 
@@ -1543,17 +1551,9 @@ const ImmissionePolizzaPage = () => {
         toast.error("Garanzia Da non può essere successiva a Garanzia A (fine fase rateo)");
         return;
       }
-      const rateoPlan = computeQuietanzePlan({
-        polizzaRateo: true,
-        frazionamento,
-        anniDurata: parseInt(anniDurata) || 1,
-        garanziaDa,
-        garanziaA,
-        durataA,
-      });
-      if (rateoPlan.length > 1 && durataA <= garanziaA) {
+      if (durataA <= garanziaA) {
         toast.error(
-          "Durata A deve essere successiva alla fine del rateo (Garanzia A) per generare le rate annuali",
+          "Durata A (fine contratto) deve essere successiva a Garanzia A (fine rateo) per generare le quietanze successive al frazionamento",
         );
         return;
       }
@@ -2545,7 +2545,10 @@ const ImmissionePolizzaPage = () => {
                 checked={polizzaRateo}
                 onCheckedChange={(v) => {
                   setPolizzaRateo(v);
-                  if (v) setPolizzaTemporanea(false);
+                  if (v) {
+                    setPolizzaTemporanea(false);
+                    setDurataATouched(false);
+                  }
                 }}
                 disabled={polizzaTemporanea}
               />

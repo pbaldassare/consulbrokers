@@ -51,10 +51,39 @@ function iso(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function mesiRataFromFrazionamento(frazionamento: string): number {
+export function mesiRataFromFrazionamento(frazionamento: string): number {
   const f = frazionamento.toLowerCase();
   if (f === "poliennale") return 12;
   return frazionamentoMesi(f.charAt(0).toUpperCase() + f.slice(1), 1);
+}
+
+function addMonthsISO(iso: string, months: number): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return "";
+  const dt = new Date(Date.UTC(y, m - 1 + months, d));
+  return dt.toISOString().slice(0, 10);
+}
+
+/** Fine contratto rateo: max(durata_da + anni, garanzia_a + 1 rata frazionamento). */
+export function computeRateoDurataA({
+  durataDa,
+  garanziaA,
+  frazionamento,
+  anniDurata,
+}: {
+  durataDa: string;
+  garanziaA?: string;
+  frazionamento?: string;
+  anniDurata: number;
+}): string {
+  if (!durataDa || anniDurata < 1) return "";
+  const fromContratto = addMonthsISO(durataDa, anniDurata * 12);
+  if (!garanziaA || !frazionamento) return fromContratto;
+  const mesiRata = mesiRataFromFrazionamento(frazionamento);
+  if (mesiRata <= 0) return fromContratto;
+  const fromGaranzia = addMonthsISO(garanziaA, mesiRata);
+  return fromGaranzia > fromContratto ? fromGaranzia : fromContratto;
 }
 
 function computeRateoPlan(
