@@ -146,7 +146,7 @@ const emptyForm: CompagniaForm = {
   email_messe_a_cassa: "pscarpelli@consulbrokers.it",
   email_estratto_conto: "pscarpelli@consulbrokers.it",
   codice_fiscale: "", partita_iva: "", iscrizione_rui_sez: "", iscrizione_rui_num: "",
-  pagamento: "", tipo_pagamento: "", percentuale_ra: "",
+  pagamento: "", tipo_pagamento: "", percentuale_ra: "4.6",
   gruppo_compagnia: "", gruppo_compagnia_id: "", tipo_mandatario: "", gruppo_statistico: "",
   iban: "", codice_abi: "", codice_cab: "", intestato_a: "", bic: "", citta_banca: "",
   conto_bancario_id: null,
@@ -189,7 +189,7 @@ function dbToForm(c: any): CompagniaForm {
     iscrizione_rui_num: c.iscrizione_rui_num || "",
     pagamento: c.pagamento || "",
     tipo_pagamento: c.tipo_pagamento || "",
-    percentuale_ra: c.percentuale_ra != null ? String(c.percentuale_ra) : "",
+    percentuale_ra: c.percentuale_ra != null ? String(c.percentuale_ra) : "4.6",
     gruppo_compagnia: c.gruppo_compagnia || "",
     gruppo_compagnia_id: c.gruppo_compagnia_id || "",
     tipo_mandatario: c.tipo_mandatario || "",
@@ -214,6 +214,8 @@ function dbToForm(c: any): CompagniaForm {
 }
 
 function formToPayload(form: CompagniaForm) {
+  const parsedPercentualeRa = parseFloat(form.percentuale_ra);
+  const percentualeRa = Number.isFinite(parsedPercentualeRa) ? parsedPercentualeRa : 4.6;
   return {
     tipo: form.tipo || "agenzia",
     nome: form.nome,
@@ -242,7 +244,7 @@ function formToPayload(form: CompagniaForm) {
     iscrizione_rui_num: form.iscrizione_rui_num || null,
     pagamento: form.pagamento || null,
     tipo_pagamento: form.tipo_pagamento || null,
-    percentuale_ra: form.percentuale_ra ? parseFloat(form.percentuale_ra) : null,
+    percentuale_ra: percentualeRa,
     gruppo_compagnia: form.gruppo_compagnia || null,
     gruppo_compagnia_id: form.gruppo_compagnia_id || null,
     tipo_mandatario: form.tipo_mandatario || null,
@@ -680,6 +682,19 @@ function CompagniaFormDialog({
                 value={form.partita_iva}
                 onChange={(e) => setField("partita_iva", e.target.value.toUpperCase())}
                 placeholder="11 cifre"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Percentuale ritenuta d'acconto (%)</Label>
+              <Input
+                type="number"
+                step="0.1"
+                min="0"
+                value={form.percentuale_ra}
+                onChange={(e) => setField("percentuale_ra", e.target.value)}
+                placeholder="4.6"
               />
             </div>
           </div>

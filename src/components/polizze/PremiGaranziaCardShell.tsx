@@ -114,6 +114,8 @@ export interface PremiGaranziaCardShellProps {
   personalizzati?: boolean[];
   /** Solo Quietanza: riallinea la riga `idx` alla Firma (toglie la personalizzazione). */
   onResetRow?: (idx: number) => void;
+  /** Override titolo card (es. etichette rateo) */
+  titoloOverride?: string;
 }
 
 
@@ -143,6 +145,7 @@ export function PremiGaranziaCardShell({
   onResetAuto,
   personalizzati,
   onResetRow,
+  titoloOverride,
 }: PremiGaranziaCardShellProps) {
 
   const isQuietanza = tipoPremio === "quietanza";
@@ -154,7 +157,7 @@ export function PremiGaranziaCardShell({
   const [totDraft, setTotDraft] = useState("");
   const [pctFocus, setPctFocus] = useState(false);
   const [pctDraft, setPctDraft] = useState("");
-  const titolo = isQuietanza ? "Premi per Garanzia — Quietanza" : "Premi per Garanzia — Firma";
+  const titolo = titoloOverride ?? (isQuietanza ? "Premi per Garanzia — Quietanza" : "Premi per Garanzia — Firma");
 
   const totNetto = rows.reduce((s, r) => s + parseDecimalItOr(r.netto), 0);
   const totAccessori = rows.reduce((s, r) => s + parseDecimalItOr(r.accessori), 0);

@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, X, Check, ChevronsUpDown, ListPlus, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useGruppiRamo, useRamiAll } from "@/hooks/useRamiLookup";
@@ -161,118 +162,150 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
           Nessun Ramo abilitato. Clicca "Aggiungi Ramo" oppure "Tutti i Rami" per iniziare, poi salva.
         </p>
       ) : (
-        <div className="space-y-2">
-          {rows.map((row, idx) => {
-            const sottoCatalog = (ramiCatalog as any[]).filter((r) => r.gruppo_ramo_id === row.gruppo_ramo_id);
-            const selectedLabels = row.ramo_ids
-              .map((id) => sottoCatalog.find((rr) => rr.value === id)?.descrizione)
-              .filter(Boolean) as string[];
-            return (
-              <div key={idx} className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-center">
-                <SearchableSelect
-                  options={(gruppiRamo as any[]).map((g) => ({ value: g.value, label: g.label }))}
-                  value={row.gruppo_ramo_id}
-                  onValueChange={(v) =>
-                    update(rows.map((r, i) => (i === idx ? { gruppo_ramo_id: v, all: true, ramo_ids: [] } : r)))
-                  }
-                  placeholder="Ramo..."
-                />
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      role="combobox"
-                      disabled={!row.gruppo_ramo_id}
-                      className="w-full justify-between font-normal"
-                    >
-                      <span className="truncate text-left">
-                        {!row.gruppo_ramo_id
-                          ? "Seleziona prima un Ramo"
-                          : row.all
-                          ? "Tutti i sottorami"
-                          : selectedLabels.length === 0
-                          ? "Nessun sottoramo"
-                          : selectedLabels.length === 1
-                          ? selectedLabels[0]
-                          : `${selectedLabels.length} selezionati`}
+        <div className="overflow-x-auto rounded-md border">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background z-10">
+              <TableRow>
+                <TableHead className="w-[90px] h-9 px-2 text-xs">Cod. Ramo</TableHead>
+                <TableHead className="min-w-[180px] h-9 px-2 text-xs">Ramo</TableHead>
+                <TableHead className="min-w-[220px] h-9 px-2 text-xs">Sottorami abilitati</TableHead>
+                <TableHead className="w-[80px] h-9 px-2 text-xs text-center">N° sel.</TableHead>
+                <TableHead className="w-[48px] h-9 px-2 text-xs" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row, idx) => {
+                const grObj = (gruppiRamo as any[]).find((g) => g.value === row.gruppo_ramo_id);
+                const sottoCatalog = (ramiCatalog as any[]).filter((r) => r.gruppo_ramo_id === row.gruppo_ramo_id);
+                const selectedLabels = row.ramo_ids
+                  .map((id) => sottoCatalog.find((rr) => rr.value === id)?.descrizione)
+                  .filter(Boolean) as string[];
+                const isDraft = !row.gruppo_ramo_id;
+                return (
+                  <TableRow
+                    key={idx}
+                    className={isDraft ? "border-dashed bg-muted/10" : idx % 2 === 1 ? "bg-muted/20" : ""}
+                  >
+                    <TableCell className="px-2 py-2 align-middle">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                        {grObj?.codice || "—"}
                       </span>
-                      <ChevronsUpDown className="w-4 h-4 opacity-50 ml-2 shrink-0" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Cerca sottoramo..." />
-                      <CommandList>
-                        <CommandEmpty>Nessun sottoramo trovato.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="__all__"
-                            onSelect={() =>
-                              update(
-                                rows.map((r, i) => (i === idx ? { ...r, all: !r.all, ramo_ids: [] } : r)),
-                              )
-                            }
+                    </TableCell>
+                    <TableCell className="px-2 py-2 align-middle min-w-[180px]">
+                      <SearchableSelect
+                        options={(gruppiRamo as any[]).map((g) => ({ value: g.value, label: g.label }))}
+                        value={row.gruppo_ramo_id}
+                        onValueChange={(v) =>
+                          update(rows.map((r, i) => (i === idx ? { gruppo_ramo_id: v, all: true, ramo_ids: [] } : r)))
+                        }
+                        placeholder="Ramo..."
+                      />
+                    </TableCell>
+                    <TableCell className="px-2 py-2 align-middle min-w-[220px]">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            role="combobox"
+                            disabled={!row.gruppo_ramo_id}
+                            className="w-full justify-between font-normal h-9"
                           >
-                            <Checkbox checked={row.all} className="mr-2" />
-                            <span className="font-medium">Tutti i sottorami</span>
-                          </CommandItem>
-                        </CommandGroup>
-                        {!row.all && (
-                          <CommandGroup>
-                            {sottoCatalog.map((rr: any) => {
-                              const checked = row.ramo_ids.includes(rr.value);
-                              return (
+                            <span className="truncate text-left text-sm">
+                              {!row.gruppo_ramo_id
+                                ? "Seleziona prima un Ramo"
+                                : row.all
+                                ? "Tutti i sottorami"
+                                : selectedLabels.length === 0
+                                ? "Nessun sottoramo"
+                                : selectedLabels.length === 1
+                                ? selectedLabels[0]
+                                : `${selectedLabels.length} selezionati`}
+                            </span>
+                            <ChevronsUpDown className="w-4 h-4 opacity-50 ml-2 shrink-0" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Cerca sottoramo..." />
+                            <CommandList>
+                              <CommandEmpty>Nessun sottoramo trovato.</CommandEmpty>
+                              <CommandGroup>
                                 <CommandItem
-                                  key={rr.value}
-                                  value={`${rr.descrizione} ${rr.codice || ""}`}
+                                  value="__all__"
                                   onSelect={() =>
                                     update(
-                                      rows.map((r, i) =>
-                                        i === idx
-                                          ? {
-                                              ...r,
-                                              ramo_ids: checked
-                                                ? r.ramo_ids.filter((x) => x !== rr.value)
-                                                : [...r.ramo_ids, rr.value],
-                                            }
-                                          : r,
-                                      ),
+                                      rows.map((r, i) => (i === idx ? { ...r, all: !r.all, ramo_ids: [] } : r)),
                                     )
                                   }
                                 >
-                                  <Checkbox checked={checked} className="mr-2" />
-                                  <div className="flex flex-col">
-                                    <span>{rr.descrizione}</span>
-                                    {rr.codice && (
-                                      <span className="text-[11px] text-muted-foreground">{rr.codice}</span>
-                                    )}
-                                  </div>
-                                  {checked && <Check className="w-4 h-4 ml-auto opacity-50" />}
+                                  <Checkbox checked={row.all} className="mr-2" />
+                                  <span className="font-medium">Tutti i sottorami</span>
                                 </CommandItem>
-                              );
-                            })}
-                          </CommandGroup>
-                        )}
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <div className="text-[11px] text-muted-foreground min-w-[60px]">
-                  {row.all ? "Tutti" : `${row.ramo_ids.length} sel.`}
-                </div>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => update(rows.filter((_, i) => i !== idx))}
-                  title="Rimuovi"
-                >
-                  <X className="w-4 h-4 text-destructive" />
-                </Button>
-              </div>
-            );
-          })}
+                              </CommandGroup>
+                              {!row.all && (
+                                <CommandGroup>
+                                  {sottoCatalog.map((rr: any) => {
+                                    const checked = row.ramo_ids.includes(rr.value);
+                                    return (
+                                      <CommandItem
+                                        key={rr.value}
+                                        value={`${rr.descrizione} ${rr.codice || ""}`}
+                                        onSelect={() =>
+                                          update(
+                                            rows.map((r, i) =>
+                                              i === idx
+                                                ? {
+                                                    ...r,
+                                                    ramo_ids: checked
+                                                      ? r.ramo_ids.filter((x) => x !== rr.value)
+                                                      : [...r.ramo_ids, rr.value],
+                                                  }
+                                                : r,
+                                            ),
+                                          )
+                                        }
+                                      >
+                                        <Checkbox checked={checked} className="mr-2" />
+                                        <div className="flex flex-col">
+                                          <span>{rr.descrizione}</span>
+                                          {rr.codice && (
+                                            <span className="text-[11px] text-muted-foreground">{rr.codice}</span>
+                                          )}
+                                        </div>
+                                        {checked && <Check className="w-4 h-4 ml-auto opacity-50" />}
+                                      </CommandItem>
+                                    );
+                                  })}
+                                </CommandGroup>
+                              )}
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </TableCell>
+                    <TableCell className="px-2 py-2 align-middle text-center">
+                      <span className="text-[11px] text-muted-foreground">
+                        {row.all ? "Tutti" : `${row.ramo_ids.length} sel.`}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-2 py-2 align-middle text-right">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => update(rows.filter((_, i) => i !== idx))}
+                        title="Rimuovi"
+                      >
+                        <X className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
       )}
       {dirty && (

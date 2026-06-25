@@ -224,7 +224,7 @@ const ECProduttoriContabPage = () => {
       const path = `${prodId}/ec_produttore/${Date.now()}_${filename}`;
       const { error: upErr } = await supabase.storage.from("documenti_generali")
         .upload(path, blob, { contentType: "application/pdf", upsert: false });
-      if (upErr) throw upErr;
+      if (upErr) throw new Error(`Archivio PDF: ${upErr.message}`);
 
       const { data: u } = await supabase.auth.getUser();
       const { data: doc, error: dbErr } = await supabase.from("documenti").insert({
@@ -237,7 +237,7 @@ const ECProduttoriContabPage = () => {
         visibile_al_cliente: false,
         caricato_da: u?.user?.id ?? null,
       } as any).select("id").single();
-      if (dbErr) throw dbErr;
+      if (dbErr) throw new Error(`Registro documento: ${dbErr.message}`);
 
       const { data: res, error: rpcErr } = await supabase.rpc("segna_ec_produttore_pagato", {
         p_anagrafica_id: prodId,
@@ -246,7 +246,7 @@ const ECProduttoriContabPage = () => {
         p_documento_id: doc.id,
         p_note: note.trim() || null,
       });
-      if (rpcErr) throw rpcErr;
+      if (rpcErr) throw new Error(`Conferma pagamento: ${rpcErr.message}`);
       const result = res as { ok?: boolean; error?: string; count?: number };
       if (!result?.ok) throw new Error(result?.error || "Conferma pagamento fallita");
 

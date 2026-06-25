@@ -440,9 +440,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       if (!capSede.trim()) missing.push("CAP");
       if (!cittaSede.trim()) missing.push("Città");
       if (!provinciaSede.trim()) missing.push("Provincia");
-      if (!referenteNome.trim()) missing.push("Nome Referente");
-      if (!referenteCognome.trim()) missing.push("Cognome Referente");
-      if (!referenteEmail.trim()) missing.push("Email Referente");
       if (!email.trim()) missing.push("Email");
     }
     return missing;
@@ -815,6 +812,10 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 <div><Label>Telefono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
                 <div><Label>PEC</Label><Input type="email" value={pec} onChange={(e) => setPec(e.target.value)} /></div>
               </div>
+              <div>
+                <Label>Note sul cliente</Label>
+                <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Note opzionali sul cliente..." />
+              </div>
               <div><Label>Indirizzo Sede *</Label><AddressAutocomplete value={indirizzoSede} onChange={setIndirizzoSede} onSelect={(c) => { setCapSede(c.cap); setCittaSede(c.citta); setProvinciaSede(c.provincia); }} /></div>
               <div className="grid grid-cols-3 gap-4">
                 <div><Label>CAP *</Label><Input value={capSede} onChange={(e) => setCapSede(e.target.value)} maxLength={5} className={!capSede.trim() ? "border-amber-400" : undefined} /></div>
@@ -822,14 +823,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 <div><Label>Provincia *</Label><Input value={provinciaSede} onChange={(e) => setProvinciaSede(e.target.value)} maxLength={2} className={!provinciaSede.trim() ? "border-amber-400" : undefined} /></div>
               </div>
               <div className="border-t pt-4">
-                <p className="text-sm font-medium text-muted-foreground mb-3">Referente {tipoCliente === "ente" ? "Ente" : "Aziendale"} *</p>
+                <p className="text-sm font-medium text-muted-foreground mb-3">Referente {tipoCliente === "ente" ? "Ente" : "Aziendale"}</p>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><Label>Nome Referente *</Label><Input value={referenteNome} onChange={(e) => setReferenteNome(e.target.value)} className={!referenteNome.trim() ? "border-amber-400" : undefined} /></div>
-                  <div><Label>Cognome Referente *</Label><Input value={referenteCognome} onChange={(e) => setReferenteCognome(e.target.value)} className={!referenteCognome.trim() ? "border-amber-400" : undefined} /></div>
+                  <div><Label>Nome Referente</Label><Input value={referenteNome} onChange={(e) => setReferenteNome(e.target.value)} /></div>
+                  <div><Label>Cognome Referente</Label><Input value={referenteCognome} onChange={(e) => setReferenteCognome(e.target.value)} /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mt-4">
                   <div><Label>Telefono Referente</Label><Input value={referenteTelefono} onChange={(e) => setReferenteTelefono(e.target.value)} /></div>
-                  <div><Label>Email Referente *</Label><Input type="email" value={referenteEmail} onChange={(e) => setReferenteEmail(e.target.value)} className={!referenteEmail.trim() ? "border-amber-400" : undefined} /></div>
+                  <div><Label>Email Referente</Label><Input type="email" value={referenteEmail} onChange={(e) => setReferenteEmail(e.target.value)} /></div>
                 </div>
               </div>
             </>
@@ -882,10 +883,12 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                     <div><Label className="text-xs">Nazione</Label><Input value={nazione} onChange={(e) => setNazione(e.target.value)} /></div>
                     <div><Label className="text-xs">Attenzione di</Label><Input value={attenzioneDi} onChange={(e) => setAttenzioneDi(e.target.value)} /></div>
                   </div>
-                  <div>
-                    <Label className="text-xs">Note</Label>
-                    <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
-                  </div>
+                  {tipoCliente === "privato" && (
+                    <div>
+                      <Label className="text-xs">Note</Label>
+                      <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
+                    </div>
+                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>

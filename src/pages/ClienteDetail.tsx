@@ -1369,11 +1369,15 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell><TipoPolizzaBadge tipo="polizza" /></TableCell>
                   <TableCell>{gruppoRamo}</TableCell>
                   <TableCell>{ramo}</TableCell>
-                  <TableCell className="text-muted-foreground">—</TableCell>
-                  <TableCell className="text-muted-foreground">—</TableCell>
+                  <TableCell className="text-xs">{fmtDate(head.garanzia_da ?? head.durata_da)}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(head.garanzia_a ?? head.durata_a)}</TableCell>
                   <TableCell>{agenzia}</TableCell>
-                  <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
-                  <TableCell className="font-mono">{fmtNum(getProvvigioneEC(head))}</TableCell>
+                  <TableCell className="font-mono">
+                    {head.polizza_rateo ? "—" : fmtNum(head.premio_lordo)}
+                  </TableCell>
+                  <TableCell className="font-mono">
+                    {head.polizza_rateo ? "—" : fmtNum(getProvvigioneEC(head))}
+                  </TableCell>
                   <TableCell>{head.data_messa_cassa || head.data_incasso || "—"}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
@@ -1652,7 +1656,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, sostituisce_polizza, garanzia_da, garanzia_a, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome)")
+        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, sostituisce_polizza, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome)")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -2391,6 +2395,17 @@ export default function ClienteDetail() {
                     <FieldInput label="Città Sede" field="citta_sede" />
                     <FieldInput label="Provincia Sede" field="provincia_sede" />
                     <FieldInput label="CAP Sede" field="cap_sede" />
+                    <div className="col-span-2 md:col-span-3 border-t pt-4 mt-2">
+                      <p className="text-xs font-semibold text-muted-foreground mb-3">
+                        Referente {effectiveTipoCliente === "ente" ? "Ente" : "Aziendale"}
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <FieldInput label="Nome Referente" field="referente_nome" />
+                        <FieldInput label="Cognome Referente" field="referente_cognome" />
+                        <FieldInput label="Telefono Referente" field="referente_telefono" />
+                        <FieldInput label="Email Referente" field="referente_email" type="email" />
+                      </div>
+                    </div>
                     {/* Codice CIG rimosso dall'anagrafica: vive solo a livello di polizza/quietanza per clienti Ente. */}
                   </>
                 )}
@@ -2400,6 +2415,22 @@ export default function ClienteDetail() {
                   required
                   errorMessage={!ef.email ? "Campo obbligatorio" : "Email non valida"}
                 />
+                {!isPrivato && (
+                  <div className="col-span-2 md:col-span-3">
+                    <Label className="text-xs">Note sul cliente</Label>
+                    {readOnly ? (
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{ef.note || "—"}</p>
+                    ) : (
+                      <Textarea
+                        className="text-xs"
+                        rows={2}
+                        value={ef.note || ""}
+                        onChange={(e) => updateField("note", e.target.value)}
+                        placeholder="Note opzionali sul cliente..."
+                      />
+                    )}
+                  </div>
+                )}
 
                 <FieldInput label="Telefono" field="telefono" />
                 <FieldInput label="Cellulare" field="cellulare" />
@@ -2408,15 +2439,16 @@ export default function ClienteDetail() {
                 <FieldInput label="Nazione" field="nazione" />
                 <FieldInput label="Attenzione di" field="attenzione_di" />
               </div>
-              {/* Note */}
-              <div className="mt-4">
-                <Label className="text-xs">Note</Label>
-                {readOnly ? (
-                  <p className="text-sm mt-1 whitespace-pre-wrap">{ef.note || "—"}</p>
-                ) : (
-                  <Textarea className="text-xs" rows={3} value={ef.note || ""} onChange={(e) => updateField("note", e.target.value)} />
-                )}
-              </div>
+              {isPrivato && (
+                <div className="mt-4">
+                  <Label className="text-xs">Note</Label>
+                  {readOnly ? (
+                    <p className="text-sm mt-1 whitespace-pre-wrap">{ef.note || "—"}</p>
+                  ) : (
+                    <Textarea className="text-xs" rows={3} value={ef.note || ""} onChange={(e) => updateField("note", e.target.value)} />
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -1,4 +1,8 @@
--- RPC: conferma pagamento E/C Produttore — marca provvigioni come pagate
+-- Fix E/C Produttore "Conferma pagamento":
+-- 1. RPC referenced non-existent anagrafiche_professionali.user_id (runtime SQL error)
+-- 2. documenti_generali storage lacked staff upload/select after broad policy removal
+-- 3. documenti INSERT lacked policies for contabilita/backoffice roles
+
 CREATE OR REPLACE FUNCTION public.segna_ec_produttore_pagato(
   p_anagrafica_id uuid,
   p_periodo_da date,
@@ -126,5 +130,52 @@ $$;
 GRANT EXECUTE ON FUNCTION public.segna_ec_produttore_pagato(uuid, date, date, uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.segna_ec_produttore_pagato(uuid, date, date, uuid, text) TO service_role;
 
-COMMENT ON FUNCTION public.segna_ec_produttore_pagato IS
-  'Marca come pagate le provvigioni E/C produttore nel periodo (data_messa_cassa). Richiede documento archiviato opzionale.';
+-- Storage: staff contabilità può archiviare PDF E/C in documenti_generali
+DROP POLICY IF EXISTS "Staff write documenti_generali" ON storage.objects;
+CREATE POLICY "Staff write documenti_generali" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'documenti_generali'
+    AND (
+      public.has_role(auth.uid(), 'admin'::app_role)
+      OR public.has_role(auth.uid(), 'ufficio'::app_role)
+      OR public.has_role(auth.uid(), 'contabilita'::app_role)
+      OR public.has_role(auth.uid(), 'backoffice'::app_role)
+      OR public.has_role(auth.uid(), 'cfo'::app_role)
+    )
+  );
+
+DROP POLICY IF EXISTS "Staff read documenti_generali" ON storage.objects;
+CREATE POLICY "Staff read documenti_generali" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'documenti_generali'
+    AND (
+      public.has_role(auth.uid(), 'admin'::app_role)
+      OR public.has_role(auth.uid(), 'ufficio'::app_role)
+      OR public.has_role(auth.uid(), 'contabilita'::app_role)
+      OR public.has_role(auth.uid(), 'backoffice'::app_role)
+      OR public.has_role(auth.uid(), 'cfo'::app_role)
+    )
+  );
+
+-- documenti: INSERT/SELECT per ruoli contabilità operativi
+DROP POLICY IF EXISTS "Contabilita insert documenti" ON public.documenti;
+CREATE POLICY "Contabilita insert documenti" ON public.documenti
+  FOR INSERT TO authenticated
+  WITH CHECK (public.has_role(auth.uid(), 'contabilita'::app_role));
+
+DROP POLICY IF EXISTS "Backoffice insert documenti" ON public.documenti;
+CREATE POLICY "Backoffice insert documenti" ON public.documenti
+  FOR INSERT TO authenticated
+  WITH CHECK (public.has_role(auth.uid(), 'backoffice'::app_role));
+
+DROP POLICY IF EXISTS "Contabilita select documenti" ON public.documenti;
+CREATE POLICY "Contabilita select documenti" ON public.documenti
+  FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'contabilita'::app_role));
+
+DROP POLICY IF EXISTS "Backoffice select documenti" ON public.documenti;
+CREATE POLICY "Backoffice select documenti" ON public.documenti
+  FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'backoffice'::app_role));

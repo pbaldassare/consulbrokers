@@ -1197,6 +1197,18 @@ const ImmissionePolizzaPage = () => {
   const totFirma = premioNettoNum + accessoriFirmaNum + tasseNum + ssnFirmaNum;
   const totQuietanza = premioNettoQNum + accessoriQuietanzaNum + tasseQNum + ssnQuietanzaNum;
 
+  const quietanzePlanPreview = polizzaRateo && !polizzaTemporanea
+    ? computeQuietanzePlan({
+        polizzaRateo: true,
+        frazionamento,
+        anniDurata: parseInt(anniDurata) || 1,
+        garanziaDa,
+        garanziaA,
+        durataA,
+        dataCompetenza,
+      })
+    : [];
+
   const [provvMatrice, setProvvMatrice] = useState<MatriceProvvAccessori | null>(null);
   // Rapporto effettivo per matrice provvigioni: per monomandatarie deriva dalla coppia (compagnia, gruppo madre)
   const [resolvedRapportoId, setResolvedRapportoId] = useState<string | null>(null);
@@ -1437,7 +1449,14 @@ const ImmissionePolizzaPage = () => {
       return;
     }
     if (polizzaRateo) {
-      const synced = syncPeriodoRateo({ garanziaDa });
+      const synced = syncPeriodoRateo({
+        garanziaDa,
+        durataDa,
+        durataATouched,
+        anniDurata: Math.max(1, parseInt(anniDurata) || 1),
+      });
+      if (!garanziaDaTouched && synced.garanzia_da) setGaranziaDa(synced.garanzia_da);
+      if (!durataATouched && synced.durata_a) setDurataA(synced.durata_a);
       if (!dataCompetenzaTouched) setDataCompetenza(synced.data_competenza);
       if (!limiteMoraTouched && synced.data_competenza) {
         const gg = parseInt(moraGiorni || "0") || 0;
@@ -1463,7 +1482,7 @@ const ImmissionePolizzaPage = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [durataDa, durataA, anniDurata, frazionamento, polizzaTemporanea, polizzaRateo, garanziaDa]);
+  }, [durataDa, durataA, durataATouched, anniDurata, frazionamento, polizzaTemporanea, polizzaRateo, garanziaDa, garanziaDaTouched]);
 
   // --- Handlers ---
 
@@ -1512,6 +1531,30 @@ const ImmissionePolizzaPage = () => {
       }
       if (garanziaDa > garanziaA) {
         toast.error("Garanzia Da non può essere successiva a Garanzia A");
+        return;
+      }
+    }
+    if (polizzaRateo) {
+      if (!garanziaDa || !garanziaA || !durataA) {
+        toast.error("Per polizza rateo indica Garanzia Da/A (fine rateo) e Durata A del contratto");
+        return;
+      }
+      if (garanziaDa > garanziaA) {
+        toast.error("Garanzia Da non può essere successiva a Garanzia A (fine fase rateo)");
+        return;
+      }
+      const rateoPlan = computeQuietanzePlan({
+        polizzaRateo: true,
+        frazionamento,
+        anniDurata: parseInt(anniDurata) || 1,
+        garanziaDa,
+        garanziaA,
+        durataA,
+      });
+      if (rateoPlan.length > 1 && durataA <= garanziaA) {
+        toast.error(
+          "Durata A deve essere successiva alla fine del rateo (Garanzia A) per generare le rate annuali",
+        );
         return;
       }
     }
@@ -1653,8 +1696,8 @@ const ImmissionePolizzaPage = () => {
           ? (regolazioneNote || "Regolazione premio")
           : (cigRif ? `CIG: ${cigRif}` : descrizionePolizza || null),
         valuta,
-        premio: totFirma || 0,
-        provvigioni: provvFirma || 0,
+        premio: polizzaRateo && !regolazioneMode ? 0 : (totFirma || 0),
+        provvigioni: polizzaRateo && !regolazioneMode ? 0 : (provvFirma || 0),
         tipo: regolazioneMode ? "Regolazione Premio" : "Polizza Base",
         incassato: false,
         stato: "attivo",
@@ -1760,6 +1803,17 @@ const ImmissionePolizzaPage = () => {
       ];
       if (premiPayload.length > 0) {
         await supabase.from("premi_garanzia_polizza").insert(premiPayload);
+      }
+
+      // Rateo: premi su madre servono al trigger; copia su quietanze dopo insert righe garanzia
+      if (polizzaRateo && !regolazioneMode) {
+        const { error: cloneErr } = await supabase.rpc("clone_premi_rateo_su_quietanze", {
+          p_madre_id: newTitolo.id,
+        });
+        if (cloneErr) {
+          console.error("Clone premi rateo su quietanze:", cloneErr);
+          toast.warning("Polizza creata ma copia premi sulle quietanze non riuscita");
+        }
       }
 
       // Le quietanze sono generate automaticamente dal trigger DB
@@ -2595,6 +2649,24 @@ const ImmissionePolizzaPage = () => {
           </div>
         </div>
 
+        {polizzaRateo && quietanzePlanPreview.length > 0 && (
+          <div className="mt-3 rounded-md border border-violet-200 bg-violet-50/50 dark:bg-violet-950/20 p-3 space-y-2">
+            <p className="text-xs font-medium text-violet-900 dark:text-violet-100">
+              Anteprima quietanze ({quietanzePlanPreview.length}): rateo + rate annuali
+            </p>
+            <div className="grid gap-1">
+              {quietanzePlanPreview.map((row) => (
+                <div key={row.idx} className="text-[11px] text-violet-800 dark:text-violet-200 font-mono">
+                  Rata {row.idx}
+                  {row.idx === 1 ? " (rateo — premio firma)" : " (rata annua — premio quietanza)"}
+                  {": "}
+                  {row.garanzia_da} → {row.garanzia_a}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
       </PolizzaSection>
 
       {/* QUIETANZE: generate automaticamente dal trigger DB
@@ -2695,6 +2767,7 @@ const ImmissionePolizzaPage = () => {
               <>
                 <PremiGaranziaCardShell
                   tipoPremio="firma"
+                  titoloOverride={polizzaRateo ? "Premio rateo" : undefined}
                   gruppoRamoId={selectedGruppoRamoId}
                   defaultSottoramoId={defaultSottoramoId}
 
@@ -2726,6 +2799,7 @@ const ImmissionePolizzaPage = () => {
                 />
                 <PremiGaranziaCardShell
                   tipoPremio="quietanza"
+                  titoloOverride={polizzaRateo ? "Premio rata annua" : undefined}
                   gruppoRamoId={selectedGruppoRamoId}
                   defaultSottoramoId={defaultSottoramoId}
 

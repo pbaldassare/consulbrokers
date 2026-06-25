@@ -29,6 +29,8 @@ interface SearchableSelectProps {
   clearLabel?: string;
   /** Disabilita il filtro client di cmdk: usa quando le `options` sono già filtrate dal server. */
   serverSideSearch?: boolean;
+  /** Boundary per collision detection Radix (default: document.body). */
+  popoverCollisionBoundary?: Element | "clippingAncestors";
 }
 
 export function SearchableSelect({
@@ -45,8 +47,13 @@ export function SearchableSelect({
   clearable = false,
   clearLabel = "— Nessuno —",
   serverSideSearch = false,
+  popoverCollisionBoundary,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
+
+  const collisionBoundary =
+    popoverCollisionBoundary ??
+    (typeof document !== "undefined" ? document.body : undefined);
 
   const selectedLabel = options.find((o) => o.value === value)?.label;
   const trimmedSearch = (searchValue ?? "").trim();
@@ -69,7 +76,13 @@ export function SearchableSelect({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        align="start"
+        side="bottom"
+        collisionBoundary={collisionBoundary}
+        collisionPadding={12}
+      >
         <Command shouldFilter={!serverSideSearch}>
           <CommandInput
             placeholder={searchPlaceholder}

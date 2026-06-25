@@ -52,11 +52,11 @@ export function PolizzaSection({
   if (isStatic) {
     return (
       <div className={cn(
-        "rounded-lg border border-border border-l-4 border-l-teal-600 bg-card shadow-sm overflow-hidden",
+        "rounded-lg border border-border border-l-4 border-l-teal-600 bg-card shadow-sm",
         className,
       )}>
-        {Header}
-        <div className="p-4">{children}</div>
+        <div className="overflow-hidden rounded-t-lg">{Header}</div>
+        <div className="p-4 overflow-visible">{children}</div>
       </div>
     );
   }
@@ -64,16 +64,18 @@ export function PolizzaSection({
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className={cn(
-        "rounded-lg border border-border border-l-4 border-l-teal-600 bg-card shadow-sm overflow-hidden",
+        "rounded-lg border border-border border-l-4 border-l-teal-600 bg-card shadow-sm",
         className,
       )}>
-        <CollapsibleTrigger asChild>
-          <button className="w-full text-left hover:bg-teal-100/60 dark:hover:bg-teal-900/30 transition-colors">
-            {Header}
-          </button>
-        </CollapsibleTrigger>
+        <div className="overflow-hidden rounded-t-lg">
+          <CollapsibleTrigger asChild>
+            <button className="w-full text-left hover:bg-teal-100/60 dark:hover:bg-teal-900/30 transition-colors">
+              {Header}
+            </button>
+          </CollapsibleTrigger>
+        </div>
         <CollapsibleContent>
-          <div className="p-4">{children}</div>
+          <div className="p-4 overflow-visible">{children}</div>
         </CollapsibleContent>
       </div>
     </Collapsible>
