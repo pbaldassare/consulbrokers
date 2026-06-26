@@ -33,7 +33,7 @@ const PortafoglioAttivePage = () => {
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
-  const [filtroTipo, setFiltroTipo] = useState<"polizze" | "quietanze" | "regolazioni">("quietanze");
+  const [filtroTipo, setFiltroTipo] = useState<"polizze" | "quietanze" | "regolazioni" | "garantiti">("quietanze");
 
   const today = format(new Date(), "yyyy-MM-dd");
   const inizioMese = format(startOfMonth(new Date()), "yyyy-MM-dd");
