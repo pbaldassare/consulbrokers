@@ -126,11 +126,11 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<SinistroPraticaValues>({
     resolver: zodResolver(sinistroPraticaSchema),
-    defaultValues: sinistroRowToPraticaValues(sinistro as Record<string, unknown>),
+    defaultValues: sinistroRowToPraticaValues(sinistro as unknown as Record<string, unknown>),
   });
 
   useEffect(() => {
-    reset(sinistroRowToPraticaValues(sinistro as Record<string, unknown>));
+    reset(sinistroRowToPraticaValues(sinistro as unknown as Record<string, unknown>));
     setEditing(false);
   }, [sinistro, reset]);
 
@@ -206,7 +206,7 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
               variant="ghost"
               size="sm"
               onClick={() => {
-                reset(sinistroRowToPraticaValues(sinistro as Record<string, unknown>));
+                reset(sinistroRowToPraticaValues(sinistro as unknown as Record<string, unknown>));
                 setEditing(false);
               }}
             >
