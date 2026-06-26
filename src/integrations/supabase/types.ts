@@ -1550,7 +1550,10 @@ export type Database = {
           forma_giuridica: string | null
           gruppo_finanziario_id: string | null
           gruppo_statistico: string | null
+          ha_incarico: boolean
           id: string
+          incarico_a: string | null
+          incarico_da: string | null
           indirizzo_alternativo: string | null
           indirizzo_fiscale: string | null
           indirizzo_residenza: string | null
@@ -1638,7 +1641,10 @@ export type Database = {
           forma_giuridica?: string | null
           gruppo_finanziario_id?: string | null
           gruppo_statistico?: string | null
+          ha_incarico?: boolean
           id?: string
+          incarico_a?: string | null
+          incarico_da?: string | null
           indirizzo_alternativo?: string | null
           indirizzo_fiscale?: string | null
           indirizzo_residenza?: string | null
@@ -1726,7 +1732,10 @@ export type Database = {
           forma_giuridica?: string | null
           gruppo_finanziario_id?: string | null
           gruppo_statistico?: string | null
+          ha_incarico?: boolean
           id?: string
+          incarico_a?: string | null
+          incarico_da?: string | null
           indirizzo_alternativo?: string | null
           indirizzo_fiscale?: string | null
           indirizzo_residenza?: string | null
@@ -1889,6 +1898,7 @@ export type Database = {
           created_at: string | null
           data_acquisito: string | null
           data_disdetta: string | null
+          escludi_provvigioni: boolean
           filiale: string | null
           id: string
           mandato: string | null
@@ -1909,6 +1919,7 @@ export type Database = {
           created_at?: string | null
           data_acquisito?: string | null
           data_disdetta?: string | null
+          escludi_provvigioni?: boolean
           filiale?: string | null
           id?: string
           mandato?: string | null
@@ -1929,6 +1940,7 @@ export type Database = {
           created_at?: string | null
           data_acquisito?: string | null
           data_disdetta?: string | null
+          escludi_provvigioni?: boolean
           filiale?: string | null
           id?: string
           mandato?: string | null
@@ -10543,7 +10555,10 @@ export type Database = {
       }
       ai_user_briefing: { Args: never; Returns: Json }
       annulla_polizza_cascade: { Args: { p_titolo_id: string }; Returns: Json }
-      annulla_quietanza_incasso: { Args: { p_titolo_id: string }; Returns: Json }
+      annulla_quietanza_incasso: {
+        Args: { p_titolo_id: string }
+        Returns: Json
+      }
       archivia_notifiche_vecchie: { Args: never; Returns: Json }
       cfo_distribuzione_clienti_fascia: {
         Args: { _data_a?: string; _data_da?: string }
@@ -10739,6 +10754,10 @@ export type Database = {
         Args: { _cliente_id: string }
         Returns: boolean
       }
+      clone_premi_rateo_su_quietanze: {
+        Args: { p_madre_id: string }
+        Returns: undefined
+      }
       count_polizze_per_cliente: {
         Args: never
         Returns: {
@@ -10881,6 +10900,20 @@ export type Database = {
         }[]
       }
       run_data_quality_checks: { Args: never; Returns: Json }
+      save_conti_bancari_uffici: {
+        Args: { p_conto_id: string; p_ufficio_ids: string[] }
+        Returns: undefined
+      }
+      segna_ec_produttore_pagato: {
+        Args: {
+          p_anagrafica_id: string
+          p_documento_id?: string
+          p_note?: string
+          p_periodo_a: string
+          p_periodo_da: string
+        }
+        Returns: Json
+      }
       segna_eventi_sinistri_scaduti: { Args: never; Returns: Json }
       sync_quietanza_da_firma: {
         Args: { p_titolo_id: string }
