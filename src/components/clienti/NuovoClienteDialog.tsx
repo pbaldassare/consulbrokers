@@ -23,6 +23,8 @@ import { lookupComune } from "@/lib/comuniItaliani";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { validatePIVA } from "@/lib/validatePIVA";
 import { validateCF } from "@/lib/validateCF";
+import { DatePicker } from "@/components/contabilita/DatePicker";
+import { format } from "date-fns";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -188,6 +190,9 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const [nazione, setNazione] = useState("");
   const [attenzioneDi, setAttenzioneDi] = useState("");
   const [note, setNote] = useState("");
+  const [haIncarico, setHaIncarico] = useState(false);
+  const [incaricoDa, setIncaricoDa] = useState<Date | null>(null);
+  const [incaricoA, setIncaricoA] = useState<Date | null>(null);
 
   const [indirizzoAlternativo, setIndirizzoAlternativo] = useState("");
   const [capAlternativo, setCapAlternativo] = useState("");
@@ -222,7 +227,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const [ae, setAe] = useState<CommercialRole>(emptyRole());
   const [backofficeRole, setBackofficeRole] = useState<CommercialRole>(emptyRole());
   const [produttoreSede, setProduttoreSede] = useState<CommercialRole>(emptyRole());
-  
+  const [maturaProvvigioni, setMaturaProvvigioni] = useState(true);
+
   const [ufficioClienteId, setUfficioClienteId] = useState<string>("");
 
   const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
@@ -411,6 +417,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         cliente_id: clienteId,
         anagrafica_id: produttoreSede.anagrafica_id,
         ruolo: "Produttore Sede",
+        escludi_provvigioni: !maturaProvvigioni,
       });
     }
 
@@ -466,6 +473,9 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         }
       }
       if (fiscalErrors.length > 0) throw new Error(fiscalErrors.join(" • "));
+      if (haIncarico && incaricoDa && incaricoA && incaricoA < incaricoDa) {
+        throw new Error("La data fine incarico non può essere precedente alla data inizio");
+      }
 
       const payload: Record<string, unknown> = {
         tipo_cliente: tipoCliente,
@@ -520,6 +530,9 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         gruppo_statistico: gruppoStatistico || null,
         fido_credito: fidoCredito ? parseFloat(fidoCredito) : null,
         fido_cauzioni: fidoCauzioni ? parseFloat(fidoCauzioni) : null,
+        ha_incarico: haIncarico,
+        incarico_da: haIncarico && incaricoDa ? format(incaricoDa, "yyyy-MM-dd") : null,
+        incarico_a: haIncarico && incaricoA ? format(incaricoA, "yyyy-MM-dd") : null,
       };
       if (tipoCliente === "privato") {
         payload.nome = nome || null;
@@ -580,12 +593,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
     setGruppoFinanziarioId("");
     setAe(emptyRole()); setBackofficeRole(emptyRole()); setProduttoreSede(emptyRole());
+    setMaturaProvvigioni(true);
     setUfficioClienteId("");
     setCodiceRicerca(""); setTitolo(""); setStatoCliente(""); setProspect("");
     setTipoPersona(""); setSesso(""); setComuneNascita(""); setProvinciaNascita("");
     setTipoSommario(""); setClienteNonCeduto(false); setAziendaSsnSx(false);
     setStatisticaPremiSinistri(false); setSpecSxDanni(""); setSpecSxSanita("");
     setCellulare(""); setFax(""); setNazione(""); setAttenzioneDi(""); setNote("");
+    setHaIncarico(false); setIncaricoDa(null); setIncaricoA(null);
     setIndirizzoAlternativo(""); setCapAlternativo(""); setCittaAlternativa(""); setProvinciaAlternativa("");
     setIndirizzoFiscale(""); setCapFiscale(""); setCittaFiscale(""); setProvinciaFiscale("");
     setZona(""); setIndotto(""); setAttivita(""); setSettore("");
@@ -836,6 +851,38 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
             </>
           )}
 
+          <div className="border-t pt-4 space-y-3">
+            <p className="text-sm font-medium text-muted-foreground">Incarico</p>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={haIncarico}
+                onCheckedChange={(v) => {
+                  setHaIncarico(v);
+                  if (!v) {
+                    setIncaricoDa(null);
+                    setIncaricoA(null);
+                  }
+                }}
+              />
+              <Label>Ha incarico</Label>
+            </div>
+            {haIncarico && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Data inizio incarico</Label>
+                  <DatePicker value={incaricoDa} onChange={setIncaricoDa} placeholder="Seleziona data..." />
+                </div>
+                <div>
+                  <Label>Data fine incarico</Label>
+                  <DatePicker value={incaricoA} onChange={setIncaricoA} placeholder="Seleziona data..." />
+                </div>
+              </div>
+            )}
+            {haIncarico && incaricoDa && incaricoA && incaricoA < incaricoDa && (
+              <p className="text-xs text-amber-600">La data fine incarico è precedente alla data inizio.</p>
+            )}
+          </div>
+
           <Accordion type="multiple" className="w-full border-t pt-4">
             <AccordionItem value="gestionali">
               <AccordionTrigger className="text-sm font-medium">Dati Gestionali</AccordionTrigger>
@@ -1019,13 +1066,21 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                   <Label className="text-xs">Produttore</Label>
                   <SearchableSelect
                     value={produttoreSede.anagrafica_id}
-                    onValueChange={(v) => updateRole(setProduttoreSede, "anagrafica_id", v)}
+                    onValueChange={(v) => {
+                      updateRole(setProduttoreSede, "anagrafica_id", v);
+                      if (!v) setMaturaProvvigioni(true);
+                    }}
                     placeholder="Seleziona Produttore..."
                     options={produttoriOpts}
                   />
                 </div>
               </div>
-
+              {produttoreSede.anagrafica_id && (
+                <div className="flex items-center gap-2 mt-3">
+                  <Switch checked={maturaProvvigioni} onCheckedChange={setMaturaProvvigioni} />
+                  <Label className="text-xs">Matura provvigioni su questo cliente</Label>
+                </div>
+              )}
             </div>
           </div>
           </>

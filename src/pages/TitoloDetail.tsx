@@ -1378,18 +1378,24 @@ const TitoloDetail = () => {
       const updatePayload: any = { stato: nuovoStato, updated_at: new Date().toISOString() };
       if (nuovoStato === "incassato" && cassaData) {
         updatePayload.data_messa_cassa = cassaData.dataMessaCassa;
-        updatePayload.data_pagamento = cassaData.dataPagamento;
         updatePayload.data_decorrenza_rinnovo = cassaData.dataDecorrenza;
-        updatePayload.tipo_pagamento = cassaData.tipoPagamento;
-        if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
-          const { data: conto } = await (supabase.from("conti_bancari") as any)
-            .select("etichetta, banca").eq("id", cassaData.banca).maybeSingle();
-          updatePayload.banca_pagamento = conto?.etichetta || conto?.banca || cassaData.banca;
-        }
         if (isConferimento) {
+          updatePayload.data_pagamento = null;
+          updatePayload.tipo_pagamento = "garantito";
+          updatePayload.banca_pagamento = null;
+          updatePayload.data_incasso = cassaData.dataMessaCassa;
+          updatePayload.importo_incassato = 0;
           updatePayload.conferimento_gestito = true;
           updatePayload.fondi_ricevuti = false;
           updatePayload.data_conferimento_gestito = new Date().toISOString().slice(0, 10);
+        } else {
+          updatePayload.data_pagamento = cassaData.dataPagamento || null;
+          updatePayload.tipo_pagamento = cassaData.tipoPagamento || null;
+          if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
+            const { data: conto } = await (supabase.from("conti_bancari") as any)
+              .select("etichetta, banca").eq("id", cassaData.banca).maybeSingle();
+            updatePayload.banca_pagamento = conto?.etichetta || conto?.banca || cassaData.banca;
+          }
         }
       } else if ((nuovoStato === "attivo" || nuovoStato === "annullato") && vecchioStato === "incassato") {
         // Reset dei campi messa a cassa quando si esce dallo stato 'incassato'
@@ -1435,13 +1441,13 @@ const TitoloDetail = () => {
           quietanzaGenerata = { id: succ.id, data_decorrenza: succ.durata_da, data_scadenza: succ.data_scadenza };
         }
       }
-      return { quietanzaGenerata };
+      return { quietanzaGenerata, isConferimento: !!isConferimento };
     },
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
-      toast.success("Stato aggiornato");
+      toast.success(res?.isConferimento ? "Polizza garantita" : "Stato aggiornato");
       if (res?.quietanzaGenerata) {
         const d = res.quietanzaGenerata.data_decorrenza
           ? new Date(res.quietanzaGenerata.data_decorrenza).toLocaleDateString("it-IT")
@@ -1461,7 +1467,7 @@ const TitoloDetail = () => {
       setCassaDialogOpen(false);
       setConferimentoDialogOpen(false);
     },
-    onError: (err: any) => toast.error("Errore"),
+    onError: (err: any) => toast.error(err?.message || "Errore aggiornamento stato"),
   });
 
   const segnaFondiRicevutiMutation = useMutation({

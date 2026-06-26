@@ -316,6 +316,7 @@ const ImmissionePolizzaPage = () => {
   const [selectedClienteId, setSelectedClienteId] = useState(() => preselectedClienteId || "");
   const [selectedUfficioId, setSelectedUfficioId] = useState("");
   const [selectedBackofficeId, setSelectedBackofficeId] = useState("");
+  const [produttoreEscludiProvvigioni, setProduttoreEscludiProvvigioni] = useState(false);
 
   // Form state — Polizza
   const [numeroPolizza, setNumeroPolizza] = useState("");
@@ -738,7 +739,7 @@ const ImmissionePolizzaPage = () => {
       if (!selectedClienteId) return [];
       const { data } = await supabase
         .from("codici_commerciali_cliente")
-        .select("profilo_id, anagrafica_id, ruolo, profiles:profilo_id(id, nome, cognome)")
+        .select("profilo_id, anagrafica_id, ruolo, escludi_provvigioni, profiles:profilo_id(id, nome, cognome)")
         .eq("cliente_id", selectedClienteId)
         .in("ruolo", ["account_executive", "AE", "Backoffice", "Produttore Sede"]);
       return data || [];
@@ -1005,6 +1006,7 @@ const ImmissionePolizzaPage = () => {
     // Produttore: prima anagrafica_id, poi fallback per nome verso aeList (anagrafiche corrispondenti)
     if (prod?.anagrafica_id) {
       setSelectedAE(prod.anagrafica_id as string);
+      setProduttoreEscludiProvvigioni(prod.escludi_provvigioni === true);
     } else if (prod && Array.isArray(aeList) && aeList.length > 0 && !selectedAE) {
       const prodProfile: any = prod.profiles;
       if (prodProfile) {
@@ -1017,6 +1019,9 @@ const ImmissionePolizzaPage = () => {
           if (match?.id) setSelectedAE(match.id as string);
         }
       }
+      setProduttoreEscludiProvvigioni(prod.escludi_provvigioni === true);
+    } else if (!prod) {
+      setProduttoreEscludiProvvigioni(false);
     }
   }, [clienteAE, aeList, aeAnagraficheList]);
 
@@ -1259,6 +1264,11 @@ const ImmissionePolizzaPage = () => {
   // Sorgente: produttori_provvigioni_ramo (anagrafica_id + ramo_codice) → fallback anagrafiche_professionali.percentuale_base
   useEffect(() => {
     if (!selectedAE) return;
+    if (produttoreEscludiProvvigioni) {
+      setPercentualeCommerciale("0");
+      setPercentualeCommercialeAuto(false);
+      return;
+    }
     const ramoCodice = selectedRamoData?.codice;
     let cancelled = false;
     (async () => {
@@ -1305,7 +1315,7 @@ const ImmissionePolizzaPage = () => {
       } catch { /* silent */ }
     })();
     return () => { cancelled = true; };
-  }, [selectedAE, selectedRamoData?.codice]);
+  }, [selectedAE, selectedRamoData?.codice, produttoreEscludiProvvigioni]);
 
   // --- Matrice Provvigioni (Rapporto + Gruppo Ramo) caricata una sola volta ---
   useEffect(() => {
@@ -1615,7 +1625,9 @@ const ImmissionePolizzaPage = () => {
         provvigioni_firma: provvFirma || null,
         
         commerciale_id: selectedCommerciale === "__sede__" ? null : selectedCommerciale,
-        percentuale_commerciale: parseFloat(percentualeCommerciale) || 100,
+        percentuale_commerciale: produttoreEscludiProvvigioni
+          ? 0
+          : (parseFloat(percentualeCommerciale) || 100),
         percentuale_ae: parseFloat(percentualeAE) || 0,
         garanzia_da: garanziaDa || null,
         garanzia_a: garanziaA || null,
@@ -2858,6 +2870,11 @@ const ImmissionePolizzaPage = () => {
 
       {/* PROVVIGIONI — solo selezione Commerciale (% Agenzia, totale e ripartizione sono nelle card Firma/Quietanza) */}
       <PolizzaSection title="Provvigioni — Commerciale" icon={Percent}>
+        {produttoreEscludiProvvigioni && selectedAE && (
+          <div className="mb-3 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-700/40">
+            Il produttore assegnato a questo cliente è configurato <strong>senza provvigioni</strong>: la % Produttore sarà 0; l&apos;Account Executive mantiene la propria quota.
+          </div>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div className="space-y-1.5 col-span-2">
             <Label className="text-xs">Commerciale</Label>
@@ -2890,7 +2907,7 @@ const ImmissionePolizzaPage = () => {
               type="number" step="1" min="0" max="100"
               value={percentualeCommerciale}
               onChange={(e) => { setPercentualeCommerciale(e.target.value); setPercentualeCommercialeAuto(false); }}
-              disabled={selectedCommerciale === "__sede__"}
+              disabled={selectedCommerciale === "__sede__" || produttoreEscludiProvvigioni}
               className="h-8 text-xs font-mono"
             />
           </div>

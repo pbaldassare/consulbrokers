@@ -21,7 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, Sparkles } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, Sparkles, Briefcase } from "lucide-react";
+import { format } from "date-fns";
 import { groupTitoliByPolizza } from "@/lib/quietanze";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -74,6 +75,9 @@ function useAnagraficaForm() {
 }
 
 const RequiredMark = () => <span className="text-destructive ml-0.5">*</span>;
+
+const formatIncaricoDate = (value: string | null | undefined) =>
+  value ? format(new Date(`${value}T00:00:00`), "dd/MM/yyyy") : "—";
 
 function FieldDisplay({ label, value }: { label: string; value: any }) {
   return (
@@ -207,6 +211,59 @@ function FieldSwitch({ label, field }: { label: string; field: string }) {
     <div className="flex items-center gap-2">
       <Switch checked={!!ef[field]} onCheckedChange={(v) => updateField(field, v)} disabled={readOnly} />
       <Label className="text-xs">{label}</Label>
+    </div>
+  );
+}
+
+function FieldIncarico() {
+  const { ef, readOnly, updateField } = useAnagraficaForm();
+  const dateWarning =
+    ef.ha_incarico && ef.incarico_da && ef.incarico_a && ef.incarico_a < ef.incarico_da
+      ? "La data fine incarico è precedente alla data inizio."
+      : null;
+
+  return (
+    <div className="col-span-2 md:col-span-3 border-t pt-4 mt-2">
+      <p className="text-xs font-semibold text-muted-foreground mb-3">Incarico</p>
+      <div className="flex items-center gap-2 mb-3">
+        <Switch
+          checked={!!ef.ha_incarico}
+          onCheckedChange={(v) => updateField("ha_incarico", v)}
+          disabled={readOnly}
+        />
+        <Label className="text-xs">Ha incarico</Label>
+      </div>
+      {ef.ha_incarico && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <Label className="text-xs">Data inizio incarico</Label>
+            {readOnly ? (
+              <p className="text-sm mt-1">{formatIncaricoDate(ef.incarico_da)}</p>
+            ) : (
+              <Input
+                className="h-8 text-xs"
+                type="date"
+                value={ef.incarico_da || ""}
+                onChange={(e) => updateField("incarico_da", e.target.value || null)}
+              />
+            )}
+          </div>
+          <div>
+            <Label className="text-xs">Data fine incarico</Label>
+            {readOnly ? (
+              <p className="text-sm mt-1">{formatIncaricoDate(ef.incarico_a)}</p>
+            ) : (
+              <Input
+                className="h-8 text-xs"
+                type="date"
+                value={ef.incarico_a || ""}
+                onChange={(e) => updateField("incarico_a", e.target.value || null)}
+              />
+            )}
+          </div>
+        </div>
+      )}
+      {dateWarning && <p className="text-xs text-amber-600 mt-2">{dateWarning}</p>}
     </div>
   );
 }
@@ -406,7 +463,7 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("codici_commerciali_cliente")
-        .select("id, ruolo, profilo_id, anagrafica_id")
+        .select("id, ruolo, profilo_id, anagrafica_id, escludi_provvigioni")
         .eq("cliente_id", clienteId)
         .in("ruolo", ["AE", "Produttore Sede"]);
       if (error) throw error;
@@ -428,7 +485,15 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
   });
 
   const upsertMutation = useMutation({
-    mutationFn: async ({ ruolo, anagrafica_id }: { ruolo: string; anagrafica_id: string | null }) => {
+    mutationFn: async ({
+      ruolo,
+      anagrafica_id,
+      escludi_provvigioni,
+    }: {
+      ruolo: string;
+      anagrafica_id: string | null;
+      escludi_provvigioni?: boolean;
+    }) => {
       if (!anagrafica_id) {
         const { error } = await supabase.from("codici_commerciali_cliente")
           .delete()
@@ -437,11 +502,17 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
         if (error) throw error;
         return;
       }
+      const payload: Record<string, unknown> = {
+        cliente_id: clienteId,
+        ruolo,
+        anagrafica_id,
+        profilo_id: null,
+      };
+      if (ruolo === "Produttore Sede") {
+        payload.escludi_provvigioni = escludi_provvigioni ?? false;
+      }
       const { error } = await supabase.from("codici_commerciali_cliente")
-        .upsert(
-          { cliente_id: clienteId, ruolo, anagrafica_id, profilo_id: null },
-          { onConflict: "cliente_id,ruolo" },
-        );
+        .upsert(payload as any, { onConflict: "cliente_id,ruolo" });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -453,6 +524,9 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
 
   const getAnagraficaByRuolo = (ruolo: string) =>
     codici.find((c: any) => c.ruolo === ruolo)?.anagrafica_id || "";
+
+  const produttoreEscludiProvvigioni =
+    codici.find((c: any) => c.ruolo === "Produttore Sede")?.escludi_provvigioni === true;
 
   const buildOptions = (tipo: string) =>
     anagraficheAll
@@ -476,10 +550,31 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
           <SearchableSelect
             className="h-8 text-xs"
             value={getAnagraficaByRuolo(r.value)}
-            onValueChange={(v) => upsertMutation.mutate({ ruolo: r.value, anagrafica_id: v || null })}
+            onValueChange={(v) =>
+              upsertMutation.mutate({
+                ruolo: r.value,
+                anagrafica_id: v || null,
+                ...(r.value === "Produttore Sede" && v ? { escludi_provvigioni: false } : {}),
+              })
+            }
             placeholder={`— Seleziona ${r.label} —`}
             options={buildOptions(r.tipo)}
           />
+          {r.value === "Produttore Sede" && getAnagraficaByRuolo(r.value) && (
+            <div className="flex items-center gap-2 mt-2">
+              <Switch
+                checked={!produttoreEscludiProvvigioni}
+                onCheckedChange={(checked) =>
+                  upsertMutation.mutate({
+                    ruolo: "Produttore Sede",
+                    anagrafica_id: getAnagraficaByRuolo("Produttore Sede"),
+                    escludi_provvigioni: !checked,
+                  })
+                }
+              />
+              <Label className="text-xs">Matura provvigioni su questo cliente</Label>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -1521,7 +1616,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       if (!id) return [];
       const { data } = await supabase.from("codici_commerciali_cliente")
-        .select("ruolo, anagrafica_id")
+        .select("ruolo, anagrafica_id, escludi_provvigioni")
         .eq("cliente_id", id)
         .in("ruolo", ["AE", "Produttore Sede"]);
       return data || [];
@@ -1542,7 +1637,15 @@ export default function ClienteDetail() {
   });
 
   const upsertCodiceCommercialeMutation = useMutation({
-    mutationFn: async ({ ruolo, anagrafica_id }: { ruolo: string; anagrafica_id: string | null }) => {
+    mutationFn: async ({
+      ruolo,
+      anagrafica_id,
+      escludi_provvigioni,
+    }: {
+      ruolo: string;
+      anagrafica_id: string | null;
+      escludi_provvigioni?: boolean;
+    }) => {
       if (!id) return;
       if (!anagrafica_id) {
         const { error } = await supabase.from("codici_commerciali_cliente")
@@ -1552,11 +1655,17 @@ export default function ClienteDetail() {
         if (error) throw error;
         return;
       }
+      const payload: Record<string, unknown> = {
+        cliente_id: id,
+        ruolo,
+        anagrafica_id,
+        profilo_id: null,
+      };
+      if (ruolo === "Produttore Sede") {
+        payload.escludi_provvigioni = escludi_provvigioni ?? false;
+      }
       const { error } = await supabase.from("codici_commerciali_cliente")
-        .upsert(
-          { cliente_id: id, ruolo, anagrafica_id, profilo_id: null },
-          { onConflict: "cliente_id,ruolo" }
-        );
+        .upsert(payload as any, { onConflict: "cliente_id,ruolo" });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1570,6 +1679,8 @@ export default function ClienteDetail() {
     codiciCommerciali.find((c) => c.ruolo === "AE")?.anagrafica_id || "";
   const produttoreAnagraficaId =
     codiciCommerciali.find((c) => c.ruolo === "Produttore Sede")?.anagrafica_id || "";
+  const produttoreEscludiProvvigioni =
+    codiciCommerciali.find((c) => c.ruolo === "Produttore Sede")?.escludi_provvigioni === true;
 
   const buildAnagraficaLabel = (a: any) => {
     const person = `${a.cognome || ""} ${a.nome || ""}`.trim();
@@ -1612,6 +1723,10 @@ export default function ClienteDetail() {
   const updateField = (field: string, value: any) => {
     setEditFields((prev) => {
       const next = { ...prev, [field]: value };
+      if (field === "ha_incarico" && !value) {
+        next.incarico_da = null;
+        next.incarico_a = null;
+      }
       // Deriva tipo_cliente automaticamente dal tipo_soggetto del gruppo finanziario
       if (field === "gruppo_finanziario_id") {
         const gf = gruppiFinanziari.find((g) => g.id === value);
@@ -1637,9 +1752,22 @@ export default function ClienteDetail() {
               { label: "Codice Fiscale Azienda", value: editFields.codice_fiscale_azienda, kind: "cf-azienda" },
             ]
       );
+      if (
+        editFields.ha_incarico &&
+        editFields.incarico_da &&
+        editFields.incarico_a &&
+        editFields.incarico_a < editFields.incarico_da
+      ) {
+        throw new Error("La data fine incarico non può essere precedente alla data inizio");
+      }
+      const payload = { ...editFields };
+      if (!payload.ha_incarico) {
+        payload.incarico_da = null;
+        payload.incarico_a = null;
+      }
       const {
         id: _id, created_at, updated_at, user_id, ...rest
-      } = editFields;
+      } = payload;
       const { error } = await supabase.from("clienti").update(rest).eq("id", id!);
       if (error) throw error;
     },
@@ -2045,6 +2173,18 @@ export default function ClienteDetail() {
             <TabsTrigger value="timeline">Log Attività</TabsTrigger>
             <TabsTrigger value="trattative"><FileText className="w-4 h-4 mr-1" />Trattative</TabsTrigger>
           </TabsList>
+          {ef.ha_incarico && (
+            <div
+              className="inline-flex items-center gap-1.5 min-h-9 px-3 py-1 rounded-md text-sm font-medium border border-input bg-background"
+              title="Incarico cliente"
+            >
+              <Briefcase className="w-4 h-4 text-primary shrink-0" />
+              <span>Incarico</span>
+              <span className="text-xs text-muted-foreground font-normal">
+                Inizio: {formatIncaricoDate(ef.incarico_da)} · Fine: {formatIncaricoDate(ef.incarico_a)}
+              </span>
+            </div>
+          )}
           <AnticipiChip clienteId={id!} />
           <AreaRiservataHeaderButton cliente={cliente} onUpdate={() => queryClient.invalidateQueries({ queryKey: ["cliente", id] })} />
         </div>
@@ -2299,24 +2439,49 @@ export default function ClienteDetail() {
                 <div>
                   <Label className="text-xs">Produttore</Label>
                   {readOnly ? (
-                    <p className="text-sm mt-1">
-                      {produttoreOptions.find((o) => o.value === produttoreAnagraficaId)?.label || "—"}
-                    </p>
+                    <div className="mt-1">
+                      <p className="text-sm">
+                        {produttoreOptions.find((o) => o.value === produttoreAnagraficaId)?.label || "—"}
+                      </p>
+                      {produttoreAnagraficaId && produttoreEscludiProvvigioni && (
+                        <Badge variant="outline" className="mt-1 text-amber-700 border-amber-500 bg-amber-50 dark:bg-amber-950/30">
+                          Produttore senza provvigioni
+                        </Badge>
+                      )}
+                    </div>
                   ) : (
-                    <SearchableSelect
-                      className="h-8 text-xs"
-                      value={produttoreAnagraficaId}
-                      onValueChange={(v) =>
-                        upsertCodiceCommercialeMutation.mutate({
-                          ruolo: "Produttore Sede",
-                          anagrafica_id: v || null,
-                        })
-                      }
-                      placeholder="— Nessuno —"
-                      clearable
-                      clearLabel="— Nessuno —"
-                      options={produttoreOptions}
-                    />
+                    <>
+                      <SearchableSelect
+                        className="h-8 text-xs"
+                        value={produttoreAnagraficaId}
+                        onValueChange={(v) =>
+                          upsertCodiceCommercialeMutation.mutate({
+                            ruolo: "Produttore Sede",
+                            anagrafica_id: v || null,
+                            ...(v ? { escludi_provvigioni: false } : {}),
+                          })
+                        }
+                        placeholder="— Nessuno —"
+                        clearable
+                        clearLabel="— Nessuno —"
+                        options={produttoreOptions}
+                      />
+                      {produttoreAnagraficaId && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Switch
+                            checked={!produttoreEscludiProvvigioni}
+                            onCheckedChange={(checked) =>
+                              upsertCodiceCommercialeMutation.mutate({
+                                ruolo: "Produttore Sede",
+                                anagrafica_id: produttoreAnagraficaId,
+                                escludi_provvigioni: !checked,
+                              })
+                            }
+                          />
+                          <Label className="text-xs">Matura provvigioni su questo cliente</Label>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -2438,6 +2603,7 @@ export default function ClienteDetail() {
                 <FieldInput label="PEC" field="pec" />
                 <FieldInput label="Nazione" field="nazione" />
                 <FieldInput label="Attenzione di" field="attenzione_di" />
+                <FieldIncarico />
               </div>
               {isPrivato && (
                 <div className="mt-4">
