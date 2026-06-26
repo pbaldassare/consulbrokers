@@ -30,7 +30,7 @@ interface SearchableSelectProps {
   /** Disabilita il filtro client di cmdk: usa quando le `options` sono già filtrate dal server. */
   serverSideSearch?: boolean;
   /** Boundary per collision detection Radix (default: document.body). */
-  popoverCollisionBoundary?: Element | "clippingAncestors";
+  popoverCollisionBoundary?: Element | Element[];
 }
 
 export function SearchableSelect({
