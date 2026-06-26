@@ -7973,6 +7973,7 @@ export type Database = {
           liquidatore_id: string | null
           luogo_sinistro: string | null
           medico_legale: string | null
+          note_interne: string | null
           note_perito: string | null
           numero_sinistro: string | null
           numero_sinistro_compagnia: string | null
@@ -8015,6 +8016,7 @@ export type Database = {
           liquidatore_id?: string | null
           luogo_sinistro?: string | null
           medico_legale?: string | null
+          note_interne?: string | null
           note_perito?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
@@ -8057,6 +8059,7 @@ export type Database = {
           liquidatore_id?: string | null
           luogo_sinistro?: string | null
           medico_legale?: string | null
+          note_interne?: string | null
           note_perito?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
