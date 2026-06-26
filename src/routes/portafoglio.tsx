@@ -1,5 +1,4 @@
 import { Route, Navigate } from "react-router-dom";
-import PlaceholderPage from "@/components/PlaceholderPage";
 import TitoliList from "@/pages/TitoliList";
 import TitoloDetail from "@/pages/TitoloDetail";
 import PolizzaDetail from "@/pages/PolizzaDetail";
@@ -26,7 +25,6 @@ import PortafoglioPerCompagniaPage from "@/pages/estrazioni/PortafoglioPerCompag
 import PremiProvvigioniPage from "@/pages/estrazioni/PremiProvvigioniPage";
 import PremiScopertiGarantitiPage from "@/pages/estrazioni/PremiScopertiGarantitiPage";
 import ECClientiPage from "@/pages/estrazioni/ECClientiPage";
-import { BookOpen } from "lucide-react";
 
 export const portafoglioRoutes = (
   <>
@@ -53,7 +51,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/estrazioni/premi-provvigioni" element={<PremiProvvigioniPage />} />
     <Route path="/portafoglio/estrazioni/premi-scoperti-garantiti" element={<PremiScopertiGarantitiPage />} />
     <Route path="/portafoglio/estrazioni/ec-clienti" element={<ECClientiPage />} />
-    <Route path="/portafoglio/collettive" element={<PlaceholderPage title="Collettive / Libri Matricola" description="Gestione polizze collettive e libri matricola" icon={BookOpen} />} />
+    <Route path="/portafoglio/collettive" element={<Navigate to="/portafoglio/attive" replace />} />
     <Route path="/portafoglio/documentale" element={<DocumentalePage />} />
     <Route path="/provvigioni-maturate" element={<ProvvigioniMaturatePage />} />
   </>

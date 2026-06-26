@@ -38,7 +38,6 @@ import {
   FilePlus,
   Clock,
   FileCheck,
-  BookOpen,
   Printer,
   CheckSquare,
   ListChecks,
@@ -147,7 +146,6 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Gestione Polizze", path: "/portafoglio/gestione", icon: Wand2 },
         
         { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer, hideForRoles: ["ufficio"] },
-        { label: "Collettive / Libri Matricola", path: "/portafoglio/collettive", icon: BookOpen },
       ],
     },
   },
@@ -192,7 +190,6 @@ const sidebarEntries: SidebarEntry[] = [
       icon: Calculator,
       permissionKey: "contabilita",
       children: [
-        { label: "Cruscotto del Giorno", path: "/contabilita/cruscotto", icon: LayoutDashboard, hideForRoles: ["ufficio"] },
         { label: "Incassi e Coperture", path: "/contabilita", icon: Landmark },
         
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },

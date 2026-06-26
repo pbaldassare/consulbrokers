@@ -1,7 +1,5 @@
 import { Route } from "react-router-dom";
-import PlaceholderPage from "@/components/PlaceholderPage";
 import ContabilitaUfficio from "@/pages/ContabilitaUfficio";
-import CruscottoGiornaliero from "@/pages/contabilita/CruscottoGiornaliero";
 import CaricamentoMovBancariPage from "@/pages/contabilita/CaricamentoMovBancariPage";
 import RicongiungimentoBancarioPage from "@/pages/contabilita/RicongiungimentoBancarioPage";
 
@@ -22,13 +20,12 @@ import RiepilogoAnticipiPage from "@/pages/contabilita/RiepilogoAnticipiPage";
 
 import ReportIVA from "@/pages/ReportIVA";
 import { Navigate } from "react-router-dom";
-import { Printer, ListChecks, FileOutput } from "lucide-react";
 
 export const contabilitaRoutes = (
   <>
     {/* CONTABILITÀ UFFICIO */}
     <Route path="/contabilita" element={<ContabilitaUfficio />} />
-    <Route path="/contabilita/cruscotto" element={<CruscottoGiornaliero />} />
+    <Route path="/contabilita/cruscotto" element={<Navigate to="/contabilita" replace />} />
     
     <Route path="/contabilita/ec-clienti" element={<ECClientiContabPage />} />
     <Route path="/contabilita/ec-compagnia" element={<ECCompagniaContabPage />} />

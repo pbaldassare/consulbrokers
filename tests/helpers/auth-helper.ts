@@ -177,7 +177,6 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Premi/Provvigioni', path: '/portafoglio/estrazioni/premi-provvigioni' },
   { label: 'Premi Scoperti/Garantiti', path: '/portafoglio/estrazioni/premi-scoperti-garantiti' },
   { label: 'E/C Clienti (estrazioni)', path: '/portafoglio/estrazioni/ec-clienti' },
-  { label: 'Collettive / Libri Matricola', path: '/portafoglio/collettive' },
   { label: 'Archivio Documentale', path: '/portafoglio/documentale' },
   { label: 'Elenco Polizze (titoli)', path: '/titoli' },
 
@@ -190,7 +189,6 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
 
   // Contabilità
   { label: 'Incassi e Coperture', path: '/contabilita' },
-  { label: 'Cruscotto del Giorno', path: '/contabilita/cruscotto' },
   { label: 'E/C Clienti', path: '/contabilita/ec-clienti' },
   { label: 'E/C Compagnia', path: '/contabilita/ec-compagnia' },
   { label: 'E/C Agenzie', path: '/contabilita/ec-agenzia' },
