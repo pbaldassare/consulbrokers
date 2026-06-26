@@ -1421,6 +1421,7 @@ const TitoloDetail = () => {
         supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: id } })
           .then((res: any) => {
             if (res?.error) toast.warning(`Notifica messa a cassa non inviata: ${res.error.message ?? res.error}`);
+            else if (res?.data?.skipped) { /* già inviata (es. incasso reale su polizza garantita) */ }
             else if (res?.data?.recipient) toast.success(`Notifica inviata a ${res.data.recipient}`);
           })
           .catch((e) => toast.warning(`Notifica messa a cassa fallita: ${e?.message ?? e}`));
@@ -1822,7 +1823,7 @@ const TitoloDetail = () => {
                 title={!t.data_messa_cassa ? "Disponibile solo dopo la messa a cassa" : "Reinvia email di notifica all'agenzia/compagnia"}
                 onClick={async () => {
                   const tid = toast.loading("Invio notifica messa a cassa...");
-                  const res: any = await supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } });
+                  const res: any = await supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id, force: true } });
                   toast.dismiss(tid);
                   if (res?.error) {
                     toast.error(`Notifica non inviata: ${res.error.message ?? res.error}`);
