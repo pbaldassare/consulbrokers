@@ -30,6 +30,7 @@ import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge"
 import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { rowBorderClass, isQuietanzaRow, displayStatoPolizza } from "@/lib/polizzeDisplay";
+import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 const rowHref = (p: any): string | null => {
   if (p?.polizza_id) return `/polizze/${p.polizza_id}`;
@@ -173,7 +174,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, dateDa, dateA, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_quietanze").select(
-        "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, regolazione_quietanza_id, numero_rata, numero_rate_totali",
+        "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_copertura, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, regolazione_quietanza_id, numero_rata, numero_rate_totali",
         { count: "exact" }
       );
       q = applyPeriodoFilter(q);
@@ -238,6 +239,7 @@ const PortafoglioCaricoPage = () => {
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-pending"] });
     queryClient.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
     queryClient.invalidateQueries({ queryKey: ["anticipi-globale"] });
+    queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
   };
 
   const mettiACassa = useCallback(async (titoloId: string, premioLordo?: number | null) => {
@@ -309,6 +311,10 @@ const PortafoglioCaricoPage = () => {
   const selectedAttive = useMemo(
     () => polizze.filter(p => selectedIds.has(p.id) && p.stato === "attivo" && !p.data_messa_cassa),
     [polizze, selectedIds]
+  );
+  const selectedGarantibile = useMemo(
+    () => selectedAttive.filter(p => !isInCoperturaGarantita(p)),
+    [selectedAttive]
   );
   const selectedIncassate = useMemo(() => polizze.filter(p => selectedIds.has(p.id) && p.stato === "incassato"), [polizze, selectedIds]);
 
@@ -432,20 +438,20 @@ const PortafoglioCaricoPage = () => {
       </div>
 
       {/* Bulk action buttons */}
-      {(selectedAttive.length > 0 || selectedIncassate.length > 0) && (
+      {(selectedAttive.length > 0 || selectedGarantibile.length > 0 || selectedIncassate.length > 0) && (
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
           <span className="text-sm text-muted-foreground">{selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}</span>
           {selectedAttive.length > 0 && (
-            <>
-              <Button size="sm" onClick={() => { setCassaDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setCassaDialogOpen(true); }} disabled={bulkLoading} className="gap-1">
-                <Banknote className="h-3.5 w-3.5" />
-                Incassa ({selectedAttive.length})
-              </Button>
-              <Button size="sm" onClick={() => { setGarantitoDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setGarantitoDialogOpen(true); }} disabled={bulkLoading} className="gap-1 bg-orange-500 hover:bg-orange-600 text-white">
-                <Shield className="h-3.5 w-3.5" />
-                Garantito ({selectedAttive.length})
-              </Button>
-            </>
+            <Button size="sm" onClick={() => { setCassaDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setCassaDialogOpen(true); }} disabled={bulkLoading} className="gap-1">
+              <Banknote className="h-3.5 w-3.5" />
+              Incassa ({selectedAttive.length})
+            </Button>
+          )}
+          {selectedGarantibile.length > 0 && (
+            <Button size="sm" onClick={() => { setGarantitoDialogTitoli(selectedGarantibile.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setGarantitoDialogOpen(true); }} disabled={bulkLoading} className="gap-1 bg-orange-500 hover:bg-orange-600 text-white">
+              <Shield className="h-3.5 w-3.5" />
+              Garantito ({selectedGarantibile.length})
+            </Button>
           )}
           {selectedIncassate.length > 0 && isAdmin && (
             <Button size="sm" variant="outline" onClick={bulkAnnullaIncasso} disabled={bulkLoading} className="gap-1">
@@ -648,12 +654,14 @@ const PortafoglioCaricoPage = () => {
                   <SortableHeader field="ae_nome">AE</SortableHeader>
                   <SortableHeader field="produttore_nome">Produttore</SortableHeader>
                   <SortableHeader field="stato">Stato</SortableHeader>
+                  <SortableHeader field="data_copertura" className="text-center">Copertura</SortableHeader>
                   <SortableHeader field="data_messa_cassa" className="text-center">Messa a Cassa</SortableHeader>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {polizze.map((p: any) => {
                   const isIncassato = p.stato === "incassato";
+                  const inCopertura = isInCoperturaGarantita(p);
                   const isProcessing = loadingIds.has(p.id);
                   const isQ = isQuietanzaRow(p) || (Number(p.numero_rata) || 0) > 1;
                   const statoShown = displayStatoPolizza(p);
@@ -661,7 +669,7 @@ const PortafoglioCaricoPage = () => {
                   return (
                     <TableRow
                       key={p.id}
-                      className={`cursor-pointer ${rowBorderClass(p)} ${p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : isQ ? "bg-quietanza-soft/40" : ""}`}
+                      className={`cursor-pointer ${rowBorderClass(p)} ${inCopertura ? "bg-orange-50 hover:bg-orange-100/70" : p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : isQ ? "bg-quietanza-soft/40" : ""}`}
                       onClick={() => { const h = rowHref(p); if (h) navigate(h); }}
 
                     >
@@ -710,6 +718,9 @@ const PortafoglioCaricoPage = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-center text-xs">
+                        {inCopertura ? fmtDate(p.data_copertura) : "—"}
+                      </TableCell>
+                      <TableCell className="text-center text-xs">
                         {isIncassato ? fmtDate(p.data_messa_cassa) : "—"}
                       </TableCell>
                       <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
@@ -726,6 +737,17 @@ const PortafoglioCaricoPage = () => {
                           </Button>
                         ) : isIncassato ? (
                           <span className="text-xs text-muted-foreground">—</span>
+                        ) : inCopertura ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isProcessing}
+                            onClick={() => { setCassaDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }]); setCassaDialogOpen(true); }}
+                            className="gap-1 h-8 text-xs"
+                          >
+                            <Banknote className="h-3.5 w-3.5" />
+                            Incassa
+                          </Button>
                         ) : (
                           <div className="flex items-center gap-1 justify-center">
                             <Button

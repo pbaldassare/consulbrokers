@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
+import { buildGarantitoPayload, isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 import { annullaPolizza } from "@/lib/annullaPolizza";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
@@ -152,7 +153,7 @@ const TitoloDetail = () => {
   // --- Conferimento Gestito dialog state ---
   const [conferimentoDialogOpen, setConferimentoDialogOpen] = useState(false);
   const [conferimentoAccettato, setConferimentoAccettato] = useState(false);
-  const [conferimentoForm, setConferimentoForm] = useState({ dataMessaCassa: "", dataPagamento: "", dataDecorrenza: "", tipoPagamento: "contanti", banca: "" });
+  const [conferimentoForm, setConferimentoForm] = useState({ dataCopertura: "", dataDecorrenza: "" });
 
   const { data: titolo, isLoading } = useQuery({
     queryKey: ["titolo", id],
@@ -240,7 +241,7 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("dettaglio_riparto")
-        .select("*, agenzie(nome, codice)")
+        .select("*, compagnie(nome, codice)")
         .eq("titolo_id", id!);
       if (error) throw error;
       return data;
@@ -1376,26 +1377,15 @@ const TitoloDetail = () => {
       const isConferimento = typeof params !== "string" && params.conferimentoGestito;
       const vecchioStato = titolo?.stato;
       const updatePayload: any = { stato: nuovoStato, updated_at: new Date().toISOString() };
-      if (nuovoStato === "incassato" && cassaData) {
+      if (nuovoStato === "incassato" && cassaData && !isConferimento) {
         updatePayload.data_messa_cassa = cassaData.dataMessaCassa;
         updatePayload.data_decorrenza_rinnovo = cassaData.dataDecorrenza;
-        if (isConferimento) {
-          updatePayload.data_pagamento = null;
-          updatePayload.tipo_pagamento = "garantito";
-          updatePayload.banca_pagamento = null;
-          updatePayload.data_incasso = cassaData.dataMessaCassa;
-          updatePayload.importo_incassato = 0;
-          updatePayload.conferimento_gestito = true;
-          updatePayload.fondi_ricevuti = false;
-          updatePayload.data_conferimento_gestito = new Date().toISOString().slice(0, 10);
-        } else {
-          updatePayload.data_pagamento = cassaData.dataPagamento || null;
-          updatePayload.tipo_pagamento = cassaData.tipoPagamento || null;
-          if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
-            const { data: conto } = await (supabase.from("conti_bancari") as any)
-              .select("etichetta, banca").eq("id", cassaData.banca).maybeSingle();
-            updatePayload.banca_pagamento = conto?.etichetta || conto?.banca || cassaData.banca;
-          }
+        updatePayload.data_pagamento = cassaData.dataPagamento || null;
+        updatePayload.tipo_pagamento = cassaData.tipoPagamento || null;
+        if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
+          const { data: conto } = await (supabase.from("conti_bancari") as any)
+            .select("etichetta, banca").eq("id", cassaData.banca).maybeSingle();
+          updatePayload.banca_pagamento = conto?.etichetta || conto?.banca || cassaData.banca;
         }
       } else if ((nuovoStato === "attivo" || nuovoStato === "annullato") && vecchioStato === "incassato") {
         // Reset dei campi messa a cassa quando si esce dallo stato 'incassato'
@@ -1409,13 +1399,14 @@ const TitoloDetail = () => {
         updatePayload.conferimento_gestito = false;
         updatePayload.fondi_ricevuti = true;
         updatePayload.data_conferimento_gestito = null;
+        updatePayload.data_copertura = null;
       }
       const { error } = await supabase.from("titoli").update(updatePayload).eq("id", id!);
       if (error) throw error;
       if (user) {
-        await logAttivita({ azione: isConferimento ? "conferimento_gestito" : "cambio_stato_titolo", entita_tipo: "titolo", entita_id: id!, dettagli_json: { stato_precedente: vecchioStato, nuovo_stato: nuovoStato, conferimento_gestito: !!isConferimento } });
+        await logAttivita({ azione: "cambio_stato_titolo", entita_tipo: "titolo", entita_id: id!, dettagli_json: { stato_precedente: vecchioStato, nuovo_stato: nuovoStato } });
       }
-      if (nuovoStato === "incassato") {
+      if (nuovoStato === "incassato" && !isConferimento) {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
         // Notifica formale all'agenzia/rapporto (non bloccante, ma con feedback errore)
         supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: id } })
@@ -1442,13 +1433,14 @@ const TitoloDetail = () => {
           quietanzaGenerata = { id: succ.id, data_decorrenza: succ.durata_da, data_scadenza: succ.data_scadenza };
         }
       }
-      return { quietanzaGenerata, isConferimento: !!isConferimento };
+      return { quietanzaGenerata };
     },
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
-      toast.success(res?.isConferimento ? "Polizza garantita" : "Stato aggiornato");
+      queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
+      toast.success("Stato aggiornato");
       if (res?.quietanzaGenerata) {
         const d = res.quietanzaGenerata.data_decorrenza
           ? new Date(res.quietanzaGenerata.data_decorrenza).toLocaleDateString("it-IT")
@@ -1469,6 +1461,38 @@ const TitoloDetail = () => {
       setConferimentoDialogOpen(false);
     },
     onError: (err: any) => toast.error(err?.message || "Errore aggiornamento stato"),
+  });
+
+  const conferimentoGestitoMutation = useMutation({
+    mutationFn: async (form: { dataCopertura: string; dataDecorrenza: string }) => {
+      const payload = buildGarantitoPayload(form);
+      const { error } = await supabase.from("titoli").update(payload).eq("id", id!);
+      if (error) throw error;
+      await (supabase.from("quietanze") as any)
+        .update({ data_copertura: form.dataCopertura, updated_at: new Date().toISOString() })
+        .eq("titolo_id", id!);
+      if (user) {
+        await logAttivita({
+          azione: "conferimento_gestito",
+          entita_tipo: "titolo",
+          entita_id: id!,
+          dettagli_json: { data_copertura: form.dataCopertura, data_decorrenza_rinnovo: form.dataDecorrenza },
+        });
+      }
+      const res = await supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: id } });
+      return res;
+    },
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
+      queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
+      queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
+      toast.success("Copertura garantita");
+      if (res?.error) toast.warning(`Notifica non inviata: ${res.error.message ?? res.error}`);
+      else if (res?.data?.recipient) toast.success(`Notifica inviata a ${res.data.recipient}`);
+      setConferimentoDialogOpen(false);
+    },
+    onError: (err: any) => toast.error(err?.message || "Errore copertura garantita"),
   });
 
   const segnaFondiRicevutiMutation = useMutation({
@@ -1502,9 +1526,14 @@ const TitoloDetail = () => {
   });
 
   const updateDateMutation = useMutation({
-    mutationFn: async ({ field, value }: { field: "data_messa_cassa" | "data_pagamento" | "data_decorrenza_rinnovo"; value: string | null }) => {
+    mutationFn: async ({ field, value }: { field: "data_messa_cassa" | "data_pagamento" | "data_decorrenza_rinnovo" | "data_copertura"; value: string | null }) => {
       const { error } = await supabase.from("titoli").update({ [field]: value || null, updated_at: new Date().toISOString() }).eq("id", id!);
       if (error) throw error;
+      if (field === "data_copertura") {
+        await (supabase.from("quietanze") as any)
+          .update({ data_copertura: value || null, updated_at: new Date().toISOString() })
+          .eq("titolo_id", id!);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
@@ -1528,6 +1557,7 @@ const TitoloDetail = () => {
   })();
   // Mostra "Messa a Cassa" solo se mai incassata, oppure se poliennale attiva (rate residue)
   const showMessaACassa = !t.data_messa_cassa || (isPoliennale && t.stato === "attivo");
+  const inCopertura = isInCoperturaGarantita(t);
 
   // Lock generale: una polizza messa a cassa o stornata non è più una "bozza"
   // di creazione e non si può modificare inline. Operazioni dedicate
@@ -1819,8 +1849,8 @@ const TitoloDetail = () => {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!t.data_messa_cassa}
-                title={!t.data_messa_cassa ? "Disponibile solo dopo la messa a cassa" : "Reinvia email di notifica all'agenzia/compagnia"}
+                disabled={!t.data_messa_cassa && !t.data_copertura}
+                title={!t.data_messa_cassa && !t.data_copertura ? "Disponibile solo dopo copertura o messa a cassa" : "Reinvia email di notifica all'agenzia/compagnia"}
                 onClick={async () => {
                   const tid = toast.loading("Invio notifica messa a cassa...");
                   const res: any = await supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id, force: true } });
@@ -1871,8 +1901,8 @@ const TitoloDetail = () => {
                   </h4>
                   <div className="flex items-center gap-2">
                     {isPoliennale && <Badge variant="outline" className="text-xs">Poliennale</Badge>}
-                    <Badge variant={t.stato === "incassato" ? "default" : "secondary"} className={t.stato === "incassato" ? "bg-amber-500 hover:bg-amber-600" : ""}>
-                      {t.stato === "incassato" ? "Incassato" : "Da incassare"}
+                    <Badge variant={t.stato === "incassato" ? "default" : inCopertura ? "default" : "secondary"} className={t.stato === "incassato" ? "bg-amber-500 hover:bg-amber-600" : inCopertura ? "bg-orange-500 hover:bg-orange-600" : ""}>
+                      {t.stato === "incassato" ? "Incassato" : inCopertura ? "In Copertura" : "Da incassare"}
                     </Badge>
                   </div>
                 </div>
@@ -1896,6 +1926,31 @@ const TitoloDetail = () => {
                           />
                         </div>
                       ))}
+                    </>
+                  ) : inCopertura ? (
+                    <>
+                      <div className="rounded-md border border-orange-200 bg-orange-50/50 px-3 py-2">
+                        <label className="text-[10px] font-semibold uppercase tracking-wider text-orange-700">Data Copertura</label>
+                        <Input
+                          type="date"
+                          className="mt-1 h-9 text-sm font-medium tabular-nums"
+                          value={t.data_copertura || ""}
+                          onChange={(e) => updateDateMutation.mutate({ field: "data_copertura", value: e.target.value })}
+                        />
+                      </div>
+                      <div className="rounded-md border border-dashed bg-muted/20 px-3 py-2">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Data Messa a Cassa</div>
+                        <div className="mt-1 h-9 flex items-center text-sm text-muted-foreground tabular-nums">—</div>
+                      </div>
+                      <div className="rounded-md border bg-card/40 px-3 py-2">
+                        <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Data Decorrenza Rinnovo</label>
+                        <Input
+                          type="date"
+                          className="mt-1 h-9 text-sm font-medium tabular-nums"
+                          value={t.data_decorrenza_rinnovo || ""}
+                          onChange={(e) => updateDateMutation.mutate({ field: "data_decorrenza_rinnovo", value: e.target.value })}
+                        />
+                      </div>
                     </>
                   ) : (
                     <>
@@ -1923,7 +1978,7 @@ const TitoloDetail = () => {
                 {t.stato === "incassato" && <CompensazioniBox titoloId={t.id} />}
 
                 {/* Badges Garantito / Fondi */}
-                {t.stato === "incassato" && t.conferimento_gestito && (
+                {(inCopertura || (t.stato === "incassato" && t.conferimento_gestito)) && (
                   <div className="mt-3 flex items-center gap-2 flex-wrap">
                     <Badge className="bg-orange-500 text-white hover:bg-orange-600">Garantito</Badge>
                     {!t.fondi_ricevuti ? (
@@ -2029,16 +2084,16 @@ const TitoloDetail = () => {
                       setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
                       setCassaDialogOpen(true);
                     }} disabled={changeStatoMutation.isPending}>
-                      <CheckSquare className="w-4 h-4 mr-1" /> Incassa
+                      <CheckSquare className="w-4 h-4 mr-1" /> {inCopertura ? "Incassa (fondi ricevuti)" : "Incassa"}
                     </Button>
                   )}
-                  {t.stato === "attivo" && (!t.data_messa_cassa || isPoliennale) && (
+                  {t.stato === "attivo" && !t.data_messa_cassa && !inCopertura && (
                     <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => {
                       const today = new Date().toISOString().slice(0, 10);
-                      setConferimentoForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
+                      setConferimentoForm({ dataCopertura: today, dataDecorrenza: today });
                       setConferimentoAccettato(false);
                       setConferimentoDialogOpen(true);
-                    }} disabled={changeStatoMutation.isPending}>
+                    }} disabled={conferimentoGestitoMutation.isPending}>
                       <Shield className="w-4 h-4 mr-1" /> Garantito
                     </Button>
                   )}
@@ -2084,7 +2139,7 @@ const TitoloDetail = () => {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Garantito</DialogTitle>
-            <DialogDescription>Polizza {t.numero_titolo || t.id.slice(0, 8)} — Incasso senza fondi in cassa</DialogDescription>
+            <DialogDescription>Polizza {t.numero_titolo || t.id.slice(0, 8)} — Copertura senza incasso</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md border border-orange-400 bg-orange-50 p-3 text-sm text-orange-800 space-y-2">
@@ -2104,8 +2159,8 @@ const TitoloDetail = () => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Data Messa a Cassa</Label>
-                <Input type="date" value={conferimentoForm.dataMessaCassa} onChange={(e) => setConferimentoForm(f => ({ ...f, dataMessaCassa: e.target.value }))} className="mt-1" />
+                <Label className="text-xs">Data Copertura</Label>
+                <Input type="date" value={conferimentoForm.dataCopertura} onChange={(e) => setConferimentoForm(f => ({ ...f, dataCopertura: e.target.value }))} className="mt-1" />
               </div>
               <div>
                 <Label className="text-xs">Data Decorrenza Rinnovo</Label>
@@ -2113,15 +2168,15 @@ const TitoloDetail = () => {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Tipo pagamento e data pagamento verranno compilati successivamente, al momento dell'incasso effettivo.
+              La messa a cassa e il tipo/data pagamento verranno compilati successivamente, al momento dell'incasso effettivo dei fondi.
             </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConferimentoDialogOpen(false)}>Annulla</Button>
             <Button
               className="bg-orange-500 hover:bg-orange-600 text-white"
-              disabled={!conferimentoAccettato || changeStatoMutation.isPending}
-              onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: { ...conferimentoForm, dataPagamento: "", tipoPagamento: "", banca: "" }, conferimentoGestito: true })}
+              disabled={!conferimentoAccettato || conferimentoGestitoMutation.isPending}
+              onClick={() => conferimentoGestitoMutation.mutate(conferimentoForm)}
             >
               <Shield className="w-4 h-4 mr-1" /> Conferma Garantito
             </Button>

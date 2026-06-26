@@ -13,6 +13,8 @@ import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
 import PdfPreview from "@/components/PdfPreview";
 import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
+import { labelTipoDocumento } from "@/lib/tipiDocumentoCliente";
+import UploadDocStaffDialog from "@/components/clienti/UploadDocStaffDialog";
 
 interface DocumentiTabProps {
   entitaTipo: string;
@@ -21,6 +23,10 @@ interface DocumentiTabProps {
   entitaIds?: string[];
   bucketName?: string;
   readOnly?: boolean;
+  /** Upload tipizzato via modale (anagrafica cliente backoffice). */
+  typedUpload?: boolean;
+  /** Etichetta cliente per titolo modale upload. */
+  entitaLabel?: string;
 }
 
 
@@ -65,10 +71,19 @@ function DocumentThumbnail({ bucketName, pathStorage, nomeFile, onClick }: { buc
   return <FileText className={`h-8 w-8 text-muted-foreground ${base}`} onClick={onClick} />;
 }
 
-export default function DocumentiTab({ entitaTipo, entitaId, entitaIds, bucketName, readOnly = false }: DocumentiTabProps) {
+export default function DocumentiTab({
+  entitaTipo,
+  entitaId,
+  entitaIds,
+  bucketName,
+  readOnly = false,
+  typedUpload = false,
+  entitaLabel,
+}: DocumentiTabProps) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -189,14 +204,35 @@ export default function DocumentiTab({ entitaTipo, entitaId, entitaIds, bucketNa
   const previewExt = previewDoc?.nome_file?.split(".")?.pop()?.toLowerCase() || "";
   const previewIsImage = IMAGE_EXTENSIONS.includes(previewExt);
 
+  const showTipologia = typedUpload || documenti?.some((d: any) => d.categoria);
+  const colSpan = showTipologia ? 7 : 6;
+
   return (
     <div className="space-y-4">
       {!readOnly && (
         <div className="flex justify-end">
-          <input ref={fileRef} type="file" className="hidden" onChange={handleUpload} />
-          <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-            <Upload className="h-4 w-4 mr-1" /> {uploading ? "Caricamento..." : "Carica Documento"}
-          </Button>
+          {typedUpload ? (
+            <>
+              <Button size="sm" onClick={() => setUploadDialogOpen(true)} disabled={uploading}>
+                <Upload className="h-4 w-4 mr-1" /> Carica Documento
+              </Button>
+              <UploadDocStaffDialog
+                open={uploadDialogOpen}
+                onOpenChange={setUploadDialogOpen}
+                clienteId={uploadEntitaId}
+                clienteLabel={entitaLabel}
+                bucketName={bucket}
+                onUploaded={() => qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, idsKey] })}
+              />
+            </>
+          ) : (
+            <>
+              <input ref={fileRef} type="file" className="hidden" onChange={handleUpload} />
+              <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                <Upload className="h-4 w-4 mr-1" /> {uploading ? "Caricamento..." : "Carica Documento"}
+              </Button>
+            </>
+          )}
         </div>
       )}
       <Table>
@@ -204,6 +240,7 @@ export default function DocumentiTab({ entitaTipo, entitaId, entitaIds, bucketNa
           <TableRow>
             <TableHead className="w-16"></TableHead>
             <TableHead>Nome File</TableHead>
+            {showTipologia && <TableHead>Tipologia</TableHead>}
             <TableHead>Caricato da</TableHead>
             <TableHead>Data</TableHead>
             <TableHead>Visibile al cliente</TableHead>
@@ -217,6 +254,15 @@ export default function DocumentiTab({ entitaTipo, entitaId, entitaIds, bucketNa
                 <DocumentThumbnail bucketName={doc.bucket_name} pathStorage={doc.path_storage} nomeFile={doc.nome_file} onClick={() => openPreview(doc)} />
               </TableCell>
               <TableCell className="font-medium cursor-pointer hover:underline" onClick={() => openPreview(doc)}>{doc.nome_file}</TableCell>
+              {showTipologia && (
+                <TableCell>
+                  {doc.categoria ? (
+                    <Badge variant="secondary" className="font-normal">{labelTipoDocumento(doc.categoria)}</Badge>
+                  ) : (
+                    "—"
+                  )}
+                </TableCell>
+              )}
               <TableCell>{doc.profiles ? `${doc.profiles.nome} ${doc.profiles.cognome}` : "—"}</TableCell>
               <TableCell>{format(new Date(doc.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
               <TableCell>
@@ -229,7 +275,7 @@ export default function DocumentiTab({ entitaTipo, entitaId, entitaIds, bucketNa
               </TableCell>
             </TableRow>
           ))}
-          {!documenti?.length && <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">Nessun documento</TableCell></TableRow>}
+          {!documenti?.length && <TableRow><TableCell colSpan={colSpan} className="text-center py-6 text-muted-foreground">Nessun documento</TableCell></TableRow>}
         </TableBody>
       </Table>
 

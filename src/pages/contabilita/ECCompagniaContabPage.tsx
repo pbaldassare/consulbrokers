@@ -25,6 +25,7 @@ import { buildRimessaPdf, type RimessaPdfData } from "@/lib/rimessa-pdf";
 import { validateIban } from "@/lib/validateIban";
 import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
+import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 
 const formatIbanMask = (s: string) =>
   (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})/g, "$1 ").trim();
@@ -43,6 +44,7 @@ interface TitoloDetail {
   id: string;
   numero_titolo: string | null;
   data_messa_cassa: string | null;
+  data_copertura: string | null;
   premio_lordo: number;
   importo_incassato: number;
   conferimento_gestito: boolean;
@@ -263,32 +265,56 @@ Consulbrokers`;
 
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, compagnie(nome, codice, mail)")
-        .not("compagnia_id", "is", null)
-        .eq("stato", "incassato");
+        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, coassicurazione, compagnie(nome, codice, mail)")
+        .not("compagnia_id", "is", null);
+
+      const incassateBase = ["stato.eq.incassato"];
+      const coperturaBase = ["stato.eq.attivo", "conferimento_gestito.eq.true", "data_copertura.not.is.null", "data_messa_cassa.is.null"];
+      if (filters.periodo_dal) {
+        const dal = format(filters.periodo_dal, "yyyy-MM-dd");
+        incassateBase.push(`data_messa_cassa.gte.${dal}`);
+        coperturaBase.push(`data_copertura.gte.${dal}`);
+      }
+      if (filters.periodo_al) {
+        const al = format(filters.periodo_al, "yyyy-MM-dd");
+        incassateBase.push(`data_messa_cassa.lte.${al}`);
+        coperturaBase.push(`data_copertura.lte.${al}`);
+      }
+      query = query.or(`and(${incassateBase.join(",")}),and(${coperturaBase.join(",")})`);
 
       if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
       if (filters.produttore_id) query = query.eq("produttore_id", filters.produttore_id);
-      if (filters.periodo_dal) query = query.gte("data_messa_cassa", format(filters.periodo_dal, "yyyy-MM-dd"));
-      if (filters.periodo_al) query = query.lte("data_messa_cassa", format(filters.periodo_al, "yyyy-MM-dd"));
 
       const { data: titoli, error } = await query;
       if (error) throw error;
 
+      const coassIds = (titoli || []).filter((t) => t.coassicurazione).map((t) => t.id);
+      const ripartoByTitolo = new Map<string, any[]>();
+      if (coassIds.length > 0) {
+        const { data: riparti } = await supabase
+          .from("dettaglio_riparto")
+          .select("id, titolo_id, compagnia_id, quota_percentuale, totale, provv_netto, provv_addizionali, compagnie(nome, codice, mail)")
+          .in("titolo_id", coassIds);
+        for (const r of riparti || []) {
+          const arr = ripartoByTitolo.get(r.titolo_id) || [];
+          arr.push(r);
+          ripartoByTitolo.set(r.titolo_id, arr);
+        }
+      }
+
       const grouped: Record<string, GroupedRow> = {};
 
-      for (const t of titoli || []) {
-        // Exclude titles already included in a rimessa
-        if (rimessiSet.has(t.id)) continue;
-
-        const cId = t.compagnia_id as string;
-        if (!cId) continue;
-        if (filters.compagnia_id && cId !== filters.compagnia_id) continue;
-        if (filters.tipo_pagamento && t.tipo_pagamento !== filters.tipo_pagamento) continue;
-        const isGestito = !!t.conferimento_gestito;
-        const fondiOk = t.fondi_ricevuti !== false;
-        void isGestito; void fondiOk;
-        const comp = t.compagnie;
+      const pushTitoloToGroup = (
+        cId: string,
+        comp: { nome?: string | null; codice?: string | null; mail?: string | null } | null,
+        t: any,
+        lordoShare: number,
+        incassatoShare: number,
+        provvShare: number,
+        dataEff: string | null,
+      ) => {
+        if (!cId) return;
+        if (filters.compagnia_id && cId !== filters.compagnia_id) return;
         if (!grouped[cId]) {
           grouped[cId] = {
             compagnia_id: cId,
@@ -302,23 +328,63 @@ Consulbrokers`;
             titoli: [],
           };
         }
-        grouped[cId].lordo += Number(t.premio_lordo) || 0;
-        grouped[cId].provvigioni += getProvvigioneEC(t);
+        grouped[cId].lordo += lordoShare;
+        grouped[cId].provvigioni += provvShare;
         grouped[cId].titoli.push({
           id: t.id,
           numero_titolo: t.numero_titolo,
           data_messa_cassa: t.data_messa_cassa,
-          premio_lordo: Number(t.premio_lordo) || 0,
-          importo_incassato: Number(t.importo_incassato) || 0,
+          data_copertura: t.data_copertura,
+          premio_lordo: lordoShare,
+          importo_incassato: incassatoShare,
           conferimento_gestito: !!t.conferimento_gestito,
           fondi_ricevuti: t.fondi_ricevuti !== false,
           tipo_pagamento: t.tipo_pagamento || null,
         });
-        const dmc = t.data_messa_cassa;
-        if (dmc) {
-          if (!grouped[cId].data_min || dmc < grouped[cId].data_min!) grouped[cId].data_min = dmc;
-          if (!grouped[cId].data_max || dmc > grouped[cId].data_max!) grouped[cId].data_max = dmc;
+        if (dataEff) {
+          if (!grouped[cId].data_min || dataEff < grouped[cId].data_min!) grouped[cId].data_min = dataEff;
+          if (!grouped[cId].data_max || dataEff > grouped[cId].data_max!) grouped[cId].data_max = dataEff;
         }
+      };
+
+      for (const t of titoli || []) {
+        // Exclude titles already included in a rimessa
+        if (rimessiSet.has(t.id)) continue;
+
+        if (filters.tipo_pagamento && t.tipo_pagamento !== filters.tipo_pagamento) continue;
+        const dataEff = t.data_messa_cassa || t.data_copertura;
+
+        if (t.coassicurazione && ripartoByTitolo.has(t.id)) {
+          const riparti = ripartoByTitolo.get(t.id) || [];
+          const premioLordo = Number(t.premio_lordo) || 0;
+          const importoIncassato = Number(t.importo_incassato) || 0;
+          const provvTot = getProvvigioneEC(t);
+          for (const r of riparti) {
+            const cId = r.compagnia_id as string;
+            if (!cId) continue;
+            const quota = Number(r.quota_percentuale) || 0;
+            const factor = quota / 100;
+            const lordoShare = Number(r.totale) || premioLordo * factor;
+            const incassatoShare = importoIncassato * factor;
+            const provvShare = (Number(r.provv_netto) || 0) + (Number(r.provv_addizionali) || 0) || provvTot * factor;
+            const comp = (r as any).compagnie || t.compagnie;
+            pushTitoloToGroup(cId, comp, t, lordoShare, incassatoShare, provvShare, dataEff);
+          }
+          continue;
+        }
+
+        const cId = t.compagnia_id as string;
+        if (!cId) continue;
+        const comp = t.compagnie;
+        pushTitoloToGroup(
+          cId,
+          comp,
+          t,
+          Number(t.premio_lordo) || 0,
+          Number(t.importo_incassato) || 0,
+          getProvvigioneEC(t),
+          dataEff,
+        );
       }
       return Object.values(grouped).sort((a, b) => b.lordo - a.lordo);
     },
@@ -726,10 +792,12 @@ Consulbrokers`;
                             </TableHeader>
                             <TableBody>
                               {r.titoli.map((t) => {
-                                const tipoPagLabel = t.tipo_pagamento === "contanti" ? "Contanti" : t.tipo_pagamento === "pos" ? "POS" : t.tipo_pagamento === "bonifico" ? "Bonifico" : t.tipo_pagamento === "carta_credito" ? "POS" : "—";
-                                const tipoPagColor = t.tipo_pagamento === "contanti" ? "secondary" : t.tipo_pagamento === "pos" || t.tipo_pagamento === "carta_credito" ? "default" : t.tipo_pagamento === "bonifico" ? "outline" : "secondary";
+                                const inCopertura = isInCoperturaGarantita(t);
+                                const dataEff = t.data_messa_cassa || t.data_copertura;
+                                const tipoPagLabel = t.tipo_pagamento === "contanti" ? "Contanti" : t.tipo_pagamento === "pos" ? "POS" : t.tipo_pagamento === "bonifico" ? "Bonifico" : t.tipo_pagamento === "carta_credito" ? "POS" : t.tipo_pagamento === "garantito" ? "Garantito" : "—";
+                                const tipoPagColor = t.tipo_pagamento === "contanti" ? "secondary" : t.tipo_pagamento === "pos" || t.tipo_pagamento === "carta_credito" ? "default" : t.tipo_pagamento === "bonifico" ? "outline" : t.tipo_pagamento === "garantito" ? "default" : "secondary";
                                 return (
-                                <TableRow key={t.id} className="hover:bg-muted/50">
+                                <TableRow key={t.id} className={cn("hover:bg-muted/50", inCopertura && "bg-orange-50/80 hover:bg-orange-100/60")}>
                                   <TableCell className="py-1 px-2">
                                     <Checkbox
                                       checked={selected.has(t.id)}
@@ -737,7 +805,7 @@ Consulbrokers`;
                                     />
                                   </TableCell>
                                   <TableCell className="py-1 text-sm">{t.numero_titolo || "—"}</TableCell>
-                                  <TableCell className="py-1 text-sm">{t.data_messa_cassa ? format(new Date(t.data_messa_cassa), "dd/MM/yyyy") : "—"}</TableCell>
+                                  <TableCell className="py-1 text-sm">{dataEff ? format(new Date(dataEff), "dd/MM/yyyy") : "—"}</TableCell>
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.premio_lordo)}</TableCell>
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.importo_incassato)}</TableCell>
                                   <TableCell className="py-1">

@@ -93,6 +93,11 @@ export function TitoloHeaderBar({
             ) : isQuietanza ? null : (
               <Badge variant="outline">Polizza originale</Badge>
             )}
+            {!isRegolazione && !isQuietanza && t.coassicurazione && (
+              <Badge className="bg-teal-600 hover:bg-teal-700 text-white" title="Premio ripartito tra più compagnie">
+                Coassicurazione
+              </Badge>
+            )}
           </div>
 
           {isQuietanza && (

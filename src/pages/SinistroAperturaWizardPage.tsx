@@ -20,44 +20,33 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { FilePlus, Search, ArrowLeft, ArrowRight, Trash2, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
-import { TIPI_SINISTRO, formatTipoSinistro } from "@/lib/tipiSinistro";
+import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { Checkbox } from "@/components/ui/checkbox";
-import AddressAutocomplete from "@/components/AddressAutocomplete";
+import SinistroPraticaFormFields from "@/components/sinistri/SinistroPraticaFormFields";
+import {
+  sinistroPraticaSchema,
+  sinistroPraticaDefaultValues,
+  praticaValuesToDbPayload,
+  validateTipoSinistro,
+} from "@/lib/sinistroPraticaSchema";
 import { applySoloMadriFilter, mergePolizze } from "@/lib/polizzeSearch";
 
 const DRAFT_KEY = "sinistri:apertura:bozza";
 
 // Tipi sinistro centralizzati in src/lib/tipiSinistro.ts
 
-// Schema di validazione Zod
-const wizardSchema = z.object({
-  // Step 1
+// Schema di validazione Zod (campi pratica condivisi + step wizard)
+const wizardSchema = sinistroPraticaSchema.extend({
   titolo_id: z.string().optional(),
-  
-  // Step 2
-  data_evento: z.string().min(1, "La data accadimento è obbligatoria"),
-  data_denuncia: z.string().min(1, "La data denuncia è obbligatoria"),
-  tipo_sinistro: z.string().optional(),
-  tipo_sinistro_personalizzato: z.string().optional(),
-  numero_sinistro_compagnia: z.string().optional(),
-  descrizione: z.string().min(20, "La descrizione deve contenere almeno 20 caratteri"),
-  luogo_sinistro: z.string().optional(),
-  importo_riserva: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().min(0, "L'importo non può essere negativo").optional()),
-  
-  // Step 3
   documenti: z.array(
     z.object({
       nome_file: z.string(),
-      path_temp: z.string(), // path locale temporaneo o base64
+      path_temp: z.string(),
       categoria: z.string().min(1, "La categoria è obbligatoria"),
       descrizione: z.string().optional(),
-      file_base64: z.string().optional() // Usato per persistere il file nella bozza
+      file_base64: z.string().optional(),
     })
   ).optional(),
-  
-  // Step 4
-  liquidatore_id: z.string().optional(),
-  note_interne: z.string().optional(),
 });
 
 type WizardFormValues = z.infer<typeof wizardSchema>;
@@ -90,18 +79,9 @@ export default function SinistroAperturaWizardPage() {
   const { register, control, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<WizardFormValues>({
     resolver: zodResolver(wizardSchema),
     defaultValues: {
+      ...sinistroPraticaDefaultValues,
       titolo_id: "",
-      data_evento: "",
-      data_denuncia: new Date().toISOString().slice(0, 10),
-      tipo_sinistro: "",
-      tipo_sinistro_personalizzato: "",
-      numero_sinistro_compagnia: "",
-      descrizione: "",
-      luogo_sinistro: "",
-      importo_riserva: undefined,
       documenti: [],
-      liquidatore_id: "",
-      note_interne: "",
     }
   });
 
@@ -299,12 +279,9 @@ export default function SinistroAperturaWizardPage() {
       fieldsToValidate = [];
     } else if (currentStep === 2) {
       fieldsToValidate = ["data_evento", "data_denuncia", "descrizione", "importo_riserva"];
-      // Validazione custom: serve tipo standard OPPURE personalizzato (min 3 char)
-      const tStdRaw = (getValues("tipo_sinistro") || "").trim();
-      const tStd = tStdRaw === "__custom__" ? "" : tStdRaw;
-      const tCustom = (getValues("tipo_sinistro_personalizzato") || "").trim();
-      if (!tStd && tCustom.length < 3) {
-        toast.error("Specifica il tipo sinistro (predefinito o personalizzato, min 3 caratteri)");
+      const tipoErr = validateTipoSinistro(getValues("tipo_sinistro"), getValues("tipo_sinistro_personalizzato"));
+      if (tipoErr) {
+        toast.error(tipoErr);
         return;
       }
     } else if (currentStep === 3) {
@@ -345,6 +322,8 @@ export default function SinistroAperturaWizardPage() {
 
       // 1. Creazione del sinistro tramite edge function unificata
       //    (checklist di default + log_attivita + evento timeline generati lato server)
+      const praticaPayload = praticaValuesToDbPayload(values);
+
       const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
         body: {
           azione: "crea",
@@ -352,16 +331,7 @@ export default function SinistroAperturaWizardPage() {
           cliente_anagrafica_id: clienteAnagraficaId,
           compagnia_id: compagniaId,
           ufficio_id: ufficioId,
-          tipo_sinistro: (values.tipo_sinistro_personalizzato || "").trim() || values.tipo_sinistro === "__custom__" ? null : (values.tipo_sinistro || null),
-          tipo_sinistro_personalizzato: (values.tipo_sinistro_personalizzato || "").trim() || null,
-          descrizione: values.descrizione,
-          luogo_sinistro: values.luogo_sinistro || undefined,
-          data_evento: values.data_evento,
-          data_denuncia: values.data_denuncia,
-          numero_sinistro_compagnia: values.numero_sinistro_compagnia || undefined,
-          importo_riserva: values.importo_riserva ?? null,
-          liquidatore_id: values.liquidatore_id || null,
-          note_interne: values.note_interne || undefined,
+          ...praticaPayload,
           user_id: user.id,
           stato_iniziale: "aperto",
         },
@@ -631,102 +601,12 @@ export default function SinistroAperturaWizardPage() {
 
             {/* STEP 2: DATI SINISTRO */}
             {currentStep === 2 && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="data_evento">Data Accadimento *</Label>
-                    <Input type="date" id="data_evento" {...register("data_evento")} />
-                    {errors.data_evento && <p className="text-xs text-destructive">{errors.data_evento.message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="data_denuncia">Data Denuncia *</Label>
-                    <Input type="date" id="data_denuncia" {...register("data_denuncia")} />
-                    {errors.data_denuncia && <p className="text-xs text-destructive">{errors.data_denuncia.message}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="tipo_sinistro">Tipo Sinistro *</Label>
-                    {(watch("tipo_sinistro_personalizzato") || "").length > 0 || watch("tipo_sinistro") === "__custom__" ? (
-                      <Input
-                        id="tipo_sinistro_personalizzato"
-                        placeholder="Descrivi il tipo di sinistro (min 3 caratteri)"
-                        value={watch("tipo_sinistro_personalizzato") || ""}
-                        onChange={(e) => {
-                          setValue("tipo_sinistro_personalizzato", e.target.value, { shouldValidate: true });
-                          setValue("tipo_sinistro", "", { shouldValidate: true });
-                        }}
-                        maxLength={500}
-                      />
-                    ) : (
-                      <SearchableSelect
-                        options={TIPI_SINISTRO.map(t => ({ value: t.value, label: t.label }))}
-                        value={watch("tipo_sinistro") || ""}
-                        onValueChange={(val) => setValue("tipo_sinistro", val, { shouldValidate: true })}
-                        placeholder="Seleziona tipo sinistro..."
-                        searchPlaceholder="Cerca tipo..."
-                      />
-                    )}
-                    <div className="flex items-center gap-2 pt-1">
-                      <Checkbox
-                        id="usa_tipo_personalizzato"
-                        checked={(watch("tipo_sinistro_personalizzato") || "").length > 0 || watch("tipo_sinistro") === "__custom__"}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setValue("tipo_sinistro", "__custom__");
-                          } else {
-                            setValue("tipo_sinistro", "");
-                            setValue("tipo_sinistro_personalizzato", "");
-                          }
-                        }}
-                      />
-                      <Label htmlFor="usa_tipo_personalizzato" className="text-xs font-normal cursor-pointer">
-                        Tipo non in elenco (personalizzato)
-                      </Label>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="numero_sinistro_compagnia">Numero Sinistro Compagnia (opzionale)</Label>
-                    <Input id="numero_sinistro_compagnia" placeholder="Es. AN-2026-X8" {...register("numero_sinistro_compagnia")} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="luogo_sinistro">Luogo Accadimento</Label>
-                    <AddressAutocomplete
-                      value={watch("luogo_sinistro") || ""}
-                      onChange={(v) => setValue("luogo_sinistro", v, { shouldValidate: true })}
-                      onSelect={(c) => {
-                        const full = [c.indirizzo, c.cap, c.citta, c.provincia].filter(Boolean).join(", ");
-                        setValue("luogo_sinistro", full, { shouldValidate: true });
-                      }}
-                      placeholder="Inizia a digitare via, piazza, città..."
-                    />
-                    {errors.luogo_sinistro && <p className="text-xs text-destructive">{errors.luogo_sinistro.message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="importo_riserva">Importo Riserva Iniziale (€, opzionale)</Label>
-                    <Input type="number" step="0.01" id="importo_riserva" placeholder="0.00" {...register("importo_riserva")} />
-                    {errors.importo_riserva && <p className="text-xs text-destructive">{errors.importo_riserva.message}</p>}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="descrizione">Descrizione Accadimento (min 20 caratteri) *</Label>
-                  <Textarea 
-                    id="descrizione" 
-                    placeholder="Descrivi dettagliatamente come e cosa è accaduto..." 
-                    rows={4} 
-                    {...register("descrizione")}
-                  />
-                  <p className="text-[10px] text-muted-foreground text-right">
-                    {(watch("descrizione") || "").length}/20 caratteri minimi
-                  </p>
-                  {errors.descrizione && <p className="text-xs text-destructive">{errors.descrizione.message}</p>}
-                </div>
-              </div>
+              <SinistroPraticaFormFields
+                register={register}
+                setValue={setValue}
+                watch={watch}
+                errors={errors}
+              />
             )}
 
             {/* STEP 3: DOCUMENTI INIZIALI */}
@@ -803,32 +683,17 @@ export default function SinistroAperturaWizardPage() {
 
             {/* STEP 4: ASSEGNAZIONE */}
             {currentStep === 4 && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Liquidatore Esterno <span className="text-muted-foreground text-xs">(facoltativo)</span></Label>
-                  <SearchableSelect
-                    value={watch("liquidatore_id")}
-                    onValueChange={(val) => setValue("liquidatore_id", val, { shouldValidate: true })}
-                    placeholder="Seleziona liquidatore..."
-                    options={liquidatoriList.map((l: any) => ({
-                      value: l.id,
-                      label: l.ragione_sociale || `${l.cognome || ""} ${l.nome || ""}`.trim()
-                    }))}
-                  />
-                  {errors.liquidatore_id && <p className="text-xs text-destructive">{errors.liquidatore_id.message}</p>}
-                </div>
-
-
-                <div className="space-y-2">
-                  <Label htmlFor="note_interne">Note Interne Operatore (opzionale)</Label>
-                  <Textarea 
-                    id="note_interne" 
-                    placeholder="Annotazioni non visibili al cliente..." 
-                    rows={3} 
-                    {...register("note_interne")}
-                  />
-                </div>
-              </div>
+              <SinistroPraticaFormFields
+                register={register}
+                setValue={setValue}
+                watch={watch}
+                errors={errors}
+                responsabiliList={responsabiliList}
+                liquidatoriList={liquidatoriList}
+                showEvento={false}
+                showAssegnazione
+                showNoteInterne
+              />
             )}
 
             {/* STEP 5: RIEPILOGO E CONFERMA */}
@@ -888,8 +753,16 @@ export default function SinistroAperturaWizardPage() {
                       <p className="font-semibold mt-0.5">{watch("numero_sinistro_compagnia") || "—"}</p>
                     </div>
                     <div>
+                      <span className="text-muted-foreground">Controparte</span>
+                      <p className="font-semibold mt-0.5">{watch("controparte") || "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Targa</span>
+                      <p className="font-semibold mt-0.5">{watch("targa_veicolo") || "—"}</p>
+                    </div>
+                    <div>
                       <span className="text-muted-foreground">Luogo</span>
-                      <p className="font-semibold mt-0.5">{watch("luogo_sinistro") || "—"}</p>
+                      <p className="font-semibold mt-0.5">{watch("luogo_sinistro") || watch("indirizzo_sinistro") || "—"}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Importo Riserva</span>
@@ -935,6 +808,15 @@ export default function SinistroAperturaWizardPage() {
                     <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(4)} className="text-xs h-7">Modifica</Button>
                   </div>
                   <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Responsabile Interno</span>
+                      <p className="font-semibold mt-0.5">
+                        {(() => {
+                          const resp = responsabiliList.find((r: any) => r.id === watch("responsabile_id"));
+                          return resp ? `${resp.cognome || ""} ${resp.nome || ""}`.trim() : "—";
+                        })()}
+                      </p>
+                    </div>
                     <div>
                       <span className="text-muted-foreground">Liquidatore Esterno</span>
                       <p className="font-semibold mt-0.5">

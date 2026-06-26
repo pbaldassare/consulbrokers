@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Plus, CheckCircle, AlertTriangle, MapPin, User as UserIcon, FileText, Building2 } from "lucide-react";
 import { useTabParam } from "@/hooks/useTabParam";
 
-const SINISTRO_TABS = ["checklist", "eventi", "documenti", "chat", "timeline"] as const;
+const SINISTRO_TABS = ["dati", "checklist", "eventi", "documenti", "chat", "timeline"] as const;
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
@@ -23,8 +23,8 @@ import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
-import { getTipoSinistroLabel, formatTipoSinistro } from "@/lib/tipiSinistro";
-import TipoSinistroPersonalizzatoCard from "@/components/sinistri/TipoSinistroPersonalizzatoCard";
+import { formatTipoSinistro } from "@/lib/tipiSinistro";
+import SinistroDatiPraticaPanel from "@/components/sinistri/SinistroDatiPraticaPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -50,7 +50,7 @@ export default function SinistroDetail() {
   const qc = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
   const canManage = isAdmin || hasPermission("sinistri");
-  const [activeTab, setActiveTab] = useTabParam(SINISTRO_TABS, "checklist");
+  const [activeTab, setActiveTab] = useTabParam(SINISTRO_TABS, "dati");
   const [checklistDialog, setChecklistDialog] = useState(false);
   const [eventoDialog, setEventoDialog] = useState(false);
   const [newChecklist, setNewChecklist] = useState({ descrizione: "", obbligatorio: true });
@@ -62,7 +62,7 @@ export default function SinistroDetail() {
     queryKey: ["sinistro", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("sinistri")
-        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), titoli(numero_titolo), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
+        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), liquidatore:anagrafiche_professionali!sinistri_liquidatore_id_fkey(nome, cognome, ragione_sociale), titoli(numero_titolo), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
         .eq("id", id!).single();
       if (error) throw error;
       return data;
@@ -223,7 +223,7 @@ export default function SinistroDetail() {
         <Card className="border-l-4" style={{ borderLeftColor: "#ea580c" }}><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Riserva</p><p className="font-semibold font-mono text-orange-600">€ {(sinistro.importo_riserva || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
       </div>
 
-      {/* Detail Cards */}
+      {/* Detail Cards — riepilogo rapido */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {(sinistro.luogo_sinistro || sinistro.indirizzo_sinistro || sinistro.citta_sinistro) && (
           <Card>
@@ -234,14 +234,13 @@ export default function SinistroDetail() {
             </CardContent>
           </Card>
         )}
-        {sinistro.targa_veicolo && (
-          <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Targa Veicolo</p><p className="font-semibold">{sinistro.targa_veicolo}</p></CardContent></Card>
-        )}
-        {sinistro.controparte && (
-          <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Controparte</p><p className="font-semibold">{sinistro.controparte}</p></CardContent></Card>
-        )}
-        {sinistro.numero_sinistro_compagnia && (
-          <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">N. Sinistro Compagnia</p><p className="font-semibold">{sinistro.numero_sinistro_compagnia}</p></CardContent></Card>
+        {(sinistro.controparte || sinistro.targa_veicolo) && (
+          <Card>
+            <CardContent className="pt-4">
+              {sinistro.controparte && <p className="text-sm"><span className="text-muted-foreground">Controparte:</span> <span className="font-semibold">{sinistro.controparte}</span></p>}
+              {sinistro.targa_veicolo && <p className="text-sm mt-1"><span className="text-muted-foreground">Targa:</span> <span className="font-semibold">{sinistro.targa_veicolo}</span></p>}
+            </CardContent>
+          </Card>
         )}
       </div>
 
@@ -286,32 +285,31 @@ export default function SinistroDetail() {
         </Card>
       )}
 
-      {sinistro.descrizione && (
-        <Card><CardHeader><CardTitle className="text-base">Descrizione</CardTitle></CardHeader><CardContent><p className="whitespace-pre-wrap">{sinistro.descrizione}</p></CardContent></Card>
-      )}
-
-      {(sinistro.tipo_sinistro_personalizzato || !sinistro.tipo_sinistro) && (
-        <TipoSinistroPersonalizzatoCard
-          sinistroId={sinistro.id}
-          tipoSinistro={sinistro.tipo_sinistro}
-          tipoSinistroPersonalizzato={sinistro.tipo_sinistro_personalizzato}
-          canEdit={canManage}
-          onSaved={() => qc.invalidateQueries({ queryKey: ["sinistro", id] })}
-        />
-      )}
-
-      {sinistro.note_perito && (
-        <Card><CardHeader><CardTitle className="text-base">Note Perito</CardTitle></CardHeader><CardContent><p className="whitespace-pre-wrap">{sinistro.note_perito}</p></CardContent></Card>
-      )}
-
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="dati">Dati Pratica</TabsTrigger>
           <TabsTrigger value="checklist">Checklist</TabsTrigger>
           <TabsTrigger value="eventi">Eventi</TabsTrigger>
           <TabsTrigger value="documenti">Documenti</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
           <TabsTrigger value="timeline">Log Attività</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="dati" className="space-y-4">
+          <SinistroDatiPraticaPanel
+            sinistro={sinistro}
+            canEdit={canManage}
+            onSaved={invalidate}
+          />
+          {sinistro.note_perito && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Note Perito / Report SIR</CardTitle></CardHeader>
+              <CardContent>
+                <p className="whitespace-pre-wrap text-sm">{sinistro.note_perito.startsWith("[SIR_REPORT]") ? "Bozza report SIR salvata (apri Report SIR per modificare)" : sinistro.note_perito}</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
         <TabsContent value="checklist" className="space-y-4">
           <div className="flex justify-end">

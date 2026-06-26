@@ -1,13 +1,15 @@
 import { cn } from "@/lib/utils";
 
-export type FiltroTipo = "polizze" | "quietanze" | "regolazioni";
+export type FiltroTipo = "polizze" | "quietanze" | "regolazioni" | "garantiti";
 
 export type TipoFilterSegmentedProps = {
   value: FiltroTipo;
   onChange: (v: FiltroTipo) => void;
-  counts?: { polizze?: number; quietanze?: number; regolazioni?: number };
+  counts?: { polizze?: number; quietanze?: number; regolazioni?: number; garantiti?: number };
   /** Mostra anche il chip Regolazioni (solo portafoglio). Default: false. */
   withRegolazioni?: boolean;
+  /** Mostra chip Garantiti (copertura / attesa fondi). Default: false. */
+  withGarantiti?: boolean;
   /** Nasconde il chip Polizze (es. pagina Carico dove ci sono solo quietanze). Default: false. */
   hidePolizze?: boolean;
   className?: string;
@@ -22,6 +24,7 @@ export function TipoFilterSegmented({
   onChange,
   counts,
   withRegolazioni = false,
+  withGarantiti = false,
   hidePolizze = false,
   className,
 }: TipoFilterSegmentedProps) {
@@ -49,12 +52,21 @@ export function TipoFilterSegmented({
     },
   ];
 
+  if (withGarantiti) {
+    items.push({
+      key: "garantiti",
+      label: "Garantiti",
+      count: counts?.garantiti,
+      activeClasses: "bg-orange-500 text-white shadow-sm",
+    });
+  }
+
   if (withRegolazioni) {
     items.push({
       key: "regolazioni",
       label: "Regolazioni",
       count: counts?.regolazioni,
-      activeClasses: "bg-orange-500 text-white shadow-sm",
+      activeClasses: "bg-orange-600 text-white shadow-sm",
     });
   }
 

@@ -2882,9 +2882,11 @@ export type Database = {
         Row: {
           addizionali: number | null
           compagnia_id: string | null
+          compagnia_rapporto_id: string | null
           created_at: string | null
           data_copertura: string | null
           emissione_compagnia: string | null
+          gruppo_compagnia_id: string | null
           id: string
           netto: number | null
           perc_gestione: number | null
@@ -2901,9 +2903,11 @@ export type Database = {
         Insert: {
           addizionali?: number | null
           compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
           created_at?: string | null
           data_copertura?: string | null
           emissione_compagnia?: string | null
+          gruppo_compagnia_id?: string | null
           id?: string
           netto?: number | null
           perc_gestione?: number | null
@@ -2920,9 +2924,11 @@ export type Database = {
         Update: {
           addizionali?: number | null
           compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
           created_at?: string | null
           data_copertura?: string | null
           emissione_compagnia?: string | null
+          gruppo_compagnia_id?: string | null
           id?: string
           netto?: number | null
           perc_gestione?: number | null
@@ -7944,6 +7950,7 @@ export type Database = {
           luogo_sinistro: string | null
           medico_legale: string | null
           note_perito: string | null
+          note_interne: string | null
           numero_sinistro: string | null
           numero_sinistro_compagnia: string | null
           perito_id: string | null
@@ -7986,6 +7993,7 @@ export type Database = {
           luogo_sinistro?: string | null
           medico_legale?: string | null
           note_perito?: string | null
+          note_interne?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
           perito_id?: string | null
@@ -8028,6 +8036,7 @@ export type Database = {
           luogo_sinistro?: string | null
           medico_legale?: string | null
           note_perito?: string | null
+          note_interne?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
           perito_id?: string | null
@@ -8507,6 +8516,7 @@ export type Database = {
           cliente_anagrafica_id: string | null
           cliente_id: string | null
           codice_rapporto: string | null
+          coassicurazione: boolean | null
           commerciale_id: string | null
           comp_assicurativa: string | null
           comp_contabile: string | null
@@ -8632,6 +8642,7 @@ export type Database = {
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           codice_rapporto?: string | null
+          coassicurazione?: boolean | null
           commerciale_id?: string | null
           comp_assicurativa?: string | null
           comp_contabile?: string | null
@@ -8757,6 +8768,7 @@ export type Database = {
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           codice_rapporto?: string | null
+          coassicurazione?: boolean | null
           commerciale_id?: string | null
           comp_assicurativa?: string | null
           comp_contabile?: string | null

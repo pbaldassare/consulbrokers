@@ -604,6 +604,8 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       queryClient.invalidateQueries({ queryKey: ["titoli-compensazioni"] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni-generate"] });
       queryClient.invalidateQueries({ queryKey: ["ec-produttori"] });
+      queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
+      queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
       onSuccess?.();
       onOpenChange(false);
     } else {

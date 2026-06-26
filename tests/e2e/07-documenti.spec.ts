@@ -9,37 +9,39 @@ import { SEL } from './helpers/selectors';
 test.use({ storageState: STORAGE_STATE });
 
 test.describe('Documenti — scheda cliente', () => {
-  test('tab Documenti mostra CGA e sezione polizze analizzate', async ({ page }) => {
+  test('tab Documenti mostra scansione AI e upload tipizzato', async ({ page }) => {
     const clienteId = await openFirstClienteDetail(page);
     test.skip(!clienteId, 'Nessun cliente visibile nel DB di test');
 
     await page.getByRole('tab', { name: 'Documenti' }).click();
     await expect(page).toHaveURL(/tab=documenti/);
-    await expect(page.getByRole('button', { name: SEL.documenti.analizzaCga })).toBeVisible();
-    await expect(page.getByText(SEL.documenti.polizzeAnalizzate)).toBeVisible();
+    await expect(page.getByText('Scansione AI Documenti')).toBeVisible();
+    await expect(page.getByRole('button', { name: SEL.documenti.caricaDocumento })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Tipologia' })).toBeVisible();
     await expectPageHealthy(page);
   });
 
-  test('bottone Analizza Polizza CGA apre il dialog', async ({ page }) => {
+  test('bottone Carica Documento apre modale con tipologia', async ({ page }) => {
     const clienteId = await openFirstClienteDetail(page);
     test.skip(!clienteId, 'Nessun cliente visibile nel DB di test');
 
     await page.getByRole('tab', { name: 'Documenti' }).click();
-    await page.getByRole('button', { name: SEL.documenti.analizzaCga }).click();
+    await page.getByRole('button', { name: SEL.documenti.caricaDocumento }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText(/Analizza Polizza CGA/i).first()).toBeVisible();
+    await expect(dialog.getByText(/Tipologia documento/i)).toBeVisible();
+    await expect(dialog.getByText(/Visibile al cliente/i)).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
   });
 
-  test('sezione Polizze Analizzate mostra lista o messaggio vuoto', async ({ page }) => {
+  test('tabella documenti mostra lista o messaggio vuoto', async ({ page }) => {
     const clienteId = await openFirstClienteDetail(page);
     test.skip(!clienteId, 'Nessun cliente visibile nel DB di test');
 
     await page.getByRole('tab', { name: 'Documenti' }).click();
-    const empty = page.getByText(/Nessuna polizza analizzata/i);
-    const rows = page.locator('[data-testid="polizza-cga-row"], table tbody tr');
+    const empty = page.getByText(/Nessun documento/i);
+    const rows = page.locator('table tbody tr');
     const hasEmpty = (await empty.count()) > 0;
     const hasRows = (await rows.count()) > 0;
     expect(hasEmpty || hasRows).toBeTruthy();

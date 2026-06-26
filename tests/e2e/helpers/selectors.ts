@@ -25,8 +25,7 @@ export const SEL = {
     searchPlaceholder: 'Cerca per numero, descrizione...',
   },
   documenti: {
-    analizzaCga: 'Analizza Polizza CGA',
-    polizzeAnalizzate: /Polizze Analizzate \(CGA\)/i,
+    caricaDocumento: 'Carica Documento',
     libreriaCga: 'Libreria CGA',
     archivioDocumentale: /Archivio Documentale|documentale/i,
   },

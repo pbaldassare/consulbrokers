@@ -116,6 +116,8 @@ export interface PremiGaranziaCardShellProps {
   onResetRow?: (idx: number) => void;
   /** Override titolo card (es. etichette rateo) */
   titoloOverride?: string;
+  /** Slot opzionale sotto i totali (es. riparto coassicurazione) */
+  coassicurazioneBreakdown?: ReactNode;
 }
 
 
@@ -146,6 +148,7 @@ export function PremiGaranziaCardShell({
   personalizzati,
   onResetRow,
   titoloOverride,
+  coassicurazioneBreakdown,
 }: PremiGaranziaCardShellProps) {
 
   const isQuietanza = tipoPremio === "quietanza";
@@ -630,6 +633,8 @@ export function PremiGaranziaCardShell({
             </p>
           </div>
         </div>
+
+        {coassicurazioneBreakdown}
 
         {/* Provvigioni footer */}
         {(() => {

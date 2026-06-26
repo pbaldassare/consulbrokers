@@ -10,6 +10,7 @@ import { Shield } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { buildGarantitoPayload } from "@/lib/garantitoTitolo";
 
 export interface TitoloMin {
   id: string;
@@ -26,25 +27,27 @@ interface Props {
   onSuccess?: () => void;
 }
 
+async function syncQuietanzaCopertura(titoloId: string, dataCopertura: string) {
+  await (supabase.from("quietanze") as any)
+    .update({ data_copertura: dataCopertura, updated_at: new Date().toISOString() })
+    .eq("titolo_id", titoloId);
+}
+
 /**
- * Dialog "Garantito" condiviso (Portafoglio Carico + Ricongiungimento Bancario).
- *
- * Marca uno o più titoli come messi a cassa con conferimento gestito (l'agenzia
- * anticipa i fondi alla compagnia in attesa del pagamento cliente).
- * Replica la Circolare 02 Consulbrokers vista in TitoloDetail.
+ * Dialog "Garantito" — fase 1 copertura (data_copertura), senza messa a cassa.
  */
 export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props) {
   const queryClient = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
   const [accettato, setAccettato] = useState(false);
-  const [dataMessaCassa, setDataMessaCassa] = useState(today);
+  const [dataCopertura, setDataCopertura] = useState(today);
   const [dataDecorrenza, setDataDecorrenza] = useState(today);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       setAccettato(false);
-      setDataMessaCassa(today);
+      setDataCopertura(today);
       setDataDecorrenza(today);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -58,36 +61,24 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
     if (titoli.length === 0) { toast.error("Nessun titolo selezionato"); return; }
     setLoading(true);
     let ok = 0, ko = 0;
-    const todayIso = new Date().toISOString().slice(0, 10);
 
     for (const t of titoli) {
-      const payload: any = {
-        stato: "incassato",
-        data_messa_cassa: dataMessaCassa,
-        data_decorrenza_rinnovo: dataDecorrenza,
-        data_incasso: dataMessaCassa,
-        conferimento_gestito: true,
-        fondi_ricevuti: false,
-        data_conferimento_gestito: todayIso,
-        importo_incassato: 0,
-        tipo_pagamento: "garantito",
-        updated_at: new Date().toISOString(),
-      };
+      const payload = buildGarantitoPayload({ dataCopertura, dataDecorrenza });
       const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
       if (error) { ko++; continue; }
+      await syncQuietanzaCopertura(t.id, dataCopertura);
       ok++;
       await logAttivita({
         azione: "conferimento_gestito",
         entita_tipo: "titolo",
         entita_id: t.id,
         dettagli_json: {
-          data_messa_cassa: dataMessaCassa,
+          data_copertura: dataCopertura,
           data_decorrenza_rinnovo: dataDecorrenza,
           conferimento_gestito: true,
           bulk: isMulti,
         },
       });
-      supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: t.id } }).catch(() => {});
       supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } })
         .then((res: any) => { if (res?.error) toast.warning(`Notifica non inviata (${t.numero_titolo ?? t.id})`); })
         .catch(() => {});
@@ -95,11 +86,13 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
 
     setLoading(false);
     if (ok > 0) {
-      toast.success(isMulti ? `${ok} polizze garantite${ko > 0 ? `, ${ko} errori` : ""}` : "Polizza garantita");
+      toast.success(isMulti ? `${ok} polizze in copertura${ko > 0 ? `, ${ko} errori` : ""}` : "Copertura garantita");
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-totale"] });
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["mov-bancari"] });
+      queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
+      queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
       onSuccess?.();
       onOpenChange(false);
     } else {
@@ -116,8 +109,8 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
           </DialogTitle>
           <DialogDescription>
             {isMulti
-              ? `Incasso garantito di ${titoli.length} polizze · Totale ${fmtEuro(totale)}`
-              : `Polizza ${titoli[0]?.numero_titolo || titoli[0]?.id?.slice(0, 8) || ""} — Incasso senza fondi in cassa`}
+              ? `Copertura garantita di ${titoli.length} polizze · Totale ${fmtEuro(totale)}`
+              : `Polizza ${titoli[0]?.numero_titolo || titoli[0]?.id?.slice(0, 8) || ""} — Copertura senza incasso`}
           </DialogDescription>
         </DialogHeader>
 
@@ -146,8 +139,8 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">Data Messa a Cassa</Label>
-              <Input type="date" value={dataMessaCassa} onChange={(e) => setDataMessaCassa(e.target.value)} className="mt-1" />
+              <Label className="text-xs">Data Copertura</Label>
+              <Input type="date" value={dataCopertura} onChange={(e) => setDataCopertura(e.target.value)} className="mt-1" />
             </div>
             <div>
               <Label className="text-xs">Data Decorrenza Rinnovo</Label>
@@ -156,7 +149,7 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Tipo pagamento e data pagamento verranno compilati successivamente, al momento dell'incasso effettivo dei fondi.
+            La messa a cassa e il tipo/data pagamento verranno compilati successivamente, al momento dell'incasso effettivo dei fondi.
           </p>
         </div>
 

@@ -39,6 +39,7 @@ test.describe('Sinistri — scheda dettaglio e tab', () => {
     test.skip(!opened, 'Nessun sinistro visibile nel DB di test');
 
     await expectPageHealthy(page);
+    await expect(page.getByRole('tab', { name: 'Dati Pratica' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Checklist' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Eventi' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Documenti' })).toBeVisible();

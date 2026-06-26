@@ -1,5 +1,5 @@
-// Edge function: notifica messa a cassa all'agenzia/direzione/broker (rapporto)
-// Invocata dopo l'aggiornamento di titoli.data_messa_cassa.
+// Edge function: notifica messa a cassa / copertura garantita all'agenzia (rapporto)
+// Invocata dopo aggiornamento titoli (data_messa_cassa o data_copertura in fase Garantito).
 // Deduplica: una sola email per titolo salvo force=true (reinvio manuale).
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -114,7 +114,7 @@ serve(async (req) => {
       .select(`
         id, numero_titolo, riga, sostituisce_polizza,
         premio_lordo, importo_incassato,
-        data_messa_cassa, data_pagamento, tipo_pagamento, banca_pagamento,
+        data_messa_cassa, data_copertura, data_pagamento, tipo_pagamento, banca_pagamento,
         conferimento_gestito, fondi_ricevuti,
         garanzia_da, garanzia_a, data_competenza, data_scadenza,
         compagnia_id, compagnia_rapporto_id, ramo_id, ufficio_id, ae_anagrafica_id,
@@ -168,7 +168,7 @@ serve(async (req) => {
 
     const numeroPolizza = t.numero_titolo || "—";
     const decorrenza = fmtDate(t.garanzia_da);
-    const dataMessaCassa = fmtDate(t.data_messa_cassa);
+    const dataRiferimento = fmtDate(t.data_copertura || t.data_messa_cassa);
     const importo = fmtEuro(resolveImportoEmail(t));
 
     const subject = isGarantito
@@ -176,7 +176,7 @@ serve(async (req) => {
       : `Comunicazione messa a cassa — Polizza ${numeroPolizza} — ${clienteNome}`;
 
     const introGarantito = isGarantito
-      ? `<p style="margin:0 0 14px;">In data <strong>${escapeHtml(dataMessaCassa)}</strong> abbiamo garantito la copertura del seguente premio per Vostro conto, in attesa dell'incasso effettivo dei fondi dal cliente, come da accordi:</p>`
+      ? `<p style="margin:0 0 14px;">In data <strong>${escapeHtml(dataRiferimento)}</strong> abbiamo garantito la copertura del seguente premio per Vostro conto, in attesa dell'incasso effettivo dei fondi dal cliente, come da accordi:</p>`
       : `<p style="margin:0 0 14px;">In data odierna abbiamo incassato per Vostro conto a mezzo <strong>${escapeHtml(modalita)}</strong> il seguente premio, come da accordi:</p>`;
 
     const html = `
@@ -198,7 +198,7 @@ serve(async (req) => {
             <tr><td style="color:#55615e;">Polizza</td><td><strong>${escapeHtml(numeroPolizza)}</strong></td></tr>
             <tr style="background:#f7faf9;"><td style="color:#55615e;">Decorrenza</td><td>${escapeHtml(decorrenza)}</td></tr>
             <tr><td style="color:#55615e;">Premio</td><td><strong>${escapeHtml(importo)}</strong></td></tr>
-            ${isGarantito ? `<tr><td style="color:#55615e;">Messa a cassa</td><td>${escapeHtml(dataMessaCassa)}</td></tr>` : ""}
+            ${isGarantito ? `<tr><td style="color:#55615e;">Data copertura</td><td>${escapeHtml(dataRiferimento)}</td></tr>` : ""}
           </table>
           <p style="margin:0;">È gradita l'occasione per porgere cordiali saluti.</p>
         </td></tr>

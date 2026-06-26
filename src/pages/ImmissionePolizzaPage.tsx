@@ -56,6 +56,14 @@ import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPers
 import { computeQuietanzePlan } from "@/lib/quietanzePlan";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
+import { CoassicurazioneContrattoPanel } from "@/components/polizze/CoassicurazioneContrattoPanel";
+import { CoassicurazioneImportiBreakdown } from "@/components/polizze/CoassicurazioneImportiBreakdown";
+import {
+  validateRipartoSum,
+  buildDettaglioRipartoInsert,
+  buildDettaglioRipartoSingolo,
+  type RipartoCoassicurazioneRow,
+} from "@/lib/coassicurazione";
 
 
 const ImmissionePolizzaPage = () => {
@@ -333,6 +341,8 @@ const ImmissionePolizzaPage = () => {
   const [selectedCompagnia, setSelectedCompagnia] = useState("");
   const [selectedGruppoCompagniaId, setSelectedGruppoCompagniaId] = useState<string>("");
   const [selectedRapportoId, setSelectedRapportoId] = useState<string>("");
+  const [coassicurazione, setCoassicurazione] = useState(false);
+  const [ripartoRows, setRipartoRows] = useState<RipartoCoassicurazioneRow[]>([]);
   const [selectedRamo, setSelectedRamo] = useState("");
   const [selectedGruppoRamoId, setSelectedGruppoRamoId] = useState<string | null>(null);
   /** Sottoramo di default proposto nelle nuove righe garanzia (Firma + Quietanza). */
@@ -506,6 +516,8 @@ const ImmissionePolizzaPage = () => {
         selectedCompagnia: setSelectedCompagnia,
         selectedGruppoCompagniaId: setSelectedGruppoCompagniaId,
         selectedRapportoId: setSelectedRapportoId,
+        coassicurazione: setCoassicurazione,
+        ripartoRows: setRipartoRows,
         selectedRamo: setSelectedRamo,
         selectedGruppoRamoId: setSelectedGruppoRamoId,
         prodottoNome: setProdottoNome,
@@ -622,7 +634,7 @@ const ImmissionePolizzaPage = () => {
   const draftSnapshot = {
     selectedAE, selectedAccountExecutiveId, selectedClienteId, selectedUfficioId, selectedBackofficeId,
     numeroPolizza, notePolizza, tipoOperazione, polizzaAuto,
-    selectedCompagnia, selectedGruppoCompagniaId, selectedRapportoId, selectedRamo, selectedGruppoRamoId, prodottoNome,
+    selectedCompagnia, selectedGruppoCompagniaId, selectedRapportoId, coassicurazione, ripartoRows, selectedRamo, selectedGruppoRamoId, prodottoNome,
     cigRif, cigTemporaneo, vincolo, targaTelaio, descrizionePolizza,
     durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, polizzaTemporanea, polizzaRateo, frazionamento, moraGiorni,
     garanziaDa, garanziaDaTouched, garanziaA, garanziaATouched, dataCompetenza, dataCompetenzaTouched,
@@ -1101,6 +1113,16 @@ const ImmissionePolizzaPage = () => {
     }
   }, [selectedCompagnia, compagnieList]);
 
+  // Coassicurazione: il leader (prima riga) alimenta lookup provvigioni / matrice
+  useEffect(() => {
+    if (!coassicurazione) return;
+    const leader = ripartoRows[0];
+    if (!leader) return;
+    if (leader.compagniaId) setSelectedCompagnia(leader.compagniaId);
+    if (leader.gruppoCompagniaId) setSelectedGruppoCompagniaId(leader.gruppoCompagniaId);
+    if (leader.rapportoId) setSelectedRapportoId(leader.rapportoId);
+  }, [coassicurazione, ripartoRows]);
+
   // Tipo dell'agenzia selezionata
   const selectedAgenzia = (compagnieList || []).find((c: any) => c.id === selectedCompagnia) as any;
   const tipoAgenzia = (selectedAgenzia?.tipo || "").toLowerCase();
@@ -1524,17 +1546,40 @@ const ImmissionePolizzaPage = () => {
       toast.error("Aggiungi almeno una garanzia/sottoramo nelle Composizioni Premio");
       return;
     }
-    if (!selectedGruppoCompagniaId) {
-      toast.error("Seleziona la Compagnia Assicurativa");
-      return;
-    }
-    if (!selectedCompagnia) {
-      toast.error("Seleziona l'Agenzia di Riferimento");
-      return;
-    }
-    if (isBrokerLike && !selectedRapportoId) {
-      toast.error("Seleziona il Rapporto Agenzia");
-      return;
+    if (coassicurazione) {
+      const ripartoCheck = validateRipartoSum(ripartoRows);
+      if (!ripartoCheck.valid) {
+        toast.error(ripartoCheck.message || "Riparto coassicurazione non valido");
+        return;
+      }
+      const leader = ripartoRows[0];
+      const leaderAg = (compagnieList || []).find((c: any) => c.id === leader.compagniaId) as any;
+      const leaderBroker = (leaderAg?.tipo || "").toLowerCase() === "broker" || (leaderAg?.tipo || "").toLowerCase() === "plurimandataria";
+      if (leaderBroker && !leader.rapportoId) {
+        const { data: rapLeader } = await supabase
+          .from("compagnia_rapporti")
+          .select("id")
+          .eq("compagnia_id", leader.compagniaId)
+          .eq("gruppo_compagnia_id", leader.gruppoCompagniaId)
+          .eq("attivo", true);
+        if ((rapLeader || []).length !== 1) {
+          toast.error("Seleziona il Rapporto Agenzia per il coassicuratore leader");
+          return;
+        }
+      }
+    } else {
+      if (!selectedGruppoCompagniaId) {
+        toast.error("Seleziona la Compagnia Assicurativa");
+        return;
+      }
+      if (!selectedCompagnia) {
+        toast.error("Seleziona l'Agenzia di Riferimento");
+        return;
+      }
+      if (isBrokerLike && !selectedRapportoId) {
+        toast.error("Seleziona il Rapporto Agenzia");
+        return;
+      }
     }
     if (isRCA) {
       if (!vTipoVeicolo) { toast.error("Tipo Veicolo obbligatorio per RCA Auto"); return; }
@@ -1569,6 +1614,32 @@ const ImmissionePolizzaPage = () => {
       }
     }
     const rapportoSel = (rapportiAgenzia || []).find((r: any) => r.id === selectedRapportoId);
+    const leaderRow = coassicurazione ? ripartoRows[0] : null;
+    const compagniaIdSave = coassicurazione ? leaderRow!.compagniaId : selectedCompagnia;
+    const gruppoCompagniaIdSave = coassicurazione ? leaderRow!.gruppoCompagniaId : selectedGruppoCompagniaId;
+    const rapportoIdSave = coassicurazione ? leaderRow!.rapportoId : selectedRapportoId;
+    const agenziaSave = (compagnieList || []).find((c: any) => c.id === compagniaIdSave) as any;
+    const tipoAgenziaSave = (agenziaSave?.tipo || "").toLowerCase();
+    const isBrokerLikeSave = tipoAgenziaSave === "broker" || tipoAgenziaSave === "plurimandataria";
+    let rapportoSelSave = rapportoSel;
+    if (coassicurazione && isBrokerLikeSave) {
+      if (rapportoIdSave) {
+        const { data: rapRow } = await supabase
+          .from("compagnia_rapporti")
+          .select("id, codice_rapporto, nome_rapporto, tipo_rapporto")
+          .eq("id", rapportoIdSave)
+          .maybeSingle();
+        rapportoSelSave = rapRow as any;
+      } else {
+        const { data: rapRows } = await supabase
+          .from("compagnia_rapporti")
+          .select("id, codice_rapporto, nome_rapporto, tipo_rapporto")
+          .eq("compagnia_id", compagniaIdSave)
+          .eq("gruppo_compagnia_id", gruppoCompagniaIdSave)
+          .eq("attivo", true);
+        rapportoSelSave = (rapRows || [])[0] as any;
+      }
+    }
     setSaving(true);
     try {
       // In modalità regolazione la nuova riga deve essere riga+1 rispetto all'ultima del numero_titolo
@@ -1593,10 +1664,11 @@ const ImmissionePolizzaPage = () => {
         note: notePolizza.trim() || null,
         riga: regolazioneMode ? regolazioneRiga : 0,
         appendice: "000",
+        coassicurazione,
         // gruppo_compagnia_id non è una colonna di titoli: si deriva via compagnia_rapporti
-        compagnia_id: selectedCompagnia || null,
-        compagnia_rapporto_id: isBrokerLike ? (selectedRapportoId || null) : null,
-        codice_rapporto: isBrokerLike ? (rapportoSel?.codice_rapporto || null) : null,
+        compagnia_id: compagniaIdSave || null,
+        compagnia_rapporto_id: isBrokerLikeSave ? (rapportoSelSave?.id || rapportoIdSave || null) : null,
+        codice_rapporto: isBrokerLikeSave ? (rapportoSelSave?.codice_rapporto || null) : null,
         ramo_id: ramoIdToSave,
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
@@ -1815,6 +1887,53 @@ const ImmissionePolizzaPage = () => {
       ];
       if (premiPayload.length > 0) {
         await supabase.from("premi_garanzia_polizza").insert(premiPayload);
+      }
+
+      // Dettaglio riparto (coassicurazione o singola quota 100%)
+      {
+        let provvNettoAmt = 0;
+        let provvAddAmt = 0;
+        let percProvvN = parseFloat(percentualeProvvigione) || 0;
+        let percProvvA = percProvvN;
+        if (percentualeProvvigioneAuto && provvMatrice) {
+          for (const r of premiFirmaRows) {
+            if (r.escludiProvvigioni) continue;
+            const netto = parseFloat(r.netto || "0") || 0;
+            const acc = parseFloat(r.accessori || "0") || 0;
+            provvNettoAmt += (netto * resolveRowPctNetto(r, provvMatrice).pct) / 100;
+            provvAddAmt += (acc * resolveRowPctAccessori(r, provvMatrice).pct) / 100;
+          }
+          if (provvBreakdownFirma) {
+            percProvvN = provvBreakdownFirma.pctNetto;
+            percProvvA = provvBreakdownFirma.pctAccessori;
+          }
+        } else {
+          provvNettoAmt = provvFirma;
+        }
+        const ripartoTotals = {
+          netto: premioNettoNum,
+          addizionali: accessoriFirmaNum,
+          tasse: tasseNum,
+          lordo: totFirma,
+        };
+        const provvInfo = {
+          totale: provvFirma,
+          provvNetto: provvNettoAmt,
+          provvAddizionali: provvAddAmt,
+          percProvvNetto: percProvvN,
+          percProvvAddizionali: percProvvA,
+        };
+        const ripartoPayload = coassicurazione
+          ? buildDettaglioRipartoInsert(newTitolo.id, ripartoRows, ripartoTotals, provvInfo)
+          : buildDettaglioRipartoSingolo(newTitolo.id, compagniaIdSave, ripartoTotals, provvInfo, {
+              gruppoCompagniaId: gruppoCompagniaIdSave,
+              compagniaRapportoId: isBrokerLikeSave ? (rapportoSelSave?.id || rapportoIdSave || null) : null,
+            });
+        const { error: ripartoErr } = await supabase.from("dettaglio_riparto").insert(ripartoPayload);
+        if (ripartoErr) {
+          console.error("Errore salvataggio dettaglio_riparto:", ripartoErr);
+          toast.warning("Polizza creata ma riparto compagnie non salvato: " + ripartoErr.message);
+        }
       }
 
       // Rateo: premi su madre servono al trigger; copia su quietanze dopo insert righe garanzia
@@ -2222,11 +2341,24 @@ const ImmissionePolizzaPage = () => {
 
 
 
-        {prefilledHint && (
+        {prefilledHint && !coassicurazione && (
           <div className="mb-2 text-[11px] text-teal-700 bg-teal-50 border border-teal-200 rounded px-2 py-1 inline-block">
             Compagnia e Agenzia precompilate dall'ultima polizza di questo cliente — modificabili
           </div>
         )}
+
+        <CoassicurazioneContrattoPanel
+          enabled={coassicurazione}
+          onEnabledChange={setCoassicurazione}
+          rows={ripartoRows}
+          onRowsChange={setRipartoRows}
+          compagnieList={(compagnieList || []) as any[]}
+          gruppiCompagniaList={(gruppiCompagniaList || []) as any[]}
+          brokerPluriPerGruppo={brokerPluriPerGruppo || []}
+          rapportiMap={rapportiMap || new Map()}
+        />
+
+        {!coassicurazione && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Compagnia Assicurativa <span className="text-destructive">*</span></Label>
@@ -2325,9 +2457,10 @@ const ImmissionePolizzaPage = () => {
           </div>
 
         </div>
+        )}
 
         {/* Rapporto Agenzia: visibile solo per broker / plurimandataria */}
-        {isBrokerLike && selectedCompagnia && (
+        {!coassicurazione && isBrokerLike && selectedCompagnia && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">
@@ -2810,6 +2943,21 @@ const ImmissionePolizzaPage = () => {
                     >
                       Copia in Quietanza
                     </Button>
+                  }
+                  coassicurazioneBreakdown={
+                    coassicurazione ? (
+                      <CoassicurazioneImportiBreakdown
+                        ripartoRows={ripartoRows}
+                        compagnieList={(compagnieList || []) as any[]}
+                        gruppiCompagniaList={(gruppiCompagniaList || []) as any[]}
+                        totNetto={premioNettoNum}
+                        totAccessori={accessoriFirmaNum}
+                        totTasse={tasseNum}
+                        totSsn={ssnFirmaNum}
+                        lordo={totFirma}
+                        provvFirma={provvFirma}
+                      />
+                    ) : undefined
                   }
                 />
                 <PremiGaranziaCardShell

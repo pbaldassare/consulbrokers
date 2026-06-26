@@ -25,6 +25,7 @@ import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3,
 import { format } from "date-fns";
 import { groupTitoliByPolizza } from "@/lib/quietanze";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
+import { isInCoperturaGarantita, isGarantitoDaIncassare } from "@/lib/garantitoTitolo";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
@@ -47,8 +48,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import AnticipiChip from "@/components/clienti/AnticipiChip";
-import AnalizzaPolizzaCgaDialog from "@/components/cga/AnalizzaPolizzaCgaDialog";
-import PolizzeCgaSection from "@/components/cga/PolizzeCgaSection";
 
 /* ===========================================================
  * Anagrafica form context + module-level field components
@@ -1127,8 +1126,8 @@ Consulbrokers S.r.l.`;
 
 function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navigate: (to: string) => void; mode?: "polizze" | "quietanze" }) {
   const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
-  const [filtroTipoState, setFiltroTipoState] = useState<"polizze" | "quietanze" | "regolazioni">("polizze");
-  const filtroTipo: "polizze" | "quietanze" | "regolazioni" = mode ?? filtroTipoState;
+  const [filtroTipoState, setFiltroTipoState] = useState<"polizze" | "quietanze" | "regolazioni" | "garantiti">("polizze");
+  const filtroTipo: "polizze" | "quietanze" | "regolazioni" | "garantiti" = mode ?? filtroTipoState;
   const [filtroNumero, setFiltroNumero] = useState("");
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string>("");
   const [filtroGaranzia, setFiltroGaranzia] = useState<string>("");
@@ -1164,8 +1163,14 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
     return Array.from(s).sort().map((v) => ({ value: v, label: v }));
   }, [polizze]);
 
+  const countGarantiti = useMemo(
+    () => polizze.filter(isGarantitoDaIncassare).length,
+    [polizze],
+  );
+
   // Predicate sul singolo titolo (madre o rata)
   const matchTitolo = (t: any) => {
+    if (filtroTipo === "garantiti" && !isGarantitoDaIncassare(t)) return false;
     if (filtroNumero) {
       const q = filtroNumero.toLowerCase();
       const num = String(t.numero_titolo || "").toLowerCase();
@@ -1187,7 +1192,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
       return c.rate.some((r: any) => matchTitolo(r));
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [catene, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato],
+    [catene, filtroTipo, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato],
   );
 
   const hasAnyFilter = !!(filtroNumero || filtroGruppoRamo || filtroGaranzia || filtroAgenzia || filtroStato);
@@ -1205,7 +1210,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
     });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredCatene, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
+  }, [filteredCatene, filtroTipo, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
 
   const allQuiet = useMemo(() => filteredTitoli.filter((p) => !!p.sostituisce_polizza), [filteredTitoli]);
   const allPol = useMemo(() => filteredTitoli.filter((p) => !p.sostituisce_polizza), [filteredTitoli]);
@@ -1219,6 +1224,12 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
   const totProvv = useMemo(
     () => allQuiet.reduce((s, p) => s + getProvvigioneEC(p), 0),
     [allQuiet],
+  );
+
+  const allGarant = useMemo(() => filteredTitoli.filter(isGarantitoDaIncassare), [filteredTitoli]);
+  const totPremioGarant = useMemo(
+    () => allGarant.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
+    [allGarant],
   );
 
   // Flat quietanze filtrate (vista "Solo quietanze")
@@ -1235,7 +1246,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
     });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredCatene, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
+  }, [filteredCatene, filtroTipo, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
 
 
   const fmtDate = (d: string | Date | null | undefined) => {
@@ -1304,15 +1315,33 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
           <TipoFilterSegmented
             value={filtroTipo}
             onChange={setFiltroTipoState}
-            counts={{ polizze: allPol.length, quietanze: allQuiet.length }}
+            withGarantiti
+            counts={{ polizze: allPol.length, quietanze: allQuiet.length, garantiti: countGarantiti }}
           />
         )}
         <div className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">{allPol.length}</span> polizze ·{" "}
-          <span className="font-medium text-foreground">{allQuiet.length}</span> quietanze · totale premio{" "}
-          <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
-          {" · "}totale provvigioni{" "}
-          <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
+          {filtroTipo === "garantiti" ? (
+            <>
+              <span className="font-medium text-orange-700">{allGarant.length}</span> garantiti
+              {countGarantiti !== allGarant.length && (
+                <> · <span className="text-muted-foreground">{countGarantiti} totali</span></>
+              )}
+              {" · "}totale premio{" "}
+              <span className="font-mono font-medium text-foreground">€ {totPremioGarant.toFixed(2)}</span>
+            </>
+          ) : (
+            <>
+              <span className="font-medium text-foreground">{allPol.length}</span> polizze ·{" "}
+              <span className="font-medium text-foreground">{allQuiet.length}</span> quietanze
+              {countGarantiti > 0 && (
+                <> · <span className="font-medium text-orange-700">{countGarantiti}</span> garantiti</>
+              )}
+              {" · "}totale premio{" "}
+              <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
+              {" · "}totale provvigioni{" "}
+              <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -1357,6 +1386,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
             className="h-8 w-[180px]"
           />
         </div>
+        {filtroTipo !== "garantiti" && (
         <div className="flex flex-col gap-1">
           <Label className="text-[10px] text-muted-foreground uppercase">Stato</Label>
           <SearchableSelect
@@ -1368,6 +1398,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
             className="h-8 w-[140px]"
           />
         </div>
+        )}
         {hasAnyFilter && (
           <Button type="button" variant="ghost" size="sm" className="h-8" onClick={clearFilters}>
             Pulisci filtri
@@ -1389,16 +1420,52 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
             <TableHead>Agenzia</TableHead>
             <TableHead>Premio €</TableHead>
             <TableHead>Provvigioni €</TableHead>
+            <TableHead>Data Copertura</TableHead>
             <TableHead>Data Incasso</TableHead>
             {isAdmin && <TableHead className="w-12"></TableHead>}
           </TableRow>
 
         </TableHeader>
         <TableBody>
-          {filtroTipo === "quietanze" ? (
+          {filtroTipo === "garantiti" ? (
+            allGarant.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={isAdmin ? 13 : 12} className="text-center text-sm text-muted-foreground py-6">
+                  Nessuna polizza in copertura garantita
+                </TableCell>
+              </TableRow>
+            ) : (
+              allGarant.map((r) => (
+                <TableRow
+                  key={r.id}
+                  className="cursor-pointer border-l-4 border-l-orange-500 bg-orange-50/50 hover:bg-orange-100/60 hover:ring-1 hover:ring-inset hover:ring-orange-300/50 transition-colors"
+                  onClick={() => navigate(`/titoli/${r.id}`)}
+                  title="Apri titolo in copertura garantita"
+                >
+                  <TableCell></TableCell>
+                  <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
+                  <TableCell>
+                    <TipoPolizzaBadge tipo={r.sostituisce_polizza ? "quietanza" : "polizza"} />
+                  </TableCell>
+                  <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
+                  <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
+                  <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
+                  <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
+                  <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
+                  <TableCell className="text-xs text-orange-700 font-medium">
+                    {fmtDate(r.data_copertura)}
+                  </TableCell>
+                  <TableCell className="text-xs">{fmtDate(r.data_messa_cassa || r.data_incasso)}</TableCell>
+                  {isAdmin && <TableCell />}
+                </TableRow>
+              ))
+            )
+          ) : filtroTipo === "quietanze" ? (
             flatQuietanze.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 12 : 11} className="text-center text-sm text-muted-foreground py-6">
+                <TableCell colSpan={isAdmin ? 13 : 12} className="text-center text-sm text-muted-foreground py-6">
                   Nessuna quietanza presente
                 </TableCell>
               </TableRow>
@@ -1420,7 +1487,14 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
                   <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                   <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
-                  <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
+                  <TableCell className="text-xs">
+                    {r.data_copertura ? (
+                      <span className={isInCoperturaGarantita(r) ? "text-orange-700 font-medium" : undefined}>
+                        {fmtDate(r.data_copertura)}
+                      </span>
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs">{fmtDate(r.data_messa_cassa || r.data_incasso)}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Button
@@ -1441,7 +1515,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
             )
           ) : filteredCatene.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={isAdmin ? 12 : 11} className="text-center text-sm text-muted-foreground py-6">
+              <TableCell colSpan={isAdmin ? 13 : 12} className="text-center text-sm text-muted-foreground py-6">
                 Nessuna polizza presente
               </TableCell>
             </TableRow>
@@ -1473,7 +1547,14 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell className="font-mono">
                     {head.polizza_rateo ? "—" : fmtNum(getProvvigioneEC(head))}
                   </TableCell>
-                  <TableCell>{head.data_messa_cassa || head.data_incasso || "—"}</TableCell>
+                  <TableCell className="text-xs">
+                    {head.data_copertura ? (
+                      <span className={isInCoperturaGarantita(head) ? "text-orange-700 font-medium" : undefined}>
+                        {fmtDate(head.data_copertura)}
+                      </span>
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs">{fmtDate(head.data_messa_cassa || head.data_incasso)}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Button
@@ -1784,7 +1865,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, sostituisce_polizza, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome)")
+        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, data_copertura, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome)")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -2292,12 +2373,16 @@ export default function ClienteDetail() {
                     <AiDocumentScanner documentType="visura_camerale" entityContext={entityContext} onFileReady={handleScanUpload} onExtracted={() => {}} label="Scansiona Visura Camerale" />
                   );
                 })()}
-                <AnalizzaPolizzaCgaDialog clienteId={id!} />
               </div>
             </CardContent>
           </Card>
-          <PolizzeCgaSection clienteId={id!} />
-          <DocumentiTab entitaTipo="cliente" entitaId={id!} bucketName="documenti_clienti" />
+          <DocumentiTab
+            entitaTipo="cliente"
+            entitaId={id!}
+            bucketName="documenti_clienti"
+            typedUpload
+            entitaLabel={displayName}
+          />
         </TabsContent>
 
         <TabsContent value="chat"><ChatTab entitaTipo="cliente" entitaId={id!} /></TabsContent>
