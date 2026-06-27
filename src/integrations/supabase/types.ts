@@ -2954,6 +2954,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "dettaglio_riparto_compagnia_rapporto_id_fkey"
+            columns: ["compagnia_rapporto_id"]
+            isOneToOne: false
+            referencedRelation: "compagnia_rapporti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dettaglio_riparto_gruppo_compagnia_id_fkey"
+            columns: ["gruppo_compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_compagnia"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "dettaglio_riparto_titolo_id_fkey"
             columns: ["titolo_id"]
             isOneToOne: false
@@ -6636,6 +6650,13 @@ export type Database = {
             foreignKeyName: "produttori_provvigioni_ramo_ramo_codice_fkey"
             columns: ["ramo_codice"]
             isOneToOne: false
+            referencedRelation: "v_portafoglio_quietanze"
+            referencedColumns: ["ramo_codice"]
+          },
+          {
+            foreignKeyName: "produttori_provvigioni_ramo_ramo_codice_fkey"
+            columns: ["ramo_codice"]
+            isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["ramo_codice"]
           },
@@ -7264,6 +7285,7 @@ export type Database = {
           conto_incasso: string | null
           created_at: string
           data_competenza: string | null
+          data_copertura: string | null
           data_incasso: string | null
           data_messa_cassa: string | null
           data_pagamento: string | null
@@ -7296,6 +7318,7 @@ export type Database = {
           conto_incasso?: string | null
           created_at?: string
           data_competenza?: string | null
+          data_copertura?: string | null
           data_incasso?: string | null
           data_messa_cassa?: string | null
           data_pagamento?: string | null
@@ -7328,6 +7351,7 @@ export type Database = {
           conto_incasso?: string | null
           created_at?: string
           data_competenza?: string | null
+          data_copertura?: string | null
           data_incasso?: string | null
           data_messa_cassa?: string | null
           data_pagamento?: string | null
@@ -7952,8 +7976,8 @@ export type Database = {
           liquidatore_id: string | null
           luogo_sinistro: string | null
           medico_legale: string | null
-          note_perito: string | null
           note_interne: string | null
+          note_perito: string | null
           numero_sinistro: string | null
           numero_sinistro_compagnia: string | null
           perito_id: string | null
@@ -7995,8 +8019,8 @@ export type Database = {
           liquidatore_id?: string | null
           luogo_sinistro?: string | null
           medico_legale?: string | null
-          note_perito?: string | null
           note_interne?: string | null
+          note_perito?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
           perito_id?: string | null
@@ -8038,8 +8062,8 @@ export type Database = {
           liquidatore_id?: string | null
           luogo_sinistro?: string | null
           medico_legale?: string | null
-          note_perito?: string | null
           note_interne?: string | null
+          note_perito?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
           perito_id?: string | null
@@ -8518,8 +8542,8 @@ export type Database = {
           cig_temporaneo: boolean
           cliente_anagrafica_id: string | null
           cliente_id: string | null
-          codice_rapporto: string | null
           coassicurazione: boolean | null
+          codice_rapporto: string | null
           commerciale_id: string | null
           comp_assicurativa: string | null
           comp_contabile: string | null
@@ -8530,6 +8554,7 @@ export type Database = {
           created_at: string | null
           data_competenza: string | null
           data_conferimento_gestito: string | null
+          data_copertura: string | null
           data_decorrenza_rinnovo: string | null
           data_estinzione: string | null
           data_incasso: string | null
@@ -8645,8 +8670,8 @@ export type Database = {
           cig_temporaneo?: boolean
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
-          codice_rapporto?: string | null
           coassicurazione?: boolean | null
+          codice_rapporto?: string | null
           commerciale_id?: string | null
           comp_assicurativa?: string | null
           comp_contabile?: string | null
@@ -8657,6 +8682,7 @@ export type Database = {
           created_at?: string | null
           data_competenza?: string | null
           data_conferimento_gestito?: string | null
+          data_copertura?: string | null
           data_decorrenza_rinnovo?: string | null
           data_estinzione?: string | null
           data_incasso?: string | null
@@ -8771,8 +8797,8 @@ export type Database = {
           cig_temporaneo?: boolean
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
-          codice_rapporto?: string | null
           coassicurazione?: boolean | null
+          codice_rapporto?: string | null
           commerciale_id?: string | null
           comp_assicurativa?: string | null
           comp_contabile?: string | null
@@ -8783,6 +8809,7 @@ export type Database = {
           created_at?: string | null
           data_competenza?: string | null
           data_conferimento_gestito?: string | null
+          data_copertura?: string | null
           data_decorrenza_rinnovo?: string | null
           data_estinzione?: string | null
           data_incasso?: string | null
@@ -10161,6 +10188,7 @@ export type Database = {
           compagnia_nome: string | null
           conferimento_gestito: boolean | null
           data_competenza: string | null
+          data_copertura: string | null
           data_decorrenza_rinnovo: string | null
           data_incasso: string | null
           data_messa_cassa: string | null
@@ -10233,10 +10261,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "polizze_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "polizze_produttore_anagrafica_id_fkey"
             columns: ["produttore_id"]
             isOneToOne: false
             referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_ramo_id_fkey"
+            columns: ["ramo_id"]
+            isOneToOne: false
+            referencedRelation: "rami"
             referencedColumns: ["id"]
           },
           {
