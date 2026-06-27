@@ -8582,6 +8582,8 @@ export type Database = {
           importo_incassato: number | null
           indicizzata: boolean | null
           is_proroga: boolean
+          is_oneri_sospensione: boolean
+          is_oneri_riattivazione: boolean
           is_regolazione: boolean
           libro_matricola: string | null
           limite_mora: string | null
@@ -8589,6 +8591,7 @@ export type Database = {
           mora_giorni: number | null
           motivo_estinzione: string | null
           motivo_sospensione: string | null
+          quietanze_sospensione_snapshot: Json | null
           motivo_sostituzione: string | null
           motivo_storno: string | null
           no_calcolo_tasse: boolean | null
@@ -8710,12 +8713,15 @@ export type Database = {
           importo_incassato?: number | null
           indicizzata?: boolean | null
           is_regolazione?: boolean
+          is_oneri_sospensione?: boolean
+          is_oneri_riattivazione?: boolean
           libro_matricola?: string | null
           limite_mora?: string | null
           limite_riattivazione?: string | null
           mora_giorni?: number | null
           motivo_estinzione?: string | null
           motivo_sospensione?: string | null
+          quietanze_sospensione_snapshot?: Json | null
           motivo_sostituzione?: string | null
           motivo_storno?: string | null
           no_calcolo_tasse?: boolean | null
@@ -8837,12 +8843,15 @@ export type Database = {
           importo_incassato?: number | null
           indicizzata?: boolean | null
           is_regolazione?: boolean
+          is_oneri_sospensione?: boolean
+          is_oneri_riattivazione?: boolean
           libro_matricola?: string | null
           limite_mora?: string | null
           limite_riattivazione?: string | null
           mora_giorni?: number | null
           motivo_estinzione?: string | null
           motivo_sospensione?: string | null
+          quietanze_sospensione_snapshot?: Json | null
           motivo_sostituzione?: string | null
           motivo_storno?: string | null
           no_calcolo_tasse?: boolean | null

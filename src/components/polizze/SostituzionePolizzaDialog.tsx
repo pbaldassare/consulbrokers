@@ -274,10 +274,9 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
         .eq("id", titoloId);
       if (errTit) throw errTit;
 
-      // 2. Titolo conguaglio (se != 0)
+      // 2. Titolo conguaglio (sempre creato, anche a €0)
       let titoloConguaglioId: string | null = null;
-      if (conguaglioNum !== 0) {
-        // ultima riga corrente
+      {
         const maxRiga = Math.max(
           ...((rateFuture || []).map((r: any) => Number(r.riga || 0))),
           Number(titoloRow.riga || 0),
@@ -324,7 +323,6 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
         if (errIns) throw errIns;
         titoloConguaglioId = insTit!.id;
 
-        // Copia split commerciali
         if (splitRows.length > 0) {
           const rows = splitRows.map((s: any) => ({
             titolo_id: titoloConguaglioId,
@@ -442,7 +440,7 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
       queryClient.invalidateQueries({ queryKey: ["titoli-numeri-storici", titoloId] });
       const parts: string[] = ["Polizza sostituita"];
       if (numeroCambiato) parts.push(`nuovo numero polizza ${nuovoNumeroPolizza}`);
-      if (titoloConguaglioId) parts.push("titolo conguaglio creato");
+      parts.push(`titolo conguaglio creato (€ ${conguaglioNum.toFixed(2)})`);
       if (documentoNome) parts.push(`allegato "${documentoNome}" caricato`);
       toast.success(parts.join(" · "));
       onOpenChange(false);
@@ -718,12 +716,9 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
                   <div>Nuovo numero polizza: <strong className="font-mono">{nuovoNumeroPolizza}</strong> (il vecchio verrà archiviato)</div>
                 )}
                 <div>Data: <strong>{dataSostituzione}</strong> · Causale: <strong>{causale}</strong></div>
-                {conguaglioNum !== 0 && (
-                  <div>
-                    Conguaglio: <strong>{conguaglioNum.toFixed(2)} €</strong>
-                    {" "}({conguaglioNum >= 0 ? "a carico cliente" : "a rimborso cliente"})
-                  </div>
-                )}
+                <div>Conguaglio: <strong>{conguaglioNum.toFixed(2)} €</strong>
+                  {" "}({conguaglioNum >= 0 ? "a carico cliente" : "a rimborso cliente"}) — titolo sempre creato
+                </div>
                 {file && <div>Allegato: <strong>{ensureExt((displayName || file.name).trim() || file.name, file.name)}</strong></div>}
                 <div className="text-muted-foreground">Le quietanze esistenti non vengono toccate.</div>
               </div>

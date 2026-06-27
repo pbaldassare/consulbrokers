@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
 import {
   buildTrattenutaCtx,
   calcIncassoConTrattenutaProvvigioni,
@@ -420,6 +421,31 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       toast.error("Seleziona la banca per il bonifico");
       return;
     }
+
+    for (const t of titoli) {
+      const { data: row } = await supabase
+        .from("titoli")
+        .select("id, stato, sostituisce_polizza, numero_titolo")
+        .eq("id", t.id)
+        .maybeSingle();
+      if (row?.stato === "sospeso") {
+        toast.error(`Impossibile incassare: titolo ${t.numero_titolo ?? t.id} è sospeso`);
+        return;
+      }
+      if (row?.sostituisce_polizza && row.numero_titolo) {
+        const madreId = await resolveTitoloMadreId(supabase, t.id);
+        const { data: madre } = await supabase
+          .from("titoli")
+          .select("stato, numero_titolo")
+          .eq("id", madreId)
+          .maybeSingle();
+        if (madre?.stato === "sospeso") {
+          toast.error(`Impossibile incassare: polizza madre ${madre.numero_titolo ?? madreId} è sospesa`);
+          return;
+        }
+      }
+    }
+
     setLoading(true);
 
     const anticipiOrdered = Object.entries(anticipiSel).filter(([, v]) => v > 0).map(([id, v]) => ({ id, residuo: v }));
@@ -429,6 +455,27 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     let ok = 0, ko = 0;
 
     for (const t of titoli) {
+      if (t.stato === "sospeso") {
+        toast.error(`Impossibile incassare: titolo in sospensione (${(t as any).numero_titolo || t.id})`);
+        ko++;
+        continue;
+      }
+      if ((t as any).sostituisce_polizza && (t as any).numero_titolo) {
+        const { data: madre } = await supabase
+          .from("titoli")
+          .select("stato")
+          .eq("numero_titolo", (t as any).numero_titolo)
+          .is("sostituisce_polizza", null)
+          .order("riga", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (madre?.stato === "sospeso") {
+          toast.error(`Impossibile incassare: polizza ${(t as any).numero_titolo} sospesa`);
+          ko++;
+          continue;
+        }
+      }
+
       const lordo = Number(t.premio_lordo) || 0;
 
       const compForThis = getComp(t.id);

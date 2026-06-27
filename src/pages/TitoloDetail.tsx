@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, ArrowRightLeft, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DocumentiTab from "@/components/DocumentiTab";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
@@ -42,13 +42,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 
 import { TitoloImportiPremiBlock } from "@/components/polizze/TitoloImportiPremiBlock";
-import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButton";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
-import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizzaDialog";
-import { RiattivazionePolizzaDialog } from "@/components/polizze/RiattivazionePolizzaDialog";
 import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
-import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
 // RegolazionePremioDialog rimosso: la regolazione passa da ImmissionePolizzaPage in mode=regolazione
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 import { TitoloHeaderBar } from "@/components/titolo/sections/TitoloHeaderBar";
@@ -140,11 +136,8 @@ const TitoloDetail = () => {
   const [annullaDialogOpen, setAnnullaDialogOpen] = useState(false);
   const [annullaPassword, setAnnullaPassword] = useState("");
   const [annullaLoading, setAnnullaLoading] = useState(false);
-  const [sospensioneOpen, setSospensioneOpen] = useState(false);
-  const [riattivazioneOpen, setRiattivazioneOpen] = useState(false);
   const [sostituzioneOpen, setSostituzioneOpen] = useState(false);
   const [estinzioneOpen, setEstinzioneOpen] = useState(false);
-  const [stornoOpen, setStornoOpen] = useState(false);
   // regolazioneOpen rimosso: ora navighiamo a /portafoglio/immissione?mode=regolazione
 
   // --- Rinnovo dialog state ---
@@ -1814,30 +1807,19 @@ const TitoloDetail = () => {
         </Card>
       )}
 
-      {/* Operazioni — per polizze sospese mostra solo Riattivazione; nascosto per scaduto */}
-      {t.stato === "sospeso" ? (
-        <Card className="border-yellow-400 bg-yellow-50/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Clock className="w-4 h-4 text-yellow-700" /> Polizza Sospesa
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Questa polizza è attualmente sospesa. Puoi riattivarla per ripristinare la copertura.
-            </p>
-            <Button size="sm" onClick={() => setRiattivazioneOpen(true)}>
-              <CheckSquare className="w-4 h-4 mr-1" /> Riattiva Polizza
-            </Button>
-          </CardContent>
-        </Card>
-      ) : t.stato !== "scaduto" && (
+      {/* Operazioni — nascosto per scaduto */}
+      {t.stato !== "scaduto" && (
         <Card className="border-l-4 border-l-teal-600 shadow-sm">
           <CardHeader className="pb-3 bg-teal-50/60 dark:bg-teal-950/20 border-b"><CardTitle className="text-sm sm:text-base font-semibold text-teal-900 dark:text-teal-100">Operazioni</CardTitle></CardHeader>
           <CardContent className="flex gap-2 flex-wrap">
+            {t.stato === "sospeso" && (
+              <div className="w-full -mt-1 mb-1 rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-3 py-2 text-xs text-yellow-900 dark:text-yellow-200">
+                Questa polizza è attualmente sospesa.
+              </div>
+            )}
             {isRegolazione && (
               <div className="w-full -mt-1 mb-1 rounded-md border border-orange-300 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800 px-3 py-2 text-xs text-orange-900 dark:text-orange-200">
-                Questo titolo è una <strong>Regolazione</strong>{madreQuietanza ? <> collegata a <span className="font-medium">{(madreQuietanza as any).numero_titolo}</span></> : null}. Sono disponibili solo Messa a Cassa, Storno e Annullamento.
+                Questo titolo è una <strong>Regolazione</strong>{madreQuietanza ? <> collegata a <span className="font-medium">{(madreQuietanza as any).numero_titolo}</span></> : null}. Sono disponibili solo Messa a Cassa e Annullamento.
               </div>
             )}
             {isProroga && (
@@ -1847,16 +1829,6 @@ const TitoloDetail = () => {
               </div>
             )}
             
-            {!isTitoloDerivato && (
-              <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
-                <Clock className="w-4 h-4 mr-1" /> Sospensione
-              </Button>
-            )}
-            {!isTitoloDerivato && (
-              <Button variant="outline" size="sm" disabled={t.stato !== "sospeso"} title={t.stato !== "sospeso" ? "Solo le polizze sospese possono essere riattivate" : undefined} onClick={() => setRiattivazioneOpen(true)}>
-                <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
-              </Button>
-            )}
             {!isTitoloDerivato && (
               <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
                 <Replace className="w-4 h-4 mr-1" /> Sostituzione
@@ -1872,29 +1844,10 @@ const TitoloDetail = () => {
                 <FileText className="w-4 h-4 mr-1" /> Appendici
               </Button>
             )}
-            <Button variant="outline" size="sm" disabled={["stornato","estinto","sostituito","annullato"].includes(t.stato)} title={["stornato","estinto","sostituito","annullato"].includes(t.stato) ? `Titolo in stato "${t.stato}": storno non disponibile` : undefined} onClick={() => setStornoOpen(true)}>
-              <ArrowRightLeft className="w-4 h-4 mr-1" /> Storno
-            </Button>
-            {!isTitoloDerivato && (
-              <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${t.id}&quietanzaRefId=${t.id}`)}>
-                <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
-              </Button>
-            )}
             {!isTitoloDerivato && (
               <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}`)}>
                 <FileText className="w-4 h-4 mr-1" /> Precontrattuale
               </Button>
-            )}
-            {!isTitoloDerivato && (
-              <ImportPolizzaAiButton
-                titoloId={t.id}
-                ramo={t.ramo}
-                onImported={() => {
-                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "firma"] });
-                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "quietanza"] });
-                  queryClient.invalidateQueries({ queryKey: ["premi-garanzia", t.id] });
-                }}
-              />
             )}
             {!isQuietanzaCorrente && (
             <AlertDialog>
@@ -3643,22 +3596,6 @@ const TitoloDetail = () => {
       />
 
 
-      <SospensionePolizzaDialog
-        open={sospensioneOpen}
-        onOpenChange={setSospensioneOpen}
-        titoloId={t.id}
-        numeroPolizza={t.numero_titolo || undefined}
-        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
-      />
-
-      <RiattivazionePolizzaDialog
-        open={riattivazioneOpen}
-        onOpenChange={setRiattivazioneOpen}
-        titoloId={t.id}
-        numeroPolizza={t.numero_titolo || undefined}
-        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
-      />
-
       <SostituzionePolizzaDialog
         open={sostituzioneOpen}
         onOpenChange={setSostituzioneOpen}
@@ -3670,14 +3607,6 @@ const TitoloDetail = () => {
       <EstinzionePolizzaDialog
         open={estinzioneOpen}
         onOpenChange={setEstinzioneOpen}
-        titoloId={t.id}
-        numeroPolizza={t.numero_titolo || undefined}
-        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
-      />
-
-      <StornoTitoloDialog
-        open={stornoOpen}
-        onOpenChange={setStornoOpen}
         titoloId={t.id}
         numeroPolizza={t.numero_titolo || undefined}
         onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}

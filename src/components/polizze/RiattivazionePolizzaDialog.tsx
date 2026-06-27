@@ -10,6 +10,13 @@ import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { frazionamentoMesi, frazionamentoToRate } from "@/lib/frazionamento";
 import { aggiornaNumeroPolizza } from "@/lib/aggiornaNumeroPolizza";
+import {
+  addDaysISO,
+  computeShiftedDates,
+  diffDaysISO,
+  resolveTitoloMadreId,
+  type QuietanzeSospensioneSnapshot,
+} from "@/lib/sospensioneQuietanze";
 import { PolizzaEditorInline, type PolizzaEditorHandle } from "./PolizzaEditorInline";
 import {
   Dialog,
@@ -71,6 +78,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [nuovoNumero, setNuovoNumero] = useState("");
+  const [madreId, setMadreId] = useState(titoloId);
 
   useEffect(() => {
     if (!open) return;
@@ -81,17 +89,15 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
     setDisplayName("");
     setNuovoNumero("");
     if (fileRef.current) fileRef.current.value = "";
-    // Fetch titolo
+    // Fetch polizza madre (anche se titoloId è una quietanza)
     setLoadingTitolo(true);
-    supabase
-      .from("titoli")
-      .select("*")
-      .eq("id", titoloId)
-      .single()
-      .then(({ data }) => {
-        setTitoloRow(data);
-        setLoadingTitolo(false);
-      });
+    (async () => {
+      const resolvedMadreId = await resolveTitoloMadreId(supabase, titoloId);
+      setMadreId(resolvedMadreId);
+      const { data } = await supabase.from("titoli").select("*").eq("id", resolvedMadreId).single();
+      setTitoloRow(data);
+      setLoadingTitolo(false);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, titoloId]);
 
@@ -148,121 +154,186 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
       if (!titoloRow) throw new Error("Titolo non caricato");
       if (titoloRow.stato !== "sospeso") throw new Error("La polizza non è sospesa. Solo le polizze sospese possono essere riattivate.");
 
+      const madreId = await resolveTitoloMadreId(supabase, titoloId);
+      const dataSospensione = titoloRow.data_sospensione as string | null;
+      if (!dataSospensione) throw new Error("Data sospensione mancante sulla polizza");
+      const shiftDays = diffDaysISO(dataSospensione, dataRiattivazione);
+
       // 0. Snapshot pre-evento + applica modifiche inline (date / garanzie)
       const snapshotId = await editorRef.current?.commit("riattivazione");
 
       // 0bis. Cambio numero polizza (se compagnia ne emette uno nuovo)
       const numeroCambiato = await aggiornaNumeroPolizza({
-        titoloId,
+        titoloId: madreId,
         numeroCorrente: titoloRow.numero_titolo,
         numeroNuovo: nuovoNumero,
         causale: "riattivazione",
         motivo,
       });
       const numeroEffettivo = numeroCambiato ? nuovoNumero.trim() : titoloRow.numero_titolo;
+
+      // 1. Ripristina quietanze congelate con shift date
+      const quietanzeRipristinate: string[] = [];
+      const snapshot = titoloRow.quietanze_sospensione_snapshot as QuietanzeSospensioneSnapshot | null;
+      let frozenEntries = snapshot?.quietanze ?? [];
+
+      if (frozenEntries.length === 0 && titoloRow.numero_titolo) {
+        const { data: sospese } = await supabase
+          .from("titoli")
+          .select("id, riga, garanzia_da, garanzia_a, premio_lordo, stato")
+          .eq("numero_titolo", titoloRow.numero_titolo)
+          .eq("stato", "sospeso")
+          .not("sostituisce_polizza", "is", null);
+        frozenEntries = (sospese || []).map((q: any) => ({
+          id: q.id,
+          riga: q.riga,
+          garanzia_da: q.garanzia_da,
+          garanzia_a: q.garanzia_a,
+          premio_lordo: q.premio_lordo,
+          stato: q.stato,
+        }));
+      }
+
+      for (const entry of frozenEntries) {
+        const shifted = computeShiftedDates(
+          entry.garanzia_da,
+          entry.garanzia_a,
+          dataSospensione,
+          dataRiattivazione,
+          shiftDays,
+        );
+        const { error: errQ } = await supabase
+          .from("titoli")
+          .update({
+            garanzia_da: shifted.garanzia_da,
+            garanzia_a: shifted.garanzia_a,
+            stato: "attivo",
+          } as any)
+          .eq("id", entry.id);
+        if (errQ) throw errQ;
+        quietanzeRipristinate.push(entry.id);
+      }
+
+      // 1b. Estendi date polizza madre
+      const madreUpdate: Record<string, unknown> = {
+        stato: "attivo",
+        data_riattivazione: dataRiattivazione,
+        data_sospensione: null,
+        limite_riattivazione: null,
+        motivo_sospensione: null,
+        quietanze_sospensione_snapshot: null,
+      };
+      if (titoloRow.garanzia_a) madreUpdate.garanzia_a = addDaysISO(titoloRow.garanzia_a, shiftDays);
+      if (titoloRow.data_scadenza) madreUpdate.data_scadenza = addDaysISO(titoloRow.data_scadenza, shiftDays);
+      if (titoloRow.durata_a) madreUpdate.durata_a = addDaysISO(titoloRow.durata_a, shiftDays);
+
       const { error: errUp } = await supabase
         .from("titoli")
-        .update({
-          stato: "attivo",
-          data_riattivazione: dataRiattivazione,
-          data_sospensione: null,
-          limite_riattivazione: null,
-          motivo_sospensione: null,
-        } as any)
-        .eq("id", titoloId);
+        .update(madreUpdate as any)
+        .eq("id", madreId);
       if (errUp) throw errUp;
 
-      // 2. Ricrea quietanze future
+      // 2. Fallback: ricrea quietanze da preview se nessuna congelata (legacy delete)
       const quietanzeCreate: string[] = [];
       let prevRiga = Number(titoloRow.riga || 0);
-      for (const r of preview) {
-        const nuovaRiga = prevRiga + 1;
-        const ratePerAnno = frazionamentoToRate(titoloRow.frazionamento || "Annuale", titoloRow.anni_durata || 1);
-        const { data: ins, error: errIns } = await supabase
+      if (quietanzeRipristinate.length === 0) {
+        for (const r of preview) {
+          const shifted = computeShiftedDates(r.da, r.a, dataSospensione, dataRiattivazione, shiftDays);
+          const nuovaRiga = prevRiga + 1;
+          const ratePerAnno = frazionamentoToRate(titoloRow.frazionamento || "Annuale", titoloRow.anni_durata || 1);
+          const { data: ins, error: errIns } = await supabase
+            .from("titoli")
+            .insert({
+              numero_titolo: numeroEffettivo,
+              cliente_id: titoloRow.cliente_id,
+              cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
+              compagnia_id: titoloRow.compagnia_id,
+              compagnia_rapporto_id: titoloRow.compagnia_rapporto_id,
+              codice_rapporto: titoloRow.codice_rapporto,
+              ramo_id: titoloRow.ramo_id,
+              prodotto_id: titoloRow.prodotto_id,
+              prodotto_nome: titoloRow.prodotto_nome,
+              ufficio_id: titoloRow.ufficio_id,
+              ae_anagrafica_id: titoloRow.ae_anagrafica_id,
+              anagrafica_commerciale_id: titoloRow.anagrafica_commerciale_id,
+              commerciale_id: titoloRow.commerciale_id,
+              percentuale_commerciale: titoloRow.percentuale_commerciale,
+              percentuale_riparto: titoloRow.percentuale_riparto,
+              durata_da: titoloRow.durata_da,
+              durata_a: titoloRow.durata_a,
+              anni_durata: titoloRow.anni_durata,
+              data_scadenza: titoloRow.data_scadenza,
+              frazionamento: titoloRow.frazionamento,
+              rate: ratePerAnno,
+              garanzia_da: shifted.garanzia_da,
+              garanzia_a: shifted.garanzia_a,
+              premio_lordo: r.importo,
+              premio_netto_quietanza: titoloRow.premio_netto_quietanza,
+              addizionali_quietanza: titoloRow.addizionali_quietanza,
+              tasse_quietanza: titoloRow.tasse_quietanza,
+              provvigioni_quietanza: titoloRow.provvigioni_quietanza,
+              brokeraggio_quietanza: titoloRow.brokeraggio_quietanza,
+              riga: nuovaRiga,
+              sostituisce_polizza: numeroEffettivo,
+              sostituisce_riga: prevRiga,
+              stato: "attivo",
+              tipo_portafoglio: titoloRow.tipo_portafoglio,
+              tipo_mandatario: titoloRow.tipo_mandatario,
+            } as any)
+            .select("id")
+            .single();
+          if (errIns) throw errIns;
+          quietanzeCreate.push(ins!.id);
+          prevRiga = nuovaRiga;
+        }
+      } else {
+        const { data: maxRigaRow } = await supabase
           .from("titoli")
-          .insert({
-            numero_titolo: numeroEffettivo,
-            cliente_id: titoloRow.cliente_id,
-            cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
-            compagnia_id: titoloRow.compagnia_id,
-            compagnia_rapporto_id: titoloRow.compagnia_rapporto_id,
-            codice_rapporto: titoloRow.codice_rapporto,
-            ramo_id: titoloRow.ramo_id,
-            prodotto_id: titoloRow.prodotto_id,
-            prodotto_nome: titoloRow.prodotto_nome,
-            ufficio_id: titoloRow.ufficio_id,
-            ae_anagrafica_id: titoloRow.ae_anagrafica_id,
-            anagrafica_commerciale_id: titoloRow.anagrafica_commerciale_id,
-            commerciale_id: titoloRow.commerciale_id,
-            percentuale_commerciale: titoloRow.percentuale_commerciale,
-            percentuale_riparto: titoloRow.percentuale_riparto,
-            durata_da: titoloRow.durata_da,
-            durata_a: titoloRow.durata_a,
-            anni_durata: titoloRow.anni_durata,
-            data_scadenza: titoloRow.data_scadenza,
-            frazionamento: titoloRow.frazionamento,
-            rate: ratePerAnno,
-            garanzia_da: r.da,
-            garanzia_a: r.a,
-            premio_lordo: r.importo,
-            premio_netto_quietanza: titoloRow.premio_netto_quietanza,
-            addizionali_quietanza: titoloRow.addizionali_quietanza,
-            tasse_quietanza: titoloRow.tasse_quietanza,
-            provvigioni_quietanza: titoloRow.provvigioni_quietanza,
-            brokeraggio_quietanza: titoloRow.brokeraggio_quietanza,
-            riga: nuovaRiga,
-            sostituisce_polizza: numeroEffettivo,
-            sostituisce_riga: prevRiga,
-            stato: "attivo",
-            tipo_portafoglio: titoloRow.tipo_portafoglio,
-            tipo_mandatario: titoloRow.tipo_mandatario,
-          } as any)
-          .select("id")
-          .single();
-        if (errIns) throw errIns;
-        quietanzeCreate.push(ins!.id);
-        prevRiga = nuovaRiga;
+          .select("riga")
+          .eq("numero_titolo", numeroEffettivo)
+          .order("riga", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        prevRiga = Number(maxRigaRow?.riga ?? titoloRow.riga ?? 0);
       }
 
-      // 3. Titolo Oneri di Riattivazione (se > 0)
-      let titoloOneriId: string | null = null;
-      if (oneriNum > 0) {
-        const rigaOneri = prevRiga + 1;
-        const { data: insOneri, error: errOneri } = await supabase
-          .from("titoli")
-          .insert({
-            numero_titolo: numeroEffettivo,
-            cliente_id: titoloRow.cliente_id,
-            cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
-            compagnia_id: titoloRow.compagnia_id,
-            compagnia_rapporto_id: titoloRow.compagnia_rapporto_id,
-            codice_rapporto: titoloRow.codice_rapporto,
-            ramo_id: titoloRow.ramo_id,
-            prodotto_id: titoloRow.prodotto_id,
-            prodotto_nome: titoloRow.prodotto_nome,
-            ufficio_id: titoloRow.ufficio_id,
-            ae_anagrafica_id: titoloRow.ae_anagrafica_id,
-            anagrafica_commerciale_id: titoloRow.anagrafica_commerciale_id,
-            commerciale_id: titoloRow.commerciale_id,
-            percentuale_commerciale: titoloRow.percentuale_commerciale,
-            percentuale_riparto: titoloRow.percentuale_riparto,
-            garanzia_da: dataRiattivazione,
-            garanzia_a: dataRiattivazione,
-            premio_lordo: oneriNum,
-            premio_netto: oneriNum,
-            riga: rigaOneri,
-            sostituisce_polizza: numeroEffettivo,
-            sostituisce_riga: titoloRow.riga,
-            stato: "attivo",
-            note: "Oneri di riattivazione",
-            tipo_portafoglio: titoloRow.tipo_portafoglio,
-            tipo_mandatario: titoloRow.tipo_mandatario,
-          } as any)
-          .select("id")
-          .single();
-        if (errOneri) throw errOneri;
-        titoloOneriId = insOneri!.id;
-      }
+      // 3. Titolo Oneri di Riattivazione (sempre creato, anche a €0)
+      const rigaOneri = prevRiga + 1;
+      const { data: insOneri, error: errOneri } = await supabase
+        .from("titoli")
+        .insert({
+          numero_titolo: numeroEffettivo,
+          cliente_id: titoloRow.cliente_id,
+          cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
+          compagnia_id: titoloRow.compagnia_id,
+          compagnia_rapporto_id: titoloRow.compagnia_rapporto_id,
+          codice_rapporto: titoloRow.codice_rapporto,
+          ramo_id: titoloRow.ramo_id,
+          prodotto_id: titoloRow.prodotto_id,
+          prodotto_nome: titoloRow.prodotto_nome,
+          ufficio_id: titoloRow.ufficio_id,
+          ae_anagrafica_id: titoloRow.ae_anagrafica_id,
+          anagrafica_commerciale_id: titoloRow.anagrafica_commerciale_id,
+          commerciale_id: titoloRow.commerciale_id,
+          percentuale_commerciale: titoloRow.percentuale_commerciale,
+          percentuale_riparto: titoloRow.percentuale_riparto,
+          garanzia_da: dataRiattivazione,
+          garanzia_a: dataRiattivazione,
+          premio_lordo: oneriNum,
+          premio_netto: oneriNum,
+          riga: rigaOneri,
+          sostituisce_polizza: numeroEffettivo,
+          sostituisce_riga: titoloRow.riga,
+          stato: "attivo",
+          note: "Oneri di riattivazione",
+          is_oneri_riattivazione: true,
+          tipo_portafoglio: titoloRow.tipo_portafoglio,
+          tipo_mandatario: titoloRow.tipo_mandatario,
+        } as any)
+        .select("id")
+        .single();
+      if (errOneri) throw errOneri;
+      const titoloOneriId = insOneri!.id;
 
       // 4. Upload documento opzionale
       let documentoId: string | null = null;
@@ -271,7 +342,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
         const { data: { user } } = await supabase.auth.getUser();
         const finalName = ensureExt((displayName || file.name).trim() || file.name, file.name);
         const safeName = finalName.replace(/[^\w.\-]+/g, "_");
-        const path = `titolo/${titoloId}/riattivazione_${Date.now()}_${safeName}`;
+        const path = `titolo/${madreId}/riattivazione_${Date.now()}_${safeName}`;
         const { error: upErr } = await supabase.storage.from("documenti_titoli").upload(path, file);
         if (upErr) throw upErr;
         const { data: docIns, error: docErr } = await supabase.from("documenti").insert({
@@ -279,7 +350,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
           path_storage: path,
           bucket_name: "documenti_titoli",
           entita_tipo: "titolo",
-          entita_id: titoloId,
+          entita_id: madreId,
           caricato_da: user?.id,
         }).select("id").single();
         if (docErr) throw docErr;
@@ -287,13 +358,13 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
         documentoNome = finalName;
       }
 
-      // 5. Movimento RA
+      // 5. Movimento RA (collegato al titolo oneri, come SO per sospensione)
       const descrParts: string[] = ["Riattivazione polizza"];
       if (oneriNum > 0) descrParts.push(`oneri ${oneriNum.toFixed(2)} €`);
       if (motivo) descrParts.push(motivo);
       if (documentoNome) descrParts.push(`allegato: ${documentoNome}`);
       await supabase.from("movimenti_polizza").insert({
-        titolo_id: titoloId,
+        titolo_id: titoloOneriId,
         tipo_documento: "RA",
         data_movimento: dataRiattivazione,
         descrizione: descrParts.join(" — "),
@@ -304,11 +375,14 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
       await logAttivita({
         azione: "riattivazione_polizza",
         entita_tipo: "titolo",
-        entita_id: titoloId,
+        entita_id: madreId,
         dettagli_json: {
           data_riattivazione: dataRiattivazione,
+          data_sospensione: dataSospensione,
+          shift_days: shiftDays,
           oneri: oneriNum,
           motivo,
+          quietanze_ripristinate: quietanzeRipristinate,
           quietanze_ricreate: quietanzeCreate,
           titolo_oneri_id: titoloOneriId,
           documento_id: documentoId,
@@ -319,9 +393,9 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
         },
       });
 
-      return { quietanzeCreate, titoloOneriId, documentoNome };
+      return { quietanzeRipristinate, quietanzeCreate, titoloOneriId, documentoNome, oneriNum };
     },
-    onSuccess: ({ quietanzeCreate, titoloOneriId, documentoNome }) => {
+    onSuccess: ({ quietanzeRipristinate, quietanzeCreate, titoloOneriId, documentoNome, oneriNum: o }) => {
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["movimenti-polizza", titoloId] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", titoloId] });
@@ -331,8 +405,9 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
       queryClient.invalidateQueries({ queryKey: ["portafoglio-storico"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       const parts: string[] = ["Polizza riattivata"];
+      if (quietanzeRipristinate.length > 0) parts.push(`${quietanzeRipristinate.length} quietanze ripristinate`);
       if (quietanzeCreate.length > 0) parts.push(`${quietanzeCreate.length} quietanze ricreate`);
-      if (titoloOneriId) parts.push("titolo oneri creato");
+      parts.push(`titolo oneri creato (€ ${o.toFixed(2)})`);
       if (documentoNome) parts.push(`allegato "${documentoNome}" caricato`);
       toast.success(parts.join(" · "));
       onOpenChange(false);
@@ -390,7 +465,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
               {loadingTitolo ? (
                 <div className="text-xs text-muted-foreground">Caricamento…</div>
               ) : preview.length === 0 ? (
-                <div className="text-xs text-muted-foreground">Nessuna quietanza futura da ricreare (polizza in scadenza o poliennale).</div>
+                <div className="text-xs text-muted-foreground">Nessuna quietanza futura da ricreare (polizza in scadenza o poliennale). Le quietanze congelate verranno ripristinate con shift date.</div>
               ) : (
                 <ul className="text-xs space-y-1 tabular-nums">
                   {preview.map((r, i) => (
@@ -401,12 +476,10 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
                   ))}
                 </ul>
               )}
-              {oneriNum > 0 && (
-                <div className="text-xs mt-2 pt-2 border-t flex justify-between tabular-nums">
-                  <span>+ Titolo Oneri di Riattivazione (da contabilizzare)</span>
-                  <span className="font-medium">{oneriNum.toFixed(2)} €</span>
-                </div>
-              )}
+              <div className="text-xs mt-2 pt-2 border-t flex justify-between tabular-nums">
+                <span>+ Titolo Oneri di Riattivazione (sempre creato, anche a €0)</span>
+                <span className="font-medium">{oneriNum.toFixed(2)} €</span>
+              </div>
             </div>
 
             <div className="space-y-1.5 border-t pt-3">
@@ -434,7 +507,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
             </div>
             </div>
 
-            <PolizzaEditorInline ref={editorRef} titoloId={titoloId} />
+            <PolizzaEditorInline ref={editorRef} titoloId={madreId} />
           </div>
 
           <DialogFooter>
@@ -458,8 +531,8 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
                 {nuovoNumero.trim() && nuovoNumero.trim() !== (numeroPolizza || "") && (
                   <div>Nuovo numero polizza: <strong>{nuovoNumero.trim()}</strong> <span className="text-muted-foreground">(precedente archiviato)</span></div>
                 )}
-                <div>Quietanze future ricreate: <strong>{preview.length}</strong></div>
-                {oneriNum > 0 && <div>Oneri cliente: <strong>{oneriNum.toFixed(2)} €</strong> (titolo separato da contabilizzare)</div>}
+                <div>Quietanze: ripristino congelate o ricreate da preview: <strong>{preview.length}</strong></div>
+                <div>Oneri cliente: <strong>{oneriNum.toFixed(2)} €</strong> (titolo oneri sempre creato)</div>
                 {file && <div>Allegato: <strong>{ensureExt((displayName || file.name).trim() || file.name, file.name)}</strong></div>}
               </div>
             </AlertDialogDescription>

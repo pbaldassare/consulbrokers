@@ -9,6 +9,11 @@ import { Loader2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { aggiornaNumeroPolizza } from "@/lib/aggiornaNumeroPolizza";
+import {
+  buildQuietanzeSnapshot,
+  resolveTitoloMadreId,
+  selectQuietanzeToFreeze,
+} from "@/lib/sospensioneQuietanze";
 import { PolizzaEditorInline, type PolizzaEditorHandle } from "./PolizzaEditorInline";
 import {
   Dialog,
@@ -68,6 +73,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [madreIdForEdit, setMadreIdForEdit] = useState(titoloId);
 
   const oneriNum = Number((oneriSospensione || "0").replace(",", ".")) || 0;
 
@@ -82,9 +88,10 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       setFile(null);
       setDisplayName("");
       if (fileRef.current) fileRef.current.value = "";
+      resolveTitoloMadreId(supabase, titoloId).then(setMadreIdForEdit);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, titoloId]);
 
   useEffect(() => {
     if (!limiteManual && dataSospensione) {
@@ -115,37 +122,47 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       if (!dataSospensione) throw new Error("Data sospensione obbligatoria");
       if (!titoloId) throw new Error("Specificare una polizza");
 
+      const madreId = await resolveTitoloMadreId(supabase, titoloId);
+
       // 0. Snapshot pre-evento + applica modifiche inline (date / garanzie)
       const snapshotId = await editorRef.current?.commit("sospensione");
 
       const { data: titoloRow, error: errFetch } = await supabase
         .from("titoli")
         .select("id, numero_titolo, riga, cliente_id, cliente_anagrafica_id, compagnia_id, compagnia_rapporto_id, codice_rapporto, ramo_id, prodotto_id, prodotto_nome, ufficio_id, ae_anagrafica_id, anagrafica_commerciale_id, commerciale_id, percentuale_commerciale, percentuale_riparto, tipo_portafoglio, tipo_mandatario")
-        .eq("id", titoloId)
+        .eq("id", madreId)
         .single();
       if (errFetch) throw errFetch;
 
-      // 1. Cancellazione quietanze future non incassate
-      let quietanzeEliminate: string[] = [];
+      // 1. Congela quietanze future + in corso (non elimina)
+      let quietanzeCongelate: string[] = [];
+      let quietanzeSnapshot: ReturnType<typeof buildQuietanzeSnapshot> | null = null;
       if (titoloRow?.numero_titolo && titoloRow.riga != null) {
-        const { data: future } = await supabase
+        const { data: allRows } = await supabase
           .from("titoli")
-          .select("id, riga")
+          .select("id, riga, garanzia_da, garanzia_a, premio_lordo, stato, data_messa_cassa, sostituisce_polizza, is_oneri_sospensione, is_oneri_riattivazione")
           .eq("numero_titolo", titoloRow.numero_titolo)
-          .gt("riga", titoloRow.riga)
-          .neq("stato", "incassato")
-          .is("data_messa_cassa", null);
-        const ids = (future || []).map((r: any) => r.id);
-        if (ids.length > 0) {
-          await supabase.from("movimenti_polizza").delete().in("titolo_id", ids);
-          await supabase.from("premi_garanzia_polizza").delete().in("titolo_id", ids);
-          const { error: errDel } = await supabase.from("titoli").delete().in("id", ids);
-          if (errDel) throw errDel;
-          quietanzeEliminate = ids;
+          .not("sostituisce_polizza", "is", null);
+        const candidates = (allRows || []).filter(
+          (r: any) => !r.is_oneri_sospensione && !r.is_oneri_riattivazione,
+        );
+        const toFreeze = selectQuietanzeToFreeze(
+          candidates,
+          Number(titoloRow.riga),
+          dataSospensione,
+        );
+        if (toFreeze.length > 0) {
+          quietanzeSnapshot = buildQuietanzeSnapshot(dataSospensione, toFreeze);
+          quietanzeCongelate = toFreeze.map((r) => r.id);
+          const { error: errFreeze } = await supabase
+            .from("titoli")
+            .update({ stato: "sospeso" } as any)
+            .in("id", quietanzeCongelate);
+          if (errFreeze) throw errFreeze;
         }
       }
 
-      // 2. Update stato titolo
+      // 2. Update stato polizza madre + snapshot
       const { error: errUp } = await supabase
         .from("titoli")
         .update({
@@ -153,13 +170,14 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
           data_sospensione: dataSospensione,
           limite_riattivazione: limiteRiattivazione || null,
           motivo_sospensione: motivo || null,
+          quietanze_sospensione_snapshot: quietanzeSnapshot as any,
         } as any)
-        .eq("id", titoloId);
+        .eq("id", madreId);
       if (errUp) throw errUp;
 
       // 2b. Nuovo numero polizza (se la compagnia ne emette uno diverso)
       const numeroCambiato = await aggiornaNumeroPolizza({
-        titoloId,
+        titoloId: madreId,
         numeroCorrente: titoloRow.numero_titolo,
         numeroNuovo: nuovoNumeroPolizza,
         causale: "sospensione",
@@ -173,7 +191,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
         const { data: { user } } = await supabase.auth.getUser();
         const finalName = ensureExt((displayName || file.name).trim() || file.name, file.name);
         const safeName = finalName.replace(/[^\w.\-]+/g, "_");
-        const path = `titolo/${titoloId}/sospensione_${Date.now()}_${safeName}`;
+        const path = `titolo/${madreId}/sospensione_${Date.now()}_${safeName}`;
         const { error: upErr } = await supabase.storage.from("documenti_titoli").upload(path, file);
         if (upErr) throw upErr;
         const { data: docIns, error: docErr } = await supabase.from("documenti").insert({
@@ -181,7 +199,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
           path_storage: path,
           bucket_name: "documenti_titoli",
           entita_tipo: "titolo",
-          entita_id: titoloId,
+          entita_id: madreId,
           caricato_da: user?.id,
         }).select("id").single();
         if (docErr) throw docErr;
@@ -232,6 +250,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
           sostituisce_riga: titoloRow.riga,
           stato: "attivo",
           note: `Sospensione polizza${motivo ? ": " + motivo : ""}`,
+          is_oneri_sospensione: true,
           tipo_portafoglio: titoloRow.tipo_portafoglio,
           tipo_mandatario: titoloRow.tipo_mandatario,
         } as any)
@@ -253,14 +272,14 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       await logAttivita({
         azione: "sospensione_polizza",
         entita_tipo: "titolo",
-        entita_id: titoloId,
+        entita_id: madreId,
         dettagli_json: {
           data_sospensione: dataSospensione,
           limite_riattivazione: limiteRiattivazione,
           motivo,
           oneri_sospensione: oneriNum,
           titolo_sospensione_id: titoloSospensioneId,
-          quietanze_eliminate: quietanzeEliminate,
+          quietanze_congelate: quietanzeCongelate,
           documento_id: documentoId,
           documento_nome: documentoNome,
           snapshot_id: snapshotId,
@@ -269,9 +288,9 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
         },
       });
 
-      return { quietanzeEliminate, documentoNome, numeroCambiato, titoloSospensioneId, oneriNum };
+      return { quietanzeCongelate, documentoNome, numeroCambiato, titoloSospensioneId, oneriNum };
     },
-    onSuccess: ({ quietanzeEliminate, documentoNome, numeroCambiato, oneriNum: o }) => {
+    onSuccess: ({ quietanzeCongelate, documentoNome, numeroCambiato, oneriNum: o }) => {
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["movimenti-polizza", titoloId] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", titoloId] });
@@ -284,7 +303,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       const parts: string[] = ["Polizza sospesa"];
       parts.push(`titolo sospensione creato (€ ${o.toFixed(2)})`);
       if (numeroCambiato) parts.push(`nuovo numero polizza ${nuovoNumeroPolizza}`);
-      if (quietanzeEliminate.length > 0) parts.push(`${quietanzeEliminate.length} quietanze future rimosse`);
+      if (quietanzeCongelate.length > 0) parts.push(`${quietanzeCongelate.length} quietanze congelate`);
       if (documentoNome) parts.push(`allegato "${documentoNome}" caricato`);
       toast.success(parts.join(" · "));
       onOpenChange(false);
@@ -362,7 +381,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
             </div>
 
             {/* Colonna DX: snapshot polizza modificabile */}
-            <PolizzaEditorInline ref={editorRef} titoloId={titoloId} />
+            <PolizzaEditorInline ref={editorRef} titoloId={madreIdForEdit} />
           </div>
 
           <DialogFooter>
@@ -385,7 +404,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
                 <div>Data sospensione: <strong>{dataSospensione || "—"}</strong></div>
                 <div>Limite riattivazione: <strong>{limiteRiattivazione || "—"}</strong></div>
                 {file && <div>Allegato: <strong>{ensureExt((displayName || file.name).trim() || file.name, file.name)}</strong></div>}
-                <div className="text-destructive">Attenzione: tutte le quietanze future non incassate verranno eliminate.</div>
+                <div className="text-destructive">Attenzione: le quietanze future e quella in corso verranno congelate (stato sospeso) e non saranno incassabili fino alla riattivazione.</div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
