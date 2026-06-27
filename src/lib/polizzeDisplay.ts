@@ -7,34 +7,36 @@ export type PolizzaRow = {
   stato?: string | null;
   sostituisce_polizza?: string | null;
   is_regolazione?: boolean | null;
+  is_proroga?: boolean | null;
 };
 
 /**
  * Stato da visualizzare in tabella. Per le polizze madre mascheriamo "incassato" → "attivo".
- * Per quietanze e regolazioni restituisce lo stato originale.
+ * Per quietanze, regolazioni e proroghe restituisce lo stato originale.
  */
 export function displayStatoPolizza(p: PolizzaRow): string {
   const stato = p?.stato || "";
-  const isMadre = !p?.sostituisce_polizza && !p?.is_regolazione;
+  const isMadre = !p?.sostituisce_polizza && !p?.is_regolazione && !p?.is_proroga;
   if (isMadre && stato === "incassato") return "attivo";
   return stato;
 }
 
 /** True se la riga è una quietanza (rata sostitutiva). */
 export function isQuietanzaRow(p: PolizzaRow): boolean {
-  return !!p?.sostituisce_polizza && !p?.is_regolazione;
+  return !!p?.sostituisce_polizza && !p?.is_regolazione && !p?.is_proroga;
 }
 
-/** True se la riga è una polizza madre (non quietanza, non regolazione). */
+/** True se la riga è una polizza madre (non quietanza, non regolazione/proroga). */
 export function isPolizzaMadreRow(p: PolizzaRow): boolean {
-  return !p?.sostituisce_polizza && !p?.is_regolazione;
+  return !p?.sostituisce_polizza && !p?.is_regolazione && !p?.is_proroga;
 }
 
 /**
  * Classe del bordo sinistro colorato per raggruppare visivamente le righe in scroll.
- * Teal per polizze, ambra per quietanze, arancio per regolazioni.
+ * Teal per polizze, ambra per quietanze, arancio per regolazioni, blu per proroghe.
  */
 export function rowBorderClass(p: PolizzaRow): string {
+  if (p?.is_proroga) return "border-l-4 border-l-blue-500";
   if (p?.is_regolazione) return "border-l-4 border-l-orange-500";
   if (p?.sostituisce_polizza) return "border-l-4 border-l-quietanza";
   return "border-l-4 border-l-polizza";

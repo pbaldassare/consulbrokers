@@ -459,7 +459,9 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         ).importoVersatoConsul;
       }
       const haCompensazioni = compForThis.length > 0;
-      const tipoPag = haCompensazioni
+      const tipoPag = dovutoT === 0 && !haCompensazioni && usatoTitolo === 0
+        ? "incasso_zero"
+        : haCompensazioni
         ? (usatoTitolo > 0 ? "misto_compensato" : "compensato")
         : usatoTitolo > 0
           ? (residuoCash > 0 ? "anticipo_misto" : "anticipo")
@@ -795,6 +797,13 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
                 autoSelectDefault
                 className="mt-1"
               />
+            </div>
+          )}
+
+          {/* Incasso a zero (regolazione/proroga) */}
+          {totaleDovutoConsul === 0 && (
+            <div className="rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200 p-3 text-sm">
+              Incasso tecnico a <strong>€0,00</strong>: conferma per registrare messa a cassa e tutte le conseguenze contabili.
             </div>
           )}
 

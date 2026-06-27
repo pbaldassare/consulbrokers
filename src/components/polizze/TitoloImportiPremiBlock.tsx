@@ -45,6 +45,8 @@ export interface TitoloImportiPremiBlockProps {
   addizionaliQuietanza: number | null | undefined;
   provvigioniFirma: number | null | undefined;
   provvigioniQuietanza: number | null | undefined;
+  /** False su quietanza già incassata: nasconde card e sync verso quietanza successiva */
+  showQuietanza?: boolean;
 }
 
 type DbPremio = {
@@ -75,6 +77,7 @@ export function TitoloImportiPremiBlock({
   addizionaliQuietanza,
   provvigioniFirma,
   provvigioniQuietanza,
+  showQuietanza = true,
 }: TitoloImportiPremiBlockProps) {
   const qc = useQueryClient();
 
@@ -384,9 +387,14 @@ export function TitoloImportiPremiBlock({
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
         ℹ️ Le voci di garanzia disponibili sono filtrate sul <strong>Gruppo Ramo</strong> della polizza
-        ({ramoDescrizione || "—"}). La <strong>Quietanza</strong> si sincronizza <strong>automaticamente</strong> con
-        la <strong>Firma</strong>: ogni voce modificata a mano nella Quietanza diventa
-        <strong> personalizzata</strong> e smette di aggiornarsi (puoi riallinearla con “↻ Sincronizza da Firma”).
+        ({ramoDescrizione || "—"}).
+        {showQuietanza ? (
+          <> La <strong>Quietanza</strong> si sincronizza <strong>automaticamente</strong> con
+          la <strong>Firma</strong>: ogni voce modificata a mano nella Quietanza diventa
+          <strong> personalizzata</strong> e smette di aggiornarsi (puoi riallinearla con “↻ Sincronizza da Firma”).</>
+        ) : (
+          <> Questa quietanza è già incassata: viene mostrato solo il premio alla <strong>Firma</strong> della rata.</>
+        )}
       </p>
 
       <PremiGaranziaCardShell
@@ -401,6 +409,7 @@ export function TitoloImportiPremiBlock({
         percentualeAgenzia={pctFirma}
         onPercentualeAgenziaChange={onPercentualeAgenziaFirma}
         headerExtra={
+          showQuietanza ? (
           <Button
             type="button"
             variant="default"
@@ -415,9 +424,11 @@ export function TitoloImportiPremiBlock({
           >
             Copia in Quietanza
           </Button>
+          ) : undefined
         }
       />
 
+      {showQuietanza && (
       <PremiGaranziaCardShell
         tipoPremio="quietanza"
         gruppoRamoId={gruppoRamoId}
@@ -446,6 +457,7 @@ export function TitoloImportiPremiBlock({
           </Button>
         }
       />
+      )}
     </div>
   );
 }

@@ -26,6 +26,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   titoloId: string | null;
   numeroTitolo?: string | null;
+  initialTipo?: string;
   onCreated?: () => void;
 }
 
@@ -43,7 +44,7 @@ const formatAge = (ms: number): string => {
   return `${d}g`;
 };
 
-export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, onCreated }: Props) {
+export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, initialTipo, onCreated }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -85,7 +86,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("data_scadenza, numero_titolo, premio_netto, provvigioni_firma")
+        .select("data_scadenza, garanzia_da, garanzia_a, numero_titolo, premio_netto, provvigioni_firma")
         .eq("id", titoloId!)
         .maybeSingle();
       if (!data) return null;
@@ -105,11 +106,11 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, premio_netto, tasse, sostituisce_polizza, is_regolazione, stato, numero_titolo")
+        .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, premio_netto, tasse, sostituisce_polizza, is_regolazione, is_proroga, stato, numero_titolo")
         .eq("numero_titolo", titoloInfo!.numero_titolo!)
         .order("garanzia_da", { ascending: false });
       return (data || []).filter(
-        (t: any) => !t.is_regolazione && STATI_VALIDI.includes((t.stato || "").toLowerCase())
+        (t: any) => !t.is_regolazione && !t.is_proroga && STATI_VALIDI.includes((t.stato || "").toLowerCase())
       );
     },
   });
@@ -183,7 +184,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
       setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
       setDataEffetto("");
       setOggetto("");
-      setTipo("modifica");
+      setTipo(initialTipo || "modifica");
       setNote("");
       setQuietanzaId("");
       setPremioNetto("");
@@ -195,11 +196,31 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
     }
     setFile(null);
     setFiles([]);
-  }, [open, existing, titoloInfo, draftKey]);
+  }, [open, existing, titoloInfo, draftKey, initialTipo]);
 
-  // Quando cambio quietanza: prefill periodo + RESET importi sui valori della rata scelta
   useEffect(() => {
-    if (!quietanzaId || !catena) return;
+    if (!open || tipo !== "proroga") return;
+    if (premioNetto === "") setPremioNetto("0");
+    if (tasse === "") setTasse("0");
+    if (premioLordo === "") setPremioLordo("0");
+    if (provvigioni === "") setProvvigioni("0");
+  }, [open, tipo, premioNetto, tasse, premioLordo, provvigioni]);
+
+  useEffect(() => {
+    if (!open || tipo !== "proroga" || !titoloInfo) return;
+    const garA = (titoloInfo as { garanzia_a?: string | null }).garanzia_a;
+    if (!garA) return;
+    const d = new Date(garA);
+    d.setDate(d.getDate() + 1);
+    setDataEffetto(d.toISOString().slice(0, 10));
+    if (!dataAppendice || dataAppendice === (titoloInfo as { data_scadenza?: string }).data_scadenza) {
+      setDataAppendice("");
+    }
+  }, [open, tipo, titoloInfo]);
+
+  // Quando cambio quietanza (regolazione): prefill periodo + RESET importi sui valori della rata scelta
+  useEffect(() => {
+    if (tipo !== "regolazione" || !quietanzaId || !catena) return;
     const q: any = catena.find((t: any) => t.id === quietanzaId);
     if (!q) return;
     setDataEffetto(q.garanzia_da || "");
@@ -237,17 +258,22 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
       if (!numeroAppendice.trim()) throw new Error("Numero appendice obbligatorio");
 
       const isReg = tipo === "regolazione";
-      if (isReg) {
-        if (!quietanzaId) throw new Error("Seleziona la quietanza di riferimento");
+      const isProroga = tipo === "proroga";
+      const isEco = isReg || isProroga;
+
+      if (isEco) {
         const n = parseFloat(premioNetto.replace(",", "."));
         const tt = parseFloat(tasse.replace(",", ".") || "0");
         const l = parseFloat(premioLordo.replace(",", ".") || "0");
         const p = parseFloat(provvigioni.replace(",", ".") || "0");
-        if (isNaN(n)) throw new Error("Inserisci il premio netto");
+        if (isReg && !quietanzaId) throw new Error("Seleziona la quietanza di riferimento");
+        if (premioNetto === "" || isNaN(n)) throw new Error("Inserisci il premio netto (0 ammesso)");
         if (tt < 0) throw new Error("Le tasse non possono essere negative");
         if (l + 0.01 < n) throw new Error("Il premio lordo non può essere inferiore al netto");
         if (p < 0) throw new Error("Le provvigioni non possono essere negative");
-        if (dataEffetto && dataAppendice && dataEffetto > dataAppendice) {
+        if (!dataEffetto) throw new Error("Inserisci la data effetto");
+        if (!dataAppendice) throw new Error("Inserisci la data scadenza");
+        if (dataEffetto > dataAppendice) {
           throw new Error("La data effetto non può essere successiva alla data scadenza");
         }
       }
@@ -257,7 +283,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
       const allegati: Array<{ path: string; nome: string; size: number; type: string }> = [];
 
       // Multi-file solo per regolazione; per altri tipi si usa il singolo `file`
-      const toUpload: File[] = isReg ? files : (file ? [file] : []);
+      const toUpload: File[] = isEco ? files : (file ? [file] : []);
       for (let i = 0; i < toUpload.length; i++) {
         const f = toUpload[i];
         const path = `appendici/${titoloId}/${Date.now()}_${i}_${f.name}`;
@@ -281,8 +307,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         created_by: user?.id || null,
       };
 
-      if (isReg) {
-        payload.quietanza_id = quietanzaId;
+      if (isEco) {
+        if (isReg) payload.quietanza_id = quietanzaId;
         payload.premio_netto = parseFloat(premioNetto.replace(",", ".")) || 0;
         payload.tasse = parseFloat(tasse.replace(",", ".")) || 0;
         payload.premio_lordo = parseFloat(premioLordo.replace(",", ".")) || 0;
@@ -297,17 +323,23 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         .single();
       if (error) throw error;
 
-      let titoloRgId: string | null = null;
+      let titoloDerivatoId: string | null = null;
       if (isReg) {
         const { data: rgId, error: rpcErr } = await supabase.rpc("crea_titolo_da_regolazione", {
           p_appendice_id: data.id,
         });
         if (rpcErr) throw rpcErr;
-        titoloRgId = rgId as unknown as string;
+        titoloDerivatoId = rgId as unknown as string;
+      } else if (isProroga) {
+        const { data: prId, error: rpcErr } = await supabase.rpc("crea_titolo_da_proroga", {
+          p_appendice_id: data.id,
+        });
+        if (rpcErr) throw rpcErr;
+        titoloDerivatoId = prId as unknown as string;
       }
 
       await logAttivita({
-        azione: isReg ? "regolazione_creata" : "appendice_creata",
+        azione: isReg ? "regolazione_creata" : isProroga ? "proroga_creata" : "appendice_creata",
         entita_tipo: "titolo",
         entita_id: titoloId,
         dettagli_json: {
@@ -315,19 +347,28 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
           tipo,
           oggetto: oggetto.trim() || null,
           quietanza_id: isReg ? quietanzaId : undefined,
-          titolo_regolazione_id: titoloRgId,
+          titolo_regolazione_id: isReg ? titoloDerivatoId : undefined,
+          titolo_proroga_id: isProroga ? titoloDerivatoId : undefined,
         },
       });
 
-      return { ...data, titoloRgId };
+      return { ...data, titoloDerivatoId };
     },
     onSuccess: (res: any) => {
       const isReg = tipo === "regolazione";
+      const isProroga = tipo === "proroga";
       if (isReg) {
         toast.success("Regolazione creata", {
-          description: "Titolo RG generato. Ora è in Carico e pronto per la messa a cassa.",
-          action: res.titoloRgId
-            ? { label: "Apri", onClick: () => navigate(`/titoli/${res.titoloRgId}`) }
+          description: "Titolo RG generato. Ora è in Carico e pronto per la messa a cassa (anche a €0).",
+          action: res.titoloDerivatoId
+            ? { label: "Apri", onClick: () => navigate(`/titoli/${res.titoloDerivatoId}`) }
+            : undefined,
+        });
+      } else if (isProroga) {
+        toast.success("Proroga creata", {
+          description: "Titolo PR generato. Incassalo da Carico per estendere la polizza madre.",
+          action: res.titoloDerivatoId
+            ? { label: "Apri", onClick: () => navigate(`/titoli/${res.titoloDerivatoId}`) }
             : undefined,
         });
       } else {
@@ -345,25 +386,29 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
   });
 
   const isReg = tipo === "regolazione";
+  const isProroga = tipo === "proroga";
+  const isEco = isReg || isProroga;
 
-  // Validazione inline (regolazione)
+  // Validazione inline (regolazione / proroga)
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
-    if (!isReg) return e;
-    if (!quietanzaId) e.quietanzaId = "Seleziona la quietanza di riferimento";
+    if (!isEco) return e;
+    if (isReg && !quietanzaId) e.quietanzaId = "Seleziona la quietanza di riferimento";
     const n = parseFloat(premioNetto.replace(",", "."));
     const tt = parseFloat((tasse || "0").replace(",", "."));
     const l = parseFloat((premioLordo || "0").replace(",", "."));
     const p = parseFloat((provvigioni || "0").replace(",", "."));
-    if (premioNetto === "" || isNaN(n)) e.premioNetto = "Inserisci un valore numerico";
+    if (premioNetto === "" || isNaN(n)) e.premioNetto = "Inserisci un valore numerico (0 ammesso)";
     if (!isNaN(tt) && tt < 0) e.tasse = "Le tasse non possono essere negative";
     if (!isNaN(n) && !isNaN(l) && l + 0.01 < n) e.premioLordo = "Il lordo non può essere inferiore al netto";
     if (!isNaN(p) && p < 0) e.provvigioni = "Le provvigioni non possono essere negative";
+    if (!dataEffetto) e.dataEffetto = "Data effetto obbligatoria";
+    if (!dataAppendice) e.dataAppendice = "Data scadenza obbligatoria";
     if (dataEffetto && dataAppendice && dataEffetto > dataAppendice) {
       e.dataEffetto = "La data effetto deve precedere la scadenza";
     }
     return e;
-  }, [isReg, quietanzaId, premioNetto, tasse, premioLordo, provvigioni, dataEffetto, dataAppendice]);
+  }, [isEco, isReg, quietanzaId, premioNetto, tasse, premioLordo, provvigioni, dataEffetto, dataAppendice]);
 
   const hasErrors = Object.keys(errors).length > 0;
 
@@ -438,9 +483,11 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         <DialogHeader>
           <DialogTitle>Nuova appendice — Polizza {numeroTitolo || ""}</DialogTitle>
           <DialogDescription>
-            {isReg
-              ? "Regolazione premio: collegata a una quietanza e cassabile come una rata."
-              : "L'appendice viene salvata nel database e collegata alla polizza."}
+            {isProroga
+              ? "Proroga: genera un titolo PR cassabile (anche a €0). All'incasso estende la scadenza della polizza madre."
+              : isReg
+                ? "Regolazione premio: collegata a una quietanza e cassabile come una rata (anche a €0)."
+                : "L'appendice viene salvata nel database e collegata alla polizza."}
           </DialogDescription>
         </DialogHeader>
 
@@ -496,8 +543,9 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
             </Select>
           </div>
 
-          {isReg ? (
+          {isEco ? (
             <>
+              {isReg && (
               <div className="md:col-span-2">
                 <Label>Quietanza di riferimento *</Label>
                 <SearchableSelect
@@ -518,16 +566,26 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                   </p>
                 )}
               </div>
+              )}
+
+              {isProroga && (
+                <div className="md:col-span-2 rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200 p-3 text-sm">
+                  La proroga estende il periodo di garanzia. Inserisci il nuovo periodo e gli importi (0 ammessi).
+                  All&apos;incasso del titolo PR la scadenza della polizza madre verrà aggiornata automaticamente.
+                </div>
+              )}
 
               <div>
-                <Label>Data effetto</Label>
+                <Label>Data effetto *</Label>
                 <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)}
                   className={cn(errors.dataEffetto && errClass)} />
                 <ErrMsg id="dataEffetto" />
               </div>
               <div>
-                <Label>Data scadenza</Label>
-                <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)} />
+                <Label>Data scadenza *</Label>
+                <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)}
+                  className={cn(errors.dataAppendice && errClass)} />
+                <ErrMsg id="dataAppendice" />
               </div>
 
               <div>
@@ -537,6 +595,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
                   placeholder="0,00"
                   className={cn(errors.premioNetto && errClass)} />
                 <ErrMsg id="premioNetto" />
+                <p className="text-xs text-muted-foreground mt-1">0 ammesso per incasso tecnico.</p>
               </div>
               <div>
                 <Label>Tasse</Label>
@@ -571,7 +630,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
               <div className="md:col-span-2">
                 <Label>Oggetto</Label>
                 <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)}
-                  placeholder="Es. Conguaglio premio 2026" />
+                  placeholder={isProroga ? "Es. Proroga al 31/12/2027" : "Es. Conguaglio premio 2026"} />
               </div>
               <div className="md:col-span-2">
                 <Label>Note interne</Label>
@@ -623,7 +682,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
               <div className="md:col-span-2">
                 <div className="rounded-md border bg-muted/40 p-3">
                   <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                    Riepilogo regolazione
+                    Riepilogo {isProroga ? "proroga" : "regolazione"}
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                     <div>
@@ -708,9 +767,9 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, on
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>Annulla</Button>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId || (isReg && hasErrors)}>
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId || (isEco && hasErrors)}>
             {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isReg ? "Crea regolazione" : "Crea appendice"}
+            {isProroga ? "Crea proroga" : isReg ? "Crea regolazione" : "Crea appendice"}
           </Button>
         </DialogFooter>
       </DialogContent>

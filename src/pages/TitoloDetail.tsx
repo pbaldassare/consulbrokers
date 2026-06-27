@@ -263,7 +263,11 @@ const TitoloDetail = () => {
         .from("appendici_polizza")
         .select("*")
         .eq("titolo_regolazione_id", id!);
-      const merged = [...(direct || []), ...(regParents || [])];
+      const { data: prParents } = await supabase
+        .from("appendici_polizza")
+        .select("*")
+        .eq("titolo_proroga_id", id!);
+      const merged = [...(direct || []), ...(regParents || []), ...(prParents || [])];
       // dedup per id
       const seen = new Set<string>();
       return merged.filter((a: any) => (seen.has(a.id) ? false : (seen.add(a.id), true)));
@@ -320,7 +324,7 @@ const TitoloDetail = () => {
   // Regolazioni collegate al titolo corrente (visualizzate sul titolo madre)
   const { data: regolazioniCollegate = [] } = useQuery({
     queryKey: ["regolazioni-collegate", id],
-    enabled: !!id && !(titolo as any)?.is_regolazione,
+    enabled: !!id && !(titolo as any)?.is_regolazione && !(titolo as any)?.is_proroga,
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
@@ -328,6 +332,35 @@ const TitoloDetail = () => {
         .eq("regolazione_quietanza_id", id!)
         .order("created_at", { ascending: true });
       return data || [];
+    },
+  });
+
+  const { data: prorogheCollegate = [] } = useQuery({
+    queryKey: ["proroghe-collegate", id],
+    enabled: !!id && !(titolo as any)?.is_regolazione && !(titolo as any)?.is_proroga,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, premio_lordo, premio_netto, provvigioni_firma, stato, data_messa_cassa, garanzia_da, garanzia_a, created_at")
+        .eq("proroga_polizza_madre_id", id!)
+        .order("created_at", { ascending: true });
+      return data || [];
+    },
+  });
+
+  const madreProrogaId: string | null = (titolo as any)?.is_proroga
+    ? (titolo as any).proroga_polizza_madre_id || null
+    : null;
+  const { data: madreProroga } = useQuery({
+    queryKey: ["madre-proroga", madreProrogaId],
+    enabled: !!madreProrogaId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, garanzia_a, data_scadenza")
+        .eq("id", madreProrogaId!)
+        .maybeSingle();
+      return data;
     },
   });
 
@@ -1564,9 +1597,14 @@ const TitoloDetail = () => {
   // (Annulla Messa a Cassa, Storno, Rinnovo) restano disponibili.
   const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
   const isRegolazione = !!(t as any).is_regolazione;
+  const isProroga = !!(t as any).is_proroga;
+  const isTitoloDerivato = isRegolazione || isProroga;
 
   // Catena polizza: usata per banner "scope" e pannello "Quietanze sorelle"
   const isQuietanzaCorrente = isQuietanzaTitolo(t);
+  /** Su quietanza già conclusa (incasso/messa a cassa) il premio quietanza non serve in UI. */
+  const nascondiPremioQuietanza =
+    isQuietanzaCorrente && (t.stato === "incassato" || !!t.data_messa_cassa);
   const catene = catenaTitoli && catenaTitoli.length > 0
     ? groupTitoliByPolizza(catenaTitoli)
     : [];
@@ -1603,7 +1641,10 @@ const TitoloDetail = () => {
           numero_titolo: madre.numero_titolo,
         } : null}
         onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`) : navigate("/portafoglio/carico")}
-        madre={madreQuietanza ? {
+        madre={isProroga && madreProroga ? {
+          id: (madreProroga as any).id,
+          numero_titolo: (madreProroga as any).numero_titolo,
+        } : madreQuietanza ? {
           id: (madreQuietanza as any).id,
           numero_titolo: (madreQuietanza as any).numero_titolo,
           garanzia_da: (madreQuietanza as any).garanzia_da,
@@ -1636,7 +1677,7 @@ const TitoloDetail = () => {
       />
 
       {/* Pannello "Regolazioni collegate" — solo per titoli non-RG con almeno una RG */}
-      {!isRegolazione && regolazioniCollegate.length > 0 && (
+      {!isTitoloDerivato && regolazioniCollegate.length > 0 && (
         <Card className="border-l-4 border-l-orange-500 shadow-sm">
           <CardHeader className="pb-3 bg-orange-50/60 dark:bg-orange-950/20 border-b">
             <CardTitle className="text-sm sm:text-base font-semibold text-orange-900 dark:text-orange-100 flex items-center gap-2">
@@ -1675,6 +1716,55 @@ const TitoloDetail = () => {
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {rg.data_messa_cassa ? new Date(rg.data_messa_cassa).toLocaleDateString("it-IT") : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">›</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isTitoloDerivato && prorogheCollegate.length > 0 && (
+        <Card className="border-l-4 border-l-blue-500 shadow-sm">
+          <CardHeader className="pb-3 bg-blue-50/60 dark:bg-blue-950/20 border-b">
+            <CardTitle className="text-sm sm:text-base font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+              <Clock className="w-4 h-4" /> Proroghe collegate ({prorogheCollegate.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase text-muted-foreground bg-muted/40">
+                <tr>
+                  <th className="text-left px-3 py-2">Numero</th>
+                  <th className="text-left px-3 py-2">Periodo</th>
+                  <th className="text-right px-3 py-2">Premio Lordo</th>
+                  <th className="text-left px-3 py-2">Stato</th>
+                  <th className="text-left px-3 py-2">Messa a cassa</th>
+                  <th className="w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {prorogheCollegate.map((pr: any) => (
+                  <tr
+                    key={pr.id}
+                    className="border-t hover:bg-blue-50/40 dark:hover:bg-blue-950/20 cursor-pointer"
+                    onClick={() => navigate(`/titoli/${pr.id}`)}
+                  >
+                    <td className="px-3 py-2 font-mono">{pr.numero_titolo}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {pr.garanzia_da ? new Date(pr.garanzia_da).toLocaleDateString("it-IT") : "—"}
+                      {pr.garanzia_a ? ` → ${new Date(pr.garanzia_a).toLocaleDateString("it-IT")}` : ""}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtEuro(pr.premio_lordo)}</td>
+                    <td className="px-3 py-2">
+                      <Badge variant={pr.stato === "incassato" ? "default" : "secondary"} className={pr.stato === "incassato" ? "bg-blue-500 hover:bg-blue-600" : ""}>
+                        {pr.stato}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {pr.data_messa_cassa ? new Date(pr.data_messa_cassa).toLocaleDateString("it-IT") : "—"}
                     </td>
                     <td className="px-3 py-2 text-right text-muted-foreground">›</td>
                   </tr>
@@ -1750,28 +1840,34 @@ const TitoloDetail = () => {
                 Questo titolo è una <strong>Regolazione</strong>{madreQuietanza ? <> collegata a <span className="font-medium">{(madreQuietanza as any).numero_titolo}</span></> : null}. Sono disponibili solo Messa a Cassa, Storno e Annullamento.
               </div>
             )}
+            {isProroga && (
+              <div className="w-full -mt-1 mb-1 rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 px-3 py-2 text-xs text-blue-900 dark:text-blue-200">
+                Questo titolo è una <strong>Proroga</strong>{madreProroga ? <> della polizza <button type="button" className="font-medium underline" onClick={() => navigate(`/titoli/${(madreProroga as any).id}`)}>{(madreProroga as any).numero_titolo}</button></> : null}.
+                All&apos;incasso la scadenza della polizza madre verrà estesa automaticamente.
+              </div>
+            )}
             
-            {!isRegolazione && (
+            {!isTitoloDerivato && (
               <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
                 <Clock className="w-4 h-4 mr-1" /> Sospensione
               </Button>
             )}
-            {!isRegolazione && (
+            {!isTitoloDerivato && (
               <Button variant="outline" size="sm" disabled={t.stato !== "sospeso"} title={t.stato !== "sospeso" ? "Solo le polizze sospese possono essere riattivate" : undefined} onClick={() => setRiattivazioneOpen(true)}>
                 <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
               </Button>
             )}
-            {!isRegolazione && (
+            {!isTitoloDerivato && (
               <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
                 <Replace className="w-4 h-4 mr-1" /> Sostituzione
               </Button>
             )}
-            {!isRegolazione && (
+            {!isTitoloDerivato && (
               <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)}>
                 <Ban className="w-4 h-4 mr-1" /> Estinzione
               </Button>
             )}
-            {!isRegolazione && (
+            {!isTitoloDerivato && (
               <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
                 <FileText className="w-4 h-4 mr-1" /> Appendici
               </Button>
@@ -1779,17 +1875,17 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" disabled={["stornato","estinto","sostituito","annullato"].includes(t.stato)} title={["stornato","estinto","sostituito","annullato"].includes(t.stato) ? `Titolo in stato "${t.stato}": storno non disponibile` : undefined} onClick={() => setStornoOpen(true)}>
               <ArrowRightLeft className="w-4 h-4 mr-1" /> Storno
             </Button>
-            {!isRegolazione && (
+            {!isTitoloDerivato && (
               <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${t.id}&quietanzaRefId=${t.id}`)}>
                 <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
               </Button>
             )}
-            {!isRegolazione && (
+            {!isTitoloDerivato && (
               <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}`)}>
                 <FileText className="w-4 h-4 mr-1" /> Precontrattuale
               </Button>
             )}
-            {!isRegolazione && (
+            {!isTitoloDerivato && (
               <ImportPolizzaAiButton
                 titoloId={t.id}
                 ramo={t.ramo}
@@ -1845,7 +1941,7 @@ const TitoloDetail = () => {
             </AlertDialog>
             )}
 
-            {!isRegolazione && (
+            {!isTitoloDerivato && (
               <Button
                 variant="outline"
                 size="sm"
@@ -3121,7 +3217,7 @@ const TitoloDetail = () => {
         {!editingImporti ? (
           <div className="space-y-4">
             {/* Riepilogo totali Firma / Quietanza calcolati dalle righe garanzia (read-only) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`grid grid-cols-1 ${nascondiPremioQuietanza ? "" : "md:grid-cols-2"} gap-4`}>
               <div className="rounded-md border border-teal-200 dark:border-teal-900 bg-teal-50/50 dark:bg-teal-950/20 p-3">
                 <h4 className="text-xs font-bold uppercase mb-2 text-teal-800 dark:text-teal-200">Premio alla Firma</h4>
                 <div className="grid grid-cols-3 gap-2 text-sm">
@@ -3135,6 +3231,7 @@ const TitoloDetail = () => {
                   {renderSplitImporti("Split", sFirma, "teal")}
                 </div>
               </div>
+              {!nascondiPremioQuietanza && (
               <div className="rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20 p-3">
                 <h4 className="text-xs font-bold uppercase mb-2 text-amber-800 dark:text-amber-200">Premio alla Quietanza</h4>
                 <div className="grid grid-cols-3 gap-2 text-sm">
@@ -3148,6 +3245,7 @@ const TitoloDetail = () => {
                   {renderSplitImporti("Split", sQui, "amber")}
                 </div>
               </div>
+              )}
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground pt-2 border-t">
               <span>Valuta: <strong className="text-foreground">{t.valuta || "EUR"}</strong></span>
@@ -3208,6 +3306,7 @@ const TitoloDetail = () => {
                     placeholder="0,00"
                   />
                 </div>
+                {!nascondiPremioQuietanza && (
                 <div>
                   <Label className="text-xs">Brokeraggio Quietanza €</Label>
                   <Input
@@ -3218,6 +3317,7 @@ const TitoloDetail = () => {
                     placeholder="0,00"
                   />
                 </div>
+                )}
               </div>
               <p className="text-[10px] text-muted-foreground italic">
                 Default da <b>% Provv. Consulenza</b> del Produttore. Modifica % per ricalcolare manualmente gli importi (Netto Firma/Quietanza × %).
@@ -3235,13 +3335,14 @@ const TitoloDetail = () => {
             gruppoRamoId={t.ramo?.gruppo_ramo_id || null}
             ramoDescrizione={t.ramo?.descrizione || null}
             isLocked={isLocked}
+            showQuietanza={!nascondiPremioQuietanza}
             addizionaliFirma={t.addizionali}
             addizionaliQuietanza={t.addizionali_quietanza}
             provvigioniFirma={t.provvigioni_firma}
             provvigioniQuietanza={t.provvigioni_quietanza}
           />
           {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
-          {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
+          {!nascondiPremioQuietanza && renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
         </div>
       </SectionCollapsible>
         );

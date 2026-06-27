@@ -64,7 +64,7 @@ export function TipoFilterSegmented({
   if (withRegolazioni) {
     items.push({
       key: "regolazioni",
-      label: "Regolazioni",
+      label: "RG / PR",
       count: counts?.regolazioni,
       activeClasses: "bg-orange-600 text-white shadow-sm",
     });

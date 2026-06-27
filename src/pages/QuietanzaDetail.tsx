@@ -230,7 +230,9 @@ export default function QuietanzaDetail() {
           <Field label="SSN" value={fmtEuro(q.ssn)} />
           <Field label="Premio lordo" value={fmtEuro(q.premio_lordo)} highlight />
           <Field label="Provv. firma" value={fmtEuro(q.provvigioni_firma)} />
-          <Field label="Provv. quietanza" value={fmtEuro(q.provvigioni_quietanza)} />
+          {stato !== "incassato" && !q.data_messa_cassa && (
+            <Field label="Provv. quietanza" value={fmtEuro(q.provvigioni_quietanza)} />
+          )}
         </CompactCard>
 
         <CompactCard title="Messa a cassa & incasso">

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, RefreshCw, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -47,7 +47,8 @@ export function TitoloHeaderBar({
   totRate,
 }: Props) {
   const isRegolazione = !!t.is_regolazione;
-  const isQuietanza = !!isQuietanzaCorrente && !isRegolazione;
+  const isProroga = !!t.is_proroga;
+  const isQuietanza = !!isQuietanzaCorrente && !isRegolazione && !isProroga;
   const fmtD = (d?: string | null) => (d ? format(new Date(d), "dd/MM/yyyy", { locale: it }) : "");
   const rataLbl = isQuietanza
     ? rataIndex && totRate && totRate > 1
@@ -74,7 +75,9 @@ export function TitoloHeaderBar({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground">
-              {isRegolazione ? (
+              {isProroga ? (
+                <>Proroga {t.numero_titolo || t.id.slice(0, 8)}</>
+              ) : isRegolazione ? (
                 <>Regolazione {t.numero_titolo || t.id.slice(0, 8)}</>
               ) : isQuietanza ? (
                 <>
@@ -86,14 +89,18 @@ export function TitoloHeaderBar({
                 <>Polizza {t.numero_titolo || t.id.slice(0, 8)}</>
               )}
             </h1>
-            {isRegolazione ? (
+            {isProroga ? (
+              <Badge className="bg-blue-500 hover:bg-blue-600 text-white" title="Titolo di proroga">
+                <Clock className="w-3 h-3 mr-1" /> Proroga
+              </Badge>
+            ) : isRegolazione ? (
               <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">
                 <RefreshCw className="w-3 h-3 mr-1" /> Regolazione
               </Badge>
             ) : isQuietanza ? null : (
               <Badge variant="outline">Polizza originale</Badge>
             )}
-            {!isRegolazione && !isQuietanza && t.coassicurazione && (
+            {!isRegolazione && !isProroga && !isQuietanza && t.coassicurazione && (
               <Badge className="bg-teal-600 hover:bg-teal-700 text-white" title="Premio ripartito tra più compagnie">
                 Coassicurazione
               </Badge>
@@ -113,6 +120,18 @@ export function TitoloHeaderBar({
               ) : (
                 <span className="text-muted-foreground">{t.numero_titolo || "—"}</span>
               )}
+            </p>
+          )}
+
+          {isProroga && madre && (
+            <p className="text-sm mt-0.5">
+              <span className="text-muted-foreground">Proroga di </span>
+              <Link
+                to={`/titoli/${madre.id}`}
+                className="font-medium text-blue-700 hover:text-blue-800 hover:underline"
+              >
+                {madre.numero_titolo || "polizza"}
+              </Link>
             </p>
           )}
 

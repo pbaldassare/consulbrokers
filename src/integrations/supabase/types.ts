@@ -633,6 +633,7 @@ export type Database = {
           testo: string | null
           tipo: string | null
           titolo_id: string
+          titolo_proroga_id: string | null
           titolo_regolazione_id: string | null
         }
         Insert: {
@@ -657,6 +658,7 @@ export type Database = {
           testo?: string | null
           tipo?: string | null
           titolo_id: string
+          titolo_proroga_id?: string | null
           titolo_regolazione_id?: string | null
         }
         Update: {
@@ -681,6 +683,7 @@ export type Database = {
           testo?: string | null
           tipo?: string | null
           titolo_id?: string
+          titolo_proroga_id?: string | null
           titolo_regolazione_id?: string | null
         }
         Relationships: [
@@ -8553,6 +8556,7 @@ export type Database = {
           id_legacy: number | null
           importo_incassato: number | null
           indicizzata: boolean | null
+          is_proroga: boolean
           is_regolazione: boolean
           libro_matricola: string | null
           limite_mora: string | null
@@ -10778,6 +10782,10 @@ export type Database = {
         }[]
       }
       crea_titolo_da_regolazione: {
+        Args: { p_appendice_id: string }
+        Returns: string
+      }
+      crea_titolo_da_proroga: {
         Args: { p_appendice_id: string }
         Returns: string
       }

@@ -20,6 +20,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
+import { AppendiceDialog } from "@/components/polizze/azioni/AppendiceDialog";
 
 const TIPI_APPENDICE = [
   { value: "modifica", label: "Modifica" },
@@ -52,6 +53,9 @@ const AppendiciPolizzaPage = () => {
   const [existingFilePath, setExistingFilePath] = useState<string | null>(null);
   const [existingFileName, setExistingFileName] = useState<string | null>(null);
   const [removeExistingFile, setRemoveExistingFile] = useState(false);
+  const [ecoDialogOpen, setEcoDialogOpen] = useState(false);
+
+  const isEcoTipo = tipo === "regolazione" || tipo === "proroga";
 
   const resetForm = () => {
     setEditingId(null);
@@ -285,12 +289,39 @@ const AppendiciPolizzaPage = () => {
             </Select>
           </div>
 
-          {tipo === "regolazione" ? (
-            <div className="md:col-span-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 p-3 text-sm">
-              <strong>Regolazione premio:</strong> non è una semplice appendice ma un vero conguaglio.
-              Premendo <em>Apri form regolazione</em> verrà aperta la schermata di emissione polizza
-              precompilata dalla polizza madre, con possibilità di scegliere la quietanza di riferimento
-              e di inserire tutti i dati tecnici/economici come per una nuova polizza.
+          {isEcoTipo && !editingId ? (
+            <div className="md:col-span-2 space-y-3">
+              <div className={`rounded-md border p-3 text-sm ${tipo === "proroga" ? "border-blue-300 bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200" : "border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"}`}>
+                {tipo === "proroga" ? (
+                  <>
+                    <strong>Appendice di proroga:</strong> genera un titolo <em>PR</em> cassabile (anche a €0).
+                    All&apos;incasso estende automaticamente la scadenza della polizza madre.
+                  </>
+                ) : (
+                  <>
+                    <strong>Regolazione premio:</strong> genera un titolo <em>RG</em> collegato a una quietanza di riferimento.
+                    Cassabile anche a premio zero.
+                  </>
+                )}
+              </div>
+              <Button type="button" onClick={() => setEcoDialogOpen(true)} disabled={!paramTitoloId}>
+                {tipo === "proroga" ? "Apri modulo proroga" : "Apri modulo regolazione"}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          ) : isEcoTipo && editingId ? (
+            <div className="md:col-span-2 text-sm text-muted-foreground">
+              Le appendici di proroga/regolazione con titolo derivato non sono modificabili da qui.
+              {appendici.find((a: any) => a.id === editingId)?.titolo_proroga_id && (
+                <Button variant="link" className="px-1 h-auto" onClick={() => navigate(`/titoli/${appendici.find((a: any) => a.id === editingId)?.titolo_proroga_id}`)}>
+                  Apri titolo PR
+                </Button>
+              )}
+              {appendici.find((a: any) => a.id === editingId)?.titolo_regolazione_id && (
+                <Button variant="link" className="px-1 h-auto" onClick={() => navigate(`/titoli/${appendici.find((a: any) => a.id === editingId)?.titolo_regolazione_id}`)}>
+                  Apri titolo RG
+                </Button>
+              )}
             </div>
           ) : (
             <>
@@ -364,23 +395,25 @@ const AppendiciPolizzaPage = () => {
           <Button variant="secondary" onClick={() => paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/attive")}>
             Chiudi
           </Button>
-          {tipo === "regolazione" ? (
-            <Button
-              onClick={() => {
-                if (!paramTitoloId) return;
-                navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${paramTitoloId}`);
-              }}
-              disabled={!paramTitoloId}
-            >
-              Apri form regolazione <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          {isEcoTipo && !editingId ? null : (
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || isEcoTipo}>
               {saveMutation.isPending ? "Salvataggio..." : editingId ? "Aggiorna Appendice" : "Salva Appendice"}
             </Button>
           )}
         </div>
       </PolizzaSection>
+
+      <AppendiceDialog
+        open={ecoDialogOpen}
+        onOpenChange={setEcoDialogOpen}
+        titoloId={paramTitoloId || null}
+        numeroTitolo={paramPolizza}
+        initialTipo={tipo}
+        onCreated={() => {
+          queryClient.invalidateQueries({ queryKey: ["appendici-polizza", paramTitoloId] });
+          setEcoDialogOpen(false);
+        }}
+      />
 
       {/* LISTA APPENDICI ESISTENTI */}
       <PolizzaSection title={`Appendici Esistenti (${appendici.length})`}>
@@ -410,6 +443,12 @@ const AppendiciPolizzaPage = () => {
                     <TableCell className="text-sm">{a.data_effetto ? format(new Date(a.data_effetto), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="capitalize">{a.tipo}</Badge>
+                      {a.titolo_proroga_id && (
+                        <Button variant="link" className="h-auto p-0 ml-1 text-xs" onClick={() => navigate(`/titoli/${a.titolo_proroga_id}`)}>PR</Button>
+                      )}
+                      {a.titolo_regolazione_id && (
+                        <Button variant="link" className="h-auto p-0 ml-1 text-xs" onClick={() => navigate(`/titoli/${a.titolo_regolazione_id}`)}>RG</Button>
+                      )}
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate text-sm">{a.oggetto || "—"}</TableCell>
                     <TableCell>
