@@ -126,3 +126,10 @@ export async function invokeAiMatchMovimenti(movimentoIds?: string[]) {
   if (error) throw error;
   return data as { processed?: number; matched?: number; ai_used?: number };
 }
+
+/** Attende auto-selezione conto bancario sulla pagina import (ContoBancarioSelect autoSelectDefault). */
+export async function ensureContoSelectedForImport(page: Page) {
+  await expect(page.getByText(/Conto bancario/i).first()).toBeVisible();
+  const fileInput = page.locator('input[type="file"]');
+  await expect(fileInput).toBeEnabled({ timeout: 15_000 });
+}

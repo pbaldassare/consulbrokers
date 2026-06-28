@@ -730,6 +730,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "appendici_polizza_titolo_proroga_id_fkey"
+            columns: ["titolo_proroga_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appendici_polizza_titolo_proroga_id_fkey"
+            columns: ["titolo_proroga_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "appendici_polizza_titolo_regolazione_id_fkey"
             columns: ["titolo_regolazione_id"]
             isOneToOne: false
@@ -1400,6 +1414,7 @@ export type Database = {
           id: string
           importo: number
           importo_residuo: number
+          movimento_bancario_id: string | null
           note: string | null
           updated_at: string
         }
@@ -1412,6 +1427,7 @@ export type Database = {
           id?: string
           importo: number
           importo_residuo?: number
+          movimento_bancario_id?: string | null
           note?: string | null
           updated_at?: string
         }
@@ -1424,6 +1440,7 @@ export type Database = {
           id?: string
           importo?: number
           importo_residuo?: number
+          movimento_bancario_id?: string | null
           note?: string | null
           updated_at?: string
         }
@@ -1447,6 +1464,13 @@ export type Database = {
             columns: ["creato_da"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_anticipi_movimento_bancario_id_fkey"
+            columns: ["movimento_bancario_id"]
+            isOneToOne: false
+            referencedRelation: "movimenti_bancari"
             referencedColumns: ["id"]
           },
         ]
@@ -4416,6 +4440,7 @@ export type Database = {
         Row: {
           caricato_da: string | null
           cliente_id: string | null
+          conto_bancario_id: string | null
           created_at: string
           data_movimento: string
           descrizione: string | null
@@ -4430,6 +4455,7 @@ export type Database = {
         Insert: {
           caricato_da?: string | null
           cliente_id?: string | null
+          conto_bancario_id?: string | null
           created_at?: string
           data_movimento: string
           descrizione?: string | null
@@ -4444,6 +4470,7 @@ export type Database = {
         Update: {
           caricato_da?: string | null
           cliente_id?: string | null
+          conto_bancario_id?: string | null
           created_at?: string
           data_movimento?: string
           descrizione?: string | null
@@ -4461,6 +4488,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimenti_bancari_conto_bancario_id_fkey"
+            columns: ["conto_bancario_id"]
+            isOneToOne: false
+            referencedRelation: "conti_bancari"
             referencedColumns: ["id"]
           },
           {
@@ -8581,9 +8615,9 @@ export type Database = {
           id_legacy: number | null
           importo_incassato: number | null
           indicizzata: boolean | null
-          is_proroga: boolean
-          is_oneri_sospensione: boolean
           is_oneri_riattivazione: boolean
+          is_oneri_sospensione: boolean
+          is_proroga: boolean
           is_regolazione: boolean
           libro_matricola: string | null
           limite_mora: string | null
@@ -8591,7 +8625,6 @@ export type Database = {
           mora_giorni: number | null
           motivo_estinzione: string | null
           motivo_sospensione: string | null
-          quietanze_sospensione_snapshot: Json | null
           motivo_sostituzione: string | null
           motivo_storno: string | null
           no_calcolo_tasse: boolean | null
@@ -8613,8 +8646,10 @@ export type Database = {
           prodotto_nome: string | null
           produttore_id: string | null
           produttore_nome: string | null
+          proroga_polizza_madre_id: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
+          quietanze_sospensione_snapshot: Json | null
           ramo_id: string | null
           rate: number | null
           regolazione: boolean | null
@@ -8712,16 +8747,16 @@ export type Database = {
           id_legacy?: number | null
           importo_incassato?: number | null
           indicizzata?: boolean | null
-          is_regolazione?: boolean
-          is_oneri_sospensione?: boolean
           is_oneri_riattivazione?: boolean
+          is_oneri_sospensione?: boolean
+          is_proroga?: boolean
+          is_regolazione?: boolean
           libro_matricola?: string | null
           limite_mora?: string | null
           limite_riattivazione?: string | null
           mora_giorni?: number | null
           motivo_estinzione?: string | null
           motivo_sospensione?: string | null
-          quietanze_sospensione_snapshot?: Json | null
           motivo_sostituzione?: string | null
           motivo_storno?: string | null
           no_calcolo_tasse?: boolean | null
@@ -8743,8 +8778,10 @@ export type Database = {
           prodotto_nome?: string | null
           produttore_id?: string | null
           produttore_nome?: string | null
+          proroga_polizza_madre_id?: string | null
           provvigioni_firma?: number | null
           provvigioni_quietanza?: number | null
+          quietanze_sospensione_snapshot?: Json | null
           ramo_id?: string | null
           rate?: number | null
           regolazione?: boolean | null
@@ -8842,16 +8879,16 @@ export type Database = {
           id_legacy?: number | null
           importo_incassato?: number | null
           indicizzata?: boolean | null
-          is_regolazione?: boolean
-          is_oneri_sospensione?: boolean
           is_oneri_riattivazione?: boolean
+          is_oneri_sospensione?: boolean
+          is_proroga?: boolean
+          is_regolazione?: boolean
           libro_matricola?: string | null
           limite_mora?: string | null
           limite_riattivazione?: string | null
           mora_giorni?: number | null
           motivo_estinzione?: string | null
           motivo_sospensione?: string | null
-          quietanze_sospensione_snapshot?: Json | null
           motivo_sostituzione?: string | null
           motivo_storno?: string | null
           no_calcolo_tasse?: boolean | null
@@ -8873,8 +8910,10 @@ export type Database = {
           prodotto_nome?: string | null
           produttore_id?: string | null
           produttore_nome?: string | null
+          proroga_polizza_madre_id?: string | null
           provvigioni_firma?: number | null
           provvigioni_quietanza?: number | null
+          quietanze_sospensione_snapshot?: Json | null
           ramo_id?: string | null
           rate?: number | null
           regolazione?: boolean | null
@@ -8990,6 +9029,20 @@ export type Database = {
             columns: ["produttore_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_proroga_polizza_madre_id_fkey"
+            columns: ["proroga_polizza_madre_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_proroga_polizza_madre_id_fkey"
+            columns: ["proroga_polizza_madre_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
           {
@@ -9223,6 +9276,74 @@ export type Database = {
           {
             foreignKeyName: "titoli_numeri_storici_titolo_id_fkey"
             columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      titoli_proroghe: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data_proroga: string
+          id: string
+          note: string | null
+          periodo_a: string | null
+          periodo_da: string | null
+          premio_lordo: number
+          titolo_madre_id: string
+          titolo_proroga_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data_proroga: string
+          id?: string
+          note?: string | null
+          periodo_a?: string | null
+          periodo_da?: string | null
+          premio_lordo?: number
+          titolo_madre_id: string
+          titolo_proroga_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data_proroga?: string
+          id?: string
+          note?: string | null
+          periodo_a?: string | null
+          periodo_da?: string | null
+          premio_lordo?: number
+          titolo_madre_id?: string
+          titolo_proroga_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_proroghe_titolo_madre_id_fkey"
+            columns: ["titolo_madre_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_proroghe_titolo_madre_id_fkey"
+            columns: ["titolo_madre_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_proroghe_titolo_proroga_id_fkey"
+            columns: ["titolo_proroga_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_proroghe_titolo_proroga_id_fkey"
+            columns: ["titolo_proroga_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
@@ -10214,6 +10335,7 @@ export type Database = {
           garanzia_da: string | null
           id: string | null
           importo_incassato: number | null
+          is_proroga: boolean | null
           is_regolazione: boolean | null
           limite_riattivazione: string | null
           numero_polizza_snapshot: string | null
@@ -10225,6 +10347,7 @@ export type Database = {
           premio_netto: number | null
           produttore_id: string | null
           produttore_nome: string | null
+          proroga_polizza_madre_id: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
           quietanza_id: string | null
@@ -10321,6 +10444,20 @@ export type Database = {
           {
             foreignKeyName: "quietanze_titolo_id_fkey"
             columns: ["id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_proroga_polizza_madre_id_fkey"
+            columns: ["proroga_polizza_madre_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_proroga_polizza_madre_id_fkey"
+            columns: ["proroga_polizza_madre_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
@@ -10832,11 +10969,11 @@ export type Database = {
           count: number
         }[]
       }
-      crea_titolo_da_regolazione: {
+      crea_titolo_da_proroga: {
         Args: { p_appendice_id: string }
         Returns: string
       }
-      crea_titolo_da_proroga: {
+      crea_titolo_da_regolazione: {
         Args: { p_appendice_id: string }
         Returns: string
       }

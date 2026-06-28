@@ -42,7 +42,7 @@ test.describe('Contabilità · Ricongiungimento Bancario', () => {
 
     await trigger.click();
 
-    await expect(page.getByText(/Cliente pre-matchato/i).first()).toBeVisible();
+    await expect(page.getByText(/Cliente pre-matchato \(pagatore\)|Cliente pre-matchato/i).first()).toBeVisible();
     await expect(page.getByText(/Polizze attive di/i).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Salva Ricongiungimento/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Metti a Cassa/i })).toBeVisible();

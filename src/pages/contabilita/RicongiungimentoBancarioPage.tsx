@@ -24,6 +24,12 @@ import { notificaSedeMovimentoBancario } from "@/lib/notificheMovimentiBancari";
 import { useAnticipiResiduoByClienti } from "@/hooks/useAnticipiResiduoByClienti";
 import AnticipoUtilizziDrawer from "@/components/clienti/AnticipoUtilizziDrawer";
 import { AggiungiPolizzaAltroClienteDialog, type PolizzaAggiunta } from "@/components/contabilita/AggiungiPolizzaAltroClienteDialog";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import {
+  assegnaPagatoreMovimento,
+  fetchContoIdsForUfficio,
+  finalizeMovimentoBancarioIncasso,
+} from "@/lib/movimentiBancari";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TOLL = 0.01;
@@ -74,12 +80,19 @@ const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio: string
     queryKey: ["mov-bancari", "ricongiungimento", profileUfficio, filtroUfficio, seeAll],
     queryFn: async () => {
       let q = supabase.from("movimenti_bancari" as any)
-        .select("id, data_movimento, importo, ordinante, descrizione, stato, ufficio_id, cliente_id, cliente:clienti(id, ragione_sociale, nome, cognome)")
-        .in("stato", ["assegnato", "ricongiunti"])
+        .select("id, data_movimento, importo, ordinante, descrizione, stato, ufficio_id, cliente_id, conto_bancario_id, conto:conti_bancari(etichetta), cliente:clienti(id, ragione_sociale, nome, cognome)")
+        .in("stato", ["importato", "matchato", "assegnato", "ricongiunti"])
         .order("data_movimento", { ascending: false })
         .limit(200);
-      if (!seeAll && profileUfficio) q = q.eq("ufficio_id", profileUfficio);
       if (seeAll && filtroUfficio) q = q.eq("ufficio_id", filtroUfficio);
+      if (!seeAll && profileUfficio) {
+        const contoIds = await fetchContoIdsForUfficio(profileUfficio);
+        if (contoIds.length > 0) {
+          q = q.or(`ufficio_id.eq.${profileUfficio},conto_bancario_id.in.(${contoIds.join(",")})`);
+        } else {
+          q = q.eq("ufficio_id", profileUfficio);
+        }
+      }
       const { data, error } = await q;
       if (error) throw error;
       return (data as any[]) ?? [];
@@ -121,10 +134,35 @@ type PolizzaSel = {
   importo: number;
 };
 
-const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: () => void }) => {
+const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any; onChanged: () => void }) => {
+  const [movimento, setMovimento] = useState(movimentoProp);
+  useEffect(() => { setMovimento(movimentoProp); }, [movimentoProp]);
+
   const [open, setOpen] = useState(false);
   const cliNome = movimento.cliente?.ragione_sociale || [movimento.cliente?.nome, movimento.cliente?.cognome].filter(Boolean).join(" ") || "—";
   const pagatore = (movimento.ordinante || "").trim() || cliNome;
+
+  const [pagatoreSearch, setPagatoreSearch] = useState("");
+  const [pagatoreDebounced, setPagatoreDebounced] = useState("");
+  const [assegnaPagatoreLoading, setAssegnaPagatoreLoading] = useState(false);
+  const [pagatoreSelId, setPagatoreSelId] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setPagatoreDebounced(pagatoreSearch), 350);
+    return () => clearTimeout(t);
+  }, [pagatoreSearch]);
+
+  const { data: clientiPagatore = [] } = useQuery({
+    queryKey: ["clienti-pagatore-mov", pagatoreDebounced],
+    enabled: open && !movimento.cliente_id && pagatoreDebounced.length >= 2,
+    queryFn: async () => {
+      const { data } = await supabase.from("clienti")
+        .select("id, ragione_sociale, nome, cognome, ufficio_id")
+        .or(`ragione_sociale.ilike.%${pagatoreDebounced}%,cognome.ilike.%${pagatoreDebounced}%,nome.ilike.%${pagatoreDebounced}%`)
+        .limit(25);
+      return (data as any[]) ?? [];
+    },
+  });
 
   // Polizze attive del cliente pre-matchato (per la tabella principale)
   const { data: polizze = [] } = useQuery({
@@ -163,6 +201,7 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
   const [saving, setSaving] = useState(false);
   const [cassaOpen, setCassaOpen] = useState(false);
   const [cassaTitoli, setCassaTitoli] = useState<any[]>([]);
+  const [cassaImporti, setCassaImporti] = useState<Record<string, number>>({});
   const [garantitoOpen, setGarantitoOpen] = useState(false);
   const [garantitoTitoli, setGarantitoTitoli] = useState<any[]>([]);
   const [anticipoDrawerId, setAnticipoDrawerId] = useState<string | null>(null);
@@ -305,8 +344,9 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
     return Array.from(map.entries());
   }, [extraEntries]);
 
-  const salvaRicongiungimento = async () => {
-    if (totale <= 0) { toast.error("Inserisci almeno una voce"); return; }
+  const salvaRicongiungimento = async (): Promise<boolean> => {
+    if (totale <= 0) { toast.error("Inserisci almeno una voce"); return false; }
+    if (!quadra) { toast.error(`La quadratura non torna: delta ${fmtEuro(delta)}`); return false; }
     setSaving(true);
     try {
       // Cancella tutti i ricongiungimenti esistenti per questo movimento (cascade su movimenti_polizze)
@@ -388,29 +428,64 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
           : `${nPol} polizza/e collegata/e al movimento`
       );
       onChanged();
+      return true;
     } catch (e: any) {
       toast.error(e.message ?? "Errore salvataggio");
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
+  const handleAssegnaPagatore = async () => {
+    if (!pagatoreSelId) { toast.error("Seleziona il cliente pagatore"); return; }
+    const cli = (clientiPagatore as any[]).find((c) => c.id === pagatoreSelId);
+    setAssegnaPagatoreLoading(true);
+    try {
+      await assegnaPagatoreMovimento(movimento.id, pagatoreSelId, cli?.ufficio_id ?? movimento.ufficio_id ?? null);
+      const label = cli?.ragione_sociale || [cli?.nome, cli?.cognome].filter(Boolean).join(" ") || "—";
+      setMovimento((m: any) => ({
+        ...m,
+        cliente_id: pagatoreSelId,
+        ufficio_id: cli?.ufficio_id ?? m.ufficio_id,
+        stato: "assegnato",
+        cliente: { id: pagatoreSelId, ragione_sociale: cli?.ragione_sociale, nome: cli?.nome, cognome: cli?.cognome },
+      }));
+      toast.success(`Pagatore assegnato: ${label}`);
+      onChanged();
+    } catch (e: any) {
+      toast.error(e.message ?? "Errore assegnazione pagatore");
+    } finally {
+      setAssegnaPagatoreLoading(false);
+    }
+  };
+
   // === Metti a Cassa ===
   const apriMessaCassa = async () => {
+    if (!movimento.cliente_id) { toast.error("Assegna il pagatore (cliente pre-matchato) prima di mettere a cassa"); return; }
     if (!quadra) { toast.error(`Non quadra: delta ${fmtEuro(delta)}`); return; }
+    const saved = await salvaRicongiungimento();
+    if (!saved) return;
     const titoliIds = Object.entries(selPol).filter(([, v]) => (Number(v.importo) || 0) > 0).map(([id]) => id);
     if (titoliIds.length === 0) { toast.error("Nessuna polizza selezionata"); return; }
+    const importoByTitoloId = Object.fromEntries(
+      Object.entries(selPol).filter(([, v]) => (Number(v.importo) || 0) > 0).map(([id, v]) => [id, Number(v.importo) || 0])
+    );
     const { data: titoli, error } = await supabase
       .from("titoli")
-      .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id")
+      .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato")
       .in("id", titoliIds);
     if (error) { toast.error(error.message); return; }
     setCassaTitoli(titoli ?? []);
+    setCassaImporti(importoByTitoloId);
     setCassaOpen(true);
   };
 
   const apriGarantito = async () => {
+    if (!movimento.cliente_id) { toast.error("Assegna il pagatore prima di procedere"); return; }
     if (!quadra) { toast.error(`Non quadra: delta ${fmtEuro(delta)}`); return; }
+    const saved = await salvaRicongiungimento();
+    if (!saved) return;
     const titoliIds = Object.entries(selPol).filter(([, v]) => (Number(v.importo) || 0) > 0).map(([id]) => id);
     if (titoliIds.length === 0) { toast.error("Nessuna polizza selezionata"); return; }
     const { data: titoli, error } = await supabase
@@ -422,18 +497,34 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
     setGarantitoOpen(true);
   };
 
-  const onCassaSuccess = async () => {
-    const today = new Date().toISOString().slice(0, 10);
+  const onCassaSuccess = async (dataMessaCassa: string) => {
     const { data: mcs } = await supabase.from("movimenti_clienti" as any)
-      .select("id")
+      .select("id, anticipo, ammanco")
       .eq("movimento_id", movimento.id);
-    const mcIds = ((mcs as any[]) ?? []).map((r) => r.id);
+    const mcRows = (mcs as any[]) ?? [];
+    const mcIds = mcRows.map((r) => r.id);
+    let polizzeLineIds: string[] = [];
     if (mcIds.length > 0) {
-      await supabase.from("movimenti_polizze" as any)
-        .update({ messo_a_cassa: true, data_messa_cassa: today } as any)
-        .in("movimento_cliente_id", mcIds);
+      const { data: mps } = await supabase.from("movimenti_polizze" as any)
+        .select("id, tipo")
+        .in("movimento_cliente_id", mcIds)
+        .eq("tipo", "polizza");
+      polizzeLineIds = ((mps as any[]) ?? []).map((r) => r.id);
     }
-    await supabase.from("movimenti_bancari" as any).update({ stato: "incassato" } as any).eq("id", movimento.id);
+    const antTot = mcRows.reduce((s, r) => s + (Number(r.anticipo) || 0), 0);
+    const ammTot = mcRows.reduce((s, r) => s + (Number(r.ammanco) || 0), 0);
+    const { data: userResp } = await supabase.auth.getUser();
+    await finalizeMovimentoBancarioIncasso({
+      movimentoId: movimento.id,
+      clienteId: movimento.cliente_id,
+      contoBancarioId: movimento.conto_bancario_id ?? null,
+      dataMessaCassa,
+      anticipoImporto: antTot,
+      ammancoImporto: ammTot,
+      polizzeLineIds,
+      userId: userResp.user?.id ?? null,
+      note: note || null,
+    });
 
     await notificaSedeMovimentoBancario({
       evento: "messo_a_cassa",
@@ -469,17 +560,41 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
         <CollapsibleContent>
           <CardContent className="border-t space-y-4 pt-4">
             {/* Cliente pre-matchato + pagatore */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">Cliente pre-matchato</h4>
-                {movimento.cliente_id ? (
-                  <Link to={`/archivi/clienti/${movimento.cliente_id}`} className="text-sm text-primary underline flex items-center gap-1">
-                    {cliNome} <ExternalLink className="w-3 h-3" />
-                  </Link>
-                ) : <span className="text-sm text-muted-foreground">Nessun cliente associato</span>}
+            <div className="flex items-start justify-between flex-wrap gap-3">
+              <div className="space-y-2">
+                <div>
+                  <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">Cliente pre-matchato (pagatore)</h4>
+                  {movimento.cliente_id ? (
+                    <Link to={`/archivi/clienti/${movimento.cliente_id}`} className="text-sm text-primary underline flex items-center gap-1">
+                      {cliNome} <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  ) : (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2 max-w-md">
+                      <p className="text-xs text-amber-800 dark:text-amber-300">
+                        Obbligatorio prima della chiusura: indica chi ha pagato il bonifico.
+                      </p>
+                      <SearchableSelect
+                        options={(clientiPagatore as any[]).map((c) => ({
+                          value: c.id,
+                          label: c.ragione_sociale || [c.nome, c.cognome].filter(Boolean).join(" "),
+                        }))}
+                        value={pagatoreSelId}
+                        onValueChange={setPagatoreSelId}
+                        onSearchChange={setPagatoreSearch}
+                        placeholder="Cerca cliente pagatore…"
+                      />
+                      <Button size="sm" onClick={handleAssegnaPagatore} disabled={assegnaPagatoreLoading || !pagatoreSelId}>
+                        Assegna pagatore
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {movimento.conto?.etichetta && (
+                  <p className="text-xs text-muted-foreground">Conto: <span className="font-medium text-foreground">{movimento.conto.etichetta}</span></p>
+                )}
               </div>
               <div className="text-xs text-muted-foreground flex items-center gap-1">
-                <User className="w-3 h-3" /> Pagatore: <span className="font-medium text-foreground">{pagatore}</span>
+                <User className="w-3 h-3" /> Ordinante banca: <span className="font-medium text-foreground">{pagatore}</span>
               </div>
             </div>
 
@@ -632,19 +747,19 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
 
             {/* Azioni */}
             <div className="flex justify-end gap-2 flex-wrap">
-              <Button variant="outline" onClick={salvaRicongiungimento} disabled={saving}>
+              <Button variant="outline" onClick={salvaRicongiungimento} disabled={saving || !quadra}>
                 <Save className="w-4 h-4 mr-1" /> Salva Ricongiungimento
               </Button>
               <Button
                 variant="outline"
                 onClick={apriGarantito}
-                disabled={!quadra}
+                disabled={!quadra || !movimento.cliente_id}
                 className="border-orange-400 text-orange-700 hover:bg-orange-50"
                 title="Incasso garantito (senza fondi in cassa)"
               >
                 <Shield className="w-4 h-4 mr-1" /> Garantito
               </Button>
-              <Button onClick={apriMessaCassa} disabled={!quadra}>
+              <Button onClick={apriMessaCassa} disabled={!quadra || !movimento.cliente_id}>
                 <Wallet className="w-4 h-4 mr-1" /> Metti a Cassa
               </Button>
             </div>
@@ -655,7 +770,13 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
         open={cassaOpen}
         onOpenChange={setCassaOpen}
         titoli={cassaTitoli}
-        onSuccess={onCassaSuccess}
+        bankIncasso={{
+          movimentoId: movimento.id,
+          contoBancarioId: movimento.conto_bancario_id ?? null,
+          dataMovimento: movimento.data_movimento,
+          importoByTitoloId: cassaImporti,
+        }}
+        onSuccess={(dataMessaCassa) => onCassaSuccess(dataMessaCassa)}
       />
       <GarantitoDialog
         open={garantitoOpen}
@@ -663,7 +784,7 @@ const MovimentoCard = ({ movimento, onChanged }: { movimento: any; onChanged: ()
         titoli={garantitoTitoli}
         onSuccess={async () => {
           setCassaTitoli(garantitoTitoli);
-          await onCassaSuccess();
+          await onCassaSuccess(new Date().toISOString().slice(0, 10));
         }}
       />
       <AnticipoUtilizziDrawer

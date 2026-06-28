@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Upload, FileSpreadsheet, Plus, Download } from "lucide-react";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
+import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
+import { resolveUfficioFromConto } from "@/lib/movimentiBancari";
 
 const STATO_LABEL: Record<string, { label: string; variant: "secondary" | "default" | "outline" | "destructive" }> = {
   importato: { label: "Importato", variant: "secondary" },
@@ -64,8 +66,13 @@ const Page = () => {
   const [importing, setImporting] = useState(false);
   const [lastReport, setLastReport] = useState<{ inseriti: number; duplicati: number; senzaCliente: number } | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
+  const [contoImportId, setContoImportId] = useState<string>("");
 
   const handleFile = useCallback(async (file: File) => {
+    if (!contoImportId) {
+      toast.error("Seleziona il conto bancario prima di importare");
+      return;
+    }
     setImporting(true);
     try {
       const buf = await file.arrayBuffer();
@@ -85,6 +92,7 @@ const Page = () => {
 
       const { data: userResp } = await supabase.auth.getUser();
       const userId = userResp.user?.id ?? null;
+      const ufficioDaConto = await resolveUfficioFromConto(contoImportId);
 
       const records = rows
         .map((r) => {
@@ -100,6 +108,7 @@ const Page = () => {
             ordinante: ordinante || null,
             descrizione: descrizione || null,
             cliente_id,
+            conto_bancario_id: contoImportId,
             stato: (cliente_id ? "assegnato" : "importato") as "assegnato" | "importato",
             caricato_da: userId,
           };
@@ -119,7 +128,9 @@ const Page = () => {
         for (const c of (clienti as any[] ?? [])) ufficioMap.set(c.id, c.ufficio_id ?? null);
       }
       for (const r of records) {
-        (r as any).ufficio_id = r.cliente_id ? (ufficioMap.get(r.cliente_id) ?? null) : null;
+        (r as any).ufficio_id = r.cliente_id
+          ? (ufficioMap.get(r.cliente_id) ?? ufficioDaConto)
+          : ufficioDaConto;
       }
 
       // Dedup vs DB
@@ -160,11 +171,12 @@ const Page = () => {
     } finally {
       setImporting(false);
     }
-  }, [qc]);
+  }, [qc, contoImportId]);
 
   const handleManualInsert = async (payload: {
     cliente_id: string;
     ufficio_id: string | null;
+    conto_bancario_id: string | null;
     data_movimento: string;
     importo: number;
     ordinante: string | null;
@@ -180,6 +192,7 @@ const Page = () => {
       note: payload.note,
       cliente_id: payload.cliente_id,
       ufficio_id: payload.ufficio_id,
+      conto_bancario_id: payload.conto_bancario_id,
       stato: "assegnato",
       caricato_da: userResp.user?.id ?? null,
     } as any);
@@ -193,7 +206,10 @@ const Page = () => {
       <div className="container mx-auto py-6 space-y-4">
         <div>
           <h1 className="text-2xl font-bold">Caricamento Movimenti Bancari</h1>
-          <p className="text-sm text-muted-foreground">Carica l'Excel già abbinato (colonna <code>Cliente ID</code>): i movimenti vengono assegnati al cliente senza ulteriori conferme.</p>
+          <p className="text-sm text-muted-foreground">
+            Carica l&apos;estratto Excel del conto bancario. La colonna <code>Cliente ID</code> è opzionale:
+            i movimenti senza cliente restano in coda per il ricongiungimento.
+          </p>
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
@@ -209,12 +225,24 @@ const Page = () => {
 
           <TabsContent value="importazione" className="space-y-4">
             <Card>
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Upload className="w-4 h-4" /> Upload Excel pre-matchato</CardTitle></CardHeader>
-              <CardContent>
-                <DropZone disabled={importing} onFile={handleFile} />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Colonne richieste: <code>Data contabile</code>, <code>Importo</code>, <code>Ordinante</code>, <code>Cliente ID</code>, <code>Descrizione</code>.
-                  Le righe con <code>Cliente ID</code> valorizzato vengono inserite come <strong>Assegnate</strong>.
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Upload className="w-4 h-4" /> Upload Excel estratto conto</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Conto bancario *</Label>
+                  <ContoBancarioSelect
+                    value={contoImportId || null}
+                    onChange={(id) => setContoImportId(id ?? "")}
+                    tipi={["incasso_clienti", "generico"]}
+                    autoSelectDefault
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Le sedi collegate a questo conto vedranno i movimenti in ricongiungimento.
+                  </p>
+                </div>
+                <DropZone disabled={importing || !contoImportId} onFile={handleFile} />
+                <p className="text-xs text-muted-foreground">
+                  Colonne attese: <code>Data contabile</code>, <code>Importo</code>, <code>Ordinante</code>, <code>Descrizione</code>.
+                  Opzionale: <code>Cliente ID</code> (UUID) per pre-assegnare il pagatore.
                 </p>
                 {lastReport && (
                   <div className="mt-4 rounded-md border bg-muted/30 p-3 text-sm">
@@ -266,6 +294,7 @@ const DropZone = ({ onFile, disabled }: { onFile: (f: File) => void; disabled?: 
 type ManualInsertPayload = {
   cliente_id: string;
   ufficio_id: string | null;
+  conto_bancario_id: string | null;
   data_movimento: string;
   importo: number;
   ordinante: string | null;
@@ -403,6 +432,7 @@ const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: bool
   const [ordinante, setOrdinante] = useState("");
   const [descrizione, setDescrizione] = useState("");
   const [note, setNote] = useState("");
+  const [contoId, setContoId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -429,10 +459,11 @@ const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: bool
 
   const errors = {
     cliente: !clienteId ? "Seleziona un cliente dall'elenco" : (!ufficioId ? "Il cliente selezionato non ha una sede associata: assegna una sede al cliente prima di procedere" : ""),
+    conto: !contoId ? "Seleziona il conto bancario" : "",
     data: !dataMov ? "Inserisci la data del movimento" : "",
     importo: !importo ? "Inserisci l'importo" : (importoNum <= 0 ? "L'importo deve essere maggiore di zero" : ""),
   };
-  const hasErrors = !!(errors.cliente || errors.data || errors.importo);
+  const hasErrors = !!(errors.cliente || errors.conto || errors.data || errors.importo);
   const canSubmit = !hasErrors && !saving;
 
   const handleSubmit = async () => {
@@ -446,13 +477,14 @@ const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: bool
       await onSubmit({
         cliente_id: clienteId,
         ufficio_id: ufficioId,
+        conto_bancario_id: contoId || null,
         data_movimento: dataMov,
         importo: importoNum,
         ordinante: ordinante || clienteLabel || null,
         descrizione: descrizione || null,
         note: note || null,
       });
-      setClienteId(""); setClienteLabel(""); setUfficioId(null);
+      setClienteId(""); setClienteLabel(""); setUfficioId(null); setContoId("");
       setDataMov(todayISO()); setImporto(""); setOrdinante(""); setDescrizione(""); setNote("");
       setSearch(""); setTouched({});
     } catch { /* toast handled in caller */ }
@@ -468,6 +500,15 @@ const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: bool
           <DialogTitle className="flex items-center gap-2"><Plus className="w-4 h-4" /> Inserimento manuale movimento</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Conto bancario *</Label>
+            <ContoBancarioSelect
+              value={contoId || null}
+              onChange={(id) => setContoId(id ?? "")}
+              tipi={["incasso_clienti", "generico"]}
+              autoSelectDefault
+            />
+          </div>
           <div>
             <Label className="text-xs">Cliente *</Label>
             <SearchableSelect

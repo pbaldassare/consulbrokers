@@ -9,6 +9,7 @@ import {
   insertMovimentoImportato,
   deleteMovimentoById,
   invokeAiMatchMovimenti,
+  ensureContoSelectedForImport,
 } from '../../helpers/contabilita-helper';
 import { supabaseAdmin } from '../../helpers/db-helper';
 
@@ -30,7 +31,8 @@ test.describe('Contabilità · Caricamento Mov. Bancari', () => {
   });
 
   test('tab Importazione: drop zone e istruzioni colonne Excel sono visibili', async ({ page }) => {
-    await expect(page.getByText(/Upload Excel pre-matchato/i)).toBeVisible();
+    await expect(page.getByText(/Upload Excel estratto conto/i)).toBeVisible();
+    await expect(page.getByText(/Conto bancario/i).first()).toBeVisible();
     await expect(page.getByText(/Trascina un file Excel o clicca per selezionare/i)).toBeVisible();
     await expect(page.getByText(/Data contabile/i)).toBeVisible();
     await expect(page.getByText(/Cliente ID/i)).toBeVisible();
@@ -54,6 +56,7 @@ test.describe('Contabilità · Caricamento Mov. Bancari', () => {
     ]);
 
     try {
+      await ensureContoSelectedForImport(page);
       const fileInput = page.locator('input[type="file"]');
       await fileInput.setInputFiles(filePath);
 
@@ -79,6 +82,7 @@ test.describe('Contabilità · Caricamento Mov. Bancari', () => {
     ]);
 
     try {
+      await ensureContoSelectedForImport(page);
       await page.locator('input[type="file"]').setInputFiles(filePath);
       await expect(page.getByText(/Ultimo caricamento/i)).toBeVisible({ timeout: 30_000 });
 
@@ -101,9 +105,10 @@ test.describe('Contabilità · Caricamento Mov. Bancari', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText(/Inserimento manuale movimento/i)).toBeVisible();
+    await expect(dialog.getByText(/Conto bancario/i).first()).toBeVisible();
 
     await dialog.getByRole('button', { name: 'Aggiungi' }).click();
-    await expect(page.getByText(/Seleziona un cliente|Inserisci l'importo/i).first()).toBeVisible();
+    await expect(page.getByText(/Seleziona un cliente|Seleziona il conto|Inserisci l'importo/i).first()).toBeVisible();
 
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();

@@ -93,13 +93,22 @@ interface TitoloMin {
   premio_lordo?: number | null;
   cliente_anagrafica_id?: string | null;
   ufficio_id?: string | null;
+  importo_incassato?: number | null;
+}
+
+export interface BankIncassoContext {
+  movimentoId: string;
+  contoBancarioId: string | null;
+  dataMovimento: string;
+  importoByTitoloId: Record<string, number>;
 }
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   titoli: TitoloMin[];
-  onSuccess?: () => void;
+  onSuccess?: (dataMessaCassa: string) => void;
+  bankIncasso?: BankIncassoContext;
 }
 
 interface CompensazioneRow {
@@ -125,7 +134,7 @@ interface MovimentoPreview {
   titolo?: string;
 }
 
-export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Props) => {
+export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIncasso }: Props) => {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -246,19 +255,22 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
 
   useEffect(() => {
     if (open) {
-      const t = todayISO();
+      const t = bankIncasso?.dataMovimento || todayISO();
+      const bankCash = bankIncasso
+        ? round2(Object.values(bankIncasso.importoByTitoloId).reduce((s, v) => s + (Number(v) || 0), 0))
+        : round2(totaleLordo);
       setForm({
         dataMessaCassa: t,
         dataPagamento: t,
-        tipoPagamento: "contanti",
-        banca: "",
-        cashImporto: round2(totaleLordo),
+        tipoPagamento: bankIncasso ? "bonifico" : "contanti",
+        banca: bankIncasso?.contoBancarioId ?? "",
+        cashImporto: bankCash,
       });
       setAnticipiSel({});
       setCompensazioniByTitolo({});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, titoli.length]);
+  }, [open, titoli.length, bankIncasso?.movimentoId]);
 
   // === Helpers compensazioni per titolo ===
   const getComp = (titoloId: string) => compensazioniByTitolo[titoloId] || [];
@@ -329,7 +341,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     : round2(Number(form.cashImporto) || 0);
   const coperto = round2(cashEffettivo + totaleAnticipiUsati);
   const delta = round2(totaleDovutoConsul - coperto);
-  const quadrato = Math.abs(delta) < TOLLERANZA_QUADRATURA;
+  const quadrato = bankIncasso ? true : Math.abs(delta) < TOLLERANZA_QUADRATURA;
 
   useEffect(() => {
     if (!open || isMulti || !haTrattenuta) return;
@@ -417,7 +429,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       toast.error(`Non quadra: delta ${fmtEuro(delta)}`);
       return;
     }
-    if (cashEffettivo > 0 && isBonificoTipo(form.tipoPagamento) && !form.banca) {
+    if (cashEffettivo > 0 && isBonificoTipo(form.tipoPagamento) && !form.banca && !bankIncasso?.contoBancarioId) {
       toast.error("Seleziona la banca per il bonifico");
       return;
     }
@@ -425,7 +437,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
     for (const t of titoli) {
       const { data: row } = await supabase
         .from("titoli")
-        .select("id, stato, sostituisce_polizza, numero_titolo")
+        .select("id, stato, sostituisce_polizza, numero_titolo, importo_incassato, data_messa_cassa")
         .eq("id", t.id)
         .maybeSingle();
       if (row?.stato === "sospeso") {
@@ -496,15 +508,31 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       }
 
       const usatoTitolo = round2(utilizziPerTitolo.reduce((s, u) => s + u.importo_utilizzato, 0));
-      let residuoCash = round2(dovutoT - usatoTitolo);
-      const tr = trattenutaByTitolo.get(t.id);
-      if (tr) {
-        residuoCash = calcIncassoConTrattenutaProvvigioni(
-          round2(dovutoT - usatoTitolo),
-          tr.provvigioneLorda,
-          tr.percentualeRa,
-        ).importoVersatoConsul;
+      const bankImporto = bankIncasso?.importoByTitoloId[t.id];
+      let residuoCash: number;
+      if (bankImporto != null) {
+        const maxCash = round2(Math.max(0, dovutoT - usatoTitolo));
+        residuoCash = round2(Math.min(Number(bankImporto) || 0, maxCash));
+        const trBank = trattenutaByTitolo.get(t.id);
+        if (trBank) {
+          residuoCash = calcIncassoConTrattenutaProvvigioni(
+            residuoCash,
+            trBank.provvigioneLorda,
+            trBank.percentualeRa,
+          ).importoVersatoConsul;
+        }
+      } else {
+        residuoCash = round2(dovutoT - usatoTitolo);
+        const tr = trattenutaByTitolo.get(t.id);
+        if (tr) {
+          residuoCash = calcIncassoConTrattenutaProvvigioni(
+            round2(dovutoT - usatoTitolo),
+            tr.provvigioneLorda,
+            tr.percentualeRa,
+          ).importoVersatoConsul;
+        }
       }
+      const tr = trattenutaByTitolo.get(t.id);
       const haCompensazioni = compForThis.length > 0;
       const tipoPag = dovutoT === 0 && !haCompensazioni && usatoTitolo === 0
         ? "incasso_zero"
@@ -515,22 +543,29 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           : form.tipoPagamento;
 
       let bancaLabel: string | null = null;
-      if (residuoCash > 0 && isBonificoTipo(form.tipoPagamento) && form.banca) {
+      const bancaId = form.banca || bankIncasso?.contoBancarioId || "";
+      if (residuoCash > 0 && isBonificoTipo(form.tipoPagamento) && bancaId) {
         const { data: conto } = await (supabase.from("conti_bancari") as any)
-          .select("etichetta, banca, iban").eq("id", form.banca).maybeSingle();
-        bancaLabel = conto?.etichetta || conto?.banca || form.banca;
+          .select("etichetta, banca, iban").eq("id", bancaId).maybeSingle();
+        bancaLabel = conto?.etichetta || conto?.banca || bancaId;
       }
 
+      const prevIncassato = Number(t.importo_incassato) || 0;
+      const nuovoIncassato = round2(prevIncassato + residuoCash);
+      const isFullIncasso = nuovoIncassato + TOLLERANZA_QUADRATURA >= dovutoT;
+
       const payload: any = {
-        stato: "incassato",
-        data_messa_cassa: form.dataMessaCassa,
-        data_pagamento: form.dataPagamento,
-        data_decorrenza_rinnovo: form.dataMessaCassa,
-        data_incasso: form.dataMessaCassa,
+        importo_incassato: nuovoIncassato,
         tipo_pagamento: tipoPag,
-        importo_incassato: residuoCash,
         updated_at: new Date().toISOString(),
       };
+      if (isFullIncasso) {
+        payload.stato = "incassato";
+        payload.data_messa_cassa = form.dataMessaCassa;
+        payload.data_pagamento = form.dataPagamento;
+        payload.data_decorrenza_rinnovo = form.dataMessaCassa;
+        payload.data_incasso = form.dataMessaCassa;
+      }
       if (bancaLabel) payload.banca_pagamento = bancaLabel;
 
       const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
@@ -600,15 +635,18 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
 
       ok++;
       await logAttivita({
-        azione: "messa_a_cassa",
+        azione: isFullIncasso ? "messa_a_cassa" : "incasso_parziale",
         entita_tipo: "titolo",
         entita_id: t.id,
         dettagli_json: {
-          data_messa_cassa: form.dataMessaCassa,
+          data_messa_cassa: isFullIncasso ? form.dataMessaCassa : null,
           tipo_pagamento: tipoPag,
           anticipi_usati: utilizziPerTitolo,
           compensazioni: compForThis.map((c) => ({ codice: c.causale_codice, segno: c.segno, importo: c.importo })),
           residuo_cash: residuoCash,
+          importo_incassato_totale: nuovoIncassato,
+          incasso_parziale: !isFullIncasso,
+          movimento_bancario_id: bankIncasso?.movimentoId ?? null,
           trattenuta_provvigioni: tr
             ? {
                 prod_id: tr.prodId,
@@ -622,7 +660,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       });
       try {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: t.id } });
-        if (tr?.prodId) {
+        if (tr?.prodId && isFullIncasso) {
           const { error: errPag } = await (supabase.from("provvigioni_generate") as any)
             .update({ pagata: true })
             .eq("titolo_id", t.id)
@@ -635,14 +673,25 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       } catch {
         toast.warning(`Calcolo provvigioni non completato su ${t.numero_titolo ?? t.id}`);
       }
-      supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } })
-        .then((res: any) => { if (res?.error) toast.warning(`Notifica non inviata (${t.numero_titolo ?? t.id})`); })
-        .catch(() => {});
+      if (isFullIncasso) {
+        supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } })
+          .then((res: any) => { if (res?.error) toast.warning(`Notifica non inviata (${t.numero_titolo ?? t.id})`); })
+          .catch(() => {});
+      }
     }
 
     setLoading(false);
     if (ok > 0) {
-      toast.success(isMulti ? `${ok} polizze incassate${ko > 0 ? `, ${ko} errori` : ""}` : "Polizza incassata");
+      const parziali = bankIncasso && titoli.some((t) => {
+        const imp = bankIncasso.importoByTitoloId[t.id] ?? 0;
+        const lordo = Number(t.premio_lordo) || 0;
+        return imp > 0 && imp < lordo - TOLLERANZA_QUADRATURA;
+      });
+      toast.success(
+        isMulti
+          ? `${ok} polizze processate${ko > 0 ? `, ${ko} errori` : ""}${parziali ? " (alcune parziali, restano in carico)" : ""}`
+          : parziali ? "Incasso parziale registrato — quietanza resta in carico" : "Polizza incassata"
+      );
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-totale"] });
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
@@ -655,7 +704,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       queryClient.invalidateQueries({ queryKey: ["ec-produttori"] });
       queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
       queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
-      onSuccess?.();
+      onSuccess?.(form.dataMessaCassa);
       onOpenChange(false);
     } else {
       toast.error("Operazione fallita");
