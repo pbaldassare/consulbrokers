@@ -16,8 +16,6 @@ import { DatePicker } from "@/components/contabilita/DatePicker";
 
 interface Filters {
   cliente_id: string | null;
-  specialista_id: string | null;
-  produttore_id: string | null;
   ufficio_id: string | null;
   competenza_dal: Date | null;
   competenza_al: Date | null;
@@ -29,7 +27,7 @@ interface Filters {
 }
 
 const defaultFilters: Filters = {
-  cliente_id: null, specialista_id: null, produttore_id: null, ufficio_id: null,
+  cliente_id: null, ufficio_id: null,
   competenza_dal: null, competenza_al: null, scadenza_dal: null, scadenza_al: null,
   non_pagati_al: null, situazione: "tutti", pag_diretto: "tutti",
 };
@@ -43,20 +41,6 @@ const ECClientiContabPage = () => {
     queryKey: ["clienti-filter-contab"],
     queryFn: async () => {
       const { data } = await supabase.from("clienti").select("id, cognome, nome, ragione_sociale").eq("attivo", true).order("cognome");
-      return data || [];
-    },
-  });
-  const { data: specialisti } = useQuery({
-    queryKey: ["specialisti-filter"],
-    queryFn: async () => {
-      const { data } = await supabase.from("anagrafiche_professionali").select("id, cognome, nome, ragione_sociale").eq("tipo", "account_executive").eq("attivo", true).order("cognome");
-      return data || [];
-    },
-  });
-  const { data: produttori } = useQuery({
-    queryKey: ["produttori-filter-contab"],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
       return data || [];
     },
   });
@@ -74,7 +58,7 @@ const ECClientiContabPage = () => {
       const today = format(new Date(), "yyyy-MM-dd");
       let query = supabase
         .from("titoli")
-        .select("id, premio_lordo, importo_incassato, stato, data_incasso, data_messa_cassa, garanzia_da, ufficio_id, produttore_id, cliente_anagrafica_id, clienti!titoli_cliente_anagrafica_id_fkey(id, cognome, nome, ragione_sociale)")
+        .select("id, premio_lordo, importo_incassato, stato, data_incasso, data_messa_cassa, garanzia_da, ufficio_id, cliente_anagrafica_id, clienti!titoli_cliente_anagrafica_id_fkey(id, cognome, nome, ragione_sociale)")
         .not("cliente_anagrafica_id", "is", null)
         // Dare E/C: solo quietanze (rate), non la polizza madre (evita doppio conteggio)
         .not("sostituisce_polizza", "is", null)
@@ -86,7 +70,6 @@ const ECClientiContabPage = () => {
 
       if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
       if (filters.cliente_id) query = query.eq("cliente_anagrafica_id", filters.cliente_id);
-      if (filters.produttore_id) query = query.eq("produttore_id", filters.produttore_id);
       if (filters.competenza_dal) query = query.gte("garanzia_da", format(filters.competenza_dal, "yyyy-MM-dd"));
       if (filters.competenza_al) query = query.lte("garanzia_da", format(filters.competenza_al, "yyyy-MM-dd"));
       if (filters.scadenza_dal) query = query.gte("garanzia_da", format(filters.scadenza_dal, "yyyy-MM-dd"));
@@ -194,12 +177,6 @@ const ECClientiContabPage = () => {
           <FilterSearchableSelect value={filters.cliente_id} onValueChange={(v) => set({ cliente_id: v })}
             options={(clienti || []).map((c) => ({ value: c.id, label: c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim() }))}
             placeholder="Cliente" allLabel="Tutti i clienti" className="w-[240px]" />
-          <FilterSearchableSelect value={filters.specialista_id} onValueChange={(v) => set({ specialista_id: v })}
-            options={(specialisti || []).map((s) => ({ value: s.id, label: s.ragione_sociale || `${s.cognome || ""} ${s.nome || ""}`.trim() }))}
-            placeholder="Specialist" allLabel="Tutti gli specialist" className="w-[220px]" />
-          <FilterSearchableSelect value={filters.produttore_id} onValueChange={(v) => set({ produttore_id: v })}
-            options={(produttori || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }))}
-            placeholder="Produttore" allLabel="Tutti i produttori" className="w-[220px]" />
           <FilterSearchableSelect value={filters.ufficio_id} onValueChange={(v) => set({ ufficio_id: v })}
             options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))}
             placeholder="Sede" allLabel="Tutte le sedi" className="w-[200px]" />

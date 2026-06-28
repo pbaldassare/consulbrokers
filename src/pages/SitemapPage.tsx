@@ -183,12 +183,11 @@ const sezioni = [
     ],
   },
   {
-    area: "Prospect & Trattative",
+    area: "Trattative",
     icon: ClipboardList,
     pagine: [
-      { nome: "Lista Prospect", desc: "Elenco contatti potenziali non ancora clienti, con stato e assegnazione", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
-      { nome: "Dettaglio Prospect", desc: "Scheda del prospect con storico contatti e conversione a cliente", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
-      { nome: "Trattative", desc: "Pipeline commerciale con preventivi, stato negoziazione e conversione", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
+      { nome: "Trattative", desc: "Pipeline commerciale unificata con filtri, viste (in corso, chiuse, archiviate) e collegamento bandi", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
+      { nome: "Storico Gare", desc: "Archivio gare pubbliche e storico partecipazioni", ruoli: ["admin", "cfo", "ufficio", "backoffice", "produttore", "executive"] },
     ],
   },
   {
@@ -214,8 +213,7 @@ const sezioni = [
     area: "Provvigioni",
     icon: Receipt,
     pagine: [
-      { nome: "Provvigioni Maturate", desc: "Provvigioni maturate per produttore con dettaglio per agenzia e ramo", ruoli: ["admin", "ufficio"] },
-      { nome: "Pagamenti Provvigioni", desc: "Registrazione e monitoraggio pagamenti provvigioni ai produttori", ruoli: ["admin", "ufficio"] },
+      { nome: "Provvigioni Maturate", desc: "Provvigioni maturate per produttore con dettaglio, pagamento e distinta PDF", ruoli: ["admin", "ufficio"] },
     ],
   },
   {
@@ -319,7 +317,7 @@ const permessiJson = [
   { chiave: "contabilita", descrizione: "Operazioni contabili dell'ufficio", sezioni: "Contabilità Ufficio, Distinta, Quadratura, Chiusura, E/C" },
   
   { chiave: "impostazioni", descrizione: "Configurazione sistema e gestione utenti", sezioni: "Sistema (tutte le sotto-pagine)" },
-  { chiave: "provvigioni", descrizione: "Gestione provvigioni sede e pagamenti", sezioni: "Provvigioni Sede, Pagamenti Provvigioni" },
+  { chiave: "provvigioni", descrizione: "Gestione provvigioni maturate e pagamenti", sezioni: "Provvigioni Maturate" },
   
 ];
 

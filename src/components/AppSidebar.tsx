@@ -41,7 +41,6 @@ import {
   Printer,
   CheckSquare,
   ListChecks,
-  DollarSign,
   CalendarCheck,
   CalendarDays,
   FileOutput,
@@ -120,10 +119,7 @@ const sidebarEntries: SidebarEntry[] = [
       icon: ArrowRightLeft,
       permissionKey: "trattative",
       children: [
-        { label: "Prospect", path: "/archivi/prospect", icon: Users },
-        { label: "Lista Trattative", path: "/trattative", icon: ArrowRightLeft },
-        { label: "Calendario", path: "/trattative/calendario", icon: CalendarDays },
-        { label: "Storico", path: "/trattative/storico", icon: Archive },
+        { label: "Trattative", path: "/trattative", icon: ArrowRightLeft },
         { label: "Storico Gare", path: "/trattative/storico-gare", icon: Landmark },
       ],
     },
@@ -225,16 +221,8 @@ const sidebarEntries: SidebarEntry[] = [
     },
   },
   {
-    type: "group",
-    group: {
-      label: "Provvigioni",
-      icon: DollarSign,
-      permissionKey: "provvigioni",
-      children: [
-        { label: "Provvigioni Maturate", path: "/provvigioni-maturate", icon: TrendingUp },
-        { label: "Pagamenti Provvigioni", path: "/pagamenti-provvigioni", icon: DollarSign },
-      ],
-    },
+    type: "single",
+    item: { label: "Provvigioni Maturate", path: "/provvigioni-maturate", icon: TrendingUp, permissionKey: "provvigioni" },
   },
   { type: "single", item: { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" } },
 ];

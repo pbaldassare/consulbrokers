@@ -261,14 +261,14 @@ const ProspectDetail = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <button onClick={() => navigate("/archivi/prospect")} className="hover:text-foreground">Prospect & Trattative</button>
+        <button onClick={() => navigate("/archivi/clienti")} className="hover:text-foreground">Clienti</button>
         <span>›</span>
         <span>{prospect.nome} {prospect.cognome}</span>
       </div>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/archivi/prospect")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/archivi/clienti")}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>

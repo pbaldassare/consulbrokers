@@ -20,8 +20,6 @@ import NoteRestituzioneList from "@/pages/NoteRestituzioneList";
 import NotaRestituzioneDetail from "@/pages/NotaRestituzioneDetail";
 import FlussiCompagnieList from "@/pages/FlussiCompagnieList";
 import FlussoCompagniaDetail from "@/pages/FlussoCompagniaDetail";
-import PagamentiProvvigioniList from "@/pages/PagamentiProvvigioniList";
-import PagamentoProvvigioneDetail from "@/pages/PagamentoProvvigioneDetail";
 import SitemapPage from "@/pages/SitemapPage";
 import StoricoGarePage from "@/pages/StoricoGarePage";
 
@@ -52,8 +50,8 @@ export const sistemaRoutes = (
     <Route path="/privacy" element={<PrivacyConsensi />} />
     <Route path="/flussi-compagnie" element={<FlussiCompagnieList />} />
     <Route path="/flussi-compagnie/:id" element={<FlussoCompagniaDetail />} />
-    <Route path="/pagamenti-provvigioni" element={<PagamentiProvvigioniList />} />
-    <Route path="/pagamenti-provvigioni/:id" element={<PagamentoProvvigioneDetail />} />
+    <Route path="/pagamenti-provvigioni" element={<Navigate to="/provvigioni-maturate" replace />} />
+    <Route path="/pagamenti-provvigioni/:id" element={<Navigate to="/provvigioni-maturate" replace />} />
     <Route path="/report" element={<ReportPage />} />
     <Route path="/chat" element={<ComunicazioniPage />} />
     <Route path="/comunicazioni" element={<ComunicazioniPage />} />

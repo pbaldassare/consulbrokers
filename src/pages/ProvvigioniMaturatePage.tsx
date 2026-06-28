@@ -23,10 +23,9 @@ import * as z from "zod";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 
-import { TrendingUp, Users, CreditCard, ArrowRight, Briefcase, Receipt, Coins, Check, FileText } from "lucide-react";
+import { TrendingUp, Users, CreditCard, Briefcase, Receipt, Coins, Check, FileText } from "lucide-react";
 import { format, subMonths, startOfMonth } from "date-fns";
 import { it } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { usePagination } from "@/hooks/usePagination";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
@@ -60,7 +59,6 @@ const tipoBadge = (tipo: string | null) => {
 // PAGE_SIZE gestita da usePagination (default 25)
 
 const ProvvigioniMaturatePage = () => {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<ProvvigioniFilters>(defaultFilters());
   
@@ -386,9 +384,6 @@ const ProvvigioniMaturatePage = () => {
           <h1 className="text-2xl font-bold">Provvigioni Maturate</h1>
           <p className="text-sm text-muted-foreground">Provvigioni dei produttori · {labelDa} → {labelA}</p>
         </div>
-        <Button onClick={() => navigate("/pagamenti-provvigioni")}>
-          <ArrowRight className="mr-2 h-4 w-4" /> Pagamenti
-        </Button>
       </div>
 
       <ProvvigioniFiltersBar

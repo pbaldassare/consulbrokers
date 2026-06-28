@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { logAttivita } from "@/lib/logAttivita";
@@ -14,19 +15,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import { TrattativaDetailDialog } from "@/components/trattative/TrattativaDetailDialog";
+import { NuovoClienteDialog } from "@/components/clienti/NuovoClienteDialog";
 import { STATI_TRATTATIVA_FULL, getStatoLabel, getStatoColor } from "@/components/trattative/StatoPipeline";
 import { toast } from "sonner";
-import { FileText, Search, Plus, Landmark, Archive } from "lucide-react";
+import { FileText, Search, Plus, Landmark, Archive, Download, RotateCcw, TrendingUp, TrendingDown, UserPlus } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
+type ViewPreset = "in_corso" | "chiuse" | "archiviate" | "tutte";
+
+const VIEW_PRESETS: { value: ViewPreset; label: string }[] = [
+  { value: "in_corso", label: "In corso" },
+  { value: "chiuse", label: "Chiuse" },
+  { value: "archiviate", label: "Archiviate" },
+  { value: "tutte", label: "Tutte" },
+];
+
+const CLOSED_STATI = ["chiusa_vinta", "chiusa_persa"];
+
 interface TrattativaForm {
-  tipo_soggetto: "prospect" | "cliente";
-  prospect_id: string;
   cliente_id: string;
   ramo_id: string;
   gruppo_ramo_id: string;
@@ -38,8 +49,6 @@ interface TrattativaForm {
 }
 
 const emptyForm: TrattativaForm = {
-  tipo_soggetto: "prospect",
-  prospect_id: "",
   cliente_id: "",
   ramo_id: "",
   gruppo_ramo_id: "",
@@ -57,31 +66,71 @@ const PRIORITA_ICONS: Record<string, string> = {
   bassa: "🟢",
 };
 
+const TRATTATIVA_SELECT =
+  "*, prospect:prospect_id(nome, cognome, ragione_sociale, tipo_cliente, ufficio_id), cliente:cliente_id(nome, cognome, ragione_sociale, tipo_cliente), ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome), profiles:created_by(nome, cognome), ufficio:ufficio_id(nome_ufficio), assegnato:assegnato_a(nome, cognome)";
+
+function parseViewParam(raw: string | null): ViewPreset {
+  if (raw === "chiuse" || raw === "archiviate" || raw === "tutte" || raw === "in_corso") return raw;
+  if (raw === "attive") return "in_corso";
+  if (raw === "storico") return "archiviate";
+  return "in_corso";
+}
+
+function matchesView(t: { archiviata?: boolean | null; stato?: string | null }, view: ViewPreset): boolean {
+  const closed = CLOSED_STATI.includes(t.stato || "");
+  const archived = !!t.archiviata;
+  switch (view) {
+    case "in_corso":
+      return !archived && !closed;
+    case "chiuse":
+      return !archived && closed;
+    case "archiviate":
+      return archived;
+    case "tutte":
+      return true;
+  }
+}
+
 const TrattativeList = () => {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = parseViewParam(searchParams.get("view"));
+
+  const setView = (next: ViewPreset) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "in_corso") params.delete("view");
+    else params.set("view", next);
+    setSearchParams(params, { replace: true });
+  };
+
   const [filtroStato, setFiltroStato] = useState("tutti");
   const [filtroSearch, setFiltroSearch] = useState("");
   const [filtroUfficio, setFiltroUfficio] = useState("tutti");
-  const [filtroTipo, setFiltroTipo] = useState("tutti");
   const [filtroCompagnia, setFiltroCompagnia] = useState("tutti");
+  const [filtroFonte, setFiltroFonte] = useState("tutti");
   const [filtroScadenzaDa, setFiltroScadenzaDa] = useState("");
   const [filtroScadenzaA, setFiltroScadenzaA] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [nuovoClienteOpen, setNuovoClienteOpen] = useState(false);
   const [form, setForm] = useState<TrattativaForm>({ ...emptyForm });
   const [selectedTrattativa, setSelectedTrattativa] = useState<any>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [archiveMode, setArchiveMode] = useState<"selected" | "all_closed">("selected");
+  const [reopenId, setReopenId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [view]);
 
   const { data: trattative, isLoading } = useQuery({
     queryKey: ["trattative_all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trattative")
-        .select("*, prospect:prospect_id(nome, cognome, ragione_sociale, tipo_cliente, ufficio_id), cliente:cliente_id(nome, cognome, ragione_sociale, tipo_cliente), ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome), profiles:created_by(nome, cognome), ufficio:ufficio_id(nome_ufficio), assegnato:assegnato_a(nome, cognome)")
-        .or("archiviata.eq.false,archiviata.is.null")
+        .select(TRATTATIVA_SELECT)
         .order("created_at", { ascending: false });
       if (error) throw error;
 
@@ -107,15 +156,7 @@ const TrattativeList = () => {
     },
   });
 
-  const { data: prospects = [] } = useQuery({
-    queryKey: ["prospect_lookup"],
-    queryFn: async () => {
-      const { data } = await supabase.from("prospect").select("id, nome, cognome").order("cognome");
-      return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
-    },
-  });
-
-  const { data: clienti = [] } = useQuery({
+  const { data: clienti = [], refetch: refetchClienti } = useQuery({
     queryKey: ["clienti_lookup"],
     queryFn: async () => {
       const { data } = await supabase.from("clienti").select("id, nome, cognome, ragione_sociale, tipo_cliente").eq("attivo", true).order("cognome");
@@ -123,14 +164,6 @@ const TrattativeList = () => {
         value: c.id,
         label: c.tipo_cliente === "privato" ? `${c.cognome || ""} ${c.nome || ""}`.trim() : c.ragione_sociale || "—",
       }));
-    },
-  });
-
-  const { data: rami = [] } = useQuery({
-    queryKey: ["rami_lookup"],
-    queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, codice, descrizione").eq("attivo", true).order("codice");
-      return (data || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }));
     },
   });
 
@@ -155,6 +188,7 @@ const TrattativeList = () => {
       const payload: Record<string, unknown> = {
         stato: "aperta",
         created_by: profile?.id || null,
+        cliente_id: form.cliente_id,
         ramo_id: form.ramo_id || null,
         compagnia_id: form.compagnia_id || null,
         ufficio_id: form.ufficio_id || null,
@@ -163,15 +197,9 @@ const TrattativeList = () => {
         note: form.note || null,
         data_apertura: new Date().toISOString().split("T")[0],
       };
-      if (form.tipo_soggetto === "prospect") {
-        payload.prospect_id = form.prospect_id;
-      } else {
-        payload.cliente_id = form.cliente_id;
-      }
       const { data, error } = await supabase.from("trattative").insert(payload).select().single();
       if (error) throw error;
 
-      // Log evento nella timeline
       await supabase.from("trattativa_eventi").insert({
         trattativa_id: data.id,
         tipo_evento: "cambio_stato",
@@ -179,12 +207,11 @@ const TrattativeList = () => {
         created_by: profile?.id,
       });
 
-      const entitaId = form.tipo_soggetto === "prospect" ? form.prospect_id : form.cliente_id;
       await logAttivita({
         azione: "creazione_trattativa",
-        entita_tipo: form.tipo_soggetto,
-        entita_id: entitaId,
-        dettagli_json: { trattativa_id: data.id, tipo_soggetto: form.tipo_soggetto },
+        entita_tipo: "cliente",
+        entita_id: form.cliente_id,
+        dettagli_json: { trattativa_id: data.id },
       });
       return data;
     },
@@ -205,16 +232,36 @@ const TrattativeList = () => {
         const { error } = await supabase.from("trattative").update({ archiviata: true }).in("id", ids);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("trattative").update({ archiviata: true }).in("stato", ["chiusa_vinta", "chiusa_persa"]).or("archiviata.eq.false,archiviata.is.null");
+        const { error } = await supabase
+          .from("trattative")
+          .update({ archiviata: true })
+          .in("stato", CLOSED_STATI)
+          .or("archiviata.eq.false,archiviata.is.null");
         if (error) throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trattative_all"] });
-      queryClient.invalidateQueries({ queryKey: ["trattative_storico"] });
       toast.success("Trattative archiviate");
       setSelectedIds(new Set());
       setArchiveDialogOpen(false);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const reopenMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("trattative")
+        .update({ archiviata: false, stato: "aperta" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trattative_all"] });
+      toast.success("Trattativa riaperta");
+      setReopenId(null);
+      setView("in_corso");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -234,14 +281,21 @@ const TrattativeList = () => {
     return "—";
   };
 
-  const filtered = trattative?.filter((t) => {
+  const viewFiltered = useMemo(
+    () => (trattative || []).filter((t) => matchesView(t, view)),
+    [trattative, view],
+  );
+
+  const fonti = useMemo(
+    () => [...new Set((trattative || []).map((t) => t.fonte).filter(Boolean))] as string[],
+    [trattative],
+  );
+
+  const filtered = viewFiltered.filter((t) => {
     if (filtroStato !== "tutti" && t.stato !== filtroStato) return false;
     if (filtroUfficio !== "tutti" && t.ufficio_id !== filtroUfficio) return false;
-    if (filtroTipo !== "tutti") {
-      if (filtroTipo === "cliente" && !t.cliente_id) return false;
-      if (filtroTipo === "prospect" && t.cliente_id) return false;
-    }
     if (filtroCompagnia !== "tutti" && t.compagnia_id !== filtroCompagnia) return false;
+    if (filtroFonte !== "tutti" && (t.fonte || "") !== filtroFonte) return false;
     if (filtroScadenzaDa && t.data_scadenza && t.data_scadenza < filtroScadenzaDa) return false;
     if (filtroScadenzaDa && !t.data_scadenza) return false;
     if (filtroScadenzaA && t.data_scadenza && t.data_scadenza > filtroScadenzaA) return false;
@@ -256,12 +310,62 @@ const TrattativeList = () => {
     return true;
   });
 
+  const counts = useMemo(() => {
+    const all = trattative || [];
+    return {
+      in_corso: all.filter((t) => matchesView(t, "in_corso")).length,
+      chiuse: all.filter((t) => matchesView(t, "chiuse")).length,
+      archiviate: all.filter((t) => matchesView(t, "archiviate")).length,
+      tutte: all.length,
+    };
+  }, [trattative]);
+
+  const kpiSource = viewFiltered;
+  const vinte = kpiSource.filter((t) => t.stato === "chiusa_vinta");
+  const perse = kpiSource.filter((t) => t.stato === "chiusa_persa");
+  const premioVinto = vinte.reduce((a, t) => a + (Number(t.premio_previsto) || 0), 0);
+  const premioPerso = perse.reduce((a, t) => a + (Number(t.premio_previsto) || 0), 0);
+  const showKpi = view !== "in_corso";
+
+  const exportCSV = () => {
+    if (!filtered.length) return;
+    const header = "Soggetto;Garanzia;Agenzia;Ufficio;Premio;Stato;Fonte;Scadenza;Data";
+    const rows = filtered.map((t) =>
+      [
+        getSoggettoName(t),
+        t.ramo?.descrizione || t.prodotto || "",
+        t.compagnia_rel?.nome || t.compagnia || "",
+        t.ufficio?.nome_ufficio || "",
+        t.premio_previsto || "",
+        getStatoLabel(t.stato),
+        t.fonte || "",
+        t.data_scadenza ? format(new Date(t.data_scadenza), "dd/MM/yyyy") : "",
+        format(new Date(t.created_at), "dd/MM/yyyy"),
+      ].join(";"),
+    );
+    const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `trattative_${view}_${format(new Date(), "yyyyMMdd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const openDetail = (t: any) => {
     setSelectedTrattativa(t);
     setDetailOpen(true);
   };
 
-  const canCreate = form.tipo_soggetto === "prospect" ? !!form.prospect_id : !!form.cliente_id;
+  const handleClienteCreated = async (clienteId: string) => {
+    await refetchClienti();
+    setForm((f) => ({ ...f, cliente_id: clienteId }));
+    setNuovoClienteOpen(false);
+    toast.success("Cliente creato — selezionato per la trattativa");
+  };
+
+  const canReopen = (t: { archiviata?: boolean | null; stato?: string | null }) =>
+    !!t.archiviata || CLOSED_STATI.includes(t.stato || "");
 
   return (
     <div className="space-y-6">
@@ -269,7 +373,7 @@ const TrattativeList = () => {
         <span>Dashboard</span><span>›</span><span>Trattative</span>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <FileText className="w-5 h-5 text-primary" />
@@ -277,125 +381,178 @@ const TrattativeList = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Trattative</h1>
             <p className="text-sm text-muted-foreground">
-              {trattative?.length || 0} trattative totali • {trattative?.filter((t) => !["chiusa_vinta", "chiusa_persa"].includes(t.stato)).length || 0} attive
+              {counts.in_corso} in corso • {counts.chiuse} chiuse • {counts.archiviate} archiviate
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
-          {selectedIds.size > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="gap-1.5" onClick={exportCSV} disabled={!filtered.length}>
+            <Download className="w-4 h-4" />Esporta CSV
+          </Button>
+          {view === "in_corso" && selectedIds.size > 0 && (
             <Button variant="outline" className="gap-1.5" onClick={() => { setArchiveMode("selected"); setArchiveDialogOpen(true); }}>
               <Archive className="w-4 h-4" />Archivia ({selectedIds.size})
             </Button>
           )}
-          <Button variant="outline" className="gap-1.5" onClick={() => { setArchiveMode("all_closed"); setArchiveDialogOpen(true); }}>
-            <Archive className="w-4 h-4" />Archivia chiuse
-          </Button>
+          {view === "in_corso" && (
+            <Button variant="outline" className="gap-1.5" onClick={() => { setArchiveMode("all_closed"); setArchiveDialogOpen(true); }}>
+              <Archive className="w-4 h-4" />Archivia chiuse
+            </Button>
+          )}
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
               <Button className="gap-1.5"><Plus className="w-4 h-4" />Nuova Trattativa</Button>
             </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Nuova Trattativa</DialogTitle></DialogHeader>
-            <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <Label>Tipo soggetto</Label>
-                <RadioGroup value={form.tipo_soggetto} onValueChange={(v) => setForm({ ...form, tipo_soggetto: v as "prospect" | "cliente", prospect_id: "", cliente_id: "" })} className="flex gap-4">
-                  <div className="flex items-center gap-2"><RadioGroupItem value="prospect" id="r-prospect" /><Label htmlFor="r-prospect">Prospect</Label></div>
-                  <div className="flex items-center gap-2"><RadioGroupItem value="cliente" id="r-cliente" /><Label htmlFor="r-cliente">Cliente</Label></div>
-                </RadioGroup>
-              </div>
-              {form.tipo_soggetto === "prospect" ? (
+            <DialogContent className="max-w-lg">
+              <DialogHeader><DialogTitle>Nuova Trattativa</DialogTitle></DialogHeader>
+              <div className="space-y-4 pt-2">
                 <div className="space-y-1.5">
-                  <Label>Prospect *</Label>
-                  <SearchableSelect options={prospects} value={form.prospect_id} onValueChange={(v) => setForm({ ...form, prospect_id: v })} placeholder="Cerca prospect..." />
+                  <div className="flex items-center justify-between">
+                    <Label>Cliente *</Label>
+                    <Button type="button" variant="link" className="h-auto p-0 text-xs gap-1" onClick={() => setNuovoClienteOpen(true)}>
+                      <UserPlus className="w-3.5 h-3.5" />Crea cliente in anagrafica
+                    </Button>
+                  </div>
+                  <SearchableSelect
+                    options={clienti}
+                    value={form.cliente_id}
+                    onValueChange={(v) => setForm({ ...form, cliente_id: v })}
+                    placeholder="Cerca cliente..."
+                  />
+                  <p className="text-xs text-muted-foreground">I nuovi contatti vanno creati come clienti in Anagrafiche (anche senza polizze).</p>
                 </div>
-              ) : (
+                <RamoSottoramoSelect
+                  gruppoRamoId={form.gruppo_ramo_id || null}
+                  ramoId={form.ramo_id || null}
+                  onChange={({ gruppoRamoId, ramoId }) =>
+                    setForm({ ...form, gruppo_ramo_id: gruppoRamoId || "", ramo_id: ramoId || "" })
+                  }
+                />
                 <div className="space-y-1.5">
-                  <Label>Cliente *</Label>
-                  <SearchableSelect options={clienti} value={form.cliente_id} onValueChange={(v) => setForm({ ...form, cliente_id: v })} placeholder="Cerca cliente..." />
+                  <Label>Agenzia</Label>
+                  <SearchableSelect options={compagnie} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Agenzia..." />
                 </div>
-              )}
-              <RamoSottoramoSelect
-                gruppoRamoId={form.gruppo_ramo_id || null}
-                ramoId={form.ramo_id || null}
-                onChange={({ gruppoRamoId, ramoId }) =>
-                  setForm({ ...form, gruppo_ramo_id: gruppoRamoId || "", ramo_id: ramoId || "" })
-                }
-              />
-              <div className="space-y-1.5">
-                <Label>Agenzia</Label>
-                <SearchableSelect options={compagnie} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Agenzia..." />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Ufficio</Label>
+                    <SearchableSelect options={uffici} value={form.ufficio_id} onValueChange={(v) => setForm({ ...form, ufficio_id: v })} placeholder="Ufficio..." />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Priorità</Label>
+                    <Select value={form.priorita} onValueChange={(v) => setForm({ ...form, priorita: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bassa">🟢 Bassa</SelectItem>
+                        <SelectItem value="media">🟡 Media</SelectItem>
+                        <SelectItem value="alta">🟠 Alta</SelectItem>
+                        <SelectItem value="urgente">🔴 Urgente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 <div className="space-y-1.5">
-                  <Label>Ufficio</Label>
-                  <SearchableSelect options={uffici} value={form.ufficio_id} onValueChange={(v) => setForm({ ...form, ufficio_id: v })} placeholder="Ufficio..." />
+                  <Label>Premio Previsto (€)</Label>
+                  <Input type="number" value={form.premio_previsto} onChange={(e) => setForm({ ...form, premio_previsto: e.target.value })} placeholder="0.00" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Priorità</Label>
-                  <Select value={form.priorita} onValueChange={(v) => setForm({ ...form, priorita: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bassa">🟢 Bassa</SelectItem>
-                      <SelectItem value="media">🟡 Media</SelectItem>
-                      <SelectItem value="alta">🟠 Alta</SelectItem>
-                      <SelectItem value="urgente">🔴 Urgente</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Note</Label>
+                  <Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Note..." rows={3} />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Premio Previsto (€)</Label>
-                <Input type="number" value={form.premio_previsto} onChange={(e) => setForm({ ...form, premio_previsto: e.target.value })} placeholder="0.00" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Note</Label>
-                <Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Note..." rows={3} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Annulla</Button>
-              <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !canCreate}>Crea Trattativa</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateOpen(false)}>Annulla</Button>
+                <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !form.cliente_id}>
+                  Crea Trattativa
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
+
+      <NuovoClienteDialog
+        controlledOpen={nuovoClienteOpen}
+        onOpenChange={setNuovoClienteOpen}
+        onCreated={(id) => handleClienteCreated(id)}
+      />
+
+      <Tabs value={view} onValueChange={(v) => setView(v as ViewPreset)}>
+        <TabsList>
+          {VIEW_PRESETS.map((p) => (
+            <TabsTrigger key={p.value} value={p.value} className="gap-1.5">
+              {p.label}
+              <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1 text-xs">{counts[p.value]}</Badge>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      {showKpi && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <p className="text-xs text-muted-foreground">In vista</p>
+            <p className="text-2xl font-bold">{viewFiltered.length}</p>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-1">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <p className="text-xs text-muted-foreground">Vinte</p>
+            </div>
+            <p className="text-2xl font-bold text-green-600">{vinte.length}</p>
+            <p className="text-xs text-muted-foreground">€ {premioVinto.toLocaleString("it-IT")}</p>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-1">
+              <TrendingDown className="w-4 h-4 text-red-500" />
+              <p className="text-xs text-muted-foreground">Perse</p>
+            </div>
+            <p className="text-2xl font-bold text-red-600">{perse.length}</p>
+            <p className="text-xs text-muted-foreground">€ {premioPerso.toLocaleString("it-IT")}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-xs text-muted-foreground">Tasso vittoria</p>
+            <p className="text-2xl font-bold">
+              {vinte.length + perse.length > 0 ? `${Math.round((vinte.length / (vinte.length + perse.length)) * 100)}%` : "—"}
+            </p>
+          </Card>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3 items-end">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input className="pl-9 w-56" placeholder="Cerca soggetto, agenzia, bando..." value={filtroSearch} onChange={(e) => setFiltroSearch(e.target.value)} />
         </div>
-        <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Tutti i tipi</SelectItem>
-            <SelectItem value="prospect">Prospect</SelectItem>
-            <SelectItem value="cliente">Cliente</SelectItem>
-          </SelectContent>
-        </Select>
         <Select value={filtroStato} onValueChange={setFiltroStato}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Stato" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="tutti">Tutti gli stati</SelectItem>
             {STATI_TRATTATIVA_FULL.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filtroCompagnia} onValueChange={setFiltroCompagnia}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Agenzia" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="tutti">Tutte le agenzie</SelectItem>
             {compagnie.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filtroUfficio} onValueChange={setFiltroUfficio}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Ufficio" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="tutti">Tutti gli uffici</SelectItem>
             {uffici.map((u) => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        {fonti.length > 0 && (
+          <Select value={filtroFonte} onValueChange={setFiltroFonte}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Fonte" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tutti">Tutte le fonti</SelectItem>
+              {fonti.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
         <div className="flex items-center gap-2">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Scadenza da</Label>
@@ -410,62 +567,70 @@ const TrattativeList = () => {
 
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Caricamento...</div>
-      ) : !filtered?.length ? (
+      ) : !filtered.length ? (
         <Card className="p-8 text-center">
           <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">Nessuna trattativa trovata</h3>
-          <p className="text-sm text-muted-foreground">Usa il pulsante "Nuova Trattativa" per crearne una.</p>
+          <p className="text-sm text-muted-foreground">
+            {view === "in_corso" ? 'Usa "Nuova Trattativa" per crearne una.' : "Prova un&apos;altra vista o modifica i filtri."}
+          </p>
         </Card>
       ) : (
         <Card className="overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={filtered?.length > 0 && filtered.every((t) => selectedIds.has(t.id))}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedIds(new Set(filtered?.map((t) => t.id) || []));
-                      } else {
-                        setSelectedIds(new Set());
-                      }
-                    }}
-                  />
-                </TableHead>
+                {view === "in_corso" && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={filtered.length > 0 && filtered.every((t) => selectedIds.has(t.id))}
+                      onCheckedChange={(checked) => {
+                        if (checked) setSelectedIds(new Set(filtered.map((t) => t.id)));
+                        else setSelectedIds(new Set());
+                      }}
+                    />
+                  </TableHead>
+                )}
                 <TableHead className="w-8"></TableHead>
-                <TableHead>Tipo</TableHead>
                 <TableHead>Soggetto</TableHead>
+                <TableHead>Garanzia</TableHead>
                 <TableHead>Agenzia</TableHead>
                 <TableHead>Ufficio</TableHead>
                 <TableHead>Premio</TableHead>
                 <TableHead>Stato</TableHead>
                 <TableHead>Bando</TableHead>
-                <TableHead>Scadenza</TableHead>
+                <TableHead>{view === "in_corso" ? "Scadenza" : "Data"}</TableHead>
+                {(view === "chiuse" || view === "archiviate" || view === "tutte") && <TableHead className="w-10" />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((t) => (
                 <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openDetail(t)}>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selectedIds.has(t.id)}
-                      onCheckedChange={(checked) => {
-                        const next = new Set(selectedIds);
-                        if (checked) next.add(t.id); else next.delete(t.id);
-                        setSelectedIds(next);
-                      }}
-                    />
-                  </TableCell>
+                  {view === "in_corso" && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.has(t.id)}
+                        onCheckedChange={(checked) => {
+                          const next = new Set(selectedIds);
+                          if (checked) next.add(t.id);
+                          else next.delete(t.id);
+                          setSelectedIds(next);
+                        }}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="text-center">
                     {PRIORITA_ICONS[t.priorita || "media"] || "🟡"}
                   </TableCell>
-                  <TableCell>
-                    <Badge variant={t.cliente_id ? "default" : "secondary"}>
-                      {t.cliente_id ? "Cliente" : "Prospect"}
-                    </Badge>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      {getSoggettoName(t)}
+                      {!t.cliente_id && t.prospect_id && (
+                        <Badge variant="outline" className="text-[10px]">Legacy prospect</Badge>
+                      )}
+                    </div>
                   </TableCell>
-                  <TableCell className="font-medium">{getSoggettoName(t)}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{t.ramo?.descrizione || t.prodotto || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{t.compagnia_rel?.nome || t.compagnia || "—"}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{t.ufficio?.nome_ufficio || "—"}</TableCell>
                   <TableCell>{t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "—"}</TableCell>
@@ -493,8 +658,19 @@ const TrattativeList = () => {
                     ) : <span className="text-muted-foreground text-xs">—</span>}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {t.data_scadenza ? format(new Date(t.data_scadenza), "dd/MM/yyyy", { locale: it }) : "—"}
+                    {view === "in_corso"
+                      ? (t.data_scadenza ? format(new Date(t.data_scadenza), "dd/MM/yyyy", { locale: it }) : "—")
+                      : format(new Date(t.created_at), "dd/MM/yyyy", { locale: it })}
                   </TableCell>
+                  {(view === "chiuse" || view === "archiviate" || view === "tutte") && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {canReopen(t) && (
+                        <Button variant="ghost" size="icon" title="Riapri trattativa" onClick={() => setReopenId(t.id)}>
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -519,13 +695,28 @@ const TrattativeList = () => {
             <AlertDialogTitle>Archivia trattative</AlertDialogTitle>
             <AlertDialogDescription>
               {archiveMode === "selected"
-                ? `Stai per archiviare ${selectedIds.size} trattativa/e selezionata/e. Le trattative archiviate saranno visibili nello Storico.`
-                : "Stai per archiviare tutte le trattative chiuse (vinte e perse). Saranno visibili nello Storico."}
+                ? `Stai per archiviare ${selectedIds.size} trattativa/e selezionata/e. Saranno visibili nella vista Archiviate.`
+                : "Stai per archiviare tutte le trattative chiuse (vinte e perse). Saranno visibili nella vista Archiviate."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annulla</AlertDialogCancel>
             <AlertDialogAction onClick={() => archiveMutation.mutate(archiveMode)}>Conferma</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!reopenId} onOpenChange={(o) => !o && setReopenId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Riapri trattativa</AlertDialogTitle>
+            <AlertDialogDescription>
+              La trattativa verrà rimessa in stato &quot;Aperta&quot; e tornerà nella vista In corso. Confermi?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={() => reopenId && reopenMutation.mutate(reopenId)}>Conferma</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

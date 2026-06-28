@@ -38,7 +38,7 @@ const NLP_MAPPINGS: { keywords: string[]; query: () => Promise<SearchResult[]> }
     keywords: ["provvigioni non pagate", "provvigioni da pagare"],
     query: async () => {
       const { data } = await supabase.from("provvigioni_generate").select("id, importo_provvigione, user_id, profiles:user_id(nome, cognome)").eq("pagata", false).limit(10);
-      return (data || []).map((p: any) => ({ id: p.id, titolo: `€${p.importo_provvigione?.toFixed(2)}`, sottotitolo: p.profiles ? `${p.profiles.nome} ${p.profiles.cognome}` : "—", categoria: "movimenti", link: "/pagamenti-provvigioni" }));
+      return (data || []).map((p: any) => ({ id: p.id, titolo: `€${p.importo_provvigione?.toFixed(2)}`, sottotitolo: p.profiles ? `${p.profiles.nome} ${p.profiles.cognome}` : "—", categoria: "movimenti", link: "/provvigioni-maturate" }));
     },
   },
   {

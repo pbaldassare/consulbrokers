@@ -33,11 +33,9 @@ const formatIbanMask = (s: string) =>
 interface Filters {
   compagnia_id: string | null;
   ufficio_id: string | null;
-  produttore_id: string | null;
   periodo_dal: Date | null;
   periodo_al: Date | null;
   tipo_pagamento: string | null;
-  
 }
 
 interface TitoloDetail {
@@ -80,7 +78,7 @@ interface PagaRimessaState {
 }
 
 const defaultFilters: Filters = {
-  compagnia_id: null, ufficio_id: null, produttore_id: null, periodo_dal: null, periodo_al: null, tipo_pagamento: null,
+  compagnia_id: null, ufficio_id: null, periodo_dal: null, periodo_al: null, tipo_pagamento: null,
 };
 
 const ECCompagniaContabPage = () => {
@@ -246,14 +244,6 @@ Consulbrokers`;
       return data || [];
     },
   });
-  const { data: produttori } = useQuery({
-    queryKey: ["produttori-ec"],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
-      return data || [];
-    },
-  });
-
   const { data, isLoading } = useQuery({
     queryKey: ["ec-agenzia-contab", filters],
     queryFn: async () => {
@@ -283,7 +273,6 @@ Consulbrokers`;
       query = query.or(`and(${incassateBase.join(",")}),and(${coperturaBase.join(",")})`);
 
       if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
-      if (filters.produttore_id) query = query.eq("produttore_id", filters.produttore_id);
 
       const { data: titoli, error } = await query;
       if (error) throw error;
@@ -619,7 +608,7 @@ Consulbrokers`;
   const totProvv = rows.reduce((s, r) => s + r.provvigioni, 0);
   const totDaRimettere = totLordo - totProvv;
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
-  const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.produttore_id || filters.periodo_dal || filters.periodo_al || filters.tipo_pagamento;
+  const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.periodo_dal || filters.periodo_al || filters.tipo_pagamento;
 
   const formatDateRange = (min: string | null, max: string | null) => {
     if (!min) return "—";
@@ -674,7 +663,6 @@ Consulbrokers`;
         <div className="flex flex-wrap gap-3 items-end">
           <FilterSearchableSelect value={filters.compagnia_id} onValueChange={(v) => set({ compagnia_id: v })} options={(compagnie || []).map((c) => ({ value: c.id, label: c.nome }))} placeholder="Agenzia" allLabel="Tutte le agenzie" className="w-[240px]" />
           <FilterSearchableSelect value={filters.ufficio_id} onValueChange={(v) => set({ ufficio_id: v })} options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))} placeholder="Sede" allLabel="Tutte le sedi" className="w-[200px]" />
-          <FilterSearchableSelect value={filters.produttore_id} onValueChange={(v) => set({ produttore_id: v })} options={(produttori || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }))} placeholder="Produttore" allLabel="Tutti i produttori" className="w-[220px]" />
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo al</Label><DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" /></div>
           <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
