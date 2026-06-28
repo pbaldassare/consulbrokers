@@ -10,6 +10,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
 import MioProfilo from "./pages/MioProfilo";
 import AiAssistantPage from "./pages/AiAssistantPage";
+import GuidaOperativaPage from "./pages/GuidaOperativaPage";
 import NotFound from "./pages/NotFound";
 
 import AppVersionGuard from "./components/AppVersionGuard";
@@ -42,6 +43,7 @@ const App = () => (
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/mio-profilo" element={<MioProfilo />} />
                 <Route path="/ai-assistant" element={<AiAssistantPage />} />
+                <Route path="/guida-operativa" element={<GuidaOperativaPage />} />
                 
                 <Route element={<AppErrorBoundary section="Archivi"><Outlet /></AppErrorBoundary>}>
                   {archiviRoutes}

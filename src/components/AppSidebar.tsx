@@ -49,6 +49,7 @@ import {
   Database,
   Lock,
   Map,
+  BookOpen,
   Archive,
   TrendingUp,
   ShieldCheck,
@@ -112,6 +113,7 @@ export const isLegacyLabel = (label?: string) => !!label && LEGACY_LABEL_RE.test
 const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Assistente IA", path: "/ai-assistant", icon: Sparkles, permissionKey: "dashboard" } },
+  { type: "single", item: { label: "Guida Operativa", path: "/guida-operativa", icon: BookOpen, permissionKey: "dashboard" } },
   {
     type: "group",
     group: {
