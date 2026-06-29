@@ -88,6 +88,7 @@ interface SidebarSingleItem {
   adminOnly?: boolean;
   hasBadge?: boolean;
   hideForRoles?: string[];
+  showForRoles?: string[];
 }
 
 type SidebarEntry =
@@ -114,6 +115,16 @@ const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Assistente IA", path: "/ai-assistant", icon: Sparkles, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Guida Operativa", path: "/guida-operativa", icon: BookOpen, permissionKey: "dashboard" } },
+  {
+    type: "single",
+    item: {
+      label: "Cruscotto Direzione",
+      path: "/cruscotto-direzione",
+      icon: LineChart,
+      permissionKey: "dashboard",
+      showForRoles: ["admin", "cfo", "executive"],
+    },
+  },
   {
     type: "group",
     group: {
@@ -299,7 +310,13 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
   const currentRole = profile?.ruolo ?? "";
 
-  const isVisible = (permissionKey: string, adminOnly?: boolean, hideForRoles?: string[]) => {
+  const isVisible = (
+    permissionKey: string,
+    adminOnly?: boolean,
+    hideForRoles?: string[],
+    showForRoles?: string[],
+  ) => {
+    if (showForRoles && currentRole && !showForRoles.includes(currentRole)) return false;
     if (adminOnly && !isAdmin) return false;
     if (hideForRoles && currentRole && hideForRoles.includes(currentRole)) return false;
     return hasPermission(permissionKey);
@@ -324,7 +341,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
           if (entry.type === "single") {
             const item = entry.item;
             if (isLegacyPath(item.path) || isLegacyLabel(item.label)) return null;
-            if (!isVisible(item.permissionKey, item.adminOnly, item.hideForRoles)) return null;
+            if (!isVisible(item.permissionKey, item.adminOnly, item.hideForRoles, item.showForRoles)) return null;
             return (
               <RouterNavLink
                 key={item.path}

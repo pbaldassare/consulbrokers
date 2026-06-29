@@ -13,7 +13,7 @@ import CompagnieList from "@/pages/CompagnieList";
 import TemplatePage from "@/pages/TemplatePage";
 import PrivacyConsensi from "@/pages/PrivacyConsensi";
 import ComunicazioniPage from "@/pages/ComunicazioniPage";
-import ReportPage from "@/pages/ReportPage";
+import CruscottoDirezionePage from "@/pages/CruscottoDirezionePage";
 
 import SpedizioniList from "@/pages/SpedizioniList";
 import NoteRestituzioneList from "@/pages/NoteRestituzioneList";
@@ -52,7 +52,15 @@ export const sistemaRoutes = (
     <Route path="/flussi-compagnie/:id" element={<FlussoCompagniaDetail />} />
     <Route path="/pagamenti-provvigioni" element={<Navigate to="/provvigioni-maturate" replace />} />
     <Route path="/pagamenti-provvigioni/:id" element={<Navigate to="/provvigioni-maturate" replace />} />
-    <Route path="/report" element={<ReportPage />} />
+    <Route
+      path="/cruscotto-direzione"
+      element={
+        <RoleGuard allowedRoles={["admin", "cfo", "executive"]}>
+          <CruscottoDirezionePage />
+        </RoleGuard>
+      }
+    />
+    <Route path="/report" element={<Navigate to="/cruscotto-direzione?tab=report" replace />} />
     <Route path="/chat" element={<ComunicazioniPage />} />
     <Route path="/comunicazioni" element={<ComunicazioniPage />} />
     <Route path="/trattative/storico-gare" element={<RoleGuard allowedRoles={["admin","cfo","responsabile_sede","ufficio","backoffice","account_executive","specialist","produttore","executive"]}><StoricoGarePage /></RoleGuard>} />

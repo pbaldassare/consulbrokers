@@ -405,6 +405,7 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     onSuccess: (canaleId) => {
       if (canaleId) {
         qc.invalidateQueries({ queryKey: ["chat_canali"] });
+        qc.invalidateQueries({ queryKey: ["chat_canali_staff_meta"] });
         toast.success("Conversazione creata");
         onCreated(canaleId);
         resetForm();

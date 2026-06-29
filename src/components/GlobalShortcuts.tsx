@@ -27,7 +27,7 @@ export function GlobalShortcuts() {
     { combo: "g s", description: "Sinistri", category: "Vai a", handler: () => navigate("/sinistri") },
     { combo: "g t", description: "Trattative", category: "Vai a", handler: () => navigate("/trattative") },
     { combo: "g a", description: "Compagnie", category: "Vai a", handler: () => navigate("/compagnie") },
-    { combo: "g r", description: "Report", category: "Vai a", handler: () => navigate("/report") },
+    { combo: "g r", description: "Cruscotto Direzione", category: "Vai a", handler: () => navigate("/cruscotto-direzione") },
 
     { combo: "n p", description: "Nuova polizza", category: "Crea", handler: () => navigate("/portafoglio/nuova") },
     { combo: "n c", description: "Nuovo cliente", category: "Crea", handler: () => navigate("/clienti?new=1") },
