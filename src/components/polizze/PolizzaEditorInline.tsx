@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   VEICOLO_EDITABLE_FIELDS,
   calcLordoGaranzia,
@@ -59,6 +60,8 @@ interface Props {
   showOggetto?: boolean;
   /** Notifica cambiamenti di stato (premi, oggetto, date). */
   onStateChange?: (state: PolizzaEditorState) => void;
+  /** Layout ridotto per dialog appendice. */
+  compact?: boolean;
 }
 
 const AUTO_LORDO_KEYS = ["firma", "rata", "imposta_provinciale", "ssn"] as const;
@@ -70,7 +73,7 @@ const emptyOggettoExtra = (): OggettoExtraState => ({
 });
 
 export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
-  ({ titoloId, showOggetto = false, onStateChange }, ref) => {
+  ({ titoloId, showOggetto = false, onStateChange, compact = false }, ref) => {
     const [loading, setLoading] = useState(true);
     const [titolo, setTitolo] = useState<Record<string, unknown> | null>(null);
     const [veicolo, setVeicolo] = useState<Record<string, unknown> | null>(null);
@@ -579,7 +582,7 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
                             value={g[k]}
                             disabled={locked}
                             onChange={(e) => updateGar(idx, { [k]: Number(e.target.value) || 0 })}
-                            className="h-7 text-xs text-right tabular-nums w-24"
+                            className={cn("h-7 text-xs text-right tabular-nums", compact ? "w-[4.5rem]" : "w-24")}
                           />
                         </td>
                       ))}
@@ -590,7 +593,7 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
                           value={g.lordo_calcolato}
                           disabled={locked}
                           readOnly
-                          className="h-7 text-xs text-right tabular-nums w-24 bg-muted/50"
+                          className={cn("h-7 text-xs text-right tabular-nums bg-muted/50", compact ? "w-[4.5rem]" : "w-24")}
                         />
                       </td>
                       {!locked && (

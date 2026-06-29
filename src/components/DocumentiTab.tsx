@@ -27,6 +27,8 @@ interface DocumentiTabProps {
   typedUpload?: boolean;
   /** Etichetta cliente per titolo modale upload. */
   entitaLabel?: string;
+  /** Se false, nasconde anteprima (icona occhio e click su miniatura/nome). */
+  showPreview?: boolean;
 }
 
 
@@ -41,7 +43,7 @@ const BUCKET_MAP: Record<string, string> = {
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "bmp"];
 
-function DocumentThumbnail({ bucketName, pathStorage, nomeFile, onClick }: { bucketName: string; pathStorage: string; nomeFile: string; onClick: () => void }) {
+function DocumentThumbnail({ bucketName, pathStorage, nomeFile, onClick, clickable }: { bucketName: string; pathStorage: string; nomeFile: string; onClick?: () => void; clickable?: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   const ext = nomeFile.split(".").pop()?.toLowerCase() || "";
   const isImage = IMAGE_EXTENSIONS.includes(ext);
@@ -60,15 +62,15 @@ function DocumentThumbnail({ bucketName, pathStorage, nomeFile, onClick }: { buc
     return () => { if (revoke) URL.revokeObjectURL(revoke); };
   }, [bucketName, pathStorage, isImage]);
 
-  const base = "cursor-pointer hover:opacity-80 transition-opacity";
+  const base = clickable ? "cursor-pointer hover:opacity-80 transition-opacity" : "";
 
   if (isImage && url) {
-    return <img src={url} alt={nomeFile} className={`w-10 h-10 rounded object-cover border border-border ${base}`} onClick={onClick} />;
+    return <img src={url} alt={nomeFile} className={`w-10 h-10 rounded object-cover border border-border ${base}`} onClick={clickable ? onClick : undefined} />;
   }
   if (isPdf) {
-    return <FileText className={`h-8 w-8 text-red-500 ${base}`} onClick={onClick} />;
+    return <FileText className={`h-8 w-8 text-red-500 ${base}`} onClick={clickable ? onClick : undefined} />;
   }
-  return <FileText className={`h-8 w-8 text-muted-foreground ${base}`} onClick={onClick} />;
+  return <FileText className={`h-8 w-8 text-muted-foreground ${base}`} onClick={clickable ? onClick : undefined} />;
 }
 
 export default function DocumentiTab({
@@ -79,6 +81,7 @@ export default function DocumentiTab({
   readOnly = false,
   typedUpload = false,
   entitaLabel,
+  showPreview = true,
 }: DocumentiTabProps) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -251,9 +254,20 @@ export default function DocumentiTab({
           {documenti?.map((doc: any) => (
             <TableRow key={doc.id}>
               <TableCell>
-                <DocumentThumbnail bucketName={doc.bucket_name} pathStorage={doc.path_storage} nomeFile={doc.nome_file} onClick={() => openPreview(doc)} />
+                <DocumentThumbnail
+                  bucketName={doc.bucket_name}
+                  pathStorage={doc.path_storage}
+                  nomeFile={doc.nome_file}
+                  clickable={showPreview}
+                  onClick={showPreview ? () => openPreview(doc) : undefined}
+                />
               </TableCell>
-              <TableCell className="font-medium cursor-pointer hover:underline" onClick={() => openPreview(doc)}>{doc.nome_file}</TableCell>
+              <TableCell
+                className={`font-medium ${showPreview ? "cursor-pointer hover:underline" : ""}`}
+                onClick={showPreview ? () => openPreview(doc) : undefined}
+              >
+                {doc.nome_file}
+              </TableCell>
               {showTipologia && (
                 <TableCell>
                   {doc.categoria ? (
@@ -269,7 +283,9 @@ export default function DocumentiTab({
                 <Switch checked={doc.visibile_al_cliente} onCheckedChange={() => toggleVisibilita(doc)} disabled={readOnly} />
               </TableCell>
               <TableCell className="flex gap-1">
-                <Button size="icon" variant="ghost" onClick={() => openPreview(doc)}><Eye className="h-4 w-4" /></Button>
+                {showPreview && (
+                  <Button size="icon" variant="ghost" onClick={() => openPreview(doc)}><Eye className="h-4 w-4" /></Button>
+                )}
                 <Button size="icon" variant="ghost" onClick={() => handleDownload(doc)}><Download className="h-4 w-4" /></Button>
                 {!readOnly && <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(doc)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
               </TableCell>
@@ -301,23 +317,25 @@ export default function DocumentiTab({
       </AlertDialog>
 
       {/* Dialog anteprima documento */}
-      <Dialog open={!!previewDoc} onOpenChange={(open) => !open && closePreview()}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
-          <DialogHeader className="px-4 pt-4 pb-2">
-            <DialogTitle className="truncate">{previewDoc?.nome_file}</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden">
-            {previewIsImage && previewUrl && (
-              <div className="flex items-center justify-center h-full overflow-auto bg-muted/40 p-3">
-                <img src={previewUrl} alt={previewDoc?.nome_file} className="max-w-full max-h-full object-contain rounded" />
-              </div>
-            )}
-            {!previewIsImage && previewPdfData && (
-              <PdfPreview data={previewPdfData} fileName={previewDoc?.nome_file} />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {showPreview && (
+        <Dialog open={!!previewDoc} onOpenChange={(open) => !open && closePreview()}>
+          <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
+            <DialogHeader className="px-4 pt-4 pb-2">
+              <DialogTitle className="truncate">{previewDoc?.nome_file}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden">
+              {previewIsImage && previewUrl && (
+                <div className="flex items-center justify-center h-full overflow-auto bg-muted/40 p-3">
+                  <img src={previewUrl} alt={previewDoc?.nome_file} className="max-w-full max-h-full object-contain rounded" />
+                </div>
+              )}
+              {!previewIsImage && previewPdfData && (
+                <PdfPreview data={previewPdfData} fileName={previewDoc?.nome_file} />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

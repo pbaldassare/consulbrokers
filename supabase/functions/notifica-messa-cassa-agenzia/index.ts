@@ -306,6 +306,31 @@ async function buildArchivePdf(opts: {
   return pdf.save();
 }
 
+/** Se il titolo è una quietanza, risolve l'id della polizza madre (stesso numero_titolo, riga madre). */
+async function resolveMadreTitoloId(
+  supabase: ReturnType<typeof createClient>,
+  titoloId: string,
+): Promise<string> {
+  const { data: row, error } = await supabase
+    .from("titoli")
+    .select("id, numero_titolo, sostituisce_polizza")
+    .eq("id", titoloId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row || !row.sostituisce_polizza || !row.numero_titolo) return titoloId;
+
+  const { data: madre, error: mErr } = await supabase
+    .from("titoli")
+    .select("id")
+    .eq("numero_titolo", row.numero_titolo)
+    .is("sostituisce_polizza", null)
+    .order("riga", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (mErr) throw mErr;
+  return (madre?.id as string) ?? titoloId;
+}
+
 async function archivePdfToTitoli(
   supabase: ReturnType<typeof createClient>,
   titoloIds: string[],
@@ -322,7 +347,11 @@ async function archivePdfToTitoli(
   });
   if (upErr) throw upErr;
 
-  const rows = titoloIds.map((tid) => ({
+  const madreIds = [
+    ...new Set(await Promise.all(titoloIds.map((tid) => resolveMadreTitoloId(supabase, tid)))),
+  ];
+
+  const rows = madreIds.map((tid) => ({
     nome_file: fileName,
     path_storage: path,
     bucket_name: DOC_BUCKET,

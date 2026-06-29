@@ -8,10 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/SearchableSelect";
 import { toast } from "sonner";
-import { Loader2, AlertCircle, Receipt } from "lucide-react";
+import { Loader2, AlertCircle, Receipt, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { format, parseISO } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DatePicker } from "@/components/contabilita/DatePicker";
 import { logAttivita } from "@/lib/logAttivita";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
 import {
@@ -45,6 +50,45 @@ interface Props {
 const fmt = (n: number | null | undefined) =>
   n == null ? "-" : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
 const fmtDate = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString("it-IT") : "-");
+
+const isoToDate = (iso: string): Date | null => {
+  if (!iso) return null;
+  try {
+    return parseISO(iso.slice(0, 10));
+  } catch {
+    return null;
+  }
+};
+
+const dateToIso = (d: Date | null): string => (d ? format(d, "yyyy-MM-dd") : "");
+
+function PremiRiepilogo({
+  aggregated,
+  percProvv,
+}: {
+  aggregated: NonNullable<ReturnType<typeof aggregateGaranziePremi>>;
+  percProvv: number | null;
+}) {
+  const provv = calcProvvigioniAppendice(aggregated.premio_netto, percProvv);
+  const items = [
+    { label: "Netto", value: aggregated.premio_netto },
+    { label: "Rata", value: aggregated.addizionali },
+    { label: "Tasse", value: aggregated.tasse },
+    { label: "SSN", value: aggregated.ssn_firma },
+    { label: "Lordo", value: aggregated.premio_lordo, highlight: true },
+    { label: "Provvigioni", value: provv },
+  ];
+  return (
+    <div className="rounded-md border bg-muted/40 p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
+      {items.map((it) => (
+        <div key={it.label}>
+          <div className="text-xs text-muted-foreground">{it.label}</div>
+          <div className={cn("font-semibold tabular-nums", it.highlight && "text-primary")}>{fmt(it.value)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const TIPO_INFO: Record<AppendiceTipo, { title: string; hint: string; suffix: string }> = {
   modifica: {
@@ -84,6 +128,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
   const [displayName, setDisplayName] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [quietanzaId, setQuietanzaId] = useState("");
+  const [activeTab, setActiveTab] = useState<"dati" | "premi">("dati");
+  const [noteOpen, setNoteOpen] = useState(false);
 
   const handleEditorStateChange = useCallback((state: PolizzaEditorState) => {
     setEditorState(state);
@@ -168,6 +214,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     if (!open) {
       setEditorReady(false);
       setEditorState(null);
+      setActiveTab("dati");
+      setNoteOpen(false);
       return;
     }
     const max = (existing || []).reduce((acc, a: { numero_appendice?: string }) => Math.max(acc, parseInt(a.numero_appendice || "0") || 0), 0);
@@ -337,94 +385,130 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
 
   const tipoInfo = TIPO_INFO[tipo];
 
-  const eventColumn = (
+  const editorTitoloId = tipo === "regolazione" ? quietanzaId || null : madreId;
+
+  const editorBlock =
+    tipo === "regolazione" && !quietanzaId ? (
+      <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground text-center">
+        Seleziona la quietanza di riferimento nel tab Dati appendice.
+      </div>
+    ) : editorTitoloId ? (
+      <PolizzaSection
+        title="Garanzie e importi"
+        icon={Receipt}
+        static
+        headerExtra={
+          aggregated ? (
+            <Badge variant="secondary" className="font-mono tabular-nums">
+              Lordo {fmt(aggregated.premio_lordo)}
+            </Badge>
+          ) : null
+        }
+      >
+        <div className="overflow-x-auto -mx-1 px-1">
+          <PolizzaEditorInline
+            key={editorTitoloId}
+            ref={editorRef}
+            titoloId={editorTitoloId}
+            compact
+            onStateChange={handleEditorStateChange}
+          />
+        </div>
+        <ErrMsg id="editor" />
+      </PolizzaSection>
+    ) : (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+        <Loader2 className="h-4 w-4 animate-spin" /> Caricamento polizza…
+      </div>
+    );
+
+  const datiTab = (
     <div className="space-y-4">
-      <div className={cn(
-        "rounded-md border p-3 text-sm",
-        tipo === "proroga"
-          ? "border-blue-300 bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200"
-          : tipo === "regolazione"
-            ? "border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"
-            : "border-primary/30 bg-primary/5 text-foreground",
-      )}>
+      <div
+        className={cn(
+          "rounded-md border p-3 text-sm",
+          tipo === "proroga"
+            ? "border-blue-300 bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200"
+            : tipo === "regolazione"
+              ? "border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"
+              : "border-primary/30 bg-primary/5 text-foreground",
+        )}
+      >
         <strong>{tipoInfo.title}:</strong> {tipoInfo.hint}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div>
-          <Label>Numero appendice *</Label>
-          <Input value={numeroAppendice} readOnly disabled className="bg-muted" />
-          <p className="text-xs text-muted-foreground mt-1">Progressivo automatico</p>
+          <Label className="text-xs">N° appendice *</Label>
+          <Input value={numeroAppendice} readOnly disabled className="bg-muted h-9" />
         </div>
         <div>
-          <Label>Tipo</Label>
+          <Label className="text-xs">Tipo</Label>
           <Select value={tipo} onValueChange={(v) => setTipo(v as AppendiceTipo)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               {TIPI_APPENDICE.map((t) => (
-                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-
-        {tipo === "regolazione" && (
-          <div className="md:col-span-2">
-            <Label>Quietanza di riferimento *</Label>
-            <SearchableSelect
-              options={quietanzaOptions}
-              value={quietanzaId}
-              onValueChange={setQuietanzaId}
-              placeholder="Scegli la rata su cui agganciare la regolazione…"
-              emptyText="Nessuna quietanza disponibile"
-              className={cn(errors.quietanzaId && errClass)}
-            />
-            <ErrMsg id="quietanzaId" />
-          </div>
-        )}
-
         <div>
-          <Label>Data effetto *</Label>
-          <Input
-            type="date"
-            value={dataEffetto}
-            onChange={(e) => setDataEffetto(e.target.value)}
-            className={cn(errors.dataEffetto && errClass)}
+          <Label className="text-xs">Data effetto *</Label>
+          <DatePicker
+            value={isoToDate(dataEffetto)}
+            onChange={(d) => setDataEffetto(dateToIso(d))}
+            placeholder="Scegli data"
           />
           <ErrMsg id="dataEffetto" />
         </div>
         <div>
-          <Label>Data scadenza *</Label>
-          <Input
-            type="date"
-            value={dataAppendice}
-            onChange={(e) => setDataAppendice(e.target.value)}
-            className={cn(errors.dataAppendice && errClass)}
+          <Label className="text-xs">Data scadenza *</Label>
+          <DatePicker
+            value={isoToDate(dataAppendice)}
+            onChange={(d) => setDataAppendice(dateToIso(d))}
+            placeholder="Scegli data"
           />
           <ErrMsg id="dataAppendice" />
         </div>
+      </div>
 
-        <div className="md:col-span-2">
-          <Label>Oggetto</Label>
+      {tipo === "regolazione" && (
+        <div>
+          <Label className="text-xs">Quietanza di riferimento *</Label>
+          <SearchableSelect
+            options={quietanzaOptions}
+            value={quietanzaId}
+            onValueChange={setQuietanzaId}
+            placeholder="Scegli la rata su cui agganciare la regolazione…"
+            emptyText="Nessuna quietanza disponibile"
+            className={cn(errors.quietanzaId && errClass)}
+          />
+          <ErrMsg id="quietanzaId" />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Oggetto</Label>
           <Input
             value={oggetto}
             onChange={(e) => setOggetto(e.target.value)}
+            className="h-9"
             placeholder={
               tipo === "proroga"
                 ? "Es. Proroga al 31/12/2027"
                 : tipo === "regolazione"
                   ? "Es. Conguaglio premio 2026"
-                  : "Es. Variazione massimali / aggiornamento dati"
+                  : "Es. Variazione massimali"
             }
           />
         </div>
-
-        <div className="md:col-span-2">
-          <Label>Note interne</Label>
-          <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-        </div>
-
-        <div className="md:col-span-2">
+        <div>
           <OperazioneAllegatoField
             file={file}
             displayName={displayName}
@@ -439,57 +523,19 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
         </div>
       </div>
 
-      {aggregated && (
-        <div className="rounded-md border bg-muted/40 p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          <div>
-            <div className="text-xs text-muted-foreground">Netto</div>
-            <div className="font-semibold tabular-nums">{fmt(aggregated.premio_netto)}</div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Tasse</div>
-            <div className="font-semibold tabular-nums">{fmt(aggregated.tasse)}</div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Lordo</div>
-            <div className="font-semibold tabular-nums">{fmt(aggregated.premio_lordo)}</div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Provvigioni</div>
-            <div className="font-semibold tabular-nums">
-              {fmt(calcProvvigioniAppendice(aggregated.premio_netto, percProvv))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+      <Collapsible open={noteOpen} onOpenChange={setNoteOpen}>
+        <CollapsibleTrigger asChild>
+          <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground">
+            <ChevronDown className={cn("h-4 w-4 mr-1 transition-transform", noteOpen && "rotate-180")} />
+            Note interne (opzionale)
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-2">
+          <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Annotazioni visibili solo in backoffice" />
+        </CollapsibleContent>
+      </Collapsible>
 
-  const editorTitoloId =
-    tipo === "regolazione" ? (quietanzaId || null) : madreId;
-
-  const editorColumn =
-    tipo === "regolazione" && !quietanzaId ? (
-      <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground text-center">
-        Seleziona la quietanza di riferimento per caricare e modificare la composizione premi.
-      </div>
-    ) : editorTitoloId ? (
-    <PolizzaSection title="Composizione premi (quietanza)" icon={Receipt}>
-      <p className="text-xs text-muted-foreground mb-3">
-        {tipo === "regolazione" && quietanzaId
-          ? "Premi della quietanza di riferimento: modificali prima di creare il titolo RG cassabile."
-          : `Stessa interfaccia della polizza: modifica le garanzie e gli importi prima di creare il titolo ${tipoInfo.suffix} cassabile.`}
-      </p>
-      <PolizzaEditorInline
-        key={editorTitoloId}
-        ref={editorRef}
-        titoloId={editorTitoloId}
-        onStateChange={handleEditorStateChange}
-      />
-      <ErrMsg id="editor" />
-    </PolizzaSection>
-  ) : (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-      <Loader2 className="h-4 w-4 animate-spin" /> Caricamento polizza…
+      {aggregated && <PremiRiepilogo aggregated={aggregated} percProvv={percProvv} />}
     </div>
   );
 
@@ -497,10 +543,32 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     <OperazionePolizzaDialogShell
       open={open}
       onOpenChange={onOpenChange}
+      size="lg"
       title={`Nuova appendice — Polizza ${numeroTitolo || ""}`}
-      description={tipoInfo.hint}
-      eventColumn={eventColumn}
-      editorColumn={editorColumn}
+      body={
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "dati" | "premi")} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="dati">Dati appendice</TabsTrigger>
+            <TabsTrigger value="premi">Composizione premi</TabsTrigger>
+          </TabsList>
+          <TabsContent value="dati" className="mt-0 focus-visible:outline-none">
+            {datiTab}
+          </TabsContent>
+          <TabsContent value="premi" className="mt-0 focus-visible:outline-none">
+            {editorBlock}
+          </TabsContent>
+        </Tabs>
+      }
+      footerStart={
+        aggregated ? (
+          <span className="text-muted-foreground">
+            Lordo:{" "}
+            <strong className="text-foreground tabular-nums">{fmt(aggregated.premio_lordo)}</strong>
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">Compila i premi nel secondo tab</span>
+        )
+      }
       footer={
         <>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>

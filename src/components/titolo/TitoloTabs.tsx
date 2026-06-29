@@ -30,6 +30,13 @@ interface TitoloTabsProps {
  */
 export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPolizza, navigate, chainIds }: TitoloTabsProps) => {
 
+  const madreId = chainIds?.[0] ?? id;
+  const isMadreView = id === madreId;
+  /** Polizza madre: tutta la catena; quietanza: solo documenti della rata corrente. */
+  const documentiIdsForRead = isMadreView
+    ? (chainIds && chainIds.length > 0 ? chainIds : [id])
+    : [id];
+
   // Lazy mount: ogni tab si monta solo la prima volta che viene aperto, poi resta in cache.
   const [tab, setTab] = useState<string>("movimenti");
   const [mounted, setMounted] = useState<Record<string, boolean>>({ movimenti: true });
@@ -137,7 +144,7 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
         <Card><CardContent className="pt-6"><p className="text-sm whitespace-pre-wrap">{t.note || "Nessuna nota."}</p></CardContent></Card>
       </TabsContent>
       <TabsContent value="documenti">
-        <Card><CardContent className="pt-6">{mounted.documenti ? <DocumentiTab entitaTipo="titolo" entitaId={id} entitaIds={chainIds && chainIds.length > 0 ? chainIds : undefined} bucketName="documenti_titoli" /> : null}</CardContent></Card>
+        <Card><CardContent className="pt-6">{mounted.documenti ? <DocumentiTab entitaTipo="titolo" entitaId={id} entitaIds={documentiIdsForRead} bucketName="documenti_titoli" showPreview={false} /> : null}</CardContent></Card>
 
       </TabsContent>
       <TabsContent value="chat">

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 
-import { Search, Car, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck, Truck } from "lucide-react";
+import { Search, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck, Truck } from "lucide-react";
 import { PremiGaranziaCardShell, emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
 import { LibroMatricolaDialog, filterRigheValide, type LibroMatricolaRiga } from "@/components/polizze/LibroMatricolaDialog";
 import {
@@ -37,13 +37,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { CLASSI_MERITO, TIPI_VEICOLO, PROVINCE_IT, TIPI_PATENTE, defaultPatenteForVeicolo, isTargaItValid } from "@/lib/rcaConstants";
+import { PROVINCE_IT, TIPI_PATENTE, defaultPatenteForVeicolo } from "@/lib/rcaConstants";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { parseCF } from "@/lib/parseCF";
 import { lookupComune } from "@/lib/comuniItaliani";
 
 // resolvePercentualeProvvigione non più usato: matrice caricata inline per calcolo per-riga
-import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { NuovoClienteDialog, type NuovoClienteInitialData } from "@/components/clienti/NuovoClienteDialog";
@@ -58,6 +57,7 @@ import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
 import { CoassicurazioneContrattoPanel } from "@/components/polizze/CoassicurazioneContrattoPanel";
 import { CoassicurazioneImportiBreakdown } from "@/components/polizze/CoassicurazioneImportiBreakdown";
+import { RcaDatiVeicoloSection } from "@/components/polizze/RcaDatiVeicoloSection";
 import {
   validateRipartoSum,
   isRipartoSumValidForPreview,
@@ -1532,6 +1532,19 @@ const ImmissionePolizzaPage = () => {
 
   // --- Handlers ---
 
+  const clientePolizzePath = useMemo(() => {
+    const clienteId =
+      selectedClienteId ||
+      preselectedClienteId ||
+      (regolazioneMode ? polizzaMadre?.cliente_anagrafica_id : null);
+    return clienteId ? `/archivi/clienti/${clienteId}?tab=polizze` : null;
+  }, [selectedClienteId, preselectedClienteId, regolazioneMode, polizzaMadre?.cliente_anagrafica_id]);
+
+  const exitImmissione = useCallback(() => {
+    if (clientePolizzePath) navigate(clientePolizzePath);
+    else navigate("/portafoglio/attive");
+  }, [clientePolizzePath, navigate]);
+
   const handleConferma = () => {
     finalizzaPolizza();
   };
@@ -1990,10 +2003,11 @@ const ImmissionePolizzaPage = () => {
         }
       }
 
-      toast.success("Polizza registrata con successo");
+      toast.success(regolazioneMode ? "Regolazione registrata con successo" : "Polizza registrata con successo");
       clearDraft(draftKey);
       setAiSourcePdf(null);
-      navigate(`/titoli/${newTitolo.id}`);
+      if (clientePolizzePath) navigate(clientePolizzePath);
+      else navigate(`/titoli/${newTitolo.id}`);
 
     } catch (err: any) {
       console.error("Errore salvataggio polizza:", err);
@@ -2001,6 +2015,77 @@ const ImmissionePolizzaPage = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const rcaVeicoloSectionProps = {
+    isRCA,
+    aiPrefilled,
+    clearAiPrefilled,
+    cProvincia,
+    kwCvLocked,
+    setKwCvLocked,
+    rcaUsi,
+    vTipoVeicolo,
+    setVTipoVeicolo,
+    setVSettore,
+    vUso,
+    setVUso,
+    vMarca,
+    setVMarca,
+    vModello,
+    setVModello,
+    vVersione,
+    setVVersione,
+    vTarga,
+    setVTarga,
+    vTelaio,
+    setVTelaio,
+    vDescrizione,
+    setVDescrizione,
+    vDataImmatricolazione,
+    setVDataImmatricolazione,
+    vAnnoAcquisto,
+    setVAnnoAcquisto,
+    vProvinciaCircolazione,
+    setVProvinciaCircolazione,
+    vClasseBm,
+    setVClasseBm,
+    vCv,
+    setVCv,
+    vKw,
+    setVKw,
+    vCc,
+    setVCc,
+    vPosti,
+    setVPosti,
+    vPesoMotrice,
+    setVPesoMotrice,
+    vPesoRimorchio,
+    setVPesoRimorchio,
+    vPesoTotale,
+    setVPesoTotale,
+    vTipologiaGuida,
+    setVTipologiaGuida,
+    vTipoAlimentazione,
+    setVTipoAlimentazione,
+    vMass1,
+    setVMass1,
+    vMass2,
+    setVMass2,
+    vMass3,
+    setVMass3,
+    vFranchigia,
+    setVFranchigia,
+    vPeius,
+    setVPeius,
+    vTemporanea,
+    setVTemporanea,
+    vCaricoScarico,
+    setVCaricoScarico,
+    vCompetizione,
+    setVCompetizione,
+    vRimorchio,
+    setVRimorchio,
   };
 
   return (
@@ -2076,7 +2161,8 @@ const ImmissionePolizzaPage = () => {
               variant="ghost"
               className="h-7 text-xs"
               onClick={() => {
-                if (titoloMadreId) navigate(`/titoli/${titoloMadreId}`);
+                if (clientePolizzePath) navigate(clientePolizzePath);
+                else if (titoloMadreId) navigate(`/titoli/${titoloMadreId}`);
                 else navigate(-1);
               }}
             >
@@ -2319,6 +2405,8 @@ const ImmissionePolizzaPage = () => {
           </div>
         )}
       </PolizzaSection>
+
+      {isRCA && <RcaDatiVeicoloSection showBanner {...rcaVeicoloSectionProps} />}
 
       {/* CONTRATTO */}
       <PolizzaSection
@@ -2567,7 +2655,7 @@ const ImmissionePolizzaPage = () => {
             {isRCA && (
               <p className="text-[11px] text-primary flex items-center gap-1 mt-1">
                 <Info className="h-3 w-3" />
-                Ramo RCA rilevato: in fondo alla pagina troverai le sezioni Veicolo, Garanzie e Conducente.
+                Ramo RCA rilevato: i Dati Veicolo sono sopra il Contratto; in fondo pagina troverai Dati Conducente.
               </p>
             )}
 
@@ -3144,42 +3232,14 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
 
-      {/* === SEZIONI RCA AUTO === */}
+      {/* === DATI CONDUCENTE (RCA) === */}
       {isRCA && (() => {
-        // Helper: classe campo per evidenziare i valori riempiti dall'AI
         const aiCls = (key: string) =>
           aiPrefilled.has(key) ? "border-l-2 border-l-primary bg-primary/[0.03]" : "";
         const aiBadge = (key: string) =>
           aiPrefilled.has(key) ? (
             <Sparkles className="inline-block h-3 w-3 text-primary ml-1" />
           ) : null;
-        // Sincronizzazione KW ↔ CV (1 KW ≈ 1.36 CV fiscali)
-        const handleCvChange = (val: string) => {
-          setVCv(val); clearAiPrefilled("vCv"); setKwCvLocked("cv");
-          if (kwCvLocked !== "kw") {
-            const n = parseFloat(val);
-            if (!isNaN(n) && n > 0) { setVKw(String(Math.round(n / 1.36))); clearAiPrefilled("vKw"); }
-          }
-        };
-        const handleKwChange = (val: string) => {
-          setVKw(val); clearAiPrefilled("vKw"); setKwCvLocked("kw");
-          if (kwCvLocked !== "cv") {
-            const n = parseFloat(val);
-            if (!isNaN(n) && n > 0) { setVCv(String(Math.round(n * 1.36))); clearAiPrefilled("vCv"); }
-          }
-        };
-        // Auto somma pesi
-        const handlePesoChange = (which: "m" | "r", val: string) => {
-          if (which === "m") { setVPesoMotrice(val); clearAiPrefilled("vPesoMotrice"); }
-          else { setVPesoRimorchio(val); clearAiPrefilled("vPesoRimorchio"); }
-          const m = parseFloat(which === "m" ? val : vPesoMotrice) || 0;
-          const r = parseFloat(which === "r" ? val : vPesoRimorchio) || 0;
-          if (m && r) { setVPesoTotale(String(m + r)); clearAiPrefilled("vPesoTotale"); }
-        };
-        // Validazione targa
-        const targaValid = !vTarga || isTargaItValid(vTarga);
-        const telaioValid = !vTelaio || vTelaio.replace(/\s/g, "").length === 17;
-        // Toggle Conducente = Contraente
         const applyConducenteFromContraente = (checked: boolean) => {
           setConducenteUgualeContraente(checked);
           if (!checked || !clienteDettaglio) return;
@@ -3222,219 +3282,8 @@ const ImmissionePolizzaPage = () => {
             }
           }
         };
-        const provinciaCircDiverge =
-          vProvinciaCircolazione && cProvincia && vProvinciaCircolazione !== cProvincia;
-
         return (
         <>
-          {/* Banner intro RCA */}
-          <div className="rounded-lg border border-primary/30 bg-primary/[0.06] px-4 py-2.5 flex items-center gap-3 mt-2">
-            <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-              <Car className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-primary uppercase tracking-wide">Sezione RCA Auto</p>
-              <p className="text-xs text-muted-foreground">Compila i dati di veicolo e conducente — i campi con <Sparkles className="inline h-3 w-3 text-primary" /> sono stati riempiti dall'AI.</p>
-            </div>
-          </div>
-
-          {/* DATI VEICOLO */}
-          <PolizzaSection title="Dati Veicolo" icon={Car}>
-            {/* Sub: Identificazione */}
-            <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Identificazione</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">
-                    Tipo Veicolo{isRCA && <span className="text-destructive ml-0.5">*</span>}{aiBadge("vTipoVeicolo")}
-                  </Label>
-                  <SearchableSelect className={`h-9 text-sm ${aiCls("vTipoVeicolo")} ${isRCA && !vTipoVeicolo ? "border-amber-500" : ""}`} value={vTipoVeicolo}
-                    onValueChange={(v) => { setVTipoVeicolo(v); setVSettore(v); clearAiPrefilled("vTipoVeicolo"); }}
-                    placeholder="—" options={TIPI_VEICOLO} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Marca{aiBadge("vMarca")}</Label>
-                  <MarcaCombobox className={`h-9 text-sm ${aiCls("vMarca")}`} value={vMarca}
-                    onValueChange={(v) => { setVMarca(v); setVModello(""); clearAiPrefilled("vMarca"); }} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Modello{aiBadge("vModello")}</Label>
-                  <ModelloCombobox className={`h-9 text-sm ${aiCls("vModello")}`} marca={vMarca} value={vModello}
-                    onValueChange={(v) => { setVModello(v); clearAiPrefilled("vModello"); }} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Versione{aiBadge("vVersione")}</Label>
-                  <Input value={vVersione} onChange={(e) => { setVVersione(e.target.value); clearAiPrefilled("vVersione"); }}
-                    className={`h-9 text-sm ${aiCls("vVersione")}`} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">
-                    Targa{isRCA && <span className="text-destructive ml-0.5">*</span>}{aiBadge("vTarga")}
-                    {vTarga && !targaValid && <span className="ml-1 text-[10px] text-amber-600">⚠ formato</span>}
-                  </Label>
-                  <Input value={vTarga} onChange={(e) => { setVTarga(e.target.value.toUpperCase()); clearAiPrefilled("vTarga"); }}
-                    className={`h-9 text-sm font-mono uppercase ${aiCls("vTarga")} ${(vTarga && !targaValid) || (isRCA && !vTarga) ? "border-amber-500" : ""}`} placeholder="AB123CD" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">
-                    Telaio (VIN){aiBadge("vTelaio")}
-                    {vTelaio && !telaioValid && <span className="ml-1 text-[10px] text-amber-600">⚠ 17 car.</span>}
-                  </Label>
-                  <Input value={vTelaio} onChange={(e) => { setVTelaio(e.target.value.toUpperCase()); clearAiPrefilled("vTelaio"); }}
-                    className={`h-9 text-sm font-mono uppercase ${aiCls("vTelaio")} ${vTelaio && !telaioValid ? "border-amber-500" : ""}`} maxLength={17} />
-                </div>
-                <div className="space-y-1 sm:col-span-2 md:col-span-3 lg:col-span-2">
-                  <Label className="text-[11px] font-medium text-foreground/80">Descrizione completa{aiBadge("vDescrizione")}</Label>
-                  <Input value={vDescrizione} onChange={(e) => { setVDescrizione(e.target.value); clearAiPrefilled("vDescrizione"); }}
-                    placeholder="es. AUDI A1 1.6 TDI SPORTBACK" className={`h-9 text-sm ${aiCls("vDescrizione")}`} />
-                </div>
-              </div>
-            </div>
-
-            {/* Sub: Circolazione */}
-            <div className="pt-3 border-t border-border/40">
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Circolazione</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">
-                    Uso{isRCA && <span className="text-destructive ml-0.5">*</span>}
-                  </Label>
-                  <SearchableSelect className={`h-9 text-sm ${isRCA && !vUso ? "border-amber-500" : ""}`} value={vUso} onValueChange={setVUso} placeholder="—"
-                    options={rcaUsi || []} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">
-                    Provincia Circolazione{aiBadge("vProvinciaCircolazione")}
-                    {provinciaCircDiverge && <span className="ml-1 text-[10px] text-amber-600" title="Differisce dalla residenza del conducente">⚠</span>}
-                  </Label>
-                  <SearchableSelect className={`h-9 text-sm ${aiCls("vProvinciaCircolazione")}`} value={vProvinciaCircolazione}
-                    onValueChange={(v) => { setVProvinciaCircolazione(v); clearAiPrefilled("vProvinciaCircolazione"); }}
-                    placeholder="—" options={PROVINCE_IT} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Classe B/M{aiBadge("vClasseBm")}</Label>
-                  <SearchableSelect className={`h-9 text-sm ${aiCls("vClasseBm")}`} value={vClasseBm}
-                    onValueChange={(v) => { setVClasseBm(v); clearAiPrefilled("vClasseBm"); }}
-                    placeholder="—" options={CLASSI_MERITO} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Immatricolazione{aiBadge("vDataImmatricolazione")}</Label>
-                  <Input type="date" value={vDataImmatricolazione}
-                    onChange={(e) => { setVDataImmatricolazione(e.target.value); clearAiPrefilled("vDataImmatricolazione"); }}
-                    className={`h-9 text-sm ${aiCls("vDataImmatricolazione")}`} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Anno Acquisto{aiBadge("vAnnoAcquisto")}</Label>
-                  <Input type="number" value={vAnnoAcquisto}
-                    onChange={(e) => { setVAnnoAcquisto(e.target.value); clearAiPrefilled("vAnnoAcquisto"); }}
-                    className={`h-9 text-sm font-mono ${aiCls("vAnnoAcquisto")}`} />
-                </div>
-              </div>
-            </div>
-
-            {/* Sub: Caratteristiche tecniche */}
-            <div className="pt-3 border-t border-border/40">
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Caratteristiche tecniche</div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-x-4 gap-y-3">
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">CV{aiBadge("vCv")}</Label>
-                  <Input type="number" value={vCv} onChange={(e) => handleCvChange(e.target.value)}
-                    className={`h-9 text-sm font-mono ${aiCls("vCv")}`} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">KW{aiBadge("vKw")}</Label>
-                  <Input type="number" value={vKw} onChange={(e) => handleKwChange(e.target.value)}
-                    className={`h-9 text-sm font-mono ${aiCls("vKw")}`} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">CC{aiBadge("vCc")}</Label>
-                  <Input type="number" value={vCc} onChange={(e) => { setVCc(e.target.value); clearAiPrefilled("vCc"); }}
-                    className={`h-9 text-sm font-mono ${aiCls("vCc")}`} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Posti{aiBadge("vPosti")}</Label>
-                  <Input type="number" value={vPosti} onChange={(e) => { setVPosti(e.target.value); clearAiPrefilled("vPosti"); }}
-                    className={`h-9 text-sm font-mono ${aiCls("vPosti")}`} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Peso Mot.{aiBadge("vPesoMotrice")}</Label>
-                  <Input type="number" value={vPesoMotrice} onChange={(e) => handlePesoChange("m", e.target.value)}
-                    className={`h-9 text-sm font-mono ${aiCls("vPesoMotrice")}`} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Peso Rim.{aiBadge("vPesoRimorchio")}</Label>
-                  <Input type="number" value={vPesoRimorchio} onChange={(e) => handlePesoChange("r", e.target.value)}
-                    className={`h-9 text-sm font-mono ${aiCls("vPesoRimorchio")}`} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Peso Tot.{aiBadge("vPesoTotale")}</Label>
-                  <Input type="number" value={vPesoTotale} onChange={(e) => { setVPesoTotale(e.target.value); clearAiPrefilled("vPesoTotale"); }}
-                    className={`h-9 text-sm font-mono ${aiCls("vPesoTotale")}`} />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mt-3">
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">
-                    Tipologia Guida{isRCA && <span className="text-destructive ml-0.5">*</span>}{aiBadge("vTipologiaGuida")}
-                  </Label>
-                  <SearchableSelect className={`h-9 text-sm ${aiCls("vTipologiaGuida")} ${isRCA && !vTipologiaGuida ? "border-amber-500" : ""}`} value={vTipologiaGuida}
-                    onValueChange={(v) => { setVTipologiaGuida(v); clearAiPrefilled("vTipologiaGuida"); }}
-                    placeholder="—" options={["Libera","Esperta"].map(v => ({ value: v, label: v }))} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Alimentazione{aiBadge("vTipoAlimentazione")}</Label>
-                  <SearchableSelect className={`h-9 text-sm ${aiCls("vTipoAlimentazione")}`} value={vTipoAlimentazione}
-                    onValueChange={(v) => { setVTipoAlimentazione(v); clearAiPrefilled("vTipoAlimentazione"); }}
-                    placeholder="—" options={["Benzina","Diesel","GPL","Metano","Ibrido","Elettrico"].map(v => ({ value: v, label: v }))} />
-                </div>
-              </div>
-            </div>
-
-            {/* Sub: Coperture */}
-            <div className="pt-3 border-t border-border/40">
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Coperture e massimali</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Massimale 1{aiBadge("vMass1")}</Label>
-                  <Input type="number" step="0.01" value={vMass1} onChange={(e) => { setVMass1(e.target.value); clearAiPrefilled("vMass1"); }}
-                    className={`h-9 text-sm font-mono ${aiCls("vMass1")}`} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Massimale 2{aiBadge("vMass2")}</Label>
-                  <Input type="number" step="0.01" value={vMass2} onChange={(e) => { setVMass2(e.target.value); clearAiPrefilled("vMass2"); }}
-                    className={`h-9 text-sm font-mono ${aiCls("vMass2")}`} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Massimale 3{aiBadge("vMass3")}</Label>
-                  <Input type="number" step="0.01" value={vMass3} onChange={(e) => { setVMass3(e.target.value); clearAiPrefilled("vMass3"); }}
-                    className={`h-9 text-sm font-mono ${aiCls("vMass3")}`} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Franchigia{aiBadge("vFranchigia")}</Label>
-                  <Input type="number" step="0.01" value={vFranchigia} onChange={(e) => { setVFranchigia(e.target.value); clearAiPrefilled("vFranchigia"); }}
-                    className={`h-9 text-sm font-mono ${aiCls("vFranchigia")}`} />
-                </div>
-              </div>
-              <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-3">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Clausole</div>
-                <div className="flex flex-wrap gap-x-5 gap-y-2">
-                  {[
-                    { id: "v-peius", label: "Peius", checked: vPeius, onChange: setVPeius },
-                    { id: "v-temporanea", label: "Temporanea", checked: vTemporanea, onChange: setVTemporanea },
-                    { id: "v-caricoscarico", label: "Carico/Scarico", checked: vCaricoScarico, onChange: setVCaricoScarico },
-                    { id: "v-competizione", label: "Competizione", checked: vCompetizione, onChange: setVCompetizione },
-                    { id: "v-rimorchio", label: "Rimorchio", checked: vRimorchio, onChange: setVRimorchio },
-                  ].map((flag) => (
-                    <div key={flag.id} className="flex items-center gap-1.5">
-                      <Checkbox id={flag.id} checked={flag.checked} onCheckedChange={(v) => flag.onChange(v === true)} />
-                      <Label htmlFor={flag.id} className="font-normal cursor-pointer text-sm">{flag.label}</Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </PolizzaSection>
-
           {/* DATI CONDUCENTE */}
           <PolizzaSection title="Dati Conducente" icon={UserCheck}>
             {/* Toggle Conducente = Contraente */}
@@ -3541,7 +3390,7 @@ const ImmissionePolizzaPage = () => {
           </div>
         )}
         <div className="flex justify-between">
-          <Button variant="secondary" onClick={() => navigate("/portafoglio/attive")}>Chiudi</Button>
+          <Button variant="secondary" onClick={exitImmissione}>Chiudi</Button>
           <Button
             onClick={handleConferma}
             disabled={saving || !!saveBlockReason}
