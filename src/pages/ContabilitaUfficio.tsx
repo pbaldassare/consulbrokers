@@ -158,9 +158,9 @@ const ContabilitaUfficio = () => {
     const ym = format(meseCorrente, "yyyy-MM");
     if (scope.type === "agenzia") {
       const slug = scope.gruppo.nome.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "");
-      return `Incassi_Coperture_${slug}_${ym}.pdf`;
+      return `Riepilogo_Messe_a_Cassa_${slug}_${ym}.pdf`;
     }
-    return `Incassi_Coperture_${ym}.pdf`;
+    return `Riepilogo_Messe_a_Cassa_${ym}.pdf`;
   };
 
   const handleStampa = async (scope: Scope = { type: "globale" }) => {
@@ -203,7 +203,7 @@ const ContabilitaUfficio = () => {
           bucket_name: "documenti_generali",
           entita_tipo: entitaTipo,
           entita_id: entitaId,
-          categoria: "Incassi e Coperture",
+          categoria: "Riepilogo Messe a Cassa",
           visibile_al_cliente: false,
           caricato_da: u?.user?.id ?? null,
         } as any);
@@ -226,8 +226,8 @@ const ContabilitaUfficio = () => {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Incassi e Coperture</h1>
-          <p className="text-muted-foreground">Riepilogo consultivo delle polizze messe a cassa</p>
+          <h1 className="text-2xl font-bold text-foreground">Riepilogo Messe a Cassa</h1>
+          <p className="text-muted-foreground">Riepilogo consultivo delle polizze messe a cassa per mese e agenzia</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => handleStampa()} disabled={busy}><Printer className="w-4 h-4 mr-1" />Stampa</Button>
@@ -271,7 +271,7 @@ const ContabilitaUfficio = () => {
         </Card>
       </div>
 
-      {/* Riepilogo Messa a Cassa */}
+      {/* Riepilogo Messe a Cassa */}
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2">
@@ -295,7 +295,7 @@ const ContabilitaUfficio = () => {
         </div>
 
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Package className="w-5 h-5" />Riepilogo Messa a Cassa — {meseLabel}</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Package className="w-5 h-5" />Riepilogo Messe a Cassa — {meseLabel}</CardTitle></CardHeader>
           <CardContent>
             {filtered.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">Nessun titolo messo a cassa nel mese selezionato</p>

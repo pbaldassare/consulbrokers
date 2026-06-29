@@ -9,9 +9,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  applyResiduoToRow,
+  buildInitialCoassRows,
+  calcResiduoQuota,
   emptyRipartoRow,
-  parseQuotaPercentuale,
+  getQuotaSumStatus,
+  redistributeQuoteEvenly,
+  sanitizeQuotaInput,
+  sumQuotePercentuali,
+  type LeaderPrefill,
   type RipartoCoassicurazioneRow,
+  validateQuotaRow,
 } from "@/lib/coassicurazione";
 import { cn } from "@/lib/utils";
 
@@ -39,11 +47,19 @@ export interface CoassicurazioneContrattoPanelProps {
   gruppiCompagniaList: GruppoCompagniaItem[];
   brokerPluriPerGruppo: string[];
   rapportiMap: Map<string, string[]>;
+  leaderPrefill?: LeaderPrefill;
 }
 
 function isBrokerLike(tipo: string) {
   const t = tipo.toLowerCase();
   return t === "broker" || t === "plurimandataria";
+}
+
+function quotaRowErrorClass(raw: string): string | undefined {
+  const check = validateQuotaRow(raw);
+  if (check.valid) return undefined;
+  if (check.issue === "empty") return undefined;
+  return "border-destructive ring-1 ring-destructive/40";
 }
 
 export function CoassicurazioneContrattoPanel({
@@ -55,6 +71,7 @@ export function CoassicurazioneContrattoPanel({
   gruppiCompagniaList,
   brokerPluriPerGruppo,
   rapportiMap,
+  leaderPrefill,
 }: CoassicurazioneContrattoPanelProps) {
   const { data: allRapporti = [] } = useQuery({
     queryKey: ["compagnia_rapporti_coassicurazione"],
@@ -68,11 +85,8 @@ export function CoassicurazioneContrattoPanel({
     staleTime: 60_000,
   });
 
-  const quotaSum = useMemo(
-    () => rows.reduce((s, r) => s + parseQuotaPercentuale(r.quotaPercentuale), 0),
-    [rows],
-  );
-  const quotaOk = Math.abs(quotaSum - 100) <= 0.01;
+  const quotaSum = useMemo(() => sumQuotePercentuali(rows), [rows]);
+  const quotaStatus = getQuotaSumStatus(quotaSum);
 
   const updateRow = (idx: number, patch: Partial<RipartoCoassicurazioneRow>) => {
     onRowsChange(rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
@@ -129,9 +143,22 @@ export function CoassicurazioneContrattoPanel({
       }));
   };
 
+  const handleRemoveRow = (idx: number) => {
+    const next = rows.filter((_, i) => i !== idx);
+    if (next.length === 0) {
+      onRowsChange([]);
+      return;
+    }
+    onRowsChange(redistributeQuoteEvenly(next));
+  };
+
+  const handleAddRow = () => {
+    onRowsChange(redistributeQuoteEvenly([...rows, emptyRipartoRow()]));
+  };
+
   return (
     <div className="space-y-3 rounded-md border border-teal-200/80 bg-teal-50/30 dark:bg-teal-950/10 p-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Checkbox
           id="coassicurazione-flag"
           checked={enabled}
@@ -139,7 +166,7 @@ export function CoassicurazioneContrattoPanel({
             const on = v === true;
             onEnabledChange(on);
             if (on && rows.length === 0) {
-              onRowsChange([emptyRipartoRow(), emptyRipartoRow()]);
+              onRowsChange(buildInitialCoassRows(leaderPrefill));
             }
           }}
         />
@@ -151,12 +178,14 @@ export function CoassicurazioneContrattoPanel({
           <span
             className={cn(
               "ml-auto text-[11px] font-mono font-semibold px-2 py-0.5 rounded",
-              quotaOk
-                ? "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200"
-                : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+              quotaStatus === "ok" && "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200",
+              quotaStatus === "under" && "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+              quotaStatus === "over" && "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
             )}
           >
             Somma quote: {quotaSum.toFixed(2)}%
+            {quotaStatus === "under" && " · mancano quote"}
+            {quotaStatus === "over" && " · eccedenza"}
           </span>
         )}
       </div>
@@ -165,7 +194,7 @@ export function CoassicurazioneContrattoPanel({
         <>
           <p className="text-[11px] text-muted-foreground">
             Ripartisci il premio tra più compagnie/agenzie. La prima riga è il <strong>leader</strong> (compagnia principale del titolo).
-            Le quote devono sommare esattamente <strong>100%</strong>.
+            Le quote devono sommare esattamente <strong>100%</strong> (max 100% per riga).
           </p>
           <div className="overflow-x-auto rounded-md border bg-card">
             <Table>
@@ -174,7 +203,7 @@ export function CoassicurazioneContrattoPanel({
                   <TableHead className="text-xs min-w-[160px]">Compagnia Assicurativa</TableHead>
                   <TableHead className="text-xs min-w-[180px]">Agenzia</TableHead>
                   <TableHead className="text-xs min-w-[140px]">Rapporto</TableHead>
-                  <TableHead className="text-xs w-24 text-right">Quota %</TableHead>
+                  <TableHead className="text-xs min-w-[120px] text-right">Quota %</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -183,6 +212,8 @@ export function CoassicurazioneContrattoPanel({
                   const ag = (compagnieList || []).find((c) => c.id === row.compagniaId);
                   const brokerRow = isBrokerLike(ag?.tipo || "");
                   const rapporti = rapportiForRow(row);
+                  const residuo = calcResiduoQuota(rows, idx);
+                  const canFillResiduo = rows.length > 1 && residuo > 0 && residuo <= 100;
                   return (
                     <TableRow key={row.localId}>
                       <TableCell className="py-1.5">
@@ -250,14 +281,42 @@ export function CoassicurazioneContrattoPanel({
                         )}
                       </TableCell>
                       <TableCell className="py-1.5">
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          className="h-8 text-xs font-mono text-right"
-                          value={row.quotaPercentuale}
-                          onChange={(e) => updateRow(idx, { quotaPercentuale: e.target.value })}
-                          placeholder="0"
-                        />
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="relative w-full max-w-[7rem]">
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              aria-label={`Quota percentuale riga ${idx + 1}`}
+                              className={cn(
+                                "h-8 pr-6 text-xs font-mono text-right",
+                                quotaRowErrorClass(row.quotaPercentuale),
+                              )}
+                              value={row.quotaPercentuale}
+                              onChange={(e) =>
+                                updateRow(idx, { quotaPercentuale: sanitizeQuotaInput(e.target.value) })
+                              }
+                              onBlur={(e) => {
+                                const finalized = sanitizeQuotaInput(e.target.value, true);
+                                if (finalized !== row.quotaPercentuale) {
+                                  updateRow(idx, { quotaPercentuale: finalized });
+                                }
+                              }}
+                              placeholder="—"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">
+                              %
+                            </span>
+                          </div>
+                          {canFillResiduo && (
+                            <button
+                              type="button"
+                              className="text-[10px] text-teal-700 hover:underline"
+                              onClick={() => onRowsChange(applyResiduoToRow(rows, idx))}
+                            >
+                              Imposta residuo ({residuo.toFixed(2)}%)
+                            </button>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="py-1.5">
                         <Button
@@ -266,7 +325,7 @@ export function CoassicurazioneContrattoPanel({
                           size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-destructive"
                           disabled={rows.length <= 1}
-                          onClick={() => onRowsChange(rows.filter((_, i) => i !== idx))}
+                          onClick={() => handleRemoveRow(idx)}
                           aria-label="Rimuovi coassicuratore"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -278,15 +337,28 @@ export function CoassicurazioneContrattoPanel({
               </TableBody>
             </Table>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs border-teal-300 text-teal-800 hover:bg-teal-50"
-            onClick={() => onRowsChange([...rows, emptyRipartoRow()])}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" /> Aggiungi coassicuratore
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs border-teal-300 text-teal-800 hover:bg-teal-50"
+              onClick={handleAddRow}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" /> Aggiungi coassicuratore
+            </Button>
+            {rows.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground"
+                onClick={() => onRowsChange(redistributeQuoteEvenly(rows))}
+              >
+                Ripartisci equamente
+              </Button>
+            )}
+          </div>
         </>
       )}
     </div>

@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Paperclip, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { frazionamentoMesi, frazionamentoToRate } from "@/lib/frazionamento";
@@ -17,15 +17,9 @@ import {
   resolveTitoloMadreId,
   type QuietanzeSospensioneSnapshot,
 } from "@/lib/sospensioneQuietanze";
-import { PolizzaEditorInline, type PolizzaEditorHandle } from "./PolizzaEditorInline";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { PolizzaEditorInline, type PolizzaEditorHandle, type PolizzaEditorState } from "./PolizzaEditorInline";
+import { OperazionePolizzaDialogShell } from "./operazione/OperazionePolizzaDialogShell";
+import { OperazioneAllegatoField, ensureAllegatoExt } from "./operazione/OperazioneAllegatoField";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,8 +39,6 @@ interface Props {
   onDone?: () => void;
 }
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
 const addMonthsISO = (iso: string, months: number) => {
   if (!iso) return "";
   const d = new Date(iso + "T00:00:00");
@@ -56,21 +48,14 @@ const addMonthsISO = (iso: string, months: number) => {
 
 const minISO = (a: string, b: string) => (a < b ? a : b);
 
-const ensureExt = (displayName: string, originalName: string) => {
-  const origExt = originalName.includes(".") ? originalName.split(".").pop()!.toLowerCase() : "";
-  if (!origExt) return displayName;
-  const lower = displayName.toLowerCase();
-  return lower.endsWith("." + origExt) ? displayName : `${displayName}.${origExt}`;
-};
-
 export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroPolizza, onDone }: Props) => {
   const queryClient = useQueryClient();
   const todayISO = new Date().toISOString().slice(0, 10);
-  const fileRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<PolizzaEditorHandle>(null);
 
-  const [titoloRow, setTitoloRow] = useState<any>(null);
+  const [titoloRow, setTitoloRow] = useState<Record<string, unknown> | null>(null);
   const [loadingTitolo, setLoadingTitolo] = useState(false);
+  const [editorState, setEditorState] = useState<PolizzaEditorState | null>(null);
   const [dataRiattivazione, setDataRiattivazione] = useState(todayISO);
   const [oneri, setOneri] = useState<string>("0");
   const [motivo, setMotivo] = useState("Riattivazione su richiesta cliente");
@@ -80,6 +65,10 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
   const [nuovoNumero, setNuovoNumero] = useState("");
   const [madreId, setMadreId] = useState(titoloId);
 
+  const handleEditorStateChange = useCallback((state: PolizzaEditorState) => {
+    setEditorState(state);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     setDataRiattivazione(todayISO);
@@ -88,8 +77,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
     setFile(null);
     setDisplayName("");
     setNuovoNumero("");
-    if (fileRef.current) fileRef.current.value = "";
-    // Fetch polizza madre (anche se titoloId è una quietanza)
+    setEditorState(null);
     setLoadingTitolo(true);
     (async () => {
       const resolvedMadreId = await resolveTitoloMadreId(supabase, titoloId);
@@ -101,21 +89,21 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, titoloId]);
 
-  // Preview rate future
   const preview = useMemo(() => {
-    if (!titoloRow) return [] as Array<{ da: string; a: string; importo: number }>;
-    const fraz = titoloRow.frazionamento || "Annuale";
-    const anni = titoloRow.anni_durata || 1;
+    const titolo = editorState?.titolo ?? titoloRow;
+    if (!titolo) return [] as Array<{ da: string; a: string; importo: number }>;
+    const fraz = (titolo.frazionamento as string) || "Annuale";
+    const anni = (titolo.anni_durata as number) || 1;
     const mesi = frazionamentoMesi(fraz, anni);
     const ratePerAnno = frazionamentoToRate(fraz, anni);
-    const importoFirma = Number(titoloRow.premio_lordo || 0);
+    const importoFirma = editorState?.totaleLordo ?? Number(titolo.premio_lordo || 0);
     const importoRata = ratePerAnno > 0 ? +(importoFirma / ratePerAnno).toFixed(2) : importoFirma;
-    const fineCopertura = titoloRow.durata_a || titoloRow.data_scadenza;
-    const startBase = titoloRow.garanzia_a;
+    const fineCopertura = (titolo.durata_a as string) || (titolo.data_scadenza as string);
+    const startBase = titolo.garanzia_a as string;
     if (!fineCopertura || !startBase) return [];
     if (fraz === "Poliennale") return [];
     const out: Array<{ da: string; a: string; importo: number }> = [];
-    let cursor = startBase as string;
+    let cursor = startBase;
     let safety = 0;
     while (cursor < fineCopertura && safety < 120) {
       const da = cursor;
@@ -126,53 +114,42 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
       safety++;
     }
     return out;
-  }, [titoloRow]);
+  }, [titoloRow, editorState]);
 
   const oneriNum = Number(oneri.replace(",", ".")) || 0;
-
-  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (f.size > MAX_FILE_SIZE) {
-      toast.error("Il file supera il limite di 10 MB");
-      if (fileRef.current) fileRef.current.value = "";
-      return;
-    }
-    setFile(f);
-    setDisplayName(f.name);
-  };
-
-  const removeFile = () => {
-    setFile(null);
-    setDisplayName("");
-    if (fileRef.current) fileRef.current.value = "";
-  };
 
   const riattivazioneMutation = useMutation({
     mutationFn: async () => {
       if (!dataRiattivazione) throw new Error("Data riattivazione obbligatoria");
       if (!titoloRow) throw new Error("Titolo non caricato");
-      if (titoloRow.stato !== "sospeso") throw new Error("La polizza non è sospesa. Solo le polizze sospese possono essere riattivate.");
+      if (titoloRow.stato !== "sospeso") {
+        throw new Error("La polizza non è sospesa. Solo le polizze sospese possono essere riattivate.");
+      }
 
-      const madreId = await resolveTitoloMadreId(supabase, titoloId);
+      const madreIdResolved = await resolveTitoloMadreId(supabase, titoloId);
       const dataSospensione = titoloRow.data_sospensione as string | null;
       if (!dataSospensione) throw new Error("Data sospensione mancante sulla polizza");
       const shiftDays = diffDaysISO(dataSospensione, dataRiattivazione);
 
-      // 0. Snapshot pre-evento + applica modifiche inline (date / garanzie)
       const snapshotId = await editorRef.current?.commit("riattivazione");
+      const updatedState = editorRef.current?.getState();
 
-      // 0bis. Cambio numero polizza (se compagnia ne emette uno nuovo)
+      const { data: titoloFresh } = await supabase
+        .from("titoli")
+        .select("*")
+        .eq("id", madreIdResolved)
+        .single();
+      const titoloForOps = titoloFresh ?? updatedState?.titolo ?? titoloRow;
+
       const numeroCambiato = await aggiornaNumeroPolizza({
-        titoloId: madreId,
-        numeroCorrente: titoloRow.numero_titolo,
+        titoloId: madreIdResolved,
+        numeroCorrente: titoloRow.numero_titolo as string,
         numeroNuovo: nuovoNumero,
         causale: "riattivazione",
         motivo,
       });
-      const numeroEffettivo = numeroCambiato ? nuovoNumero.trim() : titoloRow.numero_titolo;
+      const numeroEffettivo = numeroCambiato ? nuovoNumero.trim() : (titoloRow.numero_titolo as string);
 
-      // 1. Ripristina quietanze congelate con shift date
       const quietanzeRipristinate: string[] = [];
       const snapshot = titoloRow.quietanze_sospensione_snapshot as QuietanzeSospensioneSnapshot | null;
       let frozenEntries = snapshot?.quietanze ?? [];
@@ -184,13 +161,13 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
           .eq("numero_titolo", titoloRow.numero_titolo)
           .eq("stato", "sospeso")
           .not("sostituisce_polizza", "is", null);
-        frozenEntries = (sospese || []).map((q: any) => ({
-          id: q.id,
-          riga: q.riga,
-          garanzia_da: q.garanzia_da,
-          garanzia_a: q.garanzia_a,
-          premio_lordo: q.premio_lordo,
-          stato: q.stato,
+        frozenEntries = (sospese || []).map((q: Record<string, unknown>) => ({
+          id: q.id as string,
+          riga: q.riga as number | null,
+          garanzia_da: q.garanzia_da as string | null,
+          garanzia_a: q.garanzia_a as string | null,
+          premio_lordo: q.premio_lordo as number | null,
+          stato: q.stato as string,
         }));
       }
 
@@ -208,13 +185,12 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
             garanzia_da: shifted.garanzia_da,
             garanzia_a: shifted.garanzia_a,
             stato: "attivo",
-          } as any)
+          } as never)
           .eq("id", entry.id);
         if (errQ) throw errQ;
         quietanzeRipristinate.push(entry.id);
       }
 
-      // 1b. Estendi date polizza madre
       const madreUpdate: Record<string, unknown> = {
         stato: "attivo",
         data_riattivazione: dataRiattivazione,
@@ -223,67 +199,99 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
         motivo_sospensione: null,
         quietanze_sospensione_snapshot: null,
       };
-      if (titoloRow.garanzia_a) madreUpdate.garanzia_a = addDaysISO(titoloRow.garanzia_a, shiftDays);
-      if (titoloRow.data_scadenza) madreUpdate.data_scadenza = addDaysISO(titoloRow.data_scadenza, shiftDays);
-      if (titoloRow.durata_a) madreUpdate.durata_a = addDaysISO(titoloRow.durata_a, shiftDays);
+      const garanziaA = titoloForOps.garanzia_a as string | undefined;
+      const dataScadenza = titoloForOps.data_scadenza as string | undefined;
+      const durataA = titoloForOps.durata_a as string | undefined;
+      if (garanziaA) madreUpdate.garanzia_a = addDaysISO(garanziaA, shiftDays);
+      if (dataScadenza) madreUpdate.data_scadenza = addDaysISO(dataScadenza, shiftDays);
+      if (durataA) madreUpdate.durata_a = addDaysISO(durataA, shiftDays);
 
       const { error: errUp } = await supabase
         .from("titoli")
-        .update(madreUpdate as any)
-        .eq("id", madreId);
+        .update(madreUpdate as never)
+        .eq("id", madreIdResolved);
       if (errUp) throw errUp;
 
-      // 2. Fallback: ricrea quietanze da preview se nessuna congelata (legacy delete)
+      const premioLordoFallback =
+        updatedState?.totaleLordo ??
+        Number(titoloFresh?.premio_lordo ?? titoloRow.premio_lordo ?? 0);
+      const frazFallback = (titoloForOps.frazionamento as string) || "Annuale";
+      const anniFallback = (titoloForOps.anni_durata as number) || 1;
+      const ratePerAnnoFallback = frazionamentoToRate(frazFallback, anniFallback);
+      const importoRataFallback =
+        ratePerAnnoFallback > 0
+          ? +(premioLordoFallback / ratePerAnnoFallback).toFixed(2)
+          : premioLordoFallback;
+
+      const previewFallback = (() => {
+        const fraz = frazFallback;
+        const mesi = frazionamentoMesi(fraz, anniFallback);
+        const fineCopertura = durataA || dataScadenza;
+        const startBase = garanziaA;
+        if (!fineCopertura || !startBase || fraz === "Poliennale") return [];
+        const out: Array<{ da: string; a: string; importo: number }> = [];
+        let cursor = startBase;
+        let safety = 0;
+        while (cursor < fineCopertura && safety < 120) {
+          const da = cursor;
+          const a = minISO(addMonthsISO(da, mesi), fineCopertura);
+          if (da >= a) break;
+          out.push({ da, a, importo: importoRataFallback });
+          cursor = a;
+          safety++;
+        }
+        return out;
+      })();
+
       const quietanzeCreate: string[] = [];
-      let prevRiga = Number(titoloRow.riga || 0);
+      let prevRiga = Number(titoloForOps.riga || 0);
       if (quietanzeRipristinate.length === 0) {
-        for (const r of preview) {
+        for (const r of previewFallback) {
           const shifted = computeShiftedDates(r.da, r.a, dataSospensione, dataRiattivazione, shiftDays);
           const nuovaRiga = prevRiga + 1;
-          const ratePerAnno = frazionamentoToRate(titoloRow.frazionamento || "Annuale", titoloRow.anni_durata || 1);
           const { data: ins, error: errIns } = await supabase
             .from("titoli")
             .insert({
               numero_titolo: numeroEffettivo,
-              cliente_id: titoloRow.cliente_id,
-              cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
-              compagnia_id: titoloRow.compagnia_id,
-              compagnia_rapporto_id: titoloRow.compagnia_rapporto_id,
-              codice_rapporto: titoloRow.codice_rapporto,
-              ramo_id: titoloRow.ramo_id,
-              prodotto_id: titoloRow.prodotto_id,
-              prodotto_nome: titoloRow.prodotto_nome,
-              ufficio_id: titoloRow.ufficio_id,
-              ae_anagrafica_id: titoloRow.ae_anagrafica_id,
-              anagrafica_commerciale_id: titoloRow.anagrafica_commerciale_id,
-              commerciale_id: titoloRow.commerciale_id,
-              percentuale_commerciale: titoloRow.percentuale_commerciale,
-              percentuale_riparto: titoloRow.percentuale_riparto,
-              durata_da: titoloRow.durata_da,
-              durata_a: titoloRow.durata_a,
-              anni_durata: titoloRow.anni_durata,
-              data_scadenza: titoloRow.data_scadenza,
-              frazionamento: titoloRow.frazionamento,
-              rate: ratePerAnno,
+              cliente_id: titoloForOps.cliente_id,
+              cliente_anagrafica_id: titoloForOps.cliente_anagrafica_id,
+              compagnia_id: titoloForOps.compagnia_id,
+              compagnia_rapporto_id: titoloForOps.compagnia_rapporto_id,
+              codice_rapporto: titoloForOps.codice_rapporto,
+              ramo_id: titoloForOps.ramo_id,
+              prodotto_id: titoloForOps.prodotto_id,
+              prodotto_nome: titoloForOps.prodotto_nome,
+              ufficio_id: titoloForOps.ufficio_id,
+              ae_anagrafica_id: titoloForOps.ae_anagrafica_id,
+              anagrafica_commerciale_id: titoloForOps.anagrafica_commerciale_id,
+              commerciale_id: titoloForOps.commerciale_id,
+              percentuale_commerciale: titoloForOps.percentuale_commerciale,
+              percentuale_riparto: titoloForOps.percentuale_riparto,
+              durata_da: titoloForOps.durata_da,
+              durata_a: titoloForOps.durata_a,
+              anni_durata: titoloForOps.anni_durata,
+              data_scadenza: titoloForOps.data_scadenza,
+              frazionamento: titoloForOps.frazionamento,
+              rate: ratePerAnnoFallback,
               garanzia_da: shifted.garanzia_da,
               garanzia_a: shifted.garanzia_a,
               premio_lordo: r.importo,
-              premio_netto_quietanza: titoloRow.premio_netto_quietanza,
-              addizionali_quietanza: titoloRow.addizionali_quietanza,
-              tasse_quietanza: titoloRow.tasse_quietanza,
-              provvigioni_quietanza: titoloRow.provvigioni_quietanza,
-              brokeraggio_quietanza: titoloRow.brokeraggio_quietanza,
+              premio_netto_quietanza: titoloForOps.premio_netto_quietanza,
+              addizionali_quietanza: titoloForOps.addizionali_quietanza,
+              tasse_quietanza: titoloForOps.tasse_quietanza,
+              provvigioni_quietanza: titoloForOps.provvigioni_quietanza,
+              brokeraggio_quietanza: titoloForOps.brokeraggio_quietanza,
               riga: nuovaRiga,
               sostituisce_polizza: numeroEffettivo,
               sostituisce_riga: prevRiga,
               stato: "attivo",
-              tipo_portafoglio: titoloRow.tipo_portafoglio,
-              tipo_mandatario: titoloRow.tipo_mandatario,
-            } as any)
+              tipo_portafoglio: titoloForOps.tipo_portafoglio,
+              tipo_mandatario: titoloForOps.tipo_mandatario,
+            } as never)
             .select("id")
             .single();
           if (errIns) throw errIns;
-          quietanzeCreate.push(ins!.id);
+          quietanzeCreate.push(ins!.id as string);
           prevRiga = nuovaRiga;
         }
       } else {
@@ -294,55 +302,53 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
           .order("riga", { ascending: false })
           .limit(1)
           .maybeSingle();
-        prevRiga = Number(maxRigaRow?.riga ?? titoloRow.riga ?? 0);
+        prevRiga = Number(maxRigaRow?.riga ?? titoloForOps.riga ?? 0);
       }
 
-      // 3. Titolo Oneri di Riattivazione (sempre creato, anche a €0)
       const rigaOneri = prevRiga + 1;
       const { data: insOneri, error: errOneri } = await supabase
         .from("titoli")
         .insert({
           numero_titolo: numeroEffettivo,
-          cliente_id: titoloRow.cliente_id,
-          cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
-          compagnia_id: titoloRow.compagnia_id,
-          compagnia_rapporto_id: titoloRow.compagnia_rapporto_id,
-          codice_rapporto: titoloRow.codice_rapporto,
-          ramo_id: titoloRow.ramo_id,
-          prodotto_id: titoloRow.prodotto_id,
-          prodotto_nome: titoloRow.prodotto_nome,
-          ufficio_id: titoloRow.ufficio_id,
-          ae_anagrafica_id: titoloRow.ae_anagrafica_id,
-          anagrafica_commerciale_id: titoloRow.anagrafica_commerciale_id,
-          commerciale_id: titoloRow.commerciale_id,
-          percentuale_commerciale: titoloRow.percentuale_commerciale,
-          percentuale_riparto: titoloRow.percentuale_riparto,
+          cliente_id: titoloForOps.cliente_id,
+          cliente_anagrafica_id: titoloForOps.cliente_anagrafica_id,
+          compagnia_id: titoloForOps.compagnia_id,
+          compagnia_rapporto_id: titoloForOps.compagnia_rapporto_id,
+          codice_rapporto: titoloForOps.codice_rapporto,
+          ramo_id: titoloForOps.ramo_id,
+          prodotto_id: titoloForOps.prodotto_id,
+          prodotto_nome: titoloForOps.prodotto_nome,
+          ufficio_id: titoloForOps.ufficio_id,
+          ae_anagrafica_id: titoloForOps.ae_anagrafica_id,
+          anagrafica_commerciale_id: titoloForOps.anagrafica_commerciale_id,
+          commerciale_id: titoloForOps.commerciale_id,
+          percentuale_commerciale: titoloForOps.percentuale_commerciale,
+          percentuale_riparto: titoloForOps.percentuale_riparto,
           garanzia_da: dataRiattivazione,
           garanzia_a: dataRiattivazione,
           premio_lordo: oneriNum,
           premio_netto: oneriNum,
           riga: rigaOneri,
           sostituisce_polizza: numeroEffettivo,
-          sostituisce_riga: titoloRow.riga,
+          sostituisce_riga: titoloForOps.riga,
           stato: "attivo",
           note: "Oneri di riattivazione",
           is_oneri_riattivazione: true,
-          tipo_portafoglio: titoloRow.tipo_portafoglio,
-          tipo_mandatario: titoloRow.tipo_mandatario,
-        } as any)
+          tipo_portafoglio: titoloForOps.tipo_portafoglio,
+          tipo_mandatario: titoloForOps.tipo_mandatario,
+        } as never)
         .select("id")
         .single();
       if (errOneri) throw errOneri;
-      const titoloOneriId = insOneri!.id;
+      const titoloOneriId = insOneri!.id as string;
 
-      // 4. Upload documento opzionale
       let documentoId: string | null = null;
       let documentoNome: string | null = null;
       if (file) {
         const { data: { user } } = await supabase.auth.getUser();
-        const finalName = ensureExt((displayName || file.name).trim() || file.name, file.name);
+        const finalName = ensureAllegatoExt((displayName || file.name).trim() || file.name, file.name);
         const safeName = finalName.replace(/[^\w.\-]+/g, "_");
-        const path = `titolo/${madreId}/riattivazione_${Date.now()}_${safeName}`;
+        const path = `titolo/${madreIdResolved}/riattivazione_${Date.now()}_${safeName}`;
         const { error: upErr } = await supabase.storage.from("documenti_titoli").upload(path, file);
         if (upErr) throw upErr;
         const { data: docIns, error: docErr } = await supabase.from("documenti").insert({
@@ -350,15 +356,14 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
           path_storage: path,
           bucket_name: "documenti_titoli",
           entita_tipo: "titolo",
-          entita_id: madreId,
+          entita_id: madreIdResolved,
           caricato_da: user?.id,
         }).select("id").single();
         if (docErr) throw docErr;
-        documentoId = docIns?.id || null;
+        documentoId = (docIns?.id as string) || null;
         documentoNome = finalName;
       }
 
-      // 5. Movimento RA (collegato al titolo oneri, come SO per sospensione)
       const descrParts: string[] = ["Riattivazione polizza"];
       if (oneriNum > 0) descrParts.push(`oneri ${oneriNum.toFixed(2)} €`);
       if (motivo) descrParts.push(motivo);
@@ -369,13 +374,12 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
         data_movimento: dataRiattivazione,
         descrizione: descrParts.join(" — "),
         stato: "attivo",
-      } as any);
+      } as never);
 
-      // 6. Log attività
       await logAttivita({
         azione: "riattivazione_polizza",
         entita_tipo: "titolo",
-        entita_id: madreId,
+        entita_id: madreIdResolved,
         dettagli_json: {
           data_riattivazione: dataRiattivazione,
           data_sospensione: dataSospensione,
@@ -395,7 +399,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
 
       return { quietanzeRipristinate, quietanzeCreate, titoloOneriId, documentoNome, oneriNum };
     },
-    onSuccess: ({ quietanzeRipristinate, quietanzeCreate, titoloOneriId, documentoNome, oneriNum: o }) => {
+    onSuccess: ({ quietanzeRipristinate, quietanzeCreate, documentoNome, oneriNum: o }) => {
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["movimenti-polizza", titoloId] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", titoloId] });
@@ -413,32 +417,46 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
       onOpenChange(false);
       onDone?.();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Errore durante la riattivazione");
     },
   });
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Riattivazione Polizza</DialogTitle>
-            <DialogDescription>
-              {numeroPolizza ? `Polizza ${numeroPolizza}` : "Riattiva la polizza sospesa"} — modifica date e garanzie se necessario, poi conferma in un unico passaggio.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 py-2">
-            <div className="space-y-4">
+      <OperazionePolizzaDialogShell
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Riattivazione Polizza"
+        description={
+          numeroPolizza
+            ? `Polizza ${numeroPolizza} — modifica date e garanzie se necessario, poi conferma in un unico passaggio.`
+            : "Riattiva la polizza sospesa"
+        }
+        eventColumn={
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="data-riatt-dlg">Data Riattivazione *</Label>
-                <Input id="data-riatt-dlg" type="date" value={dataRiattivazione} onChange={(e) => setDataRiattivazione(e.target.value)} className="tabular-nums" />
+                <Input
+                  id="data-riatt-dlg"
+                  type="date"
+                  value={dataRiattivazione}
+                  onChange={(e) => setDataRiattivazione(e.target.value)}
+                  className="tabular-nums"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="oneri-dlg">Oneri a carico cliente (€)</Label>
-                <Input id="oneri-dlg" type="number" min="0" step="0.01" value={oneri} onChange={(e) => setOneri(e.target.value)} className="tabular-nums" />
+                <Input
+                  id="oneri-dlg"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={oneri}
+                  onChange={(e) => setOneri(e.target.value)}
+                  className="tabular-nums"
+                />
               </div>
             </div>
 
@@ -451,7 +469,10 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
                 placeholder={numeroPolizza || "Lasciare vuoto se invariato"}
                 className="font-mono"
               />
-              <p className="text-xs text-muted-foreground">Se la compagnia ha emesso un nuovo numero in fase di riattivazione, inseriscilo qui. Il numero precedente verrà archiviato.</p>
+              <p className="text-xs text-muted-foreground">
+                Se la compagnia ha emesso un nuovo numero in fase di riattivazione, inseriscilo qui. Il numero precedente
+                verrà archiviato.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -459,22 +480,31 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
               <Textarea id="motivo-riatt-dlg" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} />
             </div>
 
-
             <div className="border rounded-md p-3 bg-muted/30">
               <div className="text-sm font-semibold mb-2">Quietanze che verranno ricreate</div>
               {loadingTitolo ? (
                 <div className="text-xs text-muted-foreground">Caricamento…</div>
               ) : preview.length === 0 ? (
-                <div className="text-xs text-muted-foreground">Nessuna quietanza futura da ricreare (polizza in scadenza o poliennale). Le quietanze congelate verranno ripristinate con shift date.</div>
+                <div className="text-xs text-muted-foreground">
+                  Nessuna quietanza futura da ricreare (polizza in scadenza o poliennale). Le quietanze congelate
+                  verranno ripristinate con shift date.
+                </div>
               ) : (
                 <ul className="text-xs space-y-1 tabular-nums">
                   {preview.map((r, i) => (
                     <li key={i} className="flex justify-between gap-3">
-                      <span>{r.da} → {r.a}</span>
+                      <span>
+                        {r.da} → {r.a}
+                      </span>
                       <span className="font-medium">{r.importo.toFixed(2)} €</span>
                     </li>
                   ))}
                 </ul>
+              )}
+              {editorState && editorState.totaleLordo !== editorState.originalPremioLordo && (
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                  Importi rata calcolati sul premio lordo aggiornato ({editorState.totaleLordo.toFixed(2)} €).
+                </p>
               )}
               <div className="text-xs mt-2 pt-2 border-t flex justify-between tabular-nums">
                 <span>+ Titolo Oneri di Riattivazione (sempre creato, anche a €0)</span>
@@ -482,43 +512,35 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
               </div>
             </div>
 
-            <div className="space-y-1.5 border-t pt-3">
-              <Label>Documento allegato (opzionale)</Label>
-              <input ref={fileRef} type="file" className="hidden" onChange={handleFileSelected} />
-              {!file ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                  <Paperclip className="w-4 h-4 mr-1" /> Seleziona file
-                </Button>
-              ) : (
-                <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-2">
-                  <Paperclip className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <Input
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Nome del documento"
-                    className="h-8 text-sm"
-                  />
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={removeFile} title="Rimuovi">
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">Max 10 MB. Il nome è modificabile; l'estensione viene preservata.</p>
-            </div>
-            </div>
-
-            <PolizzaEditorInline ref={editorRef} titoloId={madreId} />
+            <OperazioneAllegatoField
+              file={file}
+              displayName={displayName}
+              onFileChange={(f, name) => {
+                setFile(f);
+                setDisplayName(name);
+              }}
+              onDisplayNameChange={setDisplayName}
+            />
           </div>
-
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={riattivazioneMutation.isPending}>Annulla</Button>
-            <Button onClick={() => setConfirmOpen(true)} disabled={riattivazioneMutation.isPending || !dataRiattivazione || loadingTitolo}>
+        }
+        editorColumn={
+          <PolizzaEditorInline ref={editorRef} titoloId={madreId} onStateChange={handleEditorStateChange} />
+        }
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={riattivazioneMutation.isPending}>
+              Annulla
+            </Button>
+            <Button
+              onClick={() => setConfirmOpen(true)}
+              disabled={riattivazioneMutation.isPending || !dataRiattivazione || loadingTitolo}
+            >
               {riattivazioneMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Conferma
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
@@ -526,20 +548,41 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
             <AlertDialogTitle>Conferma riattivazione polizza</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">
-                <div>Stai per riattivare la polizza <strong>{numeroPolizza || "—"}</strong>.</div>
-                <div>Data riattivazione: <strong>{dataRiattivazione || "—"}</strong></div>
+                <div>
+                  Stai per riattivare la polizza <strong>{numeroPolizza || "—"}</strong>.
+                </div>
+                <div>
+                  Data riattivazione: <strong>{dataRiattivazione || "—"}</strong>
+                </div>
                 {nuovoNumero.trim() && nuovoNumero.trim() !== (numeroPolizza || "") && (
-                  <div>Nuovo numero polizza: <strong>{nuovoNumero.trim()}</strong> <span className="text-muted-foreground">(precedente archiviato)</span></div>
+                  <div>
+                    Nuovo numero polizza: <strong>{nuovoNumero.trim()}</strong>{" "}
+                    <span className="text-muted-foreground">(precedente archiviato)</span>
+                  </div>
                 )}
-                <div>Quietanze: ripristino congelate o ricreate da preview: <strong>{preview.length}</strong></div>
-                <div>Oneri cliente: <strong>{oneriNum.toFixed(2)} €</strong> (titolo oneri sempre creato)</div>
-                {file && <div>Allegato: <strong>{ensureExt((displayName || file.name).trim() || file.name, file.name)}</strong></div>}
+                <div>
+                  Quietanze: ripristino congelate o ricreate da preview: <strong>{preview.length}</strong>
+                </div>
+                <div>
+                  Oneri cliente: <strong>{oneriNum.toFixed(2)} €</strong> (titolo oneri sempre creato)
+                </div>
+                {file && (
+                  <div>
+                    Allegato:{" "}
+                    <strong>{ensureAllegatoExt((displayName || file.name).trim() || file.name, file.name)}</strong>
+                  </div>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setConfirmOpen(false); riattivazioneMutation.mutate(); }}>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmOpen(false);
+                riattivazioneMutation.mutate();
+              }}
+            >
               Conferma riattivazione
             </AlertDialogAction>
           </AlertDialogFooter>

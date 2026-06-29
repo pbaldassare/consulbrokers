@@ -150,9 +150,7 @@ const sidebarEntries: SidebarEntry[] = [
         // { label: "Deduplica Clienti", path: "/archivi/clienti/deduplica", icon: Users, hideForRoles: ["ufficio","produttore","corrispondente","cliente","prospect"] }, // nascosta su richiesta
         
         { label: "Polizze Attive", path: "/portafoglio/attive", icon: Shield },
-        { label: "Carico", path: "/portafoglio/carico", icon: Clock },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
-        { label: "Gestione Polizze", path: "/portafoglio/gestione", icon: Wand2 },
         
         { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer, hideForRoles: ["ufficio"] },
       ],
@@ -199,7 +197,9 @@ const sidebarEntries: SidebarEntry[] = [
       icon: Calculator,
       permissionKey: "contabilita",
       children: [
-        { label: "Incassi e Coperture", path: "/contabilita", icon: Landmark },
+        { label: "Incassi e Coperture", path: "/portafoglio/carico", icon: Clock },
+        { label: "Riepilogo Messe a Cassa", path: "/contabilita", icon: Landmark },
+        { label: "Gestione Polizze", path: "/portafoglio/gestione", icon: Wand2 },
         
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
         { label: "E/C Agenzie", path: "/contabilita/ec-agenzia", icon: Building2, hideForRoles: ["ufficio"] },

@@ -164,9 +164,7 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
 
   // Portafoglio
   { label: 'Polizze Attive', path: '/portafoglio/attive' },
-  { label: 'Carico', path: '/portafoglio/carico' },
   { label: 'Storico Polizze', path: '/portafoglio/storico' },
-  { label: 'Gestione Polizze', path: '/portafoglio/gestione' },
   { label: 'Immissione Polizza', path: '/portafoglio/immissione' },
   { label: 'Appendici', path: '/portafoglio/appendici' },
   { label: 'Rinnovi', path: '/portafoglio/rinnovi' },
@@ -188,7 +186,9 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Report Sanitario SIR', path: '/sinistri/report-sir' },
 
   // Contabilità
-  { label: 'Incassi e Coperture', path: '/contabilita' },
+  { label: 'Incassi e Coperture', path: '/portafoglio/carico' },
+  { label: 'Riepilogo Messe a Cassa', path: '/contabilita' },
+  { label: 'Gestione Polizze', path: '/portafoglio/gestione' },
   { label: 'E/C Clienti', path: '/contabilita/ec-clienti' },
   { label: 'E/C Compagnia', path: '/contabilita/ec-compagnia' },
   { label: 'E/C Agenzie', path: '/contabilita/ec-agenzia' },

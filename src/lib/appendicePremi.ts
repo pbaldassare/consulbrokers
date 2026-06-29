@@ -1,0 +1,126 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { GaranziaEditorRow } from "@/components/polizze/PolizzaEditorInline";
+import { calcLordoGaranzia } from "@/lib/operazionePolizzaPremi";
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+export type AggregatedPremi = {
+  premio_netto: number;
+  tasse: number;
+  addizionali: number;
+  ssn_firma: number;
+  premio_lordo: number;
+};
+
+/** Aggrega importi da righe garanzia (stessa logica editor polizza). */
+export function aggregateGaranziePremi(garanzie: GaranziaEditorRow[]): AggregatedPremi {
+  let premio_netto = 0;
+  let tasse = 0;
+  let addizionali = 0;
+  let ssn_firma = 0;
+  let premio_lordo = 0;
+  for (const g of garanzie) {
+    premio_netto += Number(g.firma || 0);
+    addizionali += Number(g.rata || 0);
+    tasse += Number(g.imposta_provinciale || 0);
+    ssn_firma += Number(g.ssn || 0);
+    premio_lordo += Number(g.lordo_calcolato || calcLordoGaranzia(g));
+  }
+  return {
+    premio_netto: round2(premio_netto),
+    tasse: round2(tasse),
+    addizionali: round2(addizionali),
+    ssn_firma: round2(ssn_firma),
+    premio_lordo: round2(premio_lordo),
+  };
+}
+
+/** Calcola provvigioni da netto e percentuale polizza madre. */
+export function calcProvvigioniAppendice(premioNetto: number, percProvv: number | null | undefined): number {
+  if (percProvv == null || !Number.isFinite(percProvv)) return 0;
+  return round2((premioNetto * percProvv) / 100);
+}
+
+/** Copia composizione premi sul titolo derivato appendice. */
+export async function syncPremiGaranziaToTitolo(
+  supabase: SupabaseClient,
+  titoloId: string,
+  garanzie: GaranziaEditorRow[],
+): Promise<void> {
+  await supabase.from("premi_garanzia_polizza").delete().eq("titolo_id", titoloId);
+  if (garanzie.length === 0) return;
+  const rows = garanzie.map((g, idx) => ({
+    titolo_id: titoloId,
+    garanzia: g.garanzia || "Garanzia",
+    codice_garanzia: g.codice_garanzia,
+    firma: g.firma,
+    rata: g.rata,
+    imposta_provinciale: g.imposta_provinciale,
+    ssn: g.ssn,
+    lordo_calcolato: g.lordo_calcolato || calcLordoGaranzia(g),
+    is_rca_principale: g.is_rca_principale,
+    ordine: g.ordine ?? idx + 1,
+    tipo_premio: "rata",
+  }));
+  const { error } = await supabase.from("premi_garanzia_polizza").insert(rows as never);
+  if (error) throw error;
+}
+
+/** Aggiorna intestazione titolo derivato con periodo e importi dettagliati. */
+export async function patchTitoloDerivatoAppendice(
+  supabase: SupabaseClient,
+  titoloId: string,
+  opts: {
+    dataEffetto: string;
+    dataScadenza: string;
+    oggetto?: string | null;
+    aggregated: AggregatedPremi;
+    provvigioni: number;
+    percProvv: number | null;
+  },
+): Promise<void> {
+  const { dataEffetto, dataScadenza, oggetto, aggregated, provvigioni, percProvv } = opts;
+  const { error } = await supabase
+    .from("titoli")
+    .update({
+      garanzia_da: dataEffetto,
+      garanzia_a: dataScadenza,
+      durata_da: dataEffetto,
+      durata_a: dataScadenza,
+      data_scadenza: dataScadenza,
+      data_competenza: dataEffetto,
+      premio_netto: aggregated.premio_netto,
+      tasse: aggregated.tasse,
+      addizionali: aggregated.addizionali,
+      ssn_firma: aggregated.ssn_firma,
+      premio_lordo: aggregated.premio_lordo,
+      premio_netto_quietanza: aggregated.premio_netto,
+      tasse_quietanza: aggregated.tasse,
+      addizionali_quietanza: aggregated.addizionali,
+      ssn_quietanza: aggregated.ssn_firma,
+      provvigioni_firma: provvigioni,
+      provvigioni_quietanza: provvigioni,
+      percentuale_provvigione: percProvv,
+      ...(oggetto ? { descrizione_polizza: oggetto } : {}),
+    } as never)
+    .eq("id", titoloId);
+  if (error) throw error;
+}
+
+export type AppendiceTipo = "modifica" | "proroga" | "regolazione";
+
+export async function creaTitoloDaAppendice(
+  supabase: SupabaseClient,
+  tipo: AppendiceTipo,
+  appendiceId: string,
+): Promise<string> {
+  const rpc =
+    tipo === "modifica"
+      ? "crea_titolo_da_modifica"
+      : tipo === "proroga"
+        ? "crea_titolo_da_proroga"
+        : "crea_titolo_da_regolazione";
+  const { data, error } = await supabase.rpc(rpc, { p_appendice_id: appendiceId });
+  if (error) throw error;
+  return data as string;
+}

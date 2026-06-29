@@ -64,7 +64,7 @@ function newPage(ctx: Ctx) {
 }
 
 function drawFooter(ctx: Ctx) {
-  const t = `Incassi e Coperture — ${ctx.meseLabel}   ·   pag. ${ctx.pageNum}`;
+  const t = `Riepilogo Messe a Cassa — ${ctx.meseLabel}   ·   pag. ${ctx.pageNum}`;
   ctx.page.drawText(t, { x: MARGIN.left, y: 25, size: 8, font: ctx.font, color: COLOR.muted });
 }
 
@@ -89,7 +89,7 @@ function drawHeader(ctx: Ctx, d: IncassiCopertureData) {
   ctx.page.drawText("CONSULBROKERS", { x: MARGIN.left, y: A4.h - 28, size: 14, font: ctx.bold, color: COLOR.headerText });
   ctx.page.drawText(d.sedeNome || "Sede", { x: MARGIN.left, y: A4.h - 44, size: 9, font: ctx.font, color: COLOR.text });
 
-  const title = "INCASSI E COPERTURE";
+  const title = "RIEPILOGO MESSE A CASSA";
   const wT = ctx.bold.widthOfTextAtSize(title, 13);
   ctx.page.drawText(title, { x: A4.w - MARGIN.right - wT, y: A4.h - 28, size: 13, font: ctx.bold, color: COLOR.headerText });
   const sub = `Mese: ${d.meseLabel}`;

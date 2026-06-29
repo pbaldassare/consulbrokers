@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Users } from "lucide-react";
-import { calcRipartoImporti, type RipartoCoassicurazioneRow } from "@/lib/coassicurazione";
+import { calcRipartoImporti, isRipartoSumValidForPreview, type RipartoCoassicurazioneRow } from "@/lib/coassicurazione";
 import { cn } from "@/lib/utils";
 
 interface CompagniaLookup {
@@ -54,7 +54,7 @@ export function CoassicurazioneImportiBreakdown({
     [ripartoRows, totNetto, totAccessori, totTasse, lordo, provvFirma, provvNetto, provvAccessori],
   );
 
-  if (ripartoRows.length === 0) return null;
+  if (ripartoRows.length === 0 || !isRipartoSumValidForPreview(ripartoRows)) return null;
 
   const labelFor = (row: RipartoCoassicurazioneRow) => {
     const ag = compagnieList.find((c) => c.id === row.compagniaId);

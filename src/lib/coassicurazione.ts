@@ -35,6 +35,15 @@ export interface RipartoImportiCalcolati {
   provv_addizionali: number;
 }
 
+export interface LeaderPrefill {
+  gruppoCompagniaId?: string;
+  compagniaId?: string;
+  rapportoId?: string;
+}
+
+export const QUOTA_MAX = 100;
+export const QUOTA_TOLERANCE = 0.01;
+
 let ripartoIdCounter = 0;
 
 export function newRipartoLocalId(): string {
@@ -53,9 +62,115 @@ export function emptyRipartoRow(overrides?: Partial<RipartoCoassicurazioneRow>):
   };
 }
 
+export function roundQuota(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
 export function parseQuotaPercentuale(raw: string): number {
   const n = parseFloat(String(raw).replace(",", "."));
   return Number.isFinite(n) ? n : 0;
+}
+
+/** Normalizza input quota: solo cifre/virgola, max 2 decimali, tetto 100. */
+export function sanitizeQuotaInput(raw: string, finalize = false): string {
+  let s = raw.replace(",", ".").replace(/[^\d.]/g, "");
+  const dotParts = s.split(".");
+  if (dotParts.length > 2) {
+    s = `${dotParts[0]}.${dotParts.slice(1).join("")}`;
+  }
+  const [intPart = "", decPart] = s.split(".");
+  if (decPart !== undefined && decPart.length > 2) {
+    s = `${intPart}.${decPart.slice(0, 2)}`;
+  }
+  if (s === "" || s === ".") return finalize ? "" : s;
+
+  const n = parseFloat(s);
+  if (!Number.isFinite(n)) return "";
+
+  if (n > QUOTA_MAX) return String(QUOTA_MAX);
+  if (finalize) return String(roundQuota(Math.max(0, n)));
+  return s;
+}
+
+export type QuotaRowIssue = "empty" | "invalid" | "zero" | "over_max";
+
+export function validateQuotaRow(raw: string): {
+  valid: boolean;
+  value: number;
+  issue?: QuotaRowIssue;
+} {
+  const trimmed = String(raw).trim();
+  if (!trimmed) return { valid: false, value: 0, issue: "empty" };
+  const n = parseFloat(trimmed.replace(",", "."));
+  if (!Number.isFinite(n)) return { valid: false, value: 0, issue: "invalid" };
+  if (n <= 0) return { valid: false, value: n, issue: "zero" };
+  if (n > QUOTA_MAX) return { valid: false, value: n, issue: "over_max" };
+  return { valid: true, value: roundQuota(n) };
+}
+
+export function sumQuotePercentuali(
+  rows: Pick<RipartoCoassicurazioneRow, "quotaPercentuale">[],
+): number {
+  return roundQuota(rows.reduce((s, r) => s + parseQuotaPercentuale(r.quotaPercentuale), 0));
+}
+
+export type QuotaSumStatus = "ok" | "under" | "over";
+
+export function getQuotaSumStatus(sum: number): QuotaSumStatus {
+  const rounded = roundQuota(sum);
+  const diffCents = Math.abs(Math.round(rounded * 100) - Math.round(QUOTA_MAX * 100));
+  if (diffCents <= 1) return "ok";
+  return rounded > QUOTA_MAX ? "over" : "under";
+}
+
+export function calcResiduoQuota(rows: RipartoCoassicurazioneRow[], excludeIdx: number): number {
+  const sumOthers = rows.reduce((s, r, i) => {
+    if (i === excludeIdx) return s;
+    return s + parseQuotaPercentuale(r.quotaPercentuale);
+  }, 0);
+  return roundQuota(QUOTA_MAX - sumOthers);
+}
+
+export function applyResiduoToRow(
+  rows: RipartoCoassicurazioneRow[],
+  idx: number,
+): RipartoCoassicurazioneRow[] {
+  const residuo = calcResiduoQuota(rows, idx);
+  if (residuo <= 0 || residuo > QUOTA_MAX) return rows;
+  return rows.map((r, i) => (i === idx ? { ...r, quotaPercentuale: String(residuo) } : r));
+}
+
+/** Quote che sommano a 100% (ultima riga assorbe arrotondamenti). */
+export function splitQuoteEvenly(count: number): string[] {
+  if (count <= 0) return [];
+  if (count === 1) return ["100"];
+  const base = roundQuota(QUOTA_MAX / count);
+  const quotas = Array.from({ length: count }, () => String(base));
+  const sumExceptLast = quotas
+    .slice(0, -1)
+    .reduce((s, q) => s + parseQuotaPercentuale(q), 0);
+  quotas[count - 1] = String(roundQuota(QUOTA_MAX - sumExceptLast));
+  return quotas;
+}
+
+export function redistributeQuoteEvenly(rows: RipartoCoassicurazioneRow[]): RipartoCoassicurazioneRow[] {
+  const quotas = splitQuoteEvenly(rows.length);
+  return rows.map((r, i) => ({ ...r, quotaPercentuale: quotas[i] ?? "" }));
+}
+
+export function buildInitialCoassRows(leader?: LeaderPrefill): RipartoCoassicurazioneRow[] {
+  const leaderRow = emptyRipartoRow({
+    gruppoCompagniaId: leader?.gruppoCompagniaId || "",
+    compagniaId: leader?.compagniaId || "",
+    rapportoId: leader?.rapportoId || "",
+    quotaPercentuale: "50",
+  });
+  const followerRow = emptyRipartoRow({ quotaPercentuale: "50" });
+  return [leaderRow, followerRow];
+}
+
+export function isRipartoSumValidForPreview(rows: RipartoCoassicurazioneRow[]): boolean {
+  return validateRipartoSum(rows).valid;
 }
 
 export function validateRipartoSum(rows: RipartoCoassicurazioneRow[]): {
@@ -63,12 +178,11 @@ export function validateRipartoSum(rows: RipartoCoassicurazioneRow[]): {
   sum: number;
   message?: string;
 } {
-  const sum = rows.reduce((s, r) => s + parseQuotaPercentuale(r.quotaPercentuale), 0);
-  const rounded = Math.round(sum * 100) / 100;
+  const rounded = sumQuotePercentuali(rows);
   if (rows.length === 0) {
     return { valid: false, sum: 0, message: "Aggiungi almeno una riga di coassicurazione" };
   }
-  if (Math.abs(rounded - 100) > 0.01) {
+  if (Math.abs(rounded - QUOTA_MAX) > QUOTA_TOLERANCE) {
     return {
       valid: false,
       sum: rounded,
@@ -83,9 +197,12 @@ export function validateRipartoSum(rows: RipartoCoassicurazioneRow[]): {
     if (!row.compagniaId) {
       return { valid: false, sum: rounded, message: `Riga ${i + 1}: seleziona l'Agenzia` };
     }
-    const q = parseQuotaPercentuale(row.quotaPercentuale);
-    if (q <= 0) {
-      return { valid: false, sum: rounded, message: `Riga ${i + 1}: quota % obbligatoria` };
+    const rowCheck = validateQuotaRow(row.quotaPercentuale);
+    if (!rowCheck.valid) {
+      if (rowCheck.issue === "over_max") {
+        return { valid: false, sum: rounded, message: `Riga ${i + 1}: la quota non può superare 100%` };
+      }
+      return { valid: false, sum: rounded, message: `Riga ${i + 1}: quota % obbligatoria (maggiore di 0)` };
     }
   }
   return { valid: true, sum: rounded };

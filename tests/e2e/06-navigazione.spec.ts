@@ -24,12 +24,12 @@ test.describe('Navigazione — sidebar senza 404', () => {
     });
   }
 
-  test('espansione gruppo Portafoglio e navigazione a Carico', async ({ page }) => {
-    const portafoglioBtn = page.getByRole('button', { name: 'Portafoglio' });
-    if (await portafoglioBtn.count()) {
-      await portafoglioBtn.click();
+  test('espansione gruppo Contabilità e navigazione a Incassi e Coperture', async ({ page }) => {
+    const contabilitaBtn = page.getByRole('button', { name: 'Contabilità' });
+    if (await contabilitaBtn.count()) {
+      await contabilitaBtn.click();
     }
-    await page.getByRole('link', { name: 'Carico' }).click();
+    await page.getByRole('link', { name: 'Incassi e Coperture' }).click();
     await expect(page).toHaveURL(/\/portafoglio\/carico/);
     await expectPageHealthy(page);
   });
@@ -54,20 +54,20 @@ test.describe('Navigazione — breadcrumb', () => {
     await expect(breadcrumb.getByText('Clienti')).toBeVisible();
   });
 
-  test('breadcrumb su Carico include Portafoglio', async ({ page }) => {
+  test('breadcrumb su Incassi e Coperture include Portafoglio', async ({ page }) => {
     await page.goto('/portafoglio/carico');
     await expectPageHealthy(page);
     const breadcrumb = page.locator('nav[aria-label="breadcrumb"], [data-slot="breadcrumb"]').first();
     await expect(breadcrumb).toBeVisible();
-    await expect(breadcrumb.getByText(/Portafoglio|Carico/i).first()).toBeVisible();
+    await expect(breadcrumb.getByText(/Portafoglio|Incassi e Coperture/i).first()).toBeVisible();
   });
 
-  test('breadcrumb su Incassi e Coperture', async ({ page }) => {
+  test('breadcrumb su Riepilogo Messe a Cassa', async ({ page }) => {
     await page.goto('/contabilita');
     await expectPageHealthy(page);
     const breadcrumb = page.locator('nav[aria-label="breadcrumb"], [data-slot="breadcrumb"]').first();
     await expect(breadcrumb).toBeVisible();
-    await expect(breadcrumb.getByText(/Contabilità|Incassi/i).first()).toBeVisible();
+    await expect(breadcrumb.getByText(/Contabilità|Riepilogo Messe a Cassa/i).first()).toBeVisible();
   });
 
   test('navigazione breadcrumb Home riporta alla dashboard', async ({ page }) => {

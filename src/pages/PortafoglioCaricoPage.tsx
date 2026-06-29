@@ -417,7 +417,7 @@ const PortafoglioCaricoPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Carico</h1>
+        <h1 className="text-2xl font-bold text-foreground">Incassi e Coperture</h1>
         <p className="text-sm text-muted-foreground">
           {(() => {
             const labelBase = filtroPeriodo === "messe_cassa" ? "Polizze messe a cassa" : "Polizze in scadenza";

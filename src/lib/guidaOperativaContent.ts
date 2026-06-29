@@ -34,12 +34,12 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     cosaSuccede: [
       "All'emissione della polizza il sistema crea automaticamente le quietanze previste (es. annuale = 1 rata, trimestrale = 4 rate, mensile = 12 rate).",
       "La polizza madre resta attiva come contratto: non va messa a cassa.",
-      "Le quietanze compaiono in Carico finché non sono incassate.",
+      "Le quietanze compaiono in Incassi e Coperture finché non sono incassate.",
       "Polizze poliennali particolari possono avere solo la madre, senza rate automatiche.",
     ],
     casiParticolari: [
       "Ogni rata ha importi e date modificabili in autonomia.",
-      "In Carico vedi solo ciò che devi ancora incassare.",
+      "In Incassi e Coperture vedi solo ciò che devi ancora incassare.",
     ],
   },
   {
@@ -49,14 +49,14 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     tags: ["messa a cassa", "incasso", "carico", "contanti", "bonifico"],
     intro: "Registra che il premio (o parte del premio) è stato pagato dal cliente.",
     cosaFai: [
-      "Vai in Carico o apri il dettaglio della quietanza.",
+      "Vai in Incassi e Coperture o apri il dettaglio della quietanza.",
       "Clicca Metti a cassa.",
       "Indichi come è stato pagato, l'importo, la data e — se serve — acconti o rettifiche.",
       "Confermi solo se il totale torna (quadratura).",
     ],
     cosaSuccede: [
       "La quietanza viene segnata come incassata se l'importo copre tutto il premio.",
-      "Esce dal Carico e compare negli incassi / storico.",
+      "Esce da Incassi e Coperture e compare negli incassi / storico.",
       "Si calcolano le provvigioni sull'incasso.",
       "Parte l'email automatica di copertura all'agenzia/compagnia (se l'incasso è completo).",
       "Se la polizza è frazionata, può essere preparata la rata successiva da incassare più avanti.",
@@ -65,7 +65,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     ],
     casiParticolari: [
       "Polizza sospesa: non puoi incassare finché non viene tolta la sospensione.",
-      "Incasso parziale: resta in Carico con l'importo già registrato.",
+      "Incasso parziale: resta in Incassi e Coperture con l'importo già registrato.",
       "Se l'email all'agenzia non parte per un errore tecnico, l'incasso resta valido — puoi reinviarla dal dettaglio titolo.",
     ],
   },
@@ -75,7 +75,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     area: "portafoglio",
     tags: ["bonifico", "banca", "conto", "messa a cassa"],
     cosaFai: [
-      "Selezioni la quietanza in Carico.",
+      "Selezioni la quietanza in Incassi e Coperture.",
       "Apri Metti a cassa.",
       "Scegli Bonifico come tipo di pagamento.",
       "Indichi su quale conto bancario è arrivato il bonifico.",
@@ -84,14 +84,14 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     ],
     cosaSuccede: [
       "La quietanza risulta incassata con pagamento bonifico e banca registrata.",
-      "Esce dal Carico se l'importo copre tutto.",
+      "Esce da Incassi e Coperture se l'importo copre tutto.",
       "Si calcolano le provvigioni.",
       "Viene inviata l'email di copertura all'agenzia.",
       "Eventuale rata successiva o rinnovo come per ogni incasso completo.",
     ],
     casiParticolari: [
       "Senza conto bancario selezionato il sistema non fa proseguire.",
-      "Bonifico parziale: la quietanza resta in Carico; niente email agenzia finché non chiudi il saldo.",
+      "Bonifico parziale: la quietanza resta in Incassi e Coperture; niente email agenzia finché non chiudi il saldo.",
       "Se fai la stessa operazione dal Ricongiungimento bancario, il bonifico importato viene collegato alle polizze (vedi voce dedicata).",
     ],
     riepilogo: [
@@ -110,7 +110,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
       "Indichi importo e data; verifica che il totale quadri.",
     ],
     cosaSuccede: [
-      "Stesso effetto dell'incasso completo: quietanza chiusa, provvigioni, email agenzia, uscita dal Carico.",
+      "Stesso effetto dell'incasso completo: quietanza chiusa, provvigioni, email agenzia, uscita da Incassi e Coperture.",
       "Non serve selezionare un conto bancario.",
     ],
   },
@@ -124,7 +124,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     ],
     cosaSuccede: [
       "Il sistema salva quanto hai già incassato sulla quietanza.",
-      "La quietanza resta visibile in Carico finché non copri l'intero premio.",
+      "La quietanza resta visibile in Incassi e Coperture finché non copri l'intero premio.",
       "Non invia l'email all'agenzia e non considera l'incasso chiuso.",
       "Al secondo incasso somma gli importi: quando il totale copre il premio, chiude come incasso normale.",
     ],
@@ -197,7 +197,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
       "Il movimento bancario risulta chiuso/incassato.",
       "Eccedenza → acconto sul cliente pagatore.",
       "Mancanza (ammanco) → devi inserire una voce strutturale finché non quadra; non si chiude con una nota libera.",
-      "Stessi effetti dell'incasso normale: provvigioni, email agenzia se incasso completo, uscita dal Carico.",
+      "Stessi effetti dell'incasso normale: provvigioni, email agenzia se incasso completo, uscita da Incassi e Coperture.",
     ],
     riepilogo: [
       { situazione: "Bonifico = somma quietanze", risultato: "Tutto chiuso, movimento incassato" },
@@ -303,11 +303,41 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     area: "portafoglio",
     tags: ["sospensione", "appendice", "blocco"],
     cosaFai: [
-      "Registri una sospensione sulla polizza (appendice).",
+      "Apri Sospensione dalla scheda polizza: a sinistra data, oneri e allegato; a destra modifichi date, garanzie e premi nell'editor inline.",
+      "L'anteprima mostra le quietanze che verranno congelate alla data scelta.",
     ],
     cosaSuccede: [
       "La polizza madre risulta sospesa.",
-      "Non puoi mettere a cassa le quietanze collegate finché la sospensione è attiva.",
+      "Le quietanze future e quella in corso passano a stato sospeso e non sono incassabili fino alla riattivazione.",
+      "Viene creato un titolo oneri di sospensione (anche a €0) visibile in Incassi e Coperture.",
+    ],
+  },
+  {
+    id: "sostituzione",
+    titolo: "Sostituzione polizza",
+    area: "portafoglio",
+    tags: ["sostituzione", "veicolo", "conguaglio"],
+    cosaFai: [
+      "Registri la sostituzione dell'oggetto assicurato (veicolo RCA o bene generico) dall'editor inline a destra.",
+      "Il conguaglio si propone automaticamente dalla differenza di premio lordo; puoi forzarlo con modifica manuale.",
+    ],
+    cosaSuccede: [
+      "Viene salvato lo storico parametri precedenti/nuovi e creato un titolo di conguaglio (anche a €0).",
+      "Le quietanze già emesse restano invariate.",
+    ],
+  },
+  {
+    id: "riattivazione",
+    titolo: "Riattivazione polizza",
+    area: "portafoglio",
+    tags: ["riattivazione", "sospensione", "quietanze"],
+    cosaFai: [
+      "Dopo una sospensione, riattivi la polizza indicando data e eventuali oneri.",
+      "Nell'editor puoi aggiornare date e premi prima della conferma.",
+    ],
+    cosaSuccede: [
+      "Le quietanze congelate vengono ripristinate con shift delle date pari ai giorni di sospensione.",
+      "Viene creato un titolo oneri di riattivazione (anche a €0).",
     ],
   },
   {
@@ -350,16 +380,16 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     cosaSuccede: [
       "Si crea la polizza madre.",
       "Il sistema genera le quietanze (rate) previste dal frazionamento.",
-      "La prima rata compare in Carico pronta per l'incasso.",
+      "La prima rata compare in Incassi e Coperture pronta per l'incasso.",
     ],
   },
   {
     id: "cruscotto-incassi",
-    titolo: "Incassi e coperture (cruscotto)",
+    titolo: "Riepilogo messe a cassa",
     area: "contabilita",
     tags: ["cruscotto", "giornaliero", "incassi"],
     cosaFai: [
-      "Consulti Contabilità → Incassi e coperture per la sede e la data.",
+      "Consulti Contabilità → Riepilogo Messe a Cassa per la sede e il mese.",
     ],
     cosaSuccede: [
       "Vista riepilogativa degli incassi del giorno / periodo.",

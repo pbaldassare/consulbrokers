@@ -636,6 +636,7 @@ export type Database = {
           testo: string | null
           tipo: string | null
           titolo_id: string
+          titolo_modifica_id: string | null
           titolo_proroga_id: string | null
           titolo_regolazione_id: string | null
         }
@@ -661,6 +662,7 @@ export type Database = {
           testo?: string | null
           tipo?: string | null
           titolo_id: string
+          titolo_modifica_id?: string | null
           titolo_proroga_id?: string | null
           titolo_regolazione_id?: string | null
         }
@@ -686,6 +688,7 @@ export type Database = {
           testo?: string | null
           tipo?: string | null
           titolo_id?: string
+          titolo_modifica_id?: string | null
           titolo_proroga_id?: string | null
           titolo_regolazione_id?: string | null
         }
@@ -8620,6 +8623,7 @@ export type Database = {
           indicizzata: boolean | null
           is_oneri_riattivazione: boolean
           is_oneri_sospensione: boolean
+          is_appendice_modifica: boolean
           is_proroga: boolean
           is_regolazione: boolean
           libro_matricola: string | null
@@ -8649,6 +8653,7 @@ export type Database = {
           prodotto_nome: string | null
           produttore_id: string | null
           produttore_nome: string | null
+          appendice_modifica_polizza_madre_id: string | null
           proroga_polizza_madre_id: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
@@ -8752,6 +8757,7 @@ export type Database = {
           indicizzata?: boolean | null
           is_oneri_riattivazione?: boolean
           is_oneri_sospensione?: boolean
+          is_appendice_modifica?: boolean
           is_proroga?: boolean
           is_regolazione?: boolean
           libro_matricola?: string | null
@@ -8781,6 +8787,7 @@ export type Database = {
           prodotto_nome?: string | null
           produttore_id?: string | null
           produttore_nome?: string | null
+          appendice_modifica_polizza_madre_id?: string | null
           proroga_polizza_madre_id?: string | null
           provvigioni_firma?: number | null
           provvigioni_quietanza?: number | null
@@ -8884,6 +8891,7 @@ export type Database = {
           indicizzata?: boolean | null
           is_oneri_riattivazione?: boolean
           is_oneri_sospensione?: boolean
+          is_appendice_modifica?: boolean
           is_proroga?: boolean
           is_regolazione?: boolean
           libro_matricola?: string | null
@@ -8913,6 +8921,7 @@ export type Database = {
           prodotto_nome?: string | null
           produttore_id?: string | null
           produttore_nome?: string | null
+          appendice_modifica_polizza_madre_id?: string | null
           proroga_polizza_madre_id?: string | null
           provvigioni_firma?: number | null
           provvigioni_quietanza?: number | null
@@ -10350,6 +10359,7 @@ export type Database = {
           premio_netto: number | null
           produttore_id: string | null
           produttore_nome: string | null
+          appendice_modifica_polizza_madre_id: string | null
           proroga_polizza_madre_id: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
@@ -10971,6 +10981,10 @@ export type Database = {
           cliente_id: string
           count: number
         }[]
+      }
+      crea_titolo_da_modifica: {
+        Args: { p_appendice_id: string }
+        Returns: string
       }
       crea_titolo_da_proroga: {
         Args: { p_appendice_id: string }

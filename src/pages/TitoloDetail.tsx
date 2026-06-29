@@ -1474,7 +1474,7 @@ const TitoloDetail = () => {
         toast.success(
           `Quietanza successiva generata${d ? ` con decorrenza ${d}` : ""}`,
           {
-            description: "Compare nel Carico del Mese del periodo target.",
+            description: "Compare in Incassi e Coperture del periodo target.",
             action: {
               label: "Apri",
               onClick: () => navigate(`/titoli/${res.quietanzaGenerata!.id}`),
@@ -1783,7 +1783,7 @@ const TitoloDetail = () => {
               <span className="font-mono font-semibold">{t.sostituisce_polizza}</span>
               .
               Diventerà <strong>attivo automaticamente</strong> quando la polizza precedente verrà messa a cassa,
-              e solo allora apparirà nel <em>Carico del Mese</em> di scadenza.
+              e solo allora apparirà in <em>Incassi e Coperture</em> di scadenza.
             </p>
             {isAdmin && (
               <Button

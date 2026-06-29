@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,15 +10,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/SearchableSelect";
 import { toast } from "sonner";
-import { Loader2, AlertCircle, FileIcon, X, Plus } from "lucide-react";
+import { Loader2, AlertCircle, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logAttivita } from "@/lib/logAttivita";
+import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
+import {
+  aggregateGaranziePremi,
+  calcProvvigioniAppendice,
+  creaTitoloDaAppendice,
+  patchTitoloDerivatoAppendice,
+  syncPremiGaranziaToTitolo,
+  type AppendiceTipo,
+} from "@/lib/appendicePremi";
+import { PolizzaEditorInline, type PolizzaEditorHandle, type PolizzaEditorState } from "@/components/polizze/PolizzaEditorInline";
+import { OperazionePolizzaDialogShell } from "@/components/polizze/operazione/OperazionePolizzaDialogShell";
+import { OperazioneAllegatoField } from "@/components/polizze/operazione/OperazioneAllegatoField";
+import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 
 const TIPI_APPENDICE = [
   { value: "modifica", label: "Modifica" },
   { value: "proroga", label: "Appendice di proroga" },
   { value: "regolazione", label: "Regolazione" },
-];
+] as const;
 
 interface Props {
   open: boolean;
@@ -33,40 +45,51 @@ interface Props {
 const fmt = (n: number | null | undefined) =>
   n == null ? "-" : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
 const fmtDate = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString("it-IT") : "-");
-const formatAge = (ms: number): string => {
-  const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return `${s}s`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m} min`;
-  const h = Math.round(m / 60);
-  if (h < 48) return `${h}h`;
-  const d = Math.round(h / 24);
-  return `${d}g`;
+
+const TIPO_INFO: Record<AppendiceTipo, { title: string; hint: string; suffix: string }> = {
+  modifica: {
+    title: "Appendice di modifica",
+    hint: "Genera un titolo AM cassabile (anche a €0). Compila o correggi la composizione premi qui sotto prima di salvare.",
+    suffix: "AM",
+  },
+  proroga: {
+    title: "Appendice di proroga",
+    hint: "Genera un titolo PR cassabile. All'incasso estende automaticamente la scadenza della polizza madre.",
+    suffix: "PR",
+  },
+  regolazione: {
+    title: "Regolazione premio",
+    hint: "Genera un titolo RG collegato alla quietanza di riferimento. Cassabile anche a premio zero.",
+    suffix: "RG",
+  },
 };
 
 export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, initialTipo, onCreated }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const editorRef = useRef<PolizzaEditorHandle>(null);
+
+  const [madreId, setMadreId] = useState<string | null>(null);
+  const [editorReady, setEditorReady] = useState(false);
+  const [editorState, setEditorState] = useState<PolizzaEditorState | null>(null);
 
   const [numeroAppendice, setNumeroAppendice] = useState("");
   const [dataAppendice, setDataAppendice] = useState(new Date().toISOString().slice(0, 10));
   const [dataEffetto, setDataEffetto] = useState("");
   const [oggetto, setOggetto] = useState("");
-  const [tipo, setTipo] = useState("modifica");
+  const [tipo, setTipo] = useState<AppendiceTipo>("modifica");
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [displayName, setDisplayName] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [quietanzaId, setQuietanzaId] = useState("");
 
-  // Campi regolazione
-  const [quietanzaId, setQuietanzaId] = useState<string>("");
-  const [premioNetto, setPremioNetto] = useState<string>("");
-  const [tasse, setTasse] = useState<string>("");
-  const [premioLordo, setPremioLordo] = useState<string>("");
-  const [provvigioni, setProvvigioni] = useState<string>("");
-  const [percProvv, setPercProvv] = useState<string>("");
+  const handleEditorStateChange = useCallback((state: PolizzaEditorState) => {
+    setEditorState(state);
+    setEditorReady(true);
+  }, []);
 
-  // Calcola prossimo numero appendice
   const { data: existing } = useQuery({
     queryKey: ["appendici-count", titoloId],
     enabled: !!titoloId && open,
@@ -79,26 +102,26 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     },
   });
 
-  // Info titolo + numero_titolo per catena
   const { data: titoloInfo } = useQuery({
     queryKey: ["titolo-scadenza", titoloId],
     enabled: !!titoloId && open,
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("data_scadenza, garanzia_da, garanzia_a, numero_titolo, premio_netto, provvigioni_firma")
+        .select("data_scadenza, garanzia_da, garanzia_a, numero_titolo, premio_netto, provvigioni_firma, percentuale_provvigione")
         .eq("id", titoloId!)
         .maybeSingle();
       if (!data) return null;
       const perc =
-        data.premio_netto && Number(data.premio_netto) !== 0 && data.provvigioni_firma != null
-          ? +((Number(data.provvigioni_firma) / Number(data.premio_netto)) * 100).toFixed(4)
-          : null;
-      return { ...data, percentuale_provvigione: perc };
+        data.percentuale_provvigione != null
+          ? Number(data.percentuale_provvigione)
+          : data.premio_netto && Number(data.premio_netto) !== 0 && data.provvigioni_firma != null
+            ? +((Number(data.provvigioni_firma) / Number(data.premio_netto)) * 100).toFixed(4)
+            : null;
+      return { ...data, percentuale_provvigione_calc: perc };
     },
   });
 
-  // Catena quietanze della polizza (solo quelle "regolabili")
   const STATI_VALIDI = ["attivo", "incassato", "sospeso"];
   const { data: catena } = useQuery({
     queryKey: ["catena-quietanze", titoloInfo?.numero_titolo],
@@ -106,198 +129,139 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, premio_netto, tasse, sostituisce_polizza, is_regolazione, is_proroga, stato, numero_titolo")
+        .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, premio_netto, tasse, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, stato, numero_titolo")
         .eq("numero_titolo", titoloInfo!.numero_titolo!)
         .order("garanzia_da", { ascending: false });
       return (data || []).filter(
-        (t: any) => !t.is_regolazione && !t.is_proroga && STATI_VALIDI.includes((t.stato || "").toLowerCase())
+        (t: { is_regolazione?: boolean; is_proroga?: boolean; is_appendice_modifica?: boolean; stato?: string }) =>
+          !t.is_regolazione && !t.is_proroga && !t.is_appendice_modifica && STATI_VALIDI.includes((t.stato || "").toLowerCase()),
       );
     },
   });
 
   const quietanzaOptions: SearchableSelectOption[] = useMemo(() => {
     const list = catena || [];
-    // Già ordinati DESC dalla query: la più recente è in cima
-    return list.map((t: any, i: number) => {
+    return list.map((t: { id: string; riga?: number; garanzia_da?: string; garanzia_a?: string; premio_lordo?: number; stato?: string }, i: number) => {
       const stato = (t.stato || "").toLowerCase();
       const statoBadge = stato ? ` · ${stato}` : "";
       const label = `Rata ${list.length - i} · ${fmtDate(t.garanzia_da)} → ${fmtDate(t.garanzia_a)} · ${fmt(t.premio_lordo)}${statoBadge}`;
-      const searchText = [
-        t.riga,
-        fmtDate(t.garanzia_da),
-        fmtDate(t.garanzia_a),
-        stato,
-        t.premio_lordo != null ? String(t.premio_lordo) : "",
-      ].filter(Boolean).join(" ");
-      return { value: t.id as string, label, searchText };
+      const searchText = [t.riga, fmtDate(t.garanzia_da), fmtDate(t.garanzia_a), stato, t.premio_lordo != null ? String(t.premio_lordo) : ""]
+        .filter(Boolean)
+        .join(" ");
+      return { value: t.id, label, searchText };
     });
   }, [catena]);
 
-  // Chiave bozza per autosave (per titolo)
-  const draftKey = titoloId ? `appendice-draft:${titoloId}` : null;
-  const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 giorni
-  const DRAFT_STALE_MS = 24 * 60 * 60 * 1000;   // > 24h = "vecchia"
-  const [draftRestored, setDraftRestored] = useState(false);
-  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
-  const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-
-  const draftAge = draftSavedAt ? Date.now() - draftSavedAt : null;
-  const draftStale = draftAge != null && draftAge > DRAFT_STALE_MS;
+  useEffect(() => {
+    if (!open || !titoloId) {
+      setMadreId(null);
+      setEditorReady(false);
+      return;
+    }
+    (async () => {
+      const resolved = await resolveTitoloMadreId(supabase, titoloId);
+      setMadreId(resolved);
+    })();
+  }, [open, titoloId]);
 
   useEffect(() => {
-    if (!open) { setDraftRestored(false); setDraftSavedAt(null); setAutosaveStatus("idle"); return; }
-    const max = (existing || []).reduce((acc, a: any) => Math.max(acc, parseInt(a.numero_appendice) || 0), 0);
+    if (!open) {
+      setEditorReady(false);
+      setEditorState(null);
+      return;
+    }
+    const max = (existing || []).reduce((acc, a: { numero_appendice?: string }) => Math.max(acc, parseInt(a.numero_appendice || "0") || 0), 0);
     setNumeroAppendice(String(max + 1));
-
-    // Tentativo di ripristino bozza
-    let restored = false;
-    if (draftKey) {
-      try {
-        const raw = localStorage.getItem(draftKey);
-        if (raw) {
-          const d = JSON.parse(raw);
-          const savedAt: number | undefined = typeof d.savedAt === "number" ? d.savedAt : undefined;
-          const expired = savedAt != null && Date.now() - savedAt > DRAFT_TTL_MS;
-          if (expired) {
-            try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
-          } else {
-            setDataAppendice(d.dataAppendice ?? "");
-            setDataEffetto(d.dataEffetto ?? "");
-            setOggetto(d.oggetto ?? "");
-            setTipo(d.tipo ?? "modifica");
-            setNote(d.note ?? "");
-            setQuietanzaId(d.quietanzaId ?? "");
-            setPremioNetto(d.premioNetto ?? "");
-            setTasse(d.tasse ?? "");
-            setPremioLordo(d.premioLordo ?? "");
-            setProvvigioni(d.provvigioni ?? "");
-            setPercProvv(d.percProvv ?? "");
-            setDraftSavedAt(savedAt ?? null);
-            restored = true;
-          }
-        }
-      } catch { /* ignore */ }
-    }
-    setDraftRestored(restored);
-
-    if (!restored) {
-      setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
-      setDataEffetto("");
-      setOggetto("");
-      setTipo(initialTipo || "modifica");
-      setNote("");
-      setQuietanzaId("");
-      setPremioNetto("");
-      setTasse("");
-      setPremioLordo("");
-      setProvvigioni("");
-      setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
-      setDraftSavedAt(null);
-    }
+    const t = (initialTipo as AppendiceTipo) || "modifica";
+    setTipo(TIPI_APPENDICE.some((x) => x.value === t) ? t : "modifica");
+    setOggetto("");
+    setNote("");
+    setQuietanzaId("");
     setFile(null);
+    setDisplayName("");
     setFiles([]);
-  }, [open, existing, titoloInfo, draftKey, initialTipo]);
+
+    const garDa = titoloInfo?.garanzia_da;
+    const garA = titoloInfo?.garanzia_a || titoloInfo?.data_scadenza;
+    setDataAppendice(garA || new Date().toISOString().slice(0, 10));
+    setDataEffetto(garDa || "");
+  }, [open, existing, titoloInfo, initialTipo]);
 
   useEffect(() => {
-    if (!open || tipo !== "proroga") return;
-    if (premioNetto === "") setPremioNetto("0");
-    if (tasse === "") setTasse("0");
-    if (premioLordo === "") setPremioLordo("0");
-    if (provvigioni === "") setProvvigioni("0");
-  }, [open, tipo, premioNetto, tasse, premioLordo, provvigioni]);
-
-  useEffect(() => {
-    if (!open || tipo !== "proroga" || !titoloInfo) return;
-    const garA = (titoloInfo as { garanzia_a?: string | null }).garanzia_a;
-    if (!garA) return;
-    const d = new Date(garA);
+    if (!open || tipo !== "proroga" || !titoloInfo?.garanzia_a) return;
+    const d = new Date(titoloInfo.garanzia_a);
     d.setDate(d.getDate() + 1);
     setDataEffetto(d.toISOString().slice(0, 10));
-    if (!dataAppendice || dataAppendice === (titoloInfo as { data_scadenza?: string }).data_scadenza) {
-      setDataAppendice("");
-    }
-  }, [open, tipo, titoloInfo]);
+    setDataAppendice("");
+  }, [open, tipo, titoloInfo?.garanzia_a]);
 
-  // Quando cambio quietanza (regolazione): prefill periodo + RESET importi sui valori della rata scelta
   useEffect(() => {
     if (tipo !== "regolazione" || !quietanzaId || !catena) return;
-    const q: any = catena.find((t: any) => t.id === quietanzaId);
+    const q = catena.find((t: { id: string }) => t.id === quietanzaId);
     if (!q) return;
     setDataEffetto(q.garanzia_da || "");
     setDataAppendice(q.garanzia_a || "");
-    const n = q.premio_netto != null ? Number(q.premio_netto).toFixed(2) : "";
-    const tx = q.tasse != null ? Number(q.tasse).toFixed(2) : "";
-    const l = q.premio_lordo != null ? Number(q.premio_lordo).toFixed(2) : "";
-    setPremioNetto(n);
-    setTasse(tx);
-    setPremioLordo(l);
-    // provvigioni verranno ricalcolate dall'effect netto×%
-  }, [quietanzaId, catena]);
+    setEditorReady(false);
+    setEditorState(null);
+  }, [quietanzaId, catena, tipo]);
 
-  // Auto-calcolo provvigioni quando cambia netto o %
-  useEffect(() => {
-    const n = parseFloat(premioNetto.replace(",", "."));
-    const p = parseFloat(percProvv.replace(",", "."));
-    if (!isNaN(n) && !isNaN(p)) {
-      setProvvigioni(((n * p) / 100).toFixed(2));
-    }
-  }, [premioNetto, percProvv]);
+  const percProvv = titoloInfo?.percentuale_provvigione_calc ?? null;
+  const aggregated = useMemo(
+    () => (editorState ? aggregateGaranziePremi(editorState.garanzie) : null),
+    [editorState],
+  );
 
-  // Auto-calcolo lordo se non editato manualmente (semplice: netto+tasse)
-  useEffect(() => {
-    const n = parseFloat(premioNetto.replace(",", "."));
-    const t = parseFloat(tasse.replace(",", "."));
-    if (!isNaN(n) && !isNaN(t)) {
-      setPremioLordo((n + t).toFixed(2));
+  const errors = useMemo(() => {
+    const e: Record<string, string> = {};
+    if (!dataEffetto) e.dataEffetto = "Data effetto obbligatoria";
+    if (!dataAppendice) e.dataAppendice = "Data scadenza obbligatoria";
+    if (dataEffetto && dataAppendice && dataEffetto > dataAppendice) {
+      e.dataEffetto = "La data effetto deve precedere la scadenza";
     }
-  }, [premioNetto, tasse]);
+    if (tipo === "regolazione" && !quietanzaId) e.quietanzaId = "Seleziona la quietanza di riferimento";
+    if (tipo === "regolazione" && !quietanzaId) e.editor = "Seleziona la quietanza di riferimento";
+    else if (!editorReady) e.editor = "Caricamento composizione premi…";
+    return e;
+  }, [dataEffetto, dataAppendice, tipo, quietanzaId, editorReady]);
+
+  const hasErrors = Object.keys(errors).length > 0;
 
   const mut = useMutation({
     mutationFn: async () => {
-      if (!titoloId) throw new Error("Titolo non specificato");
+      if (!titoloId || !madreId) throw new Error("Titolo non specificato");
       if (!numeroAppendice.trim()) throw new Error("Numero appendice obbligatorio");
+      if (!dataEffetto || !dataAppendice) throw new Error("Inserisci data effetto e scadenza");
+      if (dataEffetto > dataAppendice) throw new Error("La data effetto non può essere successiva alla scadenza");
+      if (tipo === "regolazione" && !quietanzaId) throw new Error("Seleziona la quietanza di riferimento");
 
-      const isReg = tipo === "regolazione";
-      const isProroga = tipo === "proroga";
-      const isEco = isReg || isProroga;
+      const state = editorRef.current?.getState();
+      if (!state) throw new Error("Editor polizza non pronto");
 
-      if (isEco) {
-        const n = parseFloat(premioNetto.replace(",", "."));
-        const tt = parseFloat(tasse.replace(",", ".") || "0");
-        const l = parseFloat(premioLordo.replace(",", ".") || "0");
-        const p = parseFloat(provvigioni.replace(",", ".") || "0");
-        if (isReg && !quietanzaId) throw new Error("Seleziona la quietanza di riferimento");
-        if (premioNetto === "" || isNaN(n)) throw new Error("Inserisci il premio netto (0 ammesso)");
-        if (tt < 0) throw new Error("Le tasse non possono essere negative");
-        if (l + 0.01 < n) throw new Error("Il premio lordo non può essere inferiore al netto");
-        if (p < 0) throw new Error("Le provvigioni non possono essere negative");
-        if (!dataEffetto) throw new Error("Inserisci la data effetto");
-        if (!dataAppendice) throw new Error("Inserisci la data scadenza");
-        if (dataEffetto > dataAppendice) {
-          throw new Error("La data effetto non può essere successiva alla data scadenza");
-        }
-      }
+      const agg = aggregateGaranziePremi(state.garanzie);
+      const provvigioni = calcProvvigioniAppendice(agg.premio_netto, percProvv);
 
       let filePath: string | null = null;
       let nomeFile: string | null = null;
       const allegati: Array<{ path: string; nome: string; size: number; type: string }> = [];
 
-      // Multi-file solo per regolazione; per altri tipi si usa il singolo `file`
-      const toUpload: File[] = isEco ? files : (file ? [file] : []);
+      const toUpload: File[] = [...files, ...(file ? [file] : [])];
       for (let i = 0; i < toUpload.length; i++) {
         const f = toUpload[i];
         const path = `appendici/${titoloId}/${Date.now()}_${i}_${f.name}`;
         const { error: upErr } = await supabase.storage.from("documenti_titoli").upload(path, f);
         if (upErr) throw upErr;
-        allegati.push({ path, nome: f.name, size: f.size, type: f.type });
-        if (i === 0) { filePath = path; nomeFile = f.name; }
+        allegati.push({ path, nome: displayName || f.name, size: f.size, type: f.type });
+        if (i === 0) {
+          filePath = path;
+          nomeFile = displayName || f.name;
+        }
       }
 
-      const payload: any = {
+      const payload = {
         titolo_id: titoloId,
         numero_appendice: numeroAppendice.trim(),
-        data_appendice: dataAppendice || null,
-        data_effetto: dataEffetto || null,
+        data_appendice: dataAppendice,
+        data_effetto: dataEffetto,
         oggetto: oggetto.trim() || null,
         tipo,
         file_path: filePath,
@@ -305,76 +269,54 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
         allegati,
         note: note.trim() || null,
         created_by: user?.id || null,
+        quietanza_id: tipo === "regolazione" ? quietanzaId : null,
+        premio_netto: agg.premio_netto,
+        tasse: agg.tasse,
+        premio_lordo: agg.premio_lordo,
+        provvigioni,
+        percentuale_provvigione: percProvv,
       };
 
-      if (isEco) {
-        if (isReg) payload.quietanza_id = quietanzaId;
-        payload.premio_netto = parseFloat(premioNetto.replace(",", ".")) || 0;
-        payload.tasse = parseFloat(tasse.replace(",", ".")) || 0;
-        payload.premio_lordo = parseFloat(premioLordo.replace(",", ".")) || 0;
-        payload.provvigioni = parseFloat(provvigioni.replace(",", ".")) || 0;
-        payload.percentuale_provvigione = parseFloat(percProvv.replace(",", ".")) || null;
-      }
-
-      const { data, error } = await supabase
-        .from("appendici_polizza")
-        .insert(payload)
-        .select()
-        .single();
+      const { data, error } = await supabase.from("appendici_polizza").insert(payload).select().single();
       if (error) throw error;
 
-      let titoloDerivatoId: string | null = null;
-      if (isReg) {
-        const { data: rgId, error: rpcErr } = await supabase.rpc("crea_titolo_da_regolazione", {
-          p_appendice_id: data.id,
-        });
-        if (rpcErr) throw rpcErr;
-        titoloDerivatoId = rgId as unknown as string;
-      } else if (isProroga) {
-        const { data: prId, error: rpcErr } = await supabase.rpc("crea_titolo_da_proroga", {
-          p_appendice_id: data.id,
-        });
-        if (rpcErr) throw rpcErr;
-        titoloDerivatoId = prId as unknown as string;
-      }
+      const titoloDerivatoId = await creaTitoloDaAppendice(supabase, tipo, data.id);
 
+      await patchTitoloDerivatoAppendice(supabase, titoloDerivatoId, {
+        dataEffetto,
+        dataScadenza: dataAppendice,
+        oggetto: oggetto.trim() || `${TIPO_INFO[tipo].title} - ${numeroTitolo || ""}`,
+        aggregated: agg,
+        provvigioni,
+        percProvv,
+      });
+      await syncPremiGaranziaToTitolo(supabase, titoloDerivatoId, state.garanzie);
+
+      const azione =
+        tipo === "modifica" ? "appendice_modifica_creata" : tipo === "proroga" ? "proroga_creata" : "regolazione_creata";
       await logAttivita({
-        azione: isReg ? "regolazione_creata" : isProroga ? "proroga_creata" : "appendice_creata",
+        azione,
         entita_tipo: "titolo",
         entita_id: titoloId,
         dettagli_json: {
           numero_appendice: numeroAppendice.trim(),
           tipo,
           oggetto: oggetto.trim() || null,
-          quietanza_id: isReg ? quietanzaId : undefined,
-          titolo_regolazione_id: isReg ? titoloDerivatoId : undefined,
-          titolo_proroga_id: isProroga ? titoloDerivatoId : undefined,
+          quietanza_id: tipo === "regolazione" ? quietanzaId : undefined,
+          titolo_derivato_id: titoloDerivatoId,
         },
       });
 
-      return { ...data, titoloDerivatoId };
+      return { appendice: data, titoloDerivatoId };
     },
-    onSuccess: (res: any) => {
-      const isReg = tipo === "regolazione";
-      const isProroga = tipo === "proroga";
-      if (isReg) {
-        toast.success("Regolazione creata", {
-          description: "Titolo RG generato. Ora è in Carico e pronto per la messa a cassa (anche a €0).",
-          action: res.titoloDerivatoId
-            ? { label: "Apri", onClick: () => navigate(`/titoli/${res.titoloDerivatoId}`) }
-            : undefined,
-        });
-      } else if (isProroga) {
-        toast.success("Proroga creata", {
-          description: "Titolo PR generato. Incassalo da Carico per estendere la polizza madre.",
-          action: res.titoloDerivatoId
-            ? { label: "Apri", onClick: () => navigate(`/titoli/${res.titoloDerivatoId}`) }
-            : undefined,
-        });
-      } else {
-        toast.success(`Appendice n° ${numeroAppendice} creata`);
-      }
-      if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
+    onSuccess: (res) => {
+      const info = TIPO_INFO[tipo];
+      toast.success(`${info.title} creata`, {
+        description: `Titolo ${info.suffix} generato. Ora è in Incassi e Coperture e pronto per la messa a cassa (anche a €0).`,
+        action: res.titoloDerivatoId
+          ? { label: "Apri titolo", onClick: () => navigate(`/titoli/${res.titoloDerivatoId}`) }
+          : undefined,
+      });
       qc.invalidateQueries({ queryKey: ["appendici-polizza", titoloId] });
       qc.invalidateQueries({ queryKey: ["appendici-count", titoloId] });
       qc.invalidateQueries({ queryKey: ["gestione-polizze"] });
@@ -382,90 +324,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
       onCreated?.();
       onOpenChange(false);
     },
-    onError: (err: any) => toast.error(err.message || "Errore nel salvataggio"),
+    onError: (err: Error) => toast.error(err.message || "Errore nel salvataggio"),
   });
-
-  const isReg = tipo === "regolazione";
-  const isProroga = tipo === "proroga";
-  const isEco = isReg || isProroga;
-
-  // Validazione inline (regolazione / proroga)
-  const errors = useMemo(() => {
-    const e: Record<string, string> = {};
-    if (!isEco) return e;
-    if (isReg && !quietanzaId) e.quietanzaId = "Seleziona la quietanza di riferimento";
-    const n = parseFloat(premioNetto.replace(",", "."));
-    const tt = parseFloat((tasse || "0").replace(",", "."));
-    const l = parseFloat((premioLordo || "0").replace(",", "."));
-    const p = parseFloat((provvigioni || "0").replace(",", "."));
-    if (premioNetto === "" || isNaN(n)) e.premioNetto = "Inserisci un valore numerico (0 ammesso)";
-    if (!isNaN(tt) && tt < 0) e.tasse = "Le tasse non possono essere negative";
-    if (!isNaN(n) && !isNaN(l) && l + 0.01 < n) e.premioLordo = "Il lordo non può essere inferiore al netto";
-    if (!isNaN(p) && p < 0) e.provvigioni = "Le provvigioni non possono essere negative";
-    if (!dataEffetto) e.dataEffetto = "Data effetto obbligatoria";
-    if (!dataAppendice) e.dataAppendice = "Data scadenza obbligatoria";
-    if (dataEffetto && dataAppendice && dataEffetto > dataAppendice) {
-      e.dataEffetto = "La data effetto deve precedere la scadenza";
-    }
-    return e;
-  }, [isEco, isReg, quietanzaId, premioNetto, tasse, premioLordo, provvigioni, dataEffetto, dataAppendice]);
-
-  const hasErrors = Object.keys(errors).length > 0;
-
-  // Valori numerici per il riepilogo (sempre coerenti con i campi)
-  const parsedReg = useMemo(() => {
-    const num = (s: string) => {
-      const v = parseFloat((s || "").replace(",", "."));
-      return isNaN(v) ? 0 : v;
-    };
-    return {
-      netto: num(premioNetto),
-      tasse: num(tasse),
-      lordo: num(premioLordo),
-      provvigioni: num(provvigioni),
-    };
-  }, [premioNetto, tasse, premioLordo, provvigioni]);
-
-  // Autosave bozza (debounced) — solo quando il dialog è aperto e c'è qualche dato
-  useEffect(() => {
-    if (!open || !draftKey) return;
-    const hasAny =
-      tipo !== "modifica" || oggetto || note || quietanzaId ||
-      premioNetto || tasse || premioLordo || provvigioni || dataEffetto;
-    if (!hasAny) return;
-    setAutosaveStatus("saving");
-    const t = setTimeout(() => {
-      try {
-        const now = Date.now();
-        localStorage.setItem(draftKey, JSON.stringify({
-          tipo, dataAppendice, dataEffetto, oggetto, note,
-          quietanzaId, premioNetto, tasse, premioLordo, provvigioni, percProvv,
-          savedAt: now,
-        }));
-        setDraftSavedAt(now);
-        setAutosaveStatus("saved");
-      } catch {
-        setAutosaveStatus("error");
-      }
-    }, 400);
-    return () => clearTimeout(t);
-  }, [open, draftKey, tipo, dataAppendice, dataEffetto, oggetto, note,
-      quietanzaId, premioNetto, tasse, premioLordo, provvigioni, percProvv]);
-
-  // Preview locale del file selezionato (immagine o PDF)
-  const filePreviewUrl = useMemo(() => {
-    if (!file) return null;
-    return URL.createObjectURL(file);
-  }, [file]);
-  useEffect(() => {
-    return () => { if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl); };
-  }, [filePreviewUrl]);
-  const fileKind: "image" | "pdf" | "other" = useMemo(() => {
-    if (!file) return "other";
-    if (file.type.startsWith("image/")) return "image";
-    if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return "pdf";
-    return "other";
-  }, [file]);
 
   const errClass = "border-destructive focus-visible:ring-destructive";
   const ErrMsg = ({ id }: { id: string }) =>
@@ -475,341 +335,183 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
       </p>
     ) : null;
 
+  const tipoInfo = TIPO_INFO[tipo];
 
+  const eventColumn = (
+    <div className="space-y-4">
+      <div className={cn(
+        "rounded-md border p-3 text-sm",
+        tipo === "proroga"
+          ? "border-blue-300 bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200"
+          : tipo === "regolazione"
+            ? "border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"
+            : "border-primary/30 bg-primary/5 text-foreground",
+      )}>
+        <strong>{tipoInfo.title}:</strong> {tipoInfo.hint}
+      </div>
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Nuova appendice — Polizza {numeroTitolo || ""}</DialogTitle>
-          <DialogDescription>
-            {isProroga
-              ? "Proroga: genera un titolo PR cassabile (anche a €0). All'incasso estende la scadenza della polizza madre."
-              : isReg
-                ? "Regolazione premio: collegata a una quietanza e cassabile come una rata (anche a €0)."
-                : "L'appendice viene salvata nel database e collegata alla polizza."}
-          </DialogDescription>
-        </DialogHeader>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label>Numero appendice *</Label>
+          <Input value={numeroAppendice} readOnly disabled className="bg-muted" />
+          <p className="text-xs text-muted-foreground mt-1">Progressivo automatico</p>
+        </div>
+        <div>
+          <Label>Tipo</Label>
+          <Select value={tipo} onValueChange={(v) => setTipo(v as AppendiceTipo)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TIPI_APPENDICE.map((t) => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-        {draftRestored && (
-          <div className={cn(
-            "rounded-md border px-3 py-2 text-xs flex items-center justify-between gap-2",
-            draftStale
-              ? "border-orange-400 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800 text-orange-900 dark:text-orange-200"
-              : "border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 text-amber-900 dark:text-amber-200"
-          )}>
-            <span>
-              {draftStale
-                ? `Bozza vecchia ripristinata (salvata ${formatAge(draftAge!)} fa). Verificala prima di salvare.`
-                : `Bozza ripristinata automaticamente${draftAge != null ? ` (salvata ${formatAge(draftAge)} fa)` : ""}.`}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={() => {
-                if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
-                setDraftRestored(false);
-                setDraftSavedAt(null);
-                setAutosaveStatus("idle");
-                setDataAppendice((titoloInfo as any)?.data_scadenza || new Date().toISOString().slice(0, 10));
-                setDataEffetto(""); setOggetto(""); setTipo("modifica"); setNote("");
-                setQuietanzaId(""); setPremioNetto(""); setTasse("");
-                setPremioLordo(""); setProvvigioni("");
-                setPercProvv(((titoloInfo as any)?.percentuale_provvigione ?? "")?.toString() || "");
-              }}
-            >
-              Elimina bozza
-            </Button>
+        {tipo === "regolazione" && (
+          <div className="md:col-span-2">
+            <Label>Quietanza di riferimento *</Label>
+            <SearchableSelect
+              options={quietanzaOptions}
+              value={quietanzaId}
+              onValueChange={setQuietanzaId}
+              placeholder="Scegli la rata su cui agganciare la regolazione…"
+              emptyText="Nessuna quietanza disponibile"
+              className={cn(errors.quietanzaId && errClass)}
+            />
+            <ErrMsg id="quietanzaId" />
           </div>
         )}
 
-
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label>Numero *</Label>
-            <Input value={numeroAppendice} readOnly disabled className="bg-muted" />
-            <p className="text-xs text-muted-foreground mt-1">Progressivo automatico</p>
-          </div>
-          <div>
-            <Label>Tipo</Label>
-            <Select value={tipo} onValueChange={setTipo}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TIPI_APPENDICE.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {isEco ? (
-            <>
-              {isReg && (
-              <div className="md:col-span-2">
-                <Label>Quietanza di riferimento *</Label>
-                <SearchableSelect
-                  options={quietanzaOptions}
-                  value={quietanzaId}
-                  onValueChange={setQuietanzaId}
-                  placeholder="Scegli la rata su cui agganciare la regolazione…"
-                  emptyText="Nessuna quietanza disponibile"
-                  className={cn(errors.quietanzaId && errClass)}
-                />
-                <ErrMsg id="quietanzaId" />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cambiando quietanza i campi importi e date si reimpostano sui valori della rata scelta.
-                </p>
-                {quietanzaOptions.length === 1 && (
-                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
-                    Polizza unica senza rate aggiuntive: la regolazione verrà agganciata alla rata 1, che coincide con la polizza madre.
-                  </p>
-                )}
-              </div>
-              )}
-
-              {isProroga && (
-                <div className="md:col-span-2 rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200 p-3 text-sm">
-                  La proroga estende il periodo di garanzia. Inserisci il nuovo periodo e gli importi (0 ammessi).
-                  All&apos;incasso del titolo PR la scadenza della polizza madre verrà aggiornata automaticamente.
-                </div>
-              )}
-
-              <div>
-                <Label>Data effetto *</Label>
-                <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)}
-                  className={cn(errors.dataEffetto && errClass)} />
-                <ErrMsg id="dataEffetto" />
-              </div>
-              <div>
-                <Label>Data scadenza *</Label>
-                <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)}
-                  className={cn(errors.dataAppendice && errClass)} />
-                <ErrMsg id="dataAppendice" />
-              </div>
-
-              <div>
-                <Label>Premio netto *</Label>
-                <Input inputMode="decimal" value={premioNetto}
-                  onChange={(e) => setPremioNetto(e.target.value)}
-                  placeholder="0,00"
-                  className={cn(errors.premioNetto && errClass)} />
-                <ErrMsg id="premioNetto" />
-                <p className="text-xs text-muted-foreground mt-1">0 ammesso per incasso tecnico.</p>
-              </div>
-              <div>
-                <Label>Tasse</Label>
-                <Input inputMode="decimal" value={tasse}
-                  onChange={(e) => setTasse(e.target.value)} placeholder="0,00"
-                  className={cn(errors.tasse && errClass)} />
-                <ErrMsg id="tasse" />
-              </div>
-              <div>
-                <Label>Premio lordo</Label>
-                <Input inputMode="decimal" value={premioLordo}
-                  onChange={(e) => setPremioLordo(e.target.value)} placeholder="0,00"
-                  className={cn(errors.premioLordo && errClass)} />
-                <ErrMsg id="premioLordo" />
-              </div>
-              <div>
-                <Label>Provvigioni</Label>
-                <div className="flex gap-2">
-                  <Input inputMode="decimal" value={provvigioni}
-                    onChange={(e) => setProvvigioni(e.target.value)} placeholder="0,00"
-                    className={cn("flex-1", errors.provvigioni && errClass)} />
-                  <Input inputMode="decimal" value={percProvv}
-                    onChange={(e) => setPercProvv(e.target.value)} placeholder="%"
-                    className="w-20" title="% provvigione (sul netto)" />
-                </div>
-                <ErrMsg id="provvigioni" />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Auto-calcolata: netto × % polizza originale. Modificabile.
-                </p>
-              </div>
-
-              <div className="md:col-span-2">
-                <Label>Oggetto</Label>
-                <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)}
-                  placeholder={isProroga ? "Es. Proroga al 31/12/2027" : "Es. Conguaglio premio 2026"} />
-              </div>
-              <div className="md:col-span-2">
-                <Label>Note interne</Label>
-                <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-              </div>
-              <div className="md:col-span-2">
-                <Label>Allegati (opzionali)</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    multiple
-                    onChange={(e) => {
-                      const picked = Array.from(e.target.files || []);
-                      if (picked.length) {
-                        setFiles((prev) => {
-                          const seen = new Set(prev.map((f) => `${f.name}_${f.size}`));
-                          const merged = [...prev];
-                          for (const f of picked) {
-                            const k = `${f.name}_${f.size}`;
-                            if (!seen.has(k)) { merged.push(f); seen.add(k); }
-                          }
-                          return merged;
-                        });
-                      }
-                      e.currentTarget.value = "";
-                    }}
-                  />
-                  <Plus className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Puoi selezionare più file (immagini o PDF). Verranno caricati alla creazione dell'appendice.
-                </p>
-
-                {files.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {files.map((f, idx) => (
-                      <AllegatoPreview
-                        key={`${f.name}_${f.size}_${idx}`}
-                        file={f}
-                        onRemove={() => setFiles((prev) => prev.filter((_, i) => i !== idx))}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Riepilogo importi — sempre aggiornato, non modificabile */}
-              <div className="md:col-span-2">
-                <div className="rounded-md border bg-muted/40 p-3">
-                  <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                    Riepilogo {isProroga ? "proroga" : "regolazione"}
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                    <div>
-                      <div className="text-xs text-muted-foreground">Netto</div>
-                      <div className="font-semibold tabular-nums">{fmt(parsedReg.netto)}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Tasse</div>
-                      <div className="font-semibold tabular-nums">{fmt(parsedReg.tasse)}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Lordo</div>
-                      <div className="font-semibold tabular-nums">{fmt(parsedReg.lordo)}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">Provvigioni</div>
-                      <div className="font-semibold tabular-nums">{fmt(parsedReg.provvigioni)}</div>
-                    </div>
-                  </div>
-
-                  {/* Stato autosave bozza */}
-                  <div className="mt-3 pt-2 border-t flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5">
-                      {autosaveStatus === "saving" && (
-                        <>
-                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                          <span className="text-muted-foreground">Salvataggio bozza in corso…</span>
-                        </>
-                      )}
-                      {autosaveStatus === "saved" && (
-                        <>
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                          <span className="text-muted-foreground">
-                            Bozza salvata{draftSavedAt ? ` · ${new Date(draftSavedAt).toLocaleTimeString("it-IT")}` : ""}
-                          </span>
-                        </>
-                      )}
-                      {autosaveStatus === "error" && (
-                        <>
-                          <AlertCircle className="h-3 w-3 text-destructive" />
-                          <span className="text-destructive">Errore nel salvataggio bozza</span>
-                        </>
-                      )}
-                      {autosaveStatus === "idle" && (
-                        <span className="text-muted-foreground">Bozza non salvata</span>
-                      )}
-                    </div>
-                    {hasErrors && (
-                      <span className="text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" /> Correggi i campi evidenziati prima di salvare
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <Label>Data scadenza</Label>
-                <Input type="date" value={dataAppendice} onChange={(e) => setDataAppendice(e.target.value)} />
-              </div>
-              <div>
-                <Label>Data effetto</Label>
-                <Input type="date" value={dataEffetto} onChange={(e) => setDataEffetto(e.target.value)} />
-              </div>
-              <div className="md:col-span-2">
-                <Label>Oggetto</Label>
-                <Input value={oggetto} onChange={(e) => setOggetto(e.target.value)} placeholder="Breve descrizione dell'oggetto dell'appendice" />
-              </div>
-              <div className="md:col-span-2">
-                <Label>Note interne</Label>
-                <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-              </div>
-              <div className="md:col-span-2">
-                <Label>Allegato (opzionale)</Label>
-                <Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-              </div>
-            </>
-          )}
+        <div>
+          <Label>Data effetto *</Label>
+          <Input
+            type="date"
+            value={dataEffetto}
+            onChange={(e) => setDataEffetto(e.target.value)}
+            className={cn(errors.dataEffetto && errClass)}
+          />
+          <ErrMsg id="dataEffetto" />
+        </div>
+        <div>
+          <Label>Data scadenza *</Label>
+          <Input
+            type="date"
+            value={dataAppendice}
+            onChange={(e) => setDataAppendice(e.target.value)}
+            className={cn(errors.dataAppendice && errClass)}
+          />
+          <ErrMsg id="dataAppendice" />
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>Annulla</Button>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId || (isEco && hasErrors)}>
-            {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isProroga ? "Crea proroga" : isReg ? "Crea regolazione" : "Crea appendice"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+        <div className="md:col-span-2">
+          <Label>Oggetto</Label>
+          <Input
+            value={oggetto}
+            onChange={(e) => setOggetto(e.target.value)}
+            placeholder={
+              tipo === "proroga"
+                ? "Es. Proroga al 31/12/2027"
+                : tipo === "regolazione"
+                  ? "Es. Conguaglio premio 2026"
+                  : "Es. Variazione massimali / aggiornamento dati"
+            }
+          />
+        </div>
 
-function AllegatoPreview({ file, onRemove }: { file: File; onRemove: () => void }) {
-  const url = useMemo(() => URL.createObjectURL(file), [file]);
-  useEffect(() => () => URL.revokeObjectURL(url), [url]);
-  const kind: "image" | "pdf" | "other" =
-    file.type.startsWith("image/") ? "image"
-      : file.type === "application/pdf" || /\.pdf$/i.test(file.name) ? "pdf"
-      : "other";
-  return (
-    <div className="rounded-md border bg-muted/30 p-2">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-        <FileIcon className="h-3.5 w-3.5" />
-        <span className="truncate flex-1">{file.name}</span>
-        <span>{(file.size / 1024).toFixed(0)} KB</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0"
-          onClick={onRemove}
-          title="Rimuovi allegato"
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
+        <div className="md:col-span-2">
+          <Label>Note interne</Label>
+          <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+        </div>
+
+        <div className="md:col-span-2">
+          <OperazioneAllegatoField
+            file={file}
+            displayName={displayName}
+            onFileChange={(f, name) => {
+              setFile(f);
+              setDisplayName(name);
+            }}
+            onDisplayNameChange={setDisplayName}
+            label="Allegato (opzionale)"
+            id="appendice-allegato"
+          />
+        </div>
       </div>
-      {kind === "image" && (
-        <img src={url} alt={file.name} className="max-h-40 w-auto mx-auto rounded" />
-      )}
-      {kind === "pdf" && (
-        <iframe src={url} title={file.name} className="w-full h-48 rounded border-0" />
-      )}
-      {kind === "other" && (
-        <p className="text-xs text-muted-foreground">Anteprima non disponibile.</p>
+
+      {aggregated && (
+        <div className="rounded-md border bg-muted/40 p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div>
+            <div className="text-xs text-muted-foreground">Netto</div>
+            <div className="font-semibold tabular-nums">{fmt(aggregated.premio_netto)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Tasse</div>
+            <div className="font-semibold tabular-nums">{fmt(aggregated.tasse)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Lordo</div>
+            <div className="font-semibold tabular-nums">{fmt(aggregated.premio_lordo)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Provvigioni</div>
+            <div className="font-semibold tabular-nums">
+              {fmt(calcProvvigioniAppendice(aggregated.premio_netto, percProvv))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
+  );
+
+  const editorTitoloId =
+    tipo === "regolazione" ? (quietanzaId || null) : madreId;
+
+  const editorColumn =
+    tipo === "regolazione" && !quietanzaId ? (
+      <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground text-center">
+        Seleziona la quietanza di riferimento per caricare e modificare la composizione premi.
+      </div>
+    ) : editorTitoloId ? (
+    <PolizzaSection title="Composizione premi (quietanza)" icon={Receipt}>
+      <p className="text-xs text-muted-foreground mb-3">
+        {tipo === "regolazione" && quietanzaId
+          ? "Premi della quietanza di riferimento: modificali prima di creare il titolo RG cassabile."
+          : `Stessa interfaccia della polizza: modifica le garanzie e gli importi prima di creare il titolo ${tipoInfo.suffix} cassabile.`}
+      </p>
+      <PolizzaEditorInline
+        key={editorTitoloId}
+        ref={editorRef}
+        titoloId={editorTitoloId}
+        onStateChange={handleEditorStateChange}
+      />
+      <ErrMsg id="editor" />
+    </PolizzaSection>
+  ) : (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+      <Loader2 className="h-4 w-4 animate-spin" /> Caricamento polizza…
+    </div>
+  );
+
+  return (
+    <OperazionePolizzaDialogShell
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`Nuova appendice — Polizza ${numeroTitolo || ""}`}
+      description={tipoInfo.hint}
+      eventColumn={eventColumn}
+      editorColumn={editorColumn}
+      footer={
+        <>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>
+            Annulla
+          </Button>
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId || hasErrors}>
+            {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Crea {tipoInfo.suffix} e appendice
+          </Button>
+        </>
+      }
+    />
   );
 }

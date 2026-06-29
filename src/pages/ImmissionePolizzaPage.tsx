@@ -60,6 +60,7 @@ import { CoassicurazioneContrattoPanel } from "@/components/polizze/Coassicurazi
 import { CoassicurazioneImportiBreakdown } from "@/components/polizze/CoassicurazioneImportiBreakdown";
 import {
   validateRipartoSum,
+  isRipartoSumValidForPreview,
   buildDettaglioRipartoInsert,
   buildDettaglioRipartoSingolo,
   type RipartoCoassicurazioneRow,
@@ -925,7 +926,12 @@ const ImmissionePolizzaPage = () => {
           ? "Per i clienti di tipo Ente il CIG è obbligatorio"
           : (cigRif.trim() && !cigValido)
             ? "Il CIG deve essere di 10 caratteri alfanumerici (o spunta 'CIG temporaneo')"
-            : null;
+            : coassicurazione
+              ? (() => {
+                  const ripartoCheck = validateRipartoSum(ripartoRows);
+                  return ripartoCheck.valid ? null : (ripartoCheck.message || "Riparto coassicurazione non valido");
+                })()
+              : null;
 
   // (eredità AE/Specialist/Produttore spostata sotto le query)
 
@@ -2356,6 +2362,11 @@ const ImmissionePolizzaPage = () => {
           gruppiCompagniaList={(gruppiCompagniaList || []) as any[]}
           brokerPluriPerGruppo={brokerPluriPerGruppo || []}
           rapportiMap={rapportiMap || new Map()}
+          leaderPrefill={{
+            gruppoCompagniaId: selectedGruppoCompagniaId,
+            compagniaId: selectedCompagnia,
+            rapportoId: selectedRapportoId,
+          }}
         />
 
         {!coassicurazione && (
@@ -2946,17 +2957,24 @@ const ImmissionePolizzaPage = () => {
                   }
                   coassicurazioneBreakdown={
                     coassicurazione ? (
-                      <CoassicurazioneImportiBreakdown
-                        ripartoRows={ripartoRows}
-                        compagnieList={(compagnieList || []) as any[]}
-                        gruppiCompagniaList={(gruppiCompagniaList || []) as any[]}
-                        totNetto={premioNettoNum}
-                        totAccessori={accessoriFirmaNum}
-                        totTasse={tasseNum}
-                        totSsn={ssnFirmaNum}
-                        lordo={totFirma}
-                        provvFirma={provvFirma}
-                      />
+                      <>
+                        <CoassicurazioneImportiBreakdown
+                          ripartoRows={ripartoRows}
+                          compagnieList={(compagnieList || []) as any[]}
+                          gruppiCompagniaList={(gruppiCompagniaList || []) as any[]}
+                          totNetto={premioNettoNum}
+                          totAccessori={accessoriFirmaNum}
+                          totTasse={tasseNum}
+                          totSsn={ssnFirmaNum}
+                          lordo={totFirma}
+                          provvFirma={provvFirma}
+                        />
+                        {!isRipartoSumValidForPreview(ripartoRows) && (
+                          <p className="mx-3 mb-3 text-[11px] text-amber-700 dark:text-amber-300">
+                            Completa compagnie e quote (somma 100%) per visualizzare il riparto importi.
+                          </p>
+                        )}
+                      </>
                     ) : undefined
                   }
                 />

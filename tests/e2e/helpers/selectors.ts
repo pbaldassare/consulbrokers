@@ -1,14 +1,14 @@
 /** Selettori UI italiani per la suite e2e canonica. */
 export const SEL = {
   portafoglio: {
-    caricoHeading: 'Carico',
+    caricoHeading: 'Incassi e Coperture',
     totaleTitoli: 'Totale titoli',
     resetFiltri: /Reset Filtri/i,
     quietanze: 'Quietanze',
     inAttesaRinnovo: 'In attesa rinnovo',
   },
   contabilita: {
-    incassiHeading: /Incassi e Coperture/i,
+    incassiHeading: /Riepilogo Messe a Cassa/i,
     movBancariHeading: /Caricamento Movimenti Bancari/i,
     ricongiungimentoHeading: /Ricongiungimento Bancario/i,
     tabDaRicongiungere: /Da Ricongiungere/i,

@@ -4,7 +4,7 @@ import { SEL } from './helpers/selectors';
 
 test.use({ storageState: STORAGE_STATE });
 
-test.describe('Contabilità — Incassi e Coperture', () => {
+test.describe('Contabilità — Riepilogo Messe a Cassa', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/contabilita');
     await expectPageHealthy(page);
