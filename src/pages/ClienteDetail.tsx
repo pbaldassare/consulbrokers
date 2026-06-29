@@ -21,7 +21,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, Sparkles, Briefcase } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, Sparkles, Briefcase, Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { eliminaPolizza, eliminaQuietanza } from "@/lib/eliminaPolizza";
 import { format } from "date-fns";
 import { groupTitoliByPolizza } from "@/lib/quietanze";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
@@ -1137,6 +1148,12 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
   const isAdmin = profile?.ruolo === "admin";
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    kind: "madre" | "rata";
+    titoloId: string;
+    numero: string;
+    rateCount?: number;
+  } | null>(null);
 
   // Opzioni filtri (derivate dalle polizze caricate)
   const gruppiRamoOpts = useMemo(() => {
@@ -1256,44 +1273,40 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
     return parsed.toLocaleDateString("it-IT");
   };
 
-  const isLocked = (t: any) =>
-    t?.stato === "incassato" || t?.stato === "stornato" || !!t?.data_messa_cassa;
-
-  const deleteIds = async (ids: string[], label: string) => {
-    if (ids.length === 0) return;
-    setDeleting(ids[0]);
-    const { error } = await supabase.from("titoli").delete().in("id", ids);
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+    const { kind, titoloId } = deleteConfirm;
+    setDeleting(titoloId);
+    const res = kind === "madre"
+      ? await eliminaPolizza(titoloId)
+      : await eliminaQuietanza(titoloId);
     setDeleting(null);
-    if (error) {
-      toast.error(`Errore eliminazione ${label}: ${error.message}`);
+    setDeleteConfirm(null);
+    if (!res.ok) {
+      toast.error(`Errore eliminazione: ${res.error}`);
       return;
     }
-    toast.success(`${label} eliminata`);
+    const label = kind === "madre" ? "Polizza eliminata" : "Quietanza eliminata";
+    toast.success(label);
     queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
   };
 
-  const handleDeleteMadre = async (c: any) => {
+  const handleDeleteMadre = (c: any) => {
     const head = c.madre || c.all[0];
-    if (isLocked(head) || c.rate.some((r: any) => isLocked(r))) {
-      toast.error("Polizza/quietanza messa a cassa o stornata: non eliminabile");
-      return;
-    }
-    const n = c.rate.length;
-    const msg = n > 0
-      ? `Eliminare la polizza N. ${head.numero_titolo} e tutte le sue ${n} quietanze?`
-      : `Eliminare la polizza N. ${head.numero_titolo}?`;
-    if (!window.confirm(msg)) return;
-    const ids = [head.id, ...c.rate.map((r: any) => r.id)];
-    await deleteIds(ids, "Polizza");
+    setDeleteConfirm({
+      kind: "madre",
+      titoloId: head.id,
+      numero: head.numero_titolo ?? "—",
+      rateCount: c.rate.length,
+    });
   };
 
-  const handleDeleteRata = async (r: any) => {
-    if (isLocked(r)) {
-      toast.error("Quietanza messa a cassa o stornata: non eliminabile");
-      return;
-    }
-    if (!window.confirm(`Eliminare la quietanza N. ${r.numero_titolo}?`)) return;
-    await deleteIds([r.id], "Quietanza");
+  const handleDeleteRata = (r: any) => {
+    setDeleteConfirm({
+      kind: "rata",
+      titoloId: r.id,
+      numero: r.numero_titolo ?? "—",
+    });
   };
   const fmtNum = (n: number | null | undefined) => (n != null ? n.toFixed(2) : "—");
   const stateVariant = (stato: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -1502,8 +1515,8 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7"
-                        disabled={deleting === r.id || isLocked(r)}
-                        title={isLocked(r) ? "Quietanza bloccata (messa a cassa/stornata)" : "Elimina quietanza"}
+                        disabled={!!deleting}
+                        title="Elimina quietanza (cascade incassi/provvigioni)"
                         onClick={() => handleDeleteRata(r)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -1562,8 +1575,8 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7"
-                        disabled={deleting === head.id || isLocked(head)}
-                        title={isLocked(head) ? "Polizza bloccata (messa a cassa/stornata)" : "Elimina polizza e quietanze"}
+                        disabled={!!deleting}
+                        title="Elimina polizza e quietanze (cascade incassi/provvigioni)"
                         onClick={() => handleDeleteMadre(c)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -1576,6 +1589,50 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
           )}
         </TableBody>
       </Table>
+
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open && !deleting) setDeleteConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminazione definitiva</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                {deleteConfirm?.kind === "madre" ? (
+                  <>
+                    <p>
+                      Eliminare definitivamente la polizza N.{" "}
+                      <strong>{deleteConfirm.numero}</strong>
+                      {deleteConfirm.rateCount ? ` e ${deleteConfirm.rateCount} quietanze collegate` : ""}?
+                    </p>
+                  </>
+                ) : (
+                  <p>
+                    Eliminare definitivamente la quietanza N.{" "}
+                    <strong>{deleteConfirm?.numero}</strong>?
+                  </p>
+                )}
+                <p className="text-destructive font-medium">
+                  Verranno rimossi anche incassi bancari, provvigioni, rimesse e movimenti collegati.
+                  Operazione irreversibile.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deleting}>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDelete();
+              }}
+            >
+              {deleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Elimina definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

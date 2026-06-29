@@ -10,6 +10,7 @@ export type AnnullaPolizzaResult = {
   rimesseTestateEliminate?: number;
   movimentiEliminati?: number;
   movimentiPolizzaEliminati?: number;
+  movimentiPolizzeEliminati?: number;
   splitsEliminati?: number;
   includevaProvvigioniPagate?: boolean;
 };
@@ -17,7 +18,7 @@ export type AnnullaPolizzaResult = {
 /**
  * Annulla una polizza/quietanza in modo transazionale via RPC `annulla_polizza_cascade`.
  * Elimina in cascade: pagamenti_provvigioni_righe, provvigioni_generate, rimessa_dettaglio,
- * testate rimessa_premi rimaste vuote, movimenti_contabili, movimenti_polizza,
+ * testate rimessa_premi rimaste vuote, movimenti_contabili, movimenti_polizza, movimenti_polizze,
  * titoli_split_commerciali e quietanze discendenti.
  * Lascia il titolo target in stato `annullato` come ancoraggio per il log.
  */
@@ -37,6 +38,7 @@ export async function annullaPolizza(titoloId: string): Promise<AnnullaPolizzaRe
     rimesseTestateEliminate: r.rimesse_testate_eliminate ?? 0,
     movimentiEliminati: r.movimenti_eliminati ?? 0,
     movimentiPolizzaEliminati: r.movimenti_polizza_eliminati ?? 0,
+    movimentiPolizzeEliminati: r.movimenti_polizze_eliminati ?? 0,
     splitsEliminati: r.splits_eliminati ?? 0,
     includevaProvvigioniPagate: !!r.includeva_provvigioni_pagate,
   };
