@@ -432,6 +432,7 @@ export type Database = {
           studio_ufficio: string | null
           telefono: string | null
           tipo: string
+          trattenuta_provvigioni_incasso: boolean
           ufficio_id: string | null
           updated_at: string | null
         }
@@ -481,6 +482,7 @@ export type Database = {
           studio_ufficio?: string | null
           telefono?: string | null
           tipo: string
+          trattenuta_provvigioni_incasso?: boolean
           ufficio_id?: string | null
           updated_at?: string | null
         }
@@ -530,6 +532,7 @@ export type Database = {
           studio_ufficio?: string | null
           telefono?: string | null
           tipo?: string
+          trattenuta_provvigioni_incasso?: boolean
           ufficio_id?: string | null
           updated_at?: string | null
         }
