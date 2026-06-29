@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
+import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { buildGarantitoPayload, isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 import { annullaPolizza } from "@/lib/annullaPolizza";
@@ -1435,11 +1436,13 @@ const TitoloDetail = () => {
       if (nuovoStato === "incassato" && !isConferimento) {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
         // Notifica formale all'agenzia/rapporto (non bloccante, ma con feedback errore)
-        supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: id } })
-          .then((res: any) => {
-            if (res?.error) toast.warning(`Notifica messa a cassa non inviata: ${res.error.message ?? res.error}`);
-            else if (res?.data?.skipped) { /* già inviata (es. incasso reale su polizza garantita) */ }
-            else if (res?.data?.recipient) toast.success(`Notifica inviata a ${res.data.recipient}`);
+        invokeNotificaMessaCassa([id!])
+          .then(({ data, error }) => {
+            if (error) toast.warning(`Notifica messa a cassa non inviata: ${error.message ?? error}`);
+            else if (data?.skipped) { /* già inviata */ }
+            else if (data?.recipient) toast.success(`Notifica inviata a ${data.recipient}`);
+            if (data?.documenti_archiviati) queryClient.invalidateQueries({ queryKey: ["documenti", "titolo"] });
+            if (data?.archive_error) toast.warning(`Archivio PDF non creato: ${data.archive_error}`);
           })
           .catch((e) => toast.warning(`Notifica messa a cassa fallita: ${e?.message ?? e}`));
       }
@@ -1474,7 +1477,7 @@ const TitoloDetail = () => {
         toast.success(
           `Quietanza successiva generata${d ? ` con decorrenza ${d}` : ""}`,
           {
-            description: "Compare in Incassi e Coperture del periodo target.",
+            description: "Compare in Avvisi di incasso del periodo target.",
             action: {
               label: "Apri",
               onClick: () => navigate(`/titoli/${res.quietanzaGenerata!.id}`),
@@ -1505,10 +1508,10 @@ const TitoloDetail = () => {
           dettagli_json: { data_copertura: form.dataCopertura, data_decorrenza_rinnovo: form.dataDecorrenza },
         });
       }
-      const res = await supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: id } });
+      const res = await invokeNotificaMessaCassa([id!]);
       return res;
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
@@ -1516,6 +1519,8 @@ const TitoloDetail = () => {
       toast.success("Copertura garantita");
       if (res?.error) toast.warning(`Notifica non inviata: ${res.error.message ?? res.error}`);
       else if (res?.data?.recipient) toast.success(`Notifica inviata a ${res.data.recipient}`);
+      if (res?.data?.documenti_archiviati) queryClient.invalidateQueries({ queryKey: ["documenti", "titolo"] });
+      if (res?.data?.archive_error) toast.warning(`Archivio PDF non creato: ${res.data.archive_error}`);
       setConferimentoDialogOpen(false);
     },
     onError: (err: any) => toast.error(err?.message || "Errore copertura garantita"),
@@ -1783,7 +1788,7 @@ const TitoloDetail = () => {
               <span className="font-mono font-semibold">{t.sostituisce_polizza}</span>
               .
               Diventerà <strong>attivo automaticamente</strong> quando la polizza precedente verrà messa a cassa,
-              e solo allora apparirà in <em>Incassi e Coperture</em> di scadenza.
+              e solo allora apparirà in <em>Avvisi di incasso</em> di scadenza.
             </p>
             {isAdmin && (
               <Button
@@ -1902,13 +1907,15 @@ const TitoloDetail = () => {
                 title={!t.data_messa_cassa && !t.data_copertura ? "Disponibile solo dopo copertura o messa a cassa" : "Reinvia email di notifica all'agenzia/compagnia"}
                 onClick={async () => {
                   const tid = toast.loading("Invio notifica messa a cassa...");
-                  const res: any = await supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id, force: true } });
+                  const { data, error } = await invokeNotificaMessaCassa([t.id], { force: true });
                   toast.dismiss(tid);
-                  if (res?.error) {
-                    toast.error(`Notifica non inviata: ${res.error.message ?? res.error}`);
+                  if (error) {
+                    toast.error(`Notifica non inviata: ${error.message ?? error}`);
                   } else {
-                    toast.success(`Notifica inviata a ${res?.data?.recipient ?? "destinatario"}`);
+                    toast.success(`Notifica inviata a ${data?.recipient ?? "destinatario"}`);
                     queryClient.invalidateQueries({ queryKey: ["log-attivita", t.id] });
+                    if (data?.documenti_archiviati) queryClient.invalidateQueries({ queryKey: ["documenti", "titolo"] });
+                    if (data?.archive_error) toast.warning(`Archivio PDF non creato: ${data.archive_error}`);
                   }
                 }}
               >

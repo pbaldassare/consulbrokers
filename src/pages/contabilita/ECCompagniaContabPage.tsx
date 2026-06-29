@@ -771,11 +771,11 @@ Consulbrokers`;
                               <TableRow className="hover:bg-transparent">
                                 <TableHead className="w-[40px] h-8"></TableHead>
                                 <TableHead className="h-8 text-xs">N. Titolo</TableHead>
-                                <TableHead className="h-8 text-xs">Data Messa a Cassa</TableHead>
+                                {!isAgenzia && <TableHead className="h-8 text-xs">Data Messa a Cassa</TableHead>}
                                 <TableHead className="h-8 text-xs text-right">Premio Lordo</TableHead>
                                 <TableHead className="h-8 text-xs text-right">Importo Incassato</TableHead>
                                 <TableHead className="h-8 text-xs">Tipo Pagamento</TableHead>
-                                <TableHead className="h-8 text-xs">Modalità Incasso</TableHead>
+                                {!isAgenzia && <TableHead className="h-8 text-xs">Modalità Incasso</TableHead>}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -793,21 +793,25 @@ Consulbrokers`;
                                     />
                                   </TableCell>
                                   <TableCell className="py-1 text-sm">{t.numero_titolo || "—"}</TableCell>
-                                  <TableCell className="py-1 text-sm">{dataEff ? format(new Date(dataEff), "dd/MM/yyyy") : "—"}</TableCell>
+                                  {!isAgenzia && (
+                                    <TableCell className="py-1 text-sm">{dataEff ? format(new Date(dataEff), "dd/MM/yyyy") : "—"}</TableCell>
+                                  )}
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.premio_lordo)}</TableCell>
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.importo_incassato)}</TableCell>
                                   <TableCell className="py-1">
                                     <Badge variant={tipoPagColor as any} className="text-[10px] h-5">{tipoPagLabel}</Badge>
                                   </TableCell>
-                                  <TableCell className="py-1">
-                                    {t.conferimento_gestito ? (
-                                      <Badge variant={t.fondi_ricevuti ? "default" : "destructive"} className="text-[10px] h-5">
-                                        {t.fondi_ricevuti ? "Cop. Garantita ✓" : "In Attesa Fondi"}
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="outline" className="text-[10px] h-5">Incasso diretto</Badge>
-                                    )}
-                                  </TableCell>
+                                  {!isAgenzia && (
+                                    <TableCell className="py-1">
+                                      {t.conferimento_gestito ? (
+                                        <Badge variant={t.fondi_ricevuti ? "default" : "destructive"} className="text-[10px] h-5">
+                                          {t.fondi_ricevuti ? "Cop. Garantita ✓" : "In Attesa Fondi"}
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="text-[10px] h-5">Incasso diretto</Badge>
+                                      )}
+                                    </TableCell>
+                                  )}
                                 </TableRow>
                                 );
                               })}

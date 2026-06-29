@@ -17,7 +17,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/titoli": "Titoli",
   "/sinistri": "Sinistri",
   "/portafoglio/attive": "Polizze Attive",
-  "/portafoglio/carico": "Incassi e Coperture",
+  "/portafoglio/carico": "Avvisi di incasso",
   "/portafoglio/gestione": "Gestione Polizze",
   "/portafoglio/storico": "Storico Polizze",
   "/contabilita": "Riepilogo Messe a Cassa",

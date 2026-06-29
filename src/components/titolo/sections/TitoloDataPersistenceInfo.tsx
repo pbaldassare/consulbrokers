@@ -75,7 +75,7 @@ export function TitoloDataPersistenceInfo() {
       nome: "Messa a Cassa / Incasso",
       header: "titoli — campi: stato='incassato' (o 'attivo' per poliennali), data_messa_cassa, data_pagamento, data_incasso, importo_incassato, tipo_pagamento, banca_pagamento",
       movimento: "movimenti_contabili (riferimento_tipo='titolo') + trigger auto-genera quietanza successiva nei titoli (frazionamento)",
-      collegate: "log_attivita + notifica_messa_cassa_inviata (edge function notifica-messa-cassa-agenzia)",
+      collegate: "log_attivita + notifica_messa_cassa_inviata + PDF in documenti_titoli (categoria notifica_messa_cassa)",
       note: "Protezione anti-doppio-incasso: trigger DB blocca un secondo incasso senza prima annullare quello in corso (admin only).",
     },
     {

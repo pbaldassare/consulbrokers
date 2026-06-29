@@ -18,7 +18,7 @@ export function caricoDateInputs(page: Page) {
 
 export async function selectCaricoPeriodo(
   page: Page,
-  periodo: 'Mese Corrente' | 'Messe a Cassa' | 'Tutte',
+  periodo: 'Mese Corrente' | 'Tutte',
 ) {
   await page.getByRole('radio', { name: periodo }).click();
 }

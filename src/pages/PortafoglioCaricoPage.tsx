@@ -1,4 +1,4 @@
-// Carico – v3: toggle Mese Corrente / Messe a Cassa / Tutte, default = mese corrente + arretrati non a cassa
+// Carico – toggle Mese Corrente / Tutte, default = mese corrente + arretrati non a cassa
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +20,7 @@ import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
+import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
 import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
@@ -49,19 +50,22 @@ const PortafoglioCaricoPage = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [searchParams, setSearchParams] = useSearchParams();
-  type Periodo = "mese_corrente" | "messe_cassa" | "tutte";
+  type Periodo = "mese_corrente" | "tutte";
   const initialPeriodo: Periodo = (() => {
     const p = searchParams.get("periodo");
-    return p === "mese_corrente" || p === "messe_cassa" || p === "tutte" ? p : "mese_corrente";
+    if (p === "messe_cassa") return "tutte";
+    return p === "mese_corrente" || p === "tutte" ? p : "tutte";
   })();
   const [filtroPeriodo, setFiltroPeriodo] = useState<Periodo>(initialPeriodo);
-  const [userTouched, setUserTouched] = useState<boolean>(!!searchParams.get("periodo"));
+  const [userTouched, setUserTouched] = useState<boolean>(() => {
+    const p = searchParams.get("periodo");
+    return !!p && p !== "messe_cassa";
+  });
   const [dateDa, setDateDa] = useState<string>(searchParams.get("dal") || "");
   const [dateA, setDateA] = useState<string>(searchParams.get("al") || "");
   const isDefaultExtended = !userTouched && filtroPeriodo === "mese_corrente" && !dateDa && !dateA;
   const [filtroTipo, setFiltroTipo] = useState<"polizze" | "quietanze" | "regolazioni" | "garantiti">("quietanze");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [cassaDialogTitoli, setCassaDialogTitoli] = useState<Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>>([]);
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
@@ -69,7 +73,7 @@ const PortafoglioCaricoPage = () => {
   const [garantitoDialogOpen, setGarantitoDialogOpen] = useState(false);
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
-  const hasActiveFilters = !!dateDa || !!dateA || !!search || filtroPeriodo !== "mese_corrente" || userTouched || filtroTipo !== "quietanze";
+  const hasActiveFilters = !!dateDa || !!dateA || !!search || filtroPeriodo !== "tutte" || userTouched || filtroTipo !== "quietanze";
 
   const updateUrl = (next: { periodo?: Periodo | null; dal?: string | null; al?: string | null }) => {
     const sp = new URLSearchParams(searchParams);
@@ -85,11 +89,18 @@ const PortafoglioCaricoPage = () => {
     setSearchParams(sp, { replace: true });
   };
 
+  useEffect(() => {
+    if (searchParams.get("periodo") !== "messe_cassa") return;
+    const sp = new URLSearchParams(searchParams);
+    sp.delete("periodo");
+    setSearchParams(sp, { replace: true });
+  }, []); // migrazione URL legacy messe_cassa → tutte (default)
+
   const resetFilters = () => {
     setDateDa("");
     setDateA("");
     setSearch("");
-    setFiltroPeriodo("mese_corrente");
+    setFiltroPeriodo("tutte");
     setUserTouched(false);
     setFiltroTipo("quietanze");
     setPage(0);
@@ -142,9 +153,6 @@ const PortafoglioCaricoPage = () => {
   };
 
   const applyPeriodoFilter = (q: any) => {
-    if (filtroPeriodo === "messe_cassa") {
-      return applyDateRange(q.eq("stato", "incassato"), "data_messa_cassa");
-    }
     if (filtroPeriodo === "tutte") {
       const attiveCond = ["stato.eq.attivo"];
       if (dateDa) attiveCond.push(`data_scadenza.gte.${dateDa}`);
@@ -167,10 +175,6 @@ const PortafoglioCaricoPage = () => {
   const applySearch = (q: any) =>
     search ? q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`) : q;
 
-  const orderField = filtroPeriodo === "messe_cassa"
-    ? (sortField === "data_scadenza" || sortField === "garanzia_a" || sortField === "garanzia_da" ? "data_messa_cassa" : sortField)
-    : sortField;
-
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, dateDa, dateA, sortField, sortDirection],
     queryFn: async () => {
@@ -184,7 +188,7 @@ const PortafoglioCaricoPage = () => {
       q = applyExcludeMadreConRate(q);
 
       const { data, count } = await q
-        .order(orderField, { ascending: sortDirection === "asc" })
+        .order(sortField, { ascending: sortDirection === "asc" })
         .range(range.from, range.to);
       return { data: data || [], count: count || 0 };
     },
@@ -243,71 +247,6 @@ const PortafoglioCaricoPage = () => {
     queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
   };
 
-  const mettiACassa = useCallback(async (titoloId: string, premioLordo?: number | null) => {
-    const today = todayStr();
-    setLoadingIds(prev => new Set(prev).add(titoloId));
-    try {
-      // Native: scriviamo sulla quietanza (entità nativa). Il trigger DB cura il riallineamento del titolo legacy.
-      const { error } = await (supabase.from("quietanze") as any).update({
-        stato: "incassato",
-        data_incasso: today,
-        data_messa_cassa: today,
-        data_pagamento: today,
-        importo_incassato: premioLordo ?? null,
-      }).eq("titolo_id", titoloId);
-
-      if (error) throw error;
-
-      await logAttivita({
-        azione: "messa_a_cassa",
-        entita_tipo: "quietanza",
-        entita_id: titoloId,
-        dettagli_json: { data_messa_cassa: today, data_pagamento: today },
-      });
-
-      // Genera provvigioni automaticamente (edge function lavora su titolo_id legacy)
-      supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: titoloId } }).catch(() => {});
-      // Notifica formale all'agenzia/rapporto
-      supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: titoloId } }).catch(() => {});
-
-
-
-      toast.success("Polizza messa a cassa");
-      invalidateQueries();
-    } catch (err: any) {
-      toast.error("Errore: " + (err.message || "operazione fallita"));
-    } finally {
-      setLoadingIds(prev => {
-        const next = new Set(prev);
-        next.delete(titoloId);
-        return next;
-      });
-    }
-  }, []);
-
-  const annullaIncasso = useCallback(async (titoloId: string) => {
-    setLoadingIds(prev => new Set(prev).add(titoloId));
-    try {
-      const res = await annullaMessaACassa(titoloId);
-      if (!res.ok) {
-        toast.error(res.error || "Operazione fallita");
-        return;
-      }
-      toast.success(
-        `Incasso annullato (${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov.${res.rataSuccessivaEliminata ? ", rata successiva rimossa" : ""})`
-      );
-      invalidateQueries();
-    } catch (err: any) {
-      toast.error("Errore: " + (err.message || "operazione fallita"));
-    } finally {
-      setLoadingIds(prev => {
-        const next = new Set(prev);
-        next.delete(titoloId);
-        return next;
-      });
-    }
-  }, []);
-
   // Solo polizze attive E mai messe a cassa sono incassabili (evita doppio incasso)
   const selectedAttive = useMemo(
     () => polizze.filter(p => selectedIds.has(p.id) && p.stato === "attivo" && !p.data_messa_cassa),
@@ -324,6 +263,7 @@ const PortafoglioCaricoPage = () => {
     setBulkLoading(true);
     const today = todayStr();
     let ok = 0, ko = 0;
+    const notificaIds: string[] = [];
     for (const p of selectedAttive) {
       // Native write: aggiorniamo la quietanza per titolo_id legacy
       const { error } = await (supabase.from("quietanze") as any).update({
@@ -335,12 +275,22 @@ const PortafoglioCaricoPage = () => {
       }).eq("titolo_id", p.id);
       if (error) ko++; else {
         ok++;
+        notificaIds.push(p.id);
         // Genera provvigioni per ogni polizza messa a cassa
         supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: p.id } }).catch(() => {});
-        // Notifica formale all'agenzia/rapporto
-        supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: p.id } }).catch(() => {});
       }
 
+    }
+    if (notificaIds.length > 0) {
+      invokeNotificaMessaCassa(notificaIds)
+        .then(({ data, error }) => {
+          if (error) toast.warning("Notifica agenzia non inviata");
+          else if (data?.archive_error) toast.warning(`Email inviata ma archivio PDF fallito: ${data.archive_error}`);
+          else if (data?.documenti_archiviati) {
+            queryClient.invalidateQueries({ queryKey: ["documenti", "titolo"] });
+          }
+        })
+        .catch(() => toast.warning("Notifica agenzia non inviata"));
     }
     if (ok > 0) {
       await logAttivita({
@@ -354,7 +304,7 @@ const PortafoglioCaricoPage = () => {
     setSelectedIds(new Set());
     invalidateQueries();
     setBulkLoading(false);
-  }, [selectedAttive]);
+  }, [selectedAttive, queryClient]);
 
   const bulkAnnullaIncasso = useCallback(async () => {
     if (selectedIncassate.length === 0) return;
@@ -417,14 +367,14 @@ const PortafoglioCaricoPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Incassi e Coperture</h1>
+        <h1 className="text-2xl font-bold text-foreground">Avvisi di incasso</h1>
         <p className="text-sm text-muted-foreground">
           {(() => {
-            const labelBase = filtroPeriodo === "messe_cassa" ? "Polizze messe a cassa" : "Polizze in scadenza";
+            const labelBase = "Polizze in scadenza";
             if (!dateDa && !dateA) {
               return (
                 <>
-                  {filtroPeriodo === "messe_cassa" ? "Tutte le polizze messe a cassa" : "Tutte le polizze"}
+                  Tutte le polizze
                   {isDefaultExtended && <span className="ml-2 text-xs text-primary">· inclusi arretrati non a cassa</span>}
                 </>
               );
@@ -608,7 +558,6 @@ const PortafoglioCaricoPage = () => {
           className="border rounded-md"
         >
           <ToggleGroupItem value="mese_corrente" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Mese Corrente</ToggleGroupItem>
-          <ToggleGroupItem value="messe_cassa" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Messe a Cassa</ToggleGroupItem>
           <ToggleGroupItem value="tutte" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Tutte</ToggleGroupItem>
         </ToggleGroup>
         <TipoFilterSegmented
@@ -663,7 +612,6 @@ const PortafoglioCaricoPage = () => {
                 {polizze.map((p: any) => {
                   const isIncassato = p.stato === "incassato";
                   const inCopertura = isInCoperturaGarantita(p);
-                  const isProcessing = loadingIds.has(p.id);
                   const isQ = isQuietanzaRow(p) || (Number(p.numero_rata) || 0) > 1;
                   const statoShown = displayStatoPolizza(p);
                   const polizzaMadreNumero = p.numero_polizza_snapshot || p.numero_titolo;
@@ -726,57 +674,6 @@ const PortafoglioCaricoPage = () => {
                       </TableCell>
                       <TableCell className="text-center text-xs">
                         {isIncassato ? fmtDate(p.data_messa_cassa) : "—"}
-                      </TableCell>
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        {isIncassato && isAdmin ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={isProcessing}
-                            onClick={() => annullaIncasso(p.id)}
-                            className="gap-1 h-8 text-xs"
-                          >
-                            <Undo2 className="h-3.5 w-3.5" />
-                            {isProcessing ? "..." : "Annulla"}
-                          </Button>
-                        ) : isIncassato ? (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        ) : inCopertura ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isProcessing}
-                            onClick={() => { setCassaDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }]); setCassaDialogOpen(true); }}
-                            className="gap-1 h-8 text-xs"
-                          >
-                            <Banknote className="h-3.5 w-3.5" />
-                            Incassa
-                          </Button>
-                        ) : (
-                          <div className="flex items-center gap-1 justify-center">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={isProcessing}
-                              onClick={() => { setCassaDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }]); setCassaDialogOpen(true); }}
-                              className="gap-1 h-8 text-xs"
-                            >
-                              <Banknote className="h-3.5 w-3.5" />
-                              Cassa
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={isProcessing}
-                              onClick={() => { setGarantitoDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }]); setGarantitoDialogOpen(true); }}
-                              className="gap-1 h-8 text-xs border-orange-400 text-orange-700 hover:bg-orange-50"
-                              title="Garantito (incasso senza fondi)"
-                            >
-                              <Shield className="h-3.5 w-3.5" />
-                              Gar.
-                            </Button>
-                          </div>
-                        )}
                       </TableCell>
                     </TableRow>
                   );

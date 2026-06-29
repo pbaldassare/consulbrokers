@@ -9,18 +9,26 @@ test.use({ storageState: STORAGE_STATE });
  * I test aprono il dialog e lo chiudono senza confermare l'incasso (no mutazioni DB).
  */
 test.describe('Contabilità · Messa a Cassa (dialog)', () => {
-  test('da Portafoglio Carico: bottone Cassa apre dialog Conferma Messa a Cassa', async ({ page }) => {
+  test('da Portafoglio Carico: selezione + Incassa apre dialog Conferma Messa a Cassa', async ({ page }) => {
     await page.goto('/portafoglio/carico');
     await expectPageHealthy(page);
     await waitForPortafoglioCarico(page);
 
-    const cassaBtn = page.getByRole('button', { name: 'Cassa', exact: true }).first();
-    if (!(await cassaBtn.count())) {
+    const rowCheckbox = page.locator('table tbody tr').first().locator('[role="checkbox"]').first();
+    if (!(await rowCheckbox.count())) {
       test.skip(true, 'Nessuna quietanza attiva incassabile nel carico corrente');
       return;
     }
 
-    await cassaBtn.click();
+    await rowCheckbox.click();
+
+    const incassaBtn = page.getByRole('button', { name: /^Incassa \(\d+\)$/ }).first();
+    if (!(await incassaBtn.count())) {
+      test.skip(true, 'Nessuna riga selezionabile per incasso');
+      return;
+    }
+
+    await incassaBtn.click();
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -68,8 +76,8 @@ test.describe('Contabilità · Messa a Cassa (dialog)', () => {
     await expect(dialog).toBeHidden();
   });
 
-  test('Portafoglio Carico: toggle Messe a Cassa mostra colonna data incasso', async ({ page }) => {
-    await page.goto('/portafoglio/carico?periodo=messe_cassa');
+  test('Portafoglio Carico: colonna Messa a Cassa visibile in vista Tutte', async ({ page }) => {
+    await page.goto('/portafoglio/carico');
     await expectPageHealthy(page);
     await waitForPortafoglioCarico(page);
 
@@ -84,7 +92,7 @@ test.describe('Contabilità · Messa a Cassa (dialog)', () => {
       });
       if (headerIndex >= 0) {
         const dateCell = rows.first().locator('td').nth(headerIndex);
-        await expect(dateCell).not.toHaveText('—');
+        await expect(dateCell).toBeVisible();
       }
     }
   });

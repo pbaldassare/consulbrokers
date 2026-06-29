@@ -513,19 +513,6 @@ const AgenzieInPagamentoPage = () => {
                 )}
               </div>
             </div>
-            <div className="w-[180px] space-y-1">
-              <Label className="text-xs">Stato</Label>
-              <SearchableSelect
-                options={[
-                  { value: "all", label: "Tutti" },
-                  { value: "in_pagamento", label: "In pagamento" },
-                  { value: "pronta", label: "XML generato" },
-                ]}
-                value={statoFilter}
-                onValueChange={(v) => setStatoFilter(v || "all")}
-                placeholder="Tutti"
-              />
-            </div>
             <div className="w-[260px] space-y-1">
               <Label className="text-xs">Conto mittente</Label>
               <SearchableSelect
@@ -602,7 +589,6 @@ const AgenzieInPagamentoPage = () => {
                       <TableHead className="w-[40px]"></TableHead>
                       <TableHead>Agenzia</TableHead>
                       <TableHead>IBAN destinazione</TableHead>
-                      <TableHead>Stato</TableHead>
                       <TableHead className="text-right">Totale</TableHead>
                       <TableHead className="text-right">Titoli</TableHead>
                       <TableHead className="w-[340px]">Azioni</TableHead>
@@ -623,9 +609,6 @@ const AgenzieInPagamentoPage = () => {
                             </TableCell>
                             <TableCell className="font-medium">{r.compagnie?.nome}</TableCell>
                             <TableCell className="font-mono text-xs">{ibanDest ? formatIbanMask(ibanDest) : <span className="text-destructive">— mancante —</span>}</TableCell>
-                            <TableCell>
-                              <Badge variant={r.stato === "pronta" ? "default" : "secondary"}>{r.stato === "pronta" ? "XML generato" : "In pagamento"}</Badge>
-                            </TableCell>
                             <TableCell className="text-right font-semibold">{fmt(r.totale_importi)}</TableCell>
                             <TableCell className="text-right">{r.rimessa_dettaglio?.length || 0}</TableCell>
                             <TableCell>
@@ -653,13 +636,12 @@ const AgenzieInPagamentoPage = () => {
                           </TableRow>
                           {isExp && (
                             <TableRow key={`${r.id}-d`} className="bg-muted/20 hover:bg-muted/20">
-                              <TableCell colSpan={8} className="py-2">
+                              <TableCell colSpan={7} className="py-2">
                                 <Table>
                                   <TableHeader>
                                     <TableRow>
                                       <TableHead className="h-8 text-xs">N. Titolo</TableHead>
                                       <TableHead className="h-8 text-xs">Cliente</TableHead>
-                                      <TableHead className="h-8 text-xs">Data Cassa</TableHead>
                                       <TableHead className="h-8 text-xs text-right">Importo</TableHead>
                                       <TableHead className="h-8 text-xs w-[80px]"></TableHead>
                                     </TableRow>
@@ -673,7 +655,6 @@ const AgenzieInPagamentoPage = () => {
                                         <TableRow key={d.titolo_id}>
                                           <TableCell className="py-1 text-sm">{t.numero_titolo || d.titolo_id.slice(0, 8)}</TableCell>
                                           <TableCell className="py-1 text-sm">{cliente}</TableCell>
-                                          <TableCell className="py-1 text-sm">{t.data_messa_cassa ? format(new Date(t.data_messa_cassa), "dd/MM/yyyy") : "—"}</TableCell>
                                           <TableCell className="py-1 text-sm text-right">{fmt(d.importo)}</TableCell>
                                           <TableCell className="py-1">
                                             {r.stato === "in_pagamento" && (

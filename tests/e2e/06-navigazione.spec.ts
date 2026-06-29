@@ -24,12 +24,12 @@ test.describe('Navigazione — sidebar senza 404', () => {
     });
   }
 
-  test('espansione gruppo Contabilità e navigazione a Incassi e Coperture', async ({ page }) => {
-    const contabilitaBtn = page.getByRole('button', { name: 'Contabilità' });
+  test('espansione gruppo Contabilità operativa e navigazione a Avvisi di incasso', async ({ page }) => {
+    const contabilitaBtn = page.getByRole('button', { name: 'Contabilità operativa' });
     if (await contabilitaBtn.count()) {
       await contabilitaBtn.click();
     }
-    await page.getByRole('link', { name: 'Incassi e Coperture' }).click();
+    await page.getByRole('link', { name: 'Avvisi di incasso' }).click();
     await expect(page).toHaveURL(/\/portafoglio\/carico/);
     await expectPageHealthy(page);
   });
@@ -54,12 +54,12 @@ test.describe('Navigazione — breadcrumb', () => {
     await expect(breadcrumb.getByText('Clienti')).toBeVisible();
   });
 
-  test('breadcrumb su Incassi e Coperture include Portafoglio', async ({ page }) => {
+  test('breadcrumb su Avvisi di incasso include Portafoglio', async ({ page }) => {
     await page.goto('/portafoglio/carico');
     await expectPageHealthy(page);
     const breadcrumb = page.locator('nav[aria-label="breadcrumb"], [data-slot="breadcrumb"]').first();
     await expect(breadcrumb).toBeVisible();
-    await expect(breadcrumb.getByText(/Portafoglio|Incassi e Coperture/i).first()).toBeVisible();
+    await expect(breadcrumb.getByText(/Portafoglio|Avvisi di incasso/i).first()).toBeVisible();
   });
 
   test('breadcrumb su Riepilogo Messe a Cassa', async ({ page }) => {
@@ -67,7 +67,7 @@ test.describe('Navigazione — breadcrumb', () => {
     await expectPageHealthy(page);
     const breadcrumb = page.locator('nav[aria-label="breadcrumb"], [data-slot="breadcrumb"]').first();
     await expect(breadcrumb).toBeVisible();
-    await expect(breadcrumb.getByText(/Contabilità|Riepilogo Messe a Cassa/i).first()).toBeVisible();
+    await expect(breadcrumb.getByText(/Contabilità operativa|Riepilogo Messe a Cassa/i).first()).toBeVisible();
   });
 
   test('navigazione breadcrumb Home riporta alla dashboard', async ({ page }) => {

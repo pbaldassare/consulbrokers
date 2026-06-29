@@ -45,7 +45,7 @@ export function removeTempFile(filePath: string) {
 
 /** Attende che Portafoglio Carico abbia finito il caricamento iniziale. */
 export async function waitForPortafoglioCarico(page: Page) {
-  await expect(page.getByRole('heading', { name: 'Incassi e Coperture' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('heading', { name: 'Avvisi di incasso' })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Totale titoli')).toBeVisible({ timeout: 20_000 });
   const loading = page.getByText('Caricamento...');
   if (await loading.count()) {
@@ -60,10 +60,10 @@ export function caricoDateInputs(page: Page) {
   return { dal, al };
 }
 
-/** Seleziona un toggle periodo nel Carico (Mese Corrente / Messe a Cassa / Tutte). */
+/** Seleziona un toggle periodo nel Carico (Mese Corrente / Tutte). */
 export async function selectCaricoPeriodo(
   page: Page,
-  periodo: 'Mese Corrente' | 'Messe a Cassa' | 'Tutte',
+  periodo: 'Mese Corrente' | 'Tutte',
 ) {
   await page.getByRole('radio', { name: periodo }).click();
 }

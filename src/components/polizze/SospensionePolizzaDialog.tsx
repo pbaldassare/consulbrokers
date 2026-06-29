@@ -379,8 +379,8 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
                 className="tabular-nums"
               />
               <p className="text-xs text-muted-foreground">
-                Verrà comunque creato un titolo di sospensione, anche se l&apos;importo è 0 €, così appare in Incassi e
-                Coperture ed estratti conto.
+                Verrà comunque creato un titolo di sospensione, anche se l&apos;importo è 0 €, così appare in Avvisi di
+                incasso ed estratti conto.
               </p>
             </div>
 

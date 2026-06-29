@@ -24,7 +24,7 @@ export const SEL = {
     annullaIncasso: /Annulla Incasso|Annulla Messa a Cassa/i,
   },
   portafoglio: {
-    caricoHeading: 'Incassi e Coperture',
+    caricoHeading: 'Avvisi di incasso',
     totaleTitoli: 'Totale titoli',
     resetFiltri: /Reset Filtri/i,
     immissioneHeading: /Immissione Polizza/i,

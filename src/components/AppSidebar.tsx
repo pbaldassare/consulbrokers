@@ -151,6 +151,7 @@ const sidebarEntries: SidebarEntry[] = [
         
         { label: "Polizze Attive", path: "/portafoglio/attive", icon: Shield },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
+        { label: "Gestione Polizze", path: "/portafoglio/gestione", icon: Wand2 },
         
         { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer, hideForRoles: ["ufficio"] },
       ],
@@ -193,26 +194,33 @@ const sidebarEntries: SidebarEntry[] = [
   {
     type: "group",
     group: {
-      label: "Contabilità",
+      label: "Contabilità operativa",
       icon: Calculator,
       permissionKey: "contabilita",
       children: [
-        { label: "Incassi e Coperture", path: "/portafoglio/carico", icon: Clock },
+        { label: "Avvisi di incasso", path: "/portafoglio/carico", icon: Clock },
         { label: "Riepilogo Messe a Cassa", path: "/contabilita", icon: Landmark },
-        { label: "Gestione Polizze", path: "/portafoglio/gestione", icon: Wand2 },
-        
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
-        { label: "E/C Agenzie", path: "/contabilita/ec-agenzia", icon: Building2, hideForRoles: ["ufficio"] },
-        { label: "Agenzie in Pagamento", path: "/contabilita/ec-agenzia/in-pagamento", icon: Building2, hideForRoles: ["ufficio"] },
-        { label: "Storico E/C Agenzie", path: "/contabilita/ec-agenzia/storico", icon: Archive, hideForRoles: ["ufficio"] },
         { label: "Storico E/C Clienti", path: "/contabilita/ec-cliente/storico", icon: Archive },
-        { label: "Storico Rimesse", path: "/contabilita/storico-rimesse", icon: Send },
         { label: "E/C Produttori", path: "/contabilita/ec-produttori", icon: Percent },
         { label: "Storico E/C Produttori", path: "/contabilita/ec-produttore/storico", icon: Archive },
         { label: "Riepilogo Acconti", path: "/contabilita/anticipi-clienti", icon: Wallet },
         { label: "Caricamento Mov. Bancari", path: "/contabilita/caricamento-mov-bancari", icon: Import, hideForRoles: ["ufficio","backoffice","contabilita","manager","produttore","corrispondente","cliente","prospect"] },
         { label: "Ricongiungimento Bancario", path: "/contabilita/ricongiungimento-bancario", icon: ArrowRightLeft, hideForRoles: ["manager","produttore","corrispondente","cliente","prospect"] },
-
+      ],
+    },
+  },
+  {
+    type: "group",
+    group: {
+      label: "Contabilità Amministrativa",
+      icon: Landmark,
+      permissionKey: "contabilita",
+      children: [
+        { label: "E/C Agenzie", path: "/contabilita/ec-agenzia", icon: Building2, hideForRoles: ["ufficio"] },
+        { label: "Agenzie in Pagamento", path: "/contabilita/ec-agenzia/in-pagamento", icon: Building2, hideForRoles: ["ufficio"] },
+        { label: "Storico E/C Agenzie", path: "/contabilita/ec-agenzia/storico", icon: Archive, hideForRoles: ["ufficio"] },
+        { label: "Storico Rimesse", path: "/contabilita/storico-rimesse", icon: Send },
       ],
     },
   },

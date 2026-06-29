@@ -185,14 +185,17 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Scadenze Sinistri', path: '/sinistri/scadenze' },
   { label: 'Report Sanitario SIR', path: '/sinistri/report-sir' },
 
-  // Contabilità
-  { label: 'Incassi e Coperture', path: '/portafoglio/carico' },
+  // Contabilità operativa
+  { label: 'Avvisi di incasso', path: '/portafoglio/carico' },
   { label: 'Riepilogo Messe a Cassa', path: '/contabilita' },
   { label: 'Gestione Polizze', path: '/portafoglio/gestione' },
   { label: 'E/C Clienti', path: '/contabilita/ec-clienti' },
   { label: 'E/C Compagnia', path: '/contabilita/ec-compagnia' },
+
+  // Contabilità Amministrativa (sidebar)
   { label: 'E/C Agenzie', path: '/contabilita/ec-agenzia' },
   { label: 'Agenzie in Pagamento', path: '/contabilita/ec-agenzia/in-pagamento' },
+
   { label: 'Storico E/C Agenzie', path: '/contabilita/ec-agenzia/storico' },
   { label: 'Storico E/C Clienti', path: '/contabilita/ec-cliente/storico' },
   { label: 'E/C Produttori', path: '/contabilita/ec-produttori' },

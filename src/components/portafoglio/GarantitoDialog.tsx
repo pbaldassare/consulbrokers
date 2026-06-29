@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Shield } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
+import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { buildGarantitoPayload } from "@/lib/garantitoTitolo";
 
@@ -61,6 +62,7 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
     if (titoli.length === 0) { toast.error("Nessun titolo selezionato"); return; }
     setLoading(true);
     let ok = 0, ko = 0;
+    const notificaTitoloIds: string[] = [];
 
     for (const t of titoli) {
       const payload = buildGarantitoPayload({ dataCopertura, dataDecorrenza });
@@ -79,9 +81,19 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
           bulk: isMulti,
         },
       });
-      supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } })
-        .then((res: any) => { if (res?.error) toast.warning(`Notifica non inviata (${t.numero_titolo ?? t.id})`); })
-        .catch(() => {});
+      notificaTitoloIds.push(t.id);
+    }
+
+    if (notificaTitoloIds.length > 0) {
+      invokeNotificaMessaCassa(notificaTitoloIds)
+        .then(({ data, error }) => {
+          if (error) toast.warning("Notifica agenzia non inviata");
+          else if (data?.archive_error) toast.warning(`Email inviata ma archivio PDF fallito: ${data.archive_error}`);
+          else if (data?.documenti_archiviati) {
+            queryClient.invalidateQueries({ queryKey: ["documenti", "titolo"] });
+          }
+        })
+        .catch(() => toast.warning("Notifica agenzia non inviata"));
     }
 
     setLoading(false);

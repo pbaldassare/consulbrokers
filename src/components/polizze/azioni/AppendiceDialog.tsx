@@ -312,7 +312,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     onSuccess: (res) => {
       const info = TIPO_INFO[tipo];
       toast.success(`${info.title} creata`, {
-        description: `Titolo ${info.suffix} generato. Ora è in Incassi e Coperture e pronto per la messa a cassa (anche a €0).`,
+        description: `Titolo ${info.suffix} generato. Ora è in Avvisi di incasso e pronto per la messa a cassa (anche a €0).`,
         action: res.titoloDerivatoId
           ? { label: "Apri titolo", onClick: () => navigate(`/titoli/${res.titoloDerivatoId}`) }
           : undefined,

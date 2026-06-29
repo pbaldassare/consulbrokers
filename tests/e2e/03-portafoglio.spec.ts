@@ -28,15 +28,14 @@ test.describe('Portafoglio — Carico filtri e contatori', () => {
     expect(counters.inAttesa).toMatch(/^\d+$/);
   });
 
-  test('toggle periodo Mese Corrente / Messe a Cassa / Tutte aggiorna URL', async ({ page }) => {
-    await selectCaricoPeriodo(page, 'Messe a Cassa');
-    await expect(page).toHaveURL(/periodo=messe_cassa/);
-
-    await selectCaricoPeriodo(page, 'Tutte');
-    await expect(page).toHaveURL(/periodo=tutte/);
+  test('toggle periodo Mese Corrente / Tutte aggiorna URL', async ({ page }) => {
+    await expect(page.getByRole('radio', { name: 'Tutte' })).toHaveAttribute('data-state', 'on');
 
     await selectCaricoPeriodo(page, 'Mese Corrente');
     await expect(page).toHaveURL(/periodo=mese_corrente/);
+
+    await selectCaricoPeriodo(page, 'Tutte');
+    await expect(page).toHaveURL(/periodo=tutte/);
   });
 
   test('datepicker Dal/Al aggiorna parametri URL', async ({ page }) => {
@@ -59,7 +58,7 @@ test.describe('Portafoglio — Carico filtri e contatori', () => {
 
     await expect(dal).toHaveValue('');
     await expect(al).toHaveValue('');
-    await expect(page.getByRole('radio', { name: 'Mese Corrente' })).toHaveAttribute('data-state', 'on');
+    await expect(page.getByRole('radio', { name: 'Tutte' })).toHaveAttribute('data-state', 'on');
     await expect(page).not.toHaveURL(/[?&]periodo=/);
     await expect(page).not.toHaveURL(/[?&]dal=/);
     await expect(reset).toHaveCount(0);
@@ -67,7 +66,7 @@ test.describe('Portafoglio — Carico filtri e contatori', () => {
 
   test('cambio filtro mantiene tabella o messaggio vuoto coerente', async ({ page }) => {
     const before = await readCaricoCounters(page);
-    await selectCaricoPeriodo(page, 'Messe a Cassa');
+    await selectCaricoPeriodo(page, 'Mese Corrente');
     await waitForPortafoglioCarico(page);
     const after = await readCaricoCounters(page);
 
