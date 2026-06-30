@@ -17,7 +17,7 @@ import { Upload, FileSpreadsheet, Plus, Download } from "lucide-react";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
-import { resolveUfficioFromConto } from "@/lib/movimentiBancari";
+import { resolveUfficioFromConto, normalizeExcelRow, resolveOrdinanteImport } from "@/lib/movimentiBancari";
 
 const STATO_LABEL: Record<string, { label: string; variant: "secondary" | "default" | "outline" | "destructive" }> = {
   importato: { label: "Importato", variant: "secondary" },
@@ -78,7 +78,7 @@ const Page = () => {
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: "array", cellDates: true });
       const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true });
+      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true }).map(normalizeExcelRow);
       if (rows.length === 0) {
         toast.error("Nessuna riga trovata nel file");
         return;
@@ -86,8 +86,8 @@ const Page = () => {
       const cols = Object.keys(rows[0]);
       const colData = cols.find((c) => /data\s*contabile/i.test(c)) || cols.find((c) => /^data/i.test(c)) || cols[0];
       const colImp = cols.find((c) => /^importo/i.test(c)) || cols.find((c) => /importo|amount/i.test(c));
-      const colOrd = cols.find((c) => /^ordinante/i.test(c));
-      const colDesc = cols.find((c) => /descri/i.test(c));
+      const colOrd = cols.find((c) => /^ordinante/i.test(c)) || cols.find((c) => /ordinante|mittente|controparte/i.test(c));
+      const colDesc = cols.find((c) => /descri/i.test(c)) || cols.find((c) => /causale/i.test(c));
       const colCliId = cols.find((c) => /cliente\s*id/i.test(c));
 
       const { data: userResp } = await supabase.auth.getUser();
@@ -99,7 +99,7 @@ const Page = () => {
           const importo = parseImporto(r[colImp as string]);
           if (!importo) return null;
           const descrizione = colDesc ? String(r[colDesc] ?? "").trim() : "";
-          const ordinante = colOrd ? String(r[colOrd] ?? "").trim() : "";
+          const ordinante = resolveOrdinanteImport(colOrd ? String(r[colOrd] ?? "") : "", descrizione);
           const rawCli = colCliId ? String(r[colCliId] ?? "").trim() : "";
           const cliente_id = UUID_RE.test(rawCli) ? rawCli : null;
           return {
@@ -241,7 +241,8 @@ const Page = () => {
                 </div>
                 <DropZone disabled={importing || !contoImportId} onFile={handleFile} />
                 <p className="text-xs text-muted-foreground">
-                  Colonne attese: <code>Data contabile</code>, <code>Importo</code>, <code>Ordinante</code>, <code>Descrizione</code>.
+                  Colonne minime: <code>Data contabile</code>, <code>Importo</code>, <code>Descrizione</code>.
+                  L&apos;<code>Ordinante</code> viene letto dalla colonna o estratto dalla descrizione (es. estratti BCC).
                   Opzionale: <code>Cliente ID</code> (UUID) per pre-assegnare il pagatore.
                 </p>
                 {lastReport && (
@@ -374,6 +375,7 @@ const MonitorTab = () => {
                 const aCassa = polizze.filter((p: any) => p.messo_a_cassa).reduce((s: number, p: any) => s + Number(p.importo || 0), 0);
                 return {
                   Data: m.data_movimento,
+                  Ordinante: m.ordinante || "",
                   Cliente: cliNome,
                   Ufficio: m.ufficio?.nome || "",
                   Totale: Number(m.importo) || 0,
@@ -392,7 +394,7 @@ const MonitorTab = () => {
         <CardContent>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Data</TableHead><TableHead>Cliente</TableHead><TableHead>Ufficio</TableHead>
+              <TableHead>Data</TableHead><TableHead>Ordinante</TableHead><TableHead>Cliente</TableHead><TableHead>Ufficio</TableHead>
               <TableHead className="text-right">Totale</TableHead><TableHead className="text-right">A cassa</TableHead>
               <TableHead>Polizze</TableHead><TableHead>Stato</TableHead>
             </TableRow></TableHeader>
@@ -404,6 +406,7 @@ const MonitorTab = () => {
                 return (
                   <TableRow key={m.id} className={i % 2 ? "bg-muted/30" : ""}>
                     <TableCell>{m.data_movimento}</TableCell>
+                    <TableCell className="text-sm max-w-[220px] truncate" title={m.ordinante || undefined}>{m.ordinante || "—"}</TableCell>
                     <TableCell className="text-sm">{cliNome}</TableCell>
                     <TableCell className="text-sm">{m.ufficio?.nome ?? "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmtEuro(m.importo)}</TableCell>
@@ -413,7 +416,7 @@ const MonitorTab = () => {
                   </TableRow>
                 );
               })}
-              {movs.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
+              {movs.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

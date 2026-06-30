@@ -2,6 +2,47 @@ import { supabase } from "@/integrations/supabase/client";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+const CAUSALE_STOP_RE =
+  /\s+(CIG|RINNOVO|POLIZZ[AE]|PAGAMENTO|LIQUIDAZIONE|Info aggiuntive|PERP|RAMO|CYBER|CREAZIONE|ASSICURATIV).*$/i;
+
+/** Estrae il pagatore da descrizione movimento (BCC, Intesa, ecc.) quando manca colonna Ordinante. */
+export function extractOrdinanteFromDescrizione(descrizione: string): string {
+  const desc = String(descrizione ?? "").trim();
+  if (!desc) return "";
+
+  const ordinanteLabel = desc.match(/ORDINANTE[:\s]+([^/\n]+?)(?:\s{2,}|$|CRO|TRN|IBAN)/i);
+  if (ordinanteLabel) return ordinanteLabel[1].trim();
+
+  const da = desc.match(/DA\s+([A-ZÀ-Ü][A-ZÀ-Ü0-9\s&.'-]+?)(?:\s{2,}|$|CRO|TRN|IBAN)/);
+  if (da) return da[1].trim();
+
+  const bcc = desc.match(/Bonifico\s+a\s+vs\s+favore\s+\*([^*]+)/i);
+  if (bcc) {
+    let name = bcc[1].trim();
+    name = name.replace(CAUSALE_STOP_RE, "").trim();
+    name = name.replace(/\s+\d{4}-\d{5,}-\d{6,}.*$/, "").trim();
+    name = name.replace(/\s+\d{10,}.*$/, "").trim();
+    return name;
+  }
+
+  return desc.split(/\s{2,}|;|\|/)[0].slice(0, 120).trim();
+}
+
+/** Normalizza chiavi colonna Excel (spazi iniziali/finali). */
+export function normalizeExcelRow(row: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(row).map(([k, v]) => [k.trim(), v]));
+}
+
+/** Risolve ordinante: colonna dedicata, altrimenti estrazione da descrizione. */
+export function resolveOrdinanteImport(
+  ordinanteRaw: string,
+  descrizione: string,
+): string {
+  const fromCol = String(ordinanteRaw ?? "").trim();
+  if (fromCol) return fromCol;
+  return extractOrdinanteFromDescrizione(descrizione);
+}
+
 /** Conti bancari visibili per una sede (per filtrare movimenti). */
 export async function fetchContoIdsForUfficio(ufficioId: string): Promise<string[]> {
   const { data, error } = await supabase

@@ -1931,6 +1931,11 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
+  const titoloIdsMadri = useMemo(
+    () => [...new Set(polizze.filter((p: any) => !p.sostituisce_polizza).map((p: any) => p.id as string))],
+    [polizze],
+  );
+
   // IDs delle entità collegate al cliente per aggregazione log attività
   const { data: relatedIds } = useQuery({
     queryKey: ["cliente_related_ids", id],
@@ -2433,12 +2438,19 @@ export default function ClienteDetail() {
               </div>
             </CardContent>
           </Card>
+          <p className="text-xs text-muted-foreground px-1">
+            Gli <strong>avvisi incasso agenzia (email messa a cassa)</strong> sono archiviati automaticamente dalle polizze del cliente e mostrano destinatario, oggetto e data invio.
+            L&apos;<strong>E/C Cliente</strong> è un documento contabile separato verso il cliente.
+          </p>
           <DocumentiTab
             entitaTipo="cliente"
             entitaId={id!}
             bucketName="documenti_clienti"
             typedUpload
             entitaLabel={displayName}
+            showPreview={false}
+            titoloIdsForExtraDocs={titoloIdsMadri}
+            extraTitoloCategorie={["notifica_messa_cassa"]}
           />
         </TabsContent>
 

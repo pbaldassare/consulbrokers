@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { logAttivita } from "@/lib/logAttivita";
 import PdfPreview from "@/components/PdfPreview";
 import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
 import { labelTipoDocumento } from "@/lib/tipiDocumentoCliente";
+import { fetchMetadatiInvioMessaCassa, type InvioEmailMessaCassaMeta } from "@/lib/documentiMessaCassa";
 import UploadDocStaffDialog from "@/components/clienti/UploadDocStaffDialog";
 
 interface DocumentiTabProps {
@@ -21,6 +22,10 @@ interface DocumentiTabProps {
   entitaId: string;
   /** Se valorizzato, la query legge i documenti di TUTTI gli id elencati (catena polizza+quietanze). L'upload viene comunque salvato sul primo id (madre). */
   entitaIds?: string[];
+  /** Documenti su titoli collegati (es. avvisi messa a cassa archiviati sulla polizza madre). */
+  titoloIdsForExtraDocs?: string[];
+  /** Categorie titolo da includere insieme ai documenti dell'entità principale. */
+  extraTitoloCategorie?: string[];
   bucketName?: string;
   readOnly?: boolean;
   /** Upload tipizzato via modale (anagrafica cliente backoffice). */
@@ -77,6 +82,8 @@ export default function DocumentiTab({
   entitaTipo,
   entitaId,
   entitaIds,
+  titoloIdsForExtraDocs,
+  extraTitoloCategorie,
   bucketName,
   readOnly = false,
   typedUpload = false,
@@ -98,18 +105,53 @@ export default function DocumentiTab({
   // Upload viene sempre attribuito al primo id (per i titoli = madre della catena, stabile).
   const uploadEntitaId = (entitaIds && entitaIds.length > 0) ? entitaIds[0] : entitaId;
   const idsKey = [...idsForRead].sort().join(",");
+  const extraTitoloKey = (titoloIdsForExtraDocs ?? []).slice().sort().join(",");
+  const extraCatKey = (extraTitoloCategorie ?? []).slice().sort().join(",");
 
   const { data: documenti } = useQuery({
-    queryKey: ["documenti", entitaTipo, idsKey],
+    queryKey: ["documenti", entitaTipo, idsKey, extraTitoloKey, extraCatKey],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data: main } = await supabase
         .from("documenti")
         .select("*, profiles:caricato_da(nome, cognome)")
         .eq("entita_tipo", entitaTipo)
         .in("entita_id", idsForRead)
         .order("created_at", { ascending: false });
-      return data || [];
+
+      let extra: any[] = [];
+      if (titoloIdsForExtraDocs?.length && extraTitoloCategorie?.length) {
+        const { data: titoloDocs } = await supabase
+          .from("documenti")
+          .select("*, profiles:caricato_da(nome, cognome)")
+          .eq("entita_tipo", "titolo")
+          .in("entita_id", titoloIdsForExtraDocs)
+          .in("categoria", extraTitoloCategorie)
+          .order("created_at", { ascending: false });
+        extra = titoloDocs ?? [];
+      }
+
+      const seen = new Set<string>();
+      const merged: any[] = [];
+      for (const doc of [...(main ?? []), ...extra]) {
+        const key = doc.path_storage || doc.id;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(doc);
+      }
+      merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      return merged;
     },
+  });
+
+  const avvisoIds = useMemo(
+    () => (documenti ?? []).filter((d: any) => d.categoria === "notifica_messa_cassa").map((d: any) => d.id as string),
+    [documenti],
+  );
+
+  const { data: invioEmailByDocId = new Map<string, InvioEmailMessaCassaMeta>() } = useQuery({
+    queryKey: ["documenti-invio-email", avvisoIds.join(",")],
+    enabled: avvisoIds.length > 0,
+    queryFn: () => fetchMetadatiInvioMessaCassa(avvisoIds),
   });
 
 
@@ -140,7 +182,7 @@ export default function DocumentiTab({
       if (insertErr) throw insertErr;
       await logAttivita({ azione: "upload_documento", entita_tipo: entitaTipo, entita_id: uploadEntitaId, dettagli_json: { nome_file: file.name } });
       toast.success("Documento caricato");
-      qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, idsKey] });
+      qc.invalidateQueries({ queryKey: ["documenti", entitaTipo] });
 
     } catch (err: any) {
       toast.error(err.message);
@@ -163,14 +205,14 @@ export default function DocumentiTab({
 
   const toggleVisibilita = async (doc: any) => {
     await supabase.from("documenti").update({ visibile_al_cliente: !doc.visibile_al_cliente }).eq("id", doc.id);
-    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, idsKey] });
+    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo] });
   };
 
   const handleDelete = async (doc: any) => {
     await supabase.storage.from(doc.bucket_name).remove([doc.path_storage]);
     await supabase.from("documenti").delete().eq("id", doc.id);
     toast.success("Documento eliminato");
-    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, idsKey] });
+    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo] });
   };
 
   const openPreview = async (doc: any) => {
@@ -208,7 +250,8 @@ export default function DocumentiTab({
   const previewIsImage = IMAGE_EXTENSIONS.includes(previewExt);
 
   const showTipologia = typedUpload || documenti?.some((d: any) => d.categoria);
-  const colSpan = showTipologia ? 7 : 6;
+  const showInvioEmail = documenti?.some((d: any) => d.categoria === "notifica_messa_cassa");
+  const colSpan = (showTipologia ? 1 : 0) + (showInvioEmail ? 1 : 0) + 6;
 
   return (
     <div className="space-y-4">
@@ -225,7 +268,7 @@ export default function DocumentiTab({
                 clienteId={uploadEntitaId}
                 clienteLabel={entitaLabel}
                 bucketName={bucket}
-                onUploaded={() => qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, idsKey] })}
+                onUploaded={() => qc.invalidateQueries({ queryKey: ["documenti", entitaTipo] })}
               />
             </>
           ) : (
@@ -244,6 +287,7 @@ export default function DocumentiTab({
             <TableHead className="w-16"></TableHead>
             <TableHead>Nome File</TableHead>
             {showTipologia && <TableHead>Tipologia</TableHead>}
+            {showInvioEmail && <TableHead>Invio email</TableHead>}
             <TableHead>Caricato da</TableHead>
             <TableHead>Data</TableHead>
             <TableHead>Visibile al cliente</TableHead>
@@ -275,6 +319,29 @@ export default function DocumentiTab({
                   ) : (
                     "—"
                   )}
+                </TableCell>
+              )}
+              {showInvioEmail && (
+                <TableCell className="text-xs max-w-[240px]">
+                  {doc.categoria === "notifica_messa_cassa" ? (() => {
+                    const meta = invioEmailByDocId.get(doc.id);
+                    if (!meta) return <span className="text-muted-foreground">—</span>;
+                    return (
+                      <div className="space-y-0.5">
+                        <div className="truncate" title={meta.destinatario ?? undefined}>
+                          <span className="text-muted-foreground">A: </span>{meta.destinatario || "—"}
+                        </div>
+                        <div className="truncate text-muted-foreground" title={meta.oggetto ?? undefined}>
+                          {meta.oggetto || "—"}
+                        </div>
+                        {meta.inviato_il && (
+                          <div className="text-muted-foreground">
+                            {format(new Date(meta.inviato_il), "dd/MM/yyyy HH:mm")}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })() : "—"}
                 </TableCell>
               )}
               <TableCell>{doc.profiles ? `${doc.profiles.nome} ${doc.profiles.cognome}` : "—"}</TableCell>
