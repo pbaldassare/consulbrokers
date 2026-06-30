@@ -208,7 +208,7 @@ const Page = () => {
           <h1 className="text-2xl font-bold">Caricamento Movimenti Bancari</h1>
           <p className="text-sm text-muted-foreground">
             Carica l&apos;estratto Excel del conto bancario. La colonna <code>Cliente ID</code> è opzionale:
-            i movimenti senza cliente restano in coda per il ricongiungimento.
+            i movimenti senza cliente restano in coda in Bonifici.
           </p>
         </div>
 
@@ -236,7 +236,7 @@ const Page = () => {
                     autoSelectDefault
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Le sedi collegate a questo conto vedranno i movimenti in ricongiungimento.
+                    Le sedi collegate a questo conto vedranno i movimenti in Bonifici.
                   </p>
                 </div>
                 <DropZone disabled={importing || !contoImportId} onFile={handleFile} />

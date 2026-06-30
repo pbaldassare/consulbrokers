@@ -134,17 +134,22 @@ const PortafoglioCaricoPage = () => {
   const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroPeriodo, isDefaultExtended, filtroTipo, dateDa, dateA, sortField, sortDirection]);
 
   const applyTipoFilter = (q: any) => {
-    const noDerivati = "is_regolazione.is.null,is_regolazione.eq.false,is_proroga.is.null,is_proroga.eq.false";
+    const noDerivati =
+      "is_regolazione.is.null,is_regolazione.eq.false,is_proroga.is.null,is_proroga.eq.false,is_appendice_modifica.is.null,is_appendice_modifica.eq.false";
     if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null).or(noDerivati);
     if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null).or(noDerivati);
-    if (filtroTipo === "regolazioni") return q.or("is_regolazione.eq.true,is_proroga.eq.true");
+    if (filtroTipo === "regolazioni") {
+      return q.or("is_regolazione.eq.true,is_proroga.eq.true,is_appendice_modifica.eq.true");
+    }
     return q;
   };
 
   // Esclude le polizze madre che hanno rate successive: non sono incassabili,
-  // l'incasso avviene sulla singola quietanza. Regolazioni, proroghe e monorata restano.
+  // l'incasso avviene sulla singola quietanza. Appendici, regolazioni, proroghe e monorata restano.
   const applyExcludeMadreConRate = (q: any) =>
-    q.or("is_regolazione.eq.true,is_proroga.eq.true,numero_rata.gt.1,numero_rate_totali.lte.1,numero_rate_totali.is.null");
+    q.or(
+      "is_regolazione.eq.true,is_proroga.eq.true,is_appendice_modifica.eq.true,numero_rata.gt.1,numero_rate_totali.lte.1,numero_rate_totali.is.null",
+    );
 
   const applyDateRange = (q: any, col: string) => {
     if (dateDa) q = q.gte(col, dateDa);
@@ -179,7 +184,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, dateDa, dateA, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_quietanze").select(
-        "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_copertura, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, is_proroga, regolazione_quietanza_id, proroga_polizza_madre_id, numero_rata, numero_rate_totali",
+        "id, quietanza_id, polizza_id, numero_titolo, titolo_derivato_numero, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_copertura, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, appendice_tipo, regolazione_quietanza_id, proroga_polizza_madre_id, numero_rata, numero_rate_totali",
         { count: "exact" }
       );
       q = applyPeriodoFilter(q);
@@ -618,7 +623,7 @@ const PortafoglioCaricoPage = () => {
                   return (
                     <TableRow
                       key={p.id}
-                      className={`cursor-pointer ${rowBorderClass(p)} ${inCopertura ? "bg-orange-50 hover:bg-orange-100/70" : p.is_proroga ? "bg-blue-50/40" : p.is_regolazione ? "bg-orange-50/40" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : isQ ? "bg-quietanza-soft/40" : ""}`}
+                      className={`cursor-pointer ${rowBorderClass(p)} ${inCopertura ? "bg-orange-50 hover:bg-orange-100/70" : p.is_proroga ? "bg-blue-50/40" : p.is_regolazione ? "bg-orange-50/40" : p.is_appendice_modifica ? "bg-primary/5" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : isQ ? "bg-quietanza-soft/40" : ""}`}
                       onClick={() => { const h = rowHref(p); if (h) navigate(h); }}
 
                     >
@@ -632,13 +637,19 @@ const PortafoglioCaricoPage = () => {
                         {isQ && <span className="mr-1 text-muted-foreground">└</span>}
                         {p.is_proroga && <span className="text-blue-600 mr-1" title="Proroga collegata">↳</span>}
                         {p.is_regolazione && <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>}
-                        {p.numero_titolo || "—"}
+                        {p.is_appendice_modifica && <span className="text-primary mr-1" title="Appendice modifica">↳</span>}
+                        {p.titolo_derivato_numero || p.numero_titolo || "—"}
+                        {p.titolo_derivato_numero && p.numero_titolo && p.titolo_derivato_numero !== p.numero_titolo && (
+                          <span className="text-xs text-muted-foreground ml-1">({p.numero_titolo})</span>
+                        )}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         {p.is_proroga ? (
                           <Badge className="bg-blue-500 hover:bg-blue-600 text-white" title="Titolo di proroga">Proroga</Badge>
                         ) : p.is_regolazione ? (
                           <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">Regolazione</Badge>
+                        ) : p.is_appendice_modifica ? (
+                          <Badge variant="secondary" title="Appendice di modifica">Modifica</Badge>
                         ) : (
                           <TipoPolizzaBadge
                             tipo="quietanza"

@@ -851,7 +851,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                               <ChevronsUpDown className="w-4 h-4 opacity-50 ml-2 shrink-0" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0" align="start">
                             <Command>
                               <CommandInput placeholder="Cerca sottoramo..." />
                               <CommandList>

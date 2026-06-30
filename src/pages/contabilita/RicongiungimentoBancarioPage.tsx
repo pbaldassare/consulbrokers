@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,9 +30,84 @@ import {
   fetchContoIdsForUfficio,
   finalizeMovimentoBancarioIncasso,
 } from "@/lib/movimentiBancari";
+import { fetchTitoliClienteDaIncassare } from "@/lib/titoliDaIncassare";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TOLL = 0.01;
+
+type MovimentoFilterRow = {
+  data_movimento?: string | null;
+  ordinante?: string | null;
+  importo?: number | null;
+};
+
+const filterMovimentiByOrdinanteImporto = <T extends MovimentoFilterRow>(
+  rows: T[],
+  ordinante: string,
+  importo: string,
+): T[] => {
+  let result = rows;
+  const ord = ordinante.trim().toLowerCase();
+  if (ord) {
+    result = result.filter((m) => (m.ordinante || "").toLowerCase().includes(ord));
+  }
+  const impQ = importo.trim();
+  if (impQ) {
+    const normalized = impQ.replace(/[€$\s]/g, "").replace(",", ".");
+    const asNum = parseFloat(normalized);
+    result = result.filter((m) => {
+      const imp = Number(m.importo) || 0;
+      if (!isNaN(asNum) && /^-?\d+([.,]\d+)?$/.test(normalized)) {
+        return Math.abs(imp - asNum) < TOLL;
+      }
+      const formatted = fmtEuro(imp).replace(/\s/g, "").toLowerCase();
+      return formatted.includes(impQ.toLowerCase()) || imp.toFixed(2).includes(normalized);
+    });
+  }
+  return result;
+};
+
+const FiltriMovimentiRow = ({
+  dal,
+  setDal,
+  al,
+  setAl,
+  ordinante,
+  setOrdinante,
+  importo,
+  setImporto,
+  children,
+}: {
+  dal: string;
+  setDal: (v: string) => void;
+  al: string;
+  setAl: (v: string) => void;
+  ordinante: string;
+  setOrdinante: (v: string) => void;
+  importo: string;
+  setImporto: (v: string) => void;
+  children?: ReactNode;
+}) => (
+  <div className="flex flex-wrap items-end gap-2">
+    <div>
+      <Label>Dal</Label>
+      <Input type="date" value={dal} onChange={(e) => setDal(e.target.value)} className="w-40" />
+    </div>
+    <div>
+      <Label>Al</Label>
+      <Input type="date" value={al} onChange={(e) => setAl(e.target.value)} className="w-40" />
+    </div>
+    <div>
+      <Label>Nome ordinante</Label>
+      <Input value={ordinante} onChange={(e) => setOrdinante(e.target.value)} placeholder="Cerca…" className="w-56" />
+    </div>
+    <div>
+      <Label>Importo</Label>
+      <Input value={importo} onChange={(e) => setImporto(e.target.value)} placeholder="es. 150,00" className="w-32" />
+    </div>
+    {children}
+  </div>
+);
 
 const Page = () => {
   const { profile, isAdmin } = useAuth();
@@ -42,13 +117,13 @@ const Page = () => {
     <RoleGuard allowedRoles={["admin", "cfo", "ufficio", "backoffice", "contabilita"]} permissionKey="contabilita">
       <div className="container mx-auto py-6 space-y-4">
         <div>
-          <h1 className="text-2xl font-bold">Ricongiungimento Bancario</h1>
+          <h1 className="text-2xl font-bold">Bonifici</h1>
           <p className="text-sm text-muted-foreground">Collega i movimenti bancari alle polizze e mettile a cassa.</p>
         </div>
 
         <Tabs defaultValue="da-ricongiungere">
           <TabsList>
-            <TabsTrigger value="da-ricongiungere">Da Ricongiungere</TabsTrigger>
+            <TabsTrigger value="da-ricongiungere">Da collegare</TabsTrigger>
             <TabsTrigger value="storico">Storico</TabsTrigger>
           </TabsList>
 
@@ -69,6 +144,16 @@ const Page = () => {
 const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null; seeAll: boolean }) => {
   const qc = useQueryClient();
   const [filtroUfficio, setFiltroUfficio] = useState<string>("");
+  const [dal, setDal] = useState("");
+  const [al, setAl] = useState("");
+  const [ordinante, setOrdinante] = useState("");
+  const [ordinanteDebounced, setOrdinanteDebounced] = useState("");
+  const [importo, setImporto] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setOrdinanteDebounced(ordinante), 350);
+    return () => clearTimeout(t);
+  }, [ordinante]);
 
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici-all"],
@@ -77,7 +162,7 @@ const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio: string
   });
 
   const { data: movs = [], isLoading } = useQuery({
-    queryKey: ["mov-bancari", "ricongiungimento", profileUfficio, filtroUfficio, seeAll],
+    queryKey: ["mov-bancari", "ricongiungimento", profileUfficio, filtroUfficio, seeAll, dal, al],
     queryFn: async () => {
       let q = supabase.from("movimenti_bancari" as any)
         .select("id, data_movimento, importo, ordinante, descrizione, stato, ufficio_id, cliente_id, conto_bancario_id, conto:conti_bancari(etichetta), cliente:clienti(id, ragione_sociale, nome, cognome)")
@@ -93,17 +178,33 @@ const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio: string
           q = q.eq("ufficio_id", profileUfficio);
         }
       }
+      if (dal) q = q.gte("data_movimento", dal);
+      if (al) q = q.lte("data_movimento", al);
       const { data, error } = await q;
       if (error) throw error;
       return (data as any[]) ?? [];
     },
   });
 
+  const movsFiltrati = useMemo(
+    () => filterMovimentiByOrdinanteImporto(movs, ordinanteDebounced, importo),
+    [movs, ordinanteDebounced, importo],
+  );
+
   return (
     <Card>
       <CardHeader>
-        {seeAll && (
-          <div className="flex items-end gap-2">
+        <FiltriMovimentiRow
+          dal={dal}
+          setDal={setDal}
+          al={al}
+          setAl={setAl}
+          ordinante={ordinante}
+          setOrdinante={setOrdinante}
+          importo={importo}
+          setImporto={setImporto}
+        >
+          {seeAll && (
             <div>
               <Label>Ufficio</Label>
               <select value={filtroUfficio} onChange={(e) => setFiltroUfficio(e.target.value)} className="h-9 px-2 border rounded-md text-sm bg-background">
@@ -111,13 +212,13 @@ const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio: string
                 {(uffici as any[]).map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
               </select>
             </div>
-          </div>
-        )}
+          )}
+        </FiltriMovimentiRow>
       </CardHeader>
       <CardContent className="space-y-2">
         {isLoading ? <p className="text-sm">Caricamento…</p> :
-          movs.length === 0 ? <p className="text-sm text-muted-foreground py-6 text-center">Nessun movimento da ricongiungere</p> :
-          movs.map((m: any) => <MovimentoCard key={m.id} movimento={m} onChanged={() => qc.invalidateQueries({ queryKey: ["mov-bancari"] })} />)}
+          movsFiltrati.length === 0 ? <p className="text-sm text-muted-foreground py-6 text-center">Nessun bonifico da collegare</p> :
+          movsFiltrati.map((m: any) => <MovimentoCard key={m.id} movimento={m} onChanged={() => qc.invalidateQueries({ queryKey: ["mov-bancari"] })} />)}
       </CardContent>
     </Card>
   );
@@ -168,17 +269,7 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
   const { data: polizze = [] } = useQuery({
     queryKey: ["polizze-cliente", movimento.cliente_id],
     enabled: open && !!movimento.cliente_id,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("titoli")
-        .select("id, numero_titolo, premio_lordo, stato, data_messa_cassa, data_scadenza, ramo:rami(descrizione), compagnia:compagnie(nome)" as any)
-        .eq("cliente_anagrafica_id", movimento.cliente_id)
-        .is("data_messa_cassa", null)
-        .neq("stato", "annullato")
-        .order("data_scadenza", { ascending: true, nullsFirst: false })
-        .limit(50);
-      if (error) throw error;
-      return (data as any[]) ?? [];
-    },
+    queryFn: () => fetchTitoliClienteDaIncassare(movimento.cliente_id!),
   });
 
   // Ricongiungimenti già salvati: TUTTE le righe movimenti_clienti del movimento (multi-cliente)
@@ -584,7 +675,7 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
                         placeholder="Cerca cliente pagatore…"
                       />
                       <Button size="sm" onClick={handleAssegnaPagatore} disabled={assegnaPagatoreLoading || !pagatoreSelId}>
-                        Assegna pagatore
+                        Cliente
                       </Button>
                     </div>
                   )}
@@ -624,7 +715,7 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
                     if (da_usare <= 0) toast.info("Nessun importo da coprire con l'acconto");
                   }}
                 >
-                  Usa nel ricongiungimento
+                  Usa qui
                 </Button>
               </div>
             )}
@@ -748,7 +839,7 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
             {/* Azioni */}
             <div className="flex justify-end gap-2 flex-wrap">
               <Button variant="outline" onClick={salvaRicongiungimento} disabled={saving || !quadra}>
-                <Save className="w-4 h-4 mr-1" /> Salva Ricongiungimento
+                <Save className="w-4 h-4 mr-1" /> Salva
               </Button>
               <Button
                 variant="outline"
@@ -760,7 +851,7 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
                 <Shield className="w-4 h-4 mr-1" /> Garantito
               </Button>
               <Button onClick={apriMessaCassa} disabled={!quadra || !movimento.cliente_id}>
-                <Wallet className="w-4 h-4 mr-1" /> Metti a Cassa
+                <Wallet className="w-4 h-4 mr-1" /> Incassa
               </Button>
             </div>
           </CardContent>
@@ -806,9 +897,17 @@ const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null;
   const [dal, setDal] = useState("");
   const [al, setAl] = useState("");
   const [cliente, setCliente] = useState("");
+  const [ordinante, setOrdinante] = useState("");
+  const [ordinanteDebounced, setOrdinanteDebounced] = useState("");
+  const [importo, setImporto] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setOrdinanteDebounced(ordinante), 350);
+    return () => clearTimeout(t);
+  }, [ordinante]);
 
   const { data: movs = [] } = useQuery({
-    queryKey: ["mov-bancari", "storico", profileUfficio, seeAll, dal, al, cliente],
+    queryKey: ["mov-bancari", "storico", profileUfficio, seeAll, dal, al],
     queryFn: async () => {
       let q = supabase.from("movimenti_bancari" as any)
         .select("id, data_movimento, importo, ordinante, ufficio_id, cliente:clienti(id, ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio)")
@@ -819,20 +918,24 @@ const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null;
       if (dal) q = q.gte("data_movimento", dal);
       if (al) q = q.lte("data_movimento", al);
       const { data } = await q;
-      let rows = (data as any[]) ?? [];
-      if (cliente) {
-        const c = cliente.toLowerCase();
-        rows = rows.filter((m) => {
-          const n = (m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "").toLowerCase();
-          return n.includes(c);
-        });
-      }
-      return rows;
+      return (data as any[]) ?? [];
     },
   });
 
+  const movsFiltrati = useMemo(() => {
+    let rows = filterMovimentiByOrdinanteImporto(movs, ordinanteDebounced, importo);
+    if (cliente) {
+      const c = cliente.toLowerCase();
+      rows = rows.filter((m) => {
+        const n = (m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "").toLowerCase();
+        return n.includes(c);
+      });
+    }
+    return rows;
+  }, [movs, ordinanteDebounced, importo, cliente]);
+
   const exportXlsx = () => {
-    const rows = movs.map((m: any) => ({
+    const rows = movsFiltrati.map((m: any) => ({
       Data: m.data_movimento,
       Ordinante: m.ordinante || "",
       Cliente: m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "",
@@ -848,12 +951,22 @@ const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null;
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-wrap items-end gap-2">
-          <div><Label>Dal</Label><Input type="date" value={dal} onChange={(e) => setDal(e.target.value)} className="w-40" /></div>
-          <div><Label>Al</Label><Input type="date" value={al} onChange={(e) => setAl(e.target.value)} className="w-40" /></div>
-          <div><Label>Cliente</Label><Input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Cerca…" className="w-56" /></div>
+        <FiltriMovimentiRow
+          dal={dal}
+          setDal={setDal}
+          al={al}
+          setAl={setAl}
+          ordinante={ordinante}
+          setOrdinante={setOrdinante}
+          importo={importo}
+          setImporto={setImporto}
+        >
+          <div>
+            <Label>Cliente</Label>
+            <Input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Cerca…" className="w-56" />
+          </div>
           <Button variant="outline" size="sm" onClick={exportXlsx}><Download className="w-3 h-3 mr-1" />Export Excel</Button>
-        </div>
+        </FiltriMovimentiRow>
       </CardHeader>
       <CardContent>
         <Table>
@@ -862,7 +975,7 @@ const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null;
             <TableHead>Ufficio</TableHead><TableHead className="text-right">Importo</TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {movs.map((m: any, i: number) => (
+            {movsFiltrati.map((m: any, i: number) => (
               <TableRow key={m.id} className={i % 2 ? "bg-muted/30" : ""}>
                 <TableCell>{m.data_movimento}</TableCell>
                 <TableCell className="text-sm max-w-[200px] truncate">{m.ordinante || "—"}</TableCell>
@@ -871,7 +984,7 @@ const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null;
                 <TableCell className="text-right tabular-nums">{fmtEuro(m.importo)}</TableCell>
               </TableRow>
             ))}
-            {movs.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
+            {movsFiltrati.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
           </TableBody>
         </Table>
       </CardContent>

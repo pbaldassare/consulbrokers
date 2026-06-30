@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchTitoliClienteDaIncassare } from "@/lib/titoliDaIncassare";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -75,18 +76,16 @@ export function AggiungiPolizzaAltroClienteDialog({ open, onOpenChange, excludeT
     if (!clienteId) { setPolizze([]); setSel({}); return; }
     setLoadingPol(true);
     (async () => {
-      const { data, error } = await supabase
-        .from("titoli")
-        .select("id, numero_titolo, premio_lordo, data_scadenza, ramo:rami(descrizione), compagnia:compagnie(nome)" as any)
-        .eq("cliente_anagrafica_id", clienteId)
-        .is("data_messa_cassa", null)
-        .neq("stato", "annullato")
-        .order("data_scadenza", { ascending: true, nullsFirst: false })
-        .limit(50);
-      if (error) toast.error(error.message);
-      const rows = (data as any[] ?? []).filter((p) => !excludeTitoloIds.includes(p.id));
-      setPolizze(rows);
-      setLoadingPol(false);
+      try {
+        const data = await fetchTitoliClienteDaIncassare(clienteId);
+        const rows = data.filter((p) => !excludeTitoloIds.includes(p.id));
+        setPolizze(rows as any[]);
+      } catch (error: any) {
+        toast.error(error.message ?? "Errore caricamento polizze");
+        setPolizze([]);
+      } finally {
+        setLoadingPol(false);
+      }
     })();
   }, [clienteId, excludeTitoloIds]);
 
@@ -177,7 +176,7 @@ export function AggiungiPolizzaAltroClienteDialog({ open, onOpenChange, excludeT
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annulla</Button>
-          <Button onClick={conferma}>Aggiungi al ricongiungimento</Button>
+          <Button onClick={conferma}>Aggiungi al bonifico</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

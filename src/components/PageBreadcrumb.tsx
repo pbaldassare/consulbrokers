@@ -67,6 +67,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "check-primanota": "Check Primanota",
   "stampa-sospesi": "Riepilogo Acconti",
   "anticipi-clienti": "Riepilogo Acconti",
+  "ricongiungimento-bancario": "Bonifici",
   "anomalie-ko": "Anomalie KO",
   "note-restituzione": "Note Restituzione",
   "spedizioni": "Spedizioni",

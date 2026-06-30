@@ -92,7 +92,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     casiParticolari: [
       "Senza conto bancario selezionato il sistema non fa proseguire.",
       "Bonifico parziale: la quietanza resta in Avvisi di incasso; niente email agenzia finché non chiudi il saldo.",
-      "Se fai la stessa operazione dal Ricongiungimento bancario, il bonifico importato viene collegato alle polizze (vedi voce dedicata).",
+      "Se fai la stessa operazione da Bonifici, il bonifico importato viene collegato alle polizze (vedi voce dedicata).",
     ],
     riepilogo: [
       { situazione: "Bonifico che copre tutto", risultato: "Quietanza incassata, esce dal carico, email agenzia" },
@@ -143,7 +143,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
       "Alla creazione: resta un saldo a favore del cliente.",
       "In messa a cassa: l'acconto scala dal saldo e copre parte (o tutto) il premio.",
       "Se bonifico + acconto insieme coprono il premio, l'incasso si chiude normalmente.",
-      "Acconto da ricongiungimento: se un bonifico è più alto del dovuto, il resto diventa acconto sul cliente collegato.",
+      "Acconto da Bonifici: se un bonifico è più alto del dovuto, il resto diventa acconto sul cliente collegato.",
     ],
     casiParticolari: [
       "Puoi cancellare un acconto solo se non è ancora stato utilizzato.",
@@ -176,12 +176,12 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     cosaSuccede: [
       "I bonifici entrano in coda come movimenti da lavorare.",
       "Il sistema può suggerire il cliente (match automatico); puoi correggere a mano.",
-      "I movimenti restano aperti finché non li ricongiungi con le quietanze.",
+      "I movimenti restano aperti finché non li colleghi in Bonifici.",
     ],
   },
   {
     id: "ricongiungimento-bancario",
-    titolo: "Ricongiungimento bancario",
+    titolo: "Bonifici",
     area: "contabilita",
     tags: ["ricongiungimento", "bonifico", "match", "incasso"],
     intro: "Collega un bonifico arrivato in banca alle quietanze che paga.",
@@ -189,7 +189,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
       "Apri un movimento bancario importato.",
       "Assegni il cliente pagatore (obbligatorio prima di chiudere).",
       "Selezioni le quietanze da incassare con quell'importo.",
-      "Metti a cassa dal flusso di ricongiungimento.",
+      "Metti a cassa dal flusso Bonifici.",
       "Quadratura: importo bonifico = somma incassi ± acconto ± ammanco.",
     ],
     cosaSuccede: [

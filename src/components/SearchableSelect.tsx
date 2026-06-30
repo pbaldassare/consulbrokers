@@ -29,9 +29,13 @@ interface SearchableSelectProps {
   clearLabel?: string;
   /** Disabilita il filtro client di cmdk: usa quando le `options` sono già filtrate dal server. */
   serverSideSearch?: boolean;
-  /** Boundary per collision detection Radix (default: document.body). */
+  /** Boundary opzionale per collision detection Radix (default: viewport Radix). */
   popoverCollisionBoundary?: Element | Element[];
 }
+
+/** Larghezza popover allineata al trigger (Radix CSS var). */
+export const popoverMatchTriggerWidthClass =
+  "w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0";
 
 export function SearchableSelect({
   options,
@@ -50,10 +54,6 @@ export function SearchableSelect({
   popoverCollisionBoundary,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
-
-  const collisionBoundary =
-    popoverCollisionBoundary ??
-    (typeof document !== "undefined" ? document.body : undefined);
 
   const selectedLabel = options.find((o) => o.value === value)?.label;
   const trimmedSearch = (searchValue ?? "").trim();
@@ -77,11 +77,10 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0"
+        className={popoverMatchTriggerWidthClass}
         align="start"
         side="bottom"
-        collisionBoundary={collisionBoundary}
-        collisionPadding={12}
+        {...(popoverCollisionBoundary ? { collisionBoundary: popoverCollisionBoundary, collisionPadding: 12 } : {})}
       >
         <Command shouldFilter={!serverSideSearch}>
           <CommandInput

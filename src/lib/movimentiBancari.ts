@@ -122,7 +122,7 @@ export async function finalizeMovimentoBancarioIncasso(p: FinalizeMovimentoParam
       riferimento_id: p.movimentoId,
       importo: amm,
       data_movimento: today,
-      descrizione: `Ammanco ricongiungimento bancario (${p.movimentoId.slice(0, 8)})`,
+      descrizione: `Ammanco bonifico (${p.movimentoId.slice(0, 8)})`,
       stato: "registrato",
       created_by: p.userId,
     } as any);

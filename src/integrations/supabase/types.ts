@@ -736,6 +736,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "appendici_polizza_titolo_modifica_id_fkey"
+            columns: ["titolo_modifica_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appendici_polizza_titolo_modifica_id_fkey"
+            columns: ["titolo_modifica_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "appendici_polizza_titolo_proroga_id_fkey"
             columns: ["titolo_proroga_id"]
             isOneToOne: false
@@ -8571,6 +8585,7 @@ export type Database = {
           anagrafica_commerciale_id: string | null
           anni_durata: number | null
           appendice: string | null
+          appendice_modifica_polizza_madre_id: string | null
           banca_pagamento: string | null
           brokeraggio_firma: number | null
           brokeraggio_quietanza: number | null
@@ -8621,9 +8636,9 @@ export type Database = {
           id_legacy: number | null
           importo_incassato: number | null
           indicizzata: boolean | null
+          is_appendice_modifica: boolean
           is_oneri_riattivazione: boolean
           is_oneri_sospensione: boolean
-          is_appendice_modifica: boolean
           is_proroga: boolean
           is_regolazione: boolean
           libro_matricola: string | null
@@ -8653,7 +8668,6 @@ export type Database = {
           prodotto_nome: string | null
           produttore_id: string | null
           produttore_nome: string | null
-          appendice_modifica_polizza_madre_id: string | null
           proroga_polizza_madre_id: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
@@ -8705,6 +8719,7 @@ export type Database = {
           anagrafica_commerciale_id?: string | null
           anni_durata?: number | null
           appendice?: string | null
+          appendice_modifica_polizza_madre_id?: string | null
           banca_pagamento?: string | null
           brokeraggio_firma?: number | null
           brokeraggio_quietanza?: number | null
@@ -8755,9 +8770,9 @@ export type Database = {
           id_legacy?: number | null
           importo_incassato?: number | null
           indicizzata?: boolean | null
+          is_appendice_modifica?: boolean
           is_oneri_riattivazione?: boolean
           is_oneri_sospensione?: boolean
-          is_appendice_modifica?: boolean
           is_proroga?: boolean
           is_regolazione?: boolean
           libro_matricola?: string | null
@@ -8787,7 +8802,6 @@ export type Database = {
           prodotto_nome?: string | null
           produttore_id?: string | null
           produttore_nome?: string | null
-          appendice_modifica_polizza_madre_id?: string | null
           proroga_polizza_madre_id?: string | null
           provvigioni_firma?: number | null
           provvigioni_quietanza?: number | null
@@ -8839,6 +8853,7 @@ export type Database = {
           anagrafica_commerciale_id?: string | null
           anni_durata?: number | null
           appendice?: string | null
+          appendice_modifica_polizza_madre_id?: string | null
           banca_pagamento?: string | null
           brokeraggio_firma?: number | null
           brokeraggio_quietanza?: number | null
@@ -8889,9 +8904,9 @@ export type Database = {
           id_legacy?: number | null
           importo_incassato?: number | null
           indicizzata?: boolean | null
+          is_appendice_modifica?: boolean
           is_oneri_riattivazione?: boolean
           is_oneri_sospensione?: boolean
-          is_appendice_modifica?: boolean
           is_proroga?: boolean
           is_regolazione?: boolean
           libro_matricola?: string | null
@@ -8921,7 +8936,6 @@ export type Database = {
           prodotto_nome?: string | null
           produttore_id?: string | null
           produttore_nome?: string | null
-          appendice_modifica_polizza_madre_id?: string | null
           proroga_polizza_madre_id?: string | null
           provvigioni_firma?: number | null
           provvigioni_quietanza?: number | null
@@ -8978,6 +8992,20 @@ export type Database = {
             columns: ["anagrafica_commerciale_id"]
             isOneToOne: false
             referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_appendice_modifica_polizza_madre_id_fkey"
+            columns: ["appendice_modifica_polizza_madre_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_appendice_modifica_polizza_madre_id_fkey"
+            columns: ["appendice_modifica_polizza_madre_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
           {
@@ -10322,6 +10350,8 @@ export type Database = {
           ae_nome: string | null
           anagrafica_commerciale_id: string | null
           appendice_corrente: string | null
+          appendice_modifica_polizza_madre_id: string | null
+          appendice_tipo: string | null
           cig_rif: string | null
           cliente_anagrafica_id: string | null
           cliente_codice: string | null
@@ -10347,6 +10377,7 @@ export type Database = {
           garanzia_da: string | null
           id: string | null
           importo_incassato: number | null
+          is_appendice_modifica: boolean | null
           is_proroga: boolean | null
           is_regolazione: boolean | null
           limite_riattivazione: string | null
@@ -10359,7 +10390,6 @@ export type Database = {
           premio_netto: number | null
           produttore_id: string | null
           produttore_nome: string | null
-          appendice_modifica_polizza_madre_id: string | null
           proroga_polizza_madre_id: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
@@ -10380,6 +10410,7 @@ export type Database = {
           targa_telaio: string | null
           tasse: number | null
           tipo_portafoglio: string | null
+          titolo_derivato_numero: string | null
           titolo_legacy_id: string | null
           ufficio_id: string | null
         }
@@ -10457,6 +10488,20 @@ export type Database = {
           {
             foreignKeyName: "quietanze_titolo_id_fkey"
             columns: ["id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_appendice_modifica_polizza_madre_id_fkey"
+            columns: ["appendice_modifica_polizza_madre_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_appendice_modifica_polizza_madre_id_fkey"
+            columns: ["appendice_modifica_polizza_madre_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
@@ -10754,6 +10799,12 @@ export type Database = {
       }
     }
     Functions: {
+      _elimina_titoli_finanziari: { Args: { p_ids: string[] }; Returns: Json }
+      _scollega_riferimenti_titoli: {
+        Args: { p_ids: string[] }
+        Returns: undefined
+      }
+      _titoli_chain_ids: { Args: { p_titolo_id: string }; Returns: string[] }
       ai_describe_table: {
         Args: { table_name: string }
         Returns: {
@@ -10995,6 +11046,11 @@ export type Database = {
         Returns: string
       }
       current_ufficio_id: { Args: never; Returns: string }
+      elimina_polizza_cascade: { Args: { p_titolo_id: string }; Returns: Json }
+      elimina_quietanza_cascade: {
+        Args: { p_titolo_id: string }
+        Returns: Json
+      }
       ensure_default_rapporto: {
         Args: { _compagnia_id: string }
         Returns: string
@@ -11018,11 +11074,19 @@ export type Database = {
           tipo_cliente: string
         }[]
       }
+      fn_collega_quietanza_appendice: {
+        Args: { p_titolo_id: string }
+        Returns: string
+      }
       fn_polizza_genera_quietanze: {
         Args: { _polizza_id: string }
         Returns: number
       }
       fn_rate_per_anno: { Args: { frazionamento: string }; Returns: number }
+      fn_risolvi_polizza_da_titolo_madre: {
+        Args: { p_madre_id: string }
+        Returns: string
+      }
       generate_codice_cliente: { Args: never; Returns: string }
       get_canali_cliente_with_meta: {
         Args: { _limit?: number; _offset?: number; _user_id: string }
