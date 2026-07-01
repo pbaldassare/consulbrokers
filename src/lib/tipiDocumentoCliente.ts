@@ -11,6 +11,7 @@ export const TIPI_DOCUMENTO_CLIENTE_STAFF: { value: string; label: string }[] = 
   { value: "appendice", label: "Appendice" },
   { value: "comunicazione_compagnia", label: "Comunicazione compagnia" },
   { value: "notifica_messa_cassa", label: "Avviso incasso agenzia (email)" },
+  { value: "ec_cliente_email", label: "E/C Cliente inviato (email)" },
   { value: "EC Cliente", label: "E/C Cliente" },
   { value: "altro", label: "Altro" },
 ];

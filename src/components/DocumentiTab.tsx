@@ -15,6 +15,8 @@ import PdfPreview from "@/components/PdfPreview";
 import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
 import { labelTipoDocumento } from "@/lib/tipiDocumentoCliente";
 import { fetchMetadatiInvioMessaCassa, type InvioEmailMessaCassaMeta } from "@/lib/documentiMessaCassa";
+import { fetchMetadatiInvioEcCliente, type InvioEmailEcClienteMeta } from "@/lib/documentiEcCliente";
+import type { AppendicePolizzaRow } from "@/lib/appendiciPolizza";
 import UploadDocStaffDialog from "@/components/clienti/UploadDocStaffDialog";
 
 interface DocumentiTabProps {
@@ -26,6 +28,8 @@ interface DocumentiTabProps {
   titoloIdsForExtraDocs?: string[];
   /** Categorie titolo da includere insieme ai documenti dell'entità principale. */
   extraTitoloCategorie?: string[];
+  /** Allegati appendici (storage appendici_polizza) mostrati nella vista polizza madre. */
+  appendiciAllegati?: AppendicePolizzaRow[];
   bucketName?: string;
   readOnly?: boolean;
   /** Upload tipizzato via modale (anagrafica cliente backoffice). */
@@ -89,6 +93,7 @@ export default function DocumentiTab({
   typedUpload = false,
   entitaLabel,
   showPreview = true,
+  appendiciAllegati,
 }: DocumentiTabProps) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -148,10 +153,21 @@ export default function DocumentiTab({
     [documenti],
   );
 
+  const ecEmailIds = useMemo(
+    () => (documenti ?? []).filter((d: any) => d.categoria === "ec_cliente_email").map((d: any) => d.id as string),
+    [documenti],
+  );
+
   const { data: invioEmailByDocId = new Map<string, InvioEmailMessaCassaMeta>() } = useQuery({
     queryKey: ["documenti-invio-email", avvisoIds.join(",")],
     enabled: avvisoIds.length > 0,
     queryFn: () => fetchMetadatiInvioMessaCassa(avvisoIds),
+  });
+
+  const { data: invioEcByDocId = new Map<string, InvioEmailEcClienteMeta>() } = useQuery({
+    queryKey: ["documenti-invio-ec-cliente", ecEmailIds.join(",")],
+    enabled: ecEmailIds.length > 0,
+    queryFn: () => fetchMetadatiInvioEcCliente(ecEmailIds),
   });
 
 
@@ -246,11 +262,36 @@ export default function DocumentiTab({
     setPreviewDoc(null);
   };
 
+  const handleDownloadAppendice = async (a: AppendicePolizzaRow) => {
+    if (!a.file_path || !a.nome_file) return;
+    const { data, error } = await supabase.storage.from("documenti_titoli").download(a.file_path);
+    if (error) { toast.error(error.message); return; }
+    const url = URL.createObjectURL(data);
+    const el = document.createElement("a");
+    el.href = url;
+    el.download = a.nome_file;
+    el.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const openPreviewAppendice = async (a: AppendicePolizzaRow) => {
+    if (!a.file_path || !a.nome_file) return;
+    const pseudo = {
+      id: `appendice-${a.id}`,
+      nome_file: a.nome_file,
+      bucket_name: "documenti_titoli",
+      path_storage: a.file_path,
+    };
+    await openPreview(pseudo);
+  };
+
+  const appendiceRows = appendiciAllegati ?? [];
+  const hasRows = (documenti?.length ?? 0) > 0 || appendiceRows.length > 0;
   const previewExt = previewDoc?.nome_file?.split(".")?.pop()?.toLowerCase() || "";
   const previewIsImage = IMAGE_EXTENSIONS.includes(previewExt);
 
-  const showTipologia = typedUpload || documenti?.some((d: any) => d.categoria);
-  const showInvioEmail = documenti?.some((d: any) => d.categoria === "notifica_messa_cassa");
+  const showTipologia = typedUpload || documenti?.some((d: any) => d.categoria) || (appendiciAllegati?.length ?? 0) > 0;
+  const showInvioEmail = documenti?.some((d: any) => d.categoria === "notifica_messa_cassa" || d.categoria === "ec_cliente_email");
   const colSpan = (showTipologia ? 1 : 0) + (showInvioEmail ? 1 : 0) + 6;
 
   return (
@@ -341,6 +382,24 @@ export default function DocumentiTab({
                         )}
                       </div>
                     );
+                  })() : doc.categoria === "ec_cliente_email" ? (() => {
+                    const meta = invioEcByDocId.get(doc.id);
+                    if (!meta) return <span className="text-muted-foreground">—</span>;
+                    return (
+                      <div className="space-y-0.5">
+                        <div className="truncate" title={meta.destinatario ?? undefined}>
+                          <span className="text-muted-foreground">A: </span>{meta.destinatario || "—"}
+                        </div>
+                        <div className="truncate text-muted-foreground" title={meta.oggetto ?? undefined}>
+                          {meta.oggetto || "—"}
+                        </div>
+                        {meta.inviato_il && (
+                          <div className="text-muted-foreground">
+                            {format(new Date(meta.inviato_il), "dd/MM/yyyy HH:mm")}
+                          </div>
+                        )}
+                      </div>
+                    );
                   })() : "—"}
                 </TableCell>
               )}
@@ -358,7 +417,43 @@ export default function DocumentiTab({
               </TableCell>
             </TableRow>
           ))}
-          {!documenti?.length && <TableRow><TableCell colSpan={colSpan} className="text-center py-6 text-muted-foreground">Nessun documento</TableCell></TableRow>}
+          {appendiceRows.map((a) => (
+            <TableRow key={`appendice-${a.id}`}>
+              <TableCell>
+                <DocumentThumbnail
+                  bucketName="documenti_titoli"
+                  pathStorage={a.file_path!}
+                  nomeFile={a.nome_file!}
+                  clickable={showPreview}
+                  onClick={showPreview ? () => void openPreviewAppendice(a) : undefined}
+                />
+              </TableCell>
+              <TableCell
+                className={`font-medium ${showPreview ? "cursor-pointer hover:underline" : ""}`}
+                onClick={showPreview ? () => void openPreviewAppendice(a) : undefined}
+              >
+                {a.nome_file}
+              </TableCell>
+              {showTipologia && (
+                <TableCell>
+                  <Badge variant="secondary" className="font-normal">
+                    Appendice {a.numero_appendice}{a.tipo ? ` (${String(a.tipo).toUpperCase()})` : ""}
+                  </Badge>
+                </TableCell>
+              )}
+              {showInvioEmail && <TableCell className="text-muted-foreground text-xs">—</TableCell>}
+              <TableCell className="text-muted-foreground text-xs">Sistema</TableCell>
+              <TableCell>{a.created_at ? format(new Date(a.created_at), "dd/MM/yyyy HH:mm") : "—"}</TableCell>
+              <TableCell><Switch checked={false} disabled /></TableCell>
+              <TableCell className="flex gap-1">
+                {showPreview && (
+                  <Button size="icon" variant="ghost" onClick={() => void openPreviewAppendice(a)}><Eye className="h-4 w-4" /></Button>
+                )}
+                <Button size="icon" variant="ghost" onClick={() => void handleDownloadAppendice(a)}><Download className="h-4 w-4" /></Button>
+              </TableCell>
+            </TableRow>
+          ))}
+          {!hasRows && <TableRow><TableCell colSpan={colSpan} className="text-center py-6 text-muted-foreground">Nessun documento</TableCell></TableRow>}
         </TableBody>
       </Table>
 

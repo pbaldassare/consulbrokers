@@ -78,6 +78,9 @@ verify_jwt = false
 [functions.notifica-messa-cassa-agenzia]
 verify_jwt = false
 
+[functions.invia-ec-cliente]
+verify_jwt = false
+
 [functions.ai-match-movimenti-bancari]
 verify_jwt = false
 

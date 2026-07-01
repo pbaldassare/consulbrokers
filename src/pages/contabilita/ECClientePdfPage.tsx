@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,12 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { Mail } from "lucide-react";
 import { buildECClientePdf, type ECClienteData, type ECClienteRow } from "@/lib/ec-cliente-pdf";
 import { exportECClienteXlsx } from "@/lib/ec-cliente-xlsx";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
+import { ecClienteDefaultSelected, ecClienteTitoloEligible } from "@/lib/ecClienteTitoli";
+import { uint8ToBase64 } from "@/lib/documentiEcCliente";
 
 const FOOTER_LINES_DEFAULT = [
   "Via Mergellina, 2 – 80121 Napoli (IT) Tel. +39 081 7648268",
@@ -34,8 +38,13 @@ const ECClientePdfPage = () => {
   const titoliIdsParam = params.get("titoliIds") || "";
   const periodoDal = params.get("periodoDal") || "";
   const periodoAl = params.get("periodoAl") || "";
+  const apriInvia = params.get("invia") === "1";
 
-  const titoliIds = useMemo(() => titoliIdsParam ? titoliIdsParam.split(",").filter(Boolean) : [], [titoliIdsParam]);
+  const titoliIdsFromUrl = useMemo(() => titoliIdsParam ? titoliIdsParam.split(",").filter(Boolean) : [], [titoliIdsParam]);
+  const today = format(new Date(), "yyyy-MM-dd");
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const initSelectionRef = useRef(false);
 
   const [luogoData, setLuogoData] = useState("");
   const [oggetto, setOggetto] = useState("Estratto conto premi");
@@ -46,6 +55,13 @@ const ECClientePdfPage = () => {
   const [ragioneSocialeFooter, setRagioneSocialeFooter] = useState("Consulbrokers Digital s.r.l.");
   const [noteFinali, setNoteFinali] = useState("");
   const [busy, setBusy] = useState(false);
+  const [emailDestinatario, setEmailDestinatario] = useState("");
+  const [emailCorpo, setEmailCorpo] = useState("");
+
+  useEffect(() => {
+    initSelectionRef.current = false;
+    setSelectedIds(new Set());
+  }, [clienteId]);
 
   // Cliente
   const { data: cliente } = useQuery({
@@ -54,7 +70,7 @@ const ECClientePdfPage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("clienti")
-        .select("id, tipo_cliente, nome, cognome, ragione_sociale, sesso, indirizzo_residenza, cap_residenza, citta_residenza, provincia_residenza, indirizzo_sede, cap_sede, citta_sede, provincia_sede")
+        .select("id, tipo_cliente, nome, cognome, ragione_sociale, sesso, email, email_estratto_conto, indirizzo_residenza, cap_residenza, citta_residenza, provincia_residenza, indirizzo_sede, cap_sede, citta_sede, provincia_sede")
         .eq("id", clienteId)
         .maybeSingle();
       return data as any;
@@ -97,29 +113,64 @@ const ECClientePdfPage = () => {
     }
   }, [conto]);
 
-  // Titoli del cliente
-  const { data: titoli } = useQuery({
-    queryKey: ["ec-cli-pdf-titoli", clienteId, titoliIds.join(","), periodoDal, periodoAl],
+  useEffect(() => {
+    if (!cliente) return;
+    const dest = cliente.email_estratto_conto || cliente.email || "";
+    setEmailDestinatario(dest);
+    const nome = cliente.ragione_sociale || `${cliente.cognome || ""} ${cliente.nome || ""}`.trim();
+    setEmailCorpo(
+      `Gentile ${nome},\n\nin allegato trasmettiamo l'estratto conto dei premi da saldare.\n\nCordiali saluti.`,
+    );
+  }, [cliente]);
+
+  // Tutte le quietanze candidabili del cliente (selezione manuale con checkbox)
+  const { data: titoliCandidati = [] } = useQuery({
+    queryKey: ["ec-cli-pdf-titoli-candidati", clienteId, periodoDal, periodoAl],
     enabled: !!clienteId,
     queryFn: async () => {
       let q = supabase
         .from("titoli")
-        .select("id, numero_titolo, prodotto_nome, descrizione_polizza, premio_lordo, garanzia_da, durata_da, data_messa_cassa, data_decorrenza_rinnovo, ramo_id, compagnia_id, rami:ramo_id(codice, descrizione), compagnie:compagnia_id(nome, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione))")
+        .select("id, numero_titolo, prodotto_nome, descrizione_polizza, premio_lordo, garanzia_da, garanzia_a, durata_da, data_messa_cassa, data_decorrenza_rinnovo, stato, sostituisce_polizza, ramo_id, compagnia_id, rami:ramo_id(codice, descrizione), compagnie:compagnia_id(nome, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione))")
         .eq("cliente_anagrafica_id", clienteId)
         .is("data_messa_cassa", null)
-        // Solo quietanze/rate da incassare (la madre non va in Dare)
-        .not("sostituisce_polizza", "is", null);
-      if (titoliIds.length > 0) {
-        q = q.in("id", titoliIds);
-      } else {
-        if (periodoDal) q = q.gte("garanzia_da", periodoDal);
-        if (periodoAl) q = q.lte("garanzia_da", periodoAl);
-      }
+        .not("sostituisce_polizza", "is", null)
+        .in("stato", ["attivo", "sospeso"]);
+      if (periodoDal) q = q.gte("garanzia_da", periodoDal);
+      if (periodoAl) q = q.lte("garanzia_da", periodoAl);
       const { data, error } = await q.order("garanzia_da", { ascending: true });
       if (error) throw error;
       return data || [];
     },
   });
+
+  useEffect(() => {
+    if (!titoliCandidati.length || initSelectionRef.current) return;
+    initSelectionRef.current = true;
+    const fromUrl = titoliIdsFromUrl.length > 0
+      ? titoliIdsFromUrl.filter((id) => titoliCandidati.some((t: any) => t.id === id))
+      : titoliCandidati.filter((t: any) => ecClienteDefaultSelected(t, today)).map((t: any) => t.id);
+    setSelectedIds(new Set(fromUrl));
+  }, [titoliCandidati, titoliIdsFromUrl, today]);
+
+  const titoli = useMemo(
+    () => titoliCandidati.filter((t: any) => selectedIds.has(t.id)),
+    [titoliCandidati, selectedIds],
+  );
+
+  const toggleTitolo = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const selezionaDefault = () => {
+    setSelectedIds(new Set(
+      titoliCandidati.filter((t: any) => ecClienteDefaultSelected(t, today)).map((t: any) => t.id),
+    ));
+  };
 
   // Compensazioni applicate (può essere vuoto: solo polizze già messe a cassa le hanno)
   const { data: compensazioniByTitolo = {} } = useQuery({
@@ -320,16 +371,69 @@ const ECClientePdfPage = () => {
     } finally { setBusy(false); }
   };
 
-  const conteggio = titoli?.length || 0;
-  const totale = (titoli || []).reduce((s: number, t: any) => s + (Number(t.premio_lordo) || 0), 0);
+  const handleInviaMail = async () => {
+    if (!clienteId) {
+      toast.error("Cliente mancante");
+      return;
+    }
+    if (titoli.length === 0) {
+      toast.error("Seleziona almeno una quietanza");
+      return;
+    }
+    if (!emailDestinatario.trim()) {
+      toast.error("Inserisci l'email del destinatario");
+      return;
+    }
+    try {
+      setBusy(true);
+      const data = buildData();
+      const bytes = await buildECClientePdf(data);
+      const name = fileName();
+      const { data: res, error } = await supabase.functions.invoke("invia-ec-cliente", {
+        body: {
+          cliente_id: clienteId,
+          titolo_ids: titoli.map((t: any) => t.id),
+          recipient: emailDestinatario.trim(),
+          subject: oggetto,
+          html: emailCorpo.replace(/\n/g, "<br/>"),
+          pdf_base64: uint8ToBase64(bytes),
+          file_name: name,
+          totale: data.totale,
+        },
+      });
+      if (error) throw error;
+      if (!res?.ok) throw new Error(res?.error || "Invio email fallito");
+      toast.success(`E/C inviato a ${res.recipient || emailDestinatario}`);
+      if (res.archive_error) toast.warning(`Email inviata ma archivio PDF: ${res.archive_error}`);
+    } catch (e: any) {
+      toast.error("Errore invio email: " + (e?.message || e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (apriInvia && titoli.length > 0 && emailDestinatario) {
+      const el = document.getElementById("ec-cliente-invio-email");
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [apriInvia, titoli.length, emailDestinatario]);
+
+  const conteggio = titoli.length;
+  const totale = titoli.reduce((s: number, t: any) => s + (Number(t.premio_lordo) || 0), 0);
 
   const clienteLabel = cliente?.ragione_sociale || `${cliente?.cognome || ""} ${cliente?.nome || ""}`.trim();
+
+  const isDefaultSelected = (t: any) => ecClienteDefaultSelected(t, today);
+  const isEligible = (t: any) => ecClienteTitoloEligible(t, today);
 
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold">Estratto Conto Cliente</h1>
-        <p className="text-sm text-muted-foreground mt-1">Stampa e salva l'E/C verso il cliente</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Seleziona le quietanze da includere. Di default sono preselezionate solo quelle <strong>non incassate</strong> con <strong>inizio garanzia ≤ oggi</strong>.
+        </p>
       </div>
 
       <fieldset className="border border-border rounded-lg p-5 space-y-4">
@@ -346,45 +450,65 @@ const ECClientePdfPage = () => {
         </div>
 
         <div className="mt-2">
-          <Label className="mb-2 block">Dettaglio polizze</Label>
+          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+            <Label className="block">Quietanze da includere nell&apos;E/C</Label>
+            <Button type="button" variant="outline" size="sm" onClick={selezionaDefault}>
+              Ripristina selezione default
+            </Button>
+          </div>
           <div className="rounded-md border border-border overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-primary/10 text-primary">
                 <tr>
+                  <th className="w-10 px-2 py-2" />
                   <th className="text-left px-3 py-2 font-semibold">N. Titolo</th>
                   <th className="text-left px-3 py-2 font-semibold">Garanzia</th>
                   <th className="text-left px-3 py-2 font-semibold">Rischio</th>
                   <th className="text-left px-3 py-2 font-semibold">Compagnia</th>
-                  <th className="text-center px-3 py-2 font-semibold">Effetto</th>
+                  <th className="text-center px-3 py-2 font-semibold">Inizio garanzia</th>
                   <th className="text-right px-3 py-2 font-semibold">Premio</th>
                 </tr>
               </thead>
               <tbody>
-                {(titoli || []).length === 0 && (
-                  <tr><td colSpan={6} className="px-3 py-4 text-center text-muted-foreground">Nessuna polizza selezionata</td></tr>
+                {titoliCandidati.length === 0 && (
+                  <tr><td colSpan={7} className="px-3 py-4 text-center text-muted-foreground">Nessuna quietanza disponibile</td></tr>
                 )}
-                {(titoli || []).map((t: any, i: number) => {
+                {titoliCandidati.map((t: any, i: number) => {
                   const ramo = t.rami ? (t.rami.descrizione || t.rami.codice || "") : "";
                   const rischio = t.prodotto_nome || t.descrizione_polizza || "";
                   const eff = t.garanzia_da || t.durata_da;
                   const effetto = eff ? format(new Date(eff), "dd/MM/yyyy") : "";
                   const premio = Number(t.premio_lordo) || 0;
+                  const checked = selectedIds.has(t.id);
+                  const future = t.garanzia_da && t.garanzia_da > today;
                   return (
                     <tr key={t.id} className={i % 2 ? "bg-muted/30" : ""}>
+                      <td className="px-2 py-2 text-center">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => toggleTitolo(t.id, !!v)}
+                          aria-label={`Includi ${t.numero_titolo}`}
+                        />
+                      </td>
                       <td className="px-3 py-2 font-mono text-xs">{t.numero_titolo || ""}</td>
                       <td className="px-3 py-2">{ramo}</td>
                       <td className="px-3 py-2">{rischio}</td>
                       <td className="px-3 py-2">{t.compagnie?.nome || ""}</td>
-                      <td className="px-3 py-2 text-center">{effetto}</td>
+                      <td className="px-3 py-2 text-center">
+                        {effetto}
+                        {future && <span className="block text-[10px] text-muted-foreground">futura</span>}
+                        {!future && isDefaultSelected(t) && <span className="block text-[10px] text-primary">default</span>}
+                        {!isEligible(t) && !future && <span className="block text-[10px] text-amber-600">fuori default</span>}
+                      </td>
                       <td className="px-3 py-2 text-right font-semibold">€ {premio.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>
                   );
                 })}
               </tbody>
-              {(titoli || []).length > 0 && (
+              {titoli.length > 0 && (
                 <tfoot className="bg-primary/10 text-primary font-semibold">
                   <tr>
-                    <td colSpan={5} className="px-3 py-2 text-right">Totale EURO</td>
+                    <td colSpan={6} className="px-3 py-2 text-right">Totale selezionato EURO</td>
                     <td className="px-3 py-2 text-right">€ {totale.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   </tr>
                 </tfoot>
@@ -440,13 +564,33 @@ const ECClientePdfPage = () => {
         </div>
       </fieldset>
 
+      <fieldset id="ec-cliente-invio-email" className="border border-border rounded-lg p-5 space-y-4">
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Invio email al cliente</legend>
+        <p className="text-xs text-muted-foreground">
+          L&apos;email allega il PDF dell&apos;E/C e lo archivia automaticamente nei documenti del cliente (come l&apos;avviso incasso messa a cassa).
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>Destinatario</Label>
+            <Input value={emailDestinatario} onChange={(e) => setEmailDestinatario(e.target.value)} placeholder="email@cliente.it" />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>Testo email</Label>
+            <Textarea value={emailCorpo} onChange={(e) => setEmailCorpo(e.target.value)} rows={4} />
+          </div>
+        </div>
+        <Button onClick={handleInviaMail} disabled={busy || titoli.length === 0}>
+          <Mail className="h-4 w-4 mr-2" /> Invia mail con PDF allegato
+        </Button>
+      </fieldset>
+
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => navigate(-1)}>Chiudi</Button>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleStampa} disabled={busy}>Stampa</Button>
-          <Button variant="outline" onClick={handleScarica} disabled={busy}>Scarica PDF</Button>
-          <Button variant="outline" onClick={handleEsportaExcel} disabled={busy}>Esporta Excel</Button>
-          <Button onClick={handleSalva} disabled={busy}>Salva PDF</Button>
+          <Button variant="outline" onClick={handleStampa} disabled={busy || titoli.length === 0}>Stampa</Button>
+          <Button variant="outline" onClick={handleScarica} disabled={busy || titoli.length === 0}>Scarica PDF</Button>
+          <Button variant="outline" onClick={handleEsportaExcel} disabled={busy || titoli.length === 0}>Esporta Excel</Button>
+          <Button onClick={handleSalva} disabled={busy || titoli.length === 0}>Salva PDF</Button>
         </div>
       </div>
     </div>

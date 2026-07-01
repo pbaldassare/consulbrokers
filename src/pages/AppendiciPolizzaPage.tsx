@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { AppendiceDialog } from "@/components/polizze/azioni/AppendiceDialog";
+import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
 
 const TITOLO_DERIVATO_LABEL: Record<string, string> = {
   modifica: "AM",
@@ -59,14 +60,7 @@ const AppendiciPolizzaPage = () => {
 
   const { data: appendici = [], isLoading: loadingAppendici } = useQuery({
     queryKey: ["appendici-polizza", paramTitoloId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("appendici_polizza")
-        .select("*")
-        .eq("titolo_id", paramTitoloId)
-        .order("created_at", { ascending: false });
-      return data || [];
-    },
+    queryFn: () => fetchAppendiciPolizzaForTitolo(supabase, paramTitoloId),
     enabled: !!paramTitoloId,
   });
 

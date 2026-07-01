@@ -52,6 +52,7 @@ import { TitoloHeaderBar } from "@/components/titolo/sections/TitoloHeaderBar";
 import { TitoloScopeBanners } from "@/components/titolo/sections/TitoloScopeBanners";
 import { TitoloQuietanzePanel } from "@/components/titolo/sections/TitoloQuietanzePanel";
 import { TitoloDataPersistenceInfo } from "@/components/titolo/sections/TitoloDataPersistenceInfo";
+import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza, getTotQuietanze, getQuietanzaRataIndex } from "@/lib/quietanze";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
@@ -245,27 +246,7 @@ const TitoloDetail = () => {
 
   const { data: appendiciPolizza = [] } = useQuery({
     queryKey: ["appendici-polizza", id],
-    queryFn: async () => {
-      // Appendici registrate direttamente su questo titolo
-      const { data: direct } = await supabase
-        .from("appendici_polizza")
-        .select("*")
-        .eq("titolo_id", id!)
-        .order("created_at", { ascending: false });
-      // Se questo titolo è una regolazione (RG), includi anche l'appendice madre che l'ha generato
-      const { data: regParents } = await supabase
-        .from("appendici_polizza")
-        .select("*")
-        .eq("titolo_regolazione_id", id!);
-      const { data: prParents } = await supabase
-        .from("appendici_polizza")
-        .select("*")
-        .eq("titolo_proroga_id", id!);
-      const merged = [...(direct || []), ...(regParents || []), ...(prParents || [])];
-      // dedup per id
-      const seen = new Set<string>();
-      return merged.filter((a: any) => (seen.has(a.id) ? false : (seen.add(a.id), true)));
-    },
+    queryFn: () => fetchAppendiciPolizzaForTitolo(supabase, id!),
     enabled: !!id,
   });
 

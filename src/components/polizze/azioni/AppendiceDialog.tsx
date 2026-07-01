@@ -19,6 +19,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { logAttivita } from "@/lib/logAttivita";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
+import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
 import {
   aggregateGaranziePremi,
   calcProvvigioniAppendice,
@@ -137,14 +138,12 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
   }, []);
 
   const { data: existing } = useQuery({
-    queryKey: ["appendici-count", titoloId],
-    enabled: !!titoloId && open,
+    queryKey: ["appendici-count", madreId ?? titoloId],
+    enabled: !!(madreId ?? titoloId) && open,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("appendici_polizza")
-        .select("numero_appendice")
-        .eq("titolo_id", titoloId!);
-      return data || [];
+      const anchor = madreId ?? titoloId!;
+      const data = await fetchAppendiciPolizzaForTitolo(supabase, anchor);
+      return data.map((a) => ({ numero_appendice: a.numero_appendice }));
     },
   });
 
@@ -306,7 +305,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
       }
 
       const payload = {
-        titolo_id: titoloId,
+        titolo_id: madreId,
         numero_appendice: numeroAppendice.trim(),
         data_appendice: dataAppendice,
         data_effetto: dataEffetto,
@@ -365,8 +364,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
           ? { label: "Apri titolo", onClick: () => navigate(`/titoli/${res.titoloDerivatoId}`) }
           : undefined,
       });
-      qc.invalidateQueries({ queryKey: ["appendici-polizza", titoloId] });
-      qc.invalidateQueries({ queryKey: ["appendici-count", titoloId] });
+      qc.invalidateQueries({ queryKey: ["appendici-polizza"] });
       qc.invalidateQueries({ queryKey: ["gestione-polizze"] });
       qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
       onCreated?.();

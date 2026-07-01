@@ -2454,7 +2454,7 @@ export default function ClienteDetail() {
           </Card>
           <p className="text-xs text-muted-foreground px-1">
             Gli <strong>avvisi incasso agenzia (email messa a cassa)</strong> sono archiviati automaticamente dalle polizze del cliente e mostrano destinatario, oggetto e data invio.
-            L&apos;<strong>E/C Cliente</strong> è un documento contabile separato verso il cliente.
+            L&apos;<strong>E/C Cliente inviato via email</strong> viene archiviato qui con la stessa traccia di invio; l&apos;E/C salvato manualmente (PDF) ha categoria &quot;E/C Cliente&quot;.
           </p>
           <DocumentiTab
             entitaTipo="cliente"

@@ -68,6 +68,20 @@ type DbPremio = {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+function provvigioniFromPct(base: number, pctStr: string): number {
+  const s = (pctStr ?? "").trim().replace(",", ".");
+  if (s === "") return 0;
+  const pct = parseFloat(s);
+  if (isNaN(pct) || base <= 0) return 0;
+  return round2((base * pct) / 100);
+}
+
+function rowsBase(rows: GaranziaRow[]): number {
+  const netto = rows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
+  const accessori = rows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
+  return netto + accessori;
+}
+
 export function TitoloImportiPremiBlock({
   titoloId,
   gruppoRamoId,
@@ -208,6 +222,23 @@ export function TitoloImportiPremiBlock({
 
   const [firmaRows, setFirmaRows] = useState<GaranziaRow[]>([]);
   const [quietanzaRows, setQuietanzaRows] = useState<GaranziaRow[]>([]);
+  /** false = provvigioni impostate manualmente (% o totale €), non ricalcolate dalla matrice */
+  const [provvFirmaAuto, setProvvFirmaAuto] = useState(true);
+  const [provvQuietanzaAuto, setProvvQuietanzaAuto] = useState(true);
+  const provvFirmaAutoRef = useRef(true);
+  const provvQuietanzaAutoRef = useRef(true);
+  const manualPctFirmaRef = useRef("");
+  const manualPctQuietanzaRef = useRef("");
+
+  const setProvvAuto = (tipo: "firma" | "quietanza", auto: boolean) => {
+    if (tipo === "firma") {
+      provvFirmaAutoRef.current = auto;
+      setProvvFirmaAuto(auto);
+    } else {
+      provvQuietanzaAutoRef.current = auto;
+      setProvvQuietanzaAuto(auto);
+    }
+  };
 
   // Refresh state quando arrivano i dati DB o cambia il catalogo
   const lastSnapRef = useRef<string>("");
@@ -231,8 +262,41 @@ export function TitoloImportiPremiBlock({
         : [emptyGaranziaRow()];
     setFirmaRows(firmaMapped);
     setQuietanzaRows(quietanzaMapped);
+
+    // Se il valore salvato su titoli diverge dal calcolo matrice → override manuale
+    if (provvMatrice) {
+      const baseF = rowsBase(firmaMapped);
+      const baseQ = rowsBase(quietanzaMapped);
+      const calcF = round2(calcProvvigioniGaranzia(firmaMapped, provvMatrice));
+      const calcQ = round2(calcProvvigioniGaranzia(quietanzaMapped, provvMatrice));
+      const storedF = round2(Number(provvigioniFirma) || 0);
+      const storedQ = round2(Number(provvigioniQuietanza) || 0);
+      if (storedF > 0 && Math.abs(calcF - storedF) > 0.015) {
+        manualPctFirmaRef.current = baseF > 0 ? ((storedF / baseF) * 100).toFixed(4) : "";
+        setProvvAuto("firma", false);
+      } else {
+        setProvvAuto("firma", true);
+      }
+      if (storedQ > 0 && Math.abs(calcQ - storedQ) > 0.015) {
+        manualPctQuietanzaRef.current = baseQ > 0 ? ((storedQ / baseQ) * 100).toFixed(4) : "";
+        setProvvAuto("quietanza", false);
+      } else {
+        setProvvAuto("quietanza", true);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [premi, catalogo]);
+  }, [premi, catalogo, provvMatrice, provvigioniFirma, provvigioniQuietanza]);
+
+  const resolveProvvigioniImporto = (
+    tipo: "firma" | "quietanza",
+    rows: GaranziaRow[],
+  ): number => {
+    const auto = tipo === "firma" ? provvFirmaAutoRef.current : provvQuietanzaAutoRef.current;
+    if (auto) return round2(calcProvvigioniGaranzia(rows, provvMatrice));
+    const base = rowsBase(rows);
+    const pct = tipo === "firma" ? manualPctFirmaRef.current : manualPctQuietanzaRef.current;
+    return provvigioniFromPct(base, pct);
+  };
 
   // Persist debounced
   const firmaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -292,18 +356,23 @@ export function TitoloImportiPremiBlock({
       updates.tasse = totTasse;
       updates.ssn_firma = totSsn;
       updates.premio_lordo = lordo;
-      updates.provvigioni_firma = round2(calcProvvigioniGaranzia(rows, provvMatrice));
+      updates.provvigioni_firma = resolveProvvigioniImporto("firma", rows);
     } else {
       updates.premio_netto_quietanza = totNetto;
       updates.addizionali_quietanza = totAccessori;
       updates.tasse_quietanza = totTasse;
       updates.ssn_quietanza = totSsn;
-      updates.provvigioni_quietanza = round2(calcProvvigioniGaranzia(rows, provvMatrice));
+      updates.provvigioni_quietanza = resolveProvvigioniImporto("quietanza", rows);
     }
-    await supabase.from("titoli").update(updates).eq("id", titoloId);
+    const { error: updErr } = await supabase.from("titoli").update(updates).eq("id", titoloId);
+    if (updErr) {
+      toast.error("Errore aggiornamento importi: " + updErr.message);
+      return;
+    }
     qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
     qc.invalidateQueries({ queryKey: ["premi-garanzia-import", titoloId] });
     qc.invalidateQueries({ queryKey: ["premi-garanzia", titoloId] });
+    qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
   };
 
   const scheduleSave = (tipo: "firma" | "quietanza", rows: GaranziaRow[]) => {
@@ -366,18 +435,45 @@ export function TitoloImportiPremiBlock({
     ? ((Number(provvigioniQuietanza) / totBaseQui) * 100).toFixed(4)
     : "";
 
-  const onPercentualeAgenziaFirma = async (_v: string) => {
+  const saveProvvigioniManual = async (tipo: "firma" | "quietanza", v: string) => {
     if (isLocked) return;
-    const importo = round2(calcProvvigioniGaranzia(firmaRows, provvMatrice));
-    await supabase.from("titoli").update({ provvigioni_firma: importo }).eq("id", titoloId);
-    await qc.refetchQueries({ queryKey: ["titolo", titoloId] });
+    const rows = tipo === "firma" ? firmaRows : quietanzaRows;
+    const base = rowsBase(rows);
+    const importo = provvigioniFromPct(base, v);
+    const col = tipo === "firma" ? "provvigioni_firma" : "provvigioni_quietanza";
+    const { error } = await supabase.from("titoli").update({ [col]: importo }).eq("id", titoloId);
+    if (error) {
+      toast.error("Errore salvataggio provvigioni: " + error.message);
+      return;
+    }
+    if (tipo === "firma") manualPctFirmaRef.current = v;
+    else manualPctQuietanzaRef.current = v;
+    setProvvAuto(tipo, false);
+    await qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
+    await qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
+    toast.success("Provvigioni aggiornate");
   };
-  const onPercentualeAgenziaQuietanza = async (_v: string) => {
+
+  const resetProvvigioniAuto = async (tipo: "firma" | "quietanza") => {
     if (isLocked) return;
-    const importo = round2(calcProvvigioniGaranzia(quietanzaRows, provvMatrice));
-    await supabase.from("titoli").update({ provvigioni_quietanza: importo }).eq("id", titoloId);
-    await qc.refetchQueries({ queryKey: ["titolo", titoloId] });
+    const rows = tipo === "firma" ? firmaRows : quietanzaRows;
+    const importo = round2(calcProvvigioniGaranzia(rows, provvMatrice));
+    const col = tipo === "firma" ? "provvigioni_firma" : "provvigioni_quietanza";
+    const { error } = await supabase.from("titoli").update({ [col]: importo }).eq("id", titoloId);
+    if (error) {
+      toast.error("Errore ricalcolo provvigioni: " + error.message);
+      return;
+    }
+    if (tipo === "firma") manualPctFirmaRef.current = "";
+    else manualPctQuietanzaRef.current = "";
+    setProvvAuto(tipo, true);
+    await qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
+    await qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
+    toast.success("Provvigioni ricalcolate dalla matrice");
   };
+
+  const onPercentualeAgenziaFirma = (v: string) => { void saveProvvigioniManual("firma", v); };
+  const onPercentualeAgenziaQuietanza = (v: string) => { void saveProvvigioniManual("quietanza", v); };
 
   // Specchio perfetto: nessuna riga Quietanza personalizzata.
   const sincronizzata = isQuietanzaSincronizzata(quietanzaRows);
@@ -408,6 +504,8 @@ export function TitoloImportiPremiBlock({
         rowPctAccessori={rowPctAccessoriFn}
         percentualeAgenzia={pctFirma}
         onPercentualeAgenziaChange={onPercentualeAgenziaFirma}
+        percentualeAgenziaAuto={provvFirmaAuto}
+        onResetAuto={() => { void resetProvvigioniAuto("firma"); }}
         headerExtra={
           showQuietanza ? (
           <Button
@@ -440,6 +538,8 @@ export function TitoloImportiPremiBlock({
         rowPctAccessori={rowPctAccessoriFn}
         percentualeAgenzia={pctQui}
         onPercentualeAgenziaChange={onPercentualeAgenziaQuietanza}
+        percentualeAgenziaAuto={provvQuietanzaAuto}
+        onResetAuto={() => { void resetProvvigioniAuto("quietanza"); }}
         sincronizzata={sincronizzata}
         personalizzati={personalizzati}
         onResetRow={resyncRowFromFirma}

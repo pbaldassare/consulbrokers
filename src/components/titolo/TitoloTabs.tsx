@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,13 +12,14 @@ import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
 import { fmtEuro } from "@/lib/formatCurrency";
+import type { AppendicePolizzaRow } from "@/lib/appendiciPolizza";
 
 interface TitoloTabsProps {
   id: string;
   t: any;
   movimentiPolizza: any[];
   provvigioni: any[];
-  appendiciPolizza: any[];
+  appendiciPolizza: AppendicePolizzaRow[];
   navigate: (path: string) => void;
   /** Id della catena (madre + tutte le quietanze) per condividere documenti su tutta la polizza. */
   chainIds?: string[];
@@ -37,6 +38,24 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
     ? (chainIds && chainIds.length > 0 ? chainIds : [id])
     : [id];
 
+  /** Appendici: visibili sulla polizza madre (intera catena); sulla quietanza solo quelle agganciate alla rata. */
+  const appendiciVisibili = useMemo(() => {
+    if (isMadreView) return appendiciPolizza;
+    return appendiciPolizza.filter(
+      (a) =>
+        a.titolo_id === id ||
+        a.quietanza_id === id ||
+        a.titolo_regolazione_id === id ||
+        a.titolo_proroga_id === id ||
+        a.titolo_modifica_id === id,
+    );
+  }, [appendiciPolizza, id, isMadreView]);
+
+  const appendiciAllegati = useMemo(
+    () => (isMadreView ? appendiciVisibili.filter((a) => a.file_path && a.nome_file) : []),
+    [appendiciVisibili, isMadreView],
+  );
+
   // Lazy mount: ogni tab si monta solo la prima volta che viene aperto, poi resta in cache.
   const [tab, setTab] = useState<string>("movimenti");
   const [mounted, setMounted] = useState<Record<string, boolean>>({ movimenti: true });
@@ -50,7 +69,7 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
 
         <TabsTrigger value="movimenti"><List className="w-4 h-4 mr-1" />Movimenti ({movimentiPolizza.length})</TabsTrigger>
         <TabsTrigger value="provvigioni"><Percent className="w-4 h-4 mr-1" />Provvigioni ({provvigioni.length})</TabsTrigger>
-        <TabsTrigger value="appendici"><FileText className="w-4 h-4 mr-1" />Appendici ({appendiciPolizza.length})</TabsTrigger>
+        <TabsTrigger value="appendici"><FileText className="w-4 h-4 mr-1" />Appendici ({appendiciVisibili.length})</TabsTrigger>
         <TabsTrigger value="garanzie"><ShieldCheck className="w-4 h-4 mr-1" />Garanzie</TabsTrigger>
         {/* Voci RCA spostate dentro la sezione Importi */}
         <TabsTrigger value="familiari"><Users className="w-4 h-4 mr-1" />Familiari</TabsTrigger>
@@ -107,7 +126,7 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
                 <FileText className="w-4 h-4 mr-1" /> Nuova Appendice
               </Button>
             </div>
-            {appendiciPolizza.length === 0 ? (
+            {appendiciVisibili.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">Nessuna appendice registrata.</p>
             ) : (
               <Table>
@@ -123,7 +142,7 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(appendiciPolizza as any[]).map((a: any) => (
+                  {(appendiciVisibili as any[]).map((a: any) => (
                     <AppendiceTableRow key={a.id} a={a} t={t} navigate={navigate} />
                   ))}
                 </TableBody>
@@ -144,7 +163,7 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
         <Card><CardContent className="pt-6"><p className="text-sm whitespace-pre-wrap">{t.note || "Nessuna nota."}</p></CardContent></Card>
       </TabsContent>
       <TabsContent value="documenti">
-        <Card><CardContent className="pt-6">{mounted.documenti ? <DocumentiTab entitaTipo="titolo" entitaId={id} entitaIds={documentiIdsForRead} bucketName="documenti_titoli" showPreview={false} /> : null}</CardContent></Card>
+        <Card><CardContent className="pt-6">{mounted.documenti ? <DocumentiTab entitaTipo="titolo" entitaId={id} entitaIds={documentiIdsForRead} bucketName="documenti_titoli" showPreview={false} appendiciAllegati={appendiciAllegati} /> : null}</CardContent></Card>
 
       </TabsContent>
       <TabsContent value="chat">
