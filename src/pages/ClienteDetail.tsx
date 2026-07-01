@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, createContext, useContext, useMemo } from "react";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
+import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { messaCassaRowBgClass, rowBorderClass, isMessaACassa } from "@/lib/polizzeDisplay";
 import { logAttivita } from "@/lib/logAttivita";
 import { useAuth } from "@/contexts/AuthContext";
