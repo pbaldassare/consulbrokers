@@ -16,6 +16,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { ecClienteDefaultSelected, ecClienteTitoloEligible } from "@/lib/ecClienteTitoli";
 import { uint8ToBase64 } from "@/lib/documentiEcCliente";
+import {
+  RAGIONE_SOCIALE_CONSULBROKERS,
+  resolveClienteEmail,
+  resolveClienteIndirizzo,
+  resolveClienteIntestazione,
+  resolveClienteNome,
+} from "@/lib/ecClienteAnagrafica";
 
 const FOOTER_LINES_DEFAULT = [
   "Via Mergellina, 2 – 80121 Napoli (IT) Tel. +39 081 7648268",
@@ -52,11 +59,9 @@ const ECClientePdfPage = () => {
   const [intestatarioConto, setIntestatarioConto] = useState("");
   const [bancaConto, setBancaConto] = useState("");
   const [iban, setIban] = useState("");
-  const [ragioneSocialeFooter, setRagioneSocialeFooter] = useState("Consulbrokers Digital s.r.l.");
+  const [ragioneSocialeFooter, setRagioneSocialeFooter] = useState(RAGIONE_SOCIALE_CONSULBROKERS);
   const [noteFinali, setNoteFinali] = useState("");
   const [busy, setBusy] = useState(false);
-  const [emailDestinatario, setEmailDestinatario] = useState("");
-  const [emailCorpo, setEmailCorpo] = useState("");
 
   useEffect(() => {
     initSelectionRef.current = false;
@@ -70,7 +75,7 @@ const ECClientePdfPage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("clienti")
-        .select("id, tipo_cliente, nome, cognome, ragione_sociale, sesso, email, email_estratto_conto, indirizzo_residenza, cap_residenza, citta_residenza, provincia_residenza, indirizzo_sede, cap_sede, citta_sede, provincia_sede")
+        .select("id, tipo_cliente, nome, cognome, ragione_sociale, sesso, email, pec, referente_email, indirizzo_residenza, cap_residenza, citta_residenza, provincia_residenza, indirizzo_sede, cap_sede, citta_sede, provincia_sede, indirizzo_fiscale, cap_fiscale, citta_fiscale, provincia_fiscale")
         .eq("id", clienteId)
         .maybeSingle();
       return data as any;
@@ -113,15 +118,28 @@ const ECClientePdfPage = () => {
     }
   }, [conto]);
 
-  useEffect(() => {
-    if (!cliente) return;
-    const dest = cliente.email_estratto_conto || cliente.email || "";
-    setEmailDestinatario(dest);
-    const nome = cliente.ragione_sociale || `${cliente.cognome || ""} ${cliente.nome || ""}`.trim();
-    setEmailCorpo(
-      `Gentile ${nome},\n\nin allegato trasmettiamo l'estratto conto dei premi da saldare.\n\nCordiali saluti.`,
-    );
-  }, [cliente]);
+  // Email specialist (Backoffice) assegnato al cliente — copia in CC
+  const { data: specialistEmail } = useQuery({
+    queryKey: ["ec-cli-pdf-specialist", clienteId],
+    enabled: !!clienteId,
+    queryFn: async () => {
+      const { data: assegn } = await supabase
+        .from("codici_commerciali_cliente")
+        .select("profilo_id")
+        .eq("cliente_id", clienteId)
+        .eq("ruolo", "Backoffice")
+        .maybeSingle();
+      if (!assegn?.profilo_id) return "";
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("id", assegn.profilo_id)
+        .maybeSingle();
+      return (prof?.email || "").trim();
+    },
+  });
+
+  const emailDestinatario = resolveClienteEmail(cliente);
 
   // Tutte le quietanze candidabili del cliente (selezione manuale con checkbox)
   const { data: titoliCandidati = [] } = useQuery({
@@ -221,18 +239,8 @@ const ECClientePdfPage = () => {
       return s + r.premio + minus - plus;
     }, 0);
 
-    // Cliente
-    const isAzienda = cliente?.tipo_cliente === "azienda" || cliente?.tipo_cliente === "ente" || !!cliente?.ragione_sociale;
-    const intestaz = isAzienda
-      ? "Spett.le"
-      : cliente?.sesso === "F" ? "Preg.ma Sig.ra" : "Preg.mo Sig.";
-    const nome = isAzienda
-      ? (cliente?.ragione_sociale || "")
-      : `${cliente?.cognome || ""} ${cliente?.nome || ""}`.trim();
-    const indirizzo = isAzienda ? cliente?.indirizzo_sede : cliente?.indirizzo_residenza;
-    const cap = isAzienda ? cliente?.cap_sede : cliente?.cap_residenza;
-    const citta = isAzienda ? cliente?.citta_sede : cliente?.citta_residenza;
-    const prov = isAzienda ? cliente?.provincia_sede : cliente?.provincia_residenza;
+    // Cliente (intestazione PDF)
+    const addr = resolveClienteIndirizzo(cliente);
 
     return {
       sedeNome: sede?.nome_ufficio || "",
@@ -242,12 +250,12 @@ const ECClientePdfPage = () => {
       sedeProvincia: sede?.provincia || "",
       sedeTelefono: sede?.telefono || "",
       sedeEmail: sede?.email || "",
-      clienteIntestazione: intestaz,
-      clienteNome: nome || "—",
-      clienteIndirizzo: indirizzo || "",
-      clienteCap: cap || "",
-      clienteCitta: citta || "",
-      clienteProvincia: prov || "",
+      clienteIntestazione: resolveClienteIntestazione(cliente),
+      clienteNome: resolveClienteNome(cliente),
+      clienteIndirizzo: addr.indirizzo,
+      clienteCap: addr.cap,
+      clienteCitta: addr.citta,
+      clienteProvincia: addr.provincia,
       luogoData,
       oggetto,
       introTesto,
@@ -381,7 +389,7 @@ const ECClientePdfPage = () => {
       return;
     }
     if (!emailDestinatario.trim()) {
-      toast.error("Inserisci l'email del destinatario");
+      toast.error("Email cliente mancante in anagrafica");
       return;
     }
     try {
@@ -393,17 +401,17 @@ const ECClientePdfPage = () => {
         body: {
           cliente_id: clienteId,
           titolo_ids: titoli.map((t: any) => t.id),
-          recipient: emailDestinatario.trim(),
           subject: oggetto,
-          html: emailCorpo.replace(/\n/g, "<br/>"),
+          html: introTesto.replace(/\n/g, "<br/>"),
           pdf_base64: uint8ToBase64(bytes),
           file_name: name,
           totale: data.totale,
+          cc_specialist: specialistEmail || undefined,
         },
       });
       if (error) throw error;
       if (!res?.ok) throw new Error(res?.error || "Invio email fallito");
-      toast.success(`E/C inviato a ${res.recipient || emailDestinatario}`);
+      toast.success(`E/C inviato a ${res.recipient || emailDestinatario}${res.cc_specialist ? ` (copia a ${res.cc_specialist})` : ""}`);
       if (res.archive_error) toast.warning(`Email inviata ma archivio PDF: ${res.archive_error}`);
     } catch (e: any) {
       toast.error("Errore invio email: " + (e?.message || e));
@@ -571,15 +579,33 @@ const ECClientePdfPage = () => {
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5 md:col-span-2">
-            <Label>Destinatario</Label>
-            <Input value={emailDestinatario} onChange={(e) => setEmailDestinatario(e.target.value)} placeholder="email@cliente.it" />
+            <Label>Destinatario (da anagrafica cliente)</Label>
+            <Input
+              value={emailDestinatario || "— email non presente in anagrafica —"}
+              disabled
+              className={!emailDestinatario ? "border-destructive text-destructive" : ""}
+            />
+            {!emailDestinatario && (
+              <p className="text-[11px] text-destructive">
+                Compila il campo Email (o PEC / referente) nella scheda cliente prima di inviare.
+              </p>
+            )}
           </div>
+          {specialistEmail && (
+            <div className="space-y-1.5 md:col-span-2">
+              <Label>Copia a specialist</Label>
+              <Input value={specialistEmail} disabled />
+            </div>
+          )}
           <div className="space-y-1.5 md:col-span-2">
             <Label>Testo email</Label>
-            <Textarea value={emailCorpo} onChange={(e) => setEmailCorpo(e.target.value)} rows={4} />
+            <p className="text-[11px] text-muted-foreground mb-1">
+              Uguale al testo introduttivo del documento (modificabile sopra).
+            </p>
+            <Textarea value={introTesto} disabled rows={4} className="bg-muted/40" />
           </div>
         </div>
-        <Button onClick={handleInviaMail} disabled={busy || titoli.length === 0}>
+        <Button onClick={handleInviaMail} disabled={busy || titoli.length === 0 || !emailDestinatario.trim()}>
           <Mail className="h-4 w-4 mr-2" /> Invia mail con PDF allegato
         </Button>
       </fieldset>

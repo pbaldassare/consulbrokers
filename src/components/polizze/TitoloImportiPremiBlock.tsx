@@ -22,6 +22,7 @@ import {
   provvPctBreakdown,
   calcTasseRiga,
   type MatriceProvvAccessori,
+  premioRigaDbImporto,
 } from "@/lib/calcProvvigioniGaranzia";
 
 /**
@@ -102,7 +103,7 @@ export function TitoloImportiPremiBlock({
     queryFn: async () => {
       const { data } = await supabase
         .from("rami")
-        .select("id, codice, descrizione, aliquota_tasse_ramo, ssn_attivo, aliquota_ssn")
+        .select("id, codice, descrizione, aliquota_tasse_ramo, ssn_attivo, aliquota_ssn, escludi_provvigioni, diritti_agenzia")
         .eq("attivo", true)
         .eq("gruppo_ramo_id", gruppoRamoId!)
         .order("codice");
@@ -192,10 +193,34 @@ export function TitoloImportiPremiBlock({
   // Mappa DbPremio → GaranziaRow arricchita con metadata sottoramo
   const toGaranziaRow = (p: DbPremio): GaranziaRow => {
     const cat = p.codice_garanzia ? catByCodice.get(p.codice_garanzia) : undefined;
-    const aliquotaTasse = Number(p.aliquota_tasse_pct ?? cat?.aliquota_tasse_ramo ?? 0) || 0;
-    const ssnAttivo = !!cat?.ssn_attivo;
+    const dirittiAgenzia = !!cat?.diritti_agenzia;
+    const escludiProvvigioni = !!cat?.escludi_provvigioni;
+    const aliquotaTasse = dirittiAgenzia || escludiProvvigioni
+      ? 0
+      : (Number(p.aliquota_tasse_pct ?? cat?.aliquota_tasse_ramo ?? 0) || 0);
+    const ssnAttivo = !dirittiAgenzia && !escludiProvvigioni && !!cat?.ssn_attivo;
     const aliquotaSsn = ssnAttivo ? Number(cat?.aliquota_ssn ?? 10.5) || 10.5 : 0;
-    const netto = p.tipo_premio === "firma" ? Number(p.firma ?? 0) : Number(p.rata ?? 0);
+    const stored = p.tipo_premio === "firma" ? Number(p.firma ?? 0) : Number(p.rata ?? 0);
+    if (dirittiAgenzia) {
+      return {
+        codice: p.codice_garanzia || null,
+        descrizione: cat?.descrizione || p.garanzia || "",
+        netto: "",
+        accessori: "",
+        tasse: stored ? stored.toFixed(2) : "",
+        aliquotaTasse: 0,
+        sottoramoId: cat?.id || null,
+        ssn: "",
+        aliquotaSsn: 0,
+        ssnAttivo: false,
+        ssnManualOverride: false,
+        escludiProvvigioni: false,
+        dirittiAgenzia: true,
+        provvAccessoriPct: p.provvigione_accessori_pct != null ? Number(p.provvigione_accessori_pct) : undefined,
+        quietanzaPersonalizzata: p.tipo_premio === "quietanza" ? !!p.quietanza_personalizzata : undefined,
+      };
+    }
+    const netto = stored;
     const accessori = Number(p.accessori ?? 0);
     const ssn = p.ssn != null ? Number(p.ssn) : 0;
     const ssnAuto = ssnAttivo ? round2((netto * aliquotaSsn) / 100) : 0;
@@ -208,13 +233,15 @@ export function TitoloImportiPremiBlock({
       descrizione: cat?.descrizione || p.garanzia || "",
       netto: netto ? netto.toFixed(2) : "",
       accessori: accessori ? accessori.toFixed(2) : "",
-      tasse: tasseCalc ? tasseCalc.toFixed(2) : "",
+      tasse: escludiProvvigioni ? "0" : (tasseCalc ? tasseCalc.toFixed(2) : ""),
       aliquotaTasse,
       sottoramoId: cat?.id || null,
       ssn: ssn ? ssn.toFixed(2) : "",
       aliquotaSsn,
       ssnAttivo,
       ssnManualOverride,
+      escludiProvvigioni,
+      dirittiAgenzia: false,
       provvAccessoriPct: p.provvigione_accessori_pct != null ? Number(p.provvigione_accessori_pct) : undefined,
       quietanzaPersonalizzata: p.tipo_premio === "quietanza" ? !!p.quietanza_personalizzata : undefined,
     };
@@ -304,16 +331,20 @@ export function TitoloImportiPremiBlock({
 
   const persistRows = async (rows: GaranziaRow[], tipo: "firma" | "quietanza") => {
     // Sostituiamo l'intero set di righe per tipo: delete + insert (semplice e affidabile).
-    const validRows = rows.filter((r) => !!(r.sottoramoId || r.codice || r.descrizione.trim() || r.netto));
-    const payload = validRows.map((r, idx) => ({
+    const validRows = rows.filter(
+      (r) => !!(r.sottoramoId || r.codice || r.descrizione.trim() || r.netto || (r.dirittiAgenzia && r.tasse)),
+    );
+    const payload = validRows.map((r, idx) => {
+      const importo = premioRigaDbImporto(r);
+      return {
       titolo_id: titoloId,
       tipo_premio: tipo,
       garanzia: (r.descrizione && r.descrizione.trim()) || r.codice || "Premio",
       codice_garanzia: r.codice || null,
       capitale: 0,
       tasso: 0,
-      firma: tipo === "firma" ? parseFloat(r.netto || "0") || 0 : 0,
-      rata: tipo === "quietanza" ? parseFloat(r.netto || "0") || 0 : 0,
+      firma: tipo === "firma" ? importo : 0,
+      rata: tipo === "quietanza" ? importo : 0,
       accessori: parseFloat(r.accessori || "0") || 0,
       annuo: 0,
       ordine: idx,
@@ -322,7 +353,8 @@ export function TitoloImportiPremiBlock({
       provvigione_netto_pct: resolveRowPctNetto(r, provvMatrice).pct,
       provvigione_accessori_pct: resolveRowPctAccessori(r, provvMatrice).pct,
       ...(tipo === "quietanza" ? { quietanza_personalizzata: !!r.quietanzaPersonalizzata } : {}),
-    }));
+    };
+    });
 
     const { error: delErr } = await supabase
       .from("premi_garanzia_polizza")

@@ -22,6 +22,8 @@ import {
 } from "@/components/polizze/premiSync";
 import {
   calcProvvigioniGaranzia,
+  premioRigaDbImporto,
+  isRigaEsclusaProvvigioni,
   resolveRowPctNetto,
   resolveRowPctAccessori,
   provvPctBreakdown,
@@ -184,7 +186,9 @@ const ImmissionePolizzaPage = () => {
         const match = codice ? ramiPerGruppo.find((r: any) => r.codice === codice) : null;
         const ssnAttivo = !!match?.ssn_attivo;
         const aliquotaSsn = ssnAttivo ? (Number(match?.aliquota_ssn) || 10.5) : 0;
-        const netto = g.premio_netto != null ? Number(g.premio_netto) : 0;
+        const dirittiAgenzia = !!match?.diritti_agenzia;
+        const escludiProvvigioni = !!match?.escludi_provvigioni;
+        const netto = dirittiAgenzia ? 0 : (g.premio_netto != null ? Number(g.premio_netto) : 0);
         const ssnFromAi = g.ssn != null ? Number(g.ssn) : null;
         const ssnAuto = ssnAttivo && netto > 0 ? +((netto * aliquotaSsn) / 100).toFixed(2) : 0;
         // Aliquota tasse: priorità al sottoramo DB (verità canonica), poi al valore AI, poi 0.
@@ -195,7 +199,9 @@ const ImmissionePolizzaPage = () => {
           : (typeof g.aliquota_tasse_pct === "number" ? g.aliquota_tasse_pct : 0);
         // Tasse: se l'AI non le ha estratte e abbiamo aliquota+netto, calcolale.
         let tasseStr = "";
-        if (g.premio_imposte != null) {
+        if (dirittiAgenzia) {
+          tasseStr = g.premio_imposte != null ? String(g.premio_imposte) : (g.premio_lordo != null ? String(g.premio_lordo) : "");
+        } else if (g.premio_imposte != null) {
           tasseStr = String(g.premio_imposte);
         } else if (aliquotaTasse > 0 && netto > 0) {
           tasseStr = (+((netto * aliquotaTasse) / 100).toFixed(2)).toFixed(2);
@@ -205,13 +211,15 @@ const ImmissionePolizzaPage = () => {
           codice: match?.codice ?? (codice || null),
           sottoramoId: match?.id ?? null,
           descrizione: g.descrizione || match?.descrizione || "",
-          netto: g.premio_netto != null ? String(g.premio_netto) : "",
+          netto: dirittiAgenzia ? "" : (g.premio_netto != null ? String(g.premio_netto) : ""),
           tasse: tasseStr,
-          aliquotaTasse,
-          ssnAttivo,
-          aliquotaSsn,
-          ssn: ssnFromAi != null ? String(ssnFromAi) : (ssnAuto > 0 ? ssnAuto.toFixed(2) : ""),
-          ssnManualOverride: ssnFromAi != null,
+          aliquotaTasse: dirittiAgenzia ? 0 : aliquotaTasse,
+          ssnAttivo: dirittiAgenzia ? false : ssnAttivo,
+          aliquotaSsn: dirittiAgenzia ? 0 : aliquotaSsn,
+          ssn: dirittiAgenzia ? "" : (ssnFromAi != null ? String(ssnFromAi) : (ssnAuto > 0 ? ssnAuto.toFixed(2) : "")),
+          ssnManualOverride: dirittiAgenzia ? false : ssnFromAi != null,
+          escludiProvvigioni,
+          dirittiAgenzia,
         };
       });
       setPremiFirmaRows(rows);
@@ -1097,7 +1105,7 @@ const ImmissionePolizzaPage = () => {
   const { data: ramiList } = useQuery({
     queryKey: ["rami-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id, ssn_attivo, aliquota_ssn, aliquota_tasse_ramo, escludi_provvigioni").eq("attivo", true).order("codice");
+      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id, ssn_attivo, aliquota_ssn, aliquota_tasse_ramo, escludi_provvigioni, diritti_agenzia").eq("attivo", true).order("codice");
       return data || [];
     },
   });
@@ -1890,8 +1898,8 @@ const ImmissionePolizzaPage = () => {
             codice_garanzia: r.codice || null,
             capitale: 0,
             tasso: 0,
-            firma: tipo === "firma" ? parseFloat(r.netto || "0") || 0 : 0,
-            rata: tipo === "quietanza" ? parseFloat(r.netto || "0") || 0 : 0,
+            firma: tipo === "firma" ? premioRigaDbImporto(r) : 0,
+            rata: tipo === "quietanza" ? premioRigaDbImporto(r) : 0,
             accessori: parseFloat(r.accessori || "0") || 0,
             annuo: 0,
             ordine: idx,
@@ -1916,7 +1924,7 @@ const ImmissionePolizzaPage = () => {
         let percProvvA = percProvvN;
         if (percentualeProvvigioneAuto && provvMatrice) {
           for (const r of premiFirmaRows) {
-            if (r.escludiProvvigioni) continue;
+            if (isRigaEsclusaProvvigioni(r)) continue;
             const netto = parseFloat(r.netto || "0") || 0;
             const acc = parseFloat(r.accessori || "0") || 0;
             provvNettoAmt += (netto * resolveRowPctNetto(r, provvMatrice).pct) / 100;
@@ -2625,8 +2633,9 @@ const ImmissionePolizzaPage = () => {
                 const sel: any = (ramiList || []).find((r: any) => r.id === ramoId);
                 if (!sel) return;
                 const escludi = !!sel.escludi_provvigioni;
-                const aliquota = escludi ? 0 : (Number(sel.aliquota_tasse_ramo) || 0);
-                const ssnAttivo = !escludi && !!sel.ssn_attivo;
+                const diritti = !!sel.diritti_agenzia;
+                const aliquota = escludi || diritti ? 0 : (Number(sel.aliquota_tasse_ramo) || 0);
+                const ssnAttivo = !escludi && !diritti && !!sel.ssn_attivo;
                 const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
                 const preset = (base: GaranziaRow): GaranziaRow => ({
                   ...base,
@@ -2637,7 +2646,11 @@ const ImmissionePolizzaPage = () => {
                   aliquotaSsn,
                   ssnAttivo,
                   escludiProvvigioni: escludi,
-                  tasse: escludi ? "0" : base.tasse,
+                  dirittiAgenzia: diritti,
+                  netto: diritti ? "" : base.netto,
+                  accessori: diritti ? "" : base.accessori,
+                  tasse: escludi ? "0" : diritti ? base.tasse : base.tasse,
+                  ssn: diritti ? "" : base.ssn,
                 });
                 const propagate = (rows: GaranziaRow[]) =>
                   rows.map((r) => {

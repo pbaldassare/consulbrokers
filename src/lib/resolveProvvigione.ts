@@ -30,7 +30,7 @@ export async function resolvePercentualeProvvigione(
   if (ramo_id) {
     const { data: ramoRow } = await supabase
       .from("rami")
-      .select("escludi_provvigioni")
+      .select("escludi_provvigioni, diritti_agenzia")
       .eq("id", ramo_id)
       .maybeSingle();
     if ((ramoRow as any)?.escludi_provvigioni) {
@@ -38,6 +38,13 @@ export async function resolvePercentualeProvvigione(
         percentuale: 0,
         livello: 5,
         fonte: "sottoramo esente (CF/Oneri)",
+      };
+    }
+    if ((ramoRow as any)?.diritti_agenzia) {
+      return {
+        percentuale: 0,
+        livello: 5,
+        fonte: "diritti di agenzia (solo tasse)",
       };
     }
   }

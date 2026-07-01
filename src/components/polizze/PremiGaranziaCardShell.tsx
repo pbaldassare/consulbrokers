@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
 import { parseDecimalIt, parseDecimalItOr } from "@/lib/number";
-import { calcTasseRiga } from "@/lib/calcProvvigioniGaranzia";
+import { calcTasseRiga, calcLordoGaranziaRow } from "@/lib/calcProvvigioniGaranzia";
 
 /** Normalizza una stringa numerica inserita dall'utente al blur: "476,5" → "476.50". */
 function normalizeDecimalOnBlur(value: string, decimals = 2): string {
@@ -44,6 +44,8 @@ export interface GaranziaRow {
   ssnManualOverride?: boolean;
   /** True se il sottoramo è "esente" (Contributo Forzoso, Oneri): tasse e provvigioni forzate a 0 */
   escludiProvvigioni?: boolean;
+  /** True se diritti di agenzia: solo importo tasse manuale, senza premio netto */
+  dirittiAgenzia?: boolean;
   /**
    * Solo per righe di tipo "quietanza": true se l'utente ha modificato a mano la
    * riga, scollegandola dalla sincronizzazione automatica con la Firma.
@@ -64,6 +66,7 @@ export const emptyGaranziaRow = (): GaranziaRow => ({
   ssnAttivo: false,
   ssnManualOverride: false,
   escludiProvvigioni: false,
+  dirittiAgenzia: false,
 });
 
 export interface PremiGaranziaCardShellProps {
@@ -180,7 +183,7 @@ export function PremiGaranziaCardShell({
     queryFn: async () => {
       const { data } = await supabase
         .from("rami")
-        .select("id, codice, descrizione, aliquota_tasse_ramo, ssn_attivo, aliquota_ssn, escludi_provvigioni")
+        .select("id, codice, descrizione, aliquota_tasse_ramo, ssn_attivo, aliquota_ssn, escludi_provvigioni, diritti_agenzia")
         .eq("attivo", true)
         .eq("gruppo_ramo_id", gruppoRamoId!)
         .order("codice");
@@ -188,9 +191,19 @@ export function PremiGaranziaCardShell({
     },
   });
 
-  const garanziaOptions = (catalogo as any[]).map((s: any) => ({
+  const garanziaOptions = (catalogo as any[])
+    .slice()
+    .sort((a, b) => {
+      const aDag = a.diritti_agenzia ? 0 : 1;
+      const bDag = b.diritti_agenzia ? 0 : 1;
+      if (aDag !== bDag) return aDag - bDag;
+      return String(a.codice).localeCompare(String(b.codice), "it");
+    })
+    .map((s: any) => ({
     value: s.id as string,
-    label: `${s.codice} — ${s.descrizione}${s.escludi_provvigioni ? " · esente" : ""}`,
+    label: `${s.codice} — ${s.descrizione}${
+      s.diritti_agenzia ? " · solo tasse" : s.escludi_provvigioni ? " · esente" : ""
+    }`,
   }));
 
   const updateRow = (idx: number, patch: Partial<GaranziaRow>) => {
@@ -203,8 +216,9 @@ export function PremiGaranziaCardShell({
     const sel = (catalogo as any[]).find((s: any) => s.id === sottoramoId);
     if (!sel) return emptyGaranziaRow();
     const escludi = !!sel.escludi_provvigioni;
-    const aliquota = escludi ? 0 : (Number(sel.aliquota_tasse_ramo) || 0);
-    const ssnAttivo = !escludi && !!sel.ssn_attivo;
+    const diritti = !!sel.diritti_agenzia;
+    const aliquota = escludi || diritti ? 0 : (Number(sel.aliquota_tasse_ramo) || 0);
+    const ssnAttivo = !escludi && !diritti && !!sel.ssn_attivo;
     const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
     return {
       ...emptyGaranziaRow(),
@@ -215,6 +229,7 @@ export function PremiGaranziaCardShell({
       aliquotaSsn,
       ssnAttivo,
       escludiProvvigioni: escludi,
+      dirittiAgenzia: diritti,
       tasse: escludi ? "0" : "",
     };
   };
@@ -240,12 +255,13 @@ export function PremiGaranziaCardShell({
     const sel = (catalogo as any[]).find((s: any) => s.id === sottoramoId);
     if (!sel) return;
     const escludi = !!sel.escludi_provvigioni;
-    const aliquota = escludi ? 0 : (Number(sel.aliquota_tasse_ramo) || 0);
-    const ssnAttivo = !escludi && !!sel.ssn_attivo;
+    const diritti = !!sel.diritti_agenzia;
+    const aliquota = escludi || diritti ? 0 : (Number(sel.aliquota_tasse_ramo) || 0);
+    const ssnAttivo = !escludi && !diritti && !!sel.ssn_attivo;
     const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
     const netto = parseDecimalItOr(rows[idx]?.netto);
     const accessori = parseDecimalItOr(rows[idx]?.accessori);
-    const tasseCalc = !escludi && (netto > 0 || accessori > 0) && aliquota > 0
+    const tasseCalc = !escludi && !diritti && (netto > 0 || accessori > 0) && aliquota > 0
       ? calcTasseRiga(netto, accessori, aliquota)
       : 0;
     updateRow(idx, {
@@ -253,17 +269,23 @@ export function PremiGaranziaCardShell({
       codice: sel.codice,
       descrizione: sel.descrizione,
       aliquotaTasse: aliquota,
-      tasse: escludi ? "0" : (netto > 0 && aliquota > 0 ? tasseCalc.toFixed(2) : rows[idx]?.tasse || ""),
+      netto: diritti ? "" : rows[idx]?.netto || "",
+      accessori: diritti ? "" : rows[idx]?.accessori || "",
+      tasse: escludi ? "0" : diritti ? (rows[idx]?.tasse || "") : (netto > 0 && aliquota > 0 ? tasseCalc.toFixed(2) : rows[idx]?.tasse || ""),
       ssnAttivo,
       aliquotaSsn,
-      ssn: ssnAttivo && netto > 0 ? calcSsn(netto, tasseCalc, aliquotaSsn).toFixed(2) : "",
+      ssn: diritti ? "" : (ssnAttivo && netto > 0 ? calcSsn(netto, tasseCalc, aliquotaSsn).toFixed(2) : ""),
       ssnManualOverride: false,
       escludiProvvigioni: escludi,
+      dirittiAgenzia: diritti,
     });
   };
 
 
   const recalcTasseSsn = (r: GaranziaRow | undefined, netto: number, accessori: number) => {
+    if (r?.dirittiAgenzia) {
+      return { tasseNew: null as number | null, ssnNew: "" };
+    }
     const aliquota = r?.aliquotaTasse || 0;
     const tasseNew = r?.escludiProvvigioni ? 0 : calcTasseRiga(netto, accessori, aliquota);
     const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
@@ -274,6 +296,7 @@ export function PremiGaranziaCardShell({
 
   const handleNettoChange = (idx: number, value: string) => {
     const r = rows[idx];
+    if (r?.dirittiAgenzia) return;
     if (value === "") {
       updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
@@ -293,6 +316,7 @@ export function PremiGaranziaCardShell({
 
   const handleAccessoriChange = (idx: number, value: string) => {
     const r = rows[idx];
+    if (r?.dirittiAgenzia) return;
     if (value === "") {
       const netto = parseDecimalItOr(r?.netto);
       const { tasseNew, ssnNew } = recalcTasseSsn(r, netto, 0);
@@ -314,6 +338,10 @@ export function PremiGaranziaCardShell({
 
   const handleTasseChange = (idx: number, value: string) => {
     const r = rows[idx];
+    if (r?.dirittiAgenzia) {
+      updateRow(idx, { tasse: value, netto: "", accessori: "", ssn: "" });
+      return;
+    }
     const netto = parseDecimalItOr(r?.netto);
     const tasse = parseDecimalItOr(value);
     const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
@@ -328,6 +356,7 @@ export function PremiGaranziaCardShell({
 
   const handleLordoChange = (idx: number, value: string) => {
     const r = rows[idx];
+    if (r?.dirittiAgenzia) return;
     if (value === "") {
       updateRow(idx, { netto: "", accessori: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
@@ -415,8 +444,8 @@ export function PremiGaranziaCardShell({
                 const accessori = parseDecimalItOr(r.accessori);
                 const tax = parseDecimalItOr(r.tasse);
                 const ssnRow = parseDecimalItOr(r.ssn);
-                const aliquotaFissa = r.aliquotaTasse || 0;
-                const lordoRow = netto + accessori + tax + ssnRow;
+                const aliquotaFissa = r.dirittiAgenzia ? 0 : (r.aliquotaTasse || 0);
+                const lordoRow = calcLordoGaranziaRow(r);
                 const pctAcc = rowPctAccessori?.(r);
                 const zebra = idx % 2 === 0
                   ? (isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/50 dark:bg-teal-950/15")
@@ -469,9 +498,11 @@ export function PremiGaranziaCardShell({
                         type="text"
                         inputMode="decimal"
                         pattern="[0-9.,\-]*"
-                        value={r.netto}
+                        value={r.dirittiAgenzia ? "" : r.netto}
                         onChange={(e) => handleNettoChange(idx, e.target.value)}
                         onBlur={(e) => handleNettoChange(idx, normalizeDecimalOnBlur(e.target.value))}
+                        disabled={r.dirittiAgenzia || r.escludiProvvigioni}
+                        title={r.dirittiAgenzia ? "Diritti di agenzia: solo importo tasse" : undefined}
                         className="h-8 text-right font-mono ml-auto w-28"
                       />
                     </TableCell>
@@ -480,14 +511,17 @@ export function PremiGaranziaCardShell({
                         type="text"
                         inputMode="decimal"
                         pattern="[0-9.,\-]*"
-                        value={r.accessori || ""}
+                        value={r.dirittiAgenzia ? "" : (r.accessori || "")}
                         onChange={(e) => handleAccessoriChange(idx, e.target.value)}
                         onBlur={(e) => handleAccessoriChange(idx, normalizeDecimalOnBlur(e.target.value))}
+                        disabled={r.dirittiAgenzia || r.escludiProvvigioni}
                         className="h-8 text-right font-mono ml-auto w-24"
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="text-xs text-muted-foreground font-mono">{aliquotaFissa.toFixed(2)}</span>
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {r.dirittiAgenzia ? "—" : aliquotaFissa.toFixed(2)}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <Input
@@ -498,7 +532,13 @@ export function PremiGaranziaCardShell({
                         onChange={(e) => handleTasseChange(idx, e.target.value)}
                         onBlur={(e) => handleTasseChange(idx, normalizeDecimalOnBlur(e.target.value))}
                         disabled={r.escludiProvvigioni}
-                        title={r.escludiProvvigioni ? "Voce esente: tasse forzate a 0" : undefined}
+                        title={
+                          r.escludiProvvigioni
+                            ? "Voce esente: tasse forzate a 0"
+                            : r.dirittiAgenzia
+                              ? "Importo diritti di agenzia (solo tasse)"
+                              : undefined
+                        }
                         className="h-8 text-right font-mono ml-auto w-24"
                       />
                     </TableCell>
@@ -533,6 +573,9 @@ export function PremiGaranziaCardShell({
                       </TableCell>
                     )}
                     <TableCell className="text-right">
+                      {r.dirittiAgenzia ? (
+                        <span className="text-sm font-mono font-semibold">{lordoRow ? lordoRow.toFixed(2) : "—"}</span>
+                      ) : (
                       <Input
                         type="text"
                         inputMode="decimal"
@@ -552,6 +595,7 @@ export function PremiGaranziaCardShell({
                         }}
                         className="h-8 text-right font-mono font-semibold ml-auto w-28"
                       />
+                      )}
                     </TableCell>
 
                     <TableCell className="text-right">

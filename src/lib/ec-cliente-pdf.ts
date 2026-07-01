@@ -119,26 +119,47 @@ function fmtEur(n: number): string {
 // ------- Header brand (top) -------
 function drawBrand(ctx: Ctx) {
   ctx.page.drawText("CONSULBROKERS", { x: MARGIN.left, y: ctx.y - 14, size: 14, font: ctx.bold, color: COLOR.headerText });
-  ctx.page.drawText("digital", { x: MARGIN.left + 116, y: ctx.y - 14, size: 11, font: ctx.italic, color: COLOR.muted });
+  ctx.page.drawText("SPA", { x: MARGIN.left + 116, y: ctx.y - 14, size: 11, font: ctx.bold, color: COLOR.headerText });
   ctx.y -= 30;
 }
 
-// ------- Destinatario (top right) -------
+// ------- Destinatario (blocco cliente in alto a destra) -------
 function drawDestinatario(ctx: Ctx, d: ECClienteData) {
-  const boxX = A4.w - MARGIN.right - 230;
-  let ly = ctx.y;
+  const boxX = A4.w - MARGIN.right - 240;
+  const boxW = 240;
+  const topY = A4.h - MARGIN.top;
   const lines = [
     d.clienteIntestazione,
     d.clienteNome,
     d.clienteIndirizzo || "",
     [d.clienteCap, d.clienteCitta, d.clienteProvincia ? `(${d.clienteProvincia})` : ""].filter(Boolean).join(" "),
-  ].filter(Boolean);
+  ].filter((ln) => ln && ln.trim());
+
+  const lineH = 13;
+  const pad = 8;
+  const boxH = Math.max(lines.length * lineH + pad * 2, 52);
+
+  ctx.page.drawRectangle({
+    x: boxX,
+    y: topY - boxH,
+    width: boxW,
+    height: boxH,
+    borderColor: COLOR.line,
+    borderWidth: 0.6,
+    color: rgb(0.99, 0.99, 0.99),
+  });
+
+  let ly = topY - pad - 10;
   for (let i = 0; i < lines.length; i++) {
-    const f = i === 0 ? ctx.italic : ctx.bold;
-    ctx.page.drawText(lines[i], { x: boxX, y: ly - 10, size: 9.5, font: f, color: COLOR.text });
-    ly -= 12;
+    const f = i === 0 ? ctx.italic : i === 1 ? ctx.bold : ctx.font;
+    const size = i === 1 ? 10 : 9.5;
+    ctx.page.drawText(lines[i], { x: boxX + pad, y: ly - size, size, font: f, color: COLOR.text });
+    ly -= lineH;
   }
-  ctx.y = Math.min(ctx.y, ly) - 10;
+
+  // Spazio sotto il blocco più ampio (brand + destinatario affiancati)
+  const destBottom = topY - boxH - 12;
+  ctx.y = Math.min(ctx.y, destBottom);
 }
 
 // ------- Luogo/Data + Oggetto -------

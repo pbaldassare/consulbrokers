@@ -327,7 +327,13 @@ const RamiTab = () => {
                     <span className="text-muted-foreground text-xs">—</span>
                   )}
                 </TableCell>
-                <TableCell className="text-right font-mono">{r.aliquota_tasse_ramo ?? 0}%</TableCell>
+                <TableCell className="text-right font-mono">
+                  {r.diritti_agenzia ? (
+                    <Badge variant="outline" className="text-[10px]">Solo tasse</Badge>
+                  ) : (
+                    `${r.aliquota_tasse_ramo ?? 0}%`
+                  )}
+                </TableCell>
                 <TableCell className="text-center">
                   {r.ssn_attivo ? (
                     <Badge variant="default" className="font-mono">{Number(r.aliquota_ssn ?? 10.5).toFixed(2)}%</Badge>
@@ -340,7 +346,9 @@ const RamiTab = () => {
                 </TableCell>
                 <TableCell className="text-right space-x-1">
                   <Button variant="ghost" size="icon" onClick={() => openEdit(r)}><Pencil className="w-4 h-4" /></Button>
+                  {!r.diritti_agenzia && (
                   <Button variant="ghost" size="icon" onClick={() => remove.mutate(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                  )}
                 </TableCell>
               </TableRow>
               ));

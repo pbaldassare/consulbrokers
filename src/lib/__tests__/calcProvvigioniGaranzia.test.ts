@@ -3,6 +3,7 @@ import { emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGa
 import {
   calcProvvigioniGaranzia,
   calcTasseRiga,
+  calcLordoGaranziaRow,
   resolveRowPctAccessori,
   type MatriceProvvAccessori,
 } from "@/lib/calcProvvigioniGaranzia";
@@ -30,6 +31,18 @@ describe("calcTasseRiga", () => {
   });
 });
 
+describe("calcLordoGaranziaRow", () => {
+  it("diritti agenzia: lordo = solo tasse", () => {
+    expect(calcLordoGaranziaRow({ ...emptyGaranziaRow(), dirittiAgenzia: true, tasse: "22" })).toBe(22);
+  });
+
+  it("garanzia standard: netto + accessori + tasse + ssn", () => {
+    expect(
+      calcLordoGaranziaRow({ ...emptyGaranziaRow(), netto: "100", tasse: "22", ssn: "0" }),
+    ).toBe(122);
+  });
+});
+
 describe("calcProvvigioniGaranzia", () => {
   it("somma provvigione su netto e su accessori con % distinte", () => {
     const provv = calcProvvigioniGaranzia([row()], matrice);
@@ -49,6 +62,10 @@ describe("calcProvvigioniGaranzia", () => {
 
   it("esclude righe con escludiProvvigioni", () => {
     expect(calcProvvigioniGaranzia([row({ escludiProvvigioni: true })], matrice)).toBe(0);
+  });
+
+  it("esclude righe diritti di agenzia (solo tasse)", () => {
+    expect(calcProvvigioniGaranzia([row({ dirittiAgenzia: true, netto: "", tasse: "50" })], matrice)).toBe(0);
   });
 });
 

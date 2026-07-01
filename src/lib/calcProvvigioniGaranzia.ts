@@ -39,13 +39,28 @@ export function resolveRowPctAccessori(
   return resolveRowPctNetto(row, matrice);
 }
 
+/** Righe escluse dalla base provvigionale (CF/Oneri) o senza imponibile (diritti agenzia). */
+export function isRigaEsclusaProvvigioni(r: GaranziaRow): boolean {
+  return !!r.escludiProvvigioni || !!r.dirittiAgenzia;
+}
+
+/** Lordo riga: standard = netto+accessori+tasse+ssn; diritti agenzia = solo tasse. */
+export function calcLordoGaranziaRow(r: GaranziaRow): number {
+  const tasse = parseDecimalItOr(r.tasse);
+  if (r.dirittiAgenzia) return tasse;
+  const netto = parseDecimalItOr(r.netto);
+  const accessori = parseDecimalItOr(r.accessori);
+  const ssn = parseDecimalItOr(r.ssn);
+  return calcLordoRiga(netto, accessori, tasse, ssn);
+}
+
 /** provv = Σ(netto × pct_netto/100) + Σ(accessori × pct_accessori/100) */
 export function calcProvvigioniGaranzia(
   rows: GaranziaRow[],
   matrice: MatriceProvvAccessori | null,
 ): number {
   return rows.reduce((s, r) => {
-    if (r.escludiProvvigioni) return s;
+    if (isRigaEsclusaProvvigioni(r)) return s;
     const netto = parseDecimalItOr(r.netto);
     const accessori = parseDecimalItOr(r.accessori);
     const pctNetto = resolveRowPctNetto(r, matrice).pct;
@@ -64,7 +79,7 @@ export function provvPctBreakdown(
   let wNetto = 0;
   let wAcc = 0;
   for (const r of rows) {
-    if (r.escludiProvvigioni) continue;
+    if (isRigaEsclusaProvvigioni(r)) continue;
     const netto = parseDecimalItOr(r.netto);
     const accessori = parseDecimalItOr(r.accessori);
     const pn = resolveRowPctNetto(r, matrice).pct;
@@ -93,4 +108,10 @@ export function calcTasseRiga(netto: number, accessori: number, aliquotaTasse: n
 
 export function calcLordoRiga(netto: number, accessori: number, tasse: number, ssn: number): number {
   return netto + accessori + tasse + ssn;
+}
+
+/** Importo persistito in premi_garanzia_polizza.firma/rata (netto o solo tasse per diritti agenzia). */
+export function premioRigaDbImporto(r: GaranziaRow): number {
+  if (r.dirittiAgenzia) return parseDecimalItOr(r.tasse);
+  return parseDecimalItOr(r.netto);
 }

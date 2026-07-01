@@ -19,6 +19,7 @@ const payloadSchema = z.object({
   pdf_base64: z.string().min(1),
   file_name: z.string().min(1),
   totale: z.number().optional(),
+  cc_specialist: z.string().email().optional(),
 });
 
 function decodeBase64(b64: string): Uint8Array {
@@ -58,7 +59,7 @@ serve(async (req) => {
 
     const { data: cliente, error: cErr } = await supabase
       .from("clienti")
-      .select("id, email, email_estratto_conto, ragione_sociale, cognome, nome")
+      .select("id, email, pec, referente_email, ragione_sociale, cognome, nome")
       .eq("id", body.cliente_id)
       .maybeSingle();
     if (cErr) throw cErr;
@@ -70,13 +71,32 @@ serve(async (req) => {
     }
 
     const recipient = body.recipient
-      || (cliente.email_estratto_conto as string | null)
-      || (cliente.email as string | null);
+      || (cliente.email as string | null)
+      || (cliente.pec as string | null)
+      || (cliente.referente_email as string | null);
     if (!recipient) {
-      return new Response(JSON.stringify({ error: "email cliente mancante" }), {
+      return new Response(JSON.stringify({ error: "email cliente mancante in anagrafica" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    let ccSpecialist = body.cc_specialist?.trim() || null;
+    if (!ccSpecialist) {
+      const { data: assegn } = await supabase
+        .from("codici_commerciali_cliente")
+        .select("profilo_id")
+        .eq("cliente_id", body.cliente_id)
+        .eq("ruolo", "Backoffice")
+        .maybeSingle();
+      if (assegn?.profilo_id) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("id", assegn.profilo_id)
+          .maybeSingle();
+        ccSpecialist = (prof?.email as string | null)?.trim() || null;
+      }
     }
 
     const pdfBytes = decodeBase64(body.pdf_base64);
@@ -88,6 +108,7 @@ serve(async (req) => {
         subject: body.subject,
         html: body.html,
         apply_branding: true,
+        ...(ccSpecialist ? { cc: ccSpecialist } : {}),
         attachments: [{
           filename: body.file_name,
           content: body.pdf_base64,
@@ -155,6 +176,7 @@ serve(async (req) => {
 
     const logPayload = {
       destinatario: recipient,
+      cc_specialist: ccSpecialist,
       oggetto: body.subject,
       send_id: sendId,
       titolo_ids: body.titolo_ids,
@@ -178,6 +200,7 @@ serve(async (req) => {
       JSON.stringify({
         ok: true,
         recipient,
+        cc_specialist: ccSpecialist,
         send_id: sendId,
         documento_id: documentoId,
         archive_error: archiveError,
