@@ -1,4 +1,5 @@
-// Edge function: notifica messa a cassa / copertura garantita all'agenzia (rapporto)
+// Edge function: notifica messa a cassa all'agenzia (rapporto).
+// Stesso template per incasso diretto e Garantito; niente seconda mail se già notificato.
 // Invia email via Resend, genera PDF archivio e collega documenti a ogni titolo coinvolto.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -106,35 +107,23 @@ function modalitaLabel(t: TitoloRow): string {
     rid: "RID / Addebito SEPA",
     garantito: "Copertura garantita (incasso in attesa fondi)",
   };
-  if (isGarantitoTitolo(t)) return "Copertura garantita";
   return tipoPagLabels[String(t.tipo_pagamento || "").toLowerCase()] || String(t.tipo_pagamento || "—");
 }
 
+/** Template unico: stesso avviso incasso per messa a cassa e per Garantito. */
 function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
   const isBulk = titoli.length > 1;
   const primary = titoli[0];
-  const isGarantito = titoli.every(isGarantitoTitolo);
-  const anyGarantito = titoli.some(isGarantitoTitolo);
   const recipient = resolveRecipient(primary);
 
   const clientiUnici = [...new Set(titoli.map(clienteNome))];
   const clienteLabel = clientiUnici.length === 1 ? clientiUnici[0] : `${clientiUnici.length} clienti`;
 
-  const subject = isGarantito
-    ? isBulk
-      ? `Comunicazione copertura garantita — ${titoli.length} polizze — ${clienteLabel}`
-      : `Comunicazione copertura garantita — Polizza ${primary.numero_titolo || "—"} — ${clienteNome(primary)}`
-    : isBulk
-      ? `Comunicazione messa a cassa — ${titoli.length} polizze — ${clienteLabel}`
-      : `Comunicazione messa a cassa — Polizza ${primary.numero_titolo || "—"} — ${clienteNome(primary)}`;
+  const subject = isBulk
+    ? `Comunicazione messa a cassa — ${titoli.length} polizze — ${clienteLabel}`
+    : `Comunicazione messa a cassa — Polizza ${primary.numero_titolo || "—"} — ${clienteNome(primary)}`;
 
-  const dataRiferimento = fmtDate(
-    (primary.data_copertura || primary.data_messa_cassa) as string | null,
-  );
-
-  const introGarantito = isGarantito
-    ? `<p style="margin:0 0 14px;">In data <strong>${escapeHtml(dataRiferimento)}</strong> abbiamo garantito ${isBulk ? "la copertura dei seguenti premi" : "la copertura del seguente premio"} per Vostro conto, in attesa dell'incasso effettivo dei fondi dal cliente, come da accordi:</p>`
-    : `<p style="margin:0 0 14px;">In data odierna abbiamo incassato per Vostro conto${isBulk ? " i seguenti premi" : " il seguente premio"}, come da accordi${isBulk ? "" : ` a mezzo <strong>${escapeHtml(modalitaLabel(primary))}</strong>`}:</p>`;
+  const introBody = `<p style="margin:0 0 14px;">In data odierna abbiamo incassato per Vostro conto${isBulk ? " i seguenti premi" : " il seguente premio"}, come da accordi${isBulk ? "" : ` a mezzo <strong>${escapeHtml(modalitaLabel(primary))}</strong>`}:</p>`;
 
   const righeTabella = titoli.map((t) => {
     const num = String(t.numero_titolo || "—");
@@ -150,7 +139,7 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
         <td style="padding:6px;border-bottom:1px solid #e0e6e4;"><strong>${num}</strong></td>
         <td style="padding:6px;border-bottom:1px solid #e0e6e4;">${dec}</td>
         <td style="padding:6px;border-bottom:1px solid #e0e6e4;text-align:right;"><strong>${imp}</strong></td>
-        ${anyGarantito ? "" : `<td style="padding:6px;border-bottom:1px solid #e0e6e4;">${mod}</td>`}
+        <td style="padding:6px;border-bottom:1px solid #e0e6e4;">${mod}</td>
       </tr>`;
     }
     return "";
@@ -163,7 +152,7 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
             <tr><td style="color:#55615e;">Polizza</td><td><strong>${escapeHtml(String(primary.numero_titolo || "—"))}</strong></td></tr>
             <tr style="background:#f7faf9;"><td style="color:#55615e;">Decorrenza</td><td>${escapeHtml(fmtDate(primary.garanzia_da as string | null))}</td></tr>
             <tr><td style="color:#55615e;">Premio</td><td><strong>${escapeHtml(fmtEuro(resolveImportoEmail(primary)))}</strong></td></tr>
-            ${isGarantito ? `<tr><td style="color:#55615e;">Data copertura</td><td>${escapeHtml(dataRiferimento)}</td></tr>` : `<tr><td style="color:#55615e;">Modalità incasso</td><td>${escapeHtml(modalitaLabel(primary))}</td></tr>`}
+            <tr><td style="color:#55615e;">Modalità incasso</td><td>${escapeHtml(modalitaLabel(primary))}</td></tr>
           </table>` : `
           <table role="presentation" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;margin:8px 0 18px;font-size:13px;">
             <thead>
@@ -173,15 +162,15 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
                 <th style="padding:6px;text-align:left;">Polizza</th>
                 <th style="padding:6px;text-align:left;">Decorrenza</th>
                 <th style="padding:6px;text-align:right;">Premio</th>
-                ${anyGarantito ? "" : `<th style="padding:6px;text-align:left;">Modalità</th>`}
+                <th style="padding:6px;text-align:left;">Modalità</th>
               </tr>
             </thead>
             <tbody>${righeTabella}</tbody>
             <tfoot>
               <tr style="background:#f7faf9;">
-                <td colspan="${anyGarantito ? 4 : 5}" style="padding:8px 6px;text-align:right;font-weight:600;">Totale</td>
+                <td colspan="5" style="padding:8px 6px;text-align:right;font-weight:600;">Totale</td>
                 <td style="padding:8px 6px;text-align:right;font-weight:600;">${escapeHtml(fmtEuro(titoli.reduce((s, t) => s + (resolveImportoEmail(t) || 0), 0)))}</td>
-                ${anyGarantito ? "" : "<td></td>"}
+                <td></td>
               </tr>
             </tfoot>
           </table>`;
@@ -194,11 +183,11 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
     <tr><td align="center">
       <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e0e6e4;">
         <tr><td style="background:#0d4f47;color:#ffffff;padding:18px 24px;font-size:18px;font-weight:600;">
-          Consulbrokers — ${isGarantito ? "Avviso copertura garantita" : "Avviso incasso"}
+          Consulbrokers — Avviso incasso
         </td></tr>
         <tr><td style="padding:24px;font-size:14px;line-height:1.55;">
           <p style="margin:0 0 14px;">Spettabile Compagnia,</p>
-          ${introGarantito}
+          ${introBody}
           ${tabellaSingola}
           <p style="margin:0;">È gradita l'occasione per porgere cordiali saluti.</p>
         </td></tr>
@@ -211,7 +200,7 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
 </body>
 </html>`;
 
-  return { subject, html, recipient, isGarantito, isBulk, clienteLabel };
+  return { subject, html, recipient, isBulk, clienteLabel };
 }
 
 async function buildArchivePdf(opts: {
@@ -220,9 +209,8 @@ async function buildArchivePdf(opts: {
   sentAt: Date;
   sendId: string | null;
   titoli: TitoloRow[];
-  isGarantito: boolean;
 }): Promise<Uint8Array> {
-  const { subject, recipient, sentAt, sendId, titoli, isGarantito } = opts;
+  const { subject, recipient, sentAt, sendId, titoli } = opts;
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -262,7 +250,7 @@ async function buildArchivePdf(opts: {
 
   page.drawRectangle({ x: 0, y: pageH - 72, width: pageW, height: 72, color: rgb(0.05, 0.31, 0.28) });
   page.drawText("ARCHIVIO NOTIFICA AGENZIA", { x: margin, y: pageH - 42, size: 14, font: bold, color: rgb(1, 1, 1) });
-  page.drawText(isGarantito ? "Copertura garantita" : "Messa a cassa / incasso", {
+  page.drawText("Messa a cassa / incasso", {
     x: margin, y: pageH - 58, size: 9, font, color: rgb(0.85, 0.95, 0.92),
   });
   y = pageH - 96;
@@ -289,9 +277,7 @@ async function buildArchivePdf(opts: {
   y -= 10;
   drawLine("Testo comunicazione inviata", 11, bold);
   y -= 4;
-  const bodyIntro = isGarantito
-    ? `In data ${fmtDate((titoli[0].data_copertura || titoli[0].data_messa_cassa) as string | null)} abbiamo garantito per Vostro conto ${titoli.length > 1 ? "i premi indicati" : "il premio indicato"}.`
-    : `In data odierna abbiamo incassato per Vostro conto ${titoli.length > 1 ? "i premi indicati" : "il premio indicato"}.`;
+  const bodyIntro = `In data odierna abbiamo incassato per Vostro conto ${titoli.length > 1 ? "i premi indicati" : "il premio indicato"}.`;
   drawLine(bodyIntro, 9);
   drawLine("È gradita l'occasione per porgere cordiali saluti.", 9);
 
@@ -369,6 +355,22 @@ async function archivePdfToTitoli(
   return { path, documentiIds: (docs || []).map((d: { id: string }) => d.id) };
 }
 
+/** Titoli che hanno già ricevuto notifica agenzia (es. al Garantito). */
+async function getAlreadyNotifiedTitoloIds(
+  supabase: ReturnType<typeof createClient>,
+  titoloIds: string[],
+): Promise<Set<string>> {
+  if (titoloIds.length === 0) return new Set();
+  const { data, error } = await supabase
+    .from("log_attivita")
+    .select("entita_id")
+    .eq("entita_tipo", "titolo")
+    .eq("azione", "notifica_messa_cassa_inviata")
+    .in("entita_id", titoloIds);
+  if (error) throw error;
+  return new Set((data || []).map((r: { entita_id: string }) => r.entita_id));
+}
+
 const payloadSchema = z.object({
   titolo_id: z.string().uuid().optional(),
   titolo_ids: z.array(z.string().uuid()).min(1).optional(),
@@ -403,16 +405,13 @@ serve(async (req) => {
     }
 
     const { force = false } = parsed.data;
-    const titoloIds = [...new Set(
+    let titoloIds = [...new Set(
       parsed.data.titolo_ids?.length
         ? parsed.data.titolo_ids
         : parsed.data.titolo_id
           ? [parsed.data.titolo_id]
           : [],
     )].sort();
-
-    const isBulk = titoloIds.length > 1;
-    const bulkKey = titoloIds.join(",");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -428,37 +427,19 @@ serve(async (req) => {
     }
 
     if (!force) {
-      if (isBulk) {
-        const { data: giaBulk } = await supabase
-          .from("log_attivita")
-          .select("id")
-          .eq("azione", "notifica_messa_cassa_inviata")
-          .contains("dettagli_json", { bulk: true, bulk_key: bulkKey })
-          .limit(1)
-          .maybeSingle();
-        if (giaBulk) {
-          return new Response(
-            JSON.stringify({ ok: true, skipped: true, reason: "bulk_already_sent" }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
-        }
-      } else {
-        const { data: giaInviata } = await supabase
-          .from("log_attivita")
-          .select("id")
-          .eq("entita_tipo", "titolo")
-          .eq("entita_id", titoloIds[0])
-          .eq("azione", "notifica_messa_cassa_inviata")
-          .limit(1)
-          .maybeSingle();
-        if (giaInviata) {
-          return new Response(
-            JSON.stringify({ ok: true, skipped: true, reason: "already_sent" }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
-        }
+      const alreadyNotified = await getAlreadyNotifiedTitoloIds(supabase, titoloIds);
+      const pendingIds = titoloIds.filter((id) => !alreadyNotified.has(id));
+      if (pendingIds.length === 0) {
+        return new Response(
+          JSON.stringify({ ok: true, skipped: true, reason: "already_sent" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
+      titoloIds = pendingIds;
     }
+
+    const isBulk = titoloIds.length > 1;
+    const bulkKey = titoloIds.join(",");
 
     const { data: titoliRaw, error: tErr } = await supabase
       .from("titoli")
@@ -476,7 +457,8 @@ serve(async (req) => {
     }
 
     const sentAt = new Date();
-    const { subject, html, recipient, isGarantito } = buildEmailContent(titoli, sentAt);
+    const auditGarantito = titoli.some(isGarantitoTitolo);
+    const { subject, html, recipient } = buildEmailContent(titoli, sentAt);
 
     const { data: sendRes, error: sendErr } = await supabase.functions.invoke("send-email", {
       body: {
@@ -503,7 +485,7 @@ serve(async (req) => {
             destinatario: recipient,
             oggetto: subject,
             errore: (sendErr as { message?: string })?.message ?? String(sendErr),
-            garantito: isGarantito,
+            garantito: auditGarantito,
             bulk: isBulk,
             bulk_key: isBulk ? bulkKey : undefined,
           },
@@ -521,7 +503,7 @@ serve(async (req) => {
     }
 
     const ts = sentAt.toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const fileName = `Avviso_${isGarantito ? "copertura" : "incasso"}_agenzia_${ts}.pdf`;
+    const fileName = `Avviso_incasso_agenzia_${ts}.pdf`;
     let archiveResult: { path: string; documentiIds: string[] } | null = null;
     let archiveError: string | null = null;
 
@@ -532,7 +514,6 @@ serve(async (req) => {
         sentAt,
         sendId,
         titoli,
-        isGarantito,
       });
       archiveResult = await archivePdfToTitoli(supabase, titoloIds, pdfBytes, fileName, userId);
     } catch (archErr) {
@@ -544,7 +525,7 @@ serve(async (req) => {
       destinatario: recipient,
       oggetto: subject,
       send_id: sendId,
-      garantito: isGarantito,
+      garantito: auditGarantito,
       force,
       bulk: isBulk,
       bulk_key: isBulk ? bulkKey : undefined,
@@ -571,7 +552,7 @@ serve(async (req) => {
         ok: true,
         recipient,
         send_id: sendId,
-        garantito: isGarantito,
+        garantito: auditGarantito,
         bulk: isBulk,
         documenti_archiviati: archiveResult?.documentiIds.length ?? 0,
         path_storage: archiveResult?.path ?? null,
