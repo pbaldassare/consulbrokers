@@ -8007,6 +8007,7 @@ export type Database = {
       sinistri: {
         Row: {
           aperto_da_cliente: boolean
+          aperto_da_user_id: string | null
           cap_sinistro: string | null
           citta_sinistro: string | null
           cliente_anagrafica_id: string | null
@@ -8050,6 +8051,7 @@ export type Database = {
         }
         Insert: {
           aperto_da_cliente?: boolean
+          aperto_da_user_id?: string | null
           cap_sinistro?: string | null
           citta_sinistro?: string | null
           cliente_anagrafica_id?: string | null
@@ -8093,6 +8095,7 @@ export type Database = {
         }
         Update: {
           aperto_da_cliente?: boolean
+          aperto_da_user_id?: string | null
           cap_sinistro?: string | null
           citta_sinistro?: string | null
           cliente_anagrafica_id?: string | null
@@ -8280,6 +8283,106 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "sinistro_eventi_sinistro_id_fkey"
+            columns: ["sinistro_id"]
+            isOneToOne: false
+            referencedRelation: "sinistri"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sinistro_prescrizioni: {
+        Row: {
+          canale: string | null
+          corpo: string | null
+          created_at: string
+          creato_da: string
+          data_invio: string | null
+          data_scadenza_risposta: string
+          destinatario_label: string | null
+          destinatario_tipo: string
+          id: string
+          note: string | null
+          oggetto: string
+          sinistro_id: string
+          stato: string
+          updated_at: string
+        }
+        Insert: {
+          canale?: string | null
+          corpo?: string | null
+          created_at?: string
+          creato_da: string
+          data_invio?: string | null
+          data_scadenza_risposta: string
+          destinatario_label?: string | null
+          destinatario_tipo?: string
+          id?: string
+          note?: string | null
+          oggetto: string
+          sinistro_id: string
+          stato?: string
+          updated_at?: string
+        }
+        Update: {
+          canale?: string | null
+          corpo?: string | null
+          created_at?: string
+          creato_da?: string
+          data_invio?: string | null
+          data_scadenza_risposta?: string
+          destinatario_label?: string | null
+          destinatario_tipo?: string
+          id?: string
+          note?: string | null
+          oggetto?: string
+          sinistro_id?: string
+          stato?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sinistro_prescrizioni_sinistro_id_fkey"
+            columns: ["sinistro_id"]
+            isOneToOne: false
+            referencedRelation: "sinistri"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sinistro_reminder: {
+        Row: {
+          completato: boolean
+          created_at: string
+          data_promemoria: string | null
+          id: string
+          sinistro_id: string
+          testo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completato?: boolean
+          created_at?: string
+          data_promemoria?: string | null
+          id?: string
+          sinistro_id: string
+          testo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completato?: boolean
+          created_at?: string
+          data_promemoria?: string | null
+          id?: string
+          sinistro_id?: string
+          testo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sinistro_reminder_sinistro_id_fkey"
             columns: ["sinistro_id"]
             isOneToOne: false
             referencedRelation: "sinistri"
@@ -10805,6 +10908,7 @@ export type Database = {
         Returns: undefined
       }
       _titoli_chain_ids: { Args: { p_titolo_id: string }; Returns: string[] }
+      aggiorna_prescrizioni_scadute: { Args: never; Returns: number }
       ai_describe_table: {
         Args: { table_name: string }
         Returns: {
@@ -10822,6 +10926,10 @@ export type Database = {
         }[]
       }
       ai_user_briefing: { Args: never; Returns: Json }
+      annulla_bonifico_collegato: {
+        Args: { p_movimento_id: string }
+        Returns: Json
+      }
       annulla_polizza_cascade: { Args: { p_titolo_id: string }; Returns: Json }
       annulla_quietanza_incasso: {
         Args: { p_titolo_id: string }
