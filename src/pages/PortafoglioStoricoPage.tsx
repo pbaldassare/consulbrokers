@@ -19,7 +19,7 @@ import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
-import { rowBorderClass, isQuietanzaRow, displayStatoPolizza } from "@/lib/polizzeDisplay";
+import { rowBorderClass, isQuietanzaRow, displayStatoPolizza, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
 
 const rowHref = (p: any) =>
   p?.sostituisce_polizza
@@ -222,7 +222,7 @@ const PortafoglioStoricoPage = () => {
                   return (
                   <TableRow
                     key={p.id}
-                    className={`cursor-pointer ${rowBorderClass(p)} ${p.is_regolazione ? "bg-orange-50/40" : isQ ? "bg-quietanza-soft/40" : idx % 2 === 1 ? "bg-muted/30" : ""}`}
+                    className={`cursor-pointer ${rowBorderClass(p)} ${messaCassaRowBgClass(p)} ${!isMessaACassa(p) && isQ ? "hover:bg-muted/40" : ""} ${p.is_regolazione ? "bg-orange-50/40" : idx % 2 === 1 && !isMessaACassa(p) && !isQ ? "bg-muted/30" : ""}`}
                     onClick={() => navigate(rowHref(p))}
                   >
                     <TableCell className={`font-medium ${isQ ? "pl-8 font-normal text-muted-foreground" : ""}`}>
@@ -234,7 +234,7 @@ const PortafoglioStoricoPage = () => {
                       {p.is_regolazione
                         ? <Badge className="bg-orange-500 hover:bg-orange-600 text-white">Regolazione</Badge>
                         : isQ
-                          ? <TipoPolizzaBadge tipo="quietanza" />
+                          ? <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(p)} />
                           : <TipoPolizzaBadge tipo="polizza" />}
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>

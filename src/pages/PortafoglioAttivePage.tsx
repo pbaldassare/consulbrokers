@@ -20,7 +20,7 @@ import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
-import { rowBorderClass, isQuietanzaRow } from "@/lib/polizzeDisplay";
+import { rowBorderClass, isQuietanzaRow, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
 
 const rowHref = (p: any) =>
   p?.sostituisce_polizza
@@ -203,7 +203,7 @@ const PortafoglioAttivePage = () => {
                   return (
                   <TableRow
                     key={p.id}
-                    className={`cursor-pointer ${rowBorderClass(p)} ${p.is_regolazione ? "bg-orange-50/40" : isQ ? "bg-quietanza-soft/40" : ""}`}
+                    className={`cursor-pointer ${rowBorderClass(p)} ${messaCassaRowBgClass(p)} ${!isMessaACassa(p) && isQuietanzaRow(p) ? "hover:bg-muted/40" : ""} ${p.is_regolazione ? "bg-orange-50/40" : ""}`}
                     onClick={() => navigate(rowHref(p))}
                   >
                     <TableCell className={`font-medium ${isQ ? "pl-8 font-normal text-muted-foreground" : ""}`}>
@@ -216,7 +216,7 @@ const PortafoglioAttivePage = () => {
                         {p.is_regolazione
                           ? <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">Regolazione</Badge>
                           : isQ
-                            ? <TipoPolizzaBadge tipo="quietanza" />
+                            ? <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(p)} />
                             : <TipoPolizzaBadge tipo="polizza" />}
                         {p.stato === "sospeso" && (
                           <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Sospesa</Badge>

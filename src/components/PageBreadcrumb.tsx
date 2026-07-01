@@ -55,7 +55,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "titoli": "Titoli",
   "sinistri": "Sinistri",
   "apertura": "Apertura",
-  "prescrizioni": "Prescrizioni",
+  "prescrizioni": "Termini di decadenza",
   "scadenze": "Scadenze",
   "report-sir": "Report SIR",
   "contabilita": "Contabilità operativa",

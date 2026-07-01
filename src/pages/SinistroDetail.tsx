@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,10 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, CheckCircle, AlertTriangle, MapPin, User as UserIcon, FileText, Building2 } from "lucide-react";
+import { ArrowLeft, Plus, CheckCircle, AlertTriangle, MapPin, User as UserIcon, FileText, Building2, Bell } from "lucide-react";
 import { useTabParam } from "@/hooks/useTabParam";
 
-const SINISTRO_TABS = ["dati", "checklist", "eventi", "documenti", "chat", "timeline"] as const;
+const SINISTRO_TABS_BASE = ["dati", "checklist", "eventi", "prescrizioni", "documenti", "chat", "timeline"] as const;
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
@@ -25,6 +25,8 @@ import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import SinistroDatiPraticaPanel from "@/components/sinistri/SinistroDatiPraticaPanel";
+import SinistroPrescrizioniPanel from "@/components/sinistri/SinistroPrescrizioniPanel";
+import SinistroReminderPanel from "@/components/sinistri/SinistroReminderPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -48,9 +50,8 @@ export default function SinistroDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { isAdmin, hasPermission } = useAuth();
+  const { isAdmin, hasPermission, user } = useAuth();
   const canManage = isAdmin || hasPermission("sinistri");
-  const [activeTab, setActiveTab] = useTabParam(SINISTRO_TABS, "dati");
   const [checklistDialog, setChecklistDialog] = useState(false);
   const [eventoDialog, setEventoDialog] = useState(false);
   const [newChecklist, setNewChecklist] = useState({ descrizione: "", obbligatorio: true });
@@ -69,6 +70,17 @@ export default function SinistroDetail() {
     },
   });
 
+  const canSeeReminder = isAdmin || (!!user?.id && sinistro?.aperto_da_user_id === user.id);
+  const tabList = useMemo(() => {
+    const tabs = [...SINISTRO_TABS_BASE];
+    if (canSeeReminder) {
+      const idx = tabs.indexOf("prescrizioni");
+      tabs.splice(idx + 1, 0, "reminder");
+    }
+    return tabs as readonly string[];
+  }, [canSeeReminder]);
+  const [activeTab, setActiveTab] = useTabParam(tabList as any, "dati");
+
   const { data: checklist } = useQuery({
     queryKey: ["sinistro-checklist", id],
     queryFn: async () => {
@@ -85,12 +97,24 @@ export default function SinistroDetail() {
     },
   });
 
+  const { data: prescrizioni } = useQuery({
+    queryKey: ["sinistro-prescrizioni", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("sinistro_prescrizioni").select("id, stato").eq("sinistro_id", id!);
+      return data || [];
+    },
+  });
+
+  const prescrizioniAttive = prescrizioni?.filter((p: { stato: string }) => p.stato === "bozza" || p.stato === "inviata").length ?? 0;
+
   // Timeline is now rendered by TimelineTab component
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["sinistro", id] });
     qc.invalidateQueries({ queryKey: ["sinistro-checklist", id] });
     qc.invalidateQueries({ queryKey: ["sinistro-eventi", id] });
+    qc.invalidateQueries({ queryKey: ["sinistro-prescrizioni", id] });
+    qc.invalidateQueries({ queryKey: ["sinistro-reminder", id] });
     qc.invalidateQueries({ queryKey: ["timeline", "sinistro", id] });
   };
 
@@ -244,10 +268,11 @@ export default function SinistroDetail() {
         )}
       </div>
 
-      {/* Checklist + Events summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Checklist + Events + Prescrizioni summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Checklist</p><p className="font-semibold">{checklist?.filter((c: any) => c.completato).length}/{checklist?.length}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Eventi Attivi</p><p className="font-semibold">{eventi?.filter((e: any) => e.stato === "attivo").length}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Prescrizioni attive</p><p className="font-semibold">{prescrizioniAttive}</p></CardContent></Card>
       </div>
 
       {/* Cambio stato — admin sempre; altri gestori solo se pratica non chiusa */}
@@ -290,6 +315,12 @@ export default function SinistroDetail() {
           <TabsTrigger value="dati">Dati Pratica</TabsTrigger>
           <TabsTrigger value="checklist">Checklist</TabsTrigger>
           <TabsTrigger value="eventi">Eventi</TabsTrigger>
+          <TabsTrigger value="prescrizioni">Prescrizioni</TabsTrigger>
+          {canSeeReminder && (
+            <TabsTrigger value="reminder" className="gap-1">
+              <Bell className="h-3.5 w-3.5" /> I miei reminder
+            </TabsTrigger>
+          )}
           <TabsTrigger value="documenti">Documenti</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
           <TabsTrigger value="timeline">Log Attività</TabsTrigger>
@@ -393,6 +424,21 @@ export default function SinistroDetail() {
             </TableBody>
           </Table>
         </TabsContent>
+
+        <TabsContent value="prescrizioni" className="space-y-4">
+          <SinistroPrescrizioniPanel sinistroId={id!} disabled={isChiuso && !isAdmin} />
+        </TabsContent>
+
+        {canSeeReminder && user && (
+          <TabsContent value="reminder" className="space-y-4">
+            <SinistroReminderPanel
+              sinistroId={id!}
+              apertoDaUserId={sinistro.aperto_da_user_id ?? null}
+              currentUserId={user.id}
+              disabled={isChiuso && !isAdmin}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="documenti" className="space-y-4">
           {/* AI Scanner per perizie e referti medici */}

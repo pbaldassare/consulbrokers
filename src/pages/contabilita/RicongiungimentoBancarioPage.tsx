@@ -13,7 +13,17 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Save, Wallet, ChevronDown, Download, ExternalLink, Shield, Plus, X, User } from "lucide-react";
+import { Save, Wallet, ChevronDown, Download, ExternalLink, Shield, Plus, X, User, Undo2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
@@ -31,6 +41,7 @@ import {
   finalizeMovimentoBancarioIncasso,
 } from "@/lib/movimentiBancari";
 import { fetchTitoliClienteDaIncassare } from "@/lib/titoliDaIncassare";
+import { annullaBonificoCollegato } from "@/lib/annullaBonificoCollegato";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TOLL = 0.01;
@@ -892,14 +903,35 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
   );
 };
 
+type StoricoMovimento = {
+  id: string;
+  data_movimento?: string | null;
+  importo?: number | null;
+  ordinante?: string | null;
+  cliente?: { ragione_sociale?: string | null; nome?: string | null; cognome?: string | null } | null;
+  ufficio?: { nome?: string | null } | null;
+};
+
+type PolizzaCollegataRow = {
+  titolo_id: string | null;
+  importo: number | null;
+  numero_titolo: string | null;
+  stato: string | null;
+};
+
 // === Tab: Storico ===
 const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null; seeAll: boolean }) => {
+  const qc = useQueryClient();
   const [dal, setDal] = useState("");
   const [al, setAl] = useState("");
   const [cliente, setCliente] = useState("");
   const [ordinante, setOrdinante] = useState("");
   const [ordinanteDebounced, setOrdinanteDebounced] = useState("");
   const [importo, setImporto] = useState("");
+  const [annullaTarget, setAnnullaTarget] = useState<StoricoMovimento | null>(null);
+  const [annullaLoading, setAnnullaLoading] = useState(false);
+  const [polizzeCollegate, setPolizzeCollegate] = useState<PolizzaCollegataRow[]>([]);
+  const [polizzeLoading, setPolizzeLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setOrdinanteDebounced(ordinante), 350);
@@ -948,6 +980,63 @@ const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null;
     XLSX.writeFile(wb, `storico-movimenti-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const apriAnnullaDialog = async (m: StoricoMovimento) => {
+    setAnnullaTarget(m);
+    setPolizzeCollegate([]);
+    setPolizzeLoading(true);
+    try {
+      const { data: mcs } = await supabase
+        .from("movimenti_clienti" as any)
+        .select("id")
+        .eq("movimento_id", m.id);
+      const mcIds = ((mcs as any[]) ?? []).map((r) => r.id);
+      if (mcIds.length === 0) {
+        setPolizzeCollegate([]);
+        return;
+      }
+      const { data: mps, error } = await supabase
+        .from("movimenti_polizze" as any)
+        .select("titolo_id, importo, titolo:titoli(numero_titolo, stato)")
+        .in("movimento_cliente_id", mcIds)
+        .eq("tipo", "polizza");
+      if (error) throw error;
+      setPolizzeCollegate(
+        ((mps as any[]) ?? []).map((r) => ({
+          titolo_id: r.titolo_id,
+          importo: r.importo,
+          numero_titolo: r.titolo?.numero_titolo ?? null,
+          stato: r.titolo?.stato ?? null,
+        })),
+      );
+    } catch (e: any) {
+      toast.error(e.message ?? "Errore caricamento polizze collegate");
+    } finally {
+      setPolizzeLoading(false);
+    }
+  };
+
+  const confermaAnnulla = async () => {
+    if (!annullaTarget) return;
+    setAnnullaLoading(true);
+    try {
+      const res = await annullaBonificoCollegato(annullaTarget.id);
+      if (!res.ok) {
+        toast.error(res.error || "Annullamento fallito");
+        return;
+      }
+      toast.success(
+        `Bonifico ripristinato in Da collegare${res.clienteRimosso ? " · cliente pagatore rimosso" : ""} · ${res.titoliAnnullati ?? 0} incass${(res.titoliAnnullati ?? 0) === 1 ? "o" : "i"} annullat${(res.titoliAnnullati ?? 0) === 1 ? "o" : "i"}${(res.titoliSaltati ?? 0) > 0 ? ` · ${res.titoliSaltati} titoli non più presenti` : ""}`,
+      );
+      setAnnullaTarget(null);
+      qc.invalidateQueries({ queryKey: ["mov-bancari"] });
+      qc.invalidateQueries({ queryKey: ["portafoglio-carico"] });
+      qc.invalidateQueries({ queryKey: ["portafoglio-carico-totale"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-ufficio"] });
+    } finally {
+      setAnnullaLoading(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -973,6 +1062,7 @@ const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null;
           <TableHeader><TableRow>
             <TableHead>Data</TableHead><TableHead>Ordinante</TableHead><TableHead>Cliente</TableHead>
             <TableHead>Ufficio</TableHead><TableHead className="text-right">Importo</TableHead>
+            <TableHead className="w-36 text-right">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {movsFiltrati.map((m: any, i: number) => (
@@ -982,12 +1072,72 @@ const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null;
                 <TableCell className="text-sm">{m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "—"}</TableCell>
                 <TableCell className="text-sm">{m.ufficio?.nome ?? "—"}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmtEuro(m.importo)}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                    onClick={() => apriAnnullaDialog(m)}
+                  >
+                    <Undo2 className="w-3 h-3 mr-1" />
+                    Annulla
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
-            {movsFiltrati.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
+            {movsFiltrati.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
           </TableBody>
         </Table>
       </CardContent>
+
+      <AlertDialog open={!!annullaTarget} onOpenChange={(v) => !v && !annullaLoading && setAnnullaTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annulla bonifico collegato</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Verranno annullati gli incassi delle polizze collegate (come «Annulla messa a cassa»), verrà rimosso il cliente pagatore assegnato e il bonifico tornerà in <strong className="text-foreground">Da collegare</strong> come appena importato.
+                </p>
+                {annullaTarget && (
+                  <div className="rounded-md border p-3 space-y-1 text-foreground">
+                    <div><span className="text-muted-foreground">Data:</span> {annullaTarget.data_movimento}</div>
+                    <div><span className="text-muted-foreground">Ordinante:</span> {annullaTarget.ordinante || "—"}</div>
+                    <div><span className="text-muted-foreground">Importo:</span> {fmtEuro(annullaTarget.importo)}</div>
+                  </div>
+                )}
+                {polizzeLoading ? (
+                  <p>Caricamento polizze collegate…</p>
+                ) : polizzeCollegate.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-1">
+                    {polizzeCollegate.map((p, idx) => (
+                      <li key={p.titolo_id ?? idx}>
+                        {p.numero_titolo || p.titolo_id || "Titolo eliminato"} — {fmtEuro(p.importo)}
+                        {p.stato ? ` (${p.stato})` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-amber-700 dark:text-amber-400">Nessuna polizza collegata trovata: verranno rimossi cliente pagatore e collegamenti, il bonifico tornerà in Da collegare.</p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={annullaLoading}>Chiudi</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={annullaLoading}
+              onClick={(e) => {
+                e.preventDefault();
+                void confermaAnnulla();
+              }}
+            >
+              {annullaLoading ? "Annullamento…" : "Conferma annullamento"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

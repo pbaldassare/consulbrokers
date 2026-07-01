@@ -30,7 +30,7 @@ import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
-import { rowBorderClass, isQuietanzaRow, displayStatoPolizza } from "@/lib/polizzeDisplay";
+import { rowBorderClass, isQuietanzaRow, displayStatoPolizza, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
 import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 const rowHref = (p: any): string | null => {
@@ -623,7 +623,7 @@ const PortafoglioCaricoPage = () => {
                   return (
                     <TableRow
                       key={p.id}
-                      className={`cursor-pointer ${rowBorderClass(p)} ${inCopertura ? "bg-orange-50 hover:bg-orange-100/70" : p.is_proroga ? "bg-blue-50/40" : p.is_regolazione ? "bg-orange-50/40" : p.is_appendice_modifica ? "bg-primary/5" : isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : isQ ? "bg-quietanza-soft/40" : ""}`}
+                      className={`cursor-pointer ${rowBorderClass(p)} ${inCopertura ? "bg-orange-50 hover:bg-orange-100/70" : p.is_proroga ? "bg-blue-50/40" : p.is_regolazione ? "bg-orange-50/40" : p.is_appendice_modifica ? "bg-primary/5" : messaCassaRowBgClass(p) || (!isMessaACassa(p) && isQ ? "hover:bg-muted/40" : "")}`}
                       onClick={() => { const h = rowHref(p); if (h) navigate(h); }}
 
                     >
@@ -655,6 +655,7 @@ const PortafoglioCaricoPage = () => {
                             tipo="quietanza"
                             numero={p.numero_rata || (isQ ? undefined : 1)}
                             totale={p.numero_rate_totali || (isQ ? undefined : 1)}
+                            messaACassa={isMessaACassa(p)}
                           />
                         )}
                       </TableCell>

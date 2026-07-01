@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, createContext, useContext, useMemo } from "react";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
-import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
+import { messaCassaRowBgClass, rowBorderClass, isMessaACassa } from "@/lib/polizzeDisplay";
 import { logAttivita } from "@/lib/logAttivita";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams, useNavigate } from "react-router-dom";
@@ -1458,7 +1458,10 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell></TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
                   <TableCell>
-                    <TipoPolizzaBadge tipo={r.sostituisce_polizza ? "quietanza" : "polizza"} />
+                    <TipoPolizzaBadge
+                      tipo={r.sostituisce_polizza ? "quietanza" : "polizza"}
+                      messaACassa={r.sostituisce_polizza ? isMessaACassa(r) : undefined}
+                    />
                   </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
@@ -1486,13 +1489,20 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
               flatQuietanze.map(({ rata: r, madreNum, madreId, idx, totale }) => (
                 <TableRow
                   key={r.id}
-                  className="cursor-pointer border-l-4 border-l-quietanza bg-quietanza-soft/40 hover:bg-quietanza-soft/80 hover:ring-1 hover:ring-inset hover:ring-quietanza/40 transition-colors"
+                  className={cn(
+                    "cursor-pointer transition-colors",
+                    rowBorderClass(r),
+                    messaCassaRowBgClass(r),
+                    !isMessaACassa(r) && "hover:bg-muted/40",
+                  )}
                   onClick={() => navigate(`/titoli/${r.id}`)}
                   title="Apri quietanza"
                 >
                   <TableCell></TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
-                  <TableCell><TipoPolizzaBadge tipo="quietanza" /></TableCell>
+                  <TableCell>
+                    <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(r)} />
+                  </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
@@ -1542,7 +1552,10 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
               return (
                 <TableRow
                   key={c.numero}
-                  className="cursor-pointer border-l-4 border-l-polizza hover:bg-polizza/5 hover:ring-1 hover:ring-inset hover:ring-polizza/30 transition-colors"
+                  className={cn(
+                    "cursor-pointer border-l-4 border-l-polizza hover:bg-polizza/5 hover:ring-1 hover:ring-inset hover:ring-polizza/30 transition-colors",
+                    messaCassaRowBgClass(head),
+                  )}
                   onClick={() => navigate(`/titoli/${head.id}`)}
                   title="Apri polizza madre"
                 >

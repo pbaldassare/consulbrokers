@@ -239,9 +239,9 @@ export default function SinistroPrescrizioniPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Clock className="h-6 w-6 text-primary animate-pulse" /> Prescrizioni in Scadenza
+              <Clock className="h-6 w-6 text-primary animate-pulse" /> Termini di decadenza
             </h1>
-            <p className="text-muted-foreground">Monitoraggio delle scadenze e dei termini di prescrizione dei sinistri</p>
+            <p className="text-muted-foreground">Monitoraggio dei termini legali di prescrizione/decadenza dei sinistri (art. 2952 c.c. e termini perentori)</p>
           </div>
         </div>
         <div className="flex gap-2">

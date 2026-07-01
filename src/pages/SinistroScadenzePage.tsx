@@ -33,8 +33,8 @@ import { CalendarCheck, List, Calendar as CalendarIcon, ChevronLeft, ChevronRigh
 
 type ScadenzaItem = {
   id: string;
-  source: "checklist" | "evento";
-  tipo: string; // "checklist" o tipo_evento
+  source: "checklist" | "evento" | "prescrizione";
+  tipo: string;
   descrizione: string;
   sinistro_id: string;
   numero_sinistro: string;
@@ -105,6 +105,24 @@ export default function SinistroScadenzePage() {
       `);
       if (errEventi) throw errEventi;
 
+      // 3. Prescrizioni perentorie con scadenza risposta attiva
+      const { data: prescrizioniData, error: errPresc } = await supabase.from("sinistro_prescrizioni").select(`
+        id,
+        oggetto,
+        destinatario_tipo,
+        destinatario_label,
+        data_scadenza_risposta,
+        stato,
+        sinistri(
+          id,
+          numero_sinistro,
+          responsabile_id,
+          profiles!sinistri_responsabile_id_fkey(nome, cognome),
+          clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
+        )
+      `).in("stato", ["bozza", "inviata"]);
+      if (errPresc) throw errPresc;
+
       // Mappiamo entrambi nei tipi unificati ScadenzaItem
       const items: ScadenzaItem[] = [];
 
@@ -160,6 +178,31 @@ export default function SinistroScadenzePage() {
         });
       });
 
+      // Mappatura Prescrizioni
+      (prescrizioniData || []).forEach((p: any) => {
+        if (!p.sinistri) return;
+        const dataScadenza = parseISO(p.data_scadenza_risposta);
+        const clienteNome = p.sinistri.clienti
+          ? p.sinistri.clienti.tipo_cliente === "azienda" && p.sinistri.clienti.ragione_sociale
+            ? p.sinistri.clienti.ragione_sociale
+            : `${p.sinistri.clienti.cognome || ""} ${p.sinistri.clienti.nome || ""}`.trim()
+          : "—";
+
+        items.push({
+          id: p.id,
+          source: "prescrizione",
+          tipo: "prescrizione",
+          descrizione: p.oggetto + (p.destinatario_label ? ` → ${p.destinatario_label}` : ""),
+          sinistro_id: p.sinistri.id,
+          numero_sinistro: p.sinistri.numero_sinistro || "—",
+          cliente: clienteNome,
+          responsabile_id: p.sinistri.responsabile_id || "",
+          responsabile_nome: p.sinistri.profiles ? `${p.sinistri.profiles.nome || ""} ${p.sinistri.profiles.cognome || ""}`.trim() : "—",
+          data_scadenza: dataScadenza,
+          completato: false,
+        });
+      });
+
       return items;
     }
   });
@@ -187,10 +230,23 @@ export default function SinistroScadenzePage() {
     }
   });
 
+  const completePrescrizione = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("sinistro_prescrizioni").update({ stato: "risposta_ricevuta" }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sinistri-scadenze-dati"] });
+      toast.success("Prescrizione segnata come risposta ricevuta");
+    }
+  });
+
   const handleToggleCompletato = (item: ScadenzaItem) => {
     if (item.completato) return; // Non consentiamo di "de-completare" per semplicità o logica di workflow
     if (item.source === "checklist") {
       completeChecklist.mutate(item.id);
+    } else if (item.source === "prescrizione") {
+      completePrescrizione.mutate(item.id);
     } else {
       completeEvento.mutate(item.id);
     }
@@ -211,6 +267,7 @@ export default function SinistroScadenzePage() {
       if (filtroTipo !== "tutti") {
         if (filtroTipo === "checklist" && item.source !== "checklist") return false;
         if (filtroTipo === "evento" && item.source !== "evento") return false;
+        if (filtroTipo === "prescrizione" && item.source !== "prescrizione") return false;
       }
 
       // 4. Filtro Date
@@ -289,7 +346,7 @@ export default function SinistroScadenzePage() {
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <CalendarCheck className="h-6 w-6 text-primary" /> Scadenziario Sinistri
             </h1>
-            <p className="text-muted-foreground">Calendario e scadenze delle checklist e degli eventi futuri</p>
+            <p className="text-muted-foreground">Calendario e scadenze delle checklist, eventi e prescrizioni perentorie</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -345,6 +402,7 @@ export default function SinistroScadenzePage() {
                   <SelectItem value="tutti">Tutte le scadenze</SelectItem>
                   <SelectItem value="checklist">Solo Checklist</SelectItem>
                   <SelectItem value="evento">Solo Eventi</SelectItem>
+                  <SelectItem value="prescrizione">Solo Prescrizioni</SelectItem>
                 </SelectContent>
               </Select>
             </div>

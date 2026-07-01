@@ -30,6 +30,8 @@ import {
   validateTipoSinistro,
 } from "@/lib/sinistroPraticaSchema";
 import { applySoloMadriFilter, mergePolizze } from "@/lib/polizzeSearch";
+import type { SinistroPrescrizioneDraft, SinistroReminderDraft } from "@/lib/sinistroPrescrizioniReminder";
+import { DESTINATARIO_LABEL } from "@/lib/sinistroPrescrizioniReminder";
 
 const DRAFT_KEY = "sinistri:apertura:bozza";
 
@@ -74,6 +76,16 @@ export default function SinistroAperturaWizardPage() {
   const [clientiSearchText, setClientiSearchText] = useState("");
   const [clientiList, setClientiList] = useState<any[]>([]);
   const [clientiLoading, setClientiLoading] = useState(false);
+
+  // Bozze prescrizioni/reminder opzionali (Step 4)
+  const [prescrizioniDrafts, setPrescrizioniDrafts] = useState<SinistroPrescrizioneDraft[]>([]);
+  const [reminderDrafts, setReminderDrafts] = useState<SinistroReminderDraft[]>([]);
+  const [prescDraftForm, setPrescDraftForm] = useState<SinistroPrescrizioneDraft>({
+    destinatario_tipo: "cliente",
+    oggetto: "",
+    data_scadenza_risposta: "",
+  });
+  const [reminderDraftForm, setReminderDraftForm] = useState<SinistroReminderDraft>({ testo: "" });
 
   // Inizializzazione React Hook Form
   const { register, control, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<WizardFormValues>({
@@ -334,6 +346,8 @@ export default function SinistroAperturaWizardPage() {
           ...praticaPayload,
           user_id: user.id,
           stato_iniziale: "aperto",
+          prescrizioni_iniziali: prescrizioniDrafts.length > 0 ? prescrizioniDrafts : undefined,
+          reminder_iniziali: reminderDrafts.length > 0 ? reminderDrafts : undefined,
         },
       });
       if (invokeErr) throw invokeErr;
@@ -683,17 +697,126 @@ export default function SinistroAperturaWizardPage() {
 
             {/* STEP 4: ASSEGNAZIONE */}
             {currentStep === 4 && (
-              <SinistroPraticaFormFields
-                register={register}
-                setValue={setValue}
-                watch={watch}
-                errors={errors}
-                responsabiliList={responsabiliList}
-                liquidatoriList={liquidatoriList}
-                showEvento={false}
-                showAssegnazione
-                showNoteInterne
-              />
+              <div className="space-y-6">
+                <SinistroPraticaFormFields
+                  register={register}
+                  setValue={setValue}
+                  watch={watch}
+                  errors={errors}
+                  responsabiliList={responsabiliList}
+                  liquidatoriList={liquidatoriList}
+                  showEvento={false}
+                  showAssegnazione
+                  showNoteInterne
+                />
+
+                {/* Prescrizioni perentorie opzionali */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <h4 className="text-sm font-semibold text-primary">Prescrizioni perentorie (opzionale)</h4>
+                  <p className="text-xs text-muted-foreground">Comunicazioni con scadenza risposta da tracciare sulla pratica.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <Select
+                      value={prescDraftForm.destinatario_tipo}
+                      onValueChange={(v) => setPrescDraftForm({ ...prescDraftForm, destinatario_tipo: v as SinistroPrescrizioneDraft["destinatario_tipo"] })}
+                    >
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(DESTINATARIO_LABEL).map(([k, label]) => (
+                          <SelectItem key={k} value={k}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Oggetto *"
+                      className="h-9"
+                      value={prescDraftForm.oggetto}
+                      onChange={(e) => setPrescDraftForm({ ...prescDraftForm, oggetto: e.target.value })}
+                    />
+                    <Input
+                      type="date"
+                      className="h-9"
+                      value={prescDraftForm.data_scadenza_risposta}
+                      onChange={(e) => setPrescDraftForm({ ...prescDraftForm, data_scadenza_risposta: e.target.value })}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9"
+                      onClick={() => {
+                        if (!prescDraftForm.oggetto.trim() || !prescDraftForm.data_scadenza_risposta) {
+                          toast.error("Oggetto e scadenza sono obbligatori");
+                          return;
+                        }
+                        setPrescrizioniDrafts([...prescrizioniDrafts, { ...prescDraftForm }]);
+                        setPrescDraftForm({ destinatario_tipo: "cliente", oggetto: "", data_scadenza_risposta: "" });
+                      }}
+                    >
+                      Aggiungi prescrizione
+                    </Button>
+                  </div>
+                  {prescrizioniDrafts.length > 0 && (
+                    <div className="space-y-1">
+                      {prescrizioniDrafts.map((p, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-xs border rounded px-2 py-1.5">
+                          <span>{DESTINATARIO_LABEL[p.destinatario_tipo]} — {p.oggetto}</span>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPrescrizioniDrafts(prescrizioniDrafts.filter((_, i) => i !== idx))}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Reminder personali opzionali */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <h4 className="text-sm font-semibold text-primary">I miei reminder (opzionale)</h4>
+                  <p className="text-xs text-muted-foreground">Promemoria personali visibili solo a te come creatore della pratica.</p>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Testo reminder *"
+                      className="h-9 flex-1"
+                      value={reminderDraftForm.testo}
+                      onChange={(e) => setReminderDraftForm({ ...reminderDraftForm, testo: e.target.value })}
+                    />
+                    <Input
+                      type="date"
+                      className="h-9 w-36"
+                      value={reminderDraftForm.data_promemoria || ""}
+                      onChange={(e) => setReminderDraftForm({ ...reminderDraftForm, data_promemoria: e.target.value })}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9"
+                      onClick={() => {
+                        if (!reminderDraftForm.testo.trim()) {
+                          toast.error("Inserisci il testo del reminder");
+                          return;
+                        }
+                        setReminderDrafts([...reminderDrafts, { ...reminderDraftForm }]);
+                        setReminderDraftForm({ testo: "" });
+                      }}
+                    >
+                      Aggiungi
+                    </Button>
+                  </div>
+                  {reminderDrafts.length > 0 && (
+                    <div className="space-y-1">
+                      {reminderDrafts.map((r, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-xs border rounded px-2 py-1.5">
+                          <span>{r.testo}{r.data_promemoria ? ` (${r.data_promemoria})` : ""}</span>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReminderDrafts(reminderDrafts.filter((_, i) => i !== idx))}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* STEP 5: RIEPILOGO E CONFERMA */}
@@ -830,6 +953,30 @@ export default function SinistroAperturaWizardPage() {
                       <div className="col-span-1 md:col-span-2">
                         <span className="text-muted-foreground">Note Operatore</span>
                         <p className="mt-1 text-muted-foreground italic bg-muted/10 p-2 border rounded">{watch("note_interne")}</p>
+                      </div>
+                    )}
+                    {(prescrizioniDrafts.length > 0 || reminderDrafts.length > 0) && (
+                      <div className="col-span-1 md:col-span-2 space-y-2 pt-2 border-t">
+                        {prescrizioniDrafts.length > 0 && (
+                          <div>
+                            <span className="text-muted-foreground">Prescrizioni ({prescrizioniDrafts.length})</span>
+                            <ul className="mt-1 list-disc list-inside text-muted-foreground">
+                              {prescrizioniDrafts.map((p, i) => (
+                                <li key={i}>{DESTINATARIO_LABEL[p.destinatario_tipo]} — {p.oggetto}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {reminderDrafts.length > 0 && (
+                          <div>
+                            <span className="text-muted-foreground">Reminder personali ({reminderDrafts.length})</span>
+                            <ul className="mt-1 list-disc list-inside text-muted-foreground">
+                              {reminderDrafts.map((r, i) => (
+                                <li key={i}>{r.testo}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

@@ -41,6 +41,19 @@ const payloadSchema = z.discriminatedUnion("azione", [
     stato_iniziale: z.enum(['in_valutazione','aperto']).optional(),
     priorita: z.string().optional(),
     note_interne: z.string().optional().nullable(),
+    prescrizioni_iniziali: z.array(z.object({
+      destinatario_tipo: z.enum(['cliente', 'compagnia', 'perito', 'controparte', 'altro']).optional(),
+      destinatario_label: z.string().optional().nullable(),
+      oggetto: z.string().min(1),
+      corpo: z.string().optional().nullable(),
+      data_scadenza_risposta: z.string(),
+      canale: z.string().optional().nullable(),
+      note: z.string().optional().nullable(),
+    })).optional(),
+    reminder_iniziali: z.array(z.object({
+      testo: z.string().min(1),
+      data_promemoria: z.string().optional().nullable(),
+    })).optional(),
   }),
   z.object({
     azione: z.literal("aggiorna"),
@@ -121,6 +134,7 @@ Deno.serve(async (req) => {
         controparte, targa_veicolo, dinamica, indirizzo_sinistro, citta_sinistro, cap_sinistro, provincia_sinistro,
         costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
         stato_iniziale, priorita, note_interne,
+        prescrizioni_iniziali, reminder_iniziali,
       } = parsed.data;
 
       const numero = numero_sinistro
@@ -161,6 +175,7 @@ Deno.serve(async (req) => {
         note_interne: note_interne?.trim() || null,
         stato,
         aperto_da_cliente: stato === "in_valutazione",
+        aperto_da_user_id: user_id ?? null,
       }).select().single();
 
       if (error) throw error;
@@ -182,6 +197,36 @@ Deno.serve(async (req) => {
           dettagli_json: { numero, tipo_sinistro, stato },
           severity: "info",
         });
+      }
+
+      // Prescrizioni perentorie iniziali (opzionali)
+      if (prescrizioni_iniziali?.length && user_id) {
+        const rows = prescrizioni_iniziali.map((p) => ({
+          sinistro_id: sinistro.id,
+          creato_da: user_id,
+          destinatario_tipo: p.destinatario_tipo ?? "cliente",
+          destinatario_label: p.destinatario_label?.trim() || null,
+          oggetto: p.oggetto.trim(),
+          corpo: p.corpo?.trim() || null,
+          data_scadenza_risposta: p.data_scadenza_risposta,
+          canale: p.canale?.trim() || null,
+          note: p.note?.trim() || null,
+          stato: "bozza",
+        }));
+        const { error: prescErr } = await supabase.from("sinistro_prescrizioni").insert(rows);
+        if (prescErr) throw prescErr;
+      }
+
+      // Reminder personali iniziali (opzionali, solo creatore)
+      if (reminder_iniziali?.length && user_id) {
+        const rows = reminder_iniziali.map((r) => ({
+          sinistro_id: sinistro.id,
+          user_id,
+          testo: r.testo.trim(),
+          data_promemoria: r.data_promemoria || null,
+        }));
+        const { error: remErr } = await supabase.from("sinistro_reminder").insert(rows);
+        if (remErr) throw remErr;
       }
 
       return new Response(JSON.stringify({ success: true, sinistro }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

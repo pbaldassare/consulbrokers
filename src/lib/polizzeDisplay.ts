@@ -8,7 +8,19 @@ export type PolizzaRow = {
   sostituisce_polizza?: string | null;
   is_regolazione?: boolean | null;
   is_proroga?: boolean | null;
+  data_messa_cassa?: string | null;
 };
+
+/** True se il titolo è stato messo a cassa (data valorizzata). */
+export function isMessaACassa(p: Pick<PolizzaRow, "data_messa_cassa">): boolean {
+  return !!p?.data_messa_cassa;
+}
+
+/** Sfondo canarino: solo titoli messi a cassa. */
+export function messaCassaRowBgClass(p: PolizzaRow): string {
+  if (!isMessaACassa(p)) return "";
+  return "bg-quietanza-soft/40 hover:bg-quietanza-soft/80 hover:ring-1 hover:ring-inset hover:ring-quietanza/40";
+}
 
 /**
  * Stato da visualizzare in tabella. Per le polizze madre mascheriamo "incassato" → "attivo".
@@ -38,6 +50,8 @@ export function isPolizzaMadreRow(p: PolizzaRow): boolean {
 export function rowBorderClass(p: PolizzaRow): string {
   if (p?.is_proroga) return "border-l-4 border-l-blue-500";
   if (p?.is_regolazione) return "border-l-4 border-l-orange-500";
-  if (p?.sostituisce_polizza) return "border-l-4 border-l-quietanza";
+  if (p?.sostituisce_polizza) {
+    return isMessaACassa(p) ? "border-l-4 border-l-quietanza" : "";
+  }
   return "border-l-4 border-l-polizza";
 }

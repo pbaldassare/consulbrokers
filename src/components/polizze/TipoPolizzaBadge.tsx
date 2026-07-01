@@ -7,6 +7,8 @@ export type TipoPolizzaBadgeProps = {
   numero?: number;
   /** Totale rate nella catena (per mostrare "Quietanza N/M"). */
   totale?: number;
+  /** Quietanza messa a cassa: badge canarino; altrimenti outline neutro senza sfondo. */
+  messaACassa?: boolean;
   className?: string;
 };
 
@@ -14,7 +16,7 @@ export type TipoPolizzaBadgeProps = {
  * Badge condiviso per distinguere Polizza (teal pieno) da Quietanza (outline ambra).
  * Usa i token design system `--polizza` / `--quietanza`, niente colori hardcoded.
  */
-export function TipoPolizzaBadge({ tipo, numero, totale, className }: TipoPolizzaBadgeProps) {
+export function TipoPolizzaBadge({ tipo, numero, totale, messaACassa, className }: TipoPolizzaBadgeProps) {
   if (tipo === "polizza") {
     return (
       <span
@@ -39,7 +41,10 @@ export function TipoPolizzaBadge({ tipo, numero, totale, className }: TipoPolizz
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border border-quietanza/50 bg-quietanza/15 px-2 py-0.5 text-[11px] font-medium text-quietanza-foreground",
+        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium",
+        messaACassa
+          ? "border-quietanza/50 bg-quietanza/15 text-quietanza-foreground"
+          : "border-border bg-transparent text-muted-foreground",
         className,
       )}
     >
