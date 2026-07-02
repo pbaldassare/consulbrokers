@@ -23,9 +23,7 @@ import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
 import {
   aggregateGaranziePremi,
   calcProvvigioniAppendice,
-  creaTitoloDaAppendice,
-  patchTitoloDerivatoAppendice,
-  syncPremiGaranziaToTitolo,
+  creaAppendiceIncasso,
   type AppendiceTipo,
 } from "@/lib/appendicePremi";
 import { PolizzaEditorInline, type PolizzaEditorHandle, type PolizzaEditorState } from "@/components/polizze/PolizzaEditorInline";
@@ -94,7 +92,7 @@ function PremiRiepilogo({
 const TIPO_INFO: Record<AppendiceTipo, { title: string; hint: string; suffix: string }> = {
   modifica: {
     title: "Appendice di modifica",
-    hint: "Genera un titolo AM cassabile (anche a €0). Compila o correggi la composizione premi qui sotto prima di salvare.",
+    hint: "Genera un titolo AM cassabile (anche a €0). La scadenza non è richiesta: compila la composizione premi prima di salvare.",
     suffix: "AM",
   },
   proroga: {
@@ -309,7 +307,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
     if (!dataEffetto) e.dataEffetto = "Data effetto obbligatoria";
-    if (!dataAppendice) e.dataAppendice = "Data scadenza obbligatoria";
+    // La scadenza è opzionale per tutte le tipologie (le appendici sono
+    // titoli-incasso autonomi, non richiedono la scadenza della polizza).
     if (dataEffetto && dataAppendice && dataEffetto > dataAppendice) {
       e.dataEffetto = "La data effetto deve precedere la scadenza";
     }
@@ -325,11 +324,11 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     mutationFn: async () => {
       if (!titoloId || !madreId) throw new Error("Titolo non specificato");
       if (!numeroAppendice.trim()) throw new Error("Numero appendice obbligatorio");
-      if (!dataEffetto || !dataAppendice) throw new Error("Inserisci data effetto e scadenza");
-      if (dataEffetto > dataAppendice) throw new Error("La data effetto non può essere successiva alla scadenza");
+      if (!dataEffetto) throw new Error("Inserisci la data effetto");
+      if (dataAppendice && dataEffetto > dataAppendice) throw new Error("La data effetto non può essere successiva alla scadenza");
       if (tipo === "regolazione" && !quietanzaId) throw new Error("Seleziona la quietanza di riferimento");
 
-      const state = editorRef.current?.getState();
+      const state = editorRef.current?.getState() ?? editorState;
       if (!state) throw new Error("Editor polizza non pronto");
 
       const agg = aggregateGaranziePremi(state.garanzie);
@@ -352,40 +351,24 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
         }
       }
 
-      const payload = {
-        titolo_id: madreId,
-        numero_appendice: numeroAppendice.trim(),
-        data_appendice: dataAppendice,
-        data_effetto: dataEffetto,
-        oggetto: oggetto.trim() || null,
+      const res = await creaAppendiceIncasso(supabase, {
         tipo,
-        file_path: filePath,
-        nome_file: nomeFile,
-        allegati,
-        note: note.trim() || null,
-        created_by: user?.id || null,
-        quietanza_id: tipo === "regolazione" ? quietanzaId : null,
-        premio_netto: agg.premio_netto,
-        tasse: agg.tasse,
-        premio_lordo: agg.premio_lordo,
-        provvigioni,
-        percentuale_provvigione: percProvv,
-      };
-
-      const { data, error } = await supabase.from("appendici_polizza").insert(payload).select().single();
-      if (error) throw error;
-
-      const titoloDerivatoId = await creaTitoloDaAppendice(supabase, tipo, data.id);
-
-      await patchTitoloDerivatoAppendice(supabase, titoloDerivatoId, {
+        madreId,
+        numeroAppendice: numeroAppendice.trim(),
         dataEffetto,
-        dataScadenza: dataAppendice,
-        oggetto: oggetto.trim() || `${TIPO_INFO[tipo].title} - ${numeroTitolo || ""}`,
+        dataScadenza: dataAppendice || null,
+        oggetto: oggetto.trim() || null,
+        note: note.trim() || null,
+        quietanzaId: tipo === "regolazione" ? quietanzaId : null,
         aggregated: agg,
         provvigioni,
         percProvv,
+        garanzie: state.garanzie,
+        filePath,
+        nomeFile,
+        allegati,
+        createdBy: user?.id || null,
       });
-      await syncPremiGaranziaToTitolo(supabase, titoloDerivatoId, state.garanzie);
 
       const azione =
         tipo === "modifica" ? "appendice_modifica_creata" : tipo === "proroga" ? "proroga_creata" : "regolazione_creata";
@@ -398,11 +381,11 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
           tipo,
           oggetto: oggetto.trim() || null,
           quietanza_id: tipo === "regolazione" ? quietanzaId : undefined,
-          titolo_derivato_id: titoloDerivatoId,
+          titolo_derivato_id: res.titolo_id,
         },
       });
 
-      return { appendice: data, titoloDerivatoId };
+      return { appendiceId: res.appendice_id, titoloDerivatoId: res.titolo_id };
     },
     onSuccess: (res) => {
       const info = TIPO_INFO[tipo];
@@ -513,11 +496,11 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
           <ErrMsg id="dataEffetto" />
         </div>
         <div>
-          <Label className="text-xs">Data scadenza *</Label>
+          <Label className="text-xs">Data scadenza</Label>
           <DatePicker
             value={isoToDate(dataAppendice)}
             onChange={(d) => setDataAppendice(dateToIso(d))}
-            placeholder="Scegli data"
+            placeholder="Opzionale"
           />
           <ErrMsg id="dataAppendice" />
         </div>
@@ -600,8 +583,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
           <TabsContent value="dati" className="mt-0 focus-visible:outline-none">
             {datiTab}
           </TabsContent>
-          <TabsContent value="premi" className="mt-0 focus-visible:outline-none">
-            {editorBlock}
+          <TabsContent value="premi" className="mt-0 focus-visible:outline-none" forceMount>
+            <div className={cn(activeTab !== "premi" && "hidden")}>{editorBlock}</div>
           </TabsContent>
         </Tabs>
       }

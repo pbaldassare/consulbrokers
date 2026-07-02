@@ -124,3 +124,79 @@ export async function creaTitoloDaAppendice(
   if (error) throw error;
   return data as string;
 }
+
+/** Serializza le righe garanzia in payload per la RPC transazionale. */
+export function buildGaranziePayload(garanzie: GaranziaEditorRow[]) {
+  return garanzie.map((g, idx) => ({
+    garanzia: g.garanzia || "Garanzia",
+    codice_garanzia: g.codice_garanzia ?? null,
+    firma: Number(g.firma || 0),
+    rata: Number(g.rata || 0),
+    imposta_provinciale: Number(g.imposta_provinciale || 0),
+    ssn: Number(g.ssn || 0),
+    accessori: Number((g as { accessori?: number }).accessori || 0),
+    aliquota_tasse_pct: (g as { aliquota_tasse_pct?: number }).aliquota_tasse_pct ?? null,
+    lordo_calcolato: Number(g.lordo_calcolato || calcLordoGaranzia(g)),
+    is_rca_principale: !!g.is_rca_principale,
+    ordine: g.ordine ?? idx + 1,
+  }));
+}
+
+export type CreaAppendiceIncassoResult = {
+  appendice_id: string;
+  titolo_id: string;
+  numero_titolo: string;
+};
+
+export type CreaAppendiceIncassoArgs = {
+  tipo: AppendiceTipo;
+  madreId: string;
+  numeroAppendice: string;
+  dataEffetto: string;
+  dataScadenza: string | null;
+  oggetto: string | null;
+  note: string | null;
+  quietanzaId: string | null;
+  aggregated: AggregatedPremi;
+  provvigioni: number;
+  percProvv: number | null;
+  garanzie: GaranziaEditorRow[];
+  filePath: string | null;
+  nomeFile: string | null;
+  allegati: unknown[];
+  createdBy: string | null;
+};
+
+/**
+ * Crea l'appendice in un'unica transazione lato DB:
+ * header appendice + titolo-incasso + composizione premi + quietanza collegata.
+ */
+export async function creaAppendiceIncasso(
+  supabase: SupabaseClient,
+  args: CreaAppendiceIncassoArgs,
+): Promise<CreaAppendiceIncassoResult> {
+  const { data, error } = await supabase.rpc("crea_appendice_incasso", {
+    p_titolo_id: args.madreId,
+    p_tipo: args.tipo,
+    p_numero_appendice: args.numeroAppendice,
+    p_data_effetto: args.dataEffetto,
+    p_data_scadenza: args.dataScadenza,
+    p_oggetto: args.oggetto,
+    p_note: args.note,
+    p_quietanza_id: args.quietanzaId,
+    p_premio_netto: args.aggregated.premio_netto,
+    p_tasse: args.aggregated.tasse,
+    p_addizionali: args.aggregated.addizionali,
+    p_ssn: args.aggregated.ssn_firma,
+    p_premio_lordo: args.aggregated.premio_lordo,
+    p_provvigioni: args.provvigioni,
+    p_percentuale_provvigione: args.percProvv,
+    p_garanzie: buildGaranziePayload(args.garanzie),
+    p_file_path: args.filePath,
+    p_nome_file: args.nomeFile,
+    p_allegati: args.allegati,
+    p_created_by: args.createdBy,
+  } as never);
+  if (error) throw error;
+  return data as CreaAppendiceIncassoResult;
+}
