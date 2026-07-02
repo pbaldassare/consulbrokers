@@ -44,9 +44,24 @@ export function isRigaEsclusaProvvigioni(r: GaranziaRow): boolean {
   return !!r.escludiProvvigioni || !!r.dirittiAgenzia;
 }
 
-/** Lordo riga: standard = netto+accessori+tasse+ssn; diritti agenzia = solo tasse. */
+/** Tasse auto-calcolate (campo `tasse` sulla riga). */
+export function calcTasseAutoRiga(r: GaranziaRow): number {
+  return parseDecimalItOr(r.tasse);
+}
+
+/** Rettifica manuale tasse (€): non influenza provvigioni, solo lordo/totali. */
+export function calcTasseRettificaRiga(r: GaranziaRow): number {
+  return parseDecimalItOr(r.tasseRettifica);
+}
+
+/** Tasse effettive = auto + rettifica (usate per lordo e totali). */
+export function calcTasseEffettiveRiga(r: GaranziaRow): number {
+  return calcTasseAutoRiga(r) + calcTasseRettificaRiga(r);
+}
+
+/** Lordo riga: standard = netto+accessori+tasse_effettive+ssn; diritti agenzia = solo tasse. */
 export function calcLordoGaranziaRow(r: GaranziaRow): number {
-  const tasse = parseDecimalItOr(r.tasse);
+  const tasse = calcTasseEffettiveRiga(r);
   if (r.dirittiAgenzia) return tasse;
   const netto = parseDecimalItOr(r.netto);
   const accessori = parseDecimalItOr(r.accessori);

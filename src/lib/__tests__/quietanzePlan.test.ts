@@ -107,15 +107,15 @@ describe("computeQuietanzePlan", () => {
     });
     expect(plan[1]).toEqual({
       idx: 2,
-      garanzia_da: "2026-05-01",
-      garanzia_a: "2026-11-01",
-      data_competenza: "2026-05-01",
+      garanzia_da: "2026-04-30",
+      garanzia_a: "2026-10-30",
+      data_competenza: "2026-04-30",
     });
     expect(plan[2]).toEqual({
       idx: 3,
-      garanzia_da: "2026-11-01",
+      garanzia_da: "2026-10-30",
       garanzia_a: "2027-03-14",
-      data_competenza: "2026-11-01",
+      data_competenza: "2026-10-30",
     });
     expect(computeQuietanzeOnly({
       polizzaRateo: true,
@@ -153,9 +153,9 @@ describe("computeQuietanzePlan", () => {
     });
     expect(plan[1]).toEqual({
       idx: 2,
-      garanzia_da: "2027-01-02",
+      garanzia_da: "2027-01-01",
       garanzia_a: "2028-01-01",
-      data_competenza: "2027-01-02",
+      data_competenza: "2027-01-01",
     });
   });
 

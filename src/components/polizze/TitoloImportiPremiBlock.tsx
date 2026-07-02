@@ -14,6 +14,7 @@ import {
   mirrorAllFromFirma,
   resetQuietanzaRow,
   isQuietanzaSincronizzata,
+  rowsAreEmpty,
 } from "./premiSync";
 import {
   calcProvvigioniGaranzia,
@@ -21,9 +22,16 @@ import {
   resolveRowPctAccessori,
   provvPctBreakdown,
   calcTasseRiga,
+  calcTasseEffettiveRiga,
   type MatriceProvvAccessori,
   premioRigaDbImporto,
 } from "@/lib/calcProvvigioniGaranzia";
+import {
+  buildGaranziaRowFromTitoliAggregati,
+  fetchPremiGaranziaByTitolo,
+  remapDbPremiTipo,
+  type DbPremioLike,
+} from "@/lib/premiGaranziaLoad";
 
 /**
  * Sezione "Composizione Premio" (Firma + Quietanza) per TitoloDetail.
@@ -48,24 +56,31 @@ export interface TitoloImportiPremiBlockProps {
   provvigioniQuietanza: number | null | undefined;
   /** False su quietanza già incassata: nasconde card e sync verso quietanza successiva */
   showQuietanza?: boolean;
+  /** Su quietanza rata 2+ nasconde la card Firma (conta solo il premio quietanza della rata) */
+  hideFirma?: boolean;
+  /** Titolo sorgente (madre / rata 1) per caricare premi se assenti sul titolo corrente */
+  fallbackPremiTitoloId?: string | null;
 }
 
-type DbPremio = {
+type DbPremio = DbPremioLike & {
   id: string;
   titolo_id: string;
-  tipo_premio: "firma" | "quietanza";
-  garanzia: string | null;
-  codice_garanzia: string | null;
-  firma: number | null;
-  rata: number | null;
-  accessori: number | null;
-  aliquota_tasse_pct: number | null;
-  ssn: number | null;
   ordine: number | null;
-  quietanza_personalizzata: boolean | null;
-  provvigione_netto_pct: number | null;
-  provvigione_accessori_pct: number | null;
+  tasse_rettifica?: number | null;
 };
+
+function dbPremioHasImporto(p: DbPremio, tipo: "firma" | "quietanza"): boolean {
+  const stored = tipo === "firma" ? Number(p.firma ?? 0) : Number(p.rata ?? 0);
+  return stored > 0 || Number(p.accessori ?? 0) > 0 || Number(p.ssn ?? 0) > 0;
+}
+
+function rowHasContent(r: GaranziaRow): boolean {
+  return !!(r.sottoramoId || r.codice || r.descrizione.trim() || r.netto || (r.dirittiAgenzia && r.tasse));
+}
+
+function hasDraftRows(rows: GaranziaRow[]): boolean {
+  return rows.some((r) => !rowHasContent(r));
+}
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -93,8 +108,13 @@ export function TitoloImportiPremiBlock({
   provvigioniFirma,
   provvigioniQuietanza,
   showQuietanza = true,
+  hideFirma = false,
+  fallbackPremiTitoloId = null,
 }: TitoloImportiPremiBlockProps) {
   const qc = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const tasseRettificaSupportedRef = useRef<boolean | null>(null);
 
   // Catalogo sottorami del gruppo: serve a risolvere codice_garanzia → id/SSN/aliquota
   const { data: catalogo = [] } = useQuery({
@@ -116,7 +136,9 @@ export function TitoloImportiPremiBlock({
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("compagnia_rapporto_id")
+        .select(
+          "compagnia_rapporto_id, ramo_id, premio_netto, premio_netto_quietanza, tasse, tasse_quietanza, ssn_firma, ssn_quietanza, addizionali, addizionali_quietanza, provvigioni_firma, provvigioni_quietanza, premio_lordo, sostituisce_polizza, polizza_rateo",
+        )
         .eq("id", titoloId)
         .maybeSingle();
       return data;
@@ -175,12 +197,25 @@ export function TitoloImportiPremiBlock({
   const { data: premi = [] } = useQuery({
     queryKey: ["premi-garanzia-import", titoloId],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("premi_garanzia_polizza")
-        .select("id, titolo_id, tipo_premio, garanzia, codice_garanzia, firma, rata, accessori, aliquota_tasse_pct, ssn, ordine, quietanza_personalizzata, provvigione_netto_pct, provvigione_accessori_pct")
-        .eq("titolo_id", titoloId)
-        .order("ordine");
-      return (data as DbPremio[]) || [];
+      const { rows, hasTasseRettifica } = await fetchPremiGaranziaByTitolo(titoloId);
+      tasseRettificaSupportedRef.current = hasTasseRettifica;
+      return rows as DbPremio[];
+    },
+  });
+
+  const hasQuietanzaPremi = (premi as DbPremio[]).some(
+    (p) => p.tipo_premio === "quietanza" && dbPremioHasImporto(p, "quietanza"),
+  );
+  const needsFallbackPremi = !!fallbackPremiTitoloId && (premi.length === 0 || !hasQuietanzaPremi);
+  const { data: fallbackPremi = [] } = useQuery({
+    queryKey: ["premi-garanzia-fallback", fallbackPremiTitoloId],
+    enabled: needsFallbackPremi,
+    queryFn: async () => {
+      const { rows, hasTasseRettifica } = await fetchPremiGaranziaByTitolo(fallbackPremiTitoloId!);
+      if (tasseRettificaSupportedRef.current === null) {
+        tasseRettificaSupportedRef.current = hasTasseRettifica;
+      }
+      return rows as DbPremio[];
     },
   });
 
@@ -201,13 +236,16 @@ export function TitoloImportiPremiBlock({
     const ssnAttivo = !dirittiAgenzia && !escludiProvvigioni && !!cat?.ssn_attivo;
     const aliquotaSsn = ssnAttivo ? Number(cat?.aliquota_ssn ?? 10.5) || 10.5 : 0;
     const stored = p.tipo_premio === "firma" ? Number(p.firma ?? 0) : Number(p.rata ?? 0);
+    const rettifica = Number((p as DbPremio).tasse_rettifica ?? 0);
     if (dirittiAgenzia) {
       return {
+        _localId: crypto.randomUUID(),
         codice: p.codice_garanzia || null,
         descrizione: cat?.descrizione || p.garanzia || "",
         netto: "",
         accessori: "",
         tasse: stored ? stored.toFixed(2) : "",
+        tasseRettifica: "",
         aliquotaTasse: 0,
         sottoramoId: cat?.id || null,
         ssn: "",
@@ -229,11 +267,13 @@ export function TitoloImportiPremiBlock({
       ? calcTasseRiga(netto, accessori, aliquotaTasse)
       : 0;
     return {
+      _localId: crypto.randomUUID(),
       codice: p.codice_garanzia || null,
       descrizione: cat?.descrizione || p.garanzia || "",
       netto: netto ? netto.toFixed(2) : "",
       accessori: accessori ? accessori.toFixed(2) : "",
       tasse: escludiProvvigioni ? "0" : (tasseCalc ? tasseCalc.toFixed(2) : ""),
+      tasseRettifica: rettifica !== 0 ? rettifica.toFixed(2) : "",
       aliquotaTasse,
       sottoramoId: cat?.id || null,
       ssn: ssn ? ssn.toFixed(2) : "",
@@ -249,6 +289,10 @@ export function TitoloImportiPremiBlock({
 
   const [firmaRows, setFirmaRows] = useState<GaranziaRow[]>([]);
   const [quietanzaRows, setQuietanzaRows] = useState<GaranziaRow[]>([]);
+  const firmaRowsRef = useRef(firmaRows);
+  const quietanzaRowsRef = useRef(quietanzaRows);
+  firmaRowsRef.current = firmaRows;
+  quietanzaRowsRef.current = quietanzaRows;
   /** false = provvigioni impostate manualmente (% o totale €), non ricalcolate dalla matrice */
   const [provvFirmaAuto, setProvvFirmaAuto] = useState(true);
   const [provvQuietanzaAuto, setProvvQuietanzaAuto] = useState(true);
@@ -270,23 +314,76 @@ export function TitoloImportiPremiBlock({
   // Refresh state quando arrivano i dati DB o cambia il catalogo
   const lastSnapRef = useRef<string>("");
   useEffect(() => {
-    if (!premi.length && !catalogo.length) return;
-    const fRaw = (premi as DbPremio[]).filter((p) => p.tipo_premio === "firma");
-    const qRaw = (premi as DbPremio[]).filter((p) => p.tipo_premio === "quietanza");
+    if (savingRef.current) return;
+    if (hasDraftRows(firmaRowsRef.current) || hasDraftRows(quietanzaRowsRef.current)) return;
+
+    const catalogReady = catalogo.length > 0 || !gruppoRamoId;
+    if (!catalogReady && premi.length === 0 && !fallbackPremi.length) return;
+
+    let fRaw = (premi as DbPremio[]).filter((p) => p.tipo_premio === "firma");
+    let qRaw = (premi as DbPremio[]).filter((p) => p.tipo_premio === "quietanza");
+    if (qRaw.length && qRaw.every((p) => !dbPremioHasImporto(p, "quietanza"))) {
+      qRaw = [];
+    }
+
+    // Fallback: premi da madre / rata 1 se assenti sul titolo corrente
+    if (fallbackPremi.length) {
+      if (!fRaw.length && !hideFirma) {
+        fRaw = (fallbackPremi as DbPremio[]).filter((p) => p.tipo_premio === "firma");
+      }
+      if (!qRaw.length) {
+        qRaw = (fallbackPremi as DbPremio[]).filter((p) => p.tipo_premio === "quietanza");
+        if (!qRaw.length && hideFirma) {
+          qRaw = remapDbPremiTipo(fallbackPremi as DbPremio[], "quietanza", "quietanza") as DbPremio[];
+          if (!qRaw.length) {
+            qRaw = remapDbPremiTipo(fallbackPremi as DbPremio[], "firma", "quietanza") as DbPremio[];
+          }
+        } else if (!qRaw.length && fRaw.length) {
+          qRaw = remapDbPremiTipo(fRaw, "firma", "quietanza") as DbPremio[];
+        }
+      }
+    }
+
     const snap = JSON.stringify({
       f: fRaw.map((p) => ({ id: p.id, c: p.codice_garanzia, n: p.firma, t: p.aliquota_tasse_pct, s: p.ssn })),
       q: qRaw.map((p) => ({ id: p.id, c: p.codice_garanzia, n: p.rata, t: p.aliquota_tasse_pct, s: p.ssn, pz: p.quietanza_personalizzata })),
       cat: catalogo.length,
+      fb: fallbackPremiTitoloId,
+      hide: hideFirma,
     });
     if (snap === lastSnapRef.current) return;
     lastSnapRef.current = snap;
-    const firmaMapped = fRaw.length ? fRaw.map(toGaranziaRow) : [emptyGaranziaRow()];
-    // Se non esistono righe Quietanza salvate, parte come specchio della Firma.
-    const quietanzaMapped = qRaw.length
+
+    let firmaMapped = fRaw.length ? fRaw.map(toGaranziaRow) : [emptyGaranziaRow()];
+    let quietanzaMapped = qRaw.length
       ? qRaw.map(toGaranziaRow)
-      : fRaw.length
+      : fRaw.length && !hideFirma
         ? mirrorAllFromFirma(firmaMapped)
         : [emptyGaranziaRow()];
+
+    // Fix: quietanza "sincronizzata" ma con zeri mentre la Firma ha importi
+    if (
+      !hideFirma &&
+      fRaw.length &&
+      rowsAreEmpty(quietanzaMapped) &&
+      !rowsAreEmpty(firmaMapped) &&
+      isQuietanzaSincronizzata(quietanzaMapped)
+    ) {
+      quietanzaMapped = mirrorAllFromFirma(firmaMapped);
+    }
+
+    // Fallback da aggregati titoli corrente
+    if (titoloMeta && catalogo.length) {
+      if (!fRaw.length && !hideFirma) {
+        const synth = buildGaranziaRowFromTitoliAggregati("firma", titoloMeta, catalogo as any[]);
+        if (synth) firmaMapped = [synth];
+      }
+      if (!qRaw.length) {
+        const synthQ = buildGaranziaRowFromTitoliAggregati("quietanza", titoloMeta, catalogo as any[]);
+        if (synthQ) quietanzaMapped = [synthQ];
+      }
+    }
+
     setFirmaRows(firmaMapped);
     setQuietanzaRows(quietanzaMapped);
 
@@ -312,7 +409,7 @@ export function TitoloImportiPremiBlock({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [premi, catalogo, provvMatrice, provvigioniFirma, provvigioniQuietanza]);
+  }, [premi, catalogo, provvMatrice, provvigioniFirma, provvigioniQuietanza, fallbackPremi, fallbackPremiTitoloId, hideFirma, titoloMeta, gruppoRamoId]);
 
   const resolveProvvigioniImporto = (
     tipo: "firma" | "quietanza",
@@ -329,85 +426,142 @@ export function TitoloImportiPremiBlock({
   const firmaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const quietanzaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const persistRows = async (rows: GaranziaRow[], tipo: "firma" | "quietanza") => {
-    // Sostituiamo l'intero set di righe per tipo: delete + insert (semplice e affidabile).
-    const validRows = rows.filter(
-      (r) => !!(r.sottoramoId || r.codice || r.descrizione.trim() || r.netto || (r.dirittiAgenzia && r.tasse)),
-    );
-    const payload = validRows.map((r, idx) => {
-      const importo = premioRigaDbImporto(r);
-      return {
-      titolo_id: titoloId,
-      tipo_premio: tipo,
-      garanzia: (r.descrizione && r.descrizione.trim()) || r.codice || "Premio",
-      codice_garanzia: r.codice || null,
-      capitale: 0,
-      tasso: 0,
-      firma: tipo === "firma" ? importo : 0,
-      rata: tipo === "quietanza" ? importo : 0,
-      accessori: parseFloat(r.accessori || "0") || 0,
-      annuo: 0,
-      ordine: idx,
-      aliquota_tasse_pct: r.aliquotaTasse || null,
-      ssn: parseFloat(r.ssn || "0") || 0,
-      provvigione_netto_pct: resolveRowPctNetto(r, provvMatrice).pct,
-      provvigione_accessori_pct: resolveRowPctAccessori(r, provvMatrice).pct,
-      ...(tipo === "quietanza" ? { quietanza_personalizzata: !!r.quietanzaPersonalizzata } : {}),
-    };
-    });
+  const persistRows = async (rows: GaranziaRow[], tipo: "firma" | "quietanza", manual = false) => {
+    const validRows = rows.filter(rowHasContent);
+    if (validRows.length < rows.length) return;
 
-    const { error: delErr } = await supabase
-      .from("premi_garanzia_polizza")
-      .delete()
-      .eq("titolo_id", titoloId)
-      .eq("tipo_premio", tipo);
-    if (delErr) {
-      toast.error("Errore aggiornamento premi: " + delErr.message);
-      return;
-    }
-    if (payload.length > 0) {
-      const { error: insErr } = await supabase.from("premi_garanzia_polizza").insert(payload as any);
-      if (insErr) {
-        toast.error("Errore aggiornamento premi: " + insErr.message);
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      const payload = validRows.map((r, idx) => {
+        const importo = premioRigaDbImporto(r);
+        return {
+          titolo_id: titoloId,
+          tipo_premio: tipo,
+          garanzia: (r.descrizione && r.descrizione.trim()) || r.codice || "Premio",
+          codice_garanzia: r.codice || null,
+          capitale: 0,
+          tasso: 0,
+          firma: tipo === "firma" ? importo : 0,
+          rata: tipo === "quietanza" ? importo : 0,
+          accessori: parseFloat(r.accessori || "0") || 0,
+          annuo: 0,
+          ordine: idx,
+          aliquota_tasse_pct: r.aliquotaTasse || null,
+          ssn: parseFloat(r.ssn || "0") || 0,
+          tasse_rettifica: parseFloat(r.tasseRettifica || "0") || 0,
+          provvigione_netto_pct: resolveRowPctNetto(r, provvMatrice).pct,
+          provvigione_accessori_pct: resolveRowPctAccessori(r, provvMatrice).pct,
+          ...(tipo === "quietanza" ? { quietanza_personalizzata: !!r.quietanzaPersonalizzata } : {}),
+        };
+      });
+
+      const { error: delErr } = await supabase
+        .from("premi_garanzia_polizza")
+        .delete()
+        .eq("titolo_id", titoloId)
+        .eq("tipo_premio", tipo);
+      if (delErr) {
+        toast.error("Errore aggiornamento premi: " + delErr.message);
         return;
       }
-    }
+      if (payload.length > 0) {
+        let rowsToInsert = payload;
+        if (tasseRettificaSupportedRef.current === false) {
+          rowsToInsert = payload.map(({ tasse_rettifica: _t, ...rest }) => rest);
+        }
+        let { error: insErr } = await supabase.from("premi_garanzia_polizza").insert(rowsToInsert as any);
+        if (insErr && tasseRettificaSupportedRef.current !== false && /tasse_rettifica/i.test(insErr.message)) {
+          tasseRettificaSupportedRef.current = false;
+          rowsToInsert = payload.map(({ tasse_rettifica: _t, ...rest }) => rest);
+          ({ error: insErr } = await supabase.from("premi_garanzia_polizza").insert(rowsToInsert as any));
+        }
+        if (insErr) {
+          toast.error("Errore aggiornamento premi: " + insErr.message);
+          return;
+        }
+      }
 
-    // Aggiorna aggregati su titoli
-    const sum = (rs: GaranziaRow[], k: "netto" | "tasse" | "ssn" | "accessori") =>
-      rs.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
-    const totNetto = round2(sum(rows, "netto"));
-    const totAccessori = round2(sum(rows, "accessori"));
-    const totTasse = round2(sum(rows, "tasse"));
-    const totSsn = round2(sum(rows, "ssn"));
-    const updates: any = {};
-    if (tipo === "firma") {
+      const sum = (rs: GaranziaRow[], k: "netto" | "ssn" | "accessori") =>
+        rs.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
+      const totNetto = round2(sum(rows, "netto"));
+      const totAccessori = round2(sum(rows, "accessori"));
+      const totTasse = round2(rows.reduce((s, r) => s + calcTasseEffettiveRiga(r), 0));
+      const totSsn = round2(sum(rows, "ssn"));
       const lordo = round2(totNetto + totAccessori + totTasse + totSsn);
-      updates.premio_netto = totNetto;
-      updates.addizionali = totAccessori;
-      updates.tasse = totTasse;
-      updates.ssn_firma = totSsn;
-      updates.premio_lordo = lordo;
-      updates.provvigioni_firma = resolveProvvigioniImporto("firma", rows);
-    } else {
-      updates.premio_netto_quietanza = totNetto;
-      updates.addizionali_quietanza = totAccessori;
-      updates.tasse_quietanza = totTasse;
-      updates.ssn_quietanza = totSsn;
-      updates.provvigioni_quietanza = resolveProvvigioniImporto("quietanza", rows);
+      const updates: Record<string, number> = {};
+
+      if (tipo === "firma") {
+        updates.premio_netto = totNetto;
+        updates.addizionali = totAccessori;
+        updates.tasse = totTasse;
+        updates.ssn_firma = totSsn;
+        updates.premio_lordo = lordo;
+        updates.provvigioni_firma = resolveProvvigioniImporto("firma", rows);
+      } else {
+        updates.premio_netto_quietanza = totNetto;
+        updates.addizionali_quietanza = totAccessori;
+        updates.tasse_quietanza = totTasse;
+        updates.ssn_quietanza = totSsn;
+        updates.provvigioni_quietanza = resolveProvvigioniImporto("quietanza", rows);
+        updates.premio_lordo = lordo;
+        // Su quietanza/rata: allinea anche i campi operativi usati da incasso e liste
+        if (hideFirma || !!titoloMeta?.sostituisce_polizza) {
+          updates.premio_netto = totNetto;
+          updates.addizionali = totAccessori;
+          updates.tasse = totTasse;
+          updates.ssn_firma = totSsn;
+          updates.provvigioni_firma = updates.provvigioni_quietanza;
+        }
+      }
+
+      const { error: updErr } = await supabase.from("titoli").update(updates).eq("id", titoloId);
+      if (updErr) {
+        toast.error("Errore aggiornamento importi: " + updErr.message);
+        return;
+      }
+
+      lastSnapRef.current = JSON.stringify({
+        f: tipo === "firma"
+          ? validRows.map((r) => ({ c: r.codice, n: parseFloat(r.netto || "0") || 0, t: r.aliquotaTasse, s: parseFloat(r.ssn || "0") || 0 }))
+          : (premi as DbPremio[]).filter((p) => p.tipo_premio === "firma").map((p) => ({ id: p.id, c: p.codice_garanzia, n: p.firma, t: p.aliquota_tasse_pct, s: p.ssn })),
+        q: tipo === "quietanza"
+          ? validRows.map((r) => ({ c: r.codice, n: parseFloat(r.netto || "0") || 0, t: r.aliquotaTasse, s: parseFloat(r.ssn || "0") || 0, pz: !!r.quietanzaPersonalizzata }))
+          : (premi as DbPremio[]).filter((p) => p.tipo_premio === "quietanza").map((p) => ({ id: p.id, c: p.codice_garanzia, n: p.rata, t: p.aliquota_tasse_pct, s: p.ssn, pz: p.quietanza_personalizzata })),
+        cat: catalogo.length,
+        fb: fallbackPremiTitoloId,
+        hide: hideFirma,
+      });
+      await qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
+      await qc.invalidateQueries({ queryKey: ["titolo-meta-premi", titoloId] });
+      await qc.invalidateQueries({ queryKey: ["premi-garanzia-import", titoloId] });
+      await qc.invalidateQueries({ queryKey: ["premi-garanzia", titoloId] });
+      await qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
+      toast.success(manual ? "Premi salvati" : "Premi aggiornati");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
-    const { error: updErr } = await supabase.from("titoli").update(updates).eq("id", titoloId);
-    if (updErr) {
-      toast.error("Errore aggiornamento importi: " + updErr.message);
-      return;
+  };
+
+  const flushSave = (tipo: "firma" | "quietanza") => {
+    const ref = tipo === "firma" ? firmaTimer : quietanzaTimer;
+    if (ref.current) {
+      clearTimeout(ref.current);
+      ref.current = null;
     }
-    qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
-    qc.invalidateQueries({ queryKey: ["premi-garanzia-import", titoloId] });
-    qc.invalidateQueries({ queryKey: ["premi-garanzia", titoloId] });
-    qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
+    const rows = tipo === "firma" ? firmaRows : quietanzaRows;
+    void persistRows(rows, tipo, true);
+  };
+
+  const saveAllPremi = () => {
+    if (isLocked) return;
+    if (!hideFirma) flushSave("firma");
+    if (showQuietanza) flushSave("quietanza");
   };
 
   const scheduleSave = (tipo: "firma" | "quietanza", rows: GaranziaRow[]) => {
+    if (hasDraftRows(rows)) return;
     const ref = tipo === "firma" ? firmaTimer : quietanzaTimer;
     if (ref.current) clearTimeout(ref.current);
     ref.current = setTimeout(() => persistRows(rows, tipo), 700);
@@ -417,8 +571,8 @@ export function TitoloImportiPremiBlock({
     setFirmaRows(next);
     if (!isLocked) scheduleSave("firma", next);
 
-    // Sincronizzazione automatica Firma → Quietanza: le righe Quietanza non
-    // personalizzate rispecchiano la Firma in tempo reale.
+    if (hideFirma || !showQuietanza) return;
+
     const syncedQuietanza = syncQuietanzaFromFirma(next, quietanzaRows);
     setQuietanzaRows(syncedQuietanza);
     if (!isLocked && JSON.stringify(syncedQuietanza) !== JSON.stringify(quietanzaRows)) {
@@ -513,23 +667,43 @@ export function TitoloImportiPremiBlock({
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
-        ℹ️ Le voci di garanzia disponibili sono filtrate sul <strong>Gruppo Ramo</strong> della polizza
-        ({ramoDescrizione || "—"}).
-        {showQuietanza ? (
-          <> La <strong>Quietanza</strong> si sincronizza <strong>automaticamente</strong> con
-          la <strong>Firma</strong>: ogni voce modificata a mano nella Quietanza diventa
-          <strong> personalizzata</strong> e smette di aggiornarsi (puoi riallinearla con “↻ Sincronizza da Firma”).</>
-        ) : (
-          <> Questa quietanza è già incassata: viene mostrato solo il premio alla <strong>Firma</strong> della rata.</>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="text-xs text-muted-foreground flex-1 min-w-[240px]">
+          ℹ️ Le voci di garanzia disponibili sono filtrate sul <strong>Gruppo Ramo</strong> della polizza
+          ({ramoDescrizione || "—"}).
+          {hideFirma ? (
+            <> Modifica il <strong>premio quietanza</strong> di questa rata. I dati vengono caricati dal titolo o dalla polizza madre se non ancora salvati per garanzia.</>
+          ) : showQuietanza ? (
+            <> La <strong>Quietanza</strong> si sincronizza <strong>automaticamente</strong> con
+            la <strong>Firma</strong>: ogni voce modificata a mano nella Quietanza diventa
+            <strong> personalizzata</strong> e smette di aggiornarsi (puoi riallinearla con “↻ Sincronizza da Firma”).</>
+          ) : (
+            <> Questa quietanza è già incassata: viene mostrato solo il premio alla <strong>Firma</strong> della rata.</>
+          )}
+          {!isLocked && (
+            <> Le modifiche si salvano automaticamente; puoi anche usare <strong>Salva premi</strong>.</>
+          )}
+        </p>
+        {!isLocked && (
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 shrink-0"
+            disabled={saving}
+            onClick={saveAllPremi}
+          >
+            {saving ? "Salvataggio…" : "Salva premi"}
+          </Button>
         )}
-      </p>
+      </div>
 
+      {!hideFirma && (
       <PremiGaranziaCardShell
         tipoPremio="firma"
         gruppoRamoId={gruppoRamoId}
         rows={firmaRows}
         onRowsChange={onFirmaChange}
+        readOnly={isLocked}
         addizionali={String(round2(accessoriFirmaNum))}
         provvigioni={Number(provvigioniFirma || 0)}
         provvPctBreakdown={provvBreakdownFirma}
@@ -557,6 +731,7 @@ export function TitoloImportiPremiBlock({
           ) : undefined
         }
       />
+      )}
 
       {showQuietanza && (
       <PremiGaranziaCardShell
@@ -564,6 +739,8 @@ export function TitoloImportiPremiBlock({
         gruppoRamoId={gruppoRamoId}
         rows={quietanzaRows}
         onRowsChange={onQuietanzaChange}
+        readOnly={isLocked}
+        titoloOverride={hideFirma ? "Premi per Garanzia — Rata" : undefined}
         addizionali={String(round2(accessoriQuietanzaNum))}
         provvigioni={Number(provvigioniQuietanza || 0)}
         provvPctBreakdown={provvBreakdownQuietanza}
@@ -574,8 +751,9 @@ export function TitoloImportiPremiBlock({
         onResetAuto={() => { void resetProvvigioniAuto("quietanza"); }}
         sincronizzata={sincronizzata}
         personalizzati={personalizzati}
-        onResetRow={resyncRowFromFirma}
+        onResetRow={hideFirma ? undefined : resyncRowFromFirma}
         headerExtra={
+          hideFirma ? undefined : (
           <Button
             type="button"
             variant="outline"
@@ -587,6 +765,7 @@ export function TitoloImportiPremiBlock({
           >
             Sincronizza da Firma
           </Button>
+          )
         }
       />
       )}

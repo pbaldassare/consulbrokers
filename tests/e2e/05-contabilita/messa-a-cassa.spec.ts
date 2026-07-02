@@ -43,4 +43,4 @@ test.describe('Contabilità · Messa a Cassa (dialog)', () => {
     await expect(page.getByRole('columnheader', { name: /Messa a Cassa/i })).toBeVisible();
   });
 });
-
+

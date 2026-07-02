@@ -3277,6 +3277,10 @@ const TitoloDetail = () => {
             ramoDescrizione={t.ramo?.descrizione || null}
             isLocked={isLocked}
             showQuietanza={!nascondiPremioQuietanza}
+            hideFirma={isQuietanzaCorrente && rataIndex > 1}
+            fallbackPremiTitoloId={
+              isQuietanzaCorrente && madre?.id && madre.id !== t.id ? madre.id : null
+            }
             addizionaliFirma={t.addizionali}
             addizionaliQuietanza={t.addizionali_quietanza}
             provvigioniFirma={t.provvigioni_firma}

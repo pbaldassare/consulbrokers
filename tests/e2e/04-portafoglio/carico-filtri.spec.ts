@@ -79,4 +79,4 @@ test.describe('Portafoglio · Carico — filtri', () => {
     expect(hasTable || hasEmpty).toBeTruthy();
   });
 });
-
+

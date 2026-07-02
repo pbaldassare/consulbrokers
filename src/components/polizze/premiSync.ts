@@ -24,14 +24,28 @@ export function sameRowContent(a?: GaranziaRow, b?: GaranziaRow): boolean {
     (a.netto || "") === (b.netto || "") &&
     (a.accessori || "") === (b.accessori || "") &&
     (a.tasse || "") === (b.tasse || "") &&
+    (a.tasseRettifica || "") === (b.tasseRettifica || "") &&
     (a.ssn || "") === (b.ssn || "") &&
     (a.aliquotaTasse || 0) === (b.aliquotaTasse || 0)
   );
 }
 
+/** True se le righe non hanno importi significativi. */
+export function rowsAreEmpty(rows: GaranziaRow[]): boolean {
+  return !rows.some(
+    (r) =>
+      parseFloat(r.netto || "0") > 0 ||
+      parseFloat(r.accessori || "0") > 0 ||
+      parseFloat(r.tasse || "0") > 0 ||
+      parseFloat(r.tasseRettifica || "0") > 0 ||
+      parseFloat(r.ssn || "0") > 0 ||
+      (r.dirittiAgenzia && parseFloat(r.tasse || "0") > 0),
+  );
+}
+
 /** Clona una riga Firma in una riga Quietanza-specchio (non personalizzata). */
 function mirrorRow(firmaRow: GaranziaRow): GaranziaRow {
-  return { ...firmaRow, quietanzaPersonalizzata: false };
+  return { ...firmaRow, quietanzaPersonalizzata: false, tasseRettifica: "" };
 }
 
 /**

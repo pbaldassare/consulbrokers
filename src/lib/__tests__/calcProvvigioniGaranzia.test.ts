@@ -41,6 +41,18 @@ describe("calcLordoGaranziaRow", () => {
       calcLordoGaranziaRow({ ...emptyGaranziaRow(), netto: "100", tasse: "22", ssn: "0" }),
     ).toBe(122);
   });
+
+  it("rettifica tasse: aumenta lordo senza cambiare provvigioni", () => {
+    const base = row({ netto: "100", accessori: "20", tasse: "3" });
+    const conRett = row({ netto: "100", accessori: "20", tasse: "3", tasseRettifica: "0.50" });
+    expect(calcProvvigioniGaranzia([base], matrice)).toBe(calcProvvigioniGaranzia([conRett], matrice));
+    expect(calcLordoGaranziaRow(conRett)).toBeCloseTo(calcLordoGaranziaRow(base) + 0.5, 2);
+  });
+
+  it("rettifica negativa riduce lordo", () => {
+    const r = row({ netto: "100", accessori: "", tasse: "22", tasseRettifica: "-1.00" });
+    expect(calcLordoGaranziaRow(r)).toBe(121);
+  });
 });
 
 describe("calcProvvigioniGaranzia", () => {

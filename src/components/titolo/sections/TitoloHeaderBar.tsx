@@ -4,6 +4,7 @@ import { ArrowLeft, RefreshCw, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import { calcLordoQuietanzaTitolo } from "@/lib/premiGaranziaLoad";
 import { fmtEuro } from "@/lib/formatCurrency";
 
 interface MadreInfo {
@@ -67,6 +68,10 @@ export function TitoloHeaderBar({
   const periodoGaranzia = t.garanzia_da
     ? `${fmtD(t.garanzia_da)}${t.garanzia_a ? ` → ${fmtD(t.garanzia_a)}` : ""}`
     : "";
+  const importoLordo = isQuietanza
+    ? calcLordoQuietanzaTitolo(t)
+    : Number((t as any).premio_lordo ?? 0);
+  const importoLabel = isQuietanza ? "Importo Rata" : "Importo Firma";
 
   return (
     <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60">
@@ -166,8 +171,8 @@ export function TitoloHeaderBar({
               <span className="font-medium text-foreground">{(t as any).uffici?.nome_ufficio || "—"}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Importo Firma:</span>
-              <span className="font-semibold text-teal-700 tabular-nums">{fmtEuro((t as any).premio_lordo)}</span>
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">{importoLabel}:</span>
+              <span className="font-semibold text-teal-700 tabular-nums">{fmtEuro(importoLordo)}</span>
             </div>
           </div>
         </div>

@@ -38,12 +38,6 @@ function addMonths(d: Date, m: number): Date {
   return out;
 }
 
-function addDays(d: Date, days: number): Date {
-  const out = new Date(d.getTime());
-  out.setDate(out.getDate() + days);
-  return out;
-}
-
 function iso(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -99,7 +93,7 @@ function computeRateoPlan(
     data_competenza: iso(garDa),
   }];
 
-  let da = addDays(garA, 1);
+  let da = garA;
   let idx = 2;
   while (da < durA) {
     let a = addMonths(da, mesiRata);
