@@ -27,6 +27,7 @@ import {
   resolveRowPctNetto,
   resolveRowPctAccessori,
   provvPctBreakdown,
+  calcTasseEffettiveRiga,
   type MatriceProvvAccessori,
 } from "@/lib/calcProvvigioniGaranzia";
 
@@ -1224,13 +1225,14 @@ const ImmissionePolizzaPage = () => {
     arr.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
   const premioNettoNum = sumNum(premiFirmaRows, "netto");
   const accessoriFirmaNum = sumNum(premiFirmaRows, "accessori");
-  const tasseNum = sumNum(premiFirmaRows, "tasse");
+  // Tasse effettive = auto (aliquota) + rettifica manuale, così il lordo quadra anche in modalità manuale.
+  const tasseNum = premiFirmaRows.reduce((s, r) => s + calcTasseEffettiveRiga(r), 0);
   const ssnFirmaNum = sumNum(premiFirmaRows, "ssn");
   const premioNetto = premioNettoNum ? String(premioNettoNum) : "";
   const tasse = tasseNum ? String(tasseNum) : "";
   const premioNettoQNum = sumNum(premiQuietanzaRows, "netto");
   const accessoriQuietanzaNum = sumNum(premiQuietanzaRows, "accessori");
-  const tasseQNum = sumNum(premiQuietanzaRows, "tasse");
+  const tasseQNum = premiQuietanzaRows.reduce((s, r) => s + calcTasseEffettiveRiga(r), 0);
   const ssnQuietanzaNum = sumNum(premiQuietanzaRows, "ssn");
   const premioNettoQuietanza = premioNettoQNum ? String(premioNettoQNum) : "";
   const tasseQuietanza = tasseQNum ? String(tasseQNum) : "";
@@ -1905,6 +1907,7 @@ const ImmissionePolizzaPage = () => {
             ordine: idx,
             aliquota_tasse_pct: r.aliquotaTasse || null,
             ssn: parseFloat(r.ssn || "0") || 0,
+            tasse_rettifica: parseFloat(r.tasseRettifica || "0") || 0,
             provvigione_netto_pct: resolveRowPctNetto(r, provvMatrice).pct,
             provvigione_accessori_pct: resolveRowPctAccessori(r, provvMatrice).pct,
           }));

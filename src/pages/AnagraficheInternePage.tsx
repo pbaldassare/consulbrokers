@@ -651,7 +651,6 @@ const AnagraficheInternePage = () => {
     if (!isProduttore) return null;
     // Account Executive: nessuna Sede. Sono globali per definizione.
     if (isAE) return null;
-    const isAdminUser = profile?.ruolo === "admin";
     const isOptional = isCorr;
     return (
       <div className="mb-4">
@@ -661,7 +660,7 @@ const AnagraficheInternePage = () => {
         <Select
           value={form.ufficio_id || (isOptional ? "__none__" : (profile?.ufficio_id ?? ""))}
           onValueChange={(v) => setForm({ ...form, ufficio_id: v === "__none__" ? "" : v })}
-          disabled={!isAdminUser}
+          disabled={false}
         >
           <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
           <SelectContent>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, createContext, useContext, useMemo } from "react";
+import { useState, useEffect, useRef, createContext, useContext, useMemo, Fragment } from "react";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
@@ -22,7 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, Sparkles, Briefcase, Loader2 } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, ChevronRight, ChevronDown, Sparkles, Briefcase, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1146,7 +1146,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
   const [filtroAgenzia, setFiltroAgenzia] = useState<string>("");
   const [filtroStato, setFiltroStato] = useState<string>("");
   const { profile } = useAuth();
-  const isAdmin = profile?.ruolo === "admin";
+  const isAdmin = !!profile && profile.ruolo !== "cliente" && profile.ruolo !== "prospect";
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -1155,6 +1155,9 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
     numero: string;
     rateCount?: number;
   } | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggleExpand = (key: string) =>
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
   // Opzioni filtri (derivate dalle polizze caricate)
   const gruppiRamoOpts = useMemo(() => {
@@ -1548,56 +1551,122 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
               const head = c.madre || c.all[0];
               const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
               const ramo = head.ramo?.descrizione || "—";
-
               const agenzia = head.compagnia_diretta?.nome || "—";
+              const isOpen = !!expanded[c.numero];
+              const hasRate = c.rate.length > 0;
+
               return (
-                <TableRow
-                  key={c.numero}
-                  className={cn(
-                    "cursor-pointer border-l-4 border-l-polizza hover:bg-polizza/5 hover:ring-1 hover:ring-inset hover:ring-polizza/30 transition-colors",
-                    messaCassaRowBgClass(head),
-                  )}
-                  onClick={() => navigate(`/titoli/${head.id}`)}
-                  title="Apri polizza madre"
-                >
-                  <TableCell></TableCell>
-                  <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
-                  <TableCell><TipoPolizzaBadge tipo="polizza" /></TableCell>
-                  <TableCell>{gruppoRamo}</TableCell>
-                  <TableCell>{ramo}</TableCell>
-                  <TableCell className="text-xs">{fmtDate(head.garanzia_da ?? head.durata_da)}</TableCell>
-                  <TableCell className="text-xs">{fmtDate(head.garanzia_a ?? head.durata_a)}</TableCell>
-                  <TableCell>{agenzia}</TableCell>
-                  <TableCell className="font-mono">
-                    {head.polizza_rateo ? "—" : fmtNum(head.premio_lordo)}
-                  </TableCell>
-                  <TableCell className="font-mono">
-                    {head.polizza_rateo ? "—" : fmtNum(getProvvigioneEC(head))}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {head.data_copertura ? (
-                      <span className={isInCoperturaGarantita(head) ? "text-orange-700 font-medium" : undefined}>
-                        {fmtDate(head.data_copertura)}
-                      </span>
-                    ) : "—"}
-                  </TableCell>
-                  <TableCell className="text-xs">{fmtDate(head.data_messa_cassa || head.data_incasso)}</TableCell>
-                  {isAdmin && (
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        disabled={!!deleting}
-                        title="Elimina polizza e quietanze (cascade incassi/provvigioni)"
-                        onClick={() => handleDeleteMadre(c)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                <Fragment key={c.numero}>
+                  <TableRow
+                    className={cn(
+                      "cursor-pointer border-l-4 border-l-polizza hover:bg-polizza/5 hover:ring-1 hover:ring-inset hover:ring-polizza/30 transition-colors",
+                      messaCassaRowBgClass(head),
+                    )}
+                    onClick={() => navigate(`/titoli/${head.id}`)}
+                    title="Apri polizza madre"
+                  >
+                    <TableCell className="w-8 p-0 text-center" onClick={(e) => e.stopPropagation()}>
+                      {hasRate ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(c.numero)}
+                          className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-muted text-muted-foreground"
+                          aria-expanded={isOpen}
+                          title={isOpen ? "Nascondi quietanze collegate" : `Mostra ${c.rate.length} quietanze collegate`}
+                        >
+                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                      ) : null}
                     </TableCell>
-                  )}
-                </TableRow>
+                    <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
+                    <TableCell><TipoPolizzaBadge tipo="polizza" /></TableCell>
+                    <TableCell>{gruppoRamo}</TableCell>
+                    <TableCell>{ramo}</TableCell>
+                    <TableCell className="text-xs">{fmtDate(head.garanzia_da ?? head.durata_da)}</TableCell>
+                    <TableCell className="text-xs">{fmtDate(head.garanzia_a ?? head.durata_a)}</TableCell>
+                    <TableCell>{agenzia}</TableCell>
+                    <TableCell className="font-mono">
+                      {head.polizza_rateo ? "—" : fmtNum(head.premio_lordo)}
+                    </TableCell>
+                    <TableCell className="font-mono">
+                      {head.polizza_rateo ? "—" : fmtNum(getProvvigioneEC(head))}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {head.data_copertura ? (
+                        <span className={isInCoperturaGarantita(head) ? "text-orange-700 font-medium" : undefined}>
+                          {fmtDate(head.data_copertura)}
+                        </span>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs">{fmtDate(head.data_messa_cassa || head.data_incasso)}</TableCell>
+                    {isAdmin && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          disabled={!!deleting}
+                          title="Elimina polizza e quietanze (cascade incassi/provvigioni)"
+                          onClick={() => handleDeleteMadre(c)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+
+                  {isOpen && c.rate.map((r: any) => (
+                    <TableRow
+                      key={r.id}
+                      className={cn(
+                        "cursor-pointer bg-muted/20 hover:bg-muted/40 transition-colors",
+                        rowBorderClass(r),
+                        messaCassaRowBgClass(r),
+                      )}
+                      onClick={() => navigate(`/titoli/${r.id}`)}
+                      title="Apri quietanza"
+                    >
+                      <TableCell />
+                      <TableCell className="font-mono text-xs pl-8 text-muted-foreground">
+                        ↳ {r.numero_titolo || "—"}
+                      </TableCell>
+                      <TableCell>
+                        <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(r)} />
+                      </TableCell>
+                      <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
+                      <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
+                      <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
+                      <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
+                      <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
+                      <TableCell className="text-xs">
+                        {r.data_copertura ? (
+                          <span className={isInCoperturaGarantita(r) ? "text-orange-700 font-medium" : undefined}>
+                            {fmtDate(r.data_copertura)}
+                          </span>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.data_messa_cassa || r.data_incasso)}</TableCell>
+                      {isAdmin && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            disabled={!!deleting}
+                            title="Elimina quietanza (cascade incassi/provvigioni)"
+                            onClick={() => handleDeleteRata(r)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </Fragment>
               );
             })
           )}
@@ -1667,7 +1736,7 @@ export default function ClienteDetail() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile: currentProfile } = useAuth();
-  const isAdmin = currentProfile?.ruolo === "admin";
+  const isAdmin = !!currentProfile && currentProfile.ruolo !== "cliente" && currentProfile.ruolo !== "prospect";
 
   const { data: cliente } = useQuery({
     queryKey: ["cliente", id],

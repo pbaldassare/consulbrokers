@@ -161,6 +161,11 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
   const [pagatoreSearch, setPagatoreSearch] = useState("");
   // Ricerca per aggiungere altre quietanze da incassare
   const [titoloSearch, setTitoloSearch] = useState("");
+  // Flusso "per cliente": cliente di cui elencare le quietanze da incassare
+  const [clienteQuietanze, setClienteQuietanze] = useState<{ id: string; nome: string } | null>(null);
+  const [clienteQuietanzeSearch, setClienteQuietanzeSearch] = useState("");
+  // Quietanze spuntate nella checklist prima dell'aggiunta
+  const [quietanzeSel, setQuietanzeSel] = useState<Record<string, boolean>>({});
 
   const isMulti = titoli.length > 1;
   const totaleLordo = titoli.reduce((s, t) => s + (Number(t.premio_lordo) || 0), 0);
@@ -230,6 +235,44 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
         .is("data_messa_cassa", null)
         .in("stato", ["attivo", "sospeso"])
         .limit(20);
+      const already = new Set(titoli.map((t) => t.id));
+      return ((data as any[]) || []).filter((r) => !already.has(r.id));
+    },
+  });
+
+  // Ricerca clienti per il flusso "aggiungi quietanze di un cliente"
+  const { data: clienteQuietanzeOptionsRaw = [] } = useQuery({
+    queryKey: ["messa-cassa-cliente-quietanze-search", clienteQuietanzeSearch],
+    enabled: open && clienteQuietanzeSearch.trim().length >= 2,
+    queryFn: async () => {
+      const q = clienteQuietanzeSearch.trim();
+      const { data } = await (supabase.from("clienti") as any)
+        .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva")
+        .or(`ragione_sociale.ilike.%${q}%,cognome.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
+        .eq("attivo", true)
+        .limit(20);
+      return (data as any[]) || [];
+    },
+  });
+
+  // Tutte le quietanze "da incassare" del cliente selezionato (non ancora messe a cassa).
+  // Usa la vista v_portafoglio_quietanze (stessa sorgente del Portafoglio → Carico) ed
+  // esclude le polizze madri con rate, che non sono incassabili direttamente.
+  const { data: quietanzeCliente = [] } = useQuery({
+    queryKey: ["messa-cassa-quietanze-cliente", clienteQuietanze?.id, titoli.map((t) => t.id).join(",")],
+    enabled: open && !!clienteQuietanze?.id,
+    queryFn: async () => {
+      const { data } = await (supabase.from("v_portafoglio_quietanze") as any)
+        .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, data_scadenza")
+        .eq("cliente_anagrafica_id", clienteQuietanze!.id)
+        .is("data_messa_cassa", null)
+        .in("stato", ["attivo", "sospeso"])
+        // esclude le madri con rate: restano quietanze, regolazioni, proroghe, appendici e monorata
+        .or(
+          "is_regolazione.eq.true,is_proroga.eq.true,is_appendice_modifica.eq.true,numero_rata.gt.1,numero_rate_totali.lte.1,numero_rate_totali.is.null",
+        )
+        .order("data_scadenza", { ascending: true })
+        .limit(200);
       const already = new Set(titoli.map((t) => t.id));
       return ((data as any[]) || []).filter((r) => !already.has(r.id));
     },
@@ -339,6 +382,9 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       setPagatoreId(cliIds.length === 1 ? (cliIds[0] as string) : null);
       setPagatoreSearch("");
       setTitoloSearch("");
+      setClienteQuietanze(null);
+      setClienteQuietanzeSearch("");
+      setQuietanzeSel({});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bankIncasso?.movimentoId]);
@@ -380,6 +426,45 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       const { [id]: _, ...rest } = prev;
       return rest;
     });
+  };
+
+  // === Flusso "aggiungi quietanze di un cliente" ===
+  // Opzioni per il SearchableSelect del cliente: include sempre quello selezionato
+  const clienteQuietanzeSelectOptions = useMemo(() => {
+    const map = new Map<string, { value: string; label: string; description?: string }>();
+    if (clienteQuietanze) map.set(clienteQuietanze.id, { value: clienteQuietanze.id, label: clienteQuietanze.nome });
+    for (const c of clienteQuietanzeOptionsRaw as any[]) {
+      map.set(c.id, {
+        value: c.id,
+        label: nomeCliente(c),
+        description: c.partita_iva || c.codice_fiscale || undefined,
+      });
+    }
+    return Array.from(map.values());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clienteQuietanze, clienteQuietanzeOptionsRaw]);
+
+  const numQuietanzeSel = useMemo(
+    () => (quietanzeCliente as any[]).filter((r) => quietanzeSel[r.id]).length,
+    [quietanzeCliente, quietanzeSel],
+  );
+  const tutteQuietanzeSel =
+    (quietanzeCliente as any[]).length > 0 && (quietanzeCliente as any[]).every((r) => quietanzeSel[r.id]);
+
+  const toggleQuietanzaSel = (id: string) =>
+    setQuietanzeSel((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const toggleTutteQuietanze = () => {
+    if (tutteQuietanzeSel) {
+      setQuietanzeSel({});
+    } else {
+      setQuietanzeSel(Object.fromEntries((quietanzeCliente as any[]).map((r) => [r.id, true])));
+    }
+  };
+
+  const addQuietanzeSelezionate = () => {
+    (quietanzeCliente as any[]).filter((r) => quietanzeSel[r.id]).forEach((r) => addTitolo(r));
+    setQuietanzeSel({});
   };
 
   // Beneficiari giroconto: titoli il cui cliente differisce dal pagatore
@@ -1053,29 +1138,112 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
             />
           </div>
 
-          {/* Aggiungi altre quietanze da incassare (anche di altri clienti) */}
-          <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+          {/* Aggiungi altre quietanze da incassare — flusso "per cliente" */}
+          <div className="rounded-md border bg-muted/30 p-3 space-y-3">
             <Label className="text-xs flex items-center gap-1.5">
-              <Plus className="w-3.5 h-3.5" /> Aggiungi altra quietanza da incassare
+              <Users className="w-3.5 h-3.5" /> Aggiungi quietanze di un cliente
             </Label>
             <SearchableSelect
-              options={(titoliSearchResults as any[]).map((r) => ({
-                value: r.id,
-                label: r.numero_titolo || r.id.slice(0, 8),
-                description: `${nomeCliente(r.clienti)} — ${fmtEuro(Number(r.premio_lordo) || 0)}`,
-              }))}
-              value=""
-              onValueChange={(id) => {
-                const row = (titoliSearchResults as any[]).find((r) => r.id === id);
-                if (row) addTitolo(row);
+              options={clienteQuietanzeSelectOptions}
+              value={clienteQuietanze?.id || ""}
+              onValueChange={(v) => {
+                if (!v) {
+                  setClienteQuietanze(null);
+                  setQuietanzeSel({});
+                  return;
+                }
+                const c = (clienteQuietanzeOptionsRaw as any[]).find((x) => x.id === v);
+                setClienteQuietanze({ id: v, nome: c ? nomeCliente(c) : clienteQuietanze?.nome || "cliente" });
+                setQuietanzeSel({});
               }}
-              onSearchChange={setTitoloSearch}
-              searchValue={titoloSearch}
+              onSearchChange={setClienteQuietanzeSearch}
+              searchValue={clienteQuietanzeSearch}
               serverSideSearch
-              placeholder="Cerca quietanza da aggiungere..."
-              searchPlaceholder="Cerca numero titolo..."
+              clearable
+              clearLabel="— Nessun cliente —"
+              placeholder="Cerca cliente per vedere le sue quietanze..."
+              searchPlaceholder="Cerca cliente (nome, CF, P.IVA)..."
             />
-            <div className="space-y-1">
+
+            {clienteQuietanze && (
+              <div className="space-y-1.5">
+                {(quietanzeCliente as any[]).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    Nessuna quietanza da incassare per <strong>{clienteQuietanze.nome}</strong>.
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={toggleTutteQuietanze}
+                        className="text-[11px] text-primary hover:underline"
+                      >
+                        {tutteQuietanzeSel ? "Deseleziona tutte" : "Seleziona tutte"}
+                      </button>
+                      <span className="text-[11px] text-muted-foreground">
+                        {(quietanzeCliente as any[]).length} quietanze da incassare
+                      </span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {(quietanzeCliente as any[]).map((r) => (
+                        <label
+                          key={r.id}
+                          className="flex items-center gap-2 bg-background/70 rounded px-2 py-1.5 text-xs cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={!!quietanzeSel[r.id]}
+                            onCheckedChange={() => toggleQuietanzaSel(r.id)}
+                          />
+                          <span className="font-mono font-medium">{r.numero_titolo || r.id.slice(0, 8)}</span>
+                          <span className="text-muted-foreground truncate flex-1">
+                            {r.data_scadenza ? `scad. ${new Date(r.data_scadenza).toLocaleDateString("it-IT")}` : "—"}
+                          </span>
+                          <span className="font-mono">{fmtEuro(Number(r.premio_lordo) || 0)}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full"
+                      disabled={numQuietanzeSel === 0}
+                      onClick={addQuietanzeSelezionate}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      Aggiungi {numQuietanzeSel > 0 ? `${numQuietanzeSel} ` : ""}quietanze selezionate
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Ricerca rapida per numero titolo (opzionale) */}
+            <div className="pt-2 border-t space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                <Plus className="w-3 h-3" /> Oppure cerca per numero titolo
+              </Label>
+              <SearchableSelect
+                options={(titoliSearchResults as any[]).map((r) => ({
+                  value: r.id,
+                  label: r.numero_titolo || r.id.slice(0, 8),
+                  description: `${nomeCliente(r.clienti)} — ${fmtEuro(Number(r.premio_lordo) || 0)}`,
+                }))}
+                value=""
+                onValueChange={(id) => {
+                  const row = (titoliSearchResults as any[]).find((r) => r.id === id);
+                  if (row) addTitolo(row);
+                }}
+                onSearchChange={setTitoloSearch}
+                searchValue={titoloSearch}
+                serverSideSearch
+                placeholder="Cerca quietanza da aggiungere..."
+                searchPlaceholder="Cerca numero titolo..."
+              />
+            </div>
+
+            {/* Quietanze già in incasso */}
+            <div className="space-y-1 pt-1">
               {titoli.map((t) => (
                 <div key={t.id} className="flex items-center gap-2 bg-background/70 rounded px-2 py-1.5 text-xs">
                   <span className="font-mono font-medium">{t.numero_titolo || t.id.slice(0, 8)}</span>

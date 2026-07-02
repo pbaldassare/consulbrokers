@@ -274,6 +274,7 @@ export function TitoloImportiPremiBlock({
       accessori: accessori ? accessori.toFixed(2) : "",
       tasse: escludiProvvigioni ? "0" : (tasseCalc ? tasseCalc.toFixed(2) : ""),
       tasseRettifica: rettifica !== 0 ? rettifica.toFixed(2) : "",
+      tasseManualOverride: !escludiProvvigioni && rettifica !== 0,
       aliquotaTasse,
       sottoramoId: cat?.id || null,
       ssn: ssn ? ssn.toFixed(2) : "",

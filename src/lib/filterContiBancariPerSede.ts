@@ -9,9 +9,9 @@ export interface FilterContiBancariContext {
   ufficioId?: string | null;
 }
 
-/** Admin e CFO vedono tutti i conti attivi; gli altri solo quelli con la propria sede abilitata. */
+/** Tutti gli utenti interni (non cliente/prospect) vedono tutti i conti attivi. */
 export const bypassesSedeFilterContiBancari = (ruolo?: string | null): boolean =>
-  ruolo === "admin" || ruolo === "cfo";
+  !!ruolo && ruolo !== "cliente" && ruolo !== "prospect";
 
 export const contoBancarioVisibilePerSede = (
   conto: ContoBancarioConSedi,

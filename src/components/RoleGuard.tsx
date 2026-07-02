@@ -10,14 +10,12 @@ interface RoleGuardProps {
   permissionKey?: string;
 }
 
-const RoleGuard = ({ children, allowedRoles, permissionKey }: RoleGuardProps) => {
+const RoleGuard = ({ children, allowedRoles: _allowedRoles, permissionKey: _permissionKey }: RoleGuardProps) => {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
 
-  const isAllowed =
-    profile &&
-    allowedRoles.includes(profile.ruolo || "") &&
-    (!permissionKey || profile.ruolo === "admin" || (profile.permessi_json as Record<string, boolean>)?.[permissionKey]);
+  // Tutti gli utenti autenticati con un profilo hanno pieno accesso
+  const isAllowed = !!profile && profile.ruolo !== "cliente" && profile.ruolo !== "prospect";
 
   useEffect(() => {
     if (loading) return;

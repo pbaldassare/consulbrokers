@@ -552,14 +552,13 @@ const AnagraficheCompagniePage = () => {
 
   const renderUfficioSelect = () => {
     if (!isProduttore) return null;
-    const isAdminUser = profile?.ruolo === "admin";
     return (
       <div className="mb-4">
         <Label>Ufficio *</Label>
         <Select
           value={form.ufficio_id || (profile?.ufficio_id ?? "")}
           onValueChange={(v) => setForm({ ...form, ufficio_id: v })}
-          disabled={!isAdminUser}
+          disabled={false}
         >
           <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
           <SelectContent>

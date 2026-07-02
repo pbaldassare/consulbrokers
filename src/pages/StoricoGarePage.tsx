@@ -53,7 +53,7 @@ const STATI_MANDATO = [
 
 export default function StoricoGarePage() {
   const { profile } = useAuth();
-  const isAdmin = profile?.ruolo === "admin" || profile?.ruolo === "responsabile_sede";
+  const isAdmin = !!profile && profile.ruolo !== "cliente" && profile.ruolo !== "prospect";
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");

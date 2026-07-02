@@ -10,22 +10,6 @@ export function getDefaultRoute(
   if (profile.ruolo === "cliente") return "/cliente";
   if (profile.ruolo === "prospect") return "/prospect";
 
-  // Admin always goes to dashboard
-  if (profile.ruolo === "admin") return "/";
-
-  const perms = (profile.permessi_json && typeof profile.permessi_json === "object" && !Array.isArray(profile.permessi_json))
-    ? (profile.permessi_json as Record<string, boolean>)
-    : null;
-
-  // If user has dashboard permission or no permission map at all → dashboard
-  if (!perms || perms.dashboard) return "/";
-
-  // Otherwise redirect to the first allowed area
-  if (perms.titoli) return "/portafoglio/attive";
-  if (perms.contabilita) return "/contabilita";
-  if (perms.portafoglio) return "/portafoglio/documentale";
-  if (perms.anagrafiche) return "/archivi/anagrafiche";
-
-  // Fallback – show dashboard anyway
+  // Tutti gli altri ruoli vanno alla dashboard principale
   return "/";
 }

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Car, ShieldCheck, Plus, Trash2 } from "lucide-react";
+import { Car, ShieldCheck, Plus, Trash2, Lock, LockOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,8 @@ import {
   calcLordoGaranziaRow,
   calcTasseEffettiveRiga,
 } from "@/lib/calcProvvigioniGaranzia";
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Normalizza una stringa numerica inserita dall'utente al blur: "476,5" → "476.50". */
 function normalizeDecimalOnBlur(value: string, decimals = 2): string {
@@ -37,6 +39,13 @@ export interface GaranziaRow {
   tasse: string;
   /** Rettifica manuale tasse (€): si somma al calcolo auto, non influenza provvigioni. */
   tasseRettifica?: string;
+  /**
+   * True se l'utente ha attivato la modalità manuale delle tasse su questa riga:
+   * la formula automatica (imponibile × aliquota) è sospesa e Netto/Tasse si editano
+   * a mano. Lo stato non è persistito direttamente: al load viene dedotto da
+   * `tasseRettifica != 0`.
+   */
+  tasseManualOverride?: boolean;
   aliquotaTasse: number;
   /** Override manuale % provvigione su accessori (opzionale) */
   provvAccessoriPct?: number | null;
@@ -170,6 +179,8 @@ export function PremiGaranziaCardShell({
   // Draft locale per il campo Lordo: mentre l'utente digita teniamo la stringa
   // così com'è (es. "4", "47", "476,", "476,5"); il back-solve scatta solo onBlur.
   const [lordoDrafts, setLordoDrafts] = useState<Record<number, string>>({});
+  // Draft locale per il campo Tasse in modalità manuale (stesso pattern del Lordo).
+  const [tasseDrafts, setTasseDrafts] = useState<Record<number, string>>({});
 
   const [totFocus, setTotFocus] = useState(false);
   const [totDraft, setTotDraft] = useState("");
@@ -180,6 +191,7 @@ export function PremiGaranziaCardShell({
   const totNetto = rows.reduce((s, r) => s + parseDecimalItOr(r.netto), 0);
   const totAccessori = rows.reduce((s, r) => s + parseDecimalItOr(r.accessori), 0);
   const totTasse = rows.reduce((s, r) => s + calcTasseEffettiveRiga(r), 0);
+  const totRettifica = rows.reduce((s, r) => s + parseDecimalItOr(r.tasseRettifica), 0);
   const totSsn = rows.reduce((s, r) => s + parseDecimalItOr(r.ssn), 0);
   const lordo = totNetto + totAccessori + totTasse + totSsn;
   const hasSsnRows = rows.some((r) => r.ssnAttivo);
@@ -315,6 +327,25 @@ export function PremiGaranziaCardShell({
   const handleNettoChange = (idx: number, value: string) => {
     const r = rows[idx];
     if (r?.dirittiAgenzia) return;
+    if (r?.tasseManualOverride) {
+      // Modalità manuale: le tasse le decide l'utente. Manteniamo costante la
+      // tassa effettiva ricalcolando la rettifica sul nuovo importo auto.
+      const effOld = calcTasseEffettiveRiga(r);
+      const nettoNum = value === "" ? 0 : (parseDecimalIt(value) ?? 0);
+      const accessoriNum = parseDecimalItOr(r?.accessori);
+      const autoNew = calcTasseRiga(nettoNum, accessoriNum, r?.aliquotaTasse || 0);
+      const rettNew = round2(effOld - autoNew);
+      const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
+        ? calcSsn(nettoNum, autoNew, r?.aliquotaSsn || 0).toFixed(2)
+        : (r?.ssn || "");
+      updateRow(idx, {
+        netto: value,
+        tasse: autoNew ? autoNew.toFixed(2) : "",
+        tasseRettifica: rettNew !== 0 ? rettNew.toFixed(2) : "",
+        ssn: ssnNew,
+      });
+      return;
+    }
     if (value === "") {
       updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
@@ -335,6 +366,23 @@ export function PremiGaranziaCardShell({
   const handleAccessoriChange = (idx: number, value: string) => {
     const r = rows[idx];
     if (r?.dirittiAgenzia) return;
+    if (r?.tasseManualOverride) {
+      const effOld = calcTasseEffettiveRiga(r);
+      const accessoriNum = value === "" ? 0 : (parseDecimalIt(value) ?? 0);
+      const nettoNum = parseDecimalItOr(r?.netto);
+      const autoNew = calcTasseRiga(nettoNum, accessoriNum, r?.aliquotaTasse || 0);
+      const rettNew = round2(effOld - autoNew);
+      const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
+        ? calcSsn(nettoNum, autoNew, r?.aliquotaSsn || 0).toFixed(2)
+        : (r?.ssn || "");
+      updateRow(idx, {
+        accessori: value,
+        tasse: autoNew ? autoNew.toFixed(2) : "",
+        tasseRettifica: rettNew !== 0 ? rettNew.toFixed(2) : "",
+        ssn: ssnNew,
+      });
+      return;
+    }
     if (value === "") {
       const netto = parseDecimalItOr(r?.netto);
       const { tasseNew, ssnNew } = recalcTasseSsn(r, netto, 0);
@@ -360,7 +408,38 @@ export function PremiGaranziaCardShell({
       updateRow(idx, { tasse: value, netto: "", accessori: "", ssn: "" });
       return;
     }
+    if (r?.tasseManualOverride) {
+      // L'utente digita la tassa EFFETTIVA. La memorizziamo come rettifica sul
+      // valore auto (imponibile × aliquota), così le provvigioni restano intatte.
+      const auto = parseDecimalItOr(r?.tasse);
+      const eff = value === "" ? 0 : parseDecimalIt(value);
+      if (eff === null) return;
+      const rett = round2(eff - auto);
+      updateRow(idx, { tasseRettifica: rett !== 0 ? rett.toFixed(2) : "" });
+      return;
+    }
     // Standard: tasse auto — sola lettura in UI
+  };
+
+  const toggleTasseManual = (idx: number) => {
+    if (readOnly) return;
+    const r = rows[idx];
+    if (!r || r.dirittiAgenzia || r.escludiProvvigioni) return;
+    if (r.tasseManualOverride) {
+      // Torna al calcolo automatico: azzera la rettifica e ricalcola le tasse.
+      const netto = parseDecimalItOr(r.netto);
+      const accessori = parseDecimalItOr(r.accessori);
+      const autoTasse = calcTasseRiga(netto, accessori, r.aliquotaTasse || 0);
+      updateRow(idx, {
+        tasseManualOverride: false,
+        tasseRettifica: "",
+        tasse: (netto > 0 || accessori > 0) && (r.aliquotaTasse || 0) > 0
+          ? autoTasse.toFixed(2)
+          : (r.tasse || ""),
+      });
+    } else {
+      updateRow(idx, { tasseManualOverride: true });
+    }
   };
 
   const handleSsnChange = (idx: number, value: string) => {
@@ -462,11 +541,17 @@ export function PremiGaranziaCardShell({
                 const aliquotaFissa = r.dirittiAgenzia ? 0 : (r.aliquotaTasse || 0);
                 const lordoRow = calcLordoGaranziaRow(r);
                 const pctAcc = rowPctAccessori?.(r);
+                // Il toggle "tasse manuali" non si applica a diritti agenzia (già input) né alle voci esenti.
+                const manualEligible = !r.dirittiAgenzia && !r.escludiProvvigioni;
+                const isManual = manualEligible && !!r.tasseManualOverride;
                 const zebra = idx % 2 === 0
                   ? (isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/50 dark:bg-teal-950/15")
                   : "bg-card";
                 return (
-                  <TableRow key={r._localId ?? idx} className={cn(zebra)}>
+                  <TableRow
+                    key={r._localId ?? idx}
+                    className={cn(zebra, isManual && "border-l-2 border-l-orange-400")}
+                  >
                     <TableCell className="py-2">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-3">
@@ -507,6 +592,23 @@ export function PremiGaranziaCardShell({
                             )}
                           </div>
                         )}
+                        {isManual && (
+                          <div className="flex items-center gap-1.5 pl-7">
+                            <Badge variant="outline" className="text-[9px] border-orange-400 text-orange-700 dark:text-orange-300">
+                              Tasse manuali
+                            </Badge>
+                            {!readOnly && (
+                              <button
+                                type="button"
+                                onClick={() => toggleTasseManual(idx)}
+                                className="inline-flex items-center rounded-sm bg-muted hover:bg-muted/70 text-muted-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase gap-1"
+                                title="Ripristina il calcolo automatico delle tasse"
+                              >
+                                ↻ auto
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -535,7 +637,13 @@ export function PremiGaranziaCardShell({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="text-xs text-muted-foreground font-mono">
+                      <span
+                        className={cn(
+                          "text-xs font-mono",
+                          isManual ? "line-through text-muted-foreground/60" : "text-muted-foreground",
+                        )}
+                        title={isManual ? "Aliquota ignorata: tasse in modalità manuale" : undefined}
+                      >
                         {r.dirittiAgenzia ? "—" : aliquotaFissa.toFixed(2)}
                       </span>
                     </TableCell>
@@ -553,6 +661,26 @@ export function PremiGaranziaCardShell({
                           disabled={readOnly}
                           title="Importo diritti di agenzia (solo tasse)"
                           className="h-8 text-right font-mono ml-auto w-24"
+                        />
+                      ) : isManual ? (
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          pattern="[0-9.,\-]*"
+                          value={tasseDrafts[idx] ?? (taxEff ? taxEff.toFixed(2) : "")}
+                          onChange={(e) => setTasseDrafts((d) => ({ ...d, [idx]: e.target.value }))}
+                          onBlur={(e) => {
+                            const v = normalizeDecimalOnBlur(e.target.value);
+                            handleTasseChange(idx, v);
+                            setTasseDrafts((d) => {
+                              const n = { ...d };
+                              delete n[idx];
+                              return n;
+                            });
+                          }}
+                          disabled={readOnly}
+                          title="Tasse manuali: importo inserito a mano (non ricalcolato dall'aliquota)"
+                          className="h-8 text-right font-mono ml-auto w-24 border-orange-300 focus-visible:ring-orange-400"
                         />
                       ) : (
                         <span
@@ -595,8 +723,13 @@ export function PremiGaranziaCardShell({
                       </TableCell>
                     )}
                     <TableCell className="text-right">
-                      {r.dirittiAgenzia ? (
-                        <span className="text-sm font-mono font-semibold">{lordoRow ? lordoRow.toFixed(2) : "—"}</span>
+                      {r.dirittiAgenzia || isManual ? (
+                        <span
+                          className="text-sm font-mono font-semibold"
+                          title={isManual ? "Lordo = netto + accessori + tasse + SSN (derivato in modalità manuale)" : undefined}
+                        >
+                          {lordoRow ? lordoRow.toFixed(2) : "—"}
+                        </span>
                       ) : (
                       <Input
                         type="text"
@@ -623,16 +756,36 @@ export function PremiGaranziaCardShell({
 
                     <TableCell className="text-right">
                       {!readOnly && (
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeRow(idx)}
-                        aria-label="Rimuovi garanzia"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                        <div className="flex items-center justify-end gap-0.5">
+                          {manualEligible && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={cn(
+                                "h-7 w-7",
+                                isManual
+                                  ? "text-orange-600 hover:text-orange-700"
+                                  : "text-muted-foreground hover:text-foreground",
+                              )}
+                              onClick={() => toggleTasseManual(idx)}
+                              aria-label={isManual ? "Torna al calcolo automatico delle tasse" : "Modifica manuale delle tasse"}
+                              title={isManual ? "Tasse manuali attive — clicca per tornare all'automatico" : "Sblocca la modifica manuale delle tasse"}
+                            >
+                              {isManual ? <LockOpen className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeRow(idx)}
+                            aria-label="Rimuovi garanzia"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -663,6 +816,11 @@ export function PremiGaranziaCardShell({
           <div className="rounded-md border bg-card p-2">
             <Label className="text-[10px] uppercase text-muted-foreground">Totale Tasse</Label>
             <p className="text-sm font-mono font-semibold mt-0.5">{totTasse.toFixed(2)} €</p>
+            {Math.abs(totRettifica) > 0.001 && (
+              <p className="text-[9px] font-mono text-orange-600 dark:text-orange-400 mt-0.5">
+                di cui {totRettifica > 0 ? "+" : ""}{totRettifica.toFixed(2)} man.
+              </p>
+            )}
           </div>
           {hasSsnRows && (
             <div className="rounded-md border bg-card p-2">

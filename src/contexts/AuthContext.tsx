@@ -109,14 +109,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await supabase.auth.signOut();
   };
 
-  const hasPermission = (key: string): boolean => {
+  const hasPermission = (_key: string): boolean => {
     if (!profile) return false;
-    if (profile.ruolo === "admin") return true;
-    if (!profile.permessi_json) return false;
-    return profile.permessi_json[key] === true;
+    return true;
   };
 
-  const isAdmin = profile?.ruolo === "admin";
+  const isAdmin = !!profile;
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signOut, hasPermission, isAdmin }}>

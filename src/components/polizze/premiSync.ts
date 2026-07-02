@@ -45,7 +45,7 @@ export function rowsAreEmpty(rows: GaranziaRow[]): boolean {
 
 /** Clona una riga Firma in una riga Quietanza-specchio (non personalizzata). */
 function mirrorRow(firmaRow: GaranziaRow): GaranziaRow {
-  return { ...firmaRow, quietanzaPersonalizzata: false, tasseRettifica: "" };
+  return { ...firmaRow, quietanzaPersonalizzata: false, tasseRettifica: "", tasseManualOverride: false };
 }
 
 /**
