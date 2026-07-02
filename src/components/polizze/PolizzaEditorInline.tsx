@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Trash2, Lock } from "lucide-react";
+import { Loader2, Plus, Trash2, Lock, LockOpen } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -30,6 +30,8 @@ export type GaranziaEditorRow = {
   lordo_calcolato: number;
   is_rca_principale: boolean;
   ordine: number;
+  /** Quando true il Lordo è inserito a mano e non viene ricalcolato dai sotto-importi. */
+  lordoManualOverride?: boolean;
   _dirty?: boolean;
   _new?: boolean;
 };
@@ -98,18 +100,27 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
         setOriginalTitolo(t);
         setVeicolo(v);
         setOriginalVeicolo(v);
-        const rows: GaranziaEditorRow[] = (g || []).map((r: Record<string, unknown>) => ({
-          id: r.id as string,
-          garanzia: (r.garanzia as string) || "",
-          codice_garanzia: (r.codice_garanzia as string | null) ?? null,
-          firma: Number(r.firma || 0),
-          rata: Number(r.rata || 0),
-          imposta_provinciale: Number(r.imposta_provinciale || 0),
-          ssn: Number(r.ssn || 0),
-          lordo_calcolato: Number(r.lordo_calcolato || 0),
-          is_rca_principale: !!r.is_rca_principale,
-          ordine: Number(r.ordine || 0),
-        }));
+        const rows: GaranziaEditorRow[] = (g || []).map((r: Record<string, unknown>) => {
+          const parts = {
+            firma: Number(r.firma || 0),
+            rata: Number(r.rata || 0),
+            imposta_provinciale: Number(r.imposta_provinciale || 0),
+            ssn: Number(r.ssn || 0),
+          };
+          const lordo = Number(r.lordo_calcolato || 0);
+          return {
+            id: r.id as string,
+            garanzia: (r.garanzia as string) || "",
+            codice_garanzia: (r.codice_garanzia as string | null) ?? null,
+            ...parts,
+            lordo_calcolato: lordo,
+            // Se il lordo salvato non coincide con la somma dei sotto-importi la
+            // riga è in modalità manuale (Lordo forzato a mano).
+            lordoManualOverride: Math.abs(lordo - calcLordoGaranzia(parts)) > 0.005,
+            is_rca_principale: !!r.is_rca_principale,
+            ordine: Number(r.ordine || 0),
+          };
+        });
         setGaranzie(rows);
         setOriginalGaranzie(rows);
         setDeletedIds([]);
@@ -169,10 +180,34 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
         prev.map((g, i) => {
           if (i !== idx) return g;
           const merged = { ...g, ...patch, _dirty: true };
-          if (AUTO_LORDO_KEYS.some((k) => k in patch)) {
+          // Il Lordo si ricalcola dai sotto-importi solo se NON è in override manuale.
+          if (AUTO_LORDO_KEYS.some((k) => k in patch) && !merged.lordoManualOverride) {
             merged.lordo_calcolato = calcLordoGaranzia(merged);
           }
           return merged;
+        }),
+      );
+    };
+
+    // Lordo digitato a mano: attiva l'override e memorizza il valore così com'è.
+    const setLordoManuale = (idx: number, value: number) => {
+      setGaranzie((prev) =>
+        prev.map((g, i) => (i === idx ? { ...g, lordo_calcolato: value, lordoManualOverride: true, _dirty: true } : g)),
+      );
+    };
+
+    // Alterna Lordo automatico/manuale; tornando in automatico ricalcola dai sotto-importi.
+    const toggleLordoManuale = (idx: number) => {
+      setGaranzie((prev) =>
+        prev.map((g, i) => {
+          if (i !== idx) return g;
+          const next = !g.lordoManualOverride;
+          return {
+            ...g,
+            lordoManualOverride: next,
+            lordo_calcolato: next ? g.lordo_calcolato : calcLordoGaranzia(g),
+            _dirty: true,
+          };
         }),
       );
     };
@@ -555,12 +590,12 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
                 <thead className="text-muted-foreground">
                   <tr className="border-b">
                     <th className="text-left font-medium py-1 pr-2">Garanzia</th>
-                    <th className="text-right font-medium py-1 px-1">Firma</th>
+                    <th className="text-right font-medium py-1 px-1">Netto</th>
                     <th className="text-right font-medium py-1 px-1">Rata</th>
-                    <th className="text-right font-medium py-1 px-1">Imp.Prov.</th>
+                    <th className="text-right font-medium py-1 px-1">Tasse</th>
                     <th className="text-right font-medium py-1 px-1">SSN</th>
                     <th className="text-right font-medium py-1 px-1">Lordo</th>
-                    {!locked && <th className="w-8"></th>}
+                    {!locked && <th className="w-16"></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -592,22 +627,45 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
                           step="0.01"
                           value={g.lordo_calcolato}
                           disabled={locked}
-                          readOnly
-                          className={cn("h-7 text-xs text-right tabular-nums bg-muted/50", compact ? "w-[4.5rem]" : "w-24")}
+                          readOnly={!g.lordoManualOverride}
+                          onChange={(e) => setLordoManuale(idx, Number(e.target.value) || 0)}
+                          className={cn(
+                            "h-7 text-xs text-right tabular-nums",
+                            compact ? "w-[4.5rem]" : "w-24",
+                            g.lordoManualOverride
+                              ? "border-orange-400 focus-visible:ring-orange-400"
+                              : "bg-muted/50",
+                          )}
                         />
                       </td>
                       {!locked && (
                         <td className="py-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => removeGar(idx)}
-                            title="Rimuovi"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                          </Button>
+                          <div className="flex items-center gap-0.5">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => toggleLordoManuale(idx)}
+                              title={g.lordoManualOverride ? "Lordo manuale — clic per tornare automatico" : "Lordo automatico — clic per inserirlo a mano"}
+                            >
+                              {g.lordoManualOverride ? (
+                                <LockOpen className="w-3.5 h-3.5 text-orange-500" />
+                              ) : (
+                                <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                              )}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => removeGar(idx)}
+                              title="Rimuovi"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          </div>
                         </td>
                       )}
                     </tr>

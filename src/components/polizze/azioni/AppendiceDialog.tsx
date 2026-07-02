@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { Loader2, AlertCircle, Receipt, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { logAttivita } from "@/lib/logAttivita";
@@ -127,7 +126,6 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
   const [displayName, setDisplayName] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [quietanzaId, setQuietanzaId] = useState("");
-  const [activeTab, setActiveTab] = useState<"dati" | "premi">("dati");
   const [noteOpen, setNoteOpen] = useState(false);
   // Inizializzazione una-tantum alla transizione open false→true: evita che i
   // refetch di `existing`/`titoloInfo` azzerino il form mentre l'utente compila.
@@ -172,17 +170,24 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
   });
 
   const STATI_VALIDI = ["attivo", "incassato", "sospeso"];
+  // La lista delle rate non dipende più solo dalla risoluzione di `titoloId`:
+  // se `titoloInfo` non risolve (id derivato/stale) ricadiamo sul `numeroTitolo`
+  // ricevuto dal chiamante, così le quietanze restano sempre disponibili.
+  const numeroTitoloCatena = titoloInfo?.numero_titolo || numeroTitolo || null;
   const { data: catena } = useQuery({
-    queryKey: ["catena-quietanze", titoloInfo?.numero_titolo],
-    enabled: !!titoloInfo?.numero_titolo && open,
+    queryKey: ["catena-quietanze", numeroTitoloCatena],
+    enabled: !!numeroTitoloCatena && open,
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
         .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, premio_netto, tasse, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, stato, numero_titolo")
-        .eq("numero_titolo", titoloInfo!.numero_titolo!)
+        .eq("numero_titolo", numeroTitoloCatena!)
         .order("garanzia_da", { ascending: false });
       return (data || []).filter(
-        (t: { is_regolazione?: boolean; is_proroga?: boolean; is_appendice_modifica?: boolean; stato?: string }) =>
+        (t: { sostituisce_polizza?: string | null; is_regolazione?: boolean; is_proroga?: boolean; is_appendice_modifica?: boolean; stato?: string }) =>
+          // Solo quietanze (rate reali): la madre (sostituisce_polizza null) non è
+          // una rata su cui agganciare una regolazione.
+          t.sostituisce_polizza != null &&
           !t.is_regolazione && !t.is_proroga && !t.is_appendice_modifica && STATI_VALIDI.includes((t.stato || "").toLowerCase()),
       );
     },
@@ -190,16 +195,25 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
 
   const quietanzaOptions: SearchableSelectOption[] = useMemo(() => {
     const list = catena || [];
-    return list.map((t: { id: string; riga?: number; garanzia_da?: string; garanzia_a?: string; premio_lordo?: number; stato?: string }, i: number) => {
+    return list.map((t: { id: string; riga?: number; garanzia_da?: string; garanzia_a?: string; premio_lordo?: number; stato?: string; numero_titolo?: string }, i: number) => {
       const stato = (t.stato || "").toLowerCase();
       const statoBadge = stato ? ` · ${stato}` : "";
-      const label = `Rata ${list.length - i} · ${fmtDate(t.garanzia_da)} → ${fmtDate(t.garanzia_a)} · ${fmt(t.premio_lordo)}${statoBadge}`;
-      const searchText = [t.riga, fmtDate(t.garanzia_da), fmtDate(t.garanzia_a), stato, t.premio_lordo != null ? String(t.premio_lordo) : ""]
+      const numeroRata = t.riga != null ? t.riga : list.length - i;
+      const label = `Rata ${numeroRata} · ${fmtDate(t.garanzia_da)} → ${fmtDate(t.garanzia_a)} · ${fmt(t.premio_lordo)}${statoBadge}`;
+      const searchText = [
+        "rata",
+        numeroRata,
+        t.numero_titolo || numeroTitolo || "",
+        fmtDate(t.garanzia_da),
+        fmtDate(t.garanzia_a),
+        stato,
+        t.premio_lordo != null ? String(t.premio_lordo) : "",
+      ]
         .filter(Boolean)
         .join(" ");
       return { value: t.id, label, searchText };
     });
-  }, [catena]);
+  }, [catena, numeroTitolo]);
 
   useEffect(() => {
     if (!open || !titoloId) {
@@ -218,7 +232,6 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     if (!open) {
       setEditorReady(false);
       setEditorState(null);
-      setActiveTab("dati");
       setNoteOpen(false);
       initializedRef.current = false;
       autoQuietanzaDoneRef.current = false;
@@ -269,11 +282,15 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
   useEffect(() => {
     if (!open || tipo !== "regolazione") return;
     if (autoQuietanzaDoneRef.current || quietanzaId) return;
-    const list = (catena || []) as Array<{ id: string }>;
+    const list = (catena || []) as Array<{ id: string; stato?: string }>;
     if (list.length === 0) return;
+    // 1) se apri da una rata specifica presente in lista, usa quella;
+    // 2) altrimenti (apertura dalla madre / titolo derivato) scegli un default
+    //    sensato: la rata attiva, altrimenti la più recente (lista ordinata per
+    //    garanzia_da desc).
     const current = titoloId && list.some((t) => t.id === titoloId) ? titoloId : null;
-    const single = list.length === 1 ? list[0].id : null;
-    const pick = current || single;
+    const attiva = list.find((t) => (t.stato || "").toLowerCase() === "attivo");
+    const pick = current || attiva?.id || list[0]?.id || null;
     if (pick) {
       autoQuietanzaDoneRef.current = true;
       setQuietanzaId(pick);
@@ -372,18 +389,24 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
 
       const azione =
         tipo === "modifica" ? "appendice_modifica_creata" : tipo === "proroga" ? "proroga_creata" : "regolazione_creata";
-      await logAttivita({
-        azione,
-        entita_tipo: "titolo",
-        entita_id: titoloId,
-        dettagli_json: {
-          numero_appendice: numeroAppendice.trim(),
-          tipo,
-          oggetto: oggetto.trim() || null,
-          quietanza_id: tipo === "regolazione" ? quietanzaId : undefined,
-          titolo_derivato_id: res.titolo_id,
-        },
-      });
+      // Il log attività non deve mai far fallire (o sembrare fallito) il salvataggio
+      // dell'appendice, che a questo punto è già stato committato dalla RPC.
+      try {
+        await logAttivita({
+          azione,
+          entita_tipo: "titolo",
+          entita_id: titoloId,
+          dettagli_json: {
+            numero_appendice: numeroAppendice.trim(),
+            tipo,
+            oggetto: oggetto.trim() || null,
+            quietanza_id: tipo === "regolazione" ? quietanzaId : undefined,
+            titolo_derivato_id: res.titolo_id,
+          },
+        });
+      } catch (logErr) {
+        console.warn("[AppendiceDialog] logAttivita non riuscito (ignorato):", logErr);
+      }
 
       return { appendiceId: res.appendice_id, titoloDerivatoId: res.titolo_id };
     },
@@ -419,7 +442,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
   const editorBlock =
     tipo === "regolazione" && !quietanzaId ? (
       <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground text-center">
-        Seleziona la quietanza di riferimento nel tab Dati appendice.
+        Seleziona la quietanza di riferimento qui sopra per compilare i premi.
       </div>
     ) : editorTitoloId ? (
       <PolizzaSection
@@ -563,8 +586,6 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
           <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Annotazioni visibili solo in backoffice" />
         </CollapsibleContent>
       </Collapsible>
-
-      {aggregated && <PremiRiepilogo aggregated={aggregated} percProvv={percProvv} />}
     </div>
   );
 
@@ -575,18 +596,14 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
       size="lg"
       title={`Nuova appendice — Polizza ${numeroTitolo || ""}`}
       body={
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "dati" | "premi")} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="dati">Dati appendice</TabsTrigger>
-            <TabsTrigger value="premi">Composizione premi</TabsTrigger>
-          </TabsList>
-          <TabsContent value="dati" className="mt-0 focus-visible:outline-none">
-            {datiTab}
-          </TabsContent>
-          <TabsContent value="premi" className="mt-0 focus-visible:outline-none" forceMount>
-            <div className={cn(activeTab !== "premi" && "hidden")}>{editorBlock}</div>
-          </TabsContent>
-        </Tabs>
+        <div className="space-y-5">
+          {datiTab}
+          <div className="border-t pt-4">
+            <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">Composizione premi</div>
+            {editorBlock}
+          </div>
+          {aggregated && <PremiRiepilogo aggregated={aggregated} percProvv={percProvv} />}
+        </div>
       }
       footerStart={
         aggregated ? (
@@ -595,7 +612,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
             <strong className="text-foreground tabular-nums">{fmt(aggregated.premio_lordo)}</strong>
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground">Compila i premi nel secondo tab</span>
+          <span className="text-xs text-muted-foreground">Compila i premi qui sotto</span>
         )
       }
       footer={
