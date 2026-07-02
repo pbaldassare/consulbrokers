@@ -131,6 +131,12 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
   const [quietanzaId, setQuietanzaId] = useState("");
   const [activeTab, setActiveTab] = useState<"dati" | "premi">("dati");
   const [noteOpen, setNoteOpen] = useState(false);
+  // Inizializzazione una-tantum alla transizione open false→true: evita che i
+  // refetch di `existing`/`titoloInfo` azzerino il form mentre l'utente compila.
+  const initializedRef = useRef(false);
+  // Evita di ripetere la pre-selezione automatica della quietanza dopo che
+  // l'utente ha eventualmente scelto un'altra rata.
+  const autoQuietanzaDoneRef = useRef(false);
 
   const handleEditorStateChange = useCallback((state: PolizzaEditorState) => {
     setEditorState(state);
@@ -209,16 +215,33 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     })();
   }, [open, titoloId]);
 
+  // Reset dei ref di apertura alla chiusura del dialog.
   useEffect(() => {
     if (!open) {
       setEditorReady(false);
       setEditorState(null);
       setActiveTab("dati");
       setNoteOpen(false);
-      return;
+      initializedRef.current = false;
+      autoQuietanzaDoneRef.current = false;
     }
+  }, [open]);
+
+  // Numero appendice: sempre derivato (campo readonly), non lo tocca l'utente.
+  useEffect(() => {
+    if (!open) return;
     const max = (existing || []).reduce((acc, a: { numero_appendice?: string }) => Math.max(acc, parseInt(a.numero_appendice || "0") || 0), 0);
     setNumeroAppendice(String(max + 1));
+  }, [open, existing]);
+
+  // Inizializza il form una sola volta per apertura, quando i dati del titolo
+  // sono risolti. I refetch di `existing`/`titoloInfo` non ripristinano più i
+  // campi già compilati dall'utente.
+  useEffect(() => {
+    if (!open || initializedRef.current) return;
+    if (titoloId && titoloInfo === undefined) return; // attende la query
+    initializedRef.current = true;
+
     const t = (initialTipo as AppendiceTipo) || "modifica";
     setTipo(TIPI_APPENDICE.some((x) => x.value === t) ? t : "modifica");
     setOggetto("");
@@ -231,8 +254,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     const garDa = titoloInfo?.garanzia_da;
     const garA = titoloInfo?.garanzia_a || titoloInfo?.data_scadenza;
     setDataAppendice(garA || new Date().toISOString().slice(0, 10));
-    setDataEffetto(garDa || "");
-  }, [open, existing, titoloInfo, initialTipo]);
+    setDataEffetto(garDa || titoloInfo?.data_scadenza || "");
+  }, [open, titoloId, titoloInfo, initialTipo]);
 
   useEffect(() => {
     if (!open || tipo !== "proroga" || !titoloInfo?.garanzia_a) return;
@@ -242,15 +265,40 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     setDataAppendice("");
   }, [open, tipo, titoloInfo?.garanzia_a]);
 
+  // Pre-selezione automatica della quietanza di riferimento: se apri la
+  // regolazione da una rata specifica (o ne esiste una sola), la seleziona da
+  // sola invece di richiederla.
+  useEffect(() => {
+    if (!open || tipo !== "regolazione") return;
+    if (autoQuietanzaDoneRef.current || quietanzaId) return;
+    const list = (catena || []) as Array<{ id: string }>;
+    if (list.length === 0) return;
+    const current = titoloId && list.some((t) => t.id === titoloId) ? titoloId : null;
+    const single = list.length === 1 ? list[0].id : null;
+    const pick = current || single;
+    if (pick) {
+      autoQuietanzaDoneRef.current = true;
+      setQuietanzaId(pick);
+    }
+  }, [open, tipo, catena, titoloId, quietanzaId]);
+
+  // Date derivate dalla quietanza selezionata (idempotente sui refetch di catena).
   useEffect(() => {
     if (tipo !== "regolazione" || !quietanzaId || !catena) return;
-    const q = catena.find((t: { id: string }) => t.id === quietanzaId);
+    const q = (catena as Array<{ id: string; garanzia_da?: string; garanzia_a?: string; data_scadenza?: string }>).find((t) => t.id === quietanzaId);
     if (!q) return;
     setDataEffetto(q.garanzia_da || "");
-    setDataAppendice(q.garanzia_a || "");
+    setDataAppendice(q.garanzia_a || q.data_scadenza || "");
+  }, [quietanzaId, catena, tipo]);
+
+  // Reset dell'editor SOLO quando cambia davvero la rata di riferimento: evita
+  // che un refetch di `catena` lasci `editorReady=false` senza rimontare
+  // l'editor (che ha key = editorTitoloId), bloccando il pulsante di salvataggio.
+  useEffect(() => {
+    if (tipo !== "regolazione") return;
     setEditorReady(false);
     setEditorState(null);
-  }, [quietanzaId, catena, tipo]);
+  }, [quietanzaId, tipo]);
 
   const percProvv = titoloInfo?.percentuale_provvigione_calc ?? null;
   const aggregated = useMemo(
