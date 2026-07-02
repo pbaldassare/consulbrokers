@@ -1835,6 +1835,19 @@ const TitoloDetail = () => {
                 <FileText className="w-4 h-4 mr-1" /> Precontrattuale
               </Button>
             )}
+            {isAdmin && !isMadreConRate && (t.stato === "incassato" || !!t.data_messa_cassa || (!!t.conferimento_gestito && !!t.data_copertura)) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                onClick={() => { setAnnullaPassword(""); setAnnullaDialogOpen(true); }}
+                disabled={changeStatoMutation.isPending}
+                title="Riporta la quietanza a 'da incassare' ed elimina provvigioni/movimenti collegati"
+              >
+                <XCircle className="w-4 h-4 mr-1" />
+                {t.stato === "incassato" ? "Annulla incasso" : t.data_messa_cassa ? "Annulla messa a cassa" : "Annulla copertura garantita"}
+              </Button>
+            )}
             {!isQuietanzaCorrente && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -2134,11 +2147,6 @@ const TitoloDetail = () => {
                       <Shield className="w-4 h-4 mr-1" /> Garantito
                     </Button>
                   )}
-                  {(t.stato === "incassato" || t.data_messa_cassa) && isAdmin && (
-                    <Button variant="outline" size="sm" className="text-orange-600 border-orange-400 hover:bg-orange-50" onClick={() => { setAnnullaPassword(""); setAnnullaDialogOpen(true); }} disabled={changeStatoMutation.isPending}>
-                      <XCircle className="w-4 h-4 mr-1" /> {t.stato === "incassato" ? "Annulla incasso" : "Annulla messa a cassa"}
-                    </Button>
-                  )}
                 </div>
               </div>
             )}
@@ -2228,10 +2236,19 @@ const TitoloDetail = () => {
             <DialogDescription>Verifica la tua identità per procedere. La polizza madre non verrà modificata.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-2">
               <p className="text-sm font-medium text-destructive">
-                ⚠️ Operazione riservata agli amministratori. Inserisci la tua password per confermare l'annullamento dell'incasso.
+                ⚠️ Operazione riservata agli amministratori. Verranno rimossi/riportati indietro in transazione:
               </p>
+              <ul className="text-xs text-destructive/90 list-disc pl-4 space-y-0.5">
+                <li>Provvigioni generate e relative righe di pagamento (blocco se già liquidate)</li>
+                <li>Movimenti contabili collegati (compensazioni, utilizzi acconto)</li>
+                <li>Righe rimessa in bozza (blocco se rimessa in pagamento/pagata)</li>
+                <li>Acconti cliente utilizzati (residuo ripristinato)</li>
+                <li>Eventuale rata successiva auto-generata non incassata</li>
+                <li>La quietanza torna a <strong>«da incassare»</strong> e sparisce dagli estratti conto incassati</li>
+              </ul>
+              <p className="text-xs text-muted-foreground">La polizza madre non viene toccata.</p>
             </div>
             <div>
               <Label className="text-xs">Password</Label>

@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -19,6 +21,8 @@ import { format } from "date-fns";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { annullaPolizza } from "@/lib/annullaPolizza";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizzaDialog";
 import { RiattivazionePolizzaDialog } from "@/components/polizze/RiattivazionePolizzaDialog";
 import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
@@ -79,6 +83,7 @@ export function AzioniPolizzaToolbar({
   onRefresh,
 }: Props) {
   const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   const locked = ["annullata", "estinta", "sostituita"].includes(statoPolizza);
 
   // polizza-level dialogs
@@ -94,6 +99,14 @@ export function AzioniPolizzaToolbar({
   const [cassaOpen, setCassaOpen] = useState(false);
   const [cassaTitoli, setCassaTitoli] = useState<any[]>([]);
   const [annullaMcLoading, setAnnullaMcLoading] = useState(false);
+
+  // Conferma annullo incasso/messa a cassa con verifica password admin (unico flusso)
+  const [annullaState, setAnnullaState] = useState<{ open: boolean; titoloId: string | null; mode: "mc" | "incasso" }>({
+    open: false,
+    titoloId: null,
+    mode: "mc",
+  });
+  const [annullaPassword, setAnnullaPassword] = useState("");
 
   // selector dialog
   const [selectorOpen, setSelectorOpen] = useState(false);
@@ -115,30 +128,41 @@ export function AzioniPolizzaToolbar({
     onRefresh();
   }
 
-  async function runAnnullaMc(titoloId: string) {
-    setAnnullaMcLoading(true);
-    const res = await annullaMessaACassa(titoloId);
-    setAnnullaMcLoading(false);
-    if (!res.ok) {
-      toast.error(res.error || "Errore annullamento messa a cassa");
-      return;
-    }
-    const extra = res.rataSuccessivaEliminata ? " · rata successiva rimossa" : "";
-    toast.success(`Messa a cassa annullata · ${res.provvigioniEliminate ?? 0} provvigioni rimosse${extra}`);
-    onRefresh();
+  function openAnnullaConfirm(titoloId: string, mode: "mc" | "incasso") {
+    setAnnullaPassword("");
+    setAnnullaState({ open: true, titoloId, mode });
   }
 
-  async function runAnnullaIncasso(titoloId: string) {
+  async function confirmAnnulla() {
+    if (!annullaState.titoloId) return;
     setAnnullaMcLoading(true);
-    const res = await annullaMessaACassa(titoloId);
-    setAnnullaMcLoading(false);
-    if (!res.ok) {
-      toast.error(res.error || "Errore annullamento incasso");
-      return;
+    try {
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email: user?.email || "",
+        password: annullaPassword,
+      });
+      if (authErr) {
+        toast.error("Password non corretta");
+        return;
+      }
+      const res = await annullaMessaACassa(annullaState.titoloId);
+      if (!res.ok) {
+        toast.error(res.error || "Errore annullamento");
+        return;
+      }
+      const extra = res.rataSuccessivaEliminata ? " · rata successiva rimossa" : "";
+      toast.success(
+        annullaState.mode === "incasso"
+          ? `Incasso annullato · ${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov.${extra}`
+          : `Messa a cassa annullata · ${res.provvigioniEliminate ?? 0} provvigioni rimosse${extra}`,
+      );
+      setAnnullaState({ open: false, titoloId: null, mode: "mc" });
+      onRefresh();
+    } catch {
+      toast.error("Errore di verifica");
+    } finally {
+      setAnnullaMcLoading(false);
     }
-    const extra = res.rataSuccessivaEliminata ? " · rata successiva rimossa" : "";
-    toast.success(`Incasso annullato · ${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov.${extra}`);
-    onRefresh();
   }
 
   function startRataAction(action: RataAction) {
@@ -168,9 +192,9 @@ export function AzioniPolizzaToolbar({
       }]);
       setCassaOpen(true);
     } else if (action === "annulla_mc") {
-      runAnnullaMc(q.titolo_id);
+      openAnnullaConfirm(q.titolo_id, "mc");
     } else if (action === "annulla_incasso") {
-      runAnnullaIncasso(q.titolo_id);
+      openAnnullaConfirm(q.titolo_id, "incasso");
     }
   }
 
@@ -209,71 +233,31 @@ export function AzioniPolizzaToolbar({
           >
             <Banknote className="h-4 w-4 mr-1" /> Messa a cassa
           </Button>
-          {onQuietanza && qIncassata ? (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-orange-600 border-orange-400 hover:bg-orange-50"
-                  disabled={!titoloMadreId || annullaMcLoading}
-                >
-                  <RotateCcw className="h-4 w-4 mr-1" /> Annulla incasso
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Annullare l&apos;incasso?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Verranno eliminate provvigioni non pagate, movimenti contabili, rimesse in bozza
-                    e l&apos;eventuale rata successiva auto-generata. La polizza madre non viene toccata.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Annulla</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => currentQuietanza?.titolo_id && runAnnullaIncasso(currentQuietanza.titolo_id)}>
-                    {annullaMcLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Conferma"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          ) : onQuietanza ? (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!titoloMadreId || !qIsMC || qIncassata || annullaMcLoading}
-                  title={!qIsMC ? "Non messa a cassa" : undefined}
-                >
-                  <RotateCcw className="h-4 w-4 mr-1" /> Annulla messa a cassa
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Annullare la messa a cassa?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Verranno eliminate provvigioni non pagate e movimenti contabili collegati.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Annulla</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => currentQuietanza?.titolo_id && runAnnullaMc(currentQuietanza.titolo_id)}>
-                    {annullaMcLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Conferma"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          ) : (
+          {isAdmin && onQuietanza && (qIncassata || qIsMC) ? (
             <Button
               size="sm"
               variant="outline"
+              className="text-destructive border-destructive/50 hover:bg-destructive/10"
+              disabled={!titoloMadreId || qLocked || annullaMcLoading}
+              onClick={() => currentQuietanza?.titolo_id && openAnnullaConfirm(currentQuietanza.titolo_id, qIncassata ? "incasso" : "mc")}
+            >
+              <RotateCcw className="h-4 w-4 mr-1" /> {qIncassata ? "Annulla incasso" : "Annulla messa a cassa"}
+            </Button>
+          ) : onQuietanza ? (
+            <Button size="sm" variant="outline" disabled title={!qIsMC ? "Non messa a cassa" : undefined}>
+              <RotateCcw className="h-4 w-4 mr-1" /> Annulla messa a cassa
+            </Button>
+          ) : isAdmin ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive border-destructive/50 hover:bg-destructive/10"
               onClick={() => startRataAction("annulla_mc")}
               disabled={!titoloMadreId || locked}
             >
               <RotateCcw className="h-4 w-4 mr-1" /> Annulla messa a cassa
             </Button>
-          )}
+          ) : null}
           <Button
             size="sm"
             variant="outline"
@@ -415,6 +399,56 @@ export function AzioniPolizzaToolbar({
           onSuccess={onRefresh}
         />
       )}
+
+      {/* Conferma annullo incasso/messa a cassa con verifica password admin */}
+      <Dialog
+        open={annullaState.open}
+        onOpenChange={(o) => { if (!o) setAnnullaState({ open: false, titoloId: null, mode: "mc" }); }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {annullaState.mode === "incasso" ? "Conferma annullamento incasso" : "Conferma annullamento messa a cassa"}
+            </DialogTitle>
+            <DialogDescription>Verifica la tua identità per procedere. La polizza madre non verrà modificata.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-2">
+              <p className="text-sm font-medium text-destructive">
+                ⚠️ Operazione riservata agli amministratori. Verranno rimossi/riportati indietro in transazione:
+              </p>
+              <ul className="text-xs text-destructive/90 list-disc pl-4 space-y-0.5">
+                <li>Provvigioni generate e righe di pagamento (blocco se già liquidate)</li>
+                <li>Movimenti contabili collegati (compensazioni, utilizzi acconto)</li>
+                <li>Righe rimessa in bozza (blocco se rimessa in pagamento/pagata)</li>
+                <li>Acconti cliente utilizzati (residuo ripristinato)</li>
+                <li>Eventuale rata successiva auto-generata non incassata</li>
+                <li>La quietanza torna a <strong>«da incassare»</strong> e sparisce dagli estratti conto incassati</li>
+              </ul>
+            </div>
+            <div>
+              <Label className="text-xs">Password</Label>
+              <Input
+                type="password"
+                value={annullaPassword}
+                onChange={(e) => setAnnullaPassword(e.target.value)}
+                placeholder="Inserisci la tua password"
+                className="mt-1"
+                onKeyDown={(e) => { if (e.key === "Enter" && annullaPassword && !annullaMcLoading) confirmAnnulla(); }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAnnullaState({ open: false, titoloId: null, mode: "mc" })} disabled={annullaMcLoading}>
+              Annulla
+            </Button>
+            <Button variant="destructive" disabled={!annullaPassword || annullaMcLoading} onClick={confirmAnnulla}>
+              {annullaMcLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Conferma Annullamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
