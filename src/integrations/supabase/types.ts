@@ -615,6 +615,7 @@ export type Database = {
       }
       appendici_polizza: {
         Row: {
+          addizionali: number | null
           allegati: Json
           created_at: string | null
           created_by: string | null
@@ -632,6 +633,7 @@ export type Database = {
           premio_netto: number | null
           provvigioni: number | null
           quietanza_id: string | null
+          ssn: number | null
           tasse: number | null
           testo: string | null
           tipo: string | null
@@ -641,6 +643,7 @@ export type Database = {
           titolo_regolazione_id: string | null
         }
         Insert: {
+          addizionali?: number | null
           allegati?: Json
           created_at?: string | null
           created_by?: string | null
@@ -658,6 +661,7 @@ export type Database = {
           premio_netto?: number | null
           provvigioni?: number | null
           quietanza_id?: string | null
+          ssn?: number | null
           tasse?: number | null
           testo?: string | null
           tipo?: string | null
@@ -667,6 +671,7 @@ export type Database = {
           titolo_regolazione_id?: string | null
         }
         Update: {
+          addizionali?: number | null
           allegati?: Json
           created_at?: string | null
           created_by?: string | null
@@ -684,6 +689,7 @@ export type Database = {
           premio_netto?: number | null
           provvigioni?: number | null
           quietanza_id?: string | null
+          ssn?: number | null
           tasse?: number | null
           testo?: string | null
           tipo?: string | null
@@ -3716,6 +3722,81 @@ export type Database = {
           },
         ]
       }
+      giroconti_cliente: {
+        Row: {
+          anticipo_id: string | null
+          cliente_beneficiario_id: string
+          cliente_pagatore_id: string
+          created_at: string
+          created_by: string | null
+          data: string
+          id: string
+          importo: number
+          note: string | null
+          titolo_id: string
+        }
+        Insert: {
+          anticipo_id?: string | null
+          cliente_beneficiario_id: string
+          cliente_pagatore_id: string
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          id?: string
+          importo: number
+          note?: string | null
+          titolo_id: string
+        }
+        Update: {
+          anticipo_id?: string | null
+          cliente_beneficiario_id?: string
+          cliente_pagatore_id?: string
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          id?: string
+          importo?: number
+          note?: string | null
+          titolo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "giroconti_cliente_anticipo_id_fkey"
+            columns: ["anticipo_id"]
+            isOneToOne: false
+            referencedRelation: "cliente_anticipi"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "giroconti_cliente_cliente_beneficiario_id_fkey"
+            columns: ["cliente_beneficiario_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "giroconti_cliente_cliente_pagatore_id_fkey"
+            columns: ["cliente_pagatore_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "giroconti_cliente_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "giroconti_cliente_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gruppi_compagnia: {
         Row: {
           attivo: boolean
@@ -6017,6 +6098,7 @@ export type Database = {
           quietanza_personalizzata: boolean
           rata: number | null
           ssn: number | null
+          tasse_rettifica: number
           tasso: number | null
           tipo_premio: string
           titolo_id: string
@@ -6043,6 +6125,7 @@ export type Database = {
           quietanza_personalizzata?: boolean
           rata?: number | null
           ssn?: number | null
+          tasse_rettifica?: number
           tasso?: number | null
           tipo_premio?: string
           titolo_id: string
@@ -6069,6 +6152,7 @@ export type Database = {
           quietanza_personalizzata?: boolean
           rata?: number | null
           ssn?: number | null
+          tasse_rettifica?: number
           tasso?: number | null
           tipo_premio?: string
           titolo_id?: string
@@ -11144,6 +11228,31 @@ export type Database = {
           count: number
         }[]
       }
+      crea_appendice_incasso: {
+        Args: {
+          p_addizionali: number
+          p_allegati: Json
+          p_created_by: string
+          p_data_effetto: string
+          p_data_scadenza: string
+          p_file_path: string
+          p_garanzie: Json
+          p_nome_file: string
+          p_note: string
+          p_numero_appendice: string
+          p_oggetto: string
+          p_percentuale_provvigione: number
+          p_premio_lordo: number
+          p_premio_netto: number
+          p_provvigioni: number
+          p_quietanza_id: string
+          p_ssn: number
+          p_tasse: number
+          p_tipo: string
+          p_titolo_id: string
+        }
+        Returns: Json
+      }
       crea_titolo_da_modifica: {
         Args: { p_appendice_id: string }
         Returns: string
@@ -11264,6 +11373,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_authenticated: { Args: never; Returns: boolean }
       is_channel_member: {
         Args: { _canale_id: string; _user_id: string }
         Returns: boolean
