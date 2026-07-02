@@ -59,13 +59,30 @@ export function exportECClienteXlsx(d: ECClienteData, fileName: string, opts: Ex
       ]);
     }
   }
+  // Giroconti inter-cliente (dare = aumenta dovuto, avere = riduce dovuto)
+  const giroconti = d.giroconti || [];
+  for (const g of giroconti) {
+    const impEff = g.verso === "dare" ? g.importo : -g.importo;
+    aoa.push([
+      "Giroconto", "", g.descrizione, "", g.data,
+      "", "", Number(impEff.toFixed(2)),
+      g.verso === "dare" ? "DARE" : "AVERE",
+      "Partita inter-cliente",
+    ]);
+  }
   // Totali
   const totPremi = d.righe.reduce((s, r) => s + r.premio, 0);
   const totComp = d.righe.reduce((s, r) => {
     const comp = r.compensazioni || [];
     return s + comp.reduce((a, c) => a + (c.segno === "+" ? -c.importo : c.importo), 0);
   }, 0);
+  const totGiroconti = giroconti.reduce((s, g) => s + (g.verso === "dare" ? g.importo : -g.importo), 0);
   aoa.push([]);
+  if (totGiroconti) {
+    aoa.push(["", "", "", "", "Giroconti inter-cliente",
+      "", "", Number(totGiroconti.toFixed(2)), "", "",
+    ]);
+  }
   aoa.push(["", "", "", "", "TOTALE",
     Number(totPremi.toFixed(2)),
     totComp ? Number(totComp.toFixed(2)) : "",

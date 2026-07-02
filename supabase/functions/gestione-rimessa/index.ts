@@ -132,7 +132,10 @@ Deno.serve(async (req) => {
         .from("titoli")
         .select("id, importo_incassato, premio_lordo")
         .eq("stato", "incassato")
-        .eq("compagnia_id", compagnia_id);
+        .eq("compagnia_id", compagnia_id)
+        // Pagamento diretto compagnia: il premio è già stato pagato dal cliente
+        // alla compagnia → nessun premio da rimettere (resta solo la provvigione).
+        .not("pag_diretto_compagnia", "is", true);
       if (titoli_ids && Array.isArray(titoli_ids) && titoli_ids.length > 0) {
         titoliQ = titoliQ.in("id", titoli_ids);
       } else {
@@ -488,7 +491,9 @@ Deno.serve(async (req) => {
         .from("titoli")
         .select("id, importo_incassato, premio_lordo")
         .eq("stato", "incassato")
-        .eq("compagnia_id", compagnia_id);
+        .eq("compagnia_id", compagnia_id)
+        // Pagamento diretto compagnia: nessun premio da rimettere.
+        .not("pag_diretto_compagnia", "is", true);
       if (titoli_ids && Array.isArray(titoli_ids) && titoli_ids.length > 0) {
         q = q.in("id", titoli_ids);
       } else {

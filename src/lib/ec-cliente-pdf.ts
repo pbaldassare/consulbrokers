@@ -18,6 +18,20 @@ export interface ECClienteRow {
   compensazioni?: ECCompensazioneRow[]; // opzionali, mostrate come sub-rows
 }
 
+/**
+ * Partita di giroconto inter-cliente.
+ * - verso 'dare'  → cliente beneficiario: la sua quietanza è stata saldata con
+ *   acconti di un altro cliente → importo a DARE (aumenta il dovuto).
+ * - verso 'avere' → cliente pagatore: ha usato i propri acconti per saldare
+ *   quietanze altrui → importo ad AVERE (riduce il dovuto).
+ */
+export interface ECGirocontoRow {
+  data: string;          // dd/MM/yyyy
+  descrizione: string;
+  verso: "dare" | "avere";
+  importo: number;       // sempre positivo
+}
+
 export interface ECClienteData {
   // Mittente / sede
   sedeNome: string;
@@ -40,6 +54,7 @@ export interface ECClienteData {
   introTesto: string;
   // Tabella
   righe: ECClienteRow[];
+  giroconti?: ECGirocontoRow[]; // partite inter-cliente (dare/avere)
   totale: number;
   // Pagamento
   intestatarioConto: string;
@@ -259,6 +274,46 @@ function drawTabella(ctx: Ctx, d: ECClienteData) {
       }
     }
 
+    alt = !alt;
+  }
+
+  // Giroconti inter-cliente (partite dare/avere)
+  for (const g of d.giroconti || []) {
+    const isDare = g.verso === "dare";
+    const importoStr = `${isDare ? "" : "− "}${fmtEur(g.importo)}`;
+    const cells = [
+      "Giroconto",
+      g.data,
+      g.descrizione,
+      "",
+      isDare ? "DARE" : "AVERE",
+      importoStr,
+    ];
+    let maxH = 0;
+    cols.forEach((col, i) => {
+      const lines = wrap(cells[i] || "", ctx.font, 9, col.w - 6);
+      maxH = Math.max(maxH, lines.length * 10 + 6);
+    });
+    ensure(ctx, maxH + 2);
+    const yT = ctx.y;
+    if (alt) ctx.page.drawRectangle({ x: MARGIN.left, y: yT - maxH, width: CONTENT_W, height: maxH, color: COLOR.rowAlt });
+    let cx3 = MARGIN.left;
+    cols.forEach((col, i) => {
+      const f = col.key === "premio" ? ctx.bold : ctx.italic;
+      const color = col.key === "premio" ? (isDare ? rgb(0.65, 0.1, 0.1) : rgb(0.0, 0.45, 0.15)) : COLOR.muted;
+      const lines = wrap(cells[i] || "", f, 9, col.w - 6);
+      let ly = yT - 3;
+      for (const ln of lines) {
+        let tx = cx3 + 3;
+        if (col.align === "right") tx = cx3 + col.w - f.widthOfTextAtSize(ln, 9) - 4;
+        else if (col.align === "center") tx = cx3 + (col.w - f.widthOfTextAtSize(ln, 9)) / 2;
+        ctx.page.drawText(ln, { x: tx, y: ly - 9, size: 9, font: f, color });
+        ly -= 10;
+      }
+      cx3 += col.w;
+    });
+    ctx.page.drawLine({ start: { x: MARGIN.left, y: yT - maxH }, end: { x: MARGIN.left + CONTENT_W, y: yT - maxH }, thickness: 0.2, color: COLOR.line });
+    ctx.y = yT - maxH;
     alt = !alt;
   }
 

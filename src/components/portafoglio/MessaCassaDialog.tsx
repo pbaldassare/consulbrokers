@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { CheckSquare, Wallet, Trash2, Calculator, Printer, FileText } from "lucide-react";
+import { CheckSquare, Wallet, Trash2, Calculator, Printer, FileText, Plus, Users, ArrowLeftRight } from "lucide-react";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
@@ -135,9 +136,12 @@ interface MovimentoPreview {
   titolo?: string;
 }
 
-export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIncasso }: Props) => {
+export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuccess, bankIncasso }: Props) => {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
+  // Lista titoli mutabile: parte dalla selezione iniziale, ma è possibile
+  // aggiungere/rimuovere altre quietanze da incassare (anche di altri clienti).
+  const [titoli, setTitoli] = useState<TitoloMin[]>(titoliProp);
   const [form, setForm] = useState({
     dataMessaCassa: todayISO(),
     dataPagamento: todayISO(),
@@ -150,6 +154,13 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIn
   const [compensazioniByTitolo, setCompensazioniByTitolo] = useState<Record<string, CompensazioneRow[]>>({});
   // Ultima riga compensazione aggiunta (per auto-focus sull'importo)
   const [lastAddedCompId, setLastAddedCompId] = useState<string | null>(null);
+  // Date specifiche per titolo (override rispetto alle date globali)
+  const [datesByTitolo, setDatesByTitolo] = useState<Record<string, { mc: string; pag: string }>>({});
+  // Cliente "pagatore" i cui acconti vengono erosi (può differire dai clienti dei titoli)
+  const [pagatoreId, setPagatoreId] = useState<string | null>(null);
+  const [pagatoreSearch, setPagatoreSearch] = useState("");
+  // Ricerca per aggiungere altre quietanze da incassare
+  const [titoloSearch, setTitoloSearch] = useState("");
 
   const isMulti = titoli.length > 1;
   const totaleLordo = titoli.reduce((s, t) => s + (Number(t.premio_lordo) || 0), 0);
@@ -159,17 +170,68 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIn
     return ids.length === 1 ? (ids[0] as string) : null;
   }, [titoli]);
 
+  // Cliente pagatore effettivo: selezione esplicita oppure, se unico, il cliente dei titoli
+  const effettivoPagatoreId = pagatoreId || clienteUnico;
+
+  const nomeCliente = (c: any) =>
+    c?.ragione_sociale || `${c?.cognome || ""} ${c?.nome || ""}`.trim() || "n/d";
+
   const { data: anticipi = [] } = useQuery({
-    queryKey: ["cliente-anticipi-disponibili", clienteUnico],
-    enabled: !!clienteUnico && open,
+    queryKey: ["cliente-anticipi-disponibili", effettivoPagatoreId],
+    enabled: !!effettivoPagatoreId && open,
     queryFn: async () => {
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
         .select("id, data_anticipo, importo, importo_residuo, conto:conti_bancari(etichetta)")
-        .eq("cliente_id", clienteUnico)
+        .eq("cliente_id", effettivoPagatoreId)
         .gt("importo_residuo", 0)
         .order("data_anticipo", { ascending: true });
       if (error) throw error;
       return data as any[];
+    },
+  });
+
+  // Nome del cliente pagatore (per etichette/giroconto)
+  const { data: pagatoreCliente } = useQuery({
+    queryKey: ["messa-cassa-pagatore", effettivoPagatoreId],
+    enabled: !!effettivoPagatoreId && open,
+    queryFn: async () => {
+      const { data } = await (supabase.from("clienti") as any)
+        .select("id, ragione_sociale, cognome, nome")
+        .eq("id", effettivoPagatoreId)
+        .maybeSingle();
+      return data as any;
+    },
+  });
+
+  // Ricerca clienti per selezione pagatore
+  const { data: pagatoreOptions = [] } = useQuery({
+    queryKey: ["messa-cassa-clienti-search", pagatoreSearch],
+    enabled: open && pagatoreSearch.trim().length >= 2,
+    queryFn: async () => {
+      const q = pagatoreSearch.trim();
+      const { data } = await (supabase.from("clienti") as any)
+        .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva")
+        .or(`ragione_sociale.ilike.%${q}%,cognome.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
+        .eq("attivo", true)
+        .limit(20);
+      return (data as any[]) || [];
+    },
+  });
+
+  // Ricerca altre quietanze da incassare (aggiungibili alla messa a cassa)
+  const { data: titoliSearchResults = [] } = useQuery({
+    queryKey: ["messa-cassa-titoli-search", titoloSearch, titoli.map((t) => t.id).join(",")],
+    enabled: open && titoloSearch.trim().length >= 2,
+    queryFn: async () => {
+      const q = titoloSearch.trim();
+      const { data } = await (supabase.from("titoli") as any)
+        .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)")
+        .ilike("numero_titolo", `%${q}%`)
+        .is("data_messa_cassa", null)
+        .in("stato", ["attivo", "sospeso"])
+        .limit(20);
+      const already = new Set(titoli.map((t) => t.id));
+      return ((data as any[]) || []).filter((r) => !already.has(r.id));
     },
   });
 
@@ -256,10 +318,14 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIn
 
   useEffect(() => {
     if (open) {
+      const seed = titoliProp;
       const t = bankIncasso?.dataMovimento || todayISO();
+      const totLordoSeed = seed.reduce((s, x) => s + (Number(x.premio_lordo) || 0), 0);
       const bankCash = bankIncasso
         ? round2(Object.values(bankIncasso.importoByTitoloId).reduce((s, v) => s + (Number(v) || 0), 0))
-        : round2(totaleLordo);
+        : round2(totLordoSeed);
+      const cliIds = Array.from(new Set(seed.map((x) => x.cliente_anagrafica_id).filter(Boolean)));
+      setTitoli(seed);
       setForm({
         dataMessaCassa: t,
         dataPagamento: t,
@@ -269,9 +335,110 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIn
       });
       setAnticipiSel({});
       setCompensazioniByTitolo({});
+      setDatesByTitolo({});
+      setPagatoreId(cliIds.length === 1 ? (cliIds[0] as string) : null);
+      setPagatoreSearch("");
+      setTitoloSearch("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, titoli.length, bankIncasso?.movimentoId]);
+  }, [open, bankIncasso?.movimentoId]);
+
+  // Date effettive per titolo (override oppure default globale del form)
+  const getDate = (titoloId: string) =>
+    datesByTitolo[titoloId] || { mc: form.dataMessaCassa, pag: form.dataPagamento };
+  const setDate = (titoloId: string, patch: Partial<{ mc: string; pag: string }>) =>
+    setDatesByTitolo((prev) => {
+      const cur = prev[titoloId] || { mc: form.dataMessaCassa, pag: form.dataPagamento };
+      return { ...prev, [titoloId]: { ...cur, ...patch } };
+    });
+
+  const addTitolo = (row: any) => {
+    setTitoli((prev) => {
+      if (prev.some((t) => t.id === row.id)) return prev;
+      return [
+        ...prev,
+        {
+          id: row.id,
+          numero_titolo: row.numero_titolo,
+          premio_lordo: row.premio_lordo,
+          cliente_anagrafica_id: row.cliente_anagrafica_id,
+          ufficio_id: row.ufficio_id,
+          importo_incassato: row.importo_incassato,
+        },
+      ];
+    });
+    setTitoloSearch("");
+  };
+
+  const removeTitolo = (id: string) => {
+    setTitoli((prev) => prev.filter((t) => t.id !== id));
+    setCompensazioniByTitolo((prev) => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
+    setDatesByTitolo((prev) => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  // Beneficiari giroconto: titoli il cui cliente differisce dal pagatore
+  const clientiById = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const t of titoli) m.set(t.id, t.cliente_anagrafica_id ?? null);
+    return m;
+  }, [titoli]);
+
+  const titoliGiroconto = useMemo(
+    () =>
+      effettivoPagatoreId
+        ? titoli.filter((t) => t.cliente_anagrafica_id && t.cliente_anagrafica_id !== effettivoPagatoreId)
+        : [],
+    [titoli, effettivoPagatoreId],
+  );
+
+  // Opzioni per il SearchableSelect del cliente pagatore: include sempre il
+  // cliente attualmente selezionato (così l'etichetta resta visibile) + risultati ricerca.
+  const pagatoreSelectOptions = useMemo(() => {
+    const map = new Map<string, { value: string; label: string; description?: string }>();
+    if (pagatoreCliente?.id) {
+      map.set(pagatoreCliente.id, { value: pagatoreCliente.id, label: nomeCliente(pagatoreCliente) });
+    }
+    for (const c of pagatoreOptions as any[]) {
+      map.set(c.id, {
+        value: c.id,
+        label: nomeCliente(c),
+        description: c.partita_iva || c.codice_fiscale || undefined,
+      });
+    }
+    return Array.from(map.values());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagatoreCliente, pagatoreOptions]);
+
+  // Nomi dei clienti dei titoli correnti (per lista quietanze + banner giroconto)
+  const titoliClienteIds = useMemo(
+    () => Array.from(new Set(titoli.map((t) => t.cliente_anagrafica_id).filter(Boolean))) as string[],
+    [titoli],
+  );
+
+  const { data: titoliClienti = [] } = useQuery({
+    queryKey: ["messa-cassa-titoli-clienti", titoliClienteIds],
+    enabled: open && titoliClienteIds.length > 0,
+    queryFn: async () => {
+      const { data } = await (supabase.from("clienti") as any)
+        .select("id, ragione_sociale, cognome, nome")
+        .in("id", titoliClienteIds);
+      return (data as any[]) || [];
+    },
+  });
+
+  const clienteNomeById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of titoliClienti as any[]) m.set(c.id, nomeCliente(c));
+    if (pagatoreCliente?.id) m.set(pagatoreCliente.id, nomeCliente(pagatoreCliente));
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titoliClienti, pagatoreCliente]);
 
   // === Helpers compensazioni per titolo ===
   const getComp = (titoloId: string) => compensazioniByTitolo[titoloId] || [];
@@ -491,6 +658,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIn
       }
 
       const lordo = Number(t.premio_lordo) || 0;
+      const d = getDate(t.id);
 
       const compForThis = getComp(t.id);
       const compPlusT = compForThis.filter((c) => c.segno === "+").reduce((s, c) => s + c.importo, 0);
@@ -563,12 +731,18 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIn
       };
       if (isFullIncasso) {
         payload.stato = "incassato";
-        payload.data_messa_cassa = form.dataMessaCassa;
-        payload.data_pagamento = form.dataPagamento;
-        payload.data_decorrenza_rinnovo = form.dataMessaCassa;
-        payload.data_incasso = form.dataMessaCassa;
+        payload.data_messa_cassa = d.mc;
+        payload.data_pagamento = d.pag;
+        payload.data_decorrenza_rinnovo = d.mc;
+        payload.data_incasso = d.mc;
       }
       if (bancaLabel) payload.banca_pagamento = bancaLabel;
+      // Pagamento diretto compagnia: il premio è già stato pagato dal cliente
+      // direttamente alla compagnia → nessuna entrata banca lato broker e il
+      // premio viene escluso dall'E/C compagnia (resta solo la provvigione).
+      if (form.tipoPagamento === "pagamento_diretto_compagnia") {
+        payload.pag_diretto_compagnia = true;
+      }
 
       const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
       if (error) { ko++; continue; }
@@ -601,6 +775,47 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIn
             if (errMA) toast.warning(`Acconto registrato ma prima nota non aggiornata: ${errMA.message}`);
           }
         }
+      }
+
+      // Giroconto inter-cliente: se gli acconti del cliente pagatore coprono la
+      // quietanza di un cliente diverso, registra una partita di giroconto per
+      // ciascun acconto utilizzato (visibile negli E/C di entrambi i clienti).
+      if (
+        effettivoPagatoreId &&
+        t.cliente_anagrafica_id &&
+        t.cliente_anagrafica_id !== effettivoPagatoreId &&
+        utilizziPerTitolo.length > 0
+      ) {
+        const giroRows = utilizziPerTitolo.map((u) => ({
+          data: d.mc,
+          cliente_pagatore_id: effettivoPagatoreId,
+          cliente_beneficiario_id: t.cliente_anagrafica_id,
+          titolo_id: t.id,
+          anticipo_id: u.anticipo_id,
+          importo: u.importo_utilizzato,
+          note: `Acconto ${clienteNomeById.get(effettivoPagatoreId) || "pagatore"} usato per quietanza ${t.numero_titolo ?? t.id} di ${t.cliente_anagrafica_id ? clienteNomeById.get(t.cliente_anagrafica_id) || "altro cliente" : "altro cliente"}`,
+          created_by: userId,
+        }));
+        const { error: errG } = await (supabase.from("giroconti_cliente") as any).insert(giroRows);
+        if (errG) toast.warning(`Giroconto inter-cliente non registrato su ${t.numero_titolo ?? t.id}: ${errG.message}`);
+      }
+
+      // Abbuono: la quietanza è saldata senza entrata in banca. Registra un
+      // movimento contabile di categoria "abbuono" a fini di audit/quadratura.
+      if (form.tipoPagamento === "abbuono" && residuoCash > 0) {
+        const { error: errAb } = await (supabase.from("movimenti_contabili") as any).insert({
+          ufficio_id: t.ufficio_id || null,
+          tipo: "entrata",
+          categoria: "abbuono",
+          riferimento_tipo: "titolo",
+          riferimento_id: t.id,
+          importo: residuoCash,
+          data_movimento: d.mc,
+          descrizione: `Abbuono su titolo ${t.numero_titolo ?? t.id} (nessuna entrata in banca)`,
+          stato: "registrato",
+          created_by: userId,
+        });
+        if (errAb) toast.warning(`Abbuono registrato ma prima nota non aggiornata: ${errAb.message}`);
       }
 
       if (compForThis.length > 0) {
@@ -818,10 +1033,88 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIn
             </div>
           </div>
 
-          {clienteUnico && anticipi.length > 0 && (
+          {/* Cliente pagatore: i cui acconti vengono erosi (può differire dai clienti dei titoli) */}
+          <div>
+            <Label className="text-xs flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5" /> Acconti erosi dal cliente pagatore
+            </Label>
+            <SearchableSelect
+              options={pagatoreSelectOptions}
+              value={effettivoPagatoreId || ""}
+              onValueChange={(v) => setPagatoreId(v || null)}
+              onSearchChange={setPagatoreSearch}
+              searchValue={pagatoreSearch}
+              serverSideSearch
+              clearable
+              clearLabel="— Nessun pagatore —"
+              placeholder="Seleziona cliente pagatore..."
+              searchPlaceholder="Cerca cliente (nome, CF, P.IVA)..."
+              className="mt-1"
+            />
+          </div>
+
+          {/* Aggiungi altre quietanze da incassare (anche di altri clienti) */}
+          <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+            <Label className="text-xs flex items-center gap-1.5">
+              <Plus className="w-3.5 h-3.5" /> Aggiungi altra quietanza da incassare
+            </Label>
+            <SearchableSelect
+              options={(titoliSearchResults as any[]).map((r) => ({
+                value: r.id,
+                label: r.numero_titolo || r.id.slice(0, 8),
+                description: `${nomeCliente(r.clienti)} — ${fmtEuro(Number(r.premio_lordo) || 0)}`,
+              }))}
+              value=""
+              onValueChange={(id) => {
+                const row = (titoliSearchResults as any[]).find((r) => r.id === id);
+                if (row) addTitolo(row);
+              }}
+              onSearchChange={setTitoloSearch}
+              searchValue={titoloSearch}
+              serverSideSearch
+              placeholder="Cerca quietanza da aggiungere..."
+              searchPlaceholder="Cerca numero titolo..."
+            />
+            <div className="space-y-1">
+              {titoli.map((t) => (
+                <div key={t.id} className="flex items-center gap-2 bg-background/70 rounded px-2 py-1.5 text-xs">
+                  <span className="font-mono font-medium">{t.numero_titolo || t.id.slice(0, 8)}</span>
+                  <span className="text-muted-foreground truncate flex-1">
+                    {t.cliente_anagrafica_id ? clienteNomeById.get(t.cliente_anagrafica_id) || "…" : "—"}
+                  </span>
+                  <span className="font-mono">{fmtEuro(Number(t.premio_lordo) || 0)}</span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    disabled={titoli.length <= 1}
+                    title={titoli.length <= 1 ? "Deve restare almeno una quietanza" : "Rimuovi"}
+                    onClick={() => removeTitolo(t.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Banner giroconto inter-cliente */}
+          {titoliGiroconto.length > 0 && (
+            <div className="rounded-md border border-amber-400/60 bg-amber-50/60 dark:bg-amber-950/30 p-3 flex gap-2 text-xs text-amber-900 dark:text-amber-200">
+              <ArrowLeftRight className="w-4 h-4 shrink-0 mt-0.5" />
+              <div>
+                Gli acconti di <strong>{effettivoPagatoreId ? clienteNomeById.get(effettivoPagatoreId) || "pagatore" : "pagatore"}</strong>{" "}
+                copriranno {titoliGiroconto.length}{" "}
+                {titoliGiroconto.length === 1 ? "polizza di un altro cliente" : "polizze di altri clienti"}.
+                Verrà registrata una partita di <strong>giroconto inter-cliente</strong> negli estratti conto di entrambi i clienti.
+              </div>
+            </div>
+          )}
+
+          {effettivoPagatoreId && anticipi.length > 0 && (
             <div className="rounded-md border border-primary/40 bg-primary/5 p-3 space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                <Wallet className="w-4 h-4" /> Acconti disponibili del cliente
+                <Wallet className="w-4 h-4" /> Acconti disponibili del cliente pagatore
               </div>
               {anticipi.map((a) => {
                 const selected = anticipiSel[a.id] !== undefined;
@@ -871,6 +1164,8 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIn
                     <SelectItem value="pos">POS</SelectItem>
                     <SelectItem value="bonifico">Bonifico</SelectItem>
                     <SelectItem value="assegno">Assegno</SelectItem>
+                    <SelectItem value="abbuono">Abbuono</SelectItem>
+                    <SelectItem value="pagamento_diretto_compagnia">Pagamento diretto compagnia</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -888,6 +1183,8 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIn
                   <SelectItem value="pos">POS</SelectItem>
                   <SelectItem value="bonifico">Bonifico</SelectItem>
                   <SelectItem value="assegno">Assegno</SelectItem>
+                  <SelectItem value="abbuono">Abbuono</SelectItem>
+                  <SelectItem value="pagamento_diretto_compagnia">Pagamento diretto compagnia</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1004,7 +1301,27 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess, bankIn
                           )}
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent className="pt-2 pb-3">
+                      <AccordionContent className="pt-2 pb-3 space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[11px]">Data Messa a Cassa</Label>
+                            <Input
+                              type="date"
+                              value={getDate(t.id).mc}
+                              onChange={(e) => setDate(t.id, { mc: e.target.value })}
+                              className="mt-1 h-8 text-xs"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-[11px]">Data Pagamento</Label>
+                            <Input
+                              type="date"
+                              value={getDate(t.id).pag}
+                              onChange={(e) => setDate(t.id, { pag: e.target.value })}
+                              className="mt-1 h-8 text-xs"
+                            />
+                          </div>
+                        </div>
                         {renderCompensazioniPanel(t.id)}
                       </AccordionContent>
                     </AccordionItem>

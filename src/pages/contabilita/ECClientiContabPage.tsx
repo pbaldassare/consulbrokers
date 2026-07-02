@@ -115,6 +115,51 @@ const ECClientiContabPage = () => {
         grouped[key].totale_premi += premio;
         grouped[key].totale_incassato += incassato;
       }
+
+      // Giroconti inter-cliente: pagatore → AVERE (usa acconti per saldare altrui),
+      // beneficiario → DARE (quietanza saldata con acconti altrui).
+      let gq = (supabase.from("giroconti_cliente") as any)
+        .select("cliente_pagatore_id, cliente_beneficiario_id, importo, data");
+      if (filters.cliente_id) {
+        gq = gq.or(`cliente_pagatore_id.eq.${filters.cliente_id},cliente_beneficiario_id.eq.${filters.cliente_id}`);
+      }
+      if (filters.competenza_dal) gq = gq.gte("data", format(filters.competenza_dal, "yyyy-MM-dd"));
+      if (filters.competenza_al) gq = gq.lte("data", format(filters.competenza_al, "yyyy-MM-dd"));
+      const { data: giroconti, error: errGiro } = await gq;
+      if (errGiro) throw errGiro;
+
+      const giroImpact: Record<string, { dare: number; avere: number }> = {};
+      for (const g of giroconti || []) {
+        const imp = Number(g.importo) || 0;
+        (giroImpact[g.cliente_beneficiario_id] ||= { dare: 0, avere: 0 }).dare += imp;
+        (giroImpact[g.cliente_pagatore_id] ||= { dare: 0, avere: 0 }).avere += imp;
+      }
+
+      // Etichette per clienti presenti solo nei giroconti (senza titoli "vivi")
+      const missing = Object.keys(giroImpact).filter((id) => !grouped[id]);
+      if (missing.length > 0) {
+        const { data: cli } = await supabase
+          .from("clienti")
+          .select("id, cognome, nome, ragione_sociale")
+          .in("id", missing);
+        for (const c of cli || []) {
+          grouped[c.id] = {
+            cliente_id: c.id,
+            label: c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim(),
+            titolo_ids: [],
+            totale_premi: 0,
+            totale_incassato: 0,
+            saldo: 0,
+          };
+        }
+      }
+
+      for (const [id, imp] of Object.entries(giroImpact)) {
+        if (!grouped[id]) continue;
+        grouped[id].totale_premi += imp.dare;
+        grouped[id].totale_incassato += imp.avere;
+      }
+
       for (const g of Object.values(grouped)) g.saldo = g.totale_premi - g.totale_incassato;
       return Object.values(grouped).sort((a, b) => b.saldo - a.saldo);
     },

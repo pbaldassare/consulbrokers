@@ -255,7 +255,7 @@ Consulbrokers`;
 
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, coassicurazione, compagnie(nome, codice, mail)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, compagnie(nome, codice, mail)")
         .not("compagnia_id", "is", null);
 
       const incassateBase = ["stato.eq.incassato"];
@@ -343,17 +343,22 @@ Consulbrokers`;
         if (filters.tipo_pagamento && t.tipo_pagamento !== filters.tipo_pagamento) continue;
         const dataEff = t.data_messa_cassa || t.data_copertura;
 
+        // Pagamento diretto compagnia: il premio è stato pagato dal cliente
+        // direttamente alla compagnia → il broker non deve il premio, resta
+        // solo la provvigione. Escludiamo quindi il premio (e l'incassato) dall'E/C.
+        const pagDiretto = !!t.pag_diretto_compagnia;
+
         if (t.coassicurazione && ripartoByTitolo.has(t.id)) {
           const riparti = ripartoByTitolo.get(t.id) || [];
-          const premioLordo = Number(t.premio_lordo) || 0;
-          const importoIncassato = Number(t.importo_incassato) || 0;
+          const premioLordo = pagDiretto ? 0 : Number(t.premio_lordo) || 0;
+          const importoIncassato = pagDiretto ? 0 : Number(t.importo_incassato) || 0;
           const provvTot = getProvvigioneEC(t);
           for (const r of riparti) {
             const cId = r.compagnia_id as string;
             if (!cId) continue;
             const quota = Number(r.quota_percentuale) || 0;
             const factor = quota / 100;
-            const lordoShare = Number(r.totale) || premioLordo * factor;
+            const lordoShare = pagDiretto ? 0 : (Number(r.totale) || premioLordo * factor);
             const incassatoShare = importoIncassato * factor;
             const provvShare = (Number(r.provv_netto) || 0) + (Number(r.provv_addizionali) || 0) || provvTot * factor;
             const comp = (r as any).compagnie || t.compagnie;
@@ -369,8 +374,8 @@ Consulbrokers`;
           cId,
           comp,
           t,
-          Number(t.premio_lordo) || 0,
-          Number(t.importo_incassato) || 0,
+          pagDiretto ? 0 : Number(t.premio_lordo) || 0,
+          pagDiretto ? 0 : Number(t.importo_incassato) || 0,
           getProvvigioneEC(t),
           dataEff,
         );
@@ -665,7 +670,7 @@ Consulbrokers`;
           <FilterSearchableSelect value={filters.ufficio_id} onValueChange={(v) => set({ ufficio_id: v })} options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))} placeholder="Sede" allLabel="Tutte le sedi" className="w-[200px]" />
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo al</Label><DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" /></div>
-          <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
+          <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }, { value: "abbuono", label: "Abbuono" }, { value: "pagamento_diretto_compagnia", label: "Pag. diretto compagnia" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
           
         </div>
       </div>
@@ -782,8 +787,8 @@ Consulbrokers`;
                               {r.titoli.map((t) => {
                                 const inCopertura = isInCoperturaGarantita(t);
                                 const dataEff = t.data_messa_cassa || t.data_copertura;
-                                const tipoPagLabel = t.tipo_pagamento === "contanti" ? "Contanti" : t.tipo_pagamento === "pos" ? "POS" : t.tipo_pagamento === "bonifico" ? "Bonifico" : t.tipo_pagamento === "carta_credito" ? "POS" : t.tipo_pagamento === "garantito" ? "Garantito" : "—";
-                                const tipoPagColor = t.tipo_pagamento === "contanti" ? "secondary" : t.tipo_pagamento === "pos" || t.tipo_pagamento === "carta_credito" ? "default" : t.tipo_pagamento === "bonifico" ? "outline" : t.tipo_pagamento === "garantito" ? "default" : "secondary";
+                                const tipoPagLabel = t.tipo_pagamento === "contanti" ? "Contanti" : t.tipo_pagamento === "pos" ? "POS" : t.tipo_pagamento === "bonifico" ? "Bonifico" : t.tipo_pagamento === "carta_credito" ? "POS" : t.tipo_pagamento === "garantito" ? "Garantito" : t.tipo_pagamento === "abbuono" ? "Abbuono" : t.tipo_pagamento === "pagamento_diretto_compagnia" ? "Pag. diretto" : "—";
+                                const tipoPagColor = t.tipo_pagamento === "contanti" ? "secondary" : t.tipo_pagamento === "pos" || t.tipo_pagamento === "carta_credito" ? "default" : t.tipo_pagamento === "bonifico" ? "outline" : t.tipo_pagamento === "garantito" ? "default" : t.tipo_pagamento === "pagamento_diretto_compagnia" ? "outline" : "secondary";
                                 return (
                                 <TableRow key={t.id} className={cn("hover:bg-muted/50", inCopertura && "bg-orange-50/80 hover:bg-orange-100/60")}>
                                   <TableCell className="py-1 px-2">

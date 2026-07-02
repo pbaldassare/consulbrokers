@@ -214,6 +214,22 @@ const ECClientePdfPage = () => {
     },
   });
 
+  // Giroconti inter-cliente del cliente (come pagatore → AVERE, come beneficiario → DARE)
+  const { data: giroconti = [] } = useQuery({
+    queryKey: ["ec-cli-pdf-giroconti", clienteId, periodoDal, periodoAl],
+    enabled: !!clienteId,
+    queryFn: async () => {
+      let q = (supabase.from("giroconti_cliente") as any)
+        .select("id, data, importo, note, cliente_pagatore_id, cliente_beneficiario_id, titolo_id, titoli:titolo_id(numero_titolo)")
+        .or(`cliente_pagatore_id.eq.${clienteId},cliente_beneficiario_id.eq.${clienteId}`);
+      if (periodoDal) q = q.gte("data", periodoDal);
+      if (periodoAl) q = q.lte("data", periodoAl);
+      const { data, error } = await q.order("data", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const buildData = (): ECClienteData => {
     const righe: ECClienteRow[] = (titoli || []).map((t: any) => {
       const ramoR = t.rami;
@@ -231,13 +247,31 @@ const ECClientePdfPage = () => {
         compensazioni: compensazioniByTitolo[t.id] || undefined,
       };
     });
+    // Giroconti inter-cliente → righe dare/avere
+    const girocontiRows = (giroconti || []).map((g: any) => {
+      const isBeneficiario = g.cliente_beneficiario_id === clienteId;
+      const dataG = g.data ? format(new Date(g.data), "dd/MM/yyyy") : "";
+      const numTitolo = g.titoli?.numero_titolo || "";
+      const descrizione = g.note
+        || (isBeneficiario
+          ? `Quietanza ${numTitolo} saldata con acconti di altro cliente`
+          : `Acconto usato per quietanza ${numTitolo} di altro cliente`);
+      return {
+        data: dataG,
+        descrizione,
+        verso: (isBeneficiario ? "dare" : "avere") as "dare" | "avere",
+        importo: Number(g.importo) || 0,
+      };
+    });
+
     // Totale dovuto = somma premi + Σ compensazioni segno '-' (aumentano dovuto) − Σ segno '+' (riducono dovuto)
+    // + giroconti DARE (beneficiario) − giroconti AVERE (pagatore)
     const totale = righe.reduce((s, r) => {
       const comp = r.compensazioni || [];
       const plus = comp.filter((c) => c.segno === "+").reduce((a, c) => a + c.importo, 0);
       const minus = comp.filter((c) => c.segno === "-").reduce((a, c) => a + c.importo, 0);
       return s + r.premio + minus - plus;
-    }, 0);
+    }, 0) + girocontiRows.reduce((s, g) => s + (g.verso === "dare" ? g.importo : -g.importo), 0);
 
     // Cliente (intestazione PDF)
     const addr = resolveClienteIndirizzo(cliente);
@@ -260,6 +294,7 @@ const ECClientePdfPage = () => {
       oggetto,
       introTesto,
       righe,
+      giroconti: girocontiRows,
       totale,
       intestatarioConto,
       bancaConto,
