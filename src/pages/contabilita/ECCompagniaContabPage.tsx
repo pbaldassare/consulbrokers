@@ -24,9 +24,11 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildRimessaPdf, type RimessaPdfData } from "@/lib/rimessa-pdf";
+import { buildECAgenziaPdf, type ECAgenziaData, type ECAgenziaTitolo } from "@/lib/ec-agenzia-pdf";
 import { validateIban } from "@/lib/validateIban";
 import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
+import { calcolaRitenutaAcconto, resolvePercentualeRA } from "@/lib/resolvePercentualeRA";
 import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 
 const formatIbanMask = (s: string) =>
@@ -94,6 +96,7 @@ const ECCompagniaContabPage = () => {
   const [selectedTitoli, setSelectedTitoli] = useState<Record<string, Set<string>>>({});
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
   const [exportDate, setExportDate] = useState<Date | null>(null);
+  const [bulkEcLoading, setBulkEcLoading] = useState(false);
   const [pagaDialog, setPagaDialog] = useState<PagaRimessaState>({
     open: false, compagniaId: "", compagniaNome: "", iban: "", contoMittenteId: null, ibanMittente: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0, titoli: [],
   });
@@ -776,6 +779,154 @@ Consulbrokers`;
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  const exportBulkEC = async () => {
+    if (!exportRows.length) return;
+    setBulkEcLoading(true);
+    try {
+      // 1. Sede mittente (Napoli o prima disponibile)
+      const { data: sedeNapoli } = await supabase
+        .from("uffici")
+        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
+        .or("nome_ufficio.ilike.%napoli%,citta.ilike.%napoli%")
+        .eq("attivo", true)
+        .limit(1)
+        .maybeSingle();
+
+      // 2. Compagnie in bulk
+      const agenzieIds = exportRows.map((r) => r.compagnia_id);
+      const { data: compagnieFull } = await supabase
+        .from("compagnie")
+        .select("id, nome, codice, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, iban, intestato_a, percentuale_ra")
+        .in("id", agenzieIds);
+
+      // 3. Titoli con dettagli in bulk
+      const allTitoliIds = exportRows.flatMap((r) => r.titoli.map((t) => t.id));
+      const { data: titoliFull } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, riga, premio_lordo, pag_diretto_compagnia, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, cig_rif, compagnia_id, compagnia_rapporto_id, ramo_id, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra), rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
+        .in("id", allTitoliIds);
+
+      // 4. Raggruppa titoli per compagnia_id
+      const titoliByCompagnia = new Map<string, any[]>();
+      for (const t of titoliFull || []) {
+        const arr = titoliByCompagnia.get(t.compagnia_id) || [];
+        arr.push(t);
+        titoliByCompagnia.set(t.compagnia_id, arr);
+      }
+
+      // 5. Merge PDF con pdf-lib
+      const { PDFDocument: PDFLib } = await import("pdf-lib");
+      const mergedPdf = await PDFLib.create();
+      const today = format(new Date(), "dd/MM/yyyy");
+      const todayRef = format(new Date(), "yyMMdd");
+      const mesiIt = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+      const mapMI = (tp?: string | null) => {
+        if (!tp) return "B";
+        const v = tp.toLowerCase();
+        if (v === "contanti") return "C";
+        if (v === "bonifico") return "B";
+        if (v === "assegno") return "A";
+        return "*";
+      };
+
+      for (const r of exportRows) {
+        const comp = (compagnieFull || []).find((c: any) => c.id === r.compagnia_id);
+        if (!comp) continue;
+        const titoliAgenzia = titoliByCompagnia.get(r.compagnia_id) || [];
+        if (!titoliAgenzia.length) continue;
+
+        // Periodo testo dalla data più recente di messa a cassa
+        const dates = titoliAgenzia.map((t: any) => t.data_messa_cassa).filter(Boolean).sort();
+        const periodoTesto = dates.length
+          ? (() => { const d = new Date(dates[dates.length - 1]); return `${mesiIt[d.getMonth()]} ${d.getFullYear()}`; })()
+          : "";
+
+        const righe: ECAgenziaTitolo[] = titoliAgenzia.map((t: any) => {
+          const cli = t.clienti_anagrafica;
+          const cliente = cli?.ragione_sociale || `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() || "—";
+          const ramoR = t.rami;
+          const ramo = ramoR ? (ramoR.descrizione || ramoR.codice || "") : "";
+          const dFrom = t.garanzia_da || t.durata_da;
+          const dTo = t.garanzia_a || t.durata_a;
+          const periodo = (dFrom || dTo)
+            ? `${dFrom ? format(new Date(dFrom), "dd/MM/yyyy") : "—"} ${dTo ? format(new Date(dTo), "dd/MM/yyyy") : ""}`.trim()
+            : "";
+          const polizzaRiga = `${t.numero_titolo || ""}${t.riga ? " - " + t.riga : ""}`.trim();
+          const provv = getProvvigioneEC(t);
+          return {
+            polizza: polizzaRiga,
+            cliente,
+            noteCliente: t.cig_rif || "",
+            ramo,
+            periodo,
+            tp: "AM",
+            premio: t.pag_diretto_compagnia ? 0 : Number(t.premio_lordo) || 0,
+            provvigioni: provv,
+            mi: mapMI(t.tipo_pagamento),
+          };
+        });
+
+        const totalePremio = righe.reduce((s, rr) => s + rr.premio, 0);
+        const totaleProvvigioni = righe.reduce((s, rr) => s + rr.provvigioni, 0);
+        const compagniaRA = Number((comp as any).percentuale_ra) || null;
+        const ritenutaAcconto = titoliAgenzia.reduce((sum: number, t: any) => {
+          const provv = getProvvigioneEC(t);
+          const raEffettiva = resolvePercentualeRA({
+            rapporto_percentuale_ra: t.compagnia_rapporti?.percentuale_ra,
+            compagnia_percentuale_ra: compagniaRA,
+          });
+          return sum + calcolaRitenutaAcconto(provv, raEffettiva);
+        }, 0);
+
+        const ecData: ECAgenziaData = {
+          sedeNome: sedeNapoli?.nome_ufficio || "Sede di Napoli",
+          sedeIndirizzo: sedeNapoli?.indirizzo || "",
+          sedeCap: sedeNapoli?.cap || "",
+          sedeCitta: sedeNapoli?.citta || "",
+          sedeProvincia: sedeNapoli?.provincia || "",
+          sedeEmail: sedeNapoli?.email || "",
+          sedeTelefono: sedeNapoli?.telefono || "",
+          riferimento: `${(comp as any).codice || (comp as any).nome || "AGZ"}/${todayRef}`,
+          dataDocumento: today,
+          periodoTesto,
+          modalitaPagamento: "Bonifico",
+          agenziaNome: (comp as any).nome || "",
+          agenziaIndirizzo: (comp as any).indirizzo || "",
+          agenziaCap: (comp as any).cap || "",
+          agenziaCitta: (comp as any).comune || "",
+          agenziaProvincia: (comp as any).provincia || "",
+          agenziaCF: (comp as any).codice_fiscale || "",
+          agenziaPIVA: (comp as any).partita_iva || "",
+          iban: (comp as any).iban || "",
+          intestatoA: (comp as any).intestato_a || (comp as any).nome || "",
+          titoli: righe,
+          totalePremio,
+          totaleProvvigioni,
+          ritenutaAcconto,
+        };
+
+        const pdfBytes = await buildECAgenziaPdf(ecData);
+        const singlePdf = await PDFLib.load(pdfBytes);
+        const copiedPages = await mergedPdf.copyPages(singlePdf, singlePdf.getPageIndices());
+        copiedPages.forEach((page) => mergedPdf.addPage(page));
+      }
+
+      const mergedBytes = await mergedPdf.save();
+      const blob = new Blob([mergedBytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `EC_Agenzie_completo_${format(new Date(), "yyyyMMdd")}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      toast.success(`PDF E/C generato — ${exportRows.length} agenzie`);
+    } catch (e: any) {
+      toast.error("Errore generazione PDF E/C: " + (e?.message || e));
+    } finally {
+      setBulkEcLoading(false);
+    }
+  };
+
   const kpiCards = [
     { label: "N. Agenzie", value: rows.length.toString(), icon: Building2, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
     { label: "Totale Lordo", value: fmt(totLordo), icon: TrendingUp, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
@@ -815,6 +966,12 @@ Consulbrokers`;
               </DropdownMenuItem>
               <DropdownMenuItem onClick={exportPDF}>
                 <Printer className="mr-2 h-4 w-4 text-red-500" /> PDF / Stampa (tutte le agenzie)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportBulkEC} disabled={bulkEcLoading}>
+                {bulkEcLoading
+                  ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  : <FileText className="mr-2 h-4 w-4 text-blue-600" />}
+                PDF E/C completi (una per agenzia)
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={exportCSV}>
