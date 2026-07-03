@@ -691,7 +691,13 @@ Consulbrokers`;
     XLSX.utils.book_append_sheet(wb, wsDettaglio, "Dettaglio Titoli");
 
     const fileName = `ec_agenzie${dateLimitLabel.replace(/ /g, "_").replace(/\//g, "-")}_${format(new Date(), "yyyyMMdd")}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 200);
   };
 
   const exportPDF = () => {
@@ -762,8 +768,12 @@ Consulbrokers`;
     <script>window.onload = () => window.print();</script>
     </body></html>`;
 
-    const w = window.open("", "_blank");
-    if (w) { w.document.write(html); w.document.close(); }
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const kpiCards = [
