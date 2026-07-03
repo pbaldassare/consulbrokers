@@ -87,6 +87,11 @@ export default {
           foreground: "hsl(var(--quietanza-foreground))",
           soft: "hsl(var(--quietanza-soft))",
         },
+        appendice: {
+          DEFAULT: "hsl(var(--appendice))",
+          foreground: "hsl(var(--appendice-foreground))",
+          soft: "hsl(var(--appendice-soft))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

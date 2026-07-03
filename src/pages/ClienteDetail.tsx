@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { eliminaPolizza, eliminaQuietanza } from "@/lib/eliminaPolizza";
 import { format } from "date-fns";
-import { groupTitoliByPolizza } from "@/lib/quietanze";
+import { groupTitoliByPolizza, isAppendice, appendiceTipoLabel, baseNumeroPolizza } from "@/lib/quietanze";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { isInCoperturaGarantita, isGarantitoDaIncassare } from "@/lib/garantitoTitolo";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -1210,7 +1210,8 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
     () => catene.filter((c: any) => {
       const head = c.madre || c.all[0];
       if (head && matchTitolo(head)) return true;
-      return c.rate.some((r: any) => matchTitolo(r));
+      if (c.rate.some((r: any) => matchTitolo(r))) return true;
+      return c.appendici.some((a: any) => matchTitolo(a));
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [catene, filtroTipo, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato],
@@ -1228,23 +1229,25 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
       const head = c.madre || c.all[0];
       if (head && matchTitolo(head)) out.push(head);
       c.rate.forEach((r: any) => { if (matchTitolo(r)) out.push(r); });
+      c.appendici.forEach((a: any) => { if (matchTitolo(a)) out.push(a); });
     });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredCatene, filtroTipo, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
 
-  const allQuiet = useMemo(() => filteredTitoli.filter((p) => !!p.sostituisce_polizza), [filteredTitoli]);
-  const allPol = useMemo(() => filteredTitoli.filter((p) => !p.sostituisce_polizza), [filteredTitoli]);
+  const allQuiet = useMemo(() => filteredTitoli.filter((p) => !!p.sostituisce_polizza && !isAppendice(p)), [filteredTitoli]);
+  const allApp = useMemo(() => filteredTitoli.filter((p) => isAppendice(p)), [filteredTitoli]);
+  const allPol = useMemo(() => filteredTitoli.filter((p) => !p.sostituisce_polizza && !isAppendice(p)), [filteredTitoli]);
   // La polizza madre è il contratto, non un titolo da incassare: il premio
-  // reale è la somma delle sole quietanze (rate). Sommare anche la madre
-  // raddoppierebbe il totale (es. annuale 1y: 1 madre + 1 quietanza).
+  // reale è la somma delle quietanze + appendici (titoli incassabili). Sommare
+  // anche la madre raddoppierebbe il totale (es. annuale 1y: 1 madre + 1 quietanza).
   const totPremio = useMemo(
-    () => allQuiet.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
-    [allQuiet],
+    () => [...allQuiet, ...allApp].reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
+    [allQuiet, allApp],
   );
   const totProvv = useMemo(
-    () => allQuiet.reduce((s, p) => s + getProvvigioneEC(p), 0),
-    [allQuiet],
+    () => [...allQuiet, ...allApp].reduce((s, p) => s + getProvvigioneEC(p), 0),
+    [allQuiet, allApp],
   );
 
   const allGarant = useMemo(() => filteredTitoli.filter(isGarantitoDaIncassare), [filteredTitoli]);
@@ -1263,6 +1266,11 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
       const totale = c.rate.length;
       c.rate.forEach((r: any, i: number) => {
         if (matchTitolo(r)) out.push({ rata: r, madreNum, madreId, idx: i + 1, totale });
+      });
+      // Le appendici (AM/PR/RG) sono titoli da incassare: si mostrano insieme
+      // alle quietanze ma con il proprio badge.
+      c.appendici.forEach((a: any) => {
+        if (matchTitolo(a)) out.push({ rata: a, madreNum, madreId, idx: 0, totale: 0 });
       });
     });
     return out;
@@ -1350,6 +1358,9 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
             <>
               <span className="font-medium text-foreground">{allPol.length}</span> polizze ·{" "}
               <span className="font-medium text-foreground">{allQuiet.length}</span> quietanze
+              {allApp.length > 0 && (
+                <> · <span className="font-medium text-appendice">{allApp.length}</span> appendici</>
+              )}
               {countGarantiti > 0 && (
                 <> · <span className="font-medium text-orange-700">{countGarantiti}</span> garantiti</>
               )}
@@ -1462,10 +1473,14 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell></TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
                   <TableCell>
-                    <TipoPolizzaBadge
-                      tipo={r.sostituisce_polizza ? "quietanza" : "polizza"}
-                      messaACassa={r.sostituisce_polizza ? isMessaACassa(r) : undefined}
-                    />
+                    {isAppendice(r) ? (
+                      <TipoPolizzaBadge tipo="appendice" appendiceLabel={appendiceTipoLabel(r)} messaACassa={isMessaACassa(r)} />
+                    ) : (
+                      <TipoPolizzaBadge
+                        tipo={r.sostituisce_polizza ? "quietanza" : "polizza"}
+                        messaACassa={r.sostituisce_polizza ? isMessaACassa(r) : undefined}
+                      />
+                    )}
                   </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
@@ -1505,7 +1520,11 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell></TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
                   <TableCell>
-                    <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(r)} />
+                    {isAppendice(r) ? (
+                      <TipoPolizzaBadge tipo="appendice" appendiceLabel={appendiceTipoLabel(r)} messaACassa={isMessaACassa(r)} />
+                    ) : (
+                      <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(r)} />
+                    )}
                   </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
@@ -1524,17 +1543,19 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell className="text-xs">{fmtDate(r.data_messa_cassa || r.data_incasso)}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        disabled={!!deleting}
-                        title="Elimina quietanza (cascade incassi/provvigioni)"
-                        onClick={() => handleDeleteRata(r)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      {!isAppendice(r) && (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          disabled={!!deleting}
+                          title="Elimina quietanza (cascade incassi/provvigioni)"
+                          onClick={() => handleDeleteRata(r)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>
@@ -1554,6 +1575,8 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
               const agenzia = head.compagnia_diretta?.nome || "—";
               const isOpen = !!expanded[c.numero];
               const hasRate = c.rate.length > 0;
+              const hasAppendici = c.appendici.length > 0;
+              const isExpandable = hasRate || hasAppendici;
 
               return (
                 <Fragment key={c.numero}>
@@ -1566,20 +1589,28 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                     title="Apri polizza madre"
                   >
                     <TableCell className="w-8 p-0 text-center" onClick={(e) => e.stopPropagation()}>
-                      {hasRate ? (
+                      {isExpandable ? (
                         <button
                           type="button"
                           onClick={() => toggleExpand(c.numero)}
                           className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-muted text-muted-foreground"
                           aria-expanded={isOpen}
-                          title={isOpen ? "Nascondi quietanze collegate" : `Mostra ${c.rate.length} quietanze collegate`}
+                          title={isOpen
+                            ? "Nascondi titoli collegati"
+                            : `Mostra ${c.rate.length} quietanze${hasAppendici ? ` e ${c.appendici.length} appendici` : ""} collegate`}
                         >
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </button>
                       ) : null}
                     </TableCell>
                     <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
-                    <TableCell><TipoPolizzaBadge tipo="polizza" /></TableCell>
+                    <TableCell>
+                      {isAppendice(head) ? (
+                        <TipoPolizzaBadge tipo="appendice" appendiceLabel={appendiceTipoLabel(head)} messaACassa={isMessaACassa(head)} />
+                      ) : (
+                        <TipoPolizzaBadge tipo="polizza" />
+                      )}
+                    </TableCell>
                     <TableCell>{gruppoRamo}</TableCell>
                     <TableCell>{ramo}</TableCell>
                     <TableCell className="text-xs">{fmtDate(head.garanzia_da ?? head.durata_da)}</TableCell>
@@ -1664,6 +1695,43 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                           </Button>
                         </TableCell>
                       )}
+                    </TableRow>
+                  ))}
+
+                  {isOpen && c.appendici.map((r: any) => (
+                    <TableRow
+                      key={r.id}
+                      className={cn(
+                        "cursor-pointer bg-appendice/5 hover:bg-appendice/10 transition-colors",
+                        rowBorderClass(r),
+                        messaCassaRowBgClass(r),
+                      )}
+                      onClick={() => navigate(`/titoli/${r.id}`)}
+                      title="Apri appendice"
+                    >
+                      <TableCell />
+                      <TableCell className="font-mono text-xs pl-8 text-muted-foreground">
+                        ↳ {r.numero_titolo || "—"}
+                      </TableCell>
+                      <TableCell>
+                        <TipoPolizzaBadge tipo="appendice" appendiceLabel={appendiceTipoLabel(r)} messaACassa={isMessaACassa(r)} />
+                      </TableCell>
+                      <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
+                      <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
+                      <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
+                      <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
+                      <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
+                      <TableCell className="text-xs">
+                        {r.data_copertura ? (
+                          <span className={isInCoperturaGarantita(r) ? "text-orange-700 font-medium" : undefined}>
+                            {fmtDate(r.data_copertura)}
+                          </span>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.data_messa_cassa || r.data_incasso)}</TableCell>
+                      {isAdmin && <TableCell />}
                     </TableRow>
                   ))}
                 </Fragment>
@@ -2005,7 +2073,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, data_copertura, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome)")
+        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, data_copertura, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome)")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -2375,12 +2443,19 @@ export default function ClienteDetail() {
               // le rate ulteriori sono quietanze. Robusto anche quando sostituisce_polizza è NULL
               // (titoli legacy o generati dal trigger di auto-quietanza).
               const numeriUnici = new Set(
-                polizze.map((p: any) => p.numero_titolo).filter(Boolean)
+                polizze
+                  .filter((p: any) => !isAppendice(p))
+                  .map((p: any) => baseNumeroPolizza(p.numero_titolo))
+                  .filter(Boolean)
               );
               const nPol = numeriUnici.size;
-              const nQuiet = Math.max(0, polizze.length - nPol);
+              const nApp = polizze.filter((p: any) => isAppendice(p)).length;
+              const nQuiet = Math.max(0, polizze.length - nPol - nApp);
               return (
-                <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({nPol}) · Quietanze ({nQuiet})</TabsTrigger>
+                <TabsTrigger value="polizze">
+                  <FileText className="w-4 h-4 mr-1" />
+                  Polizze ({nPol}) · Quietanze ({nQuiet}){nApp > 0 ? ` · Appendici (${nApp})` : ""}
+                </TabsTrigger>
               );
             })()}
             <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>

@@ -89,6 +89,9 @@
     --quietanza: 38 92% 50%;
     --quietanza-foreground: 26 83% 14%;
     --quietanza-soft: 38 92% 96%;
+    --appendice: 262 83% 58%;
+    --appendice-foreground: 0 0% 100%;
+    --appendice-soft: 262 83% 96%;
   }
 
   .dark {
@@ -161,6 +164,9 @@
     --quietanza: 38 85% 55%;
     --quietanza-foreground: 38 30% 10%;
     --quietanza-soft: 38 35% 14%;
+    --appendice: 262 70% 65%;
+    --appendice-foreground: 0 0% 100%;
+    --appendice-soft: 262 40% 16%;
   }
 
 }
