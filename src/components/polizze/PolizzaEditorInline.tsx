@@ -325,7 +325,7 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
                 lordo_calcolato: g.lordo_calcolato,
                 is_rca_principale: g.is_rca_principale,
                 ordine: g.ordine,
-                tipo_premio: "rata",
+                tipo_premio: "firma",
               }));
             if (toUpsert.length > 0) {
               const { error } = await supabase.from("premi_garanzia_polizza").upsert(toUpsert as never);

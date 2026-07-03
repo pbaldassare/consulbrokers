@@ -60,7 +60,7 @@ export async function syncPremiGaranziaToTitolo(
     lordo_calcolato: g.lordo_calcolato || calcLordoGaranzia(g),
     is_rca_principale: g.is_rca_principale,
     ordine: g.ordine ?? idx + 1,
-    tipo_premio: "rata",
+    tipo_premio: "firma",
   }));
   const { error } = await supabase.from("premi_garanzia_polizza").insert(rows as never);
   if (error) throw error;
