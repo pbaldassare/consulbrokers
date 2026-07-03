@@ -155,16 +155,16 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("data_scadenza, garanzia_da, garanzia_a, numero_titolo, premio_netto, provvigioni_firma, percentuale_provvigione")
+        .select("data_scadenza, garanzia_da, garanzia_a, numero_titolo, premio_netto, provvigioni_firma")
         .eq("id", titoloId!)
         .maybeSingle();
       if (!data) return null;
+      // titoli non ha una colonna percentuale_provvigione: la deriviamo da
+      // provvigioni_firma / premio_netto.
       const perc =
-        data.percentuale_provvigione != null
-          ? Number(data.percentuale_provvigione)
-          : data.premio_netto && Number(data.premio_netto) !== 0 && data.provvigioni_firma != null
-            ? +((Number(data.provvigioni_firma) / Number(data.premio_netto)) * 100).toFixed(4)
-            : null;
+        data.premio_netto && Number(data.premio_netto) !== 0 && data.provvigioni_firma != null
+          ? +((Number(data.provvigioni_firma) / Number(data.premio_netto)) * 100).toFixed(4)
+          : null;
       return { ...data, percentuale_provvigione_calc: perc };
     },
   });

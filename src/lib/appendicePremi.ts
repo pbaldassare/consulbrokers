@@ -100,7 +100,6 @@ export async function patchTitoloDerivatoAppendice(
       ssn_quietanza: aggregated.ssn_firma,
       provvigioni_firma: provvigioni,
       provvigioni_quietanza: provvigioni,
-      percentuale_provvigione: percProvv,
       ...(oggetto ? { descrizione_polizza: oggetto } : {}),
     } as never)
     .eq("id", titoloId);
