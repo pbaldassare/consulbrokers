@@ -457,32 +457,6 @@ export function TitoloImportiPremiBlock({
         };
       });
 
-      const { error: delErr } = await supabase
-        .from("premi_garanzia_polizza")
-        .delete()
-        .eq("titolo_id", titoloId)
-        .eq("tipo_premio", tipo);
-      if (delErr) {
-        toast.error("Errore aggiornamento premi: " + delErr.message);
-        return;
-      }
-      if (payload.length > 0) {
-        let rowsToInsert = payload;
-        if (tasseRettificaSupportedRef.current === false) {
-          rowsToInsert = payload.map(({ tasse_rettifica: _t, ...rest }) => rest);
-        }
-        let { error: insErr } = await supabase.from("premi_garanzia_polizza").insert(rowsToInsert as any);
-        if (insErr && tasseRettificaSupportedRef.current !== false && /tasse_rettifica/i.test(insErr.message)) {
-          tasseRettificaSupportedRef.current = false;
-          rowsToInsert = payload.map(({ tasse_rettifica: _t, ...rest }) => rest);
-          ({ error: insErr } = await supabase.from("premi_garanzia_polizza").insert(rowsToInsert as any));
-        }
-        if (insErr) {
-          toast.error("Errore aggiornamento premi: " + insErr.message);
-          return;
-        }
-      }
-
       const sum = (rs: GaranziaRow[], k: "netto" | "ssn" | "accessori") =>
         rs.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
       const totNetto = round2(sum(rows, "netto"));
@@ -516,9 +490,22 @@ export function TitoloImportiPremiBlock({
         }
       }
 
-      const { error: updErr } = await supabase.from("titoli").update(updates).eq("id", titoloId);
-      if (updErr) {
-        toast.error("Errore aggiornamento importi: " + updErr.message);
+      const rpcRows = payload.map(({ titolo_id: _tid, tipo_premio: _tp, ...rest }) => {
+        if (tasseRettificaSupportedRef.current === false) {
+          const { tasse_rettifica: _t, ...noRettifica } = rest;
+          return noRettifica;
+        }
+        return rest;
+      });
+
+      const { error: rpcErr } = await (supabase.rpc as any)("salva_premi_garanzia_titolo", {
+        p_titolo_id: titoloId,
+        p_tipo_premio: tipo,
+        p_rows: rpcRows,
+        p_titolo_updates: updates,
+      });
+      if (rpcErr) {
+        toast.error("Errore salvataggio premi: " + rpcErr.message);
         return;
       }
 
@@ -545,20 +532,20 @@ export function TitoloImportiPremiBlock({
     }
   };
 
-  const flushSave = (tipo: "firma" | "quietanza") => {
+  const flushSave = async (tipo: "firma" | "quietanza") => {
     const ref = tipo === "firma" ? firmaTimer : quietanzaTimer;
     if (ref.current) {
       clearTimeout(ref.current);
       ref.current = null;
     }
     const rows = tipo === "firma" ? firmaRows : quietanzaRows;
-    void persistRows(rows, tipo, true);
+    return persistRows(rows, tipo, true);
   };
 
-  const saveAllPremi = () => {
+  const saveAllPremi = async () => {
     if (isLocked) return;
-    if (!hideFirma) flushSave("firma");
-    if (showQuietanza) flushSave("quietanza");
+    if (!hideFirma) await flushSave("firma");
+    if (showQuietanza) await flushSave("quietanza");
   };
 
   const scheduleSave = (tipo: "firma" | "quietanza", rows: GaranziaRow[]) => {

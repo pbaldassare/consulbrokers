@@ -959,7 +959,7 @@ export function PremiGaranziaCardShell({
                   )}
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] uppercase text-muted-foreground">% Agenzia (su netto)</Label>
+                  <Label className="text-[10px] uppercase text-muted-foreground">Provvigioni Medie</Label>
                   <Input
                     type="text"
                     inputMode="decimal"
