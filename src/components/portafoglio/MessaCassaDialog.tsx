@@ -223,20 +223,47 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
     },
   });
 
-  // Ricerca altre quietanze da incassare (aggiungibili alla messa a cassa)
+  // Ricerca altre quietanze da incassare (aggiungibili alla messa a cassa).
+  // Cerca sia per numero titolo sia per nome/cognome/ragione sociale del cliente.
   const { data: titoliSearchResults = [] } = useQuery({
     queryKey: ["messa-cassa-titoli-search", titoloSearch, titoli.map((t) => t.id).join(",")],
     enabled: open && titoloSearch.trim().length >= 2,
     queryFn: async () => {
       const q = titoloSearch.trim();
-      const { data } = await (supabase.from("titoli") as any)
+      const already = new Set(titoli.map((t) => t.id));
+
+      // Prima cerca per numero titolo
+      const { data: byNum } = await (supabase.from("titoli") as any)
         .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)")
         .ilike("numero_titolo", `%${q}%`)
         .is("data_messa_cassa", null)
         .in("stato", ["attivo", "sospeso"])
         .limit(20);
-      const already = new Set(titoli.map((t) => t.id));
-      return ((data as any[]) || []).filter((r) => !already.has(r.id));
+
+      // Poi cerca per nome cliente e unisci senza duplicati
+      const { data: clientiMatch } = await (supabase.from("clienti") as any)
+        .select("id")
+        .or(`ragione_sociale.ilike.%${q}%,cognome.ilike.%${q}%,nome.ilike.%${q}%`)
+        .eq("attivo", true)
+        .limit(20);
+      const clienteIds = (clientiMatch as any[] || []).map((c: any) => c.id);
+
+      let byCliente: any[] = [];
+      if (clienteIds.length > 0) {
+        const { data } = await (supabase.from("titoli") as any)
+          .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)")
+          .in("cliente_anagrafica_id", clienteIds)
+          .is("data_messa_cassa", null)
+          .in("stato", ["attivo", "sospeso"])
+          .limit(20);
+        byCliente = (data as any[]) || [];
+      }
+
+      const merged = new Map<string, any>();
+      for (const r of [...((byNum as any[]) || []), ...byCliente]) {
+        if (!merged.has(r.id)) merged.set(r.id, r);
+      }
+      return Array.from(merged.values()).filter((r) => !already.has(r.id)).slice(0, 20);
     },
   });
 
@@ -256,25 +283,36 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
   });
 
   // Tutte le quietanze "da incassare" del cliente selezionato (non ancora messe a cassa).
-  // Usa la vista v_portafoglio_quietanze (stessa sorgente del Portafoglio → Carico) ed
-  // esclude le polizze madri con rate, che non sono incassabili direttamente.
+  // Usa la vista v_portafoglio_quietanze (stessa sorgente del Portafoglio → Carico).
+  // Post-processa lato client per escludere le polizze madri che hanno rate figlie
+  // nel set restituito: la polizza madre è identificata da sostituisce_polizza IS NULL
+  // mentre le sue rate figlie hanno sostituisce_polizza = numero_titolo_madre.
+  // Non si usa il filtro .or() su numero_rate_totali perché la view può restituire
+  // numero_rate_totali = 1 anche per polizze madri con rinnovi annuali.
   const { data: quietanzeCliente = [] } = useQuery({
     queryKey: ["messa-cassa-quietanze-cliente", clienteQuietanze?.id, titoli.map((t) => t.id).join(",")],
     enabled: open && !!clienteQuietanze?.id,
     queryFn: async () => {
       const { data } = await (supabase.from("v_portafoglio_quietanze") as any)
-        .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, data_scadenza")
+        .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, data_scadenza, sostituisce_polizza")
         .eq("cliente_anagrafica_id", clienteQuietanze!.id)
         .is("data_messa_cassa", null)
         .in("stato", ["attivo", "sospeso"])
-        // esclude le madri con rate: restano quietanze, regolazioni, proroghe, appendici e monorata
-        .or(
-          "is_regolazione.eq.true,is_proroga.eq.true,is_appendice_modifica.eq.true,numero_rata.gt.1,numero_rate_totali.lte.1,numero_rate_totali.is.null",
-        )
         .order("data_scadenza", { ascending: true })
         .limit(200);
+
+      const raw = (data as any[]) || [];
       const already = new Set(titoli.map((t) => t.id));
-      return ((data as any[]) || []).filter((r) => !already.has(r.id));
+
+      // Numeri titolo che compaiono come "padre" di almeno un'altra rata nel set
+      const numeriPadre = new Set(
+        raw.filter((r) => r.sostituisce_polizza).map((r) => r.sostituisce_polizza as string),
+      );
+
+      return raw
+        .filter((r) => !already.has(r.id))
+        // Escludi polizza madre se ha già rate figlie presenti nel set
+        .filter((r) => !(r.sostituisce_polizza === null && numeriPadre.has(r.numero_titolo)));
     },
   });
 
@@ -806,7 +844,10 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       }
 
       const prevIncassato = Number(t.importo_incassato) || 0;
-      const nuovoIncassato = round2(prevIncassato + residuoCash);
+      // residuoCash è la quota cash/bonifico; usatoTitolo è la quota coperta da acconti.
+      // Entrambe contribuiscono all'importo_incassato, altrimenti i pagamenti
+      // fatti interamente con acconti lasciano il titolo in stato "attivo".
+      const nuovoIncassato = round2(prevIncassato + residuoCash + usatoTitolo);
       const isFullIncasso = nuovoIncassato + TOLLERANZA_QUADRATURA >= dovutoT;
 
       const payload: any = {
@@ -1442,6 +1483,43 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
             </div>
           )}
 
+          {/* Date per quietanza — bulk: tabella sempre visibile */}
+          {isMulti && (
+            <div className="rounded-md border bg-card p-3 space-y-2">
+              <div className="text-sm font-medium flex items-center gap-2 mb-1">
+                Date per quietanza
+                <span className="text-[10px] text-muted-foreground">(override rispetto alle date globali)</span>
+              </div>
+              <div className="space-y-2">
+                {titoli.map((t) => (
+                  <div key={t.id} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
+                    <span className="text-xs font-mono truncate text-muted-foreground">
+                      {t.numero_titolo || t.id.slice(0, 8)}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Label className="text-[10px] text-muted-foreground whitespace-nowrap">M.C.</Label>
+                      <Input
+                        type="date"
+                        value={getDate(t.id).mc}
+                        onChange={(e) => setDate(t.id, { mc: e.target.value })}
+                        className="h-7 text-xs w-36"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Pag.</Label>
+                      <Input
+                        type="date"
+                        value={getDate(t.id).pag}
+                        onChange={(e) => setDate(t.id, { pag: e.target.value })}
+                        className="h-7 text-xs w-36"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Compensazioni — bulk: accordion per titolo */}
           {isMulti && (
             <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
@@ -1469,27 +1547,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
                           )}
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent className="pt-2 pb-3 space-y-3">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-[11px]">Data Messa a Cassa</Label>
-                            <Input
-                              type="date"
-                              value={getDate(t.id).mc}
-                              onChange={(e) => setDate(t.id, { mc: e.target.value })}
-                              className="mt-1 h-8 text-xs"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[11px]">Data Pagamento</Label>
-                            <Input
-                              type="date"
-                              value={getDate(t.id).pag}
-                              onChange={(e) => setDate(t.id, { pag: e.target.value })}
-                              className="mt-1 h-8 text-xs"
-                            />
-                          </div>
-                        </div>
+                      <AccordionContent className="pt-2 pb-3">
                         {renderCompensazioniPanel(t.id)}
                       </AccordionContent>
                     </AccordionItem>

@@ -109,7 +109,7 @@ const ECAgenziaPdfPage = () => {
     queryFn: async () => {
       let q = supabase
         .from("titoli")
-        .select("id, numero_titolo, riga, premio_lordo, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, ufficio_id, compagnia_rapporto_id, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra), rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
+        .select("id, numero_titolo, riga, premio_lordo, pag_diretto_compagnia, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, ufficio_id, compagnia_rapporto_id, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra), rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
         .eq("compagnia_id", compagniaId)
         .eq("stato", "incassato");
       if (titoliIds.length > 0) {
@@ -200,7 +200,10 @@ const ECAgenziaPdfPage = () => {
         ramo,
         periodo,
         tp: "AM",
-        premio: Number(t.premio_lordo) || 0,
+        // Pagamento diretto compagnia: il premio è stato pagato dal cliente
+        // direttamente alla compagnia → il broker non lo deve. Premio a 0 ma la
+        // riga resta visibile con la sola provvigione.
+        premio: t.pag_diretto_compagnia ? 0 : Number(t.premio_lordo) || 0,
         provvigioni: provv,
         mi: mapTipoToMI(t.tipo_pagamento),
       };
