@@ -42,6 +42,8 @@ DECLARE
   v_numero text;
   v_perc numeric;
   v_prov numeric;
+  v_q_id uuid := NULL; -- id quietanza di riferimento (solo regolazione); evita di
+                       -- valutare v_q.id quando v_q non è assegnato (modifica/proroga)
   v_eff date;
   v_scad date;
   v_desc_prefix text;
@@ -60,6 +62,7 @@ BEGIN
     IF p_quietanza_id IS NULL THEN RAISE EXCEPTION 'Quietanza di riferimento obbligatoria'; END IF;
     SELECT * INTO v_q FROM public.titoli WHERE id = p_quietanza_id;
     IF NOT FOUND THEN RAISE EXCEPTION 'Quietanza % non trovata', p_quietanza_id; END IF;
+    v_q_id := v_q.id;
     SELECT * INTO v_madre FROM public.titoli
       WHERE numero_titolo = v_q.numero_titolo AND sostituisce_polizza IS NULL
       LIMIT 1;
@@ -141,7 +144,7 @@ BEGIN
     v_numero, 1, 'attivo',
     (p_tipo = 'modifica'),    CASE WHEN p_tipo = 'modifica'   THEN v_madre.id ELSE NULL END,
     (p_tipo = 'proroga'),     CASE WHEN p_tipo = 'proroga'    THEN v_madre.id ELSE NULL END,
-    (p_tipo = 'regolazione'), CASE WHEN p_tipo = 'regolazione' THEN v_q.id    ELSE NULL END,
+    (p_tipo = 'regolazione'), v_q_id,
     v_madre.cliente_id, v_madre.cliente_anagrafica_id,
     v_madre.prodotto_id, v_madre.prodotto_nome,
     v_madre.ufficio_id, v_madre.produttore_id, v_madre.produttore_nome,
