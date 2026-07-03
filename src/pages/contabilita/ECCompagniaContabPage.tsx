@@ -61,6 +61,7 @@ interface GroupedRow {
   mail: string;
   lordo: number;
   provvigioni: number;
+  ritenutaAcconto: number;
   data_min: string | null;
   data_max: string | null;
   titoli: TitoloDetail[];
@@ -261,7 +262,7 @@ Consulbrokers`;
 
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, compagnie(nome, codice, mail)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, compagnie(nome, codice, mail, percentuale_ra), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
         .not("compagnia_id", "is", null);
 
       const incassateBase = ["stato.eq.incassato"];
@@ -288,7 +289,7 @@ Consulbrokers`;
       if (coassIds.length > 0) {
         const { data: riparti } = await supabase
           .from("dettaglio_riparto")
-          .select("id, titolo_id, compagnia_id, quota_percentuale, totale, provv_netto, provv_addizionali, compagnie(nome, codice, mail)")
+          .select("id, titolo_id, compagnia_id, quota_percentuale, totale, provv_netto, provv_addizionali, compagnie(nome, codice, mail, percentuale_ra)")
           .in("titolo_id", coassIds);
         for (const r of riparti || []) {
           const arr = ripartoByTitolo.get(r.titolo_id) || [];
@@ -301,12 +302,13 @@ Consulbrokers`;
 
       const pushTitoloToGroup = (
         cId: string,
-        comp: { nome?: string | null; codice?: string | null; mail?: string | null } | null,
+        comp: { nome?: string | null; codice?: string | null; mail?: string | null; percentuale_ra?: number | null } | null,
         t: any,
         lordoShare: number,
         incassatoShare: number,
         provvShare: number,
         dataEff: string | null,
+        raShare: number,
       ) => {
         if (!cId) return;
         if (filters.compagnia_id && cId !== filters.compagnia_id) return;
@@ -318,6 +320,7 @@ Consulbrokers`;
             mail: comp?.mail || "",
             lordo: 0,
             provvigioni: 0,
+            ritenutaAcconto: 0,
             data_min: null,
             data_max: null,
             titoli: [],
@@ -325,6 +328,7 @@ Consulbrokers`;
         }
         grouped[cId].lordo += lordoShare;
         grouped[cId].provvigioni += provvShare;
+        grouped[cId].ritenutaAcconto += raShare;
         grouped[cId].titoli.push({
           id: t.id,
           numero_titolo: t.numero_titolo,
@@ -368,7 +372,9 @@ Consulbrokers`;
             const incassatoShare = importoIncassato * factor;
             const provvShare = (Number(r.provv_netto) || 0) + (Number(r.provv_addizionali) || 0) || provvTot * factor;
             const comp = (r as any).compagnie || t.compagnie;
-            pushTitoloToGroup(cId, comp, t, lordoShare, incassatoShare, provvShare, dataEff);
+            const raPerc = resolvePercentualeRA({ compagnia_percentuale_ra: comp?.percentuale_ra ?? null });
+            const raShare = calcolaRitenutaAcconto(provvShare, raPerc);
+            pushTitoloToGroup(cId, comp, t, lordoShare, incassatoShare, provvShare, dataEff, raShare);
           }
           continue;
         }
@@ -376,14 +382,21 @@ Consulbrokers`;
         const cId = t.compagnia_id as string;
         if (!cId) continue;
         const comp = t.compagnie;
+        const provvNorm = getProvvigioneEC(t);
+        const raPercNorm = resolvePercentualeRA({
+          rapporto_percentuale_ra: t.compagnia_rapporti?.percentuale_ra ?? null,
+          compagnia_percentuale_ra: comp?.percentuale_ra ?? null,
+        });
+        const raShareNorm = calcolaRitenutaAcconto(provvNorm, raPercNorm);
         pushTitoloToGroup(
           cId,
           comp,
           t,
           pagDiretto ? 0 : Number(t.premio_lordo) || 0,
           pagDiretto ? 0 : Number(t.importo_incassato) || 0,
-          getProvvigioneEC(t),
+          provvNorm,
           dataEff,
+          raShareNorm,
         );
       }
       return Object.values(grouped).sort((a, b) => b.lordo - a.lordo);
@@ -617,7 +630,7 @@ Consulbrokers`;
   const rows = data || [];
   const totLordo = rows.reduce((s, r) => s + r.lordo, 0);
   const totProvv = rows.reduce((s, r) => s + r.provvigioni, 0);
-  const totDaRimettere = totLordo - totProvv;
+  const totDaRimettere = rows.reduce((s, r) => s + r.lordo - r.provvigioni + r.ritenutaAcconto, 0);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
   const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.periodo_dal || filters.periodo_al || filters.tipo_pagamento;
 
@@ -641,15 +654,17 @@ Consulbrokers`;
     })).filter((r) => r.titoli.length > 0)
       .map((r) => {
         const lordo = r.titoli.reduce((s, t) => s + t.premio_lordo, 0);
-        const provv = r.provvigioni * (lordo / (r.lordo || 1));
-        return { ...r, lordo, provvigioni: provv };
+        const factor = r.lordo > 0 ? lordo / r.lordo : 0;
+        const provv = r.provvigioni * factor;
+        const ra = r.ritenutaAcconto * factor;
+        return { ...r, lordo, provvigioni: provv, ritenutaAcconto: ra };
       });
   }, [rows, exportDate]);
 
   const exportCSV = () => {
     const src = exportRows;
     const header = "Agenzia,Codice,Data,Mail,Lordo,Provvigioni,Da Rimettere\n";
-    const csv = src.map((r) => `"${r.nome}","${r.codice}","${formatDateRange(r.data_min, r.data_max)}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${(r.lordo - r.provvigioni).toFixed(2)}`).join("\n");
+    const csv = src.map((r) => `"${r.nome}","${r.codice}","${formatDateRange(r.data_min, r.data_max)}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${(r.lordo - r.provvigioni + r.ritenutaAcconto).toFixed(2)}`).join("\n");
     const blob = new Blob([header + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "ec_agenzie.csv"; a.click();
@@ -670,7 +685,7 @@ Consulbrokers`;
       Mail: r.mail,
       "Totale Lordo (€)": Number(r.lordo.toFixed(2)),
       "Provvigioni (€)": Number(r.provvigioni.toFixed(2)),
-      "Da Rimettere (€)": Number((r.lordo - r.provvigioni).toFixed(2)),
+      "Da Rimettere (€)": Number((r.lordo - r.provvigioni + r.ritenutaAcconto).toFixed(2)),
     }));
     const wsRiepilogo = XLSX.utils.json_to_sheet(riepilogo);
     wsRiepilogo["!cols"] = [{ wch: 30 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
@@ -708,10 +723,10 @@ Consulbrokers`;
     const dateLimitLabel = exportDate ? `fino al ${format(exportDate, "dd/MM/yyyy")}` : `aggiornato al ${format(new Date(), "dd/MM/yyyy")}`;
     const totL = src.reduce((s, r) => s + r.lordo, 0);
     const totP = src.reduce((s, r) => s + r.provvigioni, 0);
-    const totD = totL - totP;
+    const totD = src.reduce((s, r) => s + r.lordo - r.provvigioni + r.ritenutaAcconto, 0);
 
     const rows_html = src.map((r) => {
-      const dr = r.lordo - r.provvigioni;
+      const dr = r.lordo - r.provvigioni + r.ritenutaAcconto;
       const titoli_html = r.titoli.map((t) => {
         const d = t.data_messa_cassa || t.data_copertura;
         return `<tr class="detail">
@@ -1033,7 +1048,7 @@ Consulbrokers`;
             ) : rows.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessun titolo da rimettere</TableCell></TableRow>
             ) : rows.map((r) => {
-              const daRimettere = r.lordo - r.provvigioni;
+              const daRimettere = r.lordo - r.provvigioni + r.ritenutaAcconto;
               const isExpanded = expandedRows.has(r.compagnia_id);
               const selected = selectedTitoli[r.compagnia_id] || new Set();
               const selectedCount = selected.size;
