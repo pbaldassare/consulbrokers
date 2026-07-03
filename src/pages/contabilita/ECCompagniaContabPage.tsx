@@ -11,7 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, ChevronRight, ChevronDown, CreditCard, FileText, AlertCircle, Loader2, Landmark, Euro, Mail } from "lucide-react";
+import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, ChevronRight, ChevronDown, CreditCard, FileText, AlertCircle, Loader2, Landmark, Euro, Mail, FileSpreadsheet, Printer, CalendarDays } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import * as XLSX from "xlsx";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
@@ -91,6 +93,7 @@ const ECCompagniaContabPage = () => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedTitoli, setSelectedTitoli] = useState<Record<string, Set<string>>>({});
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+  const [exportDate, setExportDate] = useState<Date | null>(null);
   const [pagaDialog, setPagaDialog] = useState<PagaRimessaState>({
     open: false, compagniaId: "", compagniaNome: "", iban: "", contoMittenteId: null, ibanMittente: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0, titoli: [],
   });
@@ -622,13 +625,145 @@ Consulbrokers`;
     return `${fmtD(min)} – ${fmtD(max)}`;
   };
 
+  // Righe filtrate per export: se è impostata exportDate usa solo quella come limite "al"
+  const exportRows = useMemo(() => {
+    if (!exportDate) return rows;
+    const al = format(exportDate, "yyyy-MM-dd");
+    return rows.map((r) => ({
+      ...r,
+      titoli: r.titoli.filter((t) => {
+        const d = t.data_messa_cassa || t.data_copertura;
+        return !d || d <= al;
+      }),
+    })).filter((r) => r.titoli.length > 0)
+      .map((r) => {
+        const lordo = r.titoli.reduce((s, t) => s + t.premio_lordo, 0);
+        const provv = r.provvigioni * (lordo / (r.lordo || 1));
+        return { ...r, lordo, provvigioni: provv };
+      });
+  }, [rows, exportDate]);
+
   const exportCSV = () => {
+    const src = exportRows;
     const header = "Agenzia,Codice,Data,Mail,Lordo,Provvigioni,Da Rimettere\n";
-    const csv = rows.map((r) => `"${r.nome}","${r.codice}","${formatDateRange(r.data_min, r.data_max)}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${(r.lordo - r.provvigioni).toFixed(2)}`).join("\n");
+    const csv = src.map((r) => `"${r.nome}","${r.codice}","${formatDateRange(r.data_min, r.data_max)}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${(r.lordo - r.provvigioni).toFixed(2)}`).join("\n");
     const blob = new Blob([header + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "ec_agenzie.csv"; a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const exportExcel = () => {
+    const src = exportRows;
+    const wb = XLSX.utils.book_new();
+    const dateLimitLabel = exportDate ? ` fino al ${format(exportDate, "dd/MM/yyyy")}` : "";
+
+    // Foglio 1: riepilogo per agenzia
+    const riepilogo = src.map((r) => ({
+      Agenzia: r.nome,
+      Codice: r.codice,
+      "Periodo Dal": r.data_min ? format(new Date(r.data_min), "dd/MM/yyyy") : "",
+      "Periodo Al": r.data_max ? format(new Date(r.data_max), "dd/MM/yyyy") : "",
+      Mail: r.mail,
+      "Totale Lordo (€)": Number(r.lordo.toFixed(2)),
+      "Provvigioni (€)": Number(r.provvigioni.toFixed(2)),
+      "Da Rimettere (€)": Number((r.lordo - r.provvigioni).toFixed(2)),
+    }));
+    const wsRiepilogo = XLSX.utils.json_to_sheet(riepilogo);
+    wsRiepilogo["!cols"] = [{ wch: 30 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, wsRiepilogo, "Riepilogo Agenzie");
+
+    // Foglio 2: dettaglio titoli per agenzia
+    const dettaglio = src.flatMap((r) =>
+      r.titoli.map((t) => ({
+        Agenzia: r.nome,
+        Codice: r.codice,
+        "N. Titolo": t.numero_titolo || "",
+        "Data Messa a Cassa": t.data_messa_cassa ? format(new Date(t.data_messa_cassa), "dd/MM/yyyy") : (t.data_copertura ? format(new Date(t.data_copertura), "dd/MM/yyyy") : ""),
+        "Premio Lordo (€)": Number(t.premio_lordo.toFixed(2)),
+        "Importo Incassato (€)": Number(t.importo_incassato.toFixed(2)),
+        "Tipo Pagamento": t.tipo_pagamento || "",
+        "Copertura Garantita": t.conferimento_gestito ? "Sì" : "No",
+      }))
+    );
+    const wsDettaglio = XLSX.utils.json_to_sheet(dettaglio);
+    wsDettaglio["!cols"] = [{ wch: 30 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 18 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, wsDettaglio, "Dettaglio Titoli");
+
+    const fileName = `ec_agenzie${dateLimitLabel.replace(/ /g, "_").replace(/\//g, "-")}_${format(new Date(), "yyyyMMdd")}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
+  const exportPDF = () => {
+    const src = exportRows;
+    const dateLimitLabel = exportDate ? `fino al ${format(exportDate, "dd/MM/yyyy")}` : `aggiornato al ${format(new Date(), "dd/MM/yyyy")}`;
+    const totL = src.reduce((s, r) => s + r.lordo, 0);
+    const totP = src.reduce((s, r) => s + r.provvigioni, 0);
+    const totD = totL - totP;
+
+    const rows_html = src.map((r) => {
+      const dr = r.lordo - r.provvigioni;
+      const titoli_html = r.titoli.map((t) => {
+        const d = t.data_messa_cassa || t.data_copertura;
+        return `<tr class="detail">
+          <td></td><td>${t.numero_titolo || "—"}</td>
+          <td>${d ? format(new Date(d), "dd/MM/yyyy") : "—"}</td>
+          <td class="num">${fmt(t.premio_lordo)}</td>
+          <td class="num">${fmt(t.importo_incassato)}</td>
+          <td>${t.tipo_pagamento || "—"}</td>
+          <td></td>
+        </tr>`;
+      }).join("");
+      return `<tr class="group-row">
+        <td><strong>${r.nome}</strong></td>
+        <td>${r.codice}</td>
+        <td>${formatDateRange(r.data_min, r.data_max)}</td>
+        <td class="num">${fmt(r.lordo)}</td>
+        <td class="num">${fmt(r.provvigioni)}</td>
+        <td class="num teal"><strong>${fmt(dr)}</strong></td>
+        <td>${r.titoli.length} titoli</td>
+      </tr>${titoli_html}`;
+    }).join("");
+
+    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+    <title>E/C Agenzie — ${dateLimitLabel}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; color: #111; }
+      h1 { font-size: 16px; margin-bottom: 2px; }
+      .subtitle { color: #666; font-size: 11px; margin-bottom: 12px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+      th { background: #f0f0f0; border: 1px solid #ccc; padding: 5px 8px; text-align: left; font-size: 10px; }
+      td { border: 1px solid #ddd; padding: 4px 8px; }
+      tr.group-row td { background: #fafafa; font-weight: 500; }
+      tr.detail td { background: #fff; font-size: 10px; color: #444; }
+      tr.detail td:first-child { border: none; }
+      .num { text-align: right; font-variant-numeric: tabular-nums; }
+      .teal { color: #0d9488; }
+      tfoot tr td { background: #e8f4f3; font-weight: bold; border-top: 2px solid #0d9488; }
+      @media print { body { margin: 10mm; } }
+    </style></head><body>
+    <h1>E/C Agenzie</h1>
+    <div class="subtitle">Estratto conto — ${dateLimitLabel}</div>
+    <table>
+      <thead><tr>
+        <th>Agenzia</th><th>Codice</th><th>Periodo</th>
+        <th class="num">Lordo</th><th class="num">Provvigioni</th>
+        <th class="num">Da Rimettere</th><th>Titoli</th>
+      </tr></thead>
+      <tbody>${rows_html}</tbody>
+      <tfoot><tr>
+        <td colspan="3"><strong>TOTALE (${src.length} agenzie)</strong></td>
+        <td class="num">${fmt(totL)}</td>
+        <td class="num">${fmt(totP)}</td>
+        <td class="num teal">${fmt(totD)}</td>
+        <td></td>
+      </tr></tfoot>
+    </table>
+    <script>window.onload = () => window.print();</script>
+    </body></html>`;
+
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); }
   };
 
   const kpiCards = [
@@ -648,7 +783,36 @@ Consulbrokers`;
             <p className="text-sm text-muted-foreground">Estratto conto verso agenzie/plurimandatarie — solo titoli ancora da rimettere</p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportCSV} disabled={!rows.length}><Download className="mr-2 h-4 w-4" /> Esporta CSV</Button>
+        {/* Toolbar export: data limite + pulsanti */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 border rounded-md px-2 py-1 bg-background">
+            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Fino al</span>
+            <DatePicker value={exportDate} onChange={setExportDate} placeholder="Tutte le date" />
+            {exportDate && (
+              <button className="ml-1 text-muted-foreground hover:text-foreground" onClick={() => setExportDate(null)} title="Rimuovi limite data">✕</button>
+            )}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={!rows.length}>
+                <Download className="mr-2 h-4 w-4" /> Esporta <ChevronDown className="ml-1 h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportExcel}>
+                <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" /> Excel (riepilogo + dettaglio)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportPDF}>
+                <Printer className="mr-2 h-4 w-4 text-red-500" /> PDF / Stampa (tutte le agenzie)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={exportCSV}>
+                <Download className="mr-2 h-4 w-4" /> CSV (riepilogo)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -666,7 +830,19 @@ Consulbrokers`;
           {hasFilters && <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setFilters({ ...defaultFilters })}><RotateCcw className="h-3 w-3 mr-1" /> Azzera</Button>}
         </div>
         <div className="flex flex-wrap gap-3 items-end">
-          <FilterSearchableSelect value={filters.compagnia_id} onValueChange={(v) => set({ compagnia_id: v })} options={(compagnie || []).map((c) => ({ value: c.id, label: c.nome }))} placeholder="Agenzia" allLabel="Tutte le agenzie" className="w-[240px]" />
+          <FilterSearchableSelect
+            value={filters.compagnia_id}
+            onValueChange={(v) => set({ compagnia_id: v })}
+            options={(compagnie || []).map((c) => ({
+              value: c.id,
+              label: c.nome,
+              description: c.codice || undefined,
+              searchText: `${c.nome} ${c.codice || ""}`.trim(),
+            }))}
+            placeholder="Agenzia"
+            allLabel="Tutte le agenzie"
+            className="w-[240px]"
+          />
           <FilterSearchableSelect value={filters.ufficio_id} onValueChange={(v) => set({ ufficio_id: v })} options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))} placeholder="Sede" allLabel="Tutte le sedi" className="w-[200px]" />
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo al</Label><DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" /></div>

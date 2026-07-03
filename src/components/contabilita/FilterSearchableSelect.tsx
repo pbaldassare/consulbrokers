@@ -5,10 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
+interface FilterOption {
+  value: string;
+  label: string;
+  /** Testo secondario mostrato sotto il label (es. codice agenzia) */
+  description?: string;
+  /** Testo usato per la ricerca; se omesso usa label + description */
+  searchText?: string;
+}
+
 interface FilterSearchableSelectProps {
   value: string | null;
   onValueChange: (v: string | null) => void;
-  options: { value: string; label: string }[];
+  options: FilterOption[];
   placeholder: string;
   allLabel: string;
   className?: string;
@@ -18,6 +27,7 @@ interface FilterSearchableSelectProps {
 export function FilterSearchableSelect({ value, onValueChange, options, placeholder, allLabel, className, loading }: FilterSearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const selectedLabel = value ? options.find((o) => o.value === value)?.label || placeholder : allLabel;
+
   return (
     <Popover open={open && !loading} onOpenChange={(o) => !loading && setOpen(o)}>
       <PopoverTrigger asChild>
@@ -30,7 +40,7 @@ export function FilterSearchableSelect({ value, onValueChange, options, placehol
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[250px] p-0" align="start">
+      <PopoverContent className="w-[280px] p-0" align="start">
         <Command>
           <CommandInput placeholder={`Cerca ${placeholder.toLowerCase()}...`} />
           <CommandList>
@@ -39,11 +49,24 @@ export function FilterSearchableSelect({ value, onValueChange, options, placehol
               <CommandItem value="__all__" onSelect={() => { onValueChange(null); setOpen(false); }}>
                 <Check className={cn("mr-2 h-4 w-4", !value ? "opacity-100" : "opacity-0")} /> {allLabel}
               </CommandItem>
-              {options.map((opt) => (
-                <CommandItem key={opt.value} value={opt.label} onSelect={() => { onValueChange(opt.value); setOpen(false); }}>
-                  <Check className={cn("mr-2 h-4 w-4", value === opt.value ? "opacity-100" : "opacity-0")} /> {opt.label}
-                </CommandItem>
-              ))}
+              {options.map((opt) => {
+                const searchValue = opt.searchText || [opt.label, opt.description].filter(Boolean).join(" ");
+                return (
+                  <CommandItem
+                    key={opt.value}
+                    value={searchValue}
+                    onSelect={() => { onValueChange(opt.value); setOpen(false); }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4 shrink-0", value === opt.value ? "opacity-100" : "opacity-0")} />
+                    <div className="flex flex-col min-w-0">
+                      <span className="truncate">{opt.label}</span>
+                      {opt.description && (
+                        <span className="text-[11px] text-muted-foreground font-mono">{opt.description}</span>
+                      )}
+                    </div>
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>
