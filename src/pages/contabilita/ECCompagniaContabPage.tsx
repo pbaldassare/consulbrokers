@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, ChevronRight, ChevronDown, CreditCard, FileText, AlertCircle, Loader2, Landmark, Euro, Mail, FileSpreadsheet, Printer, CalendarDays } from "lucide-react";
+import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, ChevronRight, ChevronDown, CreditCard, FileText, AlertCircle, Loader2, Landmark, Euro, Mail, FileSpreadsheet, Printer, CalendarDays, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import * as XLSX from "xlsx";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -98,6 +98,8 @@ const ECCompagniaContabPage = () => {
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
   const [exportDate, setExportDate] = useState<Date | null>(null);
   const [bulkEcLoading, setBulkEcLoading] = useState(false);
+  const [sortField, setSortField] = useState<"nome" | "data" | "daRimettere">("nome");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [pagaDialog, setPagaDialog] = useState<PagaRimessaState>({
     open: false, compagniaId: "", compagniaNome: "", iban: "", contoMittenteId: null, ibanMittente: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0, titoli: [],
   });
@@ -399,7 +401,7 @@ Consulbrokers`;
           raShareNorm,
         );
       }
-      return Object.values(grouped).sort((a, b) => b.lordo - a.lordo);
+      return Object.values(grouped);
     },
   });
 
@@ -628,6 +630,30 @@ Consulbrokers`;
   };
 
   const rows = data || [];
+
+  const toggleSort = (field: "nome" | "data" | "daRimettere") => {
+    if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortField(field); setSortDir("asc"); }
+  };
+
+  const sortedRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      const dir = sortDir === "asc" ? 1 : -1;
+      if (sortField === "nome") return dir * a.nome.localeCompare(b.nome, "it");
+      if (sortField === "data") {
+        const da = a.data_max || a.data_min || "";
+        const db = b.data_max || b.data_min || "";
+        return dir * da.localeCompare(db);
+      }
+      if (sortField === "daRimettere") {
+        const va = a.lordo - a.provvigioni + a.ritenutaAcconto;
+        const vb = b.lordo - b.provvigioni + b.ritenutaAcconto;
+        return dir * (va - vb);
+      }
+      return 0;
+    });
+  }, [rows, sortField, sortDir]);
+
   const totLordo = rows.reduce((s, r) => s + r.lordo, 0);
   const totProvv = rows.reduce((s, r) => s + r.provvigioni, 0);
   const totDaRimettere = rows.reduce((s, r) => s + r.lordo - r.provvigioni + r.ritenutaAcconto, 0);
@@ -1037,17 +1063,44 @@ Consulbrokers`;
         <Table>
           <TableHeader><TableRow>
             <TableHead className="w-[40px]"></TableHead>
-            <TableHead>Agenzia</TableHead><TableHead>Codice</TableHead><TableHead>Data</TableHead>
-            <TableHead className="text-right">Lordo</TableHead><TableHead className="text-right">Provvigioni</TableHead>
-            <TableHead className="text-right">Da Rimettere</TableHead>
+            <TableHead
+              className="cursor-pointer select-none hover:text-foreground"
+              onClick={() => toggleSort("nome")}
+            >
+              <span className="flex items-center gap-1">
+                Agenzia
+                {sortField === "nome" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+              </span>
+            </TableHead>
+            <TableHead>Codice</TableHead>
+            <TableHead
+              className="cursor-pointer select-none hover:text-foreground"
+              onClick={() => toggleSort("data")}
+            >
+              <span className="flex items-center gap-1">
+                Data
+                {sortField === "data" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+              </span>
+            </TableHead>
+            <TableHead className="text-right">Lordo</TableHead>
+            <TableHead className="text-right">Provvigioni</TableHead>
+            <TableHead
+              className="text-right cursor-pointer select-none hover:text-foreground"
+              onClick={() => toggleSort("daRimettere")}
+            >
+              <span className="flex items-center justify-end gap-1">
+                Da Rimettere
+                {sortField === "daRimettere" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+              </span>
+            </TableHead>
             <TableHead className="w-[260px]">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
-            ) : rows.length === 0 ? (
+            ) : sortedRows.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessun titolo da rimettere</TableCell></TableRow>
-            ) : rows.map((r) => {
+            ) : sortedRows.map((r) => {
               const daRimettere = r.lordo - r.provvigioni + r.ritenutaAcconto;
               const isExpanded = expandedRows.has(r.compagnia_id);
               const selected = selectedTitoli[r.compagnia_id] || new Set();
