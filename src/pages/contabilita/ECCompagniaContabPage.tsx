@@ -982,7 +982,6 @@ Consulbrokers`;
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="w-5 h-5 text-primary" /></div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">E/C Agenzie</h1>
-            <p className="text-sm text-muted-foreground">Estratto conto verso agenzie/plurimandatarie — solo titoli ancora da rimettere</p>
           </div>
         </div>
         {/* Toolbar export: data limite + pulsanti */}
