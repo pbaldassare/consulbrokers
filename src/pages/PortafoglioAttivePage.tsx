@@ -24,7 +24,7 @@ import { rowBorderClass, isQuietanzaRow, messaCassaRowBgClass, isMessaACassa } f
 import { cn } from "@/lib/utils";
 
 const ROW_SELECT =
-  "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza, is_regolazione, regolazione_quietanza_id, numero_rata, numero_rate_totali";
+  "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza, is_regolazione, regolazione_quietanza_id, numero_rata, numero_rate_totali";
 
 type PortafoglioRow = Record<string, any>;
 
@@ -243,7 +243,7 @@ const PortafoglioAttivePage = () => {
       <TableCell className="text-right">{fmtCurrency(p.provvigioni_quietanza)}</TableCell>
       <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
       <TableCell className="text-sm">{p.specialist || "—"}</TableCell>
-      <TableCell className="text-sm">{p.produttore_nome || "—"}</TableCell>
+      <TableCell className="text-sm max-w-[200px] truncate" title={p.produttori_display || p.produttore_nome || undefined}>{p.produttori_display || p.produttore_nome || "—"}</TableCell>
     </>
   );
 

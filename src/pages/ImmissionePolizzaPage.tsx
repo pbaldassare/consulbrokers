@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 
-import { Search, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck, Truck } from "lucide-react";
+import { Search, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck, Truck, Trash2 } from "lucide-react";
 import { PremiGaranziaCardShell, emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
 import { LibroMatricolaDialog, filterRigheValide, type LibroMatricolaRiga } from "@/components/polizze/LibroMatricolaDialog";
 import {
@@ -500,6 +500,8 @@ const ImmissionePolizzaPage = () => {
 
   const [selectedCommerciale, setSelectedCommerciale] = useState("__sede__");
   const [percentualeCommerciale, setPercentualeCommerciale] = useState("100");
+  type SplitRowForm = { anagrafica_commerciale_id: string | null; percentuale: number };
+  const [splitsForm, setSplitsForm] = useState<SplitRowForm[]>([]);
 
   // === Autosave bozza locale (localStorage) ===
   const draftKey = `immissione:v1:${selectedClienteId || preselectedClienteId || "new"}`;
@@ -956,7 +958,7 @@ const ImmissionePolizzaPage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
-        .select("id, codice, cognome, nome, sigla, ragione_sociale, tipo")
+        .select("id, codice, cognome, nome, sigla, ragione_sociale, tipo, percentuale_base")
         .in("tipo", ["account_executive", "corrispondente", "responsabile_sede"])
         .eq("attivo", true)
         .order("cognome");
@@ -1354,6 +1356,30 @@ const ImmissionePolizzaPage = () => {
     })();
     return () => { cancelled = true; };
   }, [selectedAE, selectedRamoData?.codice, produttoreEscludiProvvigioni]);
+
+  const aeOptionsForSplit = useMemo(
+    () =>
+      (aeList || []).map((ae: any) => ({
+        value: ae.id as string,
+        label: ae.ragione_sociale || `${ae.cognome || ""} ${ae.nome || ""}`.trim() || ae.codice || ae.id,
+        percentuale_base: ae.percentuale_base != null ? Number(ae.percentuale_base) : undefined,
+      })),
+    [aeList],
+  );
+
+  useEffect(() => {
+    if (produttoreEscludiProvvigioni) {
+      setSplitsForm([]);
+      return;
+    }
+    if (!selectedAE) return;
+    const ae = (aeList || []).find((a: any) => a.id === selectedAE);
+    const pct = parseFloat(percentualeCommerciale) || Number(ae?.percentuale_base) || 100;
+    setSplitsForm((prev) => {
+      if (prev.length === 0) return [{ anagrafica_commerciale_id: selectedAE, percentuale: pct }];
+      return prev;
+    });
+  }, [selectedAE, produttoreEscludiProvvigioni, aeList]);
 
   // --- Matrice Provvigioni (Rapporto + Gruppo Ramo) caricata una sola volta ---
   useEffect(() => {
@@ -1795,6 +1821,41 @@ const ImmissionePolizzaPage = () => {
         .select("id")
         .single();
       if (error) throw error;
+
+      // Split commerciali multi-produttore (solo polizza madre, non regolazione)
+      if (!regolazioneMode) {
+        const fromForm = splitsForm.filter((s) => s.anagrafica_commerciale_id && s.percentuale > 0);
+        const effectiveSplits =
+          fromForm.length > 0
+            ? fromForm
+            : selectedAE && !produttoreEscludiProvvigioni
+              ? [{ anagrafica_commerciale_id: selectedAE, percentuale: parseFloat(percentualeCommerciale) || 100 }]
+              : [];
+
+        if (effectiveSplits.length > 0) {
+          const sum = effectiveSplits.reduce((a, s) => a + s.percentuale, 0);
+          const aePerc = selectedAccountExecutiveId ? parseFloat(percentualeAE) || 0 : 0;
+          if (sum + aePerc > 100.001) throw new Error("Somma percentuali produttori + AE supera 100%");
+          const ids = new Set(effectiveSplits.map((s) => s.anagrafica_commerciale_id));
+          if (ids.size !== effectiveSplits.length) throw new Error("Produttori duplicati nello split");
+
+          const { error: splitErr } = await supabase.from("titoli_split_commerciali").insert(
+            effectiveSplits.map((s, i) => ({
+              titolo_id: newTitolo.id,
+              anagrafica_commerciale_id: s.anagrafica_commerciale_id!,
+              commerciale_user_id: null,
+              percentuale: s.percentuale,
+              ordine: i,
+            })),
+          );
+          if (splitErr) throw splitErr;
+
+          const { error: syncErr } = await supabase.rpc("sync_split_commerciali_to_children", {
+            p_madre_id: newTitolo.id,
+          });
+          if (syncErr) throw syncErr;
+        }
+      }
 
       // Create first movimento ("Polizza Base" oppure "Regolazione Premio")
       await supabase.from("movimenti_polizza").insert({
@@ -3145,6 +3206,134 @@ const ImmissionePolizzaPage = () => {
             Il produttore assegnato a questo cliente è configurato <strong>senza provvigioni</strong>: la % Produttore sarà 0; l&apos;Account Executive mantiene la propria quota.
           </div>
         )}
+
+        {!produttoreEscludiProvvigioni && (
+          <div className="mb-4 space-y-2">
+            <Label className="text-xs font-medium">Split provvigioni multi-produttore</Label>
+            {splitsForm.length === 0 && (
+              <div className="text-xs text-muted-foreground italic px-3 py-2 border rounded-md bg-muted/30">
+                Nessun produttore aggiuntivo — usa il Produttore selezionato sopra oppure aggiungi righe.
+              </div>
+            )}
+            {splitsForm.map((row, idx) => {
+              const sel = aeOptionsForSplit.find((a) => a.value === row.anagrafica_commerciale_id);
+              const def = sel?.percentuale_base;
+              const dupCount = splitsForm.filter((s) => s.anagrafica_commerciale_id === row.anagrafica_commerciale_id).length;
+              const isDup = !!row.anagrafica_commerciale_id && dupCount > 1;
+              return (
+                <div
+                  key={idx}
+                  className={`grid grid-cols-12 gap-2 items-end p-2 border rounded-md ${isDup ? "border-red-400 bg-red-50 dark:bg-red-950/20" : ""}`}
+                >
+                  <div className="col-span-12 md:col-span-7">
+                    <Label className="text-[11px]">Produttore</Label>
+                    <SearchableSelect
+                      className="h-8 text-xs"
+                      options={aeOptionsForSplit}
+                      value={row.anagrafica_commerciale_id || ""}
+                      onValueChange={(v) => {
+                        const a = aeOptionsForSplit.find((x) => x.value === v);
+                        setSplitsForm((prev) =>
+                          prev.map((r, i) =>
+                            i === idx
+                              ? {
+                                  ...r,
+                                  anagrafica_commerciale_id: v,
+                                  percentuale: r.percentuale > 0 ? r.percentuale : a?.percentuale_base || 0,
+                                }
+                              : r,
+                          ),
+                        );
+                      }}
+                      placeholder="Seleziona produttore..."
+                    />
+                    {isDup && <p className="text-[10px] text-red-600 mt-0.5">Produttore duplicato</p>}
+                  </div>
+                  <div className="col-span-8 md:col-span-3">
+                    <Label className="text-[11px]">% Provvigione</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.01}
+                      className="h-8 text-xs font-mono"
+                      value={row.percentuale}
+                      onChange={(e) =>
+                        setSplitsForm((prev) =>
+                          prev.map((r, i) => (i === idx ? { ...r, percentuale: Number(e.target.value) } : r)),
+                        )
+                      }
+                    />
+                    {def != null && Number(def) !== Number(row.percentuale) && (
+                      <button
+                        type="button"
+                        className="text-[10px] text-teal-700 underline hover:no-underline mt-0.5"
+                        onClick={() =>
+                          setSplitsForm((prev) =>
+                            prev.map((r, i) => (i === idx ? { ...r, percentuale: Number(def) } : r)),
+                          )
+                        }
+                      >
+                        Usa default ({def}%)
+                      </button>
+                    )}
+                  </div>
+                  <div className="col-span-4 md:col-span-2 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      onClick={() => setSplitsForm((prev) => prev.filter((_, i) => i !== idx))}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+            <Button
+              size="sm"
+              variant="outline"
+              type="button"
+              onClick={() =>
+                setSplitsForm((prev) => [...prev, { anagrafica_commerciale_id: null, percentuale: 0 }])
+              }
+            >
+              + Aggiungi produttore
+            </Button>
+            {(() => {
+              const sumPerc = splitsForm.reduce((acc, s) => acc + (Number(s.percentuale) || 0), 0);
+              const aePerc = selectedAccountExecutiveId ? Math.max(0, parseFloat(percentualeAE) || 0) : 0;
+              const sumTot = sumPerc + aePerc;
+              const consulPerc = Math.max(0, Math.round((100 - sumTot) * 100) / 100);
+              const overflow = sumTot > 100.001;
+              return (
+                <div
+                  className={`p-2 rounded-md border text-xs ${overflow ? "border-red-400 bg-red-50 dark:bg-red-950/20 text-red-800" : "bg-muted/40"}`}
+                >
+                  <div className="flex justify-between">
+                    <span>Totale produttori:</span>
+                    <strong className="font-mono tabular-nums">{sumPerc.toFixed(2)}%</strong>
+                  </div>
+                  {aePerc > 0 && (
+                    <div className="flex justify-between">
+                      <span>Account Executive:</span>
+                      <strong className="font-mono tabular-nums">{aePerc.toFixed(2)}%</strong>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span>Consulbrokers SPA (residuo):</span>
+                    <strong className="font-mono tabular-nums">{consulPerc.toFixed(2)}%</strong>
+                  </div>
+                  {overflow && (
+                    <div className="text-[10px] mt-1">⚠ La somma (Produttori + AE) supera 100%</div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div className="space-y-1.5 col-span-2">
             <Label className="text-xs">Commerciale</Label>

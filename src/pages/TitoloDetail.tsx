@@ -524,6 +524,16 @@ const TitoloDetail = () => {
         .eq("id", id!);
       if (tErr) throw tErr;
 
+      const isMadre =
+        !titolo?.sostituisce_polizza &&
+        !(titolo as any)?.is_regolazione &&
+        !(titolo as any)?.is_proroga &&
+        !(titolo as any)?.is_appendice_modifica;
+      if (isMadre) {
+        const { error: syncErr } = await supabase.rpc("sync_split_commerciali_to_children", { p_madre_id: id! });
+        if (syncErr) throw syncErr;
+      }
+
       if (titolo?.stato === "incassato") {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
       }
