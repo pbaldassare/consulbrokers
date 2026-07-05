@@ -1605,6 +1605,14 @@ const TitoloDetail = () => {
     ? (catenaCorrente!.rate.find((x: any) => x.stato === "attivo" && !x.data_messa_cassa) || null)
     : null;
 
+  // Polizza originale (madre): sostituisce_polizza === null, non è appendice/regolazione/proroga.
+  // Su queste l'incasso NON si fa mai — solo sulle quietanze, regolazioni e appendici.
+  const isPolizzaMadre =
+    !t.sostituisce_polizza &&
+    !isRegolazione &&
+    !isProroga &&
+    !(t as any).is_appendice_modifica;
+
 
   return (
     <div className="space-y-4 max-w-5xl">
@@ -1918,7 +1926,7 @@ const TitoloDetail = () => {
             )}
 
             {/* ===== Callout: sulla Polizza madre l'incasso si fa sulle singole quietanze ===== */}
-            {isMadreConRate && (
+            {(isMadreConRate || isPolizzaMadre) && (
               <div className="w-full mt-2 pt-4 border-t">
                 <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-900 flex items-start gap-2">
                   <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -1943,7 +1951,7 @@ const TitoloDetail = () => {
             )}
 
             {/* ===== Sotto-sezione Messa a Cassa unificata ===== */}
-            {!isMadreConRate && (t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
+            {!isMadreConRate && !isPolizzaMadre && (t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
               <div className="w-full mt-2 pt-4 border-t">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold flex items-center gap-2 text-teal-900 dark:text-teal-100">
