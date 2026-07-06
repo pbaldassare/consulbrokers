@@ -51,6 +51,7 @@ import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { NuovoClienteDialog, type NuovoClienteInitialData } from "@/components/clienti/NuovoClienteDialog";
 import { UserPlus, Sparkles, X } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
+import { PageContainer } from "@/components/shared/PageContainer";
 import { ImportNuovaPolizzaAIDialog, type MatchResult } from "@/components/polizze/ImportNuovaPolizzaAIDialog";
 import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
 import { FieldHint } from "@/components/ui/field-hint";
@@ -2161,7 +2162,7 @@ const ImmissionePolizzaPage = () => {
   };
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <PageContainer variant="form">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
@@ -2256,7 +2257,7 @@ const ImmissionePolizzaPage = () => {
               </div>
             );
           })()}
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 md:gap-5 items-end">
             <div className="space-y-1">
               <Label className="text-xs">Quietanza di riferimento *</Label>
               <SearchableSelect
@@ -2304,7 +2305,7 @@ const ImmissionePolizzaPage = () => {
       <PolizzaSection title="Cliente & Sede" icon={Users}>
 
         {/* Selezione cliente esistente */}
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 md:gap-5 items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">Cliente esistente</Label>
             <SearchableSelect
@@ -2382,7 +2383,7 @@ const ImmissionePolizzaPage = () => {
         )}
 
         {/* Ufficio (Sede) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5">
           <div className="space-y-1.5 min-w-0">
             <Label className="text-xs">Sede (Ufficio) *</Label>
             <SearchableSelect
@@ -2530,7 +2531,7 @@ const ImmissionePolizzaPage = () => {
         />
 
         {!coassicurazione && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
           <div className="space-y-1.5">
             <Label className="text-xs">Compagnia Assicurativa <span className="text-destructive">*</span></Label>
             <SearchableSelect
@@ -2632,7 +2633,7 @@ const ImmissionePolizzaPage = () => {
 
         {/* Rapporto Agenzia: visibile solo per broker / plurimandataria */}
         {!coassicurazione && isBrokerLike && selectedCompagnia && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
             <div className="space-y-1.5">
               <Label className="text-xs">
                 Rapporto Agenzia <span className="text-destructive">*</span>
@@ -2663,7 +2664,7 @@ const ImmissionePolizzaPage = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
           <div className="space-y-1.5 md:col-span-2">
             <RamoSottoramoSelect
               layout="stacked"
@@ -2739,7 +2740,7 @@ const ImmissionePolizzaPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
           <div className="space-y-1.5 col-span-2">
             <Label className="text-xs">Prodotto</Label>
             <Input
@@ -2754,7 +2755,7 @@ const ImmissionePolizzaPage = () => {
 
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
           <div className="space-y-1.5">
             <Label className="text-xs">N° Polizza <span className="text-destructive">*</span></Label>
             <div className="relative">
@@ -2781,7 +2782,7 @@ const ImmissionePolizzaPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
           {tipoSoggetto === "ente" && (
             <div className="space-y-1.5">
               <Label className="text-xs flex items-center gap-1">
@@ -2835,7 +2836,7 @@ const ImmissionePolizzaPage = () => {
 
       {/* PERIODO */}
       <PolizzaSection title="Periodo" icon={Calendar}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
           <div className="space-y-1.5 md:col-span-2">
             <Label className="text-xs flex items-center gap-1">
               Polizza temporanea
@@ -3334,7 +3335,7 @@ const ImmissionePolizzaPage = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5 items-end">
           <div className="space-y-1.5 col-span-2">
             <Label className="text-xs">Commerciale</Label>
             <SearchableSelect
@@ -3612,7 +3613,7 @@ const ImmissionePolizzaPage = () => {
         righe={righeMatricola}
         onChange={setRigheMatricola}
       />
-    </div>
+    </PageContainer>
   );
 };
 

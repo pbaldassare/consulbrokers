@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { buildPrecontrattualePdf, type PrecontrattualeData } from "@/lib/precontrattuale-pdf";
 import PdfPreview from "@/components/PdfPreview";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { PageContainer } from "@/components/shared/PageContainer";
 
 
 
@@ -585,7 +586,7 @@ const DocPrecontrattualePage = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <PageContainer variant="form">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Documentazione Precontrattuale</h1>
         <p className="text-sm text-muted-foreground mt-1">Generazione documentazione precontrattuale</p>
@@ -907,7 +908,7 @@ const DocPrecontrattualePage = () => {
           <PdfPreview data={previewBytes} />
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 };
 

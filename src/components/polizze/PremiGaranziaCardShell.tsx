@@ -139,7 +139,7 @@ export interface PremiGaranziaCardShellProps {
   titoloOverride?: string;
   /** Slot opzionale sotto i totali (es. riparto coassicurazione) */
   coassicurazioneBreakdown?: ReactNode;
-  /** Blocco modifica (polizza incassata / messa a cassa) */
+  /** Blocco modifica (polizza incassata / messa a cassa / fuori da Modifica) */
   readOnly?: boolean;
 }
 
@@ -426,16 +426,20 @@ export function PremiGaranziaCardShell({
     const r = rows[idx];
     if (!r || r.dirittiAgenzia || r.escludiProvvigioni) return;
     if (r.tasseManualOverride) {
-      // Torna al calcolo automatico: azzera la rettifica e ricalcola le tasse.
       const netto = parseDecimalItOr(r.netto);
       const accessori = parseDecimalItOr(r.accessori);
       const autoTasse = calcTasseRiga(netto, accessori, r.aliquotaTasse || 0);
+      const ssnAuto = r.ssnAttivo && !r.ssnManualOverride;
+      const ssnVal = ssnAuto
+        ? round2((netto * (r.aliquotaSsn || 0)) / 100)
+        : parseDecimalItOr(r.ssn);
       updateRow(idx, {
         tasseManualOverride: false,
         tasseRettifica: "",
         tasse: (netto > 0 || accessori > 0) && (r.aliquotaTasse || 0) > 0
           ? autoTasse.toFixed(2)
           : (r.tasse || ""),
+        ssn: r.ssnAttivo ? ssnVal.toFixed(2) : (r.ssn || ""),
       });
     } else {
       updateRow(idx, { tasseManualOverride: true });
@@ -618,7 +622,9 @@ export function PremiGaranziaCardShell({
                         pattern="[0-9.,\-]*"
                         value={r.dirittiAgenzia ? "" : r.netto}
                         onChange={(e) => handleNettoChange(idx, e.target.value)}
-                        onBlur={(e) => handleNettoChange(idx, normalizeDecimalOnBlur(e.target.value))}
+                        onBlur={(e) => {
+                          handleNettoChange(idx, normalizeDecimalOnBlur(e.target.value));
+                        }}
                         disabled={readOnly || r.dirittiAgenzia || r.escludiProvvigioni}
                         title={r.dirittiAgenzia ? "Diritti di agenzia: solo importo tasse" : undefined}
                         className="h-8 text-right font-mono ml-auto w-28"
@@ -631,7 +637,9 @@ export function PremiGaranziaCardShell({
                         pattern="[0-9.,\-]*"
                         value={r.dirittiAgenzia ? "" : (r.accessori || "")}
                         onChange={(e) => handleAccessoriChange(idx, e.target.value)}
-                        onBlur={(e) => handleAccessoriChange(idx, normalizeDecimalOnBlur(e.target.value))}
+                        onBlur={(e) => {
+                          handleAccessoriChange(idx, normalizeDecimalOnBlur(e.target.value));
+                        }}
                         disabled={readOnly || r.dirittiAgenzia || r.escludiProvvigioni}
                         className="h-8 text-right font-mono ml-auto w-24"
                       />
@@ -657,7 +665,9 @@ export function PremiGaranziaCardShell({
                           pattern="[0-9.,\-]*"
                           value={r.tasse}
                           onChange={(e) => handleTasseChange(idx, e.target.value)}
-                          onBlur={(e) => handleTasseChange(idx, normalizeDecimalOnBlur(e.target.value))}
+                          onBlur={(e) => {
+                            handleTasseChange(idx, normalizeDecimalOnBlur(e.target.value));
+                          }}
                           disabled={readOnly}
                           title="Importo diritti di agenzia (solo tasse)"
                           className="h-8 text-right font-mono ml-auto w-24"
@@ -701,7 +711,9 @@ export function PremiGaranziaCardShell({
                               pattern="[0-9.,\-]*"
                               value={r.ssn || ""}
                               onChange={(e) => handleSsnChange(idx, e.target.value)}
-                              onBlur={(e) => handleSsnChange(idx, normalizeDecimalOnBlur(e.target.value))}
+                              onBlur={(e) => {
+                                handleSsnChange(idx, normalizeDecimalOnBlur(e.target.value));
+                              }}
                               disabled={readOnly}
                               className="h-8 text-right font-mono ml-auto w-24"
                               title={`SSN ${(r.aliquotaSsn ?? 10.5).toFixed(2)}% sul lordo (netto+tasse)`}

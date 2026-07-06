@@ -42,7 +42,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 
-import { TitoloImportiPremiBlock } from "@/components/polizze/TitoloImportiPremiBlock";
+import { TitoloImportiPremiBlock, type TitoloImportiPremiBlockHandle } from "@/components/polizze/TitoloImportiPremiBlock";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
@@ -52,6 +52,7 @@ import { TitoloHeaderBar } from "@/components/titolo/sections/TitoloHeaderBar";
 import { TitoloScopeBanners } from "@/components/titolo/sections/TitoloScopeBanners";
 import { TitoloQuietanzePanel } from "@/components/titolo/sections/TitoloQuietanzePanel";
 import { TitoloDataPersistenceInfo } from "@/components/titolo/sections/TitoloDataPersistenceInfo";
+import { PageContainer } from "@/components/shared/PageContainer";
 import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza, getTotQuietanze, getQuietanzaRataIndex } from "@/lib/quietanze";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
@@ -982,6 +983,7 @@ const TitoloDetail = () => {
 
   // --- Importi edit state ---
   const [editingImporti, setEditingImporti] = useState(false);
+  const premiBlockRef = useRef<TitoloImportiPremiBlockHandle>(null);
   const [vociRcaTotali, setVociRcaTotali] = useState<{ netto: number; tasse: number; lordo: number } | null>(null);
   const vociRcaSyncTimer = useRef<any>(null);
   const vociRcaQuietanzaTimer = useRef<any>(null);
@@ -1065,134 +1067,69 @@ const TitoloDetail = () => {
 
   const saveImportiMutation = useMutation({
     mutationFn: async () => {
+      await premiBlockRef.current?.saveDraft();
+
       const numericFields = [
-        "premio_netto", "addizionali", "tasse", "premio_lordo", "provvigioni_firma", "brokeraggio_firma",
-        "premio_netto_quietanza", "addizionali_quietanza", "tasse_quietanza", "provvigioni_quietanza", "brokeraggio_quietanza",
         "percentuale_brokeraggio",
-        "cambio",
+        "brokeraggio_firma",
+        "brokeraggio_quietanza",
       ] as const;
 
-      // Validations
       const errs: string[] = [];
       numericFields.forEach((f) => {
         const v = importiForm[f];
         if (v !== "" && v != null) {
           const n = Number(v);
           if (isNaN(n)) errs.push(`${f}: valore non numerico`);
-          else if (n < 0 && f !== "cambio") errs.push(`${f}: deve essere ≥ 0`);
+          else if (n < 0) errs.push(`${f}: deve essere ≥ 0`);
         }
       });
-      // Cambio rimosso dalla UI: forziamo sempre 1
-      importiForm.cambio = "1";
-
       if (errs.length) throw new Error(errs.join(" • "));
-
-      // Warnings (non-blocking)
-      const lordoTyped = parseFloat(importiForm.premio_lordo);
-      if (!isNaN(lordoTyped) && suggestedLordoFirma != null && Math.abs(lordoTyped - suggestedLordoFirma) > 0.01) {
-        toast.warning(`Premio Lordo (${lordoTyped.toFixed(2)}) ≠ Netto+Add+Tasse (${suggestedLordoFirma.toFixed(2)})`);
-      }
-      const provF = parseFloat(importiForm.provvigioni_firma);
-      const nettoF = parseFloat(importiForm.premio_netto);
-      if (!isNaN(provF) && !isNaN(nettoF) && provF > nettoF) {
-        toast.warning("Provvigioni Firma > Premio Netto Firma");
-      }
 
       const before: Record<string, any> = {};
       const after: Record<string, any> = {};
-      const payload: Record<string, any> = {};
-      const allFields = [
-        ...numericFields,
-        "valuta", "indicizzata", "rimborso",
-      ] as const;
-      allFields.forEach((f) => {
-        const raw = importiForm[f];
-        let newV: any;
-        if (typeof raw === "boolean") newV = raw;
-        else if (raw === "" || raw == null) newV = null;
-        else if ((numericFields as readonly string[]).includes(f)) newV = Number(raw);
-        else newV = raw;
-        const oldV = titolo?.[f] ?? (typeof raw === "boolean" ? false : null);
-        if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
-        payload[f] = newV;
-      });
+      const payload: Record<string, any> = {
+        valuta: importiForm.valuta || "EUR",
+        cambio: 1,
+        indicizzata: !!importiForm.indicizzata,
+        rimborso: !!importiForm.rimborso,
+        percentuale_brokeraggio:
+          importiForm.percentuale_brokeraggio === "" ? null : Number(importiForm.percentuale_brokeraggio),
+        brokeraggio_firma:
+          importiForm.brokeraggio_firma === "" ? null : Number(importiForm.brokeraggio_firma),
+        brokeraggio_quietanza:
+          importiForm.brokeraggio_quietanza === "" ? null : Number(importiForm.brokeraggio_quietanza),
+      };
 
-      // === Auto-coherence: ricalcolo premio_lordo se incoerente ===
-      const autoFixes: string[] = [];
-      const nettoFirmaNew = payload.premio_netto;
-      const tasseFirmaNew = payload.tasse;
-      const addizFirmaNew = payload.addizionali;
-      if (nettoFirmaNew != null || tasseFirmaNew != null || addizFirmaNew != null) {
-        const computedLordo =
-          (Number(nettoFirmaNew) || 0) + (Number(tasseFirmaNew) || 0) + (Number(addizFirmaNew) || 0);
-        const currentLordo = payload.premio_lordo;
-        if (currentLordo == null || Math.abs(Number(currentLordo) - computedLordo) > 0.01) {
-          const oldLordo = titolo?.premio_lordo ?? null;
-          if (oldLordo !== computedLordo) {
-            before.premio_lordo = oldLordo;
-            after.premio_lordo = computedLordo;
-          }
-          payload.premio_lordo = computedLordo;
-          autoFixes.push("Premio Lordo ricalcolato");
-        }
-      }
-
-      // === Sincronizzazione Firma → Quietanza ===
-      // Se l'utente ha modificato un campo Firma e il corrispondente Quietanza non è stato toccato
-      // (cioè è rimasto uguale al valore in DB), propaghiamo il nuovo valore Firma anche alla Quietanza.
-      // ATTENZIONE: la sync vale SOLO sulla polizza madre. Su una rata (quietanza) i campi Firma
-      // sono lo storico della firma originale e non devono propagare nulla.
-      const isQuietanzaRow = isQuietanzaTitolo(titolo);
-      const syncPairs: Array<[string, string]> = isQuietanzaRow ? [] : [
-        ["premio_netto", "premio_netto_quietanza"],
-        ["tasse", "tasse_quietanza"],
-        ["addizionali", "addizionali_quietanza"],
-        ["provvigioni_firma", "provvigioni_quietanza"],
-        ["brokeraggio_firma", "brokeraggio_quietanza"],
-      ];
-      let syncedQuietanza = false;
-      syncPairs.forEach(([firmaKey, quietKey]) => {
-        const firmaOld = titolo?.[firmaKey] ?? null;
-        const firmaNew = payload[firmaKey];
-        const quietOld = titolo?.[quietKey] ?? null;
-        const quietNew = payload[quietKey];
-        const firmaChanged = firmaOld !== firmaNew;
-        const quietUntouched = quietOld === quietNew;
-        if (firmaChanged && quietUntouched && firmaNew !== quietNew) {
-          payload[quietKey] = firmaNew;
-          before[quietKey] = quietOld;
-          after[quietKey] = firmaNew;
-          syncedQuietanza = true;
+      (Object.keys(payload) as Array<keyof typeof payload>).forEach((f) => {
+        const newV = payload[f];
+        const oldV = titolo?.[f as string] ?? (typeof newV === "boolean" ? false : null);
+        if (oldV !== newV) {
+          before[f as string] = oldV;
+          after[f as string] = newV;
         }
       });
-
-      // Se ho sincronizzato netto/tasse/addiz quietanza, ricalcolo anche eventuale lordo quietanza coerente
-      // (qui non c'è premio_lordo_quietanza nello schema, ma teniamo il flag per il toast)
-      if (syncedQuietanza) autoFixes.push("Quietanza allineata alla Firma");
 
       assertSameTitolo(id, titolo?.id, "saveImportiMutation");
+      if (Object.keys(after).length === 0) return { autoFixes: [] as string[] };
+
       const { error } = await supabase.from("titoli").update(payload).eq("id", id!);
       if (error) throw error;
 
-      if (Object.keys(after).length > 0) {
-        await logAttivita({
-          azione: "modifica_importi",
-          entita_tipo: "titolo",
-          entita_id: id!,
-          dettagli_json: { campi_modificati: Object.keys(after), before, after },
-          severity: "info",
-        });
-      }
+      await logAttivita({
+        azione: "modifica_importi",
+        entita_tipo: "titolo",
+        entita_id: id!,
+        dettagli_json: { campi_modificati: Object.keys(after), before, after },
+        severity: "info",
+      });
 
-      return { autoFixes };
+      return { autoFixes: [] as string[] };
     },
-    onSuccess: (res) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
       toast.success("Importi aggiornati");
-      if (res?.autoFixes?.length) {
-        toast.info(res.autoFixes.join(" • "));
-      }
       setEditingImporti(false);
     },
     onError: (e: any) => toast.error(e.message),
@@ -1625,7 +1562,7 @@ const TitoloDetail = () => {
 
 
   return (
-    <div className="space-y-4 max-w-5xl">
+    <PageContainer variant="detail">
       {/* Header — sticky sotto la topbar globale */}
       <TitoloHeaderBar
         t={t}
@@ -3182,7 +3119,12 @@ const TitoloDetail = () => {
             </Button>
           ) : (
             <>
-              <Button variant="outline" size="sm" onClick={() => setEditingImporti(false)}>Annulla</Button>
+              <Button variant="outline" size="sm" onClick={() => {
+                void (async () => {
+                  await premiBlockRef.current?.revertDraft();
+                  setEditingImporti(false);
+                })();
+              }}>Annulla</Button>
               <Button size="sm" onClick={() => saveImportiMutation.mutate()} disabled={saveImportiMutation.isPending}>
                 {saveImportiMutation.isPending ? "Salvataggio..." : "Salva"}
               </Button>
@@ -3234,7 +3176,7 @@ const TitoloDetail = () => {
         ) : (
           <div className="space-y-4">
             <div className="text-xs px-3 py-2 rounded-md bg-blue-50 border border-blue-200 text-blue-900 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-200">
-              ℹ️ I premi (Netto / Tasse / Lordo) si modificano <strong>solo</strong> dalle card <strong>Composizione Premio — Firma / Quietanza</strong> qui sotto. Qui imposti valuta e flag.
+              ℹ️ Modifica premi, garanzie, valuta e brokeraggio qui sotto. Premi <strong>Salva</strong> in alto per confermare tutte le modifiche.
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -3307,10 +3249,12 @@ const TitoloDetail = () => {
             provvigioni con 2 decimali, totale lordo = netto + tasse + ssn + addizionali. */}
         <div className="mt-6 pt-4 border-t-2 border-dashed border-teal-200 dark:border-teal-900 space-y-4">
           <TitoloImportiPremiBlock
+            ref={premiBlockRef}
             titoloId={t.id}
             gruppoRamoId={t.ramo?.gruppo_ramo_id || null}
             ramoDescrizione={t.ramo?.descrizione || null}
             isLocked={isLocked}
+            draftMode={editingImporti}
             showQuietanza={!nascondiPremioQuietanza}
             hideFirma={isQuietanzaCorrente && rataIndex > 1}
             fallbackPremiTitoloId={
@@ -3640,7 +3584,7 @@ const TitoloDetail = () => {
       />
 
       {/* RegolazionePremioDialog deprecato: la regolazione ora apre ImmissionePolizzaPage in mode=regolazione */}
-    </div>
+    </PageContainer>
   );
 };
 

@@ -15,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
+import { PageContainer } from "@/components/shared/PageContainer";
 import { AppendiceDialog } from "@/components/polizze/azioni/AppendiceDialog";
 import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
 
@@ -106,7 +107,7 @@ const AppendiciPolizzaPage = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <PageContainer variant="form">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Appendici Polizza</h1>
@@ -238,7 +239,7 @@ const AppendiciPolizzaPage = () => {
           Chiudi
         </Button>
       </div>
-    </div>
+    </PageContainer>
   );
 };
 

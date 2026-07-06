@@ -56,7 +56,7 @@ export function PolizzaSection({
         className,
       )}>
         <div className="overflow-hidden rounded-t-lg">{Header}</div>
-        <div className="p-4 overflow-visible">{children}</div>
+        <div className="p-5 md:p-6 overflow-visible space-y-4 md:space-y-5">{children}</div>
       </div>
     );
   }
@@ -75,7 +75,7 @@ export function PolizzaSection({
           </CollapsibleTrigger>
         </div>
         <CollapsibleContent>
-          <div className="p-4 overflow-visible">{children}</div>
+          <div className="p-5 md:p-6 overflow-visible space-y-4 md:space-y-5">{children}</div>
         </CollapsibleContent>
       </div>
     </Collapsible>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ import {
   buildGaranziaRowFromTitoliAggregati,
   fetchPremiGaranziaByTitolo,
   remapDbPremiTipo,
+  titoliHaAggregatiPremi,
   type DbPremioLike,
 } from "@/lib/premiGaranziaLoad";
 
@@ -60,7 +61,20 @@ export interface TitoloImportiPremiBlockProps {
   hideFirma?: boolean;
   /** Titolo sorgente (madre / rata 1) per caricare premi se assenti sul titolo corrente */
   fallbackPremiTitoloId?: string | null;
+  /** True solo in modalità Modifica Importi: abilita edit garanzie e salvataggio esplicito. */
+  draftMode?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }
+
+export type TitoloImportiPremiSaveStatus = "idle" | "saving";
+
+export type TitoloImportiPremiBlockHandle = {
+  /** Persiste firma + quietanza (chiamato dal pulsante Salva in alto). */
+  saveDraft: () => Promise<void>;
+  /** Annulla bozza locale e forza ricarico da DB. */
+  revertDraft: () => Promise<void>;
+  hasPendingChanges: () => boolean;
+};
 
 type DbPremio = DbPremioLike & {
   id: string;
@@ -82,6 +96,13 @@ function hasDraftRows(rows: GaranziaRow[]): boolean {
   return rows.some((r) => !rowHasContent(r));
 }
 
+/** Blocca re-idratazione DB solo se l'utente sta compilando una riga nuova accanto a righe già piene. */
+function hasInProgressUserEdits(rows: GaranziaRow[]): boolean {
+  if (rows.length === 0) return false;
+  const filled = rows.filter(rowHasContent).length;
+  return filled > 0 && filled < rows.length;
+}
+
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function provvigioniFromPct(base: number, pctStr: string): number {
@@ -98,7 +119,8 @@ function rowsBase(rows: GaranziaRow[]): number {
   return netto + accessori;
 }
 
-export function TitoloImportiPremiBlock({
+export const TitoloImportiPremiBlock = forwardRef<TitoloImportiPremiBlockHandle, TitoloImportiPremiBlockProps>(
+function TitoloImportiPremiBlock({
   titoloId,
   gruppoRamoId,
   ramoDescrizione,
@@ -110,14 +132,18 @@ export function TitoloImportiPremiBlock({
   showQuietanza = true,
   hideFirma = false,
   fallbackPremiTitoloId = null,
-}: TitoloImportiPremiBlockProps) {
+  draftMode = false,
+  onDirtyChange,
+}, ref) {
   const qc = useQueryClient();
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<TitoloImportiPremiSaveStatus>("idle");
   const savingRef = useRef(false);
   const tasseRettificaSupportedRef = useRef<boolean | null>(null);
+  const draftBaselineRef = useRef("");
 
   // Catalogo sottorami del gruppo: serve a risolvere codice_garanzia → id/SSN/aliquota
-  const { data: catalogo = [] } = useQuery({
+  const { data: catalogo = [], isLoading: catalogoLoading } = useQuery({
     queryKey: ["sottorami-titolo-detail", gruppoRamoId || "none"],
     enabled: !!gruppoRamoId,
     queryFn: async () => {
@@ -131,7 +157,7 @@ export function TitoloImportiPremiBlock({
     },
   });
 
-  const { data: titoloMeta } = useQuery({
+  const { data: titoloMeta, isLoading: titoloMetaLoading } = useQuery({
     queryKey: ["titolo-meta-premi", titoloId],
     queryFn: async () => {
       const { data } = await supabase
@@ -194,7 +220,7 @@ export function TitoloImportiPremiBlock({
     },
   });
 
-  const { data: premi = [] } = useQuery({
+  const { data: premi = [], isLoading: premiLoading } = useQuery({
     queryKey: ["premi-garanzia-import", titoloId],
     queryFn: async () => {
       const { rows, hasTasseRettifica } = await fetchPremiGaranziaByTitolo(titoloId);
@@ -207,7 +233,7 @@ export function TitoloImportiPremiBlock({
     (p) => p.tipo_premio === "quietanza" && dbPremioHasImporto(p, "quietanza"),
   );
   const needsFallbackPremi = !!fallbackPremiTitoloId && (premi.length === 0 || !hasQuietanzaPremi);
-  const { data: fallbackPremi = [] } = useQuery({
+  const { data: fallbackPremi = [], isLoading: fallbackPremiLoading } = useQuery({
     queryKey: ["premi-garanzia-fallback", fallbackPremiTitoloId],
     enabled: needsFallbackPremi,
     queryFn: async () => {
@@ -315,11 +341,32 @@ export function TitoloImportiPremiBlock({
   // Refresh state quando arrivano i dati DB o cambia il catalogo
   const lastSnapRef = useRef<string>("");
   useEffect(() => {
-    if (savingRef.current) return;
-    if (hasDraftRows(firmaRowsRef.current) || hasDraftRows(quietanzaRowsRef.current)) return;
+    lastSnapRef.current = "";
+    setFirmaRows([]);
+    setQuietanzaRows([]);
+  }, [titoloId]);
 
-    const catalogReady = catalogo.length > 0 || !gruppoRamoId;
-    if (!catalogReady && premi.length === 0 && !fallbackPremi.length) return;
+  useEffect(() => {
+    if (draftMode) return;
+    if (savingRef.current) return;
+    if (hasInProgressUserEdits(firmaRowsRef.current) || hasInProgressUserEdits(quietanzaRowsRef.current)) return;
+
+    if (titoloMetaLoading || premiLoading) return;
+    if (!titoloMeta) return;
+    if (needsFallbackPremi && fallbackPremiLoading) return;
+
+    const mightSynthFromAggregati =
+      titoliHaAggregatiPremi(titoloMeta, hideFirma ? "quietanza" : "firma") ||
+      titoliHaAggregatiPremi(titoloMeta, "quietanza");
+    if (
+      gruppoRamoId &&
+      catalogoLoading &&
+      premi.length === 0 &&
+      !fallbackPremi.length &&
+      mightSynthFromAggregati
+    ) {
+      return;
+    }
 
     let fRaw = (premi as DbPremio[]).filter((p) => p.tipo_premio === "firma");
     let qRaw = (premi as DbPremio[]).filter((p) => p.tipo_premio === "quietanza");
@@ -373,8 +420,8 @@ export function TitoloImportiPremiBlock({
       quietanzaMapped = mirrorAllFromFirma(firmaMapped);
     }
 
-    // Fallback da aggregati titoli corrente
-    if (titoloMeta && catalogo.length) {
+    // Fallback da aggregati su titoli (quietanze auto-generate spesso non hanno righe in premi_garanzia_polizza)
+    if (titoloMeta) {
       if (!fRaw.length && !hideFirma) {
         const synth = buildGaranziaRowFromTitoliAggregati("firma", titoloMeta, catalogo as any[]);
         if (synth) firmaMapped = [synth];
@@ -410,7 +457,50 @@ export function TitoloImportiPremiBlock({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [premi, catalogo, provvMatrice, provvigioniFirma, provvigioniQuietanza, fallbackPremi, fallbackPremiTitoloId, hideFirma, titoloMeta, gruppoRamoId]);
+  }, [
+    premi,
+    premiLoading,
+    catalogo,
+    catalogoLoading,
+    provvMatrice,
+    provvigioniFirma,
+    provvigioniQuietanza,
+    fallbackPremi,
+    fallbackPremiLoading,
+    fallbackPremiTitoloId,
+    needsFallbackPremi,
+    hideFirma,
+    titoloMeta,
+    titoloMetaLoading,
+    gruppoRamoId,
+    draftMode,
+  ]);
+
+  const serializeDraft = () =>
+    JSON.stringify({
+      f: firmaRowsRef.current,
+      q: quietanzaRowsRef.current,
+      pf: manualPctFirmaRef.current,
+      pq: manualPctQuietanzaRef.current,
+      af: provvFirmaAutoRef.current,
+      aq: provvQuietanzaAutoRef.current,
+    });
+
+  useEffect(() => {
+    if (!draftMode) {
+      draftBaselineRef.current = "";
+      return;
+    }
+    draftBaselineRef.current = serializeDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftMode]);
+
+  const isDirty =
+    draftMode && !!draftBaselineRef.current && serializeDraft() !== draftBaselineRef.current;
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   const resolveProvvigioniImporto = (
     tipo: "firma" | "quietanza",
@@ -423,16 +513,16 @@ export function TitoloImportiPremiBlock({
     return provvigioniFromPct(base, pct);
   };
 
-  // Persist debounced
-  const firmaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const quietanzaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const persistRows = async (rows: GaranziaRow[], tipo: "firma" | "quietanza", manual = false) => {
+  // Persist esplicito (solo da saveDraft)
+  const persistRows = async (rows: GaranziaRow[], tipo: "firma" | "quietanza") => {
     const validRows = rows.filter(rowHasContent);
-    if (validRows.length < rows.length) return;
+    if (validRows.length < rows.length) {
+      throw new Error("Completa o rimuovi le righe garanzia vuote prima di salvare.");
+    }
 
     savingRef.current = true;
     setSaving(true);
+    setSaveStatus("saving");
     try {
       const payload = validRows.map((r, idx) => {
         const importo = premioRigaDbImporto(r);
@@ -506,7 +596,7 @@ export function TitoloImportiPremiBlock({
       });
       if (rpcErr) {
         toast.error("Errore salvataggio premi: " + rpcErr.message);
-        return;
+        throw rpcErr;
       }
 
       lastSnapRef.current = JSON.stringify({
@@ -525,71 +615,67 @@ export function TitoloImportiPremiBlock({
       await qc.invalidateQueries({ queryKey: ["premi-garanzia-import", titoloId] });
       await qc.invalidateQueries({ queryKey: ["premi-garanzia", titoloId] });
       await qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
-      toast.success(manual ? "Premi salvati" : "Premi aggiornati");
     } finally {
       savingRef.current = false;
       setSaving(false);
+      setSaveStatus("idle");
     }
   };
 
-  const flushSave = async (tipo: "firma" | "quietanza") => {
-    const ref = tipo === "firma" ? firmaTimer : quietanzaTimer;
-    if (ref.current) {
-      clearTimeout(ref.current);
-      ref.current = null;
-    }
-    const rows = tipo === "firma" ? firmaRows : quietanzaRows;
-    return persistRows(rows, tipo, true);
+  const saveDraft = async () => {
+    if (isLocked || !draftMode) return;
+    if (!hideFirma) await persistRows(firmaRowsRef.current, "firma");
+    if (showQuietanza) await persistRows(quietanzaRowsRef.current, "quietanza");
+    draftBaselineRef.current = serializeDraft();
   };
 
-  const saveAllPremi = async () => {
-    if (isLocked) return;
-    if (!hideFirma) await flushSave("firma");
-    if (showQuietanza) await flushSave("quietanza");
+  const revertDraft = async () => {
+    lastSnapRef.current = "";
+    draftBaselineRef.current = "";
+    manualPctFirmaRef.current = "";
+    manualPctQuietanzaRef.current = "";
+    setProvvAuto("firma", true);
+    setProvvAuto("quietanza", true);
+    await qc.invalidateQueries({ queryKey: ["premi-garanzia-import", titoloId] });
+    await qc.invalidateQueries({ queryKey: ["titolo-meta-premi", titoloId] });
   };
 
-  const scheduleSave = (tipo: "firma" | "quietanza", rows: GaranziaRow[]) => {
-    if (hasDraftRows(rows)) return;
-    const ref = tipo === "firma" ? firmaTimer : quietanzaTimer;
-    if (ref.current) clearTimeout(ref.current);
-    ref.current = setTimeout(() => persistRows(rows, tipo), 700);
-  };
+  const hasPendingChanges = () => isDirty;
+
+  useImperativeHandle(ref, () => ({ saveDraft, revertDraft, hasPendingChanges }), [
+    isLocked,
+    draftMode,
+    hideFirma,
+    showQuietanza,
+    isDirty,
+  ]);
 
   const onFirmaChange = (next: GaranziaRow[]) => {
+    if (!draftMode || isLocked) return;
     setFirmaRows(next);
-    if (!isLocked) scheduleSave("firma", next);
 
     if (hideFirma || !showQuietanza) return;
 
     const syncedQuietanza = syncQuietanzaFromFirma(next, quietanzaRows);
     setQuietanzaRows(syncedQuietanza);
-    if (!isLocked && JSON.stringify(syncedQuietanza) !== JSON.stringify(quietanzaRows)) {
-      scheduleSave("quietanza", syncedQuietanza);
-    }
   };
 
   const onQuietanzaChange = (next: GaranziaRow[]) => {
-    // Ogni voce Quietanza modificata a mano diventa "personalizzata" e si
-    // scollega dalla sincronizzazione automatica con la Firma.
+    if (!draftMode || isLocked) return;
     const marked = markQuietanzaEdits(quietanzaRows, next);
     setQuietanzaRows(marked);
-    if (!isLocked) scheduleSave("quietanza", marked);
   };
 
-  // Riallinea l'intera Quietanza alla Firma azzerando ogni personalizzazione.
   const resyncAllFromFirma = () => {
-    if (isLocked) return;
+    if (isLocked || !draftMode) return;
     const mirrored = mirrorAllFromFirma(firmaRows);
     setQuietanzaRows(mirrored);
-    scheduleSave("quietanza", mirrored);
   };
 
-  // Riallinea una singola voce Quietanza alla Firma corrispondente.
   const resyncRowFromFirma = (idx: number) => {
-    if (isLocked) return;
+    if (isLocked || !draftMode) return;
     const updated = resetQuietanzaRow(firmaRows, quietanzaRows, idx);
     setQuietanzaRows(updated);
-    scheduleSave("quietanza", updated);
   };
 
   const accessoriFirmaNum = firmaRows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
@@ -602,56 +688,48 @@ export function TitoloImportiPremiBlock({
   const totNettoQui = quietanzaRows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
   const totBaseFirma = totNettoFirma + accessoriFirmaNum;
   const totBaseQui = totNettoQui + accessoriQuietanzaNum;
-  const pctFirma = totBaseFirma > 0 && provvigioniFirma
-    ? ((Number(provvigioniFirma) / totBaseFirma) * 100).toFixed(4)
-    : "";
-  const pctQui = totBaseQui > 0 && provvigioniQuietanza
-    ? ((Number(provvigioniQuietanza) / totBaseQui) * 100).toFixed(4)
-    : "";
+  const displayProvvFirma = resolveProvvigioniImporto("firma", firmaRows);
+  const displayProvvQuietanza = resolveProvvigioniImporto("quietanza", quietanzaRows);
+  const pctFirma = !provvFirmaAuto && manualPctFirmaRef.current
+    ? manualPctFirmaRef.current
+    : totBaseFirma > 0 && provvigioniFirma
+      ? ((Number(provvigioniFirma) / totBaseFirma) * 100).toFixed(4)
+      : "";
+  const pctQui = !provvQuietanzaAuto && manualPctQuietanzaRef.current
+    ? manualPctQuietanzaRef.current
+    : totBaseQui > 0 && provvigioniQuietanza
+      ? ((Number(provvigioniQuietanza) / totBaseQui) * 100).toFixed(4)
+      : "";
 
-  const saveProvvigioniManual = async (tipo: "firma" | "quietanza", v: string) => {
-    if (isLocked) return;
-    const rows = tipo === "firma" ? firmaRows : quietanzaRows;
-    const base = rowsBase(rows);
-    const importo = provvigioniFromPct(base, v);
-    const col = tipo === "firma" ? "provvigioni_firma" : "provvigioni_quietanza";
-    const { error } = await supabase.from("titoli").update({ [col]: importo }).eq("id", titoloId);
-    if (error) {
-      toast.error("Errore salvataggio provvigioni: " + error.message);
-      return;
-    }
+  const setProvvigioniManual = (tipo: "firma" | "quietanza", v: string) => {
+    if (isLocked || !draftMode) return;
     if (tipo === "firma") manualPctFirmaRef.current = v;
     else manualPctQuietanzaRef.current = v;
     setProvvAuto(tipo, false);
-    await qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
-    await qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
-    toast.success("Provvigioni aggiornate");
   };
 
-  const resetProvvigioniAuto = async (tipo: "firma" | "quietanza") => {
-    if (isLocked) return;
-    const rows = tipo === "firma" ? firmaRows : quietanzaRows;
-    const importo = round2(calcProvvigioniGaranzia(rows, provvMatrice));
-    const col = tipo === "firma" ? "provvigioni_firma" : "provvigioni_quietanza";
-    const { error } = await supabase.from("titoli").update({ [col]: importo }).eq("id", titoloId);
-    if (error) {
-      toast.error("Errore ricalcolo provvigioni: " + error.message);
-      return;
-    }
+  const resetProvvigioniAuto = (tipo: "firma" | "quietanza") => {
+    if (isLocked || !draftMode) return;
     if (tipo === "firma") manualPctFirmaRef.current = "";
     else manualPctQuietanzaRef.current = "";
     setProvvAuto(tipo, true);
-    await qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
-    await qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
-    toast.success("Provvigioni ricalcolate dalla matrice");
   };
 
-  const onPercentualeAgenziaFirma = (v: string) => { void saveProvvigioniManual("firma", v); };
-  const onPercentualeAgenziaQuietanza = (v: string) => { void saveProvvigioniManual("quietanza", v); };
+  const onPercentualeAgenziaFirma = (v: string) => { setProvvigioniManual("firma", v); };
+  const onPercentualeAgenziaQuietanza = (v: string) => { setProvvigioniManual("quietanza", v); };
 
   // Specchio perfetto: nessuna riga Quietanza personalizzata.
   const sincronizzata = isQuietanzaSincronizzata(quietanzaRows);
   const personalizzati = quietanzaRows.map((r) => !!r.quietanzaPersonalizzata);
+
+  const saveStatusLabel = (() => {
+    if (!draftMode || isLocked) return null;
+    if (saveStatus === "saving") return "Salvataggio…";
+    if (isDirty) return "Modifiche non salvate";
+    return null;
+  })();
+
+  const garanzieReadOnly = isLocked || !draftMode;
 
   return (
     <div className="space-y-4">
@@ -668,20 +746,25 @@ export function TitoloImportiPremiBlock({
           ) : (
             <> Questa quietanza è già incassata: viene mostrato solo il premio alla <strong>Firma</strong> della rata.</>
           )}
-          {!isLocked && (
-            <> Le modifiche si salvano automaticamente; puoi anche usare <strong>Salva premi</strong>.</>
+          {!isLocked && draftMode && (
+            <> Premi e provvigioni si salvano con <strong>Salva</strong> in alto (valuta e brokeraggio inclusi).</>
+          )}
+          {!isLocked && !draftMode && (
+            <> Premi e garanzie in sola lettura: premi <strong>Modifica</strong> in alto per modificare.</>
           )}
         </p>
-        {!isLocked && (
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 shrink-0"
-            disabled={saving}
-            onClick={saveAllPremi}
+        {saveStatusLabel && (
+          <span
+            className={`text-xs shrink-0 px-2 py-1 rounded-md border ${
+              isDirty
+                ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200"
+                : saveStatus === "saving"
+                  ? "border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200"
+                  : "border-border bg-muted/40 text-muted-foreground"
+            }`}
           >
-            {saving ? "Salvataggio…" : "Salva premi"}
-          </Button>
+            {saveStatusLabel}
+          </span>
         )}
       </div>
 
@@ -691,15 +774,15 @@ export function TitoloImportiPremiBlock({
         gruppoRamoId={gruppoRamoId}
         rows={firmaRows}
         onRowsChange={onFirmaChange}
-        readOnly={isLocked}
+        readOnly={garanzieReadOnly}
         addizionali={String(round2(accessoriFirmaNum))}
-        provvigioni={Number(provvigioniFirma || 0)}
+        provvigioni={displayProvvFirma}
         provvPctBreakdown={provvBreakdownFirma}
         rowPctAccessori={rowPctAccessoriFn}
         percentualeAgenzia={pctFirma}
         onPercentualeAgenziaChange={onPercentualeAgenziaFirma}
         percentualeAgenziaAuto={provvFirmaAuto}
-        onResetAuto={() => { void resetProvvigioniAuto("firma"); }}
+        onResetAuto={() => { resetProvvigioniAuto("firma"); }}
         headerExtra={
           showQuietanza ? (
           <Button
@@ -707,7 +790,7 @@ export function TitoloImportiPremiBlock({
             variant="default"
             size="sm"
             className="h-7 text-xs"
-            disabled={isLocked}
+            disabled={garanzieReadOnly}
             onClick={() => {
               resyncAllFromFirma();
               toast.success("Quietanza riallineata alla Firma");
@@ -727,16 +810,16 @@ export function TitoloImportiPremiBlock({
         gruppoRamoId={gruppoRamoId}
         rows={quietanzaRows}
         onRowsChange={onQuietanzaChange}
-        readOnly={isLocked}
+        readOnly={garanzieReadOnly}
         titoloOverride={hideFirma ? "Premi per Garanzia — Rata" : undefined}
         addizionali={String(round2(accessoriQuietanzaNum))}
-        provvigioni={Number(provvigioniQuietanza || 0)}
+        provvigioni={displayProvvQuietanza}
         provvPctBreakdown={provvBreakdownQuietanza}
         rowPctAccessori={rowPctAccessoriFn}
         percentualeAgenzia={pctQui}
         onPercentualeAgenziaChange={onPercentualeAgenziaQuietanza}
         percentualeAgenziaAuto={provvQuietanzaAuto}
-        onResetAuto={() => { void resetProvvigioniAuto("quietanza"); }}
+        onResetAuto={() => { resetProvvigioniAuto("quietanza"); }}
         sincronizzata={sincronizzata}
         personalizzati={personalizzati}
         onResetRow={hideFirma ? undefined : resyncRowFromFirma}
@@ -747,7 +830,7 @@ export function TitoloImportiPremiBlock({
             variant="outline"
             size="sm"
             className="h-7 text-xs"
-            disabled={isLocked || sincronizzata}
+            disabled={garanzieReadOnly || sincronizzata}
             onClick={resyncAllFromFirma}
             title="Riallinea tutte le voci alla Firma, azzerando le personalizzazioni"
           >
@@ -759,6 +842,8 @@ export function TitoloImportiPremiBlock({
       )}
     </div>
   );
-}
+});
+
+TitoloImportiPremiBlock.displayName = "TitoloImportiPremiBlock";
 
 export default TitoloImportiPremiBlock;

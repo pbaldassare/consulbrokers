@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Search, RefreshCw, FileSpreadsheet, FileText, ListChecks, Filter } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
+import { PageContainer } from "@/components/shared/PageContainer";
 
 const RinnoviPolizzaPage = () => {
   const navigate = useNavigate();
@@ -72,7 +73,7 @@ const RinnoviPolizzaPage = () => {
   const selectClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
-    <div className="space-y-5">
+    <PageContainer variant="form">
       <div className="flex items-start gap-4">
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -226,7 +227,7 @@ const RinnoviPolizzaPage = () => {
         <Button variant="outline" className="gap-2"><FileText className="w-4 h-4" /> Lettera</Button>
         <Button className="gap-2"><RefreshCw className="w-4 h-4" /> Rinnova (Tutti)</Button>
       </div>
-    </div>
+    </PageContainer>
   );
 };
 
