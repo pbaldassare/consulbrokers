@@ -199,8 +199,11 @@ export function PremiGaranziaCardShell({
   const lordo = totNetto + totAccessori + totTasse + totSsn;
   const hasSsnRows = rows.some((r) => r.ssnAttivo);
   const showProvvAccCol = !!rowPctAccessori;
-  const provvBreakdownVisible = provvPctBreakdown
-    && Math.abs(provvPctBreakdown.pctNetto - provvPctBreakdown.pctAccessori) > 0.0001;
+  const provvBreakdownVisible = !!provvPctBreakdown
+    && (
+      Math.abs(provvPctBreakdown.pctNetto - provvPctBreakdown.pctAccessori) > 0.0001
+      || rows.some((r) => parseFloat((r.accessori || "0").replace(",", ".")) > 0)
+    );
 
   // Catalogo sottorami filtrato per gruppo ramo selezionato.
   // I sottorami compongono le righe garanzia che formano il premio.

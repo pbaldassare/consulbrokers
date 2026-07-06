@@ -19,6 +19,7 @@ import {
 import {
   isProvvigioniManualStored,
   provvigioniImportoFromPct,
+  provvigioniImportoFromManualPctNetto,
   provvigioniPctFromImporto,
 } from "@/lib/provvigioniManual";
 import {
@@ -329,6 +330,8 @@ function TitoloImportiPremiBlock({
   const manualImportoQuietanzaRef = useRef<number | null>(null);
   const manualFromEuroFirmaRef = useRef(false);
   const manualFromEuroQuietanzaRef = useRef(false);
+  const manualUserEditFirmaRef = useRef(false);
+  const manualUserEditQuietanzaRef = useRef(false);
   const [, bumpProvvDisplay] = useState(0);
 
   const setProvvAuto = (tipo: "firma" | "quietanza", auto: boolean) => {
@@ -347,7 +350,22 @@ function TitoloImportiPremiBlock({
     lastSnapRef.current = "";
     setFirmaRows([]);
     setQuietanzaRows([]);
+    manualUserEditFirmaRef.current = false;
+    manualUserEditQuietanzaRef.current = false;
   }, [titoloId]);
+
+  const enrichGaranziaRow = (r: GaranziaRow): GaranziaRow => {
+    const withRamo =
+      r.sottoramoId || !titoloMeta?.ramo_id
+        ? r
+        : { ...r, sottoramoId: titoloMeta.ramo_id as string };
+    if (!provvMatrice) return withRamo;
+    const pctAcc = resolveRowPctAccessori(withRamo, provvMatrice).pct;
+    return {
+      ...withRamo,
+      provvAccessoriPct: r.provvAccessoriPct ?? pctAcc,
+    };
+  };
 
   useEffect(() => {
     if (draftMode) return;
@@ -435,18 +453,19 @@ function TitoloImportiPremiBlock({
       }
     }
 
+    firmaMapped = firmaMapped.map(enrichGaranziaRow);
+    quietanzaMapped = quietanzaMapped.map(enrichGaranziaRow);
+
     setFirmaRows(firmaMapped);
     setQuietanzaRows(quietanzaMapped);
 
     // Se il valore salvato su titoli diverge dal calcolo matrice → override manuale (importo esatto)
-    const baseF = rowsBase(firmaMapped);
-    const baseQ = rowsBase(quietanzaMapped);
     const calcF = provvMatrice ? round2(calcProvvigioniGaranzia(firmaMapped, provvMatrice)) : 0;
     const calcQ = provvMatrice ? round2(calcProvvigioniGaranzia(quietanzaMapped, provvMatrice)) : 0;
     const storedF = Number(provvigioniFirma) || 0;
     const storedQ = Number(provvigioniQuietanza) || 0;
 
-    if (isProvvigioniManualStored(storedF, calcF)) {
+    if (manualUserEditFirmaRef.current || isProvvigioniManualStored(storedF, calcF)) {
       manualImportoFirmaRef.current = storedF;
       manualFromEuroFirmaRef.current = true;
       manualPctFirmaRef.current = "";
@@ -455,10 +474,11 @@ function TitoloImportiPremiBlock({
       manualImportoFirmaRef.current = null;
       manualFromEuroFirmaRef.current = false;
       manualPctFirmaRef.current = "";
+      manualUserEditFirmaRef.current = false;
       setProvvAuto("firma", true);
     }
 
-    if (isProvvigioniManualStored(storedQ, calcQ)) {
+    if (manualUserEditQuietanzaRef.current || isProvvigioniManualStored(storedQ, calcQ)) {
       manualImportoQuietanzaRef.current = storedQ;
       manualFromEuroQuietanzaRef.current = true;
       manualPctQuietanzaRef.current = "";
@@ -467,6 +487,7 @@ function TitoloImportiPremiBlock({
       manualImportoQuietanzaRef.current = null;
       manualFromEuroQuietanzaRef.current = false;
       manualPctQuietanzaRef.current = "";
+      manualUserEditQuietanzaRef.current = false;
       setProvvAuto("quietanza", true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -528,9 +549,18 @@ function TitoloImportiPremiBlock({
     const fromEuro = tipo === "firma" ? manualFromEuroFirmaRef.current : manualFromEuroQuietanzaRef.current;
     const importo = tipo === "firma" ? manualImportoFirmaRef.current : manualImportoQuietanzaRef.current;
     if (fromEuro && importo != null) return importo;
-    const base = rowsBase(rows);
     const pct = tipo === "firma" ? manualPctFirmaRef.current : manualPctQuietanzaRef.current;
-    return provvigioniImportoFromPct(base, pct);
+    return round2(provvigioniImportoFromManualPctNetto(rows, pct, provvMatrice));
+  };
+
+  const copyProvvFirmaToQuietanza = () => {
+    provvQuietanzaAutoRef.current = provvFirmaAutoRef.current;
+    setProvvQuietanzaAuto(provvFirmaAutoRef.current);
+    manualPctQuietanzaRef.current = manualPctFirmaRef.current;
+    manualImportoQuietanzaRef.current = manualImportoFirmaRef.current;
+    manualFromEuroQuietanzaRef.current = manualFromEuroFirmaRef.current;
+    manualUserEditQuietanzaRef.current = manualUserEditFirmaRef.current;
+    bumpProvvDisplay((n) => n + 1);
   };
 
   // Persist esplicito (solo da saveDraft)
@@ -636,6 +666,12 @@ function TitoloImportiPremiBlock({
       await qc.invalidateQueries({ queryKey: ["premi-garanzia", titoloId] });
       await qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
       await qc.invalidateQueries({ queryKey: ["riparto", titoloId] });
+      if (tipo === "firma" && !provvFirmaAutoRef.current) {
+        manualUserEditFirmaRef.current = true;
+      }
+      if (tipo === "quietanza" && !provvQuietanzaAutoRef.current) {
+        manualUserEditQuietanzaRef.current = true;
+      }
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -659,6 +695,8 @@ function TitoloImportiPremiBlock({
     manualImportoQuietanzaRef.current = null;
     manualFromEuroFirmaRef.current = false;
     manualFromEuroQuietanzaRef.current = false;
+    manualUserEditFirmaRef.current = false;
+    manualUserEditQuietanzaRef.current = false;
     setProvvAuto("firma", true);
     setProvvAuto("quietanza", true);
     bumpProvvDisplay((n) => n + 1);
@@ -684,6 +722,9 @@ function TitoloImportiPremiBlock({
 
     const syncedQuietanza = syncQuietanzaFromFirma(next, quietanzaRows);
     setQuietanzaRows(syncedQuietanza);
+    if (isQuietanzaSincronizzata(syncedQuietanza)) {
+      copyProvvFirmaToQuietanza();
+    }
   };
 
   const onQuietanzaChange = (next: GaranziaRow[]) => {
@@ -696,6 +737,7 @@ function TitoloImportiPremiBlock({
     if (isLocked || !draftMode) return;
     const mirrored = mirrorAllFromFirma(firmaRows);
     setQuietanzaRows(mirrored);
+    copyProvvFirmaToQuietanza();
   };
 
   const resyncRowFromFirma = (idx: number) => {
@@ -720,15 +762,15 @@ function TitoloImportiPremiBlock({
     ? (manualFromEuroFirmaRef.current && manualImportoFirmaRef.current != null
       ? provvigioniPctFromImporto(manualImportoFirmaRef.current, totBaseFirma)
       : manualPctFirmaRef.current)
-    : totBaseFirma > 0 && provvigioniFirma
-      ? provvigioniPctFromImporto(Number(provvigioniFirma), totBaseFirma)
+    : provvBreakdownFirma
+      ? String(provvBreakdownFirma.pctNetto)
       : "";
   const pctQui = !provvQuietanzaAuto
     ? (manualFromEuroQuietanzaRef.current && manualImportoQuietanzaRef.current != null
       ? provvigioniPctFromImporto(manualImportoQuietanzaRef.current, totBaseQui)
       : manualPctQuietanzaRef.current)
-    : totBaseQui > 0 && provvigioniQuietanza
-      ? provvigioniPctFromImporto(Number(provvigioniQuietanza), totBaseQui)
+    : provvBreakdownQuietanza
+      ? String(provvBreakdownQuietanza.pctNetto)
       : "";
 
   const setProvvigioniManualPct = (tipo: "firma" | "quietanza", v: string) => {
@@ -737,10 +779,12 @@ function TitoloImportiPremiBlock({
       manualPctFirmaRef.current = v;
       manualImportoFirmaRef.current = null;
       manualFromEuroFirmaRef.current = false;
+      manualUserEditFirmaRef.current = true;
     } else {
       manualPctQuietanzaRef.current = v;
       manualImportoQuietanzaRef.current = null;
       manualFromEuroQuietanzaRef.current = false;
+      manualUserEditQuietanzaRef.current = true;
     }
     setProvvAuto(tipo, false);
     bumpProvvDisplay((n) => n + 1);
@@ -752,10 +796,12 @@ function TitoloImportiPremiBlock({
       manualImportoFirmaRef.current = importo;
       manualFromEuroFirmaRef.current = true;
       manualPctFirmaRef.current = "";
+      manualUserEditFirmaRef.current = true;
     } else {
       manualImportoQuietanzaRef.current = importo;
       manualFromEuroQuietanzaRef.current = true;
       manualPctQuietanzaRef.current = "";
+      manualUserEditQuietanzaRef.current = true;
     }
     setProvvAuto(tipo, false);
     bumpProvvDisplay((n) => n + 1);
@@ -767,10 +813,12 @@ function TitoloImportiPremiBlock({
       manualPctFirmaRef.current = "";
       manualImportoFirmaRef.current = null;
       manualFromEuroFirmaRef.current = false;
+      manualUserEditFirmaRef.current = false;
     } else {
       manualPctQuietanzaRef.current = "";
       manualImportoQuietanzaRef.current = null;
       manualFromEuroQuietanzaRef.current = false;
+      manualUserEditQuietanzaRef.current = false;
     }
     setProvvAuto(tipo, true);
     bumpProvvDisplay((n) => n + 1);

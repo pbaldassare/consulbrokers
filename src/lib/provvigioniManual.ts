@@ -1,10 +1,38 @@
-/** Importo provvigione da % manuale: niente round2 intermedio (arrotonda il DB a 2 decimali). */
+import type { GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
+import {
+  isRigaEsclusaProvvigioni,
+  resolveRowPctAccessori,
+  type MatriceProvvAccessori,
+} from "@/lib/calcProvvigioniGaranzia";import { parseDecimalItOr } from "@/lib/number";
+
+/** Importo provvigione da % manuale su base unica (legacy / display inverso). */
 export function provvigioniImportoFromPct(base: number, pctStr: string): number {
   const s = (pctStr ?? "").trim().replace(",", ".");
   if (s === "") return 0;
   const pct = parseFloat(s);
   if (isNaN(pct) || base <= 0) return 0;
   return (base * pct) / 100;
+}
+
+/**
+ * % manuale sulla sola parte netto; accessori con % matrice (es. 8% RCA + 12% accessori).
+ */
+export function provvigioniImportoFromManualPctNetto(
+  rows: GaranziaRow[],
+  pctNettoStr: string,
+  matrice: MatriceProvvAccessori | null,
+): number {
+  const s = (pctNettoStr ?? "").trim().replace(",", ".");
+  if (s === "") return 0;
+  const pctNetto = parseFloat(s);
+  if (isNaN(pctNetto)) return 0;
+  return rows.reduce((sum, r) => {
+    if (isRigaEsclusaProvvigioni(r)) return sum;
+    const netto = parseDecimalItOr(r.netto);
+    const accessori = parseDecimalItOr(r.accessori);
+    const pctAcc = resolveRowPctAccessori(r, matrice).pct;
+    return sum + (netto * pctNetto) / 100 + (accessori * pctAcc) / 100;
+  }, 0);
 }
 
 /** True se il valore su titoli diverge dal calcolo matrice (qualsiasi centesimo). */

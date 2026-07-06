@@ -62,10 +62,27 @@ describe("calcProvvigioniGaranzia", () => {
     expect(provv).toBeCloseTo(17, 2);
   });
 
-  it("usa fallback % accessori = % netto quando non configurata", () => {
+  it("usa pctAccessoriDefault prima del fallback sulla % netto", () => {
     const m: MatriceProvvAccessori = {
       ...matrice,
       pctAccessoriByRamoId: new Map(),
+      pctAccessoriDefault: 12,
+    };
+    const provv = calcProvvigioniGaranzia([row({ netto: "543.56", accessori: "100.50" })], {
+      ...m,
+      pctByRamoId: new Map([["sotto-1", 8]]),
+      pctDefault: 8,
+      pctPrevalente: 8,
+    });
+    // 543.56 * 8% + 100.50 * 12% = 43.4848 + 12.06 = 55.5448
+    expect(provv).toBeCloseTo(55.5448, 2);
+  });
+
+  it("usa fallback % accessori = % netto solo se manca anche il default", () => {
+    const m: MatriceProvvAccessori = {
+      ...matrice,
+      pctAccessoriByRamoId: new Map(),
+      pctAccessoriDefault: null,
     };
     const provv = calcProvvigioniGaranzia([row()], m);
     // 100 * 15% + 20 * 15% = 18

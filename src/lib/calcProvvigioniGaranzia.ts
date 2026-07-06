@@ -33,7 +33,8 @@ export function resolveRowPctAccessori(
   if (row.sottoramoId && matrice.pctAccessoriByRamoId.has(row.sottoramoId)) {
     return { pct: matrice.pctAccessoriByRamoId.get(row.sottoramoId)!, matched: true };
   }
-  if (!row.sottoramoId && matrice.pctAccessoriDefault != null) {
+  // Default accessori del rapporto (es. 12%) prima del fallback sulla % netto (es. 8%)
+  if (matrice.pctAccessoriDefault != null) {
     return { pct: matrice.pctAccessoriDefault, matched: true };
   }
   return resolveRowPctNetto(row, matrice);

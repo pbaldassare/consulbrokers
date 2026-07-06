@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, ChevronRight, ChevronDown, Sparkles, Briefcase, Loader2 } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, ChevronRight, ChevronDown, Sparkles, Briefcase, Loader2, Banknote, Shield } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +62,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import AnticipiChip from "@/components/clienti/AnticipiChip";
+import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
+import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
 
 /* ===========================================================
  * Anagrafica form context + module-level field components
@@ -1137,10 +1140,29 @@ Consulbrokers S.r.l.`;
   );
 }
 
-function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navigate: (to: string) => void; mode?: "polizze" | "quietanze" }) {
+function PolizzeClienteTable({
+  polizze,
+  navigate,
+  mode,
+  clienteId,
+}: {
+  polizze: any[];
+  navigate: (to: string) => void;
+  mode?: "polizze" | "quietanze";
+  clienteId?: string;
+}) {
   const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
-  const [filtroTipoState, setFiltroTipoState] = useState<"polizze" | "quietanze" | "regolazioni" | "garantiti">("polizze");
+  const [filtroTipoState, setFiltroTipoState] = useState<"polizze" | "quietanze" | "regolazioni" | "garantiti">("quietanze");
   const filtroTipo: "polizze" | "quietanze" | "regolazioni" | "garantiti" = mode ?? filtroTipoState;
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [cassaDialogTitoli, setCassaDialogTitoli] = useState<
+    Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>
+  >([]);
+  const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
+  const [garantitoDialogTitoli, setGarantitoDialogTitoli] = useState<
+    Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>
+  >([]);
+  const [garantitoDialogOpen, setGarantitoDialogOpen] = useState(false);
   const [filtroNumero, setFiltroNumero] = useState("");
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string>("");
   const [filtroGaranzia, setFiltroGaranzia] = useState<string>("");
@@ -1277,6 +1299,57 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredCatene, filtroTipo, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
+
+  const isTitoloIncassabile = (t: any) =>
+    t.stato === "attivo" && !t.data_messa_cassa && (!!t.sostituisce_polizza || isAppendice(t));
+
+  const quietanzeIncassabili = useMemo(
+    () => flatQuietanze.map((x) => x.rata).filter(isTitoloIncassabile),
+    [flatQuietanze],
+  );
+
+  const selectedAttive = useMemo(
+    () => flatQuietanze.map((x) => x.rata).filter((r) => selectedIds.has(r.id) && isTitoloIncassabile(r)),
+    [flatQuietanze, selectedIds],
+  );
+  const selectedGarantibile = useMemo(
+    () => selectedAttive.filter((r) => !isInCoperturaGarantita(r)),
+    [selectedAttive],
+  );
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [filtroTipo]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllQuietanze = () => {
+    const ids = quietanzeIncassabili.map((r) => r.id);
+    if (ids.length > 0 && ids.every((id) => selectedIds.has(id))) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(ids));
+    }
+  };
+
+  const toTitoloMin = (r: any) => ({
+    id: r.id,
+    numero_titolo: r.numero_titolo,
+    premio_lordo: r.premio_lordo,
+    cliente_anagrafica_id: r.cliente_anagrafica_id ?? clienteId ?? null,
+  });
+
+  const invalidatePolizzeCliente = () => {
+    queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
+    setSelectedIds(new Set());
+  };
 
 
   const fmtDate = (d: string | Date | null | undefined) => {
@@ -1435,11 +1508,56 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
         )}
       </div>
 
+      {filtroTipo === "quietanze" && (selectedAttive.length > 0 || selectedGarantibile.length > 0) && (
+        <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/50 rounded-lg border">
+          <span className="text-sm text-muted-foreground">
+            {selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}
+          </span>
+          {selectedAttive.length > 0 && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setCassaDialogTitoli(selectedAttive.map(toTitoloMin));
+                setCassaDialogOpen(true);
+              }}
+              className="gap-1"
+            >
+              <Banknote className="h-3.5 w-3.5" />
+              Incassa ({selectedAttive.length})
+            </Button>
+          )}
+          {selectedGarantibile.length > 0 && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setGarantitoDialogTitoli(selectedGarantibile.map(toTitoloMin));
+                setGarantitoDialogOpen(true);
+              }}
+              className="gap-1 bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              <Shield className="h-3.5 w-3.5" />
+              Garantito ({selectedGarantibile.length})
+            </Button>
+          )}
+        </div>
+      )}
+
 
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-8"></TableHead>
+            <TableHead className="w-8" onClick={(e) => e.stopPropagation()}>
+              {filtroTipo === "quietanze" && quietanzeIncassabili.length > 0 ? (
+                <Checkbox
+                  checked={
+                    quietanzeIncassabili.length > 0 &&
+                    quietanzeIncassabili.every((r) => selectedIds.has(r.id))
+                  }
+                  onCheckedChange={toggleSelectAllQuietanze}
+                  aria-label="Seleziona tutte le quietanze incassabili"
+                />
+              ) : null}
+            </TableHead>
             <TableHead>N. Polizza</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Gruppo Ramo</TableHead>
@@ -1520,7 +1638,15 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   onClick={() => navigate(`/titoli/${r.id}`)}
                   title="Apri quietanza"
                 >
-                  <TableCell></TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {isTitoloIncassabile(r) ? (
+                      <Checkbox
+                        checked={selectedIds.has(r.id)}
+                        onCheckedChange={() => toggleSelect(r.id)}
+                        aria-label={`Seleziona quietanza ${r.numero_titolo || r.id}`}
+                      />
+                    ) : null}
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{r.numero_titolo || "—"}</TableCell>
                   <TableCell>
                     {isAppendice(r) ? (
@@ -1787,6 +1913,20 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MessaCassaDialog
+        open={cassaDialogOpen}
+        onOpenChange={setCassaDialogOpen}
+        titoli={cassaDialogTitoli}
+        onSuccess={() => invalidatePolizzeCliente()}
+      />
+
+      <GarantitoDialog
+        open={garantitoDialogOpen}
+        onOpenChange={setGarantitoDialogOpen}
+        titoli={garantitoDialogTitoli}
+        onSuccess={() => invalidatePolizzeCliente()}
+      />
     </div>
   );
 }
@@ -2533,7 +2673,7 @@ export default function ClienteDetail() {
                   <NuovaPolizzaButton clienteId={id} label="Nuova Polizza" />
                 </div>
               ) : (
-                <PolizzeClienteTable polizze={polizze} navigate={navigate} />
+                <PolizzeClienteTable polizze={polizze} navigate={navigate} clienteId={id} />
               )}
             </CardContent>
           </Card>

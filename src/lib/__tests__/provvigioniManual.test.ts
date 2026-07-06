@@ -1,9 +1,21 @@
 import { describe, expect, it } from "vitest";
+import { emptyGaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
+import type { MatriceProvvAccessori } from "@/lib/calcProvvigioniGaranzia";
 import {
   isProvvigioniManualStored,
+  provvigioniImportoFromManualPctNetto,
   provvigioniImportoFromPct,
   provvigioniPctFromImporto,
 } from "@/lib/provvigioniManual";
+
+const matrice: MatriceProvvAccessori = {
+  pctByRamoId: new Map([["sotto-1", 8]]),
+  pctAccessoriByRamoId: new Map(),
+  pctDefault: 8,
+  pctAccessoriDefault: 12,
+  pctPrevalente: 8,
+  isUniform: true,
+};
 
 describe("provvigioniManual", () => {
   it("isProvvigioniManualStored rileva anche micro-differenze", () => {
@@ -23,5 +35,16 @@ describe("provvigioniManual", () => {
     const pct = provvigioniPctFromImporto(200.33, 5919.83);
     expect(pct).not.toBe("3.3858");
     expect(parseFloat(pct)).toBeCloseTo(3.38405, 4);
+  });
+
+  it("provvigioniImportoFromManualPctNetto applica % netto manuale e % accessori da matrice", () => {
+    const rows = [{
+      ...emptyGaranziaRow(),
+      sottoramoId: "sotto-1",
+      netto: "543.56",
+      accessori: "100.50",
+    }];
+    const importo = provvigioniImportoFromManualPctNetto(rows, "8", matrice);
+    expect(importo).toBeCloseTo(55.5448, 2);
   });
 });
