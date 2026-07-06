@@ -9,6 +9,7 @@ import {
   isRipartoSumValidForPreview,
   parseQuotaPercentuale,
   redistributeQuoteEvenly,
+  ripartoRowsFromDettaglio,
   sanitizeQuotaInput,
   splitQuoteEvenly,
   sumQuotePercentuali,
@@ -134,5 +135,22 @@ describe("isRipartoSumValidForPreview", () => {
   it("false se somma non è 100%", () => {
     const rows = [emptyRipartoRow({ gruppoCompagniaId: "g", compagniaId: "c", quotaPercentuale: "50" })];
     expect(isRipartoSumValidForPreview(rows)).toBe(false);
+  });
+});
+
+describe("ripartoRowsFromDettaglio", () => {
+  it("mappa righe DB in righe editor", () => {
+    const rows = ripartoRowsFromDettaglio([
+      {
+        id: "r1",
+        gruppo_compagnia_id: "g1",
+        compagnia_id: "c1",
+        compagnia_rapporto_id: "rap1",
+        quota_percentuale: 60,
+      },
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].quotaPercentuale).toBe("60");
+    expect(rows[0].compagniaId).toBe("c1");
   });
 });

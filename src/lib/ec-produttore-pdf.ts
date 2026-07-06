@@ -12,6 +12,16 @@ export interface ECProduttoreRow {
   altreOper: number;   // sempre 0 al momento
 }
 
+/** Provvigioni già trattenute dal produttore in incasso (voce separata, non da liquidare). */
+export interface ECProduttoreTrattenutaRow {
+  data: string;
+  polizza: string;
+  cliente: string;
+  provvigioneLorda: number;
+  ritenutaAcconto: number;
+  nettoTrattenuto: number;
+}
+
 export interface ECProduttoreData {
   // Mittente sede
   sedeNome: string;
@@ -34,8 +44,11 @@ export interface ECProduttoreData {
   produttoreProvincia: string;
   // Tabella
   righe: ECProduttoreRow[];
+  /** Dettaglio provvigioni trattenute in incasso (escluse dal totale da liquidare). */
+  righeTrattenute?: ECProduttoreTrattenutaRow[];
   totalePremio: number;
   totaleProvvigioni: number;
+  totaleTrattenute?: number;
   totaleAltreOper: number;
   // Riepilogo
   ritenutaAcconto: number;
@@ -235,6 +248,76 @@ function drawTabella(ctx: Ctx, d: ECProduttoreData) {
   ctx.y -= 18;
 }
 
+function drawTrattenuteSection(ctx: Ctx, d: ECProduttoreData) {
+  const rows = d.righeTrattenute || [];
+  if (!rows.length) return;
+
+  spacer(ctx, 10);
+  drawText(ctx, "Provvigioni trattenute in incasso (già liquidate dal produttore)", { size: 9, bold: true });
+  spacer(ctx, 4);
+
+  const cols = [
+    { title: "Data", w: 52, align: "left" as const },
+    { title: "Polizza", w: 90, align: "left" as const },
+    { title: "Cliente", w: 130, align: "left" as const },
+    { title: "Lordo", w: 70, align: "right" as const },
+    { title: "RA", w: 55, align: "right" as const },
+    { title: "Netto trattenuto", w: 80, align: "right" as const },
+  ];
+
+  ensure(ctx, 20);
+  let yTop = ctx.y;
+  ctx.page.drawRectangle({ x: MARGIN.left, y: yTop - 16, width: CONTENT_W, height: 16, color: COLOR.headerBg });
+  let cx = MARGIN.left;
+  for (const col of cols) {
+    const tx = col.align === "right"
+      ? cx + col.w - ctx.bold.widthOfTextAtSize(col.title, 8) - 4
+      : cx + 4;
+    ctx.page.drawText(col.title, { x: tx, y: yTop - 10, size: 8, font: ctx.bold, color: COLOR.headerText });
+    cx += col.w;
+  }
+  ctx.y -= 18;
+
+  for (const r of rows) {
+    ensure(ctx, 14);
+    yTop = ctx.y;
+    const texts = [
+      r.data,
+      r.polizza,
+      r.cliente,
+      fmtEur(r.provvigioneLorda),
+      fmtEur(r.ritenutaAcconto),
+      fmtEur(r.nettoTrattenuto),
+    ];
+    cx = MARGIN.left;
+    texts.forEach((text, i) => {
+      const col = cols[i];
+      const tx = col.align === "right"
+        ? cx + col.w - ctx.font.widthOfTextAtSize(text, 8) - 4
+        : cx + 4;
+      ctx.page.drawText(text, { x: tx, y: yTop - 10, size: 8, font: ctx.font, color: COLOR.text });
+      cx += col.w;
+    });
+    ctx.page.drawLine({
+      start: { x: MARGIN.left, y: yTop - 14 },
+      end: { x: MARGIN.left + CONTENT_W, y: yTop - 14 },
+      thickness: 0.2,
+      color: COLOR.line,
+    });
+    ctx.y = yTop - 14;
+  }
+
+  const tot = d.totaleTrattenute ?? rows.reduce((s, r) => s + r.nettoTrattenuto, 0);
+  spacer(ctx, 2);
+  ensure(ctx, 14);
+  yTop = ctx.y;
+  const totLabel = "Totale netto trattenuto";
+  const totVal = fmtEur(tot);
+  ctx.page.drawText(totLabel, { x: MARGIN.left + CONTENT_W - 200, y: yTop - 10, size: 8.5, font: ctx.bold, color: COLOR.text });
+  ctx.page.drawText(totVal, { x: MARGIN.left + CONTENT_W - ctx.bold.widthOfTextAtSize(totVal, 8.5) - 4, y: yTop - 10, size: 8.5, font: ctx.bold, color: COLOR.text });
+  ctx.y -= 16;
+}
+
 function drawTotali(ctx: Ctx, d: ECProduttoreData) {
   const debitoCredito = d.totaleProvvigioni;
   const aVostroCredito = debitoCredito - d.ritenutaAcconto;
@@ -294,6 +377,7 @@ export async function buildECProduttorePdf(d: ECProduttoreData): Promise<Uint8Ar
   drawDestinatario(ctx, d);
   drawIntro(ctx, d);
   drawTabella(ctx, d);
+  drawTrattenuteSection(ctx, d);
   drawTotali(ctx, d);
   drawNote(ctx, d);
   return await doc.save();

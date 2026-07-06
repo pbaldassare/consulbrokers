@@ -46,4 +46,16 @@ describe("buildTrattenutaCtx", () => {
       ),
     ).toBeNull();
   });
+
+  it("force=true ignora flag anagrafica", () => {
+    const prod = new Map([
+      ["p1", { id: "p1", trattenuta_provvigioni_incasso: false, percentuale_ra: 4.6, ragione_sociale: "X" }],
+    ]);
+    const ctx = buildTrattenutaCtx(
+      { id: "t1", anagrafica_commerciale_id: "p1", provvigioni_quietanza: 200, percentuale_commerciale: 100 },
+      prod,
+      { force: true },
+    );
+    expect(ctx?.provvigioneLorda).toBe(200);
+  });
 });

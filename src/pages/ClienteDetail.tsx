@@ -1487,11 +1487,13 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                   <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
                   <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
-                  <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
-                  <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
-                  <TableCell className="text-xs text-orange-700 font-medium">
-                    {fmtDate(r.data_copertura)}
+                  <TableCell className="font-mono">
+                    {r.sostituisce_polizza || isAppendice(r) ? fmtNum(r.premio_lordo) : "—"}
                   </TableCell>
+                  <TableCell className="font-mono">
+                    {r.sostituisce_polizza || isAppendice(r) ? fmtNum(getProvvigioneEC(r)) : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs">{fmtDate(r.data_copertura)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.data_messa_cassa || r.data_incasso)}</TableCell>
                   {isAdmin && <TableCell />}
                 </TableRow>
@@ -1617,10 +1619,10 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                     <TableCell className="text-xs">{fmtDate(head.garanzia_a ?? head.durata_a)}</TableCell>
                     <TableCell>{agenzia}</TableCell>
                     <TableCell className="font-mono">
-                      {head.polizza_rateo ? "—" : fmtNum(head.premio_lordo)}
+                      {isAppendice(head) ? fmtNum(head.premio_lordo) : "—"}
                     </TableCell>
                     <TableCell className="font-mono">
-                      {head.polizza_rateo ? "—" : fmtNum(getProvvigioneEC(head))}
+                      {isAppendice(head) ? fmtNum(getProvvigioneEC(head)) : "—"}
                     </TableCell>
                     <TableCell className="text-xs">
                       {head.data_copertura ? (

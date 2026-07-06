@@ -70,11 +70,13 @@ export interface TrattenutaTitoloCtx {
 export function buildTrattenutaCtx(
   titolo: TitoloTrattenutaInput,
   prodById: Map<string, ProduttoreTrattenutaInput>,
+  options?: { force?: boolean },
 ): TrattenutaTitoloCtx | null {
   const prodId = titolo.anagrafica_commerciale_id;
   if (!prodId) return null;
   const prod = prodById.get(prodId);
-  if (!prod?.trattenuta_provvigioni_incasso) return null;
+  if (!options?.force && !prod?.trattenuta_provvigioni_incasso) return null;
+  if (!prod) return null;
 
   const provv = calcProvvigioneProduttorePrincipale(
     titolo.provvigioni_quietanza,

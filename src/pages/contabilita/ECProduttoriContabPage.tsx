@@ -10,11 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, TrendingUp, Percent, Filter, Printer, CheckCircle2, Loader2 } from "lucide-react";
+import { Download, TrendingUp, Percent, Filter, Printer, CheckCircle2, Loader2, HandCoins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { toast } from "sonner";
-import { buildECProduttorePdf, type ECProduttoreData, type ECProduttoreRow } from "@/lib/ec-produttore-pdf";
+import { buildECProduttorePdf, type ECProduttoreData, type ECProduttoreRow, type ECProduttoreTrattenutaRow } from "@/lib/ec-produttore-pdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 
@@ -84,6 +84,22 @@ const ECProduttoriContabPage = () => {
     },
   });
 
+  const { data: trattenuteAll = [] } = useQuery({
+    queryKey: ["ec-produttori-trattenute", fromIso, toIso],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("titoli_modalita_incasso") as any)
+        .select(
+          "id, titolo_id, anagrafica_commerciale_id, importo_provvigione_lorda, importo_ra, importo_trattenuto_netto, titoli!inner(id, numero_titolo, riga, data_messa_cassa, cliente_anagrafica_id, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale))",
+        )
+        .eq("stato", "attiva")
+        .eq("modalita", "produttore_trattiene_provv")
+        .gte("titoli.data_messa_cassa", fromIso)
+        .lte("titoli.data_messa_cassa", toIso);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const aggregati = useMemo(() => {
     const prods = anagrafiche || [];
     const grouped: Record<string, { id: string; codice: string; nome: string; citta: string; fax: string; email: string; lordo: number; provvigioni: number }> = {};
@@ -106,6 +122,10 @@ const ECProduttoriContabPage = () => {
 
   const totLordo = aggregati.reduce((s, r) => s + r.lordo, 0);
   const totProvv = aggregati.reduce((s, r) => s + r.provvigioni, 0);
+  const totTrattenute = (trattenuteAll as any[]).reduce(
+    (s, r) => s + (Number(r.importo_trattenuto_netto) || 0),
+    0,
+  );
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
   const exportCSV = () => {
@@ -138,6 +158,23 @@ const ECProduttoriContabPage = () => {
       return key === prodId;
     });
 
+    const righeTrattenute: ECProduttoreTrattenutaRow[] = (trattenuteAll as any[])
+      .filter((r) => r.anagrafica_commerciale_id === prodId)
+      .map((r) => {
+        const t = r.titoli;
+        const cli = t?.clienti_anagrafica;
+        const cliente = cli?.ragione_sociale || `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() || "—";
+        const dataRow = t?.data_messa_cassa;
+        return {
+          data: dataRow ? format(new Date(dataRow), "dd/MM/yy") : "",
+          polizza: `${t?.numero_titolo || ""}${t?.riga ? " - " + t.riga : ""}`,
+          cliente,
+          provvigioneLorda: Number(r.importo_provvigione_lorda) || 0,
+          ritenutaAcconto: Number(r.importo_ra) || 0,
+          nettoTrattenuto: Number(r.importo_trattenuto_netto) || 0,
+        };
+      });
+
     const righe: ECProduttoreRow[] = righeProv.map((p: any) => {
       const t = p.titoli;
       const cli = t?.clienti_anagrafica;
@@ -163,6 +200,7 @@ const ECProduttoriContabPage = () => {
 
     const totalePremio = righe.reduce((s, r) => s + r.premio, 0);
     const totaleProvvigioni = righe.reduce((s, r) => s + r.provvigioni, 0);
+    const totaleTrattenute = righeTrattenute.reduce((s, r) => s + r.nettoTrattenuto, 0);
     const percRA = Number(prod.percentuale_ra) || 0;
 
     const data: ECProduttoreData = {
@@ -176,7 +214,7 @@ const ECProduttoriContabPage = () => {
       produttoreNome: prod.ragione_sociale || `${prod.cognome || ""} ${prod.nome || ""}`.trim() || "",
       produttoreIndirizzo: prod.indirizzo || "", produttoreCap: prod.cap || "",
       produttoreCitta: prod.citta || "", produttoreProvincia: prod.provincia || "",
-      righe, totalePremio, totaleProvvigioni, totaleAltreOper: 0,
+      righe, righeTrattenute, totalePremio, totaleProvvigioni, totaleTrattenute, totaleAltreOper: 0,
       ritenutaAcconto: percRA * totaleProvvigioni / 100,
     };
     const bytes = await buildECProduttorePdf(data);
@@ -280,7 +318,8 @@ const ECProduttoriContabPage = () => {
 
   const kpiCards = [
     { label: "Totale Lordo", value: fmt(totLordo), icon: TrendingUp, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
-    { label: "Totale Provvigioni", value: fmt(totProvv), icon: Percent, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
+    { label: "Provvigioni da liquidare", value: fmt(totProvv), icon: Percent, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
+    { label: "Trattenute in incasso", value: fmt(totTrattenute), icon: HandCoins, color: "text-violet-600 bg-violet-100 dark:bg-violet-900/30 dark:text-violet-400" },
   ];
 
   const isConfermaBusy = busy || confermaPagamentoMutation.isPending;
@@ -298,7 +337,7 @@ const ECProduttoriContabPage = () => {
         <Button variant="outline" onClick={exportCSV} disabled={!aggregati.length}><Download className="mr-2 h-4 w-4" /> Esporta CSV</Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {kpiCards.map((kpi) => (
           <Card key={kpi.label}><CardContent className="p-4 flex items-center gap-4">
             <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", kpi.color)}><kpi.icon className="w-5 h-5" /></div>

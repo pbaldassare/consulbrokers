@@ -280,6 +280,25 @@ export function buildDettaglioRipartoInsert(
 }
 
 /** Singola riga 100% (polizza non coassicurata). */
+/** Converte righe DB dettaglio_riparto in righe editor coassicurazione. */
+export function ripartoRowsFromDettaglio(
+  rows: Array<{
+    id?: string;
+    gruppo_compagnia_id?: string | null;
+    compagnia_id?: string | null;
+    compagnia_rapporto_id?: string | null;
+    quota_percentuale?: number | null;
+  }>,
+): RipartoCoassicurazioneRow[] {
+  return rows.map((r) => ({
+    localId: r.id || newRipartoLocalId(),
+    gruppoCompagniaId: r.gruppo_compagnia_id || "",
+    compagniaId: r.compagnia_id || "",
+    rapportoId: r.compagnia_rapporto_id || "",
+    quotaPercentuale: r.quota_percentuale != null ? String(r.quota_percentuale) : "",
+  }));
+}
+
 export function buildDettaglioRipartoSingolo(
   titoloId: string,
   compagniaId: string,

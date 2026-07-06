@@ -30,6 +30,7 @@ import {
   calcTasseEffettiveRiga,
   type MatriceProvvAccessori,
 } from "@/lib/calcProvvigioniGaranzia";
+import { provvigioniImportoFromPct, provvigioniPctFromImporto } from "@/lib/provvigioniManual";
 
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
@@ -416,6 +417,10 @@ const ImmissionePolizzaPage = () => {
   // Provvigioni: auto-popolata da resolvePercentualeProvvigione (Rapporto + Ramo + Sottoramo)
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
   const [percentualeProvvigioneAuto, setPercentualeProvvigioneAuto] = useState(true);
+  const [manualProvvImportoFirma, setManualProvvImportoFirma] = useState<number | null>(null);
+  const [manualProvvImportoQuietanza, setManualProvvImportoQuietanza] = useState<number | null>(null);
+  const [manualProvvFromEuroFirma, setManualProvvFromEuroFirma] = useState(false);
+  const [manualProvvFromEuroQuietanza, setManualProvvFromEuroQuietanza] = useState(false);
   const [provvigioneFonte, setProvvigioneFonte] = useState<string>("");
   const [provvigioneWarning, setProvvigioneWarning] = useState<string>("");
 
@@ -1291,12 +1296,23 @@ const ImmissionePolizzaPage = () => {
   const provvBreakdownFirma = provvPctBreakdown(premiFirmaRows, provvMatrice);
   const provvBreakdownQuietanza = provvPctBreakdown(premiQuietanzaRows, provvMatrice);
 
+  const baseFirmaProvv = premioNettoNum + accessoriFirmaNum;
+  const baseQuietanzaProvv = premioNettoQNum + accessoriQuietanzaNum;
+
   const provvFirma = percentualeProvvigioneAuto
     ? calcProvvAuto(premiFirmaRows)
-    : (percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione)) / 100 : 0);
+    : manualProvvFromEuroFirma && manualProvvImportoFirma != null
+      ? manualProvvImportoFirma
+      : percentualeProvvigione
+        ? provvigioniImportoFromPct(baseFirmaProvv, percentualeProvvigione)
+        : 0;
   const provvQuietanza = percentualeProvvigioneAuto
     ? calcProvvAuto(premiQuietanzaRows)
-    : (percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione)) / 100 : 0);
+    : manualProvvFromEuroQuietanza && manualProvvImportoQuietanza != null
+      ? manualProvvImportoQuietanza
+      : percentualeProvvigione
+        ? provvigioniImportoFromPct(baseQuietanzaProvv, percentualeProvvigione)
+        : 0;
 
   const brokFirma = percentualeBrokeraggio ? (premioNettoNum * parseFloat(percentualeBrokeraggio) / 100) : 0;
   const brokQuietanza = percentualeBrokeraggio ? (premioNettoQNum * parseFloat(percentualeBrokeraggio) / 100) : 0;
@@ -3067,8 +3083,6 @@ const ImmissionePolizzaPage = () => {
             const produttoreLabel = aeLabel || commLabel;
             const isSede = !produttoreLabel;
             const commonProvvProps = {
-              percentualeAgenzia: percentualeProvvigione,
-              onPercentualeAgenziaChange: (v: string) => { setPercentualeProvvigione(v); setPercentualeProvvigioneAuto(false); },
               percentualeAgenziaAuto: percentualeProvvigioneAuto,
               produttoreLabel,
               percentualeCommerciale,
@@ -3077,7 +3091,53 @@ const ImmissionePolizzaPage = () => {
               ramoLabel: selectedRamoData?.descrizione || null,
               fonteAuto: provvigioneFonte || null,
               warningAuto: provvigioneWarning || null,
-              onResetAuto: () => setPercentualeProvvigioneAuto(true),
+              onResetAuto: () => {
+                setPercentualeProvvigioneAuto(true);
+                setManualProvvImportoFirma(null);
+                setManualProvvImportoQuietanza(null);
+                setManualProvvFromEuroFirma(false);
+                setManualProvvFromEuroQuietanza(false);
+              },
+            };
+            const provvPropsFirma = {
+              ...commonProvvProps,
+              percentualeAgenzia: percentualeProvvigioneAuto
+                ? percentualeProvvigione
+                : manualProvvFromEuroFirma && manualProvvImportoFirma != null
+                  ? provvigioniPctFromImporto(manualProvvImportoFirma, baseFirmaProvv)
+                  : percentualeProvvigione,
+              onPercentualeAgenziaChange: (v: string) => {
+                setPercentualeProvvigione(v);
+                setPercentualeProvvigioneAuto(false);
+                setManualProvvFromEuroFirma(false);
+                setManualProvvImportoFirma(null);
+              },
+              onProvvigioniImportoChange: (importo: number) => {
+                setManualProvvImportoFirma(importo);
+                setManualProvvFromEuroFirma(true);
+                setPercentualeProvvigioneAuto(false);
+                setPercentualeProvvigione("");
+              },
+            };
+            const provvPropsQuietanza = {
+              ...commonProvvProps,
+              percentualeAgenzia: percentualeProvvigioneAuto
+                ? percentualeProvvigione
+                : manualProvvFromEuroQuietanza && manualProvvImportoQuietanza != null
+                  ? provvigioniPctFromImporto(manualProvvImportoQuietanza, baseQuietanzaProvv)
+                  : percentualeProvvigione,
+              onPercentualeAgenziaChange: (v: string) => {
+                setPercentualeProvvigione(v);
+                setPercentualeProvvigioneAuto(false);
+                setManualProvvFromEuroQuietanza(false);
+                setManualProvvImportoQuietanza(null);
+              },
+              onProvvigioniImportoChange: (importo: number) => {
+                setManualProvvImportoQuietanza(importo);
+                setManualProvvFromEuroQuietanza(true);
+                setPercentualeProvvigioneAuto(false);
+                setPercentualeProvvigione("");
+              },
             };
             // Auto-sync: la Quietanza rispecchia la Firma in tempo reale.
             // Le righe Quietanza modificate a mano (quietanzaPersonalizzata=true)
@@ -3105,7 +3165,7 @@ const ImmissionePolizzaPage = () => {
                   provvigioni={provvFirma}
                   provvPctBreakdown={provvBreakdownFirma}
                   rowPctAccessori={rowPctAccessoriFn}
-                  {...commonProvvProps}
+                  {...provvPropsFirma}
                   headerExtra={
                     <Button
                       type="button"
@@ -3158,8 +3218,7 @@ const ImmissionePolizzaPage = () => {
                   provvigioni={provvQuietanza}
                   provvPctBreakdown={provvBreakdownQuietanza}
                   rowPctAccessori={rowPctAccessoriFn}
-                  {...commonProvvProps}
-                  sincronizzata={sincronizzata}
+                  {...provvPropsQuietanza}
                   personalizzati={personalizzati}
                   onResetRow={(idx) =>
                     setPremiQuietanzaRows((prev) => resetQuietanzaRow(premiFirmaRows, prev, idx))

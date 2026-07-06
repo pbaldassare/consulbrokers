@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
+import { calcTasseEffettiveRiga } from "@/lib/calcProvvigioniGaranzia";
 import {
   sameRowContent,
   syncQuietanzaFromFirma,
@@ -80,6 +81,28 @@ describe("syncQuietanzaFromFirma", () => {
     ];
     const out = syncQuietanzaFromFirma(firma, quietanza);
     expect(out.map((r) => r.netto)).toEqual(["10", "77"]);
+  });
+
+  it("propaga tasseRettifica dalla Firma alla Quietanza specchio", () => {
+    const firma = [
+      row({
+        netto: "5919.83",
+        tasse: "1317.16",
+        tasseRettifica: "0.01",
+        tasseManualOverride: true,
+        aliquotaTasse: 22.25,
+      }),
+    ];
+    const quietanza = [row({ netto: "0", quietanzaPersonalizzata: false })];
+    const out = syncQuietanzaFromFirma(firma, quietanza);
+    expect(out[0].tasseRettifica).toBe("0.01");
+    expect(out[0].tasseManualOverride).toBe(true);
+    const lordo =
+      parseFloat(out[0].netto!) +
+      parseFloat(out[0].accessori || "0") +
+      calcTasseEffettiveRiga(out[0]) +
+      parseFloat(out[0].ssn || "0");
+    expect(lordo).toBeCloseTo(7237, 2);
   });
 });
 

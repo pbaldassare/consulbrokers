@@ -21,6 +21,11 @@ import {
   calcIncassoConTrattenutaProvvigioni,
   type TrattenutaTitoloCtx,
 } from "@/lib/trattenutaProvvigioniIncasso";
+import {
+  defaultModalitaFromAnagrafica,
+  MODALITA_INCASSO_OPTIONS,
+  type ModalitaIncasso,
+} from "@/lib/modalitaIncasso";
 
 /**
  * Input importo per riga di compensazione contabile.
@@ -166,6 +171,8 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
   const [clienteQuietanzeSearch, setClienteQuietanzeSearch] = useState("");
   // Quietanze spuntate nella checklist prima dell'aggiunta
   const [quietanzeSel, setQuietanzeSel] = useState<Record<string, boolean>>({});
+  /** Modalità incasso/provvigioni per titolo (scelta esplicita, default da anagrafica produttore). */
+  const [modalitaByTitolo, setModalitaByTitolo] = useState<Record<string, ModalitaIncasso>>({});
 
   const isMulti = titoli.length > 1;
   const totaleLordo = titoli.reduce((s, t) => s + (Number(t.premio_lordo) || 0), 0);
@@ -379,13 +386,33 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
     const detById = new Map(titoliTrattenutaDet.map((t) => [t.id, t]));
     const m = new Map<string, TrattenutaTitoloCtx>();
     for (const t of titoli) {
+      if (modalitaByTitolo[t.id] !== "produttore_trattiene_provv") continue;
       const det = detById.get(t.id);
       if (!det) continue;
-      const ctx = buildTrattenutaCtx(det, prodById);
+      const ctx = buildTrattenutaCtx(det, prodById, { force: true });
       if (ctx) m.set(t.id, ctx);
     }
     return m;
-  }, [titoli, titoliTrattenutaDet, produttoriTrattenuta]);
+  }, [titoli, titoliTrattenutaDet, produttoriTrattenuta, modalitaByTitolo]);
+
+  useEffect(() => {
+    if (!open || titoliTrattenutaDet.length === 0) return;
+    const prodById = new Map(produttoriTrattenuta.map((p) => [p.id, p]));
+    setModalitaByTitolo((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const t of titoli) {
+        if (next[t.id]) continue;
+        const det = titoliTrattenutaDet.find((d) => d.id === t.id);
+        const prod = det?.anagrafica_commerciale_id
+          ? prodById.get(det.anagrafica_commerciale_id)
+          : undefined;
+        next[t.id] = defaultModalitaFromAnagrafica(prod?.trattenuta_provvigioni_incasso);
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [open, titoli, titoliTrattenutaDet, produttoriTrattenuta]);
 
   const haTrattenuta = trattenutaByTitolo.size > 0;
 
@@ -423,6 +450,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       setClienteQuietanze(null);
       setClienteQuietanzeSearch("");
       setQuietanzeSel({});
+      setModalitaByTitolo({});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bankIncasso?.movimentoId]);
@@ -456,6 +484,10 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
 
   const removeTitolo = (id: string) => {
     setTitoli((prev) => prev.filter((t) => t.id !== id));
+    setModalitaByTitolo((prev) => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
     setCompensazioniByTitolo((prev) => {
       const { [id]: _, ...rest } = prev;
       return rest;
@@ -976,6 +1008,25 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
         }
       }
 
+      if (isFullIncasso && modalitaByTitolo[t.id] === "produttore_trattiene_provv" && tr) {
+        const calcTr = calcIncassoConTrattenutaProvvigioni(dovutoT, tr.provvigioneLorda, tr.percentualeRa);
+        const { error: errMod } = await (supabase.from("titoli_modalita_incasso") as any).insert({
+          titolo_id: t.id,
+          modalita: "produttore_trattiene_provv",
+          anagrafica_commerciale_id: tr.prodId,
+          importo_dovuto_lordo: dovutoT,
+          importo_provvigione_lorda: tr.provvigioneLorda,
+          importo_ra: tr.ritenutaAcconto,
+          importo_trattenuto_netto: tr.trattenutoNetto,
+          importo_versato_consul: calcTr.importoVersatoConsul,
+          stato: "attiva",
+          applicata_da: userId,
+        });
+        if (errMod) {
+          toast.warning(`Incasso ok ma modalità non salvata su ${t.numero_titolo ?? t.id}: ${errMod.message}`);
+        }
+      }
+
       ok++;
       await logAttivita({
         azione: isFullIncasso ? "messa_a_cassa" : "incasso_parziale",
@@ -984,6 +1035,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
         dettagli_json: {
           data_messa_cassa: isFullIncasso ? form.dataMessaCassa : null,
           tipo_pagamento: tipoPag,
+          modalita_incasso: modalitaByTitolo[t.id] || "standard",
           anticipi_usati: utilizziPerTitolo,
           compensazioni: compForThis.map((c) => ({ codice: c.causale_codice, segno: c.segno, importo: c.importo })),
           residuo_cash: residuoCash,
@@ -1053,6 +1105,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       queryClient.invalidateQueries({ queryKey: ["anticipi-globale"] });
       queryClient.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
       queryClient.invalidateQueries({ queryKey: ["titoli-compensazioni"] });
+      queryClient.invalidateQueries({ queryKey: ["titoli-modalita-incasso"] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni-generate"] });
       queryClient.invalidateQueries({ queryKey: ["ec-produttori"] });
       queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
@@ -1062,6 +1115,75 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
     } else {
       toast.error("Operazione fallita");
     }
+  };
+
+  // === UI: modalità incasso/provvigioni per titolo ===
+  const renderModalitaPanel = (titoloId: string, label?: string) => {
+    const det = titoliTrattenutaDet.find((d) => d.id === titoloId);
+    if (!det?.anagrafica_commerciale_id) return null;
+    const prodById = new Map(produttoriTrattenuta.map((p) => [p.id, p]));
+    const prod = prodById.get(det.anagrafica_commerciale_id);
+    const value = modalitaByTitolo[titoloId] || "standard";
+    const ctx =
+      value === "produttore_trattiene_provv"
+        ? buildTrattenutaCtx(det, prodById, { force: true })
+        : null;
+    if (value === "produttore_trattiene_provv" && !ctx) {
+      return (
+        <div className="rounded-md border border-amber-300 bg-amber-50/50 p-3 text-xs text-amber-900">
+          Modalità «trattenuta» non applicabile: nessuna provvigione produttore su questo titolo.
+        </div>
+      );
+    }
+
+    return (
+      <div className="rounded-md border border-violet-300/70 bg-violet-50/40 dark:bg-violet-950/20 p-3 space-y-2">
+        <div className="text-sm font-medium text-violet-900 dark:text-violet-200">
+          Modalità provvigioni / incasso{label ? ` — ${label}` : ""}
+        </div>
+        <Select
+          value={value}
+          onValueChange={(v) =>
+            setModalitaByTitolo((prev) => ({ ...prev, [titoloId]: v as ModalitaIncasso }))
+          }
+        >
+          <SelectTrigger className="h-9 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MODALITA_INCASSO_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value} className="text-xs">
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[11px] text-muted-foreground">
+          {MODALITA_INCASSO_OPTIONS.find((o) => o.value === value)?.description}
+        </p>
+        {ctx && (
+          <div className="text-xs space-y-0.5 pt-1 border-t border-violet-200/60">
+            <div className="flex justify-between">
+              <span>Produttore</span>
+              <span className="font-medium">{ctx.prodNome}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Provvigione trattenuta</span>
+              <span className="font-mono">{fmtEuro(ctx.provvigioneLorda)}</span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>Netto (dopo RA {ctx.percentualeRa}%)</span>
+              <span className="font-mono">{fmtEuro(ctx.trattenutoNetto)}</span>
+            </div>
+          </div>
+        )}
+        {prod?.trattenuta_provvigioni_incasso && value === "standard" && (
+          <p className="text-[10px] text-amber-700 dark:text-amber-400 italic">
+            Default anagrafica: trattenuta — per questo incasso hai scelto standard.
+          </p>
+        )}
+      </div>
+    );
   };
 
   // === UI: pannello compensazioni per singolo titolo (riusato in single e bulk) ===
@@ -1476,6 +1598,9 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
             </div>
           )}
 
+          {/* Modalità provvigioni — single */}
+          {!isMulti && titoli[0] && renderModalitaPanel(titoli[0].id)}
+
           {/* Compensazioni — single titolo: pannello singolo */}
           {!isMulti && titoli[0] && (
             <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
@@ -1547,7 +1672,8 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
                           )}
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent className="pt-2 pb-3">
+                      <AccordionContent className="pt-2 pb-3 space-y-3">
+                        {renderModalitaPanel(t.id, t.numero_titolo || undefined)}
                         {renderCompensazioniPanel(t.id)}
                       </AccordionContent>
                     </AccordionItem>

@@ -24,6 +24,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import DocumentiTab from "@/components/DocumentiTab";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
 import CompensazioniBox from "@/components/titolo/CompensazioniBox";
+import ModalitaIncassoBox from "@/components/titolo/ModalitaIncassoBox";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
@@ -43,6 +44,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 
 import { TitoloImportiPremiBlock, type TitoloImportiPremiBlockHandle } from "@/components/polizze/TitoloImportiPremiBlock";
+import { CoassicurazioneImportiBreakdown } from "@/components/polizze/CoassicurazioneImportiBreakdown";
+import { ripartoRowsFromDettaglio } from "@/lib/coassicurazione";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
@@ -245,6 +248,27 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
+  const { data: coassCompagnie = [] } = useQuery({
+    queryKey: ["coass-compagnie-labels"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnie")
+        .select("id, nome, codice, tipo, gruppo_compagnia_id")
+        .eq("attivo", true);
+      return data || [];
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: coassGruppi = [] } = useQuery({
+    queryKey: ["coass-gruppi-labels"],
+    queryFn: async () => {
+      const { data } = await supabase.from("gruppi_compagnia").select("id, nome, codice, descrizione");
+      return data || [];
+    },
+    staleTime: 60_000,
+  });
+
   const { data: appendiciPolizza = [] } = useQuery({
     queryKey: ["appendici-polizza", id],
     queryFn: () => fetchAppendiciPolizzaForTitolo(supabase, id!),
@@ -272,13 +296,38 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, riga, sostituisce_polizza, garanzia_da, garanzia_a, premio_lordo, stato, data_messa_cassa, created_at")
+        .select("id, numero_titolo, riga, sostituisce_polizza, garanzia_da, garanzia_a, premio_lordo, stato, data_messa_cassa, created_at, coassicurazione")
         .eq("numero_titolo", numeroTitolo!)
         .order("garanzia_da", { ascending: true, nullsFirst: true });
       return data || [];
     },
     enabled: !!numeroTitolo,
   });
+
+  // Allinea riparto coass su quietanze con madre coassicurata (se mancante o incompleto)
+  useEffect(() => {
+    if (!id || !titolo) return;
+    const catene = catenaTitoli?.length ? groupTitoliByPolizza(catenaTitoli) : [];
+    const catena = catene.find((c) => (c.all || []).some((x) => x.id === titolo.id));
+    const madreRow = catena?.madre;
+    const needsCoass = !!(titolo.coassicurazione || madreRow?.coassicurazione);
+    if (!needsCoass) return;
+    if ((riparto || []).length >= 2) return;
+
+    let cancelled = false;
+    (async () => {
+      const { error } = await (supabase.rpc as any)("sync_riparto_coassicurazione_titolo", {
+        p_titolo_id: id,
+      });
+      if (!cancelled && !error) {
+        queryClient.invalidateQueries({ queryKey: ["riparto", id] });
+        queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, titolo, catenaTitoli, riparto, queryClient]);
 
   // Quietanza madre della regolazione (se il titolo corrente è una RG)
   const madreQuietanzaId: string | null = (titolo as any)?.is_regolazione
@@ -1981,6 +2030,9 @@ const TitoloDetail = () => {
 
                 {/* Compensazioni contabili applicate (read-only) */}
                 {t.stato === "incassato" && <CompensazioniBox titoloId={t.id} />}
+                {t.stato === "incassato" && (
+                  <ModalitaIncassoBox titoloId={t.id} canEdit={!isLocked} />
+                )}
 
                 {/* Badges Garantito / Fondi */}
                 {(inCopertura || (t.stato === "incassato" && t.conferimento_gestito)) && (
@@ -3265,6 +3317,25 @@ const TitoloDetail = () => {
             provvigioniFirma={t.provvigioni_firma}
             provvigioniQuietanza={t.provvigioni_quietanza}
           />
+          {(t.coassicurazione || madre?.coassicurazione) && riparto.length >= 2 && (
+            <>
+              <p className="text-[11px] text-teal-800 dark:text-teal-200 bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200/80 rounded px-2 py-1.5">
+                <Users className="inline w-3.5 h-3.5 mr-1" />
+                Coassicurazione: le quote restano quelle della polizza madre; gli importi si ricalcolano automaticamente al salvataggio dei premi.
+              </p>
+              <CoassicurazioneImportiBreakdown
+                ripartoRows={ripartoRowsFromDettaglio(riparto)}
+                compagnieList={coassCompagnie as any[]}
+                gruppiCompagniaList={coassGruppi as any[]}
+                totNetto={Number(t.premio_netto) || 0}
+                totAccessori={Number(t.addizionali) || 0}
+                totTasse={Number(t.tasse) || 0}
+                totSsn={Number(t.ssn_firma) || 0}
+                lordo={Number(t.premio_lordo) || 0}
+                provvFirma={Number(t.provvigioni_quietanza ?? t.provvigioni_firma) || 0}
+              />
+            </>
+          )}
           {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
           {!nascondiPremioQuietanza && renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
         </div>
@@ -3312,7 +3383,7 @@ const TitoloDetail = () => {
       )}
 
       {/* DETTAGLIO RIPARTO */}
-      <SectionCollapsible title="Dettaglio Riparto" icon={LayoutGrid} defaultOpen={false}>
+      <SectionCollapsible title="Dettaglio Riparto" icon={LayoutGrid} defaultOpen={!!t.coassicurazione}>
         <Table>
           <TableHeader>
             <TableRow>

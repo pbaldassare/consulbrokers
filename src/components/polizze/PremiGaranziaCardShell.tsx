@@ -110,6 +110,8 @@ export interface PremiGaranziaCardShellProps {
   /** % Provvigione Agenzia (string, controllata) — editabile inline */
   percentualeAgenzia?: string;
   onPercentualeAgenziaChange?: (v: string) => void;
+  /** Override manuale importo provvigione (€): evita conversione euro→%→euro. */
+  onProvvigioniImportoChange?: (importo: number) => void;
   /** Flag visivo "auto-popolata da Provvigioni per Ramo" */
   percentualeAgenziaAuto?: boolean;
   /** Etichetta del produttore (es. "Mario Rossi") o null se Sede 100% */
@@ -159,6 +161,7 @@ export function PremiGaranziaCardShell({
   sincronizzata,
   percentualeAgenzia,
   onPercentualeAgenziaChange,
+  onProvvigioniImportoChange,
   percentualeAgenziaAuto,
   produttoreLabel,
   percentualeCommerciale,
@@ -894,12 +897,21 @@ export function PremiGaranziaCardShell({
           const commitTot = (raw: string) => {
             if (!editable) return;
             const s = (raw ?? "").trim().replace(",", ".");
-            if (s === "") { onPercentualeAgenziaChange!(""); return; }
+            if (s === "") {
+              onProvvigioniImportoChange?.(0);
+              onPercentualeAgenziaChange?.("");
+              return;
+            }
             const n = parseFloat(s);
+            if (isNaN(n)) return;
+            if (onProvvigioniImportoChange) {
+              onProvvigioniImportoChange(n);
+              return;
+            }
             const base = totNetto + totAccessori;
-            if (isNaN(n) || base <= 0) return;
+            if (base <= 0) return;
             const newPct = (n / base) * 100;
-            onPercentualeAgenziaChange!(newPct.toFixed(4));
+            onPercentualeAgenziaChange!(String(newPct));
           };
           const commitPct = (raw: string) => {
             if (!editable) return;
