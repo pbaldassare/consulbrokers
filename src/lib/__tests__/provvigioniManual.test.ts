@@ -22,6 +22,6 @@ describe("provvigioniManual", () => {
   it("provvigioniPctFromImporto mantiene precisione per display", () => {
     const pct = provvigioniPctFromImporto(200.33, 5919.83);
     expect(pct).not.toBe("3.3858");
-    expect(parseFloat(pct)).toBeCloseTo(3.385805, 4);
+    expect(parseFloat(pct)).toBeCloseTo(3.38405, 4);
   });
 });
