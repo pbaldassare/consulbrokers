@@ -24,6 +24,38 @@ export type GarantitoInput = {
   dataDecorrenza: string;
 };
 
+type TitoloDateIncassoCtx = {
+  conferimento_gestito?: boolean | null;
+  data_copertura?: string | null;
+};
+
+/**
+ * Incasso diretto: copertura = giorno messa a cassa.
+ * Garantito già in copertura: mantiene data_copertura originale.
+ */
+export function resolveDataCoperturaOnIncasso(
+  titolo: TitoloDateIncassoCtx,
+  dataMessaCassa: string,
+): string {
+  if (titolo.conferimento_gestito && titolo.data_copertura) {
+    return titolo.data_copertura;
+  }
+  return dataMessaCassa;
+}
+
+/** Campi data su incasso completo (messa a cassa). */
+export function buildIncassoDateFields(
+  titolo: TitoloDateIncassoCtx,
+  dataMessaCassa: string,
+): { data_messa_cassa: string; data_incasso: string; data_copertura: string } {
+  const dataCopertura = resolveDataCoperturaOnIncasso(titolo, dataMessaCassa);
+  return {
+    data_messa_cassa: dataMessaCassa,
+    data_incasso: dataMessaCassa,
+    data_copertura: dataCopertura,
+  };
+}
+
 /** Payload DB per conferma Garantito (solo copertura, senza incasso). */
 export function buildGarantitoPayload(input: GarantitoInput): Record<string, unknown> {
   const today = new Date().toISOString().slice(0, 10);

@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
-import { buildGarantitoPayload, isInCoperturaGarantita } from "@/lib/garantitoTitolo";
+import { buildGarantitoPayload, buildIncassoDateFields, isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 import { annullaPolizza } from "@/lib/annullaPolizza";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
@@ -1382,7 +1382,16 @@ const TitoloDetail = () => {
       const vecchioStato = titolo?.stato;
       const updatePayload: any = { stato: nuovoStato, updated_at: new Date().toISOString() };
       if (nuovoStato === "incassato" && cassaData && !isConferimento) {
-        updatePayload.data_messa_cassa = cassaData.dataMessaCassa;
+        const dateFields = buildIncassoDateFields(
+          {
+            conferimento_gestito: titolo?.conferimento_gestito,
+            data_copertura: titolo?.data_copertura,
+          },
+          cassaData.dataMessaCassa,
+        );
+        updatePayload.data_messa_cassa = dateFields.data_messa_cassa;
+        updatePayload.data_incasso = dateFields.data_incasso;
+        updatePayload.data_copertura = dateFields.data_copertura;
         updatePayload.data_decorrenza_rinnovo = cassaData.dataDecorrenza;
         updatePayload.data_pagamento = cassaData.dataPagamento || null;
         updatePayload.tipo_pagamento = cassaData.tipoPagamento || null;

@@ -23,6 +23,7 @@ import { lookupComune } from "@/lib/comuniItaliani";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { validatePIVA } from "@/lib/validatePIVA";
 import { validateCF } from "@/lib/validateCF";
+import { formatClienteDuplicatoError, verificaClienteDuplicato } from "@/lib/clientiDuplicate";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { format } from "date-fns";
 
@@ -475,6 +476,19 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       if (fiscalErrors.length > 0) throw new Error(fiscalErrors.join(" • "));
       if (haIncarico && incaricoDa && incaricoA && incaricoA < incaricoDa) {
         throw new Error("La data fine incarico non può essere precedente alla data inizio");
+      }
+
+      const duplicati = await verificaClienteDuplicato(supabase, {
+        partitaIva: tipoCliente !== "privato" ? partitaIva : null,
+        codiceFiscale: tipoCliente === "privato" ? codiceFiscale : null,
+        codiceFiscaleAzienda: tipoCliente !== "privato" ? codiceFiscaleAzienda : null,
+        nome: tipoCliente === "privato" ? nome : null,
+        cognome: tipoCliente === "privato" ? cognome : null,
+        ragioneSociale: tipoCliente !== "privato" ? ragioneSociale : null,
+        tipoCliente,
+      });
+      if (duplicati.length > 0) {
+        throw new Error(formatClienteDuplicatoError(duplicati));
       }
 
       const payload: Record<string, unknown> = {

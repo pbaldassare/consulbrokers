@@ -26,6 +26,7 @@ import {
   MODALITA_INCASSO_OPTIONS,
   type ModalitaIncasso,
 } from "@/lib/modalitaIncasso";
+import { buildIncassoDateFields } from "@/lib/garantitoTitolo";
 
 /**
  * Input importo per riga di compensazione contabile.
@@ -815,6 +816,12 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       const lordo = Number(t.premio_lordo) || 0;
       const d = getDate(t.id);
 
+      const { data: titoloRow } = await supabase
+        .from("titoli")
+        .select("conferimento_gestito, data_copertura, importo_incassato")
+        .eq("id", t.id)
+        .maybeSingle();
+
       const compForThis = getComp(t.id);
       const compPlusT = compForThis.filter((c) => c.segno === "+").reduce((s, c) => s + c.importo, 0);
       const compMinusT = compForThis.filter((c) => c.segno === "-").reduce((s, c) => s + c.importo, 0);
@@ -875,7 +882,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
         bancaLabel = conto?.etichetta || conto?.banca || bancaId;
       }
 
-      const prevIncassato = Number(t.importo_incassato) || 0;
+      const prevIncassato = Number(titoloRow?.importo_incassato ?? t.importo_incassato) || 0;
       // residuoCash è la quota cash/bonifico; usatoTitolo è la quota coperta da acconti.
       // Entrambe contribuiscono all'importo_incassato, altrimenti i pagamenti
       // fatti interamente con acconti lasciano il titolo in stato "attivo".
@@ -888,11 +895,19 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
         updated_at: new Date().toISOString(),
       };
       if (isFullIncasso) {
+        const dateFields = buildIncassoDateFields(
+          {
+            conferimento_gestito: titoloRow?.conferimento_gestito,
+            data_copertura: titoloRow?.data_copertura,
+          },
+          d.mc,
+        );
         payload.stato = "incassato";
-        payload.data_messa_cassa = d.mc;
+        payload.data_messa_cassa = dateFields.data_messa_cassa;
         payload.data_pagamento = d.pag;
         payload.data_decorrenza_rinnovo = d.mc;
-        payload.data_incasso = d.mc;
+        payload.data_incasso = dateFields.data_incasso;
+        payload.data_copertura = dateFields.data_copertura;
       }
       if (bancaLabel) payload.banca_pagamento = bancaLabel;
       // Pagamento diretto compagnia: il premio è già stato pagato dal cliente

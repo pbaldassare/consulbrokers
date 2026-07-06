@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { verificaNumeroPolizzaDuplicato } from "@/lib/clientiDuplicate";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1710,6 +1711,17 @@ const ImmissionePolizzaPage = () => {
           .eq("gruppo_compagnia_id", gruppoCompagniaIdSave)
           .eq("attivo", true);
         rapportoSelSave = (rapRows || [])[0] as any;
+      }
+    }
+    if (!regolazioneMode && numeroPolizza.trim()) {
+      const compagniaIdCheck = coassicurazione ? ripartoRows[0]?.compagniaId : selectedCompagnia;
+      const dupPolizza = await verificaNumeroPolizzaDuplicato(supabase, {
+        numeroTitolo: numeroPolizza,
+        compagniaId: compagniaIdCheck || null,
+      });
+      if (dupPolizza.duplicato) {
+        toast.error(`Numero polizza già presente per questa agenzia: ${numeroPolizza.trim()}`);
+        return;
       }
     }
     setSaving(true);

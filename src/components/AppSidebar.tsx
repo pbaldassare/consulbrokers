@@ -147,8 +147,7 @@ const sidebarEntries: SidebarEntry[] = [
       permissionKey: "titoli",
       children: [
         { label: "Clienti", path: "/archivi/clienti", icon: Users },
-        // { label: "Deduplica Clienti", path: "/archivi/clienti/deduplica", icon: Users, hideForRoles: ["ufficio","produttore","corrispondente","cliente","prospect"] }, // nascosta su richiesta
-        
+        { label: "Deduplica Clienti", path: "/archivi/clienti/deduplica", icon: Users, hideForRoles: ["ufficio", "produttore", "corrispondente", "cliente", "prospect"] },
         { label: "Polizze Attive", path: "/portafoglio/attive", icon: Shield },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
         { label: "Gestione Polizze", path: "/portafoglio/gestione", icon: Wand2 },

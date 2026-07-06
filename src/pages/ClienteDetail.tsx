@@ -55,6 +55,7 @@ import { validatePIVA as validatePIVALib } from "@/lib/validatePIVA";
 import { validateCF as validateCFLib } from "@/lib/validateCF";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { assertFiscalValid } from "@/lib/assertFiscalValid";
+import { formatClienteDuplicatoError, verificaClienteDuplicato } from "@/lib/clientiDuplicate";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -1494,7 +1495,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                     {r.sostituisce_polizza || isAppendice(r) ? fmtNum(getProvvigioneEC(r)) : "—"}
                   </TableCell>
                   <TableCell className="text-xs">{fmtDate(r.data_copertura)}</TableCell>
-                  <TableCell className="text-xs">{fmtDate(r.data_messa_cassa || r.data_incasso)}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(r.data_incasso || r.data_messa_cassa)}</TableCell>
                   {isAdmin && <TableCell />}
                 </TableRow>
               ))
@@ -1542,7 +1543,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                       </span>
                     ) : "—"}
                   </TableCell>
-                  <TableCell className="text-xs">{fmtDate(r.data_messa_cassa || r.data_incasso)}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(r.data_incasso || r.data_messa_cassa)}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {!isAppendice(r) && (
@@ -1631,7 +1632,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                         </span>
                       ) : "—"}
                     </TableCell>
-                    <TableCell className="text-xs">{fmtDate(head.data_messa_cassa || head.data_incasso)}</TableCell>
+                    <TableCell className="text-xs">{fmtDate(head.data_incasso || head.data_messa_cassa)}</TableCell>
                     {isAdmin && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button
@@ -1681,7 +1682,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                           </span>
                         ) : "—"}
                       </TableCell>
-                      <TableCell className="text-xs">{fmtDate(r.data_messa_cassa || r.data_incasso)}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.data_incasso || r.data_messa_cassa)}</TableCell>
                       {isAdmin && (
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <Button
@@ -1732,7 +1733,7 @@ function PolizzeClienteTable({ polizze, navigate, mode }: { polizze: any[]; navi
                           </span>
                         ) : "—"}
                       </TableCell>
-                      <TableCell className="text-xs">{fmtDate(r.data_messa_cassa || r.data_incasso)}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.data_incasso || r.data_messa_cassa)}</TableCell>
                       {isAdmin && <TableCell />}
                     </TableRow>
                   ))}
@@ -2050,6 +2051,19 @@ export default function ClienteDetail() {
         editFields.incarico_a < editFields.incarico_da
       ) {
         throw new Error("La data fine incarico non può essere precedente alla data inizio");
+      }
+      const duplicati = await verificaClienteDuplicato(supabase, {
+        partitaIva: isPrivato ? null : editFields.partita_iva,
+        codiceFiscale: isPrivato ? editFields.codice_fiscale : null,
+        codiceFiscaleAzienda: isPrivato ? null : editFields.codice_fiscale_azienda,
+        nome: isPrivato ? editFields.nome : null,
+        cognome: isPrivato ? editFields.cognome : null,
+        ragioneSociale: isPrivato ? null : editFields.ragione_sociale,
+        tipoCliente: editFields.tipo_cliente,
+        excludeId: id,
+      });
+      if (duplicati.length > 0) {
+        throw new Error(formatClienteDuplicatoError(duplicati));
       }
       const payload = { ...editFields };
       if (!payload.ha_incarico) {
