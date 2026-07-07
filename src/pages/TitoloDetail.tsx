@@ -430,6 +430,8 @@ const TitoloDetail = () => {
   };
   const [editingComm, setEditingComm] = useState(false);
   const [splitsForm, setSplitsForm] = useState<SplitRow[]>([]);
+  // Flag: provvigioni produttore personalizzate solo per questa quietanza (escluse dal sync madre)
+  const [splitPersonalizzatoForm, setSplitPersonalizzatoForm] = useState(false);
   // AE (Account Executive) — secondo intermediario provvigionato, indipendente dai Produttori
   const [aeForm, setAeForm] = useState<{ ae_anagrafica_id: string | null; percentuale_ae: number }>({
     ae_anagrafica_id: null, percentuale_ae: 0,
@@ -492,14 +494,38 @@ const TitoloDetail = () => {
       ae_anagrafica_id: titolo?.ae_anagrafica_id ?? null,
       percentuale_ae: Number(titolo?.percentuale_ae) || 0,
     });
+    setSplitPersonalizzatoForm(!!(titolo as any)?.split_personalizzato);
     setEditingComm(true);
   };
 
   const saveCommMutation = useMutation({
     mutationFn: async () => {
+      const isChildQuietanza = !!titolo?.sostituisce_polizza;
+      const wasPersonalizzato = !!(titolo as any)?.split_personalizzato;
+
+      // Disattivazione del flag su una quietanza figlia → re-sync dai valori della madre
+      if (isChildQuietanza && wasPersonalizzato && !splitPersonalizzatoForm) {
+        assertSameTitolo(id, titolo?.id, "saveCommMutation:resync");
+        const { error: flagErr } = await supabase
+          .from("titoli")
+          .update({ split_personalizzato: false } as any)
+          .eq("id", id!);
+        if (flagErr) throw flagErr;
+        const { error: resyncErr } = await supabase.rpc("resync_split_commerciali_from_madre", { p_child_id: id! } as any);
+        if (resyncErr) throw resyncErr;
+        if (titolo?.stato === "incassato") {
+          await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
+        }
+        return;
+      }
+
       const cleaned = splitsForm.filter(s => s.anagrafica_commerciale_id && s.percentuale > 0);
       const sum = cleaned.reduce((acc, s) => acc + Number(s.percentuale || 0), 0);
-      const aePerc = aeForm.ae_anagrafica_id ? Math.max(0, Number(aeForm.percentuale_ae) || 0) : 0;
+      // Sulle quietanze figlie l'AE non è personalizzabile: usa sempre i valori del titolo
+      const aeIdSave = isChildQuietanza
+        ? (titolo?.ae_anagrafica_id ?? null)
+        : (aeForm.ae_anagrafica_id ?? null);
+      const aePerc = aeIdSave ? Math.max(0, Number(isChildQuietanza ? titolo?.percentuale_ae : aeForm.percentuale_ae) || 0) : 0;
       const sumTot = sum + aePerc;
       if (sumTot > 100.001) throw new Error(`Somma percentuali (Produttori ${sum.toFixed(2)}% + AE ${aePerc.toFixed(2)}% = ${sumTot.toFixed(2)}%) supera 100.`);
       const ids = new Set(cleaned.map(s => s.anagrafica_commerciale_id));
@@ -563,14 +589,16 @@ const TitoloDetail = () => {
           commerciale_id: primary?.commerciale_user_id ?? null,
           percentuale_commerciale: primary?.percentuale ?? null,
           produttore_nome: nomeLeggibile,
-          ae_anagrafica_id: aeForm.ae_anagrafica_id ?? null,
+          ae_anagrafica_id: aeIdSave,
           ae_nome: (() => {
-            if (!aeForm.ae_anagrafica_id) return null;
-            const a = (aeLookup || []).find((x: any) => x.value === aeForm.ae_anagrafica_id);
-            return a ? a.label : null;
+            if (!aeIdSave) return null;
+            const a = (aeLookup || []).find((x: any) => x.value === aeIdSave);
+            return a ? a.label : (titolo?.ae_nome ?? null);
           })(),
           percentuale_ae: aePerc,
-        })
+          // Il flag ha effetto solo sulle quietanze figlie; sulla madre resta false
+          split_personalizzato: isChildQuietanza ? splitPersonalizzatoForm : false,
+        } as any)
         .eq("id", id!);
       if (tErr) throw tErr;
 
@@ -592,7 +620,13 @@ const TitoloDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
       queryClient.invalidateQueries({ queryKey: ["titolo-splits", id] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
-      toast.success("Split commerciali aggiornati");
+      const wasPersonalizzato = !!(titolo as any)?.split_personalizzato;
+      const isChild = !!titolo?.sostituisce_polizza;
+      if (isChild && wasPersonalizzato && !splitPersonalizzatoForm) {
+        toast.success("Split ripristinati dalla polizza madre");
+      } else {
+        toast.success("Split commerciali aggiornati");
+      }
       setEditingComm(false);
     },
     onError: (e: any) => toast.error(e.message),
@@ -2900,9 +2934,25 @@ const TitoloDetail = () => {
               splitsForm.forEach(s => { if (s.anagrafica_commerciale_id) seen.set(s.anagrafica_commerciale_id, (seen.get(s.anagrafica_commerciale_id) || 0) + 1); });
               return new Set([...seen.entries()].filter(([, n]) => n > 1).map(([k]) => k));
             })();
+            const isChildQuietanza = !!titolo?.sostituisce_polizza;
             return (
               <div className="space-y-3">
-                <div className="space-y-2">
+                {isChildQuietanza && (
+                  <div className="flex items-start gap-3 p-3 rounded-md border bg-violet-50/50 dark:bg-violet-950/10 border-violet-200">
+                    <Switch
+                      checked={splitPersonalizzatoForm}
+                      onCheckedChange={setSplitPersonalizzatoForm}
+                    />
+                    <div className="flex-1">
+                      <Label className="text-xs font-semibold">Provvigioni produttore personalizzate per questa quietanza</Label>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Se attivo, le percentuali split di questa rata non vengono più sovrascritte dagli aggiornamenti della polizza madre.
+                        Disattivandolo, la quietanza torna ad ereditare i valori della madre.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <div className={cn("space-y-2", isChildQuietanza && !splitPersonalizzatoForm && "opacity-50 pointer-events-none")}>
                   {splitsForm.length === 0 && (
                     <div className="text-xs text-muted-foreground italic px-3 py-2 border rounded-md bg-muted/30">
                       Nessun produttore — l'intera quota va a Consulbrokers SPA.
@@ -2956,14 +3006,18 @@ const TitoloDetail = () => {
                   })}
                 </div>
                 <Button size="sm" variant="outline" type="button"
+                  disabled={isChildQuietanza && !splitPersonalizzatoForm}
                   onClick={() => setSplitsForm(prev => [...prev, { anagrafica_commerciale_id: null, commerciale_user_id: null, percentuale: 0 }])}>
                   + Aggiungi produttore
                 </Button>
 
-                {/* Account Executive — secondo intermediario provvigionato (riga distinta, residuo a Consul) */}
-                <div className="grid grid-cols-12 gap-2 items-end p-2 border rounded-md bg-sky-50/40 dark:bg-sky-950/10">
+                {/* Account Executive — ereditato dalla madre sulle quietanze; non personalizzabile */}
+                <div className={cn(
+                  "grid grid-cols-12 gap-2 items-end p-2 border rounded-md bg-sky-50/40 dark:bg-sky-950/10",
+                  isChildQuietanza && "opacity-60 pointer-events-none",
+                )}>
                   <div className="col-span-12 md:col-span-7">
-                    <Label className="text-[11px]">Account Executive</Label>
+                    <Label className="text-[11px]">Account Executive {isChildQuietanza && <span className="text-muted-foreground font-normal">(dalla polizza madre)</span>}</Label>
                     <SearchableSelect
                       options={[{ value: "", label: "— Nessun AE —" }, ...aeLookup]}
                       value={aeForm.ae_anagrafica_id || ""}
@@ -3040,6 +3094,12 @@ const TitoloDetail = () => {
 
               return (
                 <div className="space-y-3">
+                  {!!(t as any).split_personalizzato && (
+                    <div className="text-xs px-3 py-2 rounded-md bg-violet-50 border border-violet-200 text-violet-900 flex items-center gap-2">
+                      <Percent className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>Provvigioni produttore <strong>personalizzate</strong> per questa quietanza: non seguono gli aggiornamenti della polizza madre.</span>
+                    </div>
+                  )}
                   {hasAdminInList && (
                     <div className="text-xs px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-900">
                       Uno dei produttori è Consulbrokers SPA (admin) → la sua quota è <strong>solo statistica</strong> e va sommata al residuo agenzia.
