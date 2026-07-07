@@ -1601,7 +1601,7 @@ function PolizzeClienteTable({
                       />
                     )}
                   </TableCell>
-                  <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{r.targa_telaio || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
@@ -1655,7 +1655,7 @@ function PolizzeClienteTable({
                       <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(r)} />
                     )}
                   </TableCell>
-                  <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{r.targa_telaio || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>

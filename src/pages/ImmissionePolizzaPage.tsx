@@ -1345,6 +1345,7 @@ const ImmissionePolizzaPage = () => {
   const calcProvvAuto = (rows: GaranziaRow[]) => calcProvvigioniGaranzia(rows, provvMatrice);
 
   const rowPctAccessoriFn = (row: GaranziaRow) => resolveRowPctAccessori(row, provvMatrice).pct;
+  const rowPctNettoFn = (row: GaranziaRow) => resolveRowPctNetto(row, provvMatrice).pct;
   const provvBreakdownFirma = provvPctBreakdown(premiFirmaRows, provvMatrice);
   const provvBreakdownQuietanza = provvPctBreakdown(premiQuietanzaRows, provvMatrice);
 
@@ -2051,6 +2052,8 @@ const ImmissionePolizzaPage = () => {
             tasse_rettifica: parseFloat(r.tasseRettifica || "0") || 0,
             provvigione_netto_pct: resolveRowPctNetto(r, provvMatrice).pct,
             provvigione_accessori_pct: resolveRowPctAccessori(r, provvMatrice).pct,
+            provvigione_netto_pct_override: !!r.provvNettoPctOverride,
+            provvigione_accessori_pct_override: !!r.provvAccessoriPctOverride,
           }));
       const premiPayload = [
         ...buildPremiInsert(premiFirmaRows, "firma"),
@@ -3228,6 +3231,7 @@ const ImmissionePolizzaPage = () => {
                   provvigioni={provvFirma}
                   provvPctBreakdown={provvBreakdownFirma}
                   rowPctAccessori={rowPctAccessoriFn}
+                  rowPctNetto={rowPctNettoFn}
                   {...provvPropsFirma}
                   headerExtra={
                     <Button
@@ -3281,6 +3285,7 @@ const ImmissionePolizzaPage = () => {
                   provvigioni={provvQuietanza}
                   provvPctBreakdown={provvBreakdownQuietanza}
                   rowPctAccessori={rowPctAccessoriFn}
+                  rowPctNetto={rowPctNettoFn}
                   {...provvPropsQuietanza}
                   personalizzati={personalizzati}
                   onResetRow={(idx) =>

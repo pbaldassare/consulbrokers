@@ -5,6 +5,9 @@ import {
   calcTasseRiga,
   calcLordoGaranziaRow,
   resolveRowPctAccessori,
+  resolveRowPctNetto,
+  resolveRowPctNettoAgenzia,
+  resolveRowPctAccessoriAgenzia,
   type MatriceProvvAccessori,
 } from "@/lib/calcProvvigioniGaranzia";
 
@@ -99,9 +102,55 @@ describe("calcProvvigioniGaranzia", () => {
 });
 
 describe("resolveRowPctAccessori", () => {
-  it("rispetta override manuale sulla riga", () => {
-    const r = resolveRowPctAccessori(row({ provvAccessoriPct: 5 }), matrice);
+  it("rispetta override manuale solo se il flag override è attivo", () => {
+    const r = resolveRowPctAccessori(
+      row({ provvAccessoriPct: 5, provvAccessoriPctOverride: true }),
+      matrice,
+    );
     expect(r.pct).toBe(5);
     expect(r.matched).toBe(true);
+  });
+
+  it("ignora la % di riga se il flag override non è attivo (usa matrice agenzia)", () => {
+    const r = resolveRowPctAccessori(row({ provvAccessoriPct: 5 }), matrice);
+    // sotto-1 → 10% da matrice, l'override senza flag viene ignorato
+    expect(r.pct).toBe(10);
+  });
+
+  it("resolveRowPctAccessoriAgenzia ignora sempre l'override di riga", () => {
+    const r = resolveRowPctAccessoriAgenzia(
+      row({ provvAccessoriPct: 5, provvAccessoriPctOverride: true }),
+      matrice,
+    );
+    expect(r.pct).toBe(10);
+  });
+});
+
+describe("resolveRowPctNetto", () => {
+  it("usa la matrice agenzia senza override", () => {
+    expect(resolveRowPctNetto(row(), matrice).pct).toBe(15);
+  });
+
+  it("rispetta override netto solo con flag attivo", () => {
+    expect(
+      resolveRowPctNetto(row({ provvNettoPct: 9, provvNettoPctOverride: true }), matrice).pct,
+    ).toBe(9);
+    // senza flag → ignora
+    expect(resolveRowPctNetto(row({ provvNettoPct: 9 }), matrice).pct).toBe(15);
+  });
+
+  it("resolveRowPctNettoAgenzia ignora sempre l'override di riga", () => {
+    expect(
+      resolveRowPctNettoAgenzia(row({ provvNettoPct: 9, provvNettoPctOverride: true }), matrice).pct,
+    ).toBe(15);
+  });
+
+  it("override netto entra nel calcolo provvigioni di riga", () => {
+    // 100 * 9% (override) + 20 * 10% (acc matrice) = 9 + 2 = 11
+    const provv = calcProvvigioniGaranzia(
+      [row({ provvNettoPct: 9, provvNettoPctOverride: true })],
+      matrice,
+    );
+    expect(provv).toBeCloseTo(11, 2);
   });
 });

@@ -79,6 +79,10 @@ export type RcaDatiVeicoloSectionProps = {
   setVRimorchio: (v: boolean) => void;
 };
 
+// Relazione metrica standard: 1 CV = 0.735499 kW (1 kW = 1.35962 CV).
+// Usiamo un'unica costante così le due direzioni sono esattamente l'inversa l'una dell'altra.
+const KW_PER_CV = 0.735499;
+
 export function RcaDatiVeicoloSection({ showBanner = false, ...p }: RcaDatiVeicoloSectionProps) {
   const aiCls = (key: string) =>
     p.aiPrefilled.has(key) ? "border-l-2 border-l-primary bg-primary/[0.03]" : "";
@@ -92,7 +96,7 @@ export function RcaDatiVeicoloSection({ showBanner = false, ...p }: RcaDatiVeico
     if (p.kwCvLocked !== "kw") {
       const n = parseFloat(val);
       if (!isNaN(n) && n > 0) {
-        p.setVKw(String(Math.round(n / 1.36)));
+        p.setVKw(String(Math.round(n * KW_PER_CV)));
         p.clearAiPrefilled("vKw");
       }
     }
@@ -105,7 +109,7 @@ export function RcaDatiVeicoloSection({ showBanner = false, ...p }: RcaDatiVeico
     if (p.kwCvLocked !== "cv") {
       const n = parseFloat(val);
       if (!isNaN(n) && n > 0) {
-        p.setVCv(String(Math.round(n * 1.36)));
+        p.setVCv(String(Math.round(n / KW_PER_CV)));
         p.clearAiPrefilled("vCv");
       }
     }

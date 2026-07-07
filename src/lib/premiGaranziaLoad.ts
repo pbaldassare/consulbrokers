@@ -14,6 +14,8 @@ export type DbPremioLike = {
   quietanza_personalizzata?: boolean | null;
   provvigione_netto_pct?: number | null;
   provvigione_accessori_pct?: number | null;
+  provvigione_netto_pct_override?: boolean | null;
+  provvigione_accessori_pct_override?: boolean | null;
   tasse_rettifica?: number | null;
 };
 
@@ -43,7 +45,7 @@ type CatalogoSottoramo = {
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export const PREMI_GARANZIA_SELECT_BASE =
-  "id, titolo_id, tipo_premio, garanzia, codice_garanzia, firma, rata, accessori, aliquota_tasse_pct, ssn, ordine, quietanza_personalizzata, provvigione_netto_pct, provvigione_accessori_pct";
+  "id, titolo_id, tipo_premio, garanzia, codice_garanzia, firma, rata, accessori, aliquota_tasse_pct, ssn, ordine, quietanza_personalizzata, provvigione_netto_pct, provvigione_accessori_pct, provvigione_netto_pct_override, provvigione_accessori_pct_override";
 
 function isMissingTasseRettificaColumnError(error: { message?: string } | null): boolean {
   const msg = (error?.message ?? "").toLowerCase();

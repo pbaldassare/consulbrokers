@@ -19,6 +19,7 @@ const DOC_CATEGORIA = "notifica_messa_cassa";
 const TITOLI_SELECT = `
   id, numero_titolo, riga, sostituisce_polizza,
   premio_lordo, importo_incassato,
+  provvigioni_firma, provvigioni_quietanza,
   data_messa_cassa, data_copertura, data_pagamento, tipo_pagamento, banca_pagamento,
   conferimento_gestito, fondi_ricevuti,
   garanzia_da, garanzia_a, data_competenza, data_scadenza,
@@ -69,6 +70,18 @@ function resolveImportoEmail(t: TitoloRow): number | null {
   return lordo;
 }
 
+/** Stessa logica di src/lib/getProvvigioneEC.ts (quietanza vs firma, no doppio conteggio). */
+function provvigioneMaturata(t: TitoloRow): number {
+  const firma = Number(t.provvigioni_firma) || 0;
+  const quietanza = Number(t.provvigioni_quietanza) || 0;
+  if (t.sostituisce_polizza) return quietanza;
+  return quietanza > 0 ? quietanza : firma;
+}
+
+function totaleProvvigioniMaturate(titoli: TitoloRow[]): number {
+  return titoli.reduce((s, t) => s + provvigioneMaturata(t), 0);
+}
+
 function clienteNome(t: TitoloRow): string {
   const cliente = t.clienti as Record<string, unknown> | null;
   return (
@@ -105,7 +118,7 @@ function modalitaLabel(t: TitoloRow): string {
     assegno: "Assegno",
     pos: "POS / Carta",
     rid: "RID / Addebito SEPA",
-    garantito: "Copertura garantita (incasso in attesa fondi)",
+    garantito: "Bonifico bancario",
   };
   return tipoPagLabels[String(t.tipo_pagamento || "").toLowerCase()] || String(t.tipo_pagamento || "—");
 }
@@ -124,6 +137,9 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
     : `Comunicazione messa a cassa — Polizza ${primary.numero_titolo || "—"} — ${clienteNome(primary)}`;
 
   const introBody = `<p style="margin:0 0 14px;">In data odierna abbiamo incassato per Vostro conto${isBulk ? " i seguenti premi" : " il seguente premio"}, come da accordi${isBulk ? "" : ` a mezzo <strong>${escapeHtml(modalitaLabel(primary))}</strong>`}:</p>`;
+
+  const totProvv = totaleProvvigioniMaturate(titoli);
+  const totPremi = titoli.reduce((s, t) => s + (resolveImportoEmail(t) || 0), 0);
 
   const righeTabella = titoli.map((t) => {
     const num = String(t.numero_titolo || "—");
@@ -152,8 +168,10 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
             <tr><td style="color:#55615e;">Polizza</td><td><strong>${escapeHtml(String(primary.numero_titolo || "—"))}</strong></td></tr>
             <tr style="background:#f7faf9;"><td style="color:#55615e;">Decorrenza</td><td>${escapeHtml(fmtDate(primary.garanzia_da as string | null))}</td></tr>
             <tr><td style="color:#55615e;">Premio</td><td><strong>${escapeHtml(fmtEuro(resolveImportoEmail(primary)))}</strong></td></tr>
+            <tr style="background:#f7faf9;"><td style="color:#55615e;">Provvigioni maturate</td><td><strong>${escapeHtml(fmtEuro(provvigioneMaturata(primary)))}</strong></td></tr>
             <tr><td style="color:#55615e;">Modalità incasso</td><td>${escapeHtml(modalitaLabel(primary))}</td></tr>
-          </table>` : `
+          </table>
+          <p style="margin:0 0 18px;font-size:14px;"><strong>Totale provvigioni maturate:</strong> ${escapeHtml(fmtEuro(totProvv))}</p>` : `
           <table role="presentation" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;margin:8px 0 18px;font-size:13px;">
             <thead>
               <tr style="background:#f0f4f3;">
@@ -168,8 +186,13 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
             <tbody>${righeTabella}</tbody>
             <tfoot>
               <tr style="background:#f7faf9;">
-                <td colspan="5" style="padding:8px 6px;text-align:right;font-weight:600;">Totale</td>
-                <td style="padding:8px 6px;text-align:right;font-weight:600;">${escapeHtml(fmtEuro(titoli.reduce((s, t) => s + (resolveImportoEmail(t) || 0), 0)))}</td>
+                <td colspan="4" style="padding:8px 6px;text-align:right;font-weight:600;">Totale premi</td>
+                <td style="padding:8px 6px;text-align:right;font-weight:600;">${escapeHtml(fmtEuro(totPremi))}</td>
+                <td></td>
+              </tr>
+              <tr style="background:#eef5f3;">
+                <td colspan="4" style="padding:8px 6px;text-align:right;font-weight:600;">Totale provvigioni maturate</td>
+                <td style="padding:8px 6px;text-align:right;font-weight:600;">${escapeHtml(fmtEuro(totProvv))}</td>
                 <td></td>
               </tr>
             </tfoot>
@@ -268,11 +291,12 @@ async function buildArchivePdf(opts: {
   y -= 4;
   for (const t of titoli) {
     drawLine(`• ${clienteNome(t)} — Polizza ${t.numero_titolo || "—"} — ${ramoLabel(t)}`, 9);
-    drawLine(`  Decorrenza: ${fmtDate(t.garanzia_da as string | null)} | Premio: ${fmtEuro(resolveImportoEmail(t))} | ${modalitaLabel(t)}`, 8, font, 8);
+    drawLine(`  Decorrenza: ${fmtDate(t.garanzia_da as string | null)} | Premio: ${fmtEuro(resolveImportoEmail(t))} | Provv.: ${fmtEuro(provvigioneMaturata(t))} | ${modalitaLabel(t)}`, 8, font, 8);
     y -= 2;
   }
   y -= 6;
   drawLine(`Totale premi: ${fmtEuro(titoli.reduce((s, t) => s + (resolveImportoEmail(t) || 0), 0))}`, 10, bold);
+  drawLine(`Totale provvigioni maturate: ${fmtEuro(totaleProvvigioniMaturate(titoli))}`, 10, bold);
 
   y -= 10;
   drawLine("Testo comunicazione inviata", 11, bold);

@@ -26,12 +26,25 @@ import {
   calcProvvigioniGaranzia,
   resolveRowPctNetto,
   resolveRowPctAccessori,
+  resolveRowPctNettoAgenzia,
+  resolveRowPctAccessoriAgenzia,
   provvPctBreakdown,
   calcTasseRiga,
   calcTasseEffettiveRiga,
   type MatriceProvvAccessori,
   premioRigaDbImporto,
 } from "@/lib/calcProvvigioniGaranzia";
+import { logAttivita } from "@/lib/logAttivita";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   buildGaranziaRowFromTitoliAggregati,
   fetchPremiGaranziaByTitolo,
@@ -278,7 +291,10 @@ function TitoloImportiPremiBlock({
         ssnManualOverride: false,
         escludiProvvigioni: false,
         dirittiAgenzia: true,
-        provvAccessoriPct: p.provvigione_accessori_pct != null ? Number(p.provvigione_accessori_pct) : undefined,
+        provvNettoPct: p.provvigione_netto_pct_override && p.provvigione_netto_pct != null ? Number(p.provvigione_netto_pct) : undefined,
+        provvNettoPctOverride: !!p.provvigione_netto_pct_override,
+        provvAccessoriPct: p.provvigione_accessori_pct_override && p.provvigione_accessori_pct != null ? Number(p.provvigione_accessori_pct) : undefined,
+        provvAccessoriPctOverride: !!p.provvigione_accessori_pct_override,
         quietanzaPersonalizzata: p.tipo_premio === "quietanza" ? !!p.quietanza_personalizzata : undefined,
       };
     }
@@ -307,7 +323,10 @@ function TitoloImportiPremiBlock({
       ssnManualOverride,
       escludiProvvigioni,
       dirittiAgenzia: false,
-      provvAccessoriPct: p.provvigione_accessori_pct != null ? Number(p.provvigione_accessori_pct) : undefined,
+      provvNettoPct: p.provvigione_netto_pct_override && p.provvigione_netto_pct != null ? Number(p.provvigione_netto_pct) : undefined,
+      provvNettoPctOverride: !!p.provvigione_netto_pct_override,
+      provvAccessoriPct: p.provvigione_accessori_pct_override && p.provvigione_accessori_pct != null ? Number(p.provvigione_accessori_pct) : undefined,
+      provvAccessoriPctOverride: !!p.provvigione_accessori_pct_override,
       quietanzaPersonalizzata: p.tipo_premio === "quietanza" ? !!p.quietanza_personalizzata : undefined,
     };
   };
@@ -355,16 +374,10 @@ function TitoloImportiPremiBlock({
   }, [titoloId]);
 
   const enrichGaranziaRow = (r: GaranziaRow): GaranziaRow => {
-    const withRamo =
-      r.sottoramoId || !titoloMeta?.ramo_id
-        ? r
-        : { ...r, sottoramoId: titoloMeta.ramo_id as string };
-    if (!provvMatrice) return withRamo;
-    const pctAcc = resolveRowPctAccessori(withRamo, provvMatrice).pct;
-    return {
-      ...withRamo,
-      provvAccessoriPct: r.provvAccessoriPct ?? pctAcc,
-    };
+    // Deriva solo il sottoramo se mancante; le % provvigioni si risolvono via
+    // resolver (matrice agenzia o override di riga), non vanno "congelate" qui.
+    if (r.sottoramoId || !titoloMeta?.ramo_id) return r;
+    return { ...r, sottoramoId: titoloMeta.ramo_id as string };
   };
 
   useEffect(() => {
@@ -593,6 +606,8 @@ function TitoloImportiPremiBlock({
           tasse_rettifica: parseFloat(r.tasseRettifica || "0") || 0,
           provvigione_netto_pct: resolveRowPctNetto(r, provvMatrice).pct,
           provvigione_accessori_pct: resolveRowPctAccessori(r, provvMatrice).pct,
+          provvigione_netto_pct_override: !!r.provvNettoPctOverride,
+          provvigione_accessori_pct_override: !!r.provvAccessoriPctOverride,
           ...(tipo === "quietanza" ? { quietanza_personalizzata: !!r.quietanzaPersonalizzata } : {}),
         };
       });
@@ -749,8 +764,129 @@ function TitoloImportiPremiBlock({
   const accessoriFirmaNum = firmaRows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
   const accessoriQuietanzaNum = quietanzaRows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
   const rowPctAccessoriFn = (row: GaranziaRow) => resolveRowPctAccessori(row, provvMatrice).pct;
+  const rowPctNettoFn = (row: GaranziaRow) => resolveRowPctNetto(row, provvMatrice).pct;
+  const rowAgencyPctNettoFn = (row: GaranziaRow) => resolveRowPctNettoAgenzia(row, provvMatrice).pct;
+  const rowAgencyPctAccessoriFn = (row: GaranziaRow) => resolveRowPctAccessoriAgenzia(row, provvMatrice).pct;
   const provvBreakdownFirma = provvPctBreakdown(firmaRows, provvMatrice);
   const provvBreakdownQuietanza = provvPctBreakdown(quietanzaRows, provvMatrice);
+
+  // --- Override % provvigioni per voce (con conferma + log attività) -------
+  type PctOverridePending = {
+    tipo: "firma" | "quietanza";
+    idx: number;
+    campo: "netto" | "accessori";
+    voce: string;
+    from: number;
+    to: number;
+    agency: number;
+  };
+  const [pctOverride, setPctOverride] = useState<PctOverridePending | null>(null);
+
+  const patchRowProvv = (
+    row: GaranziaRow,
+    campo: "netto" | "accessori",
+    pct: number | null,
+    override: boolean,
+  ): GaranziaRow =>
+    campo === "netto"
+      ? { ...row, provvNettoPct: override ? pct : undefined, provvNettoPctOverride: override }
+      : { ...row, provvAccessoriPct: override ? pct : undefined, provvAccessoriPctOverride: override };
+
+  const applyProvvPct = async (
+    tipo: "firma" | "quietanza",
+    idx: number,
+    campo: "netto" | "accessori",
+    pct: number | null,
+    override: boolean,
+    agency: number,
+    prevEff: number,
+    voce: string,
+  ) => {
+    const baseRows = tipo === "firma" ? firmaRowsRef.current : quietanzaRowsRef.current;
+    const nextRows = baseRows.map((r, i) => {
+      if (i !== idx) return r;
+      const nr = patchRowProvv(r, campo, pct, override);
+      // Su quietanza: l'override scollega la voce dalla sincronizzazione automatica.
+      return tipo === "quietanza" ? { ...nr, quietanzaPersonalizzata: true } : nr;
+    });
+    if (tipo === "firma") {
+      setFirmaRows(nextRows);
+      if (!hideFirma && showQuietanza) {
+        setQuietanzaRows(syncQuietanzaFromFirma(nextRows, quietanzaRowsRef.current));
+      }
+    } else {
+      setQuietanzaRows(nextRows);
+    }
+    await logAttivita({
+      azione: override ? "override_provvigione_voce" : "reset_provvigione_voce",
+      entita_tipo: "titolo",
+      entita_id: titoloId,
+      dettagli_json: {
+        tipo_premio: tipo,
+        voce,
+        campo,
+        pct_agenzia: round2(agency),
+        pct_precedente: round2(prevEff),
+        pct_nuova: override && pct != null ? round2(pct) : round2(agency),
+      },
+      severity: "warning",
+    });
+  };
+
+  const requestProvvPctOverride = (
+    tipo: "firma" | "quietanza",
+    idx: number,
+    campo: "netto" | "accessori",
+    nextPct: number | null,
+  ) => {
+    if (garanzieReadOnly) return;
+    const rows = tipo === "firma" ? firmaRowsRef.current : quietanzaRowsRef.current;
+    const row = rows[idx];
+    if (!row) return;
+    const voce = row.descrizione?.trim() || row.codice || "Voce";
+    const agency =
+      campo === "netto"
+        ? resolveRowPctNettoAgenzia(row, provvMatrice).pct
+        : resolveRowPctAccessoriAgenzia(row, provvMatrice).pct;
+    const current =
+      campo === "netto"
+        ? resolveRowPctNetto(row, provvMatrice).pct
+        : resolveRowPctAccessori(row, provvMatrice).pct;
+    const wasOverride = campo === "netto" ? !!row.provvNettoPctOverride : !!row.provvAccessoriPctOverride;
+
+    // Torna al valore agenzia → reset dell'override (log, nessuna conferma).
+    if (nextPct == null || Math.abs(nextPct - agency) < 0.0001) {
+      if (!wasOverride) return;
+      void applyProvvPct(tipo, idx, campo, null, false, agency, current, voce);
+      return;
+    }
+    if (Math.abs(nextPct - current) < 0.0001) return;
+    setPctOverride({ tipo, idx, campo, voce, from: current, to: nextPct, agency });
+  };
+
+  const resetProvvPct = (tipo: "firma" | "quietanza", idx: number, campo: "netto" | "accessori") => {
+    if (garanzieReadOnly) return;
+    const rows = tipo === "firma" ? firmaRowsRef.current : quietanzaRowsRef.current;
+    const row = rows[idx];
+    if (!row) return;
+    const voce = row.descrizione?.trim() || row.codice || "Voce";
+    const agency =
+      campo === "netto"
+        ? resolveRowPctNettoAgenzia(row, provvMatrice).pct
+        : resolveRowPctAccessoriAgenzia(row, provvMatrice).pct;
+    const current =
+      campo === "netto"
+        ? resolveRowPctNetto(row, provvMatrice).pct
+        : resolveRowPctAccessori(row, provvMatrice).pct;
+    void applyProvvPct(tipo, idx, campo, null, false, agency, current, voce);
+  };
+
+  const confirmPctOverride = () => {
+    if (!pctOverride) return;
+    const { tipo, idx, campo, from, to, agency, voce } = pctOverride;
+    void applyProvvPct(tipo, idx, campo, to, true, agency, from, voce);
+    setPctOverride(null);
+  };
 
   const totNettoFirma = firmaRows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
   const totNettoQui = quietanzaRows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
@@ -890,6 +1026,11 @@ function TitoloImportiPremiBlock({
         provvigioni={displayProvvFirma}
         provvPctBreakdown={provvBreakdownFirma}
         rowPctAccessori={rowPctAccessoriFn}
+        rowPctNetto={rowPctNettoFn}
+        rowAgencyPctNetto={rowAgencyPctNettoFn}
+        rowAgencyPctAccessori={rowAgencyPctAccessoriFn}
+        onProvvPctOverride={(idx, campo, next) => requestProvvPctOverride("firma", idx, campo, next)}
+        onProvvPctReset={(idx, campo) => resetProvvPct("firma", idx, campo)}
         percentualeAgenzia={pctFirma}
         onPercentualeAgenziaChange={onPercentualeAgenziaFirma}
         onProvvigioniImportoChange={onImportoProvvigioniFirma}
@@ -928,6 +1069,11 @@ function TitoloImportiPremiBlock({
         provvigioni={displayProvvQuietanza}
         provvPctBreakdown={provvBreakdownQuietanza}
         rowPctAccessori={rowPctAccessoriFn}
+        rowPctNetto={rowPctNettoFn}
+        rowAgencyPctNetto={rowAgencyPctNettoFn}
+        rowAgencyPctAccessori={rowAgencyPctAccessoriFn}
+        onProvvPctOverride={(idx, campo, next) => requestProvvPctOverride("quietanza", idx, campo, next)}
+        onProvvPctReset={(idx, campo) => resetProvvPct("quietanza", idx, campo)}
         percentualeAgenzia={pctQui}
         onPercentualeAgenziaChange={onPercentualeAgenziaQuietanza}
         onProvvigioniImportoChange={onImportoProvvigioniQuietanza}
@@ -953,6 +1099,34 @@ function TitoloImportiPremiBlock({
         }
       />
       )}
+
+      <AlertDialog open={!!pctOverride} onOpenChange={(o) => { if (!o) setPctOverride(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sovrascrivere la % provvigione?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  Voce <strong>{pctOverride?.voce}</strong> ·{" "}
+                  {pctOverride?.campo === "netto" ? "provvigione sul netto" : "provvigione sugli accessori"} ·{" "}
+                  {pctOverride?.tipo === "firma" ? "Firma" : "Quietanza"}
+                </p>
+                <p className="font-mono">
+                  {pctOverride?.from.toFixed(2)}% → <strong className="text-orange-600">{pctOverride?.to.toFixed(2)}%</strong>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  La % dell'agenzia è {pctOverride?.agency.toFixed(2)}%. La voce verrà scollegata dalla
+                  matrice agenzia e la modifica sarà registrata nel log attività.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPctOverride}>Conferma override</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 });

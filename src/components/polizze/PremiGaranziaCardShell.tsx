@@ -47,8 +47,14 @@ export interface GaranziaRow {
    */
   tasseManualOverride?: boolean;
   aliquotaTasse: number;
-  /** Override manuale % provvigione su accessori (opzionale) */
+  /** Override manuale % provvigione sul netto (valorizzato solo se `provvNettoPctOverride`). */
+  provvNettoPct?: number | null;
+  /** True se la % provvigione netto è stata sovrascritta a mano (scollegata dalla matrice agenzia). */
+  provvNettoPctOverride?: boolean;
+  /** Override manuale % provvigione su accessori (valorizzato solo se `provvAccessoriPctOverride`). */
   provvAccessoriPct?: number | null;
+  /** True se la % provvigione accessori è stata sovrascritta a mano. */
+  provvAccessoriPctOverride?: boolean;
   /** Id del sottoramo selezionato (rami.id). Usato per derivare titoli.ramo_id in immissione. */
   sottoramoId?: string | null;
   /** Contributo SSN per la riga (importo €) — popolato solo se il sottoramo ha ssn_attivo */
@@ -101,8 +107,18 @@ export interface PremiGaranziaCardShellProps {
   provvigioni: number;
   /** Breakdown % provv netto vs accessori per footer (quando differiscono) */
   provvPctBreakdown?: { pctNetto: number; pctAccessori: number } | null;
-  /** % provv accessori per riga (da matrice) — colonna compatta opzionale */
+  /** % provv accessori EFFETTIVA per riga (override o matrice) — abilita la colonna */
   rowPctAccessori?: (row: GaranziaRow) => number | null;
+  /** % provv netto EFFETTIVA per riga (override o matrice) — abilita la colonna */
+  rowPctNetto?: (row: GaranziaRow) => number | null;
+  /** % netto da matrice agenzia (baseline, per confronto/reset) */
+  rowAgencyPctNetto?: (row: GaranziaRow) => number | null;
+  /** % accessori da matrice agenzia (baseline, per confronto/reset) */
+  rowAgencyPctAccessori?: (row: GaranziaRow) => number | null;
+  /** Sovrascrittura manuale % provvigione di riga (con conferma + log a monte). */
+  onProvvPctOverride?: (idx: number, campo: "netto" | "accessori", nextPct: number | null) => void | Promise<void>;
+  /** Riallinea la % di riga alla matrice agenzia (toglie l'override). */
+  onProvvPctReset?: (idx: number, campo: "netto" | "accessori") => void | Promise<void>;
   /** Slot opzionale (es. pulsante "Importa con AI") */
   headerExtra?: ReactNode;
   /** Mostra badge "Sincronizzata" sulla Quietanza quando è uno specchio della Firma */
@@ -157,6 +173,11 @@ export function PremiGaranziaCardShell({
   provvigioni,
   provvPctBreakdown,
   rowPctAccessori,
+  rowPctNetto,
+  rowAgencyPctNetto,
+  rowAgencyPctAccessori,
+  onProvvPctOverride,
+  onProvvPctReset,
   headerExtra,
   sincronizzata,
   percentualeAgenzia,
@@ -184,6 +205,8 @@ export function PremiGaranziaCardShell({
   const [lordoDrafts, setLordoDrafts] = useState<Record<number, string>>({});
   // Draft locale per il campo Tasse in modalità manuale (stesso pattern del Lordo).
   const [tasseDrafts, setTasseDrafts] = useState<Record<number, string>>({});
+  // Draft locale per le % provvigione (chiave `${idx}:netto` / `${idx}:accessori`).
+  const [pctProvvDrafts, setPctProvvDrafts] = useState<Record<string, string>>({});
 
   const [totFocus, setTotFocus] = useState(false);
   const [totDraft, setTotDraft] = useState("");
@@ -198,7 +221,9 @@ export function PremiGaranziaCardShell({
   const totSsn = rows.reduce((s, r) => s + parseDecimalItOr(r.ssn), 0);
   const lordo = totNetto + totAccessori + totTasse + totSsn;
   const hasSsnRows = rows.some((r) => r.ssnAttivo);
-  const showProvvAccCol = !!rowPctAccessori;
+  // Colonne provvigioni per voce (% + €): attive quando il parent fornisce le % effettive.
+  const showProvvVoceCols = !!rowPctNetto || !!rowPctAccessori;
+  const provvVoceEditable = showProvvVoceCols && !readOnly && !!onProvvPctOverride;
   const provvBreakdownVisible = !!provvPctBreakdown
     && (
       Math.abs(provvPctBreakdown.pctNetto - provvPctBreakdown.pctAccessori) > 0.0001
@@ -240,6 +265,82 @@ export function PremiGaranziaCardShell({
     if (readOnly) return;
     const next = rows.map((r, i) => (i === idx ? { ...r, ...patch } : r));
     onRowsChange(next);
+  };
+
+  /** Cella provvigioni per voce: % editabile (override→conferma+log a monte) + importo €. */
+  const renderProvvVoceCell = (idx: number, r: GaranziaRow, campo: "netto" | "accessori") => {
+    const esclusa = !!r.escludiProvvigioni || !!r.dirittiAgenzia;
+    if (esclusa) {
+      return (
+        <TableCell key={campo} className="text-right">
+          <span className="text-[10px] text-muted-foreground font-mono">—</span>
+        </TableCell>
+      );
+    }
+    const base = campo === "netto" ? parseDecimalItOr(r.netto) : parseDecimalItOr(r.accessori);
+    const pctEff = campo === "netto" ? rowPctNetto?.(r) : rowPctAccessori?.(r);
+    const pctAg = campo === "netto" ? rowAgencyPctNetto?.(r) : rowAgencyPctAccessori?.(r);
+    const isOverride = campo === "netto" ? !!r.provvNettoPctOverride : !!r.provvAccessoriPctOverride;
+    const euro = pctEff != null ? (base * pctEff) / 100 : 0;
+    const draftKey = `${idx}:${campo}`;
+    const shownPct = pctProvvDrafts[draftKey] ?? (pctEff != null ? pctEff.toFixed(2) : "");
+    return (
+      <TableCell key={campo} className="text-right">
+        <div className="flex flex-col items-end gap-0.5">
+          {provvVoceEditable ? (
+            <Input
+              type="text"
+              inputMode="decimal"
+              pattern="[0-9.,\-]*"
+              value={shownPct}
+              onChange={(e) => setPctProvvDrafts((d) => ({ ...d, [draftKey]: e.target.value }))}
+              onBlur={(e) => {
+                const raw = e.target.value.trim();
+                const parsed = raw === "" ? null : parseDecimalIt(raw);
+                setPctProvvDrafts((d) => {
+                  const n = { ...d };
+                  delete n[draftKey];
+                  return n;
+                });
+                const current = pctEff ?? null;
+                if (parsed == null && current == null) return;
+                if (parsed != null && current != null && Math.abs(parsed - current) < 0.0001) return;
+                void onProvvPctOverride?.(idx, campo, parsed);
+              }}
+              className={cn(
+                "h-7 text-right font-mono w-[92px] text-xs",
+                isOverride && "border-orange-300 focus-visible:ring-orange-400",
+              )}
+              title={pctAg != null ? `% agenzia: ${pctAg.toFixed(2)}%` : undefined}
+            />
+          ) : (
+            <span className="text-[11px] font-mono text-muted-foreground">
+              {pctEff != null ? `${pctEff.toFixed(2)}%` : "—"}
+            </span>
+          )}
+          <span className="text-[10px] font-mono tabular-nums" title="Provvigione € della voce">
+            {euro.toFixed(2)} €
+          </span>
+          {isOverride && (
+            <div className="flex items-center gap-1">
+              <span className="text-[8px] font-bold uppercase text-orange-600" title={pctAg != null ? `Agenzia: ${pctAg.toFixed(2)}%` : undefined}>
+                override
+              </span>
+              {provvVoceEditable && onProvvPctReset && (
+                <button
+                  type="button"
+                  onClick={() => { void onProvvPctReset(idx, campo); }}
+                  className="text-[8px] font-bold uppercase text-muted-foreground hover:text-foreground underline"
+                  title={pctAg != null ? `Riallinea a ${pctAg.toFixed(2)}% (agenzia)` : "Riallinea alla % agenzia"}
+                >
+                  ↻ agenzia
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </TableCell>
+    );
   };
 
   const buildRowFromSottoramo = (sottoramoId: string | null | undefined): GaranziaRow => {
@@ -537,7 +638,12 @@ export function PremiGaranziaCardShell({
                 <TableHead className="text-right w-[80px]">Aliq%</TableHead>
                 <TableHead className="text-right">Tasse</TableHead>
                 {hasSsnRows && <TableHead className="text-right w-[100px]">SSN</TableHead>}
-                {showProvvAccCol && <TableHead className="text-right w-[72px] text-[10px]">% provv acc.</TableHead>}
+                {showProvvVoceCols && (
+                  <>
+                    <TableHead className="text-right w-[104px] text-[10px]">Prov. Netto<br />% · €</TableHead>
+                    <TableHead className="text-right w-[104px] text-[10px]">Prov. Access.<br />% · €</TableHead>
+                  </>
+                )}
                 <TableHead className="text-right">Lordo</TableHead>
                 <TableHead className="w-[40px]"></TableHead>
               </TableRow>
@@ -550,7 +656,6 @@ export function PremiGaranziaCardShell({
                 const ssnRow = parseDecimalItOr(r.ssn);
                 const aliquotaFissa = r.dirittiAgenzia ? 0 : (r.aliquotaTasse || 0);
                 const lordoRow = calcLordoGaranziaRow(r);
-                const pctAcc = rowPctAccessori?.(r);
                 // Il toggle "tasse manuali" non si applica a diritti agenzia (già input) né alle voci esenti.
                 const manualEligible = !r.dirittiAgenzia && !r.escludiProvvigioni;
                 const isManual = manualEligible && !!r.tasseManualOverride;
@@ -733,13 +838,12 @@ export function PremiGaranziaCardShell({
                         )}
                       </TableCell>
                     )}
-                    {showProvvAccCol && (
-                      <TableCell className="text-right">
-                        <span className="text-[10px] text-muted-foreground font-mono">
-                          {pctAcc != null ? `${pctAcc.toFixed(2)}%` : "—"}
-                        </span>
-                      </TableCell>
-                    )}
+                {showProvvVoceCols && (
+                  <>
+                    {renderProvvVoceCell(idx, r, "netto")}
+                    {renderProvvVoceCell(idx, r, "accessori")}
+                  </>
+                )}
                     <TableCell className="text-right">
                       {r.dirittiAgenzia || isManual ? (
                         <span

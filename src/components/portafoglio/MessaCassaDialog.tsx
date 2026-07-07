@@ -1270,9 +1270,18 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
           <div className="space-y-1.5">
             {list.map((c) => (
               <div key={c.tempId} className="flex items-center gap-2 bg-background/80 rounded px-2 py-1.5">
-                <span className={`font-mono text-sm font-bold ${c.segno === "+" ? "text-green-600" : "text-red-600"}`}>
+                <button
+                  type="button"
+                  onClick={() => updateCompFor(titoloId, c.tempId, { segno: c.segno === "+" ? "-" : "+" })}
+                  title={c.segno === "+" ? "Riduce il dovuto — clicca per invertire" : "Aumenta il dovuto — clicca per invertire"}
+                  className={`font-mono text-sm font-bold w-6 h-6 rounded border transition-colors ${
+                    c.segno === "+"
+                      ? "text-green-600 border-green-300 hover:bg-green-50"
+                      : "text-red-600 border-red-300 hover:bg-red-50"
+                  }`}
+                >
                   {c.segno}
-                </span>
+                </button>
                 <div className="flex-1 text-xs">
                   <div className="font-medium">{c.causale_codice}</div>
                   <div className="text-muted-foreground truncate">{c.causale_descrizione}</div>
@@ -1293,6 +1302,9 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
                 </Button>
               </div>
             ))}
+            <p className="text-[11px] text-muted-foreground italic">
+              Clicca sul segno <span className="font-mono font-bold text-green-600">+</span>/<span className="font-mono font-bold text-red-600">−</span> per invertire l'effetto sul dovuto (abbuoni e arrotondamenti anche negativi).
+            </p>
           </div>
         )}
       </div>
@@ -1518,7 +1530,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
           {!isMulti && cashEffettivo >= 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">{haTrattenuta ? "Importo versato a Consulbrokers" : "Importo cash incassato"}</Label>
+                <Label className="text-xs">{haTrattenuta ? "Importo versato a Consulbrokers" : "Importo incassato"}</Label>
                 <div className="flex gap-1 mt-1">
                   <Input
                     type="number" step="0.01" min="0"

@@ -10,7 +10,8 @@ export type MatriceProvvAccessori = {
   isUniform: boolean;
 };
 
-export function resolveRowPctNetto(
+/** % netto risolta dalla sola matrice agenzia (baseline, ignora eventuali override). */
+export function resolveRowPctNettoAgenzia(
   row: GaranziaRow,
   matrice: MatriceProvvAccessori | null,
 ): { pct: number; matched: boolean } {
@@ -22,13 +23,21 @@ export function resolveRowPctNetto(
   return { pct: matrice.pctPrevalente, matched: matrice.isUniform };
 }
 
-export function resolveRowPctAccessori(
+export function resolveRowPctNetto(
   row: GaranziaRow,
   matrice: MatriceProvvAccessori | null,
 ): { pct: number; matched: boolean } {
-  if (row.provvAccessoriPct != null && !Number.isNaN(row.provvAccessoriPct)) {
-    return { pct: row.provvAccessoriPct, matched: true };
+  if (row.provvNettoPctOverride && row.provvNettoPct != null && !Number.isNaN(row.provvNettoPct)) {
+    return { pct: row.provvNettoPct, matched: true };
   }
+  return resolveRowPctNettoAgenzia(row, matrice);
+}
+
+/** % accessori risolta dalla sola matrice agenzia (baseline, ignora eventuali override). */
+export function resolveRowPctAccessoriAgenzia(
+  row: GaranziaRow,
+  matrice: MatriceProvvAccessori | null,
+): { pct: number; matched: boolean } {
   if (!matrice) return { pct: 0, matched: false };
   if (row.sottoramoId && matrice.pctAccessoriByRamoId.has(row.sottoramoId)) {
     return { pct: matrice.pctAccessoriByRamoId.get(row.sottoramoId)!, matched: true };
@@ -37,7 +46,17 @@ export function resolveRowPctAccessori(
   if (matrice.pctAccessoriDefault != null) {
     return { pct: matrice.pctAccessoriDefault, matched: true };
   }
-  return resolveRowPctNetto(row, matrice);
+  return resolveRowPctNettoAgenzia(row, matrice);
+}
+
+export function resolveRowPctAccessori(
+  row: GaranziaRow,
+  matrice: MatriceProvvAccessori | null,
+): { pct: number; matched: boolean } {
+  if (row.provvAccessoriPctOverride && row.provvAccessoriPct != null && !Number.isNaN(row.provvAccessoriPct)) {
+    return { pct: row.provvAccessoriPct, matched: true };
+  }
+  return resolveRowPctAccessoriAgenzia(row, matrice);
 }
 
 /** Righe escluse dalla base provvigionale (CF/Oneri) o senza imponibile (diritti agenzia). */
@@ -68,6 +87,25 @@ export function calcLordoGaranziaRow(r: GaranziaRow): number {
   const accessori = parseDecimalItOr(r.accessori);
   const ssn = parseDecimalItOr(r.ssn);
   return calcLordoRiga(netto, accessori, tasse, ssn);
+}
+
+/** Provvigione € sul netto della riga (0 se riga esclusa). */
+export function calcProvvNettoRiga(r: GaranziaRow, matrice: MatriceProvvAccessori | null): number {
+  if (isRigaEsclusaProvvigioni(r)) return 0;
+  const netto = parseDecimalItOr(r.netto);
+  return (netto * resolveRowPctNetto(r, matrice).pct) / 100;
+}
+
+/** Provvigione € sugli accessori della riga (0 se riga esclusa). */
+export function calcProvvAccessoriRiga(r: GaranziaRow, matrice: MatriceProvvAccessori | null): number {
+  if (isRigaEsclusaProvvigioni(r)) return 0;
+  const accessori = parseDecimalItOr(r.accessori);
+  return (accessori * resolveRowPctAccessori(r, matrice).pct) / 100;
+}
+
+/** Provvigione € totale della riga (netto + accessori). */
+export function calcProvvRiga(r: GaranziaRow, matrice: MatriceProvvAccessori | null): number {
+  return calcProvvNettoRiga(r, matrice) + calcProvvAccessoriRiga(r, matrice);
 }
 
 /** provv = Σ(netto × pct_netto/100) + Σ(accessori × pct_accessori/100) */

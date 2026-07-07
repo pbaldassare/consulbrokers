@@ -6093,7 +6093,9 @@ export type Database = {
           ordine: number | null
           polizza_id: string | null
           provvigione_accessori_pct: number | null
+          provvigione_accessori_pct_override: boolean
           provvigione_netto_pct: number | null
+          provvigione_netto_pct_override: boolean
           quietanza_id: string | null
           quietanza_personalizzata: boolean
           rata: number | null
@@ -6120,7 +6122,9 @@ export type Database = {
           ordine?: number | null
           polizza_id?: string | null
           provvigione_accessori_pct?: number | null
+          provvigione_accessori_pct_override?: boolean
           provvigione_netto_pct?: number | null
+          provvigione_netto_pct_override?: boolean
           quietanza_id?: string | null
           quietanza_personalizzata?: boolean
           rata?: number | null
@@ -6147,7 +6151,9 @@ export type Database = {
           ordine?: number | null
           polizza_id?: string | null
           provvigione_accessori_pct?: number | null
+          provvigione_accessori_pct_override?: boolean
           provvigione_netto_pct?: number | null
+          provvigione_netto_pct_override?: boolean
           quietanza_id?: string | null
           quietanza_personalizzata?: boolean
           rata?: number | null
