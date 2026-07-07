@@ -119,6 +119,8 @@ interface Props {
   bankIncasso?: BankIncassoContext;
 }
 
+type EffettoContabile = "standard" | "abbuono" | "pag_diretto_compagnia" | "eccedenza";
+
 interface CompensazioneRow {
   tempId: string;
   causale_id: string;
@@ -127,6 +129,7 @@ interface CompensazioneRow {
   segno: "+" | "-";
   importo: number;
   note: string;
+  effetto: EffettoContabile;
 }
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -330,12 +333,12 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
     enabled: open,
     queryFn: async () => {
       const { data, error } = await (supabase.from("causali_contabili") as any)
-        .select("id, codice, descrizione, segno_default")
+        .select("id, codice, descrizione, segno_default, effetto_contabile")
         .eq("tipo_tabella", "compensazione_messa_cassa")
         .eq("attivo", true)
         .order("codice");
       if (error) throw error;
-      return data as Array<{ id: string; codice: string; descrizione: string; segno_default: "+" | "-" }>;
+      return data as Array<{ id: string; codice: string; descrizione: string; segno_default: "+" | "-"; effetto_contabile: EffettoContabile }>;
     },
   });
 
@@ -613,6 +616,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
         segno: c.segno_default,
         importo: round2(suggestImporto && suggestImporto > 0 ? suggestImporto : 0),
         note: "",
+        effetto: c.effetto_contabile || "standard",
       };
       return { ...prev, [titoloId]: [...cur, row] };
     });
@@ -678,9 +682,17 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
     titoli.forEach((t) => {
       const tag = isMulti ? (t.numero_titolo || t.id.slice(0, 8)) : undefined;
       getComp(t.id).forEach((c) => {
+        const categoria =
+          c.effetto === "abbuono"
+            ? "abbuono"
+            : c.effetto === "eccedenza"
+            ? "acconto_cliente"
+            : c.effetto === "pag_diretto_compagnia"
+            ? "pag_diretto_compagnia"
+            : "compensazione_titolo";
         rows.push({
           tipo: c.segno === "+" ? "uscita" : "entrata",
-          categoria: "compensazione_titolo",
+          categoria,
           descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
           importo: c.importo,
           titolo: tag,
@@ -910,10 +922,11 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
         payload.data_copertura = dateFields.data_copertura;
       }
       if (bancaLabel) payload.banca_pagamento = bancaLabel;
-      // Pagamento diretto compagnia: il premio è già stato pagato dal cliente
-      // direttamente alla compagnia → nessuna entrata banca lato broker e il
-      // premio viene escluso dall'E/C compagnia (resta solo la provvigione).
-      if (form.tipoPagamento === "pagamento_diretto_compagnia") {
+      // Pagamento diretto compagnia (causale di compensazione con effetto dedicato):
+      // il premio è già stato pagato dal cliente direttamente alla compagnia →
+      // nessuna entrata banca lato broker e il premio viene escluso dall'E/C
+      // compagnia (resta solo la provvigione).
+      if (compForThis.some((c) => c.effetto === "pag_diretto_compagnia")) {
         payload.pag_diretto_compagnia = true;
       }
 
@@ -973,24 +986,6 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
         if (errG) toast.warning(`Giroconto inter-cliente non registrato su ${t.numero_titolo ?? t.id}: ${errG.message}`);
       }
 
-      // Abbuono: la quietanza è saldata senza entrata in banca. Registra un
-      // movimento contabile di categoria "abbuono" a fini di audit/quadratura.
-      if (form.tipoPagamento === "abbuono" && residuoCash > 0) {
-        const { error: errAb } = await (supabase.from("movimenti_contabili") as any).insert({
-          ufficio_id: t.ufficio_id || null,
-          tipo: "entrata",
-          categoria: "abbuono",
-          riferimento_tipo: "titolo",
-          riferimento_id: t.id,
-          importo: residuoCash,
-          data_movimento: d.mc,
-          descrizione: `Abbuono su titolo ${t.numero_titolo ?? t.id} (nessuna entrata in banca)`,
-          stato: "registrato",
-          created_by: userId,
-        });
-        if (errAb) toast.warning(`Abbuono registrato ma prima nota non aggiornata: ${errAb.message}`);
-      }
-
       if (compForThis.length > 0) {
         const compRows = compForThis.map((c) => ({
           titolo_id: t.id,
@@ -1006,20 +1001,54 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
         if (errC) {
           toast.error(`Errore registrazione compensazioni su ${t.numero_titolo ?? t.id}: ${errC.message}`);
         } else {
-          const movRows = compForThis.map((c) => ({
-            ufficio_id: t.ufficio_id || null,
-            tipo: c.segno === "+" ? "uscita" : "entrata",
-            categoria: "compensazione_titolo",
-            riferimento_tipo: "titolo",
-            riferimento_id: t.id,
-            importo: c.importo,
-            data_movimento: form.dataMessaCassa,
-            descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
-            stato: "registrato",
-            created_by: userId,
-          }));
-          const { error: errM } = await (supabase.from("movimenti_contabili") as any).insert(movRows);
-          if (errM) toast.warning(`Compensazioni salvate ma prima nota non aggiornata: ${errM.message}`);
+          // Categoria movimento in base all'effetto della causale:
+          //  abbuono → "abbuono" (write-off, audit/quadratura)
+          //  altri → "compensazione_titolo"
+          // Le eccedenze non generano un movimento qui: il surplus è tracciato
+          // come acconto cliente (registrato più sotto) e verrà contabilizzato
+          // come "utilizzo_anticipo" quando riutilizzato, evitando doppio conteggio.
+          const categoriaFor = (eff: EffettoContabile) =>
+            eff === "abbuono" ? "abbuono" : "compensazione_titolo";
+          const movRows = compForThis
+            .filter((c) => c.effetto !== "eccedenza")
+            .map((c) => ({
+              ufficio_id: t.ufficio_id || null,
+              tipo: c.segno === "+" ? "uscita" : "entrata",
+              categoria: categoriaFor(c.effetto),
+              riferimento_tipo: "titolo",
+              riferimento_id: t.id,
+              importo: c.importo,
+              data_movimento: form.dataMessaCassa,
+              descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
+              stato: "registrato",
+              created_by: userId,
+            }));
+          if (movRows.length > 0) {
+            const { error: errM } = await (supabase.from("movimenti_contabili") as any).insert(movRows);
+            if (errM) toast.warning(`Compensazioni salvate ma prima nota non aggiornata: ${errM.message}`);
+          }
+        }
+
+        // Eccedenza di conto: il surplus versato dal cliente diventa un acconto
+        // riutilizzabile nelle messe a cassa future (cliente_anticipi).
+        const eccedenze = compForThis.filter((c) => c.effetto === "eccedenza" && c.importo > 0);
+        if (eccedenze.length > 0) {
+          const clienteAnticipoId = effettivoPagatoreId || t.cliente_anagrafica_id || null;
+          if (clienteAnticipoId) {
+            const contoId = form.banca || bankIncasso?.contoBancarioId || null;
+            const anticipoRows = eccedenze.map((c) => ({
+              cliente_id: clienteAnticipoId,
+              data_anticipo: d.mc,
+              conto_bancario_id: contoId,
+              importo: c.importo,
+              note: `Eccedenza di conto da messa a cassa titolo ${t.numero_titolo ?? t.id}${c.note ? " · " + c.note : ""}`,
+              creato_da: userId,
+            }));
+            const { error: errAcc } = await (supabase.from("cliente_anticipi") as any).insert(anticipoRows);
+            if (errAcc) toast.warning(`Eccedenza registrata ma acconto non creato su ${t.numero_titolo ?? t.id}: ${errAcc.message}`);
+          } else {
+            toast.warning(`Eccedenza su ${t.numero_titolo ?? t.id}: cliente non determinato, acconto non creato`);
+          }
         }
       }
 
@@ -1235,7 +1264,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
 
         {list.length === 0 ? (
           <p className="text-xs text-muted-foreground italic">
-            Nessuna compensazione. Usa per abbuoni, sconti, arrotondamenti.
+            Nessuna compensazione. Usa per abbuoni (anche negativi), sconti, arrotondamenti, pagamento diretto compagnia ed eccedenze di conto.
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -1510,8 +1539,6 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
                     <SelectItem value="pos">POS</SelectItem>
                     <SelectItem value="bonifico">Bonifico</SelectItem>
                     <SelectItem value="assegno">Assegno</SelectItem>
-                    <SelectItem value="abbuono">Abbuono</SelectItem>
-                    <SelectItem value="pagamento_diretto_compagnia">Pagamento diretto compagnia</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1529,8 +1556,6 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
                   <SelectItem value="pos">POS</SelectItem>
                   <SelectItem value="bonifico">Bonifico</SelectItem>
                   <SelectItem value="assegno">Assegno</SelectItem>
-                  <SelectItem value="abbuono">Abbuono</SelectItem>
-                  <SelectItem value="pagamento_diretto_compagnia">Pagamento diretto compagnia</SelectItem>
                 </SelectContent>
               </Select>
             </div>
