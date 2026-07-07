@@ -2042,20 +2042,6 @@ export default function ClienteDetail() {
     onError: (err: any) => toast.error(err.message || "Errore aggiornamento Specialist"),
   });
 
-  // AE + Produttore correnti per il cliente (gestiti nella card "Assegnazioni Gestionali")
-  const { data: codiciCommerciali = [] } = useQuery({
-    queryKey: ["codici_commerciali", id],
-    queryFn: async () => {
-      if (!id) return [];
-      const { data } = await supabase.from("codici_commerciali_cliente")
-        .select("ruolo, anagrafica_id, escludi_provvigioni")
-        .eq("cliente_id", id)
-        .in("ruolo", ["AE", "Produttore Sede"]);
-      return data || [];
-    },
-    enabled: !!id,
-  });
-
   const { data: anagraficheAEProd = [] } = useQuery({
     queryKey: ["anagrafiche-ae-produttore"],
     queryFn: async () => {
@@ -2068,51 +2054,106 @@ export default function ClienteDetail() {
     },
   });
 
-  const upsertCodiceCommercialeMutation = useMutation({
-    mutationFn: async ({
-      ruolo,
-      anagrafica_id,
-      escludi_provvigioni,
-    }: {
-      ruolo: string;
-      anagrafica_id: string | null;
-      escludi_provvigioni?: boolean;
-    }) => {
-      if (!id) return;
-      if (!anagrafica_id) {
-        const { error } = await supabase.from("codici_commerciali_cliente")
-          .delete()
-          .eq("cliente_id", id)
-          .eq("ruolo", ruolo);
-        if (error) throw error;
-        return;
-      }
-      const payload: Record<string, unknown> = {
-        cliente_id: id,
-        ruolo,
-        anagrafica_id,
-        profilo_id: null,
-      };
-      if (ruolo === "Produttore Sede") {
-        payload.escludi_provvigioni = escludi_provvigioni ?? false;
-      }
-      const { error } = await supabase.from("codici_commerciali_cliente")
-        .upsert(payload as any, { onConflict: "cliente_id,ruolo" });
-      if (error) throw error;
+  // === Default intermediari multi-valore (produttori + AE) ereditati dalle polizze ===
+  type IntermediarioRow = {
+    id?: string;
+    anagrafica_commerciale_id: string;
+    percentuale: number;
+    escludi_provvigioni: boolean;
+  };
+  const { data: intermediariDefault = [] } = useQuery({
+    queryKey: ["clienti_intermediari_default", id],
+    queryFn: async () => {
+      if (!id) return [];
+      const { data } = await (supabase as any)
+        .from("clienti_intermediari_default")
+        .select("id, tipo, anagrafica_commerciale_id, percentuale, ordine, escludi_provvigioni")
+        .eq("cliente_id", id)
+        .order("ordine", { ascending: true });
+      return data || [];
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["codici_commerciali", id] });
-      toast.success("Assegnazione salvata");
-    },
-    onError: (err: any) => toast.error(err.message || "Errore salvataggio"),
+    enabled: !!id,
   });
 
-  const aeAnagraficaId =
-    codiciCommerciali.find((c) => c.ruolo === "AE")?.anagrafica_id || "";
-  const produttoreAnagraficaId =
-    codiciCommerciali.find((c) => c.ruolo === "Produttore Sede")?.anagrafica_id || "";
-  const produttoreEscludiProvvigioni =
-    codiciCommerciali.find((c) => c.ruolo === "Produttore Sede")?.escludi_provvigioni === true;
+  const [produttoriList, setProduttoriList] = useState<IntermediarioRow[]>([]);
+  const [aeDefaultList, setAeDefaultList] = useState<IntermediarioRow[]>([]);
+  useEffect(() => {
+    const arr = intermediariDefault as any[];
+    setProduttoriList(
+      arr
+        .filter((r) => r.tipo === "produttore")
+        .map((r) => ({
+          id: r.id,
+          anagrafica_commerciale_id: r.anagrafica_commerciale_id,
+          percentuale: Number(r.percentuale) || 0,
+          escludi_provvigioni: !!r.escludi_provvigioni,
+        })),
+    );
+    setAeDefaultList(
+      arr
+        .filter((r) => r.tipo === "ae")
+        .map((r) => ({
+          id: r.id,
+          anagrafica_commerciale_id: r.anagrafica_commerciale_id,
+          percentuale: Number(r.percentuale) || 0,
+          escludi_provvigioni: false,
+        })),
+    );
+  }, [intermediariDefault]);
+
+  const saveIntermediariMutation = useMutation({
+    mutationFn: async ({ tipo, rows }: { tipo: "produttore" | "ae"; rows: IntermediarioRow[] }) => {
+      if (!id) return;
+      const cleaned = rows.filter((r) => r.anagrafica_commerciale_id);
+      const seen = new Set(cleaned.map((r) => r.anagrafica_commerciale_id));
+      if (seen.size !== cleaned.length) throw new Error("Intermediario duplicato nella lista.");
+      // Sostituzione atomica per tipo
+      const { error: delErr } = await (supabase as any)
+        .from("clienti_intermediari_default")
+        .delete()
+        .eq("cliente_id", id)
+        .eq("tipo", tipo);
+      if (delErr) throw delErr;
+      if (cleaned.length > 0) {
+        const { error: insErr } = await (supabase as any)
+          .from("clienti_intermediari_default")
+          .insert(
+            cleaned.map((r, i) => ({
+              cliente_id: id,
+              tipo,
+              anagrafica_commerciale_id: r.anagrafica_commerciale_id,
+              percentuale: r.percentuale || 0,
+              ordine: i,
+              escludi_provvigioni: tipo === "produttore" ? r.escludi_provvigioni : false,
+            })),
+          );
+        if (insErr) throw insErr;
+      }
+      // Sync del primo valore verso codici_commerciali_cliente (compatibilità default singolo)
+      const ruolo = tipo === "produttore" ? "Produttore Sede" : "AE";
+      const first = cleaned[0];
+      if (!first) {
+        await supabase.from("codici_commerciali_cliente").delete().eq("cliente_id", id).eq("ruolo", ruolo);
+      } else {
+        const payload: Record<string, unknown> = {
+          cliente_id: id,
+          ruolo,
+          anagrafica_id: first.anagrafica_commerciale_id,
+          profilo_id: null,
+        };
+        if (tipo === "produttore") payload.escludi_provvigioni = first.escludi_provvigioni;
+        await supabase
+          .from("codici_commerciali_cliente")
+          .upsert(payload as any, { onConflict: "cliente_id,ruolo" });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clienti_intermediari_default", id] });
+      queryClient.invalidateQueries({ queryKey: ["codici_commerciali", id] });
+      toast.success("Default intermediari salvati");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore salvataggio"),
+  });
 
   const buildAnagraficaLabel = (a: any) => {
     const person = `${a.cognome || ""} ${a.nome || ""}`.trim();
@@ -2796,7 +2837,7 @@ export default function ClienteDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Sede */}
                 <div>
                   <Label className="text-xs">
@@ -2880,75 +2921,204 @@ export default function ClienteDetail() {
                   )}
                 </div>
 
-                {/* Account Executive */}
-                <div>
-                  <Label className="text-xs">Account Executive</Label>
+              </div>
+
+              {/* Default intermediari multi-valore — ereditati automaticamente dalle nuove polizze */}
+              <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Produttori di default */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Produttori di default</Label>
+                    {!readOnly && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px]"
+                        type="button"
+                        onClick={() =>
+                          setProduttoriList((p) => [...p, { anagrafica_commerciale_id: "", percentuale: 0, escludi_provvigioni: false }])
+                        }
+                      >
+                        <Plus className="w-3 h-3 mr-1" /> Aggiungi
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Ereditati nello split provvigioni di ogni nuova polizza del cliente. La % vuota usa il default del produttore.
+                  </p>
                   {readOnly ? (
-                    <p className="text-sm mt-1">
-                      {aeOptions.find((o) => o.value === aeAnagraficaId)?.label || "—"}
-                    </p>
+                    produttoriList.length === 0 ? (
+                      <p className="text-sm">—</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {produttoriList.map((r, i) => (
+                          <div key={i} className="text-sm flex items-center gap-2">
+                            <span>{produttoreOptions.find((o) => o.value === r.anagrafica_commerciale_id)?.label || "—"}</span>
+                            {r.percentuale > 0 && <Badge variant="outline" className="text-[10px]">{r.percentuale}%</Badge>}
+                            {r.escludi_provvigioni && (
+                              <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-500">no provv.</Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )
                   ) : (
-                    <SearchableSelect
-                      className="h-8 text-xs"
-                      value={aeAnagraficaId}
-                      onValueChange={(v) =>
-                        upsertCodiceCommercialeMutation.mutate({ ruolo: "AE", anagrafica_id: v || null })
-                      }
-                      placeholder="— Nessuno —"
-                      clearable
-                      clearLabel="— Nessuno —"
-                      options={aeOptions}
-                    />
+                    <>
+                      {produttoriList.length === 0 && (
+                        <div className="text-[11px] text-muted-foreground italic px-3 py-2 border rounded-md bg-muted/30">
+                          Nessun produttore di default.
+                        </div>
+                      )}
+                      {produttoriList.map((row, idx) => (
+                        <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-7">
+                            <SearchableSelect
+                              className="h-8 text-xs"
+                              value={row.anagrafica_commerciale_id}
+                              onValueChange={(v) =>
+                                setProduttoriList((prev) => prev.map((r, i) => (i === idx ? { ...r, anagrafica_commerciale_id: v } : r)))
+                              }
+                              placeholder="Produttore..."
+                              options={produttoreOptions}
+                            />
+                          </div>
+                          <div className="col-span-3">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={0.01}
+                              className="h-8 text-xs font-mono"
+                              value={row.percentuale || ""}
+                              placeholder="%"
+                              onChange={(e) =>
+                                setProduttoriList((prev) => prev.map((r, i) => (i === idx ? { ...r, percentuale: Number(e.target.value) } : r)))
+                              }
+                            />
+                          </div>
+                          <div className="col-span-2 flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              type="button"
+                              onClick={() => setProduttoriList((prev) => prev.filter((_, i) => i !== idx))}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </Button>
+                          </div>
+                          <div className="col-span-12 flex items-center gap-2 -mt-1">
+                            <Switch
+                              checked={!row.escludi_provvigioni}
+                              onCheckedChange={(checked) =>
+                                setProduttoriList((prev) => prev.map((r, i) => (i === idx ? { ...r, escludi_provvigioni: !checked } : r)))
+                              }
+                            />
+                            <Label className="text-[11px]">Matura provvigioni</Label>
+                          </div>
+                        </div>
+                      ))}
+                      <Button
+                        size="sm"
+                        className="h-7 text-[11px]"
+                        type="button"
+                        disabled={saveIntermediariMutation.isPending}
+                        onClick={() => saveIntermediariMutation.mutate({ tipo: "produttore", rows: produttoriList })}
+                      >
+                        Salva produttori
+                      </Button>
+                    </>
                   )}
                 </div>
 
-
-                {/* Produttore */}
-                <div>
-                  <Label className="text-xs">Produttore</Label>
+                {/* Account Executive di default */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Account Executive di default</Label>
+                    {!readOnly && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px]"
+                        type="button"
+                        onClick={() =>
+                          setAeDefaultList((p) => [...p, { anagrafica_commerciale_id: "", percentuale: 0, escludi_provvigioni: false }])
+                        }
+                      >
+                        <Plus className="w-3 h-3 mr-1" /> Aggiungi
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Il primo AE viene ereditato nel campo Account Executive della polizza; gli altri restano come default del cliente.
+                  </p>
                   {readOnly ? (
-                    <div className="mt-1">
-                      <p className="text-sm">
-                        {produttoreOptions.find((o) => o.value === produttoreAnagraficaId)?.label || "—"}
-                      </p>
-                      {produttoreAnagraficaId && produttoreEscludiProvvigioni && (
-                        <Badge variant="outline" className="mt-1 text-amber-700 border-amber-500 bg-amber-50 dark:bg-amber-950/30">
-                          Produttore senza provvigioni
-                        </Badge>
-                      )}
-                    </div>
+                    aeDefaultList.length === 0 ? (
+                      <p className="text-sm">—</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {aeDefaultList.map((r, i) => (
+                          <div key={i} className="text-sm flex items-center gap-2">
+                            <span>{aeOptions.find((o) => o.value === r.anagrafica_commerciale_id)?.label || "—"}</span>
+                            {r.percentuale > 0 && <Badge variant="outline" className="text-[10px]">{r.percentuale}%</Badge>}
+                          </div>
+                        ))}
+                      </div>
+                    )
                   ) : (
                     <>
-                      <SearchableSelect
-                        className="h-8 text-xs"
-                        value={produttoreAnagraficaId}
-                        onValueChange={(v) =>
-                          upsertCodiceCommercialeMutation.mutate({
-                            ruolo: "Produttore Sede",
-                            anagrafica_id: v || null,
-                            ...(v ? { escludi_provvigioni: false } : {}),
-                          })
-                        }
-                        placeholder="— Nessuno —"
-                        clearable
-                        clearLabel="— Nessuno —"
-                        options={produttoreOptions}
-                      />
-                      {produttoreAnagraficaId && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <Switch
-                            checked={!produttoreEscludiProvvigioni}
-                            onCheckedChange={(checked) =>
-                              upsertCodiceCommercialeMutation.mutate({
-                                ruolo: "Produttore Sede",
-                                anagrafica_id: produttoreAnagraficaId,
-                                escludi_provvigioni: !checked,
-                              })
-                            }
-                          />
-                          <Label className="text-xs">Matura provvigioni su questo cliente</Label>
+                      {aeDefaultList.length === 0 && (
+                        <div className="text-[11px] text-muted-foreground italic px-3 py-2 border rounded-md bg-muted/30">
+                          Nessun Account Executive di default.
                         </div>
                       )}
+                      {aeDefaultList.map((row, idx) => (
+                        <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-7">
+                            <SearchableSelect
+                              className="h-8 text-xs"
+                              value={row.anagrafica_commerciale_id}
+                              onValueChange={(v) =>
+                                setAeDefaultList((prev) => prev.map((r, i) => (i === idx ? { ...r, anagrafica_commerciale_id: v } : r)))
+                              }
+                              placeholder="Account Executive..."
+                              options={aeOptions}
+                            />
+                          </div>
+                          <div className="col-span-3">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={0.01}
+                              className="h-8 text-xs font-mono"
+                              value={row.percentuale || ""}
+                              placeholder="%"
+                              onChange={(e) =>
+                                setAeDefaultList((prev) => prev.map((r, i) => (i === idx ? { ...r, percentuale: Number(e.target.value) } : r)))
+                              }
+                            />
+                          </div>
+                          <div className="col-span-2 flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              type="button"
+                              onClick={() => setAeDefaultList((prev) => prev.filter((_, i) => i !== idx))}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      <Button
+                        size="sm"
+                        className="h-7 text-[11px]"
+                        type="button"
+                        disabled={saveIntermediariMutation.isPending}
+                        onClick={() => saveIntermediariMutation.mutate({ tipo: "ae", rows: aeDefaultList })}
+                      >
+                        Salva Account Executive
+                      </Button>
                     </>
                   )}
                 </div>

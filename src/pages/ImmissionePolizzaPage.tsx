@@ -778,6 +778,21 @@ const ImmissionePolizzaPage = () => {
     enabled: !!selectedClienteId,
   });
 
+  // Default multi-valore di intermediari (produttori + AE) del cliente
+  const { data: intermediariDefaultCliente } = useQuery({
+    queryKey: ["cliente-intermediari-default", selectedClienteId],
+    queryFn: async () => {
+      if (!selectedClienteId) return [];
+      const { data } = await (supabase as any)
+        .from("clienti_intermediari_default")
+        .select("tipo, anagrafica_commerciale_id, percentuale, ordine, escludi_provvigioni")
+        .eq("cliente_id", selectedClienteId)
+        .order("ordine", { ascending: true });
+      return data || [];
+    },
+    enabled: !!selectedClienteId,
+  });
+
   useEffect(() => {
     if (clienteData?.id) setSelectedClienteId(clienteData.id);
   }, [clienteData?.id]);
@@ -1060,6 +1075,42 @@ const ImmissionePolizzaPage = () => {
       setProduttoreEscludiProvvigioni(false);
     }
   }, [clienteAE, aeList, aeAnagraficheList]);
+
+  // Applica una sola volta per cliente i default multi-valore (produttori + AE) alle nuove polizze
+  const intermediariAppliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedClienteId) return;
+    if (regolazioneMode) return; // in regolazione si eredita dalla madre
+    const arr = intermediariDefaultCliente as any[] | undefined;
+    if (!Array.isArray(arr)) return;
+    if (intermediariAppliedRef.current === selectedClienteId) return;
+
+    const prod = arr.filter((r) => r.tipo === "produttore");
+    const ae = arr.filter((r) => r.tipo === "ae");
+
+    if (prod.length > 0) {
+      setSplitsForm(
+        prod.map((r) => {
+          const pctBase = (aeList || []).find((a: any) => a.id === r.anagrafica_commerciale_id)?.percentuale_base;
+          const pct = Number(r.percentuale) > 0 ? Number(r.percentuale) : Number(pctBase) || 0;
+          return { anagrafica_commerciale_id: r.anagrafica_commerciale_id as string, percentuale: pct };
+        }),
+      );
+      const first = prod[0];
+      setSelectedAE((cur) => cur || (first.anagrafica_commerciale_id as string));
+      setProduttoreEscludiProvvigioni(!!first.escludi_provvigioni);
+    }
+
+    if (ae.length > 0) {
+      const firstAe = ae[0];
+      setSelectedAccountExecutiveId((cur) => cur || (firstAe.anagrafica_commerciale_id as string));
+      if (Number(firstAe.percentuale) > 0) {
+        setPercentualeAE((cur) => (cur && cur !== "0" ? cur : String(firstAe.percentuale)));
+      }
+    }
+
+    intermediariAppliedRef.current = selectedClienteId;
+  }, [selectedClienteId, intermediariDefaultCliente, regolazioneMode, aeList]);
 
   const { data: compagnieList } = useQuery({
     queryKey: ["agenzie-list-immissione"],
