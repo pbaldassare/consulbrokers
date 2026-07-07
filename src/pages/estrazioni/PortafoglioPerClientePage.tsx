@@ -8,6 +8,7 @@ import { ArrowLeft, Download, Users, FileText, TrendingUp, Wallet } from "lucide
 import { useNavigate } from "react-router-dom";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
 import { format } from "date-fns";
+import { exportJsonToXlsx } from "@/lib/exportXlsx";
 
 interface ClientePortafoglio {
   cliente_id: string;
@@ -69,13 +70,18 @@ const PortafoglioPerClientePage = () => {
   const totPolizze = rows.reduce((s, c) => s + c.num_polizze, 0);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
-  const exportCSV = () => {
-    const header = "Cliente,Tipo,N. Polizze,Totale Premi,Totale Incassato\n";
-    const csv = rows.map((c) => `"${c.label}",${c.tipo_cliente},${c.num_polizze},${c.totale_premi.toFixed(2)},${c.totale_incassato.toFixed(2)}`).join("\n");
-    const blob = new Blob([header + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "portafoglio_per_cliente.csv"; a.click();
-    URL.revokeObjectURL(url);
+  const exportExcel = () => {
+    exportJsonToXlsx(
+      rows.map((c) => ({
+        Cliente: c.label,
+        Tipo: c.tipo_cliente,
+        "N. Polizze": c.num_polizze,
+        "Totale Premi (€)": Number(c.totale_premi.toFixed(2)),
+        "Totale Incassato (€)": Number(c.totale_incassato.toFixed(2)),
+      })),
+      "Portafoglio Clienti",
+      `portafoglio_per_cliente_${format(new Date(), "yyyyMMdd")}.xlsx`,
+    );
   };
 
   const kpiCards = [
@@ -100,8 +106,8 @@ const PortafoglioPerClientePage = () => {
             <p className="text-sm text-muted-foreground">Estrazione portafoglio raggruppato per cliente</p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportCSV} disabled={!rows.length}>
-          <Download className="mr-2 h-4 w-4" /> Esporta CSV
+        <Button variant="outline" onClick={exportExcel} disabled={!rows.length}>
+          <Download className="mr-2 h-4 w-4" /> Esporta Excel
         </Button>
       </div>
 

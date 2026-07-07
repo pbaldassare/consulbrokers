@@ -7,6 +7,7 @@ import {
   FileSpreadsheet,
   FileText,
   Archive,
+  Wallet,
   LucideIcon,
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ interface ActionCard {
 }
 
 const actions: ActionCard[] = [
+  { label: "Titoli da incassare", description: "Estrazione per competenza con Excel pivot e report PDF", icon: Wallet, path: "/portafoglio/estrazioni/titoli-da-incassare" },
   { label: "Portafoglio per Cliente", description: "Estrazione portafoglio raggruppato per cliente", icon: Users, path: "/portafoglio/estrazioni/per-cliente" },
   { label: "Portafoglio per Agenzia", description: "Estrazione portafoglio raggruppato per agenzia", icon: Building2, path: "/portafoglio/estrazioni/per-compagnia" },
   { label: "Premi e Provvigioni", description: "Stampa riepilogo premi e provvigioni", icon: DollarSign, path: "/portafoglio/estrazioni/premi-provvigioni" },

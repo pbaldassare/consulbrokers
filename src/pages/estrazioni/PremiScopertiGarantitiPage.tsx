@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
 import { format } from "date-fns";
+import { exportJsonToXlsx } from "@/lib/exportXlsx";
 
 const PremiScopertiGarantitiPage = () => {
   const navigate = useNavigate();
@@ -60,13 +61,19 @@ const PremiScopertiGarantitiPage = () => {
   const totScoperti = scoperti.reduce((s: number, t: any) => s + (Number(t.premio_lordo) || 0), 0);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
-  const exportCSV = () => {
-    const header = "N. Polizza,Cliente,Agenzia,Premio Lordo,Stato,Classificazione\n";
-    const csv = filtered.map((t: any) => `"${t.numero_titolo}","${t.cliente}","${t.compagnia}",${t.premio_lordo},${t.stato},${t.classificazione}`).join("\n");
-    const blob = new Blob([header + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "premi_scoperti_garantiti.csv"; a.click();
-    URL.revokeObjectURL(url);
+  const exportExcel = () => {
+    exportJsonToXlsx(
+      filtered.map((t: any) => ({
+        "N. Polizza": t.numero_titolo,
+        Cliente: t.cliente,
+        Agenzia: t.compagnia,
+        "Premio Lordo (€)": Number(t.premio_lordo) || 0,
+        Stato: t.stato,
+        Classificazione: t.classificazione,
+      })),
+      "Scoperti Garantiti",
+      `premi_scoperti_garantiti_${format(new Date(), "yyyyMMdd")}.xlsx`,
+    );
   };
 
   const kpiCards = [
@@ -91,8 +98,8 @@ const PremiScopertiGarantitiPage = () => {
             <p className="text-sm text-muted-foreground">Analisi premi in base allo stato di incasso</p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
-          <Download className="mr-2 h-4 w-4" /> Esporta CSV
+        <Button variant="outline" onClick={exportExcel} disabled={!filtered.length}>
+          <Download className="mr-2 h-4 w-4" /> Esporta Excel
         </Button>
       </div>
 

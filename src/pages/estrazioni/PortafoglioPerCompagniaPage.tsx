@@ -8,6 +8,7 @@ import { ArrowLeft, Building2, Download, FileText, TrendingUp, Wallet } from "lu
 import { useNavigate } from "react-router-dom";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
 import { format } from "date-fns";
+import { exportJsonToXlsx } from "@/lib/exportXlsx";
 
 interface CompagniaPortafoglio {
   compagnia: string;
@@ -56,13 +57,17 @@ const PortafoglioPerCompagniaPage = () => {
   const totPolizze = rows.reduce((s, c) => s + c.num_polizze, 0);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
-  const exportCSV = () => {
-    const header = "Agenzia,N. Polizze,Totale Premi,Totale Incassato\n";
-    const csv = rows.map((c) => `"${c.compagnia}",${c.num_polizze},${c.totale_premi.toFixed(2)},${c.totale_incassato.toFixed(2)}`).join("\n");
-    const blob = new Blob([header + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "portafoglio_per_compagnia.csv"; a.click();
-    URL.revokeObjectURL(url);
+  const exportExcel = () => {
+    exportJsonToXlsx(
+      rows.map((c) => ({
+        Agenzia: c.compagnia,
+        "N. Polizze": c.num_polizze,
+        "Totale Premi (€)": Number(c.totale_premi.toFixed(2)),
+        "Totale Incassato (€)": Number(c.totale_incassato.toFixed(2)),
+      })),
+      "Portafoglio Agenzie",
+      `portafoglio_per_agenzia_${format(new Date(), "yyyyMMdd")}.xlsx`,
+    );
   };
 
   const kpiCards = [
@@ -87,8 +92,8 @@ const PortafoglioPerCompagniaPage = () => {
             <p className="text-sm text-muted-foreground">Estrazione portafoglio raggruppato per agenzia</p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportCSV} disabled={!rows.length}>
-          <Download className="mr-2 h-4 w-4" /> Esporta CSV
+        <Button variant="outline" onClick={exportExcel} disabled={!rows.length}>
+          <Download className="mr-2 h-4 w-4" /> Esporta Excel
         </Button>
       </div>
 

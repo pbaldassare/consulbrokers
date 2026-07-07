@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
 import { format } from "date-fns";
+import { exportJsonToXlsx } from "@/lib/exportXlsx";
 
 const PremiProvvigioniPage = () => {
   const navigate = useNavigate();
@@ -64,17 +65,25 @@ const PremiProvvigioniPage = () => {
     return cli.ragione_sociale || `${cli.cognome || ""} ${cli.nome || ""}`.trim();
   };
 
-  const exportCSV = () => {
-    const header = "N. Polizza,Cliente,Premio Lordo,Incassato,%,Provvigione,Produttore,Pagata\n";
-    const csv = filtered.map((p: any) => {
-      const t = p.titoli;
-      const prod = p.profiles;
-      return `"${t?.numero_titolo}","${getCliente(t)}",${t?.premio_lordo || 0},${t?.importo_incassato || 0},${p.percentuale}%,${p.importo_provvigione},"${prod?.cognome || ""} ${prod?.nome || ""}",${p.pagata ? "Sì" : "No"}`;
-    }).join("\n");
-    const blob = new Blob([header + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "premi_provvigioni.csv"; a.click();
-    URL.revokeObjectURL(url);
+  const exportExcel = () => {
+    exportJsonToXlsx(
+      filtered.map((p: any) => {
+        const t = p.titoli;
+        const prod = p.profiles;
+        return {
+          "N. Polizza": t?.numero_titolo,
+          Cliente: getCliente(t),
+          "Premio Lordo (€)": Number(t?.premio_lordo) || 0,
+          "Incassato (€)": Number(t?.importo_incassato) || 0,
+          "%": Number(p.percentuale) || 0,
+          "Provvigione (€)": Number(p.importo_provvigione) || 0,
+          Produttore: `${prod?.cognome || ""} ${prod?.nome || ""}`.trim(),
+          Pagata: p.pagata ? "Sì" : "No",
+        };
+      }),
+      "Premi Provvigioni",
+      `premi_provvigioni_${format(new Date(), "yyyyMMdd")}.xlsx`,
+    );
   };
 
   const kpiCards = [
@@ -99,8 +108,8 @@ const PremiProvvigioniPage = () => {
             <p className="text-sm text-muted-foreground">Riepilogo premi e provvigioni per advisor</p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
-          <Download className="mr-2 h-4 w-4" /> Esporta CSV
+        <Button variant="outline" onClick={exportExcel} disabled={!filtered.length}>
+          <Download className="mr-2 h-4 w-4" /> Esporta Excel
         </Button>
       </div>
 

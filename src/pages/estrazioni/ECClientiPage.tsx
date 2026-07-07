@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
 import { format } from "date-fns";
+import { exportJsonToXlsx } from "@/lib/exportXlsx";
 
 interface ECCliente {
   cliente_id: string;
@@ -70,13 +71,17 @@ const ECClientiPage = () => {
   const totSaldo = rows.reduce((s, c) => s + c.saldo, 0);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
-  const exportCSV = () => {
-    const header = "Cliente,Totale Premi (Dare),Totale Incassato (Avere),Saldo\n";
-    const csv = rows.map((c) => `"${c.label}",${c.totale_premi.toFixed(2)},${c.totale_incassato.toFixed(2)},${c.saldo.toFixed(2)}`).join("\n");
-    const blob = new Blob([header + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "ec_clienti.csv"; a.click();
-    URL.revokeObjectURL(url);
+  const exportExcel = () => {
+    exportJsonToXlsx(
+      rows.map((c) => ({
+        Cliente: c.label,
+        "Totale Premi Dare (€)": Number(c.totale_premi.toFixed(2)),
+        "Totale Incassato Avere (€)": Number(c.totale_incassato.toFixed(2)),
+        "Saldo (€)": Number(c.saldo.toFixed(2)),
+      })),
+      "EC Clienti",
+      `ec_clienti_${format(new Date(), "yyyyMMdd")}.xlsx`,
+    );
   };
 
   const kpiCards = [
@@ -101,8 +106,8 @@ const ECClientiPage = () => {
             <p className="text-sm text-muted-foreground">Estratto conto clienti — Dare / Avere / Saldo</p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportCSV} disabled={!rows.length}>
-          <Download className="mr-2 h-4 w-4" /> Esporta CSV
+        <Button variant="outline" onClick={exportExcel} disabled={!rows.length}>
+          <Download className="mr-2 h-4 w-4" /> Esporta Excel
         </Button>
       </div>
 
