@@ -1075,6 +1075,10 @@ const TitoloDetail = () => {
   const startEditImporti = () => {
     if (titolo) {
       const t: any = titolo;
+      // Opzione A: sulla polizza originale (madre) i premi non si modificano; si editano sulla quietanza.
+      const isMadre =
+        !t.sostituisce_polizza && !t.is_regolazione && !t.is_proroga && !t.is_appendice_modifica;
+      if (isMadre) return;
       setImportiForm({
         premio_netto: t.premio_netto != null ? String(t.premio_netto) : "",
         addizionali: t.addizionali != null ? String(t.addizionali) : "",
@@ -3173,24 +3177,33 @@ const TitoloDetail = () => {
         const sQui = t.provvigioni_quietanza;
         return (
       <SectionCollapsible title="Importi" icon={DollarSign}>
-        <div className="flex justify-end mb-2 gap-2">
-          {!editingImporti ? (
-            <Button variant="ghost" size="sm" onClick={startEditImporti} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
-              <Pencil className="w-4 h-4 mr-1" /> Modifica
-            </Button>
+        <div className="flex justify-between items-center mb-2 gap-2">
+          {isPolizzaMadre ? (
+            <p className="text-[11px] text-muted-foreground italic">
+              I premi si modificano sulla <b>quietanza</b>, non sulla polizza originale.
+            </p>
           ) : (
-            <>
-              <Button variant="outline" size="sm" onClick={() => {
-                void (async () => {
-                  await premiBlockRef.current?.revertDraft();
-                  setEditingImporti(false);
-                })();
-              }}>Annulla</Button>
-              <Button size="sm" onClick={() => saveImportiMutation.mutate()} disabled={saveImportiMutation.isPending}>
-                {saveImportiMutation.isPending ? "Salvataggio..." : "Salva"}
-              </Button>
-            </>
+            <span />
           )}
+          <div className="flex gap-2">
+            {isPolizzaMadre ? null : !editingImporti ? (
+              <Button variant="ghost" size="sm" onClick={startEditImporti} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
+                <Pencil className="w-4 h-4 mr-1" /> Modifica
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={() => {
+                  void (async () => {
+                    await premiBlockRef.current?.revertDraft();
+                    setEditingImporti(false);
+                  })();
+                }}>Annulla</Button>
+                <Button size="sm" onClick={() => saveImportiMutation.mutate()} disabled={saveImportiMutation.isPending}>
+                  {saveImportiMutation.isPending ? "Salvataggio..." : "Salva"}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         {!editingImporti ? (
