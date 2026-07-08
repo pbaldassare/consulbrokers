@@ -992,6 +992,7 @@ export type Database = {
           codice: string
           created_at: string | null
           descrizione: string
+          effetto_contabile: string
           id: string
           segno_default: string | null
           tipo_tabella: string
@@ -1001,6 +1002,7 @@ export type Database = {
           codice: string
           created_at?: string | null
           descrizione: string
+          effetto_contabile?: string
           id?: string
           segno_default?: string | null
           tipo_tabella: string
@@ -1010,6 +1012,7 @@ export type Database = {
           codice?: string
           created_at?: string | null
           descrizione?: string
+          effetto_contabile?: string
           id?: string
           segno_default?: string | null
           tipo_tabella?: string
@@ -1854,6 +1857,54 @@ export type Database = {
             columns: ["ufficio_id"]
             isOneToOne: false
             referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clienti_intermediari_default: {
+        Row: {
+          anagrafica_commerciale_id: string
+          cliente_id: string
+          created_at: string
+          escludi_provvigioni: boolean
+          id: string
+          ordine: number
+          percentuale: number
+          tipo: string
+        }
+        Insert: {
+          anagrafica_commerciale_id: string
+          cliente_id: string
+          created_at?: string
+          escludi_provvigioni?: boolean
+          id?: string
+          ordine?: number
+          percentuale?: number
+          tipo: string
+        }
+        Update: {
+          anagrafica_commerciale_id?: string
+          cliente_id?: string
+          created_at?: string
+          escludi_provvigioni?: boolean
+          id?: string
+          ordine?: number
+          percentuale?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clienti_intermediari_default_anagrafica_commerciale_id_fkey"
+            columns: ["anagrafica_commerciale_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clienti_intermediari_default_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
             referencedColumns: ["id"]
           },
         ]
@@ -8883,6 +8934,7 @@ export type Database = {
           sostituisce_polizza: string | null
           sostituisce_riga: number | null
           specialist: string | null
+          split_personalizzato: boolean
           ssn_firma: number
           ssn_quietanza: number
           stato: string
@@ -9017,6 +9069,7 @@ export type Database = {
           sostituisce_polizza?: string | null
           sostituisce_riga?: number | null
           specialist?: string | null
+          split_personalizzato?: boolean
           ssn_firma?: number
           ssn_quietanza?: number
           stato?: string
@@ -9151,6 +9204,7 @@ export type Database = {
           sostituisce_polizza?: string | null
           sostituisce_riga?: number | null
           specialist?: string | null
+          split_personalizzato?: boolean
           ssn_firma?: number
           ssn_quietanza?: number
           stato?: string
@@ -9463,6 +9517,88 @@ export type Database = {
           titolo_id?: string
         }
         Relationships: []
+      }
+      titoli_modalita_incasso: {
+        Row: {
+          anagrafica_commerciale_id: string | null
+          annullata_da: string | null
+          annullata_il: string | null
+          applicata_da: string | null
+          applicata_il: string
+          created_at: string
+          id: string
+          importo_dovuto_lordo: number | null
+          importo_provvigione_lorda: number | null
+          importo_ra: number | null
+          importo_trattenuto_netto: number | null
+          importo_versato_consul: number | null
+          modalita: string
+          note: string | null
+          stato: string
+          titolo_id: string
+          updated_at: string
+        }
+        Insert: {
+          anagrafica_commerciale_id?: string | null
+          annullata_da?: string | null
+          annullata_il?: string | null
+          applicata_da?: string | null
+          applicata_il?: string
+          created_at?: string
+          id?: string
+          importo_dovuto_lordo?: number | null
+          importo_provvigione_lorda?: number | null
+          importo_ra?: number | null
+          importo_trattenuto_netto?: number | null
+          importo_versato_consul?: number | null
+          modalita?: string
+          note?: string | null
+          stato?: string
+          titolo_id: string
+          updated_at?: string
+        }
+        Update: {
+          anagrafica_commerciale_id?: string | null
+          annullata_da?: string | null
+          annullata_il?: string | null
+          applicata_da?: string | null
+          applicata_il?: string
+          created_at?: string
+          id?: string
+          importo_dovuto_lordo?: number | null
+          importo_provvigione_lorda?: number | null
+          importo_ra?: number | null
+          importo_trattenuto_netto?: number | null
+          importo_versato_consul?: number | null
+          modalita?: string
+          note?: string | null
+          stato?: string
+          titolo_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_modalita_incasso_anagrafica_commerciale_id_fkey"
+            columns: ["anagrafica_commerciale_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_modalita_incasso_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_modalita_incasso_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       titoli_numeri_storici: {
         Row: {
@@ -10546,8 +10682,6 @@ export type Database = {
           ae_nome: string | null
           anagrafica_commerciale_id: string | null
           appendice_corrente: string | null
-          appendice_modifica_polizza_madre_id: string | null
-          appendice_tipo: string | null
           cig_rif: string | null
           cliente_anagrafica_id: string | null
           cliente_codice: string | null
@@ -10573,8 +10707,6 @@ export type Database = {
           garanzia_da: string | null
           id: string | null
           importo_incassato: number | null
-          is_appendice_modifica: boolean | null
-          is_proroga: boolean | null
           is_regolazione: boolean | null
           limite_riattivazione: string | null
           numero_polizza_snapshot: string | null
@@ -10586,7 +10718,7 @@ export type Database = {
           premio_netto: number | null
           produttore_id: string | null
           produttore_nome: string | null
-          proroga_polizza_madre_id: string | null
+          produttori_display: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
           quietanza_id: string | null
@@ -10606,7 +10738,6 @@ export type Database = {
           targa_telaio: string | null
           tasse: number | null
           tipo_portafoglio: string | null
-          titolo_derivato_numero: string | null
           titolo_legacy_id: string | null
           ufficio_id: string | null
         }
@@ -10684,34 +10815,6 @@ export type Database = {
           {
             foreignKeyName: "quietanze_titolo_id_fkey"
             columns: ["id"]
-            isOneToOne: false
-            referencedRelation: "v_portafoglio_titoli"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "titoli_appendice_modifica_polizza_madre_id_fkey"
-            columns: ["appendice_modifica_polizza_madre_id"]
-            isOneToOne: false
-            referencedRelation: "titoli"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "titoli_appendice_modifica_polizza_madre_id_fkey"
-            columns: ["appendice_modifica_polizza_madre_id"]
-            isOneToOne: false
-            referencedRelation: "v_portafoglio_titoli"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "titoli_proroga_polizza_madre_id_fkey"
-            columns: ["proroga_polizza_madre_id"]
-            isOneToOne: false
-            referencedRelation: "titoli"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "titoli_proroga_polizza_madre_id_fkey"
-            columns: ["proroga_polizza_madre_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
@@ -11029,6 +11132,19 @@ export type Database = {
         Returns: Json
       }
       archivia_notifiche_vecchie: { Args: never; Returns: Json }
+      calc_lordo_riga_premio_garanzia: {
+        Args: {
+          p_accessori: number
+          p_aliquota_tasse_pct: number
+          p_diritti_agenzia?: boolean
+          p_firma: number
+          p_rata: number
+          p_ssn: number
+          p_tasse_rettifica: number
+          p_tipo_premio: string
+        }
+        Returns: number
+      }
       cfo_distribuzione_clienti_fascia: {
         Args: { _data_a?: string; _data_da?: string }
         Returns: Json
@@ -11225,6 +11341,10 @@ export type Database = {
       }
       clone_premi_rateo_su_quietanze: {
         Args: { p_madre_id: string }
+        Returns: undefined
+      }
+      copy_titoli_split_commerciali: {
+        Args: { p_source: string; p_target: string }
         Returns: undefined
       }
       count_polizze_per_cliente: {
@@ -11429,6 +11549,14 @@ export type Database = {
         }
         Returns: Json
       }
+      resync_split_commerciali_from_madre: {
+        Args: { p_child_id: string }
+        Returns: undefined
+      }
+      rettifica_modalita_incasso_titolo: {
+        Args: { p_modalita: string; p_note?: string; p_titolo_id: string }
+        Returns: Json
+      }
       risolvi_provvigione_compagnia: {
         Args: { _ramo_id: string; _rapporto_id: string }
         Returns: {
@@ -11437,6 +11565,15 @@ export type Database = {
         }[]
       }
       run_data_quality_checks: { Args: never; Returns: Json }
+      salva_premi_garanzia_titolo: {
+        Args: {
+          p_rows: Json
+          p_tipo_premio: string
+          p_titolo_id: string
+          p_titolo_updates: Json
+        }
+        Returns: undefined
+      }
       save_conti_bancari_uffici: {
         Args: { p_conto_id: string; p_ufficio_ids: string[] }
         Returns: undefined
@@ -11455,6 +11592,44 @@ export type Database = {
       sync_quietanza_da_firma: {
         Args: { p_titolo_id: string }
         Returns: undefined
+      }
+      sync_riparto_coassicurazione_titolo: {
+        Args: { p_titolo_id: string }
+        Returns: undefined
+      }
+      sync_split_commerciali_to_children: {
+        Args: { p_madre_id: string }
+        Returns: undefined
+      }
+      verifica_cliente_duplicato: {
+        Args: {
+          _codice_fiscale?: string
+          _codice_fiscale_azienda?: string
+          _cognome?: string
+          _exclude_id?: string
+          _nome?: string
+          _partita_iva?: string
+          _ragione_sociale?: string
+          _tipo_cliente?: string
+        }
+        Returns: {
+          cliente_id: string
+          codice_cliente: string
+          denominazione: string
+          match_type: string
+        }[]
+      }
+      verifica_numero_polizza_duplicato: {
+        Args: {
+          _compagnia_id?: string
+          _exclude_titolo_id?: string
+          _numero_titolo: string
+        }
+        Returns: {
+          duplicato: boolean
+          numero_titolo: string
+          titolo_id: string
+        }[]
       }
     }
     Enums: {
