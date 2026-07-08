@@ -27,6 +27,7 @@ import {
   type ModalitaIncasso,
 } from "@/lib/modalitaIncasso";
 import { buildIncassoDateFields } from "@/lib/garantitoTitolo";
+import { resolveTipoPagamentoTitoloIncasso } from "@/lib/incassoTipoPagamento";
 
 /**
  * Input importo per riga di compensazione contabile.
@@ -878,13 +879,14 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       }
       const tr = trattenutaByTitolo.get(t.id);
       const haCompensazioni = compForThis.length > 0;
-      const tipoPag = dovutoT === 0 && !haCompensazioni && usatoTitolo === 0
-        ? "incasso_zero"
-        : haCompensazioni
-        ? (usatoTitolo > 0 ? "misto_compensato" : "compensato")
-        : usatoTitolo > 0
-          ? (residuoCash > 0 ? "anticipo_misto" : "anticipo")
-          : form.tipoPagamento;
+      const tipoPagamentoPrincipale = bankIncasso ? "bonifico" : form.tipoPagamento;
+      const tipoPag = resolveTipoPagamentoTitoloIncasso({
+        dovuto: dovutoT,
+        usatoAnticipi: usatoTitolo,
+        residuoCash,
+        haCompensazioni,
+        tipoPagamentoPrincipale,
+      });
 
       let bancaLabel: string | null = null;
       const bancaId = form.banca || bankIncasso?.contoBancarioId || "";

@@ -16,7 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import * as XLSX from "xlsx";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { format } from "date-fns";
+import { endOfMonth, format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
@@ -30,6 +30,12 @@ import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { calcolaRitenutaAcconto, resolvePercentualeRA } from "@/lib/resolvePercentualeRA";
 import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
+import {
+  formatClienteEc,
+  resolveImportoVersatoAgenzia,
+  resolveTipoPagamentoBadgeVariant,
+  resolveTipoPagamentoLabelEcAgenzia,
+} from "@/lib/ecAgenziaDisplay";
 
 const formatIbanMask = (s: string) =>
   (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})/g, "$1 ").trim();
@@ -45,10 +51,13 @@ interface Filters {
 interface TitoloDetail {
   id: string;
   numero_titolo: string | null;
+  cliente: string;
+  stato: string | null;
   data_messa_cassa: string | null;
   data_copertura: string | null;
   premio_lordo: number;
   importo_incassato: number;
+  importo_versato_agenzia: number;
   conferimento_gestito: boolean;
   fondi_ricevuti: boolean;
   tipo_pagamento: string | null;
@@ -82,9 +91,20 @@ interface PagaRimessaState {
   titoli: TitoloDetail[];
 }
 
-const defaultFilters: Filters = {
-  compagnia_id: null, ufficio_id: null, periodo_dal: null, periodo_al: null, tipo_pagamento: null,
-};
+function createDefaultEcFilters(isAgenzia: boolean): Filters {
+  return {
+    compagnia_id: null,
+    ufficio_id: null,
+    periodo_dal: null,
+    periodo_al: isAgenzia ? endOfMonth(new Date()) : null,
+    tipo_pagamento: null,
+  };
+}
+
+function isDefaultPeriodoAl(d: Date | null, isAgenzia: boolean): boolean {
+  if (!isAgenzia || !d) return !d;
+  return format(d, "yyyy-MM-dd") === format(endOfMonth(new Date()), "yyyy-MM-dd");
+}
 
 const ECCompagniaContabPage = () => {
   const navigate = useNavigate();
@@ -92,11 +112,11 @@ const ECCompagniaContabPage = () => {
   const isAgenzia = location.pathname.startsWith("/contabilita/ec-agenzia");
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
-  const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
+  const [filters, setFilters] = useState<Filters>(() => createDefaultEcFilters(isAgenzia));
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedTitoli, setSelectedTitoli] = useState<Record<string, Set<string>>>({});
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
-  const [exportDate, setExportDate] = useState<Date | null>(null);
+  const [exportDate, setExportDate] = useState<Date | null>(() => (isAgenzia ? endOfMonth(new Date()) : null));
   const [bulkEcLoading, setBulkEcLoading] = useState(false);
   const [sortField, setSortField] = useState<"nome" | "data" | "daRimettere">("nome");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -264,7 +284,7 @@ Consulbrokers`;
 
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, compagnie(nome, codice, mail, percentuale_ra), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, stato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale), compagnie(nome, codice, mail, percentuale_ra), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
         .not("compagnia_id", "is", null);
 
       const incassateBase = ["stato.eq.incassato"];
@@ -334,10 +354,17 @@ Consulbrokers`;
         grouped[cId].titoli.push({
           id: t.id,
           numero_titolo: t.numero_titolo,
+          cliente: formatClienteEc(t.clienti_anagrafica),
+          stato: t.stato || null,
           data_messa_cassa: t.data_messa_cassa,
           data_copertura: t.data_copertura,
           premio_lordo: lordoShare,
           importo_incassato: incassatoShare,
+          importo_versato_agenzia: resolveImportoVersatoAgenzia({
+            stato: t.stato,
+            premio_lordo: lordoShare,
+            importo_incassato: incassatoShare,
+          }),
           conferimento_gestito: !!t.conferimento_gestito,
           fondi_ricevuti: t.fondi_ricevuti !== false,
           tipo_pagamento: t.tipo_pagamento || null,
@@ -658,7 +685,13 @@ Consulbrokers`;
   const totProvv = rows.reduce((s, r) => s + r.provvigioni, 0);
   const totDaRimettere = rows.reduce((s, r) => s + r.lordo - r.provvigioni + r.ritenutaAcconto, 0);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
-  const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.periodo_dal || filters.periodo_al || filters.tipo_pagamento;
+  const hasFilters = Boolean(
+    filters.compagnia_id ||
+      filters.ufficio_id ||
+      filters.periodo_dal ||
+      (filters.periodo_al && !isDefaultPeriodoAl(filters.periodo_al, isAgenzia)) ||
+      filters.tipo_pagamento,
+  );
 
   const formatDateRange = (min: string | null, max: string | null) => {
     if (!min) return "—";
@@ -723,15 +756,16 @@ Consulbrokers`;
         Agenzia: r.nome,
         Codice: r.codice,
         "N. Titolo": t.numero_titolo || "",
+        Cliente: t.cliente || "",
         "Data Messa a Cassa": t.data_messa_cassa ? format(new Date(t.data_messa_cassa), "dd/MM/yyyy") : (t.data_copertura ? format(new Date(t.data_copertura), "dd/MM/yyyy") : ""),
         "Premio Lordo (€)": Number(t.premio_lordo.toFixed(2)),
-        "Importo Incassato (€)": Number(t.importo_incassato.toFixed(2)),
-        "Tipo Pagamento": t.tipo_pagamento || "",
+        "Importo Incassato (€)": Number(t.importo_versato_agenzia.toFixed(2)),
+        "Tipo Pagamento": resolveTipoPagamentoLabelEcAgenzia(t.tipo_pagamento),
         "Copertura Garantita": t.conferimento_gestito ? "Sì" : "No",
       }))
     );
     const wsDettaglio = XLSX.utils.json_to_sheet(dettaglio);
-    wsDettaglio["!cols"] = [{ wch: 30 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 18 }, { wch: 20 }];
+    wsDettaglio["!cols"] = [{ wch: 30 }, { wch: 10 }, { wch: 16 }, { wch: 28 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 18 }, { wch: 20 }];
     XLSX.utils.book_append_sheet(wb, wsDettaglio, "Dettaglio Titoli");
 
     const fileName = `ec_agenzie${dateLimitLabel.replace(/ /g, "_").replace(/\//g, "-")}_${format(new Date(), "yyyyMMdd")}.xlsx`;
@@ -757,10 +791,11 @@ Consulbrokers`;
         const d = t.data_messa_cassa || t.data_copertura;
         return `<tr class="detail">
           <td></td><td>${t.numero_titolo || "—"}</td>
+          <td>${t.cliente || "—"}</td>
           <td>${d ? format(new Date(d), "dd/MM/yyyy") : "—"}</td>
           <td class="num">${fmt(t.premio_lordo)}</td>
-          <td class="num">${fmt(t.importo_incassato)}</td>
-          <td>${t.tipo_pagamento || "—"}</td>
+          <td class="num">${fmt(t.importo_versato_agenzia)}</td>
+          <td>${resolveTipoPagamentoLabelEcAgenzia(t.tipo_pagamento)}</td>
           <td></td>
         </tr>`;
       }).join("");
@@ -865,7 +900,7 @@ Consulbrokers`;
         if (!tp) return "B";
         const v = tp.toLowerCase();
         if (v === "contanti") return "C";
-        if (v === "bonifico") return "B";
+        if (v === "bonifico" || v === "abbuono") return "B";
         if (v === "assegno") return "A";
         return "*";
       };
@@ -1034,7 +1069,19 @@ Consulbrokers`;
       <div className="bg-muted/30 border rounded-lg p-4 space-y-3">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <Filter className="h-4 w-4" /> <span>Filtri</span>
-          {hasFilters && <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setFilters({ ...defaultFilters })}><RotateCcw className="h-3 w-3 mr-1" /> Azzera</Button>}
+          {hasFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-7 text-xs"
+              onClick={() => {
+                setFilters(createDefaultEcFilters(isAgenzia));
+                setExportDate(isAgenzia ? endOfMonth(new Date()) : null);
+              }}
+            >
+              <RotateCcw className="h-3 w-3 mr-1" /> Azzera
+            </Button>
+          )}
         </div>
         <div className="flex flex-wrap gap-3 items-end">
           <FilterSearchableSelect
@@ -1186,6 +1233,7 @@ Consulbrokers`;
                               <TableRow className="hover:bg-transparent">
                                 <TableHead className="w-[40px] h-8"></TableHead>
                                 <TableHead className="h-8 text-xs">N. Titolo</TableHead>
+                                <TableHead className="h-8 text-xs">Cliente</TableHead>
                                 {!isAgenzia && <TableHead className="h-8 text-xs">Data Messa a Cassa</TableHead>}
                                 <TableHead className="h-8 text-xs text-right">Premio Lordo</TableHead>
                                 <TableHead className="h-8 text-xs text-right">Importo Incassato</TableHead>
@@ -1197,8 +1245,8 @@ Consulbrokers`;
                               {r.titoli.map((t) => {
                                 const inCopertura = isInCoperturaGarantita(t);
                                 const dataEff = t.data_messa_cassa || t.data_copertura;
-                                const tipoPagLabel = t.tipo_pagamento === "contanti" ? "Contanti" : t.tipo_pagamento === "pos" ? "POS" : t.tipo_pagamento === "bonifico" ? "Bonifico" : t.tipo_pagamento === "carta_credito" ? "POS" : t.tipo_pagamento === "garantito" ? "Garantito" : t.tipo_pagamento === "abbuono" ? "Abbuono" : t.tipo_pagamento === "pagamento_diretto_compagnia" ? "Pag. diretto" : "—";
-                                const tipoPagColor = t.tipo_pagamento === "contanti" ? "secondary" : t.tipo_pagamento === "pos" || t.tipo_pagamento === "carta_credito" ? "default" : t.tipo_pagamento === "bonifico" ? "outline" : t.tipo_pagamento === "garantito" ? "default" : t.tipo_pagamento === "pagamento_diretto_compagnia" ? "outline" : "secondary";
+                                const tipoPagLabel = resolveTipoPagamentoLabelEcAgenzia(t.tipo_pagamento);
+                                const tipoPagColor = resolveTipoPagamentoBadgeVariant(t.tipo_pagamento);
                                 return (
                                 <TableRow key={t.id} className={cn("hover:bg-muted/50", inCopertura && "bg-orange-50/80 hover:bg-orange-100/60")}>
                                   <TableCell className="py-1 px-2">
@@ -1207,12 +1255,13 @@ Consulbrokers`;
                                       onCheckedChange={() => toggleTitolo(r.compagnia_id, t.id)}
                                     />
                                   </TableCell>
-                                  <TableCell className="py-1 text-sm">{t.numero_titolo || "—"}</TableCell>
+                                  <TableCell className="py-1 text-sm font-mono">{t.numero_titolo || "—"}</TableCell>
+                                  <TableCell className="py-1 text-sm max-w-[200px] truncate" title={t.cliente}>{t.cliente}</TableCell>
                                   {!isAgenzia && (
                                     <TableCell className="py-1 text-sm">{dataEff ? format(new Date(dataEff), "dd/MM/yyyy") : "—"}</TableCell>
                                   )}
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.premio_lordo)}</TableCell>
-                                  <TableCell className="py-1 text-sm text-right">{fmt(t.importo_incassato)}</TableCell>
+                                  <TableCell className="py-1 text-sm text-right">{fmt(t.importo_versato_agenzia)}</TableCell>
                                   <TableCell className="py-1">
                                     <Badge variant={tipoPagColor as any} className="text-[10px] h-5">{tipoPagLabel}</Badge>
                                   </TableCell>

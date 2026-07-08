@@ -26,7 +26,11 @@ export function sameRowContent(a?: GaranziaRow, b?: GaranziaRow): boolean {
     (a.tasse || "") === (b.tasse || "") &&
     (a.tasseRettifica || "") === (b.tasseRettifica || "") &&
     (a.ssn || "") === (b.ssn || "") &&
-    (a.aliquotaTasse || 0) === (b.aliquotaTasse || 0)
+    (a.aliquotaTasse || 0) === (b.aliquotaTasse || 0) &&
+    (a.provvNettoPctOverride || false) === (b.provvNettoPctOverride || false) &&
+    (a.provvAccessoriPctOverride || false) === (b.provvAccessoriPctOverride || false) &&
+    (a.provvNettoPct ?? null) === (b.provvNettoPct ?? null) &&
+    (a.provvAccessoriPct ?? null) === (b.provvAccessoriPct ?? null)
   );
 }
 

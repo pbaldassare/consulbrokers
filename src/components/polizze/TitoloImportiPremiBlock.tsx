@@ -566,6 +566,36 @@ function TitoloImportiPremiBlock({
     return round2(provvigioniImportoFromManualPctNetto(rows, pct, provvMatrice));
   };
 
+  const hasRowProvvOverride = (rows: GaranziaRow[]) =>
+    rows.some((r) => r.provvNettoPctOverride || r.provvAccessoriPctOverride);
+
+  const resetManualProvvToAuto = (tipo: "firma" | "quietanza") => {
+    if (tipo === "firma") {
+      manualPctFirmaRef.current = "";
+      manualImportoFirmaRef.current = null;
+      manualFromEuroFirmaRef.current = false;
+      manualUserEditFirmaRef.current = false;
+      setProvvAuto("firma", true);
+    } else {
+      manualPctQuietanzaRef.current = "";
+      manualImportoQuietanzaRef.current = null;
+      manualFromEuroQuietanzaRef.current = false;
+      manualUserEditQuietanzaRef.current = false;
+      setProvvAuto("quietanza", true);
+    }
+    bumpProvvDisplay((n) => n + 1);
+  };
+
+  const resolveProvvigioniForSave = (
+    tipo: "firma" | "quietanza",
+    rows: GaranziaRow[],
+  ): number => {
+    if (hasRowProvvOverride(rows)) {
+      return round2(calcProvvigioniGaranzia(rows, provvMatrice));
+    }
+    return resolveProvvigioniImporto(tipo, rows);
+  };
+
   const copyProvvFirmaToQuietanza = () => {
     provvQuietanzaAutoRef.current = provvFirmaAutoRef.current;
     setProvvQuietanzaAuto(provvFirmaAutoRef.current);
@@ -627,13 +657,13 @@ function TitoloImportiPremiBlock({
         updates.tasse = totTasse;
         updates.ssn_firma = totSsn;
         updates.premio_lordo = lordo;
-        updates.provvigioni_firma = resolveProvvigioniImporto("firma", rows);
+        updates.provvigioni_firma = resolveProvvigioniForSave("firma", rows);
       } else {
         updates.premio_netto_quietanza = totNetto;
         updates.addizionali_quietanza = totAccessori;
         updates.tasse_quietanza = totTasse;
         updates.ssn_quietanza = totSsn;
-        updates.provvigioni_quietanza = resolveProvvigioniImporto("quietanza", rows);
+        updates.provvigioni_quietanza = resolveProvvigioniForSave("quietanza", rows);
         updates.premio_lordo = lordo;
         // Su quietanza/rata: allinea anche i campi operativi usati da incasso e liste
         if (hideFirma || !!titoloMeta?.sostituisce_polizza) {
@@ -696,8 +726,14 @@ function TitoloImportiPremiBlock({
 
   const saveDraft = async () => {
     if (isLocked || !draftMode) return;
-    if (!hideFirma) await persistRows(firmaRowsRef.current, "firma");
-    if (showQuietanza) await persistRows(quietanzaRowsRef.current, "quietanza");
+    const firma = firmaRowsRef.current;
+    let quietanza = quietanzaRowsRef.current;
+    if (!hideFirma && showQuietanza && isQuietanzaSincronizzata(quietanza)) {
+      quietanza = syncQuietanzaFromFirma(firma, quietanza);
+      setQuietanzaRows(quietanza);
+    }
+    if (!hideFirma) await persistRows(firma, "firma");
+    if (showQuietanza) await persistRows(quietanza, "quietanza");
     draftBaselineRef.current = serializeDraft();
   };
 
@@ -816,6 +852,15 @@ function TitoloImportiPremiBlock({
       }
     } else {
       setQuietanzaRows(nextRows);
+    }
+    if (override) {
+      resetManualProvvToAuto(tipo);
+      if (tipo === "firma" && !hideFirma && showQuietanza) {
+        const syncedQ = syncQuietanzaFromFirma(nextRows, quietanzaRowsRef.current);
+        if (isQuietanzaSincronizzata(syncedQ)) {
+          resetManualProvvToAuto("quietanza");
+        }
+      }
     }
     await logAttivita({
       azione: override ? "override_provvigione_voce" : "reset_provvigione_voce",
