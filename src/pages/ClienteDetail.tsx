@@ -39,6 +39,7 @@ import { format } from "date-fns";
 import { groupTitoliByPolizza, isAppendice, appendiceTipoLabel, baseNumeroPolizza } from "@/lib/quietanze";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { isInCoperturaGarantita, isGarantitoDaIncassare } from "@/lib/garantitoTitolo";
+import { countQuietanzeDaIncassare, countQuietanzeRateDaIncassare, isQuietanzaDaMostrare } from "@/lib/quietanzeClienteView";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
@@ -1212,6 +1213,11 @@ function PolizzeClienteTable({
     [polizze],
   );
 
+  const countQuietanze = useMemo(
+    () => countQuietanzeDaIncassare(polizze),
+    [polizze],
+  );
+
   // Predicate sul singolo titolo (madre o rata)
   const matchTitolo = (t: any) => {
     if (filtroTipo === "garantiti" && !isGarantitoDaIncassare(t)) return false;
@@ -1261,16 +1267,35 @@ function PolizzeClienteTable({
   const allQuiet = useMemo(() => filteredTitoli.filter((p) => !!p.sostituisce_polizza && !isAppendice(p)), [filteredTitoli]);
   const allApp = useMemo(() => filteredTitoli.filter((p) => isAppendice(p)), [filteredTitoli]);
   const allPol = useMemo(() => filteredTitoli.filter((p) => !p.sostituisce_polizza && !isAppendice(p)), [filteredTitoli]);
+
+  const quietanzeVisibili = useMemo(
+    () => (filtroTipo === "quietanze"
+      ? filteredTitoli.filter((p) => (!!p.sostituisce_polizza || isAppendice(p)) && isQuietanzaDaMostrare(p))
+      : []),
+    [filteredTitoli, filtroTipo],
+  );
+  const quietanzeVisibiliRate = useMemo(
+    () => quietanzeVisibili.filter((p) => !!p.sostituisce_polizza && !isAppendice(p)),
+    [quietanzeVisibili],
+  );
+  const quietanzeVisibiliApp = useMemo(
+    () => quietanzeVisibili.filter(isAppendice),
+    [quietanzeVisibili],
+  );
   // La polizza madre è il contratto, non un titolo da incassare: il premio
   // reale è la somma delle quietanze + appendici (titoli incassabili). Sommare
   // anche la madre raddoppierebbe il totale (es. annuale 1y: 1 madre + 1 quietanza).
   const totPremio = useMemo(
-    () => [...allQuiet, ...allApp].reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
-    [allQuiet, allApp],
+    () => (filtroTipo === "quietanze"
+      ? quietanzeVisibili.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0)
+      : [...allQuiet, ...allApp].reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0)),
+    [filtroTipo, quietanzeVisibili, allQuiet, allApp],
   );
   const totProvv = useMemo(
-    () => [...allQuiet, ...allApp].reduce((s, p) => s + getProvvigioneEC(p), 0),
-    [allQuiet, allApp],
+    () => (filtroTipo === "quietanze"
+      ? quietanzeVisibili.reduce((s, p) => s + getProvvigioneEC(p), 0)
+      : [...allQuiet, ...allApp].reduce((s, p) => s + getProvvigioneEC(p), 0)),
+    [filtroTipo, quietanzeVisibili, allQuiet, allApp],
   );
 
   const allGarant = useMemo(() => filteredTitoli.filter(isGarantitoDaIncassare), [filteredTitoli]);
@@ -1288,12 +1313,16 @@ function PolizzeClienteTable({
       const madreId = head?.id || null;
       const totale = c.rate.length;
       c.rate.forEach((r: any, i: number) => {
-        if (matchTitolo(r)) out.push({ rata: r, madreNum, madreId, idx: i + 1, totale });
+        if (matchTitolo(r) && isQuietanzaDaMostrare(r)) {
+          out.push({ rata: r, madreNum, madreId, idx: i + 1, totale });
+        }
       });
       // Le appendici (AM/PR/RG) sono titoli da incassare: si mostrano insieme
       // alle quietanze ma con il proprio badge.
       c.appendici.forEach((a: any) => {
-        if (matchTitolo(a)) out.push({ rata: a, madreNum, madreId, idx: 0, totale: 0 });
+        if (matchTitolo(a) && isQuietanzaDaMostrare(a)) {
+          out.push({ rata: a, madreNum, madreId, idx: 0, totale: 0 });
+        }
       });
     });
     return out;
@@ -1415,7 +1444,7 @@ function PolizzeClienteTable({
             value={filtroTipo}
             onChange={setFiltroTipoState}
             withGarantiti
-            counts={{ polizze: allPol.length, quietanze: allQuiet.length, garantiti: countGarantiti }}
+            counts={{ polizze: allPol.length, quietanze: countQuietanze, garantiti: countGarantiti }}
           />
         )}
         <div className="text-xs text-muted-foreground">
@@ -1428,10 +1457,24 @@ function PolizzeClienteTable({
               {" · "}totale premio{" "}
               <span className="font-mono font-medium text-foreground">€ {totPremioGarant.toFixed(2)}</span>
             </>
+          ) : filtroTipo === "quietanze" ? (
+            <>
+              <span className="font-medium text-foreground">{quietanzeVisibiliRate.length}</span> quietanze da incassare
+              {quietanzeVisibiliApp.length > 0 && (
+                <> · <span className="font-medium text-appendice">{quietanzeVisibiliApp.length}</span> appendici</>
+              )}
+              {countGarantiti > 0 && (
+                <> · <span className="font-medium text-orange-700">{countGarantiti}</span> garantiti</>
+              )}
+              {" · "}totale premio{" "}
+              <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
+              {" · "}totale provvigioni{" "}
+              <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
+            </>
           ) : (
             <>
               <span className="font-medium text-foreground">{allPol.length}</span> polizze ·{" "}
-              <span className="font-medium text-foreground">{allQuiet.length}</span> quietanze
+              <span className="font-medium text-foreground">{countQuietanze}</span> quietanze da incassare
               {allApp.length > 0 && (
                 <> · <span className="font-medium text-appendice">{allApp.length}</span> appendici</>
               )}
@@ -1622,7 +1665,7 @@ function PolizzeClienteTable({
             flatQuietanze.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={isAdmin ? 13 : 12} className="text-center text-sm text-muted-foreground py-6">
-                  Nessuna quietanza presente
+                  Nessuna quietanza da incassare
                 </TableCell>
               </TableRow>
             ) : (
@@ -2647,7 +2690,7 @@ export default function ClienteDetail() {
               );
               const nPol = numeriUnici.size;
               const nApp = polizze.filter((p: any) => isAppendice(p)).length;
-              const nQuiet = Math.max(0, polizze.length - nPol - nApp);
+              const nQuiet = countQuietanzeRateDaIncassare(polizze);
               return (
                 <TabsTrigger value="polizze">
                   <FileText className="w-4 h-4 mr-1" />
