@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatClienteEc,
+  resolveCompagniaCollegataNome,
   resolveImportoVersatoAgenzia,
   resolveTipoPagamentoLabelEcAgenzia,
   resolveTipoPagamentoMiEcAgenzia,
@@ -26,6 +27,12 @@ describe("ecAgenziaDisplay", () => {
     expect(resolveTipoPagamentoLabelEcAgenzia("compensato")).toBe("Premio saldato");
     expect(resolveTipoPagamentoLabelEcAgenzia("misto_compensato")).toBe("Premio saldato");
     expect(resolveTipoPagamentoLabelEcAgenzia("bonifico")).toBe("Bonifico");
+  });
+
+  it("resolveCompagniaCollegataNome legge gruppo compagnia", () => {
+    expect(resolveCompagniaCollegataNome({ gruppi_compagnia: { descrizione: "AIG" } })).toBe("AIG");
+    expect(resolveCompagniaCollegataNome({ gruppo_compagnia: "ALLIANZ" })).toBe("ALLIANZ");
+    expect(resolveCompagniaCollegataNome(null)).toBe("");
   });
 
   it("resolveTipoPagamentoMiEcAgenzia non espone abbuono", () => {

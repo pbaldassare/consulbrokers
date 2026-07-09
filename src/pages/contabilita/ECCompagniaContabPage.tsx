@@ -33,6 +33,7 @@ import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 import {
   formatClienteEc,
   resolveImportoVersatoAgenzia,
+  resolveCompagniaCollegataNome,
   resolveTipoPagamentoBadgeVariant,
   resolveTipoPagamentoLabelEcAgenzia,
   resolveTipoPagamentoMiEcAgenzia,
@@ -67,6 +68,7 @@ interface TitoloDetail {
 interface GroupedRow {
   compagnia_id: string;
   nome: string;
+  compagniaCollegata: string;
   codice: string;
   mail: string;
   lordo: number;
@@ -285,7 +287,7 @@ Consulbrokers`;
 
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, stato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale), compagnie(nome, codice, mail, percentuale_ra), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, stato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale), compagnie(nome, codice, mail, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione)), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
         .not("compagnia_id", "is", null);
 
       const incassateBase = ["stato.eq.incassato"];
@@ -312,7 +314,7 @@ Consulbrokers`;
       if (coassIds.length > 0) {
         const { data: riparti } = await supabase
           .from("dettaglio_riparto")
-          .select("id, titolo_id, compagnia_id, quota_percentuale, totale, provv_netto, provv_addizionali, compagnie(nome, codice, mail, percentuale_ra)")
+          .select("id, titolo_id, compagnia_id, quota_percentuale, totale, provv_netto, provv_addizionali, compagnie(nome, codice, mail, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione))")
           .in("titolo_id", coassIds);
         for (const r of riparti || []) {
           const arr = ripartoByTitolo.get(r.titolo_id) || [];
@@ -325,7 +327,14 @@ Consulbrokers`;
 
       const pushTitoloToGroup = (
         cId: string,
-        comp: { nome?: string | null; codice?: string | null; mail?: string | null; percentuale_ra?: number | null } | null,
+        comp: {
+          nome?: string | null;
+          codice?: string | null;
+          mail?: string | null;
+          percentuale_ra?: number | null;
+          gruppo_compagnia?: string | null;
+          gruppi_compagnia?: { descrizione?: string | null } | null;
+        } | null,
         t: any,
         lordoShare: number,
         incassatoShare: number,
@@ -339,6 +348,7 @@ Consulbrokers`;
           grouped[cId] = {
             compagnia_id: cId,
             nome: comp?.nome || "N/D",
+            compagniaCollegata: resolveCompagniaCollegataNome(comp),
             codice: comp?.codice || "",
             mail: comp?.mail || "",
             lordo: 0,
@@ -723,8 +733,8 @@ Consulbrokers`;
 
   const exportCSV = () => {
     const src = exportRows;
-    const header = "Agenzia,Codice,Data,Mail,Lordo,Provvigioni,Da Rimettere\n";
-    const csv = src.map((r) => `"${r.nome}","${r.codice}","${formatDateRange(r.data_min, r.data_max)}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${(r.lordo - r.provvigioni + r.ritenutaAcconto).toFixed(2)}`).join("\n");
+    const header = "Agenzia,Compagnia,Codice,Data,Mail,Lordo,Provvigioni,Da Rimettere\n";
+    const csv = src.map((r) => `"${r.nome}","${r.compagniaCollegata}","${r.codice}","${formatDateRange(r.data_min, r.data_max)}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${(r.lordo - r.provvigioni + r.ritenutaAcconto).toFixed(2)}`).join("\n");
     const blob = new Blob([header + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "ec_agenzie.csv"; a.click();
@@ -739,6 +749,7 @@ Consulbrokers`;
     // Foglio 1: riepilogo per agenzia
     const riepilogo = src.map((r) => ({
       Agenzia: r.nome,
+      Compagnia: r.compagniaCollegata,
       Codice: r.codice,
       "Periodo Dal": r.data_min ? format(new Date(r.data_min), "dd/MM/yyyy") : "",
       "Periodo Al": r.data_max ? format(new Date(r.data_max), "dd/MM/yyyy") : "",
@@ -748,13 +759,14 @@ Consulbrokers`;
       "Da Rimettere (€)": Number((r.lordo - r.provvigioni + r.ritenutaAcconto).toFixed(2)),
     }));
     const wsRiepilogo = XLSX.utils.json_to_sheet(riepilogo);
-    wsRiepilogo["!cols"] = [{ wch: 30 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+    wsRiepilogo["!cols"] = [{ wch: 30 }, { wch: 22 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
     XLSX.utils.book_append_sheet(wb, wsRiepilogo, "Riepilogo Agenzie");
 
     // Foglio 2: dettaglio titoli per agenzia
     const dettaglio = src.flatMap((r) =>
       r.titoli.map((t) => ({
         Agenzia: r.nome,
+        Compagnia: r.compagniaCollegata,
         Codice: r.codice,
         "N. Titolo": t.numero_titolo || "",
         Cliente: t.cliente || "",
@@ -766,7 +778,7 @@ Consulbrokers`;
       }))
     );
     const wsDettaglio = XLSX.utils.json_to_sheet(dettaglio);
-    wsDettaglio["!cols"] = [{ wch: 30 }, { wch: 10 }, { wch: 16 }, { wch: 28 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 18 }, { wch: 20 }];
+    wsDettaglio["!cols"] = [{ wch: 30 }, { wch: 22 }, { wch: 10 }, { wch: 16 }, { wch: 28 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 18 }, { wch: 20 }];
     XLSX.utils.book_append_sheet(wb, wsDettaglio, "Dettaglio Titoli");
 
     const fileName = `ec_agenzie${dateLimitLabel.replace(/ /g, "_").replace(/\//g, "-")}_${format(new Date(), "yyyyMMdd")}.xlsx`;
@@ -801,7 +813,7 @@ Consulbrokers`;
         </tr>`;
       }).join("");
       return `<tr class="group-row">
-        <td><strong>${r.nome}</strong></td>
+        <td><strong>${r.nome}</strong>${r.compagniaCollegata ? `<br><span style="font-weight:normal;color:#666;font-size:10px">${r.compagniaCollegata}</span>` : ""}</td>
         <td>${r.codice}</td>
         <td>${formatDateRange(r.data_min, r.data_max)}</td>
         <td class="num">${fmt(r.lordo)}</td>
@@ -873,7 +885,7 @@ Consulbrokers`;
       const agenzieIds = exportRows.map((r) => r.compagnia_id);
       const { data: compagnieFull } = await supabase
         .from("compagnie")
-        .select("id, nome, codice, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, iban, intestato_a, percentuale_ra")
+        .select("id, nome, codice, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, iban, intestato_a, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione)")
         .in("id", agenzieIds);
 
       // 3. Titoli con dettagli in bulk
@@ -967,6 +979,7 @@ Consulbrokers`;
           periodoTesto,
           modalitaPagamento: "Bonifico",
           agenziaNome: (comp as any).nome || "",
+          compagniaCollegata: resolveCompagniaCollegataNome(comp as any),
           agenziaIndirizzo: (comp as any).indirizzo || "",
           agenziaCap: (comp as any).cap || "",
           agenziaCitta: (comp as any).comune || "",
@@ -1157,7 +1170,12 @@ Consulbrokers`;
                     <TableCell className="px-2">
                       {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                     </TableCell>
-                    <TableCell className="font-medium">{r.nome}</TableCell>
+                    <TableCell className="font-medium">
+                      <div>{r.nome}</div>
+                      {r.compagniaCollegata ? (
+                        <div className="text-xs text-muted-foreground font-normal">{r.compagniaCollegata}</div>
+                      ) : null}
+                    </TableCell>
                     <TableCell>{r.codice}</TableCell>
                     <TableCell className="text-sm">{formatDateRange(r.data_min, r.data_max)}</TableCell>
                     <TableCell className="text-right">{fmt(r.lordo)}</TableCell>

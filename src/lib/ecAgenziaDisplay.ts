@@ -1,3 +1,14 @@
+type CompagniaCollegataSource = {
+  gruppi_compagnia?: { descrizione?: string | null } | null;
+  gruppo_compagnia?: string | null;
+} | null | undefined;
+
+/** Nome compagnia mandataria collegata all'agenzia (gruppo compagnia). */
+export function resolveCompagniaCollegataNome(comp: CompagniaCollegataSource): string {
+  const nome = comp?.gruppi_compagnia?.descrizione || comp?.gruppo_compagnia || "";
+  return (typeof nome === "string" ? nome : "").trim();
+}
+
 /** Cliente da join titoli → clienti_anagrafica / clienti. */
 export function formatClienteEc(
   cli: { ragione_sociale?: string | null; cognome?: string | null; nome?: string | null } | null | undefined,

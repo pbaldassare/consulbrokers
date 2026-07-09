@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { calcolaRitenutaAcconto, resolvePercentualeRA } from "@/lib/resolvePercentualeRA";
+import { resolveCompagniaCollegataNome } from "@/lib/ecAgenziaDisplay";
 
 const mapTipoToMI = (tp?: string | null): string => {
   if (!tp) return "B";
@@ -60,7 +61,7 @@ const ECAgenziaPdfPage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("compagnie")
-        .select("id, nome, codice, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, iban, intestato_a, percentuale_ra, mail_ec, mail, conto_bancario_id")
+        .select("id, nome, codice, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, iban, intestato_a, percentuale_ra, mail_ec, mail, conto_bancario_id, gruppo_compagnia, gruppi_compagnia(descrizione)")
         .eq("id", compagniaId)
         .maybeSingle();
       return data as any;
@@ -233,6 +234,7 @@ const ECAgenziaPdfPage = () => {
       periodoTesto,
       modalitaPagamento,
       agenziaNome: compagnia?.nome || "",
+      compagniaCollegata: resolveCompagniaCollegataNome(compagnia),
       agenziaIndirizzo: compagnia?.indirizzo || "",
       agenziaCap: compagnia?.cap || "",
       agenziaCitta: compagnia?.comune || "",

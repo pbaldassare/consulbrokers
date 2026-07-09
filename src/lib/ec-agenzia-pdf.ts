@@ -28,6 +28,7 @@ export interface ECAgenziaData {
   modalitaPagamento: string;      // "Bonifico"
   // Agenzia destinataria
   agenziaNome: string;            // "AIG C/O BENACQUISTA ASS.NI Srl"
+  compagniaCollegata?: string;    // "AIG" (gruppo compagnia mandataria)
   agenziaIndirizzo: string;       // "VIA DEL LIDO, 106"
   agenziaCap: string;             // "04100"
   agenziaCitta: string;           // "LATINA"
@@ -145,9 +146,14 @@ function drawDestinatario(ctx: Ctx, d: ECAgenziaData) {
   const lines: string[] = [
     "Spettabile",
     d.agenziaNome || "",
+  ];
+  if (d.compagniaCollegata && d.compagniaCollegata !== d.agenziaNome) {
+    lines.push(`Compagnia: ${d.compagniaCollegata}`);
+  }
+  lines.push(
     d.agenziaIndirizzo || "",
     [d.agenziaCap, d.agenziaCitta, d.agenziaProvincia].filter(Boolean).join(" "),
-  ];
+  );
   if (d.agenziaCF) lines.push(`Codice fiscale: ${d.agenziaCF}`);
   if (d.agenziaPIVA && d.agenziaPIVA !== d.agenziaCF) lines.push(`P. IVA: ${d.agenziaPIVA}`);
 
