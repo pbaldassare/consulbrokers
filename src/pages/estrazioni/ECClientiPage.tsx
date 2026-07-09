@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { ArrowLeft, Download, FileSpreadsheet, Users, TrendingUp, Wallet, Scale, FileText } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, Users, TrendingUp, Wallet, Scale, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
 import { format } from "date-fns";
-import { exportJsonToXlsx } from "@/lib/exportXlsx";
+import { exportEstrazioneWorkbook } from "@/lib/estrazioni/exportXlsx";
+import { buildEstrazionePdf, downloadEstrazionePdf } from "@/lib/estrazioni/exportPdf";
+import { aggregatePivot } from "@/lib/estrazioni/pivot";
+import { periodoLabel } from "@/lib/estrazioni/utils";
+import { toast } from "sonner";
 
 interface ECCliente {
   cliente_id: string;
@@ -22,6 +26,8 @@ interface ECCliente {
 const ECClientiPage = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<EstrazioniFiltersState>({ ...defaultFilters });
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const periodo = periodoLabel(filters.dateFrom, filters.dateTo);
 
   const { data, isLoading } = useQuery({
     queryKey: ["ec-clienti", filters],
@@ -71,17 +77,75 @@ const ECClientiPage = () => {
   const totSaldo = rows.reduce((s, c) => s + c.saldo, 0);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
+  const pivotClienti = useMemo(
+    () =>
+      aggregatePivot(
+        rows,
+        (c) => c.label,
+        (c) => ({ premio: c.totale_premi, incassato: c.totale_incassato }),
+      ),
+    [rows],
+  );
+
+  const commentary = useMemo(() => {
+    if (!rows.length) return `Nessun dato nel periodo ${periodo}.`;
+    const conSaldo = rows.filter((c) => c.saldo > 0).length;
+    return [
+      `Estratto conto clienti — periodo ${periodo}.`,
+      `${rows.length} clienti: Dare ${fmt(totPremi)}, Avere ${fmt(totIncassato)}, Saldo ${fmt(totSaldo)}.`,
+      `${conSaldo} clienti con saldo da incassare.`,
+    ].join("\n");
+  }, [rows, periodo, totPremi, totIncassato, totSaldo, fmt]);
+
   const exportExcel = () => {
-    exportJsonToXlsx(
-      rows.map((c) => ({
-        Cliente: c.label,
-        "Totale Premi Dare (€)": Number(c.totale_premi.toFixed(2)),
-        "Totale Incassato Avere (€)": Number(c.totale_incassato.toFixed(2)),
-        "Saldo (€)": Number(c.saldo.toFixed(2)),
-      })),
-      "EC Clienti",
-      `ec_clienti_${format(new Date(), "yyyyMMdd")}.xlsx`,
-    );
+    exportEstrazioneWorkbook({
+      title: "E/C Clienti — Consulnet",
+      subtitle: `Periodo: ${periodo}`,
+      metaRows: [
+        [],
+        ["N. clienti", rows.length],
+        ["Totale Dare (€)", Number(totPremi.toFixed(2))],
+        ["Totale Avere (€)", Number(totIncassato.toFixed(2))],
+        ["Saldo complessivo (€)", Number(totSaldo.toFixed(2))],
+      ],
+      commentary,
+      dettaglio: {
+        name: "Estratto Conto",
+        rows: rows.map((c) => ({
+          Cliente: c.label,
+          "Totale Premi Dare (€)": Number(c.totale_premi.toFixed(2)),
+          "Totale Incassato Avere (€)": Number(c.totale_incassato.toFixed(2)),
+          "Saldo (€)": Number(c.saldo.toFixed(2)),
+        })),
+      },
+      pivots: [{ dimensione: "Cliente", rows: pivotClienti }],
+      fileName: `ec_clienti_${format(new Date(), "yyyyMMdd")}.xlsx`,
+    });
+    toast.success("Excel generato");
+  };
+
+  const exportPdfReport = async () => {
+    try {
+      setExportingPdf(true);
+      const bytes = await buildEstrazionePdf({
+        title: "Estratto Conto Clienti",
+        subtitle: `Periodo: ${periodo}`,
+        kpis: [
+          { label: "Clienti", value: String(rows.length) },
+          { label: "Dare", value: fmt(totPremi) },
+          { label: "Avere", value: fmt(totIncassato) },
+          { label: "Saldo", value: fmt(totSaldo) },
+        ],
+        commentary,
+        pivotTables: [{ title: "Pivot per Cliente (top 12)", rows: pivotClienti }],
+      });
+      downloadEstrazionePdf(bytes, `report_ec_clienti_${format(new Date(), "yyyyMMdd")}.pdf`);
+      toast.success("PDF generato");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Errore generazione PDF");
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   const kpiCards = [
@@ -103,12 +167,17 @@ const ECClientiPage = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">E/C Clienti</h1>
-            <p className="text-sm text-muted-foreground">Estratto conto clienti — Dare / Avere / Saldo</p>
+            <p className="text-sm text-muted-foreground">Estratto conto clienti — Dare / Avere / Saldo con Excel pivot e report PDF</p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportExcel} disabled={!rows.length}>
-          <Download className="mr-2 h-4 w-4" /> Esporta Excel
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={exportExcel} disabled={!rows.length}>
+            <FileSpreadsheet className="mr-2 h-4 w-4 text-green-700" /> Esporta Excel
+          </Button>
+          <Button variant="outline" onClick={exportPdfReport} disabled={!rows.length || exportingPdf}>
+            <FileText className="mr-2 h-4 w-4" /> {exportingPdf ? "PDF..." : "Report PDF"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

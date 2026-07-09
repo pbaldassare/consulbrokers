@@ -1,101 +1,90 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, DollarSign, Download, TrendingUp, Wallet, Percent } from "lucide-react";
+import { ArrowLeft, DollarSign, FileSpreadsheet, FileText, TrendingUp, Wallet, Percent } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
-import { format } from "date-fns";
-import { exportJsonToXlsx } from "@/lib/exportXlsx";
+import { PREMI_PROVVIGIONI_COLUMNS } from "@/lib/premiProvvigioni/columns";
+import { fetchPremiProvvigioni, periodoLabel } from "@/lib/premiProvvigioni/fetch";
+import { exportPremiProvvigioniXlsx } from "@/lib/premiProvvigioni/exportXlsx";
+import { buildPremiProvvigioniPdf, downloadPremiProvvigioniPdf } from "@/lib/premiProvvigioni/exportPdf";
+import { buildPremiProvvigioniCommentary, totaliPremiProvvigioni } from "@/lib/premiProvvigioni/pivot";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+const PREVIEW_COLS = ["nomeCliente", "nomeCompagnia", "polizza", "premio", "attive", "passive", "pagata"] as const;
 
 const PremiProvvigioniPage = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<EstrazioniFiltersState>({ ...defaultFilters });
   const [filtroPagata, setFiltroPagata] = useState<string>("tutte");
+  const [exportingPdf, setExportingPdf] = useState(false);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["premi-provvigioni", filters],
-    queryFn: async () => {
-      let query = supabase
-        .from("provvigioni_generate")
-        .select(`
-          id, percentuale, importo_provvigione, pagata, calcolata_il,
-          titoli!inner(numero_titolo, premio_lordo, importo_incassato, stato, ufficio_id, produttore_id, data_incasso,
-            clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale),
-            prodotti(compagnia_id)),
-          profiles!provvigioni_generate_user_id_fkey(nome, cognome)
-        `)
-        .order("calcolata_il", { ascending: false });
+  const pagataFilter = filtroPagata === "pagate" ? "pagate" : filtroPagata === "non_pagate" ? "non_pagate" : "tutte";
+  const periodo = periodoLabel(filters.dateFrom, filters.dateTo);
 
-      if (filters.dateFrom) query = query.gte("titoli.data_incasso", format(filters.dateFrom, "yyyy-MM-dd"));
-      if (filters.dateTo) query = query.lte("titoli.data_incasso", format(filters.dateTo, "yyyy-MM-dd"));
-      if (filters.ufficio_id) query = query.eq("titoli.ufficio_id", filters.ufficio_id);
-      if (filters.produttore_id) query = query.eq("titoli.produttore_id", filters.produttore_id);
-
-      const { data: provvigioni, error } = await query;
-      if (error) throw error;
-
-      let results = provvigioni || [];
-      if (filters.compagnia_id) {
-        results = results.filter((p: any) => p.titoli?.prodotti?.compagnia_id === filters.compagnia_id);
-      }
-      return results;
-    },
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["premi-provvigioni", filters, pagataFilter],
+    queryFn: () =>
+      fetchPremiProvvigioni({
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        ufficioId: filters.ufficio_id,
+        produttoreId: filters.produttore_id,
+        compagniaId: filters.compagnia_id,
+        pagata: pagataFilter,
+      }),
   });
 
-  const filtered = (data || []).filter((p: any) => {
-    if (filtroPagata === "pagate") return p.pagata;
-    if (filtroPagata === "non_pagate") return !p.pagata;
-    return true;
-  });
-
-  const totPremi = filtered.reduce((s: number, p: any) => s + (Number(p.titoli?.importo_incassato) || 0), 0);
-  const totProvvigioni = filtered.reduce((s: number, p: any) => s + (Number(p.importo_provvigione) || 0), 0);
-  const totPremioLordo = filtered.reduce((s: number, p: any) => s + (Number(p.titoli?.premio_lordo) || 0), 0);
-  const mediaPerc = filtered.length > 0 ? filtered.reduce((s: number, p: any) => s + (Number(p.percentuale) || 0), 0) / filtered.length : 0;
+  const tot = useMemo(() => totaliPremiProvvigioni(rows), [rows]);
+  const commentary = useMemo(() => buildPremiProvvigioniCommentary(rows, periodo), [rows, periodo]);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
-  const getCliente = (t: any) => {
-    const cli = t?.clienti;
-    if (!cli) return "—";
-    return cli.ragione_sociale || `${cli.cognome || ""} ${cli.nome || ""}`.trim();
+  const filtriExport: Record<string, string> = {
+    Periodo: periodo,
+    Sede: filters.ufficio_id || "Tutte",
+    Produttore: filters.produttore_id || "Tutti",
+    Compagnia: filters.compagnia_id || "Tutte",
+    Pagamento: filtroPagata === "tutte" ? "Tutte" : filtroPagata === "pagate" ? "Solo pagate" : "Solo non pagate",
   };
 
-  const exportExcel = () => {
-    exportJsonToXlsx(
-      filtered.map((p: any) => {
-        const t = p.titoli;
-        const prod = p.profiles;
-        return {
-          "N. Polizza": t?.numero_titolo,
-          Cliente: getCliente(t),
-          "Premio Lordo (€)": Number(t?.premio_lordo) || 0,
-          "Incassato (€)": Number(t?.importo_incassato) || 0,
-          "%": Number(p.percentuale) || 0,
-          "Provvigione (€)": Number(p.importo_provvigione) || 0,
-          Produttore: `${prod?.cognome || ""} ${prod?.nome || ""}`.trim(),
-          Pagata: p.pagata ? "Sì" : "No",
-        };
-      }),
-      "Premi Provvigioni",
-      `premi_provvigioni_${format(new Date(), "yyyyMMdd")}.xlsx`,
-    );
+  const handleExportXlsx = () => {
+    if (!rows.length) return;
+    exportPremiProvvigioniXlsx(rows, { periodoLabel: periodo, filtri: filtriExport });
+    toast.success("Excel generato");
   };
+
+  const handleExportPdf = async () => {
+    if (!rows.length) return;
+    try {
+      setExportingPdf(true);
+      const bytes = await buildPremiProvvigioniPdf(rows, periodo);
+      downloadPremiProvvigioniPdf(bytes);
+      toast.success("PDF generato");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Errore generazione PDF");
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  const colHeader = (key: (typeof PREVIEW_COLS)[number]) =>
+    PREMI_PROVVIGIONI_COLUMNS.find((c) => c.key === key)?.header || key;
 
   const kpiCards = [
-    { label: "Totale Premi", value: fmt(totPremioLordo), icon: TrendingUp, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
-    { label: "Totale Incassato", value: fmt(totPremi), icon: Wallet, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
-    { label: "Totale Provvigioni", value: fmt(totProvvigioni), icon: DollarSign, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
-    { label: "% Media Provvigione", value: `${mediaPerc.toFixed(1)}%`, icon: Percent, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
+    { label: "Totale Premi", value: fmt(tot.totPremio), icon: TrendingUp, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
+    { label: "Totale Incassato", value: fmt(tot.totIncassato), icon: Wallet, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
+    { label: "Provv. Passive", value: fmt(tot.totProvvPassive), icon: DollarSign, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
+    { label: "Provv. Attive", value: fmt(tot.totProvvAttive), icon: Percent, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/portafoglio/estrazioni-stampe")}>
             <ArrowLeft className="h-4 w-4" />
@@ -105,12 +94,19 @@ const PremiProvvigioniPage = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Premi e Provvigioni</h1>
-            <p className="text-sm text-muted-foreground">Riepilogo premi e provvigioni per advisor</p>
+            <p className="text-sm text-muted-foreground">
+              Titoli incassati con export Excel (36 colonne + pivot) e report PDF
+            </p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportExcel} disabled={!filtered.length}>
-          <Download className="mr-2 h-4 w-4" /> Esporta Excel
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleExportXlsx} disabled={!rows.length}>
+            <FileSpreadsheet className="mr-2 h-4 w-4 text-green-700" /> Esporta Excel
+          </Button>
+          <Button variant="outline" onClick={handleExportPdf} disabled={!rows.length || exportingPdf}>
+            <FileText className="mr-2 h-4 w-4" /> {exportingPdf ? "PDF..." : "Report PDF"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -144,54 +140,55 @@ const PremiProvvigioniPage = () => {
         </Select>
       </div>
 
-      <div className="border rounded-lg">
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Analisi</p>
+          <p className="text-sm whitespace-pre-line text-foreground/90">{commentary}</p>
+        </CardContent>
+      </Card>
+
+      <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>N. Polizza</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead className="text-right">Premio Lordo</TableHead>
-              <TableHead className="text-right">Incassato</TableHead>
-              <TableHead className="text-right">%</TableHead>
-              <TableHead className="text-right">Provvigione</TableHead>
-              <TableHead>Produttore</TableHead>
-              <TableHead>Stato</TableHead>
+              {PREVIEW_COLS.map((k) => (
+                <TableHead key={k} className={k === "premio" || k === "attive" || k === "passive" ? "text-right" : ""}>
+                  {colHeader(k)}
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessun dato</TableCell></TableRow>
-            ) : filtered.map((p: any) => {
-              const t = p.titoli;
-              const prod = p.profiles;
-              return (
-                <TableRow key={p.id}>
-                  <TableCell className="font-mono text-sm">{t?.numero_titolo}</TableCell>
-                  <TableCell>{getCliente(t)}</TableCell>
-                  <TableCell className="text-right">{fmt(Number(t?.premio_lordo) || 0)}</TableCell>
-                  <TableCell className="text-right">{fmt(Number(t?.importo_incassato) || 0)}</TableCell>
-                  <TableCell className="text-right">{p.percentuale}%</TableCell>
-                  <TableCell className="text-right font-medium">{fmt(Number(p.importo_provvigione) || 0)}</TableCell>
-                  <TableCell>{prod?.cognome} {prod?.nome}</TableCell>
-                  <TableCell>
-                    <Badge variant={p.pagata ? "default" : "secondary"}>
-                      {p.pagata ? "Pagata" : "Da pagare"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun dato per il periodo selezionato</TableCell></TableRow>
+            ) : rows.slice(0, 100).map((r, i) => (
+              <TableRow key={`${r.polizza}-${i}`}>
+                <TableCell className="font-medium">{r.nomeCliente}</TableCell>
+                <TableCell>{r.nomeCompagnia}</TableCell>
+                <TableCell className="font-mono text-sm">{r.polizza}</TableCell>
+                <TableCell className="text-right">{fmt(Number(r.premio))}</TableCell>
+                <TableCell className="text-right">{fmt(Number(r.attive))}</TableCell>
+                <TableCell className="text-right">{fmt(Number(r.passive))}</TableCell>
+                <TableCell>
+                  <Badge variant={r.pagata === "Sì" ? "default" : "secondary"}>
+                    {r.pagata === "Sì" ? "Pagata" : "Da pagare"}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
-          {filtered.length > 0 && (
+          {rows.length > 0 && (
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={3} className="font-bold">Totale</TableCell>
-                <TableCell className="text-right font-bold">{fmt(totPremi)}</TableCell>
+                <TableCell colSpan={3} className="text-xs text-muted-foreground">
+                  {rows.length > 100 ? `Anteprima 100 di ${rows.length} — export completo in Excel` : `${rows.length} righe`}
+                </TableCell>
+                <TableCell className="text-right font-bold">{fmt(tot.totPremio)}</TableCell>
+                <TableCell className="text-right font-bold">{fmt(tot.totProvvAttive)}</TableCell>
+                <TableCell className="text-right font-bold">{fmt(tot.totProvvPassive)}</TableCell>
                 <TableCell />
-                <TableCell className="text-right font-bold">{fmt(totProvvigioni)}</TableCell>
-                <TableCell colSpan={2} />
               </TableRow>
             </TableFooter>
           )}
@@ -200,9 +197,5 @@ const PremiProvvigioniPage = () => {
     </div>
   );
 };
-
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export default PremiProvvigioniPage;

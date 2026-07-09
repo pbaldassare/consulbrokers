@@ -20,11 +20,11 @@ interface ActionCard {
 
 const actions: ActionCard[] = [
   { label: "Titoli da incassare", description: "Estrazione per competenza con Excel pivot e report PDF", icon: Wallet, path: "/portafoglio/estrazioni/titoli-da-incassare" },
-  { label: "Portafoglio per Cliente", description: "Estrazione portafoglio raggruppato per cliente", icon: Users, path: "/portafoglio/estrazioni/per-cliente" },
-  { label: "Portafoglio per Agenzia", description: "Estrazione portafoglio raggruppato per agenzia", icon: Building2, path: "/portafoglio/estrazioni/per-compagnia" },
-  { label: "Premi e Provvigioni", description: "Stampa riepilogo premi e provvigioni", icon: DollarSign, path: "/portafoglio/estrazioni/premi-provvigioni" },
-  { label: "Premi Scoperti e Garantiti", description: "Report premi scoperti e garantiti", icon: ShieldCheck, path: "/portafoglio/estrazioni/premi-scoperti-garantiti" },
-  { label: "E/C Clienti", description: "Estratto conto clienti", icon: FileSpreadsheet, path: "/portafoglio/estrazioni/ec-clienti" },
+  { label: "Portafoglio per Cliente", description: "Portafoglio per cliente con Excel pivot e report PDF", icon: Users, path: "/portafoglio/estrazioni/per-cliente" },
+  { label: "Portafoglio per Agenzia", description: "Portafoglio per agenzia con Excel pivot e report PDF", icon: Building2, path: "/portafoglio/estrazioni/per-compagnia" },
+  { label: "Premi e Provvigioni", description: "Titoli incassati — 36 colonne, pivot e report PDF", icon: DollarSign, path: "/portafoglio/estrazioni/premi-provvigioni" },
+  { label: "Premi Scoperti e Garantiti", description: "Analisi scoperti/garantiti con Excel pivot e PDF", icon: ShieldCheck, path: "/portafoglio/estrazioni/premi-scoperti-garantiti" },
+  { label: "E/C Clienti", description: "Estratto conto clienti con Excel pivot e report PDF", icon: FileSpreadsheet, path: "/portafoglio/estrazioni/ec-clienti" },
   { label: "E/C Agenzie", description: "Estratto conto verso agenzie con anteprima, stampa e archivio", icon: FileText, path: "/contabilita/ec-agenzia" },
   { label: "Storico E/C Agenzie", description: "PDF E/C Agenzie archiviati: ricerca, filtri e anteprima", icon: Archive, path: "/contabilita/ec-agenzia/storico" },
   { label: "Storico E/C Clienti", description: "PDF E/C Clienti archiviati: ricerca per cliente, periodo e download", icon: Archive, path: "/contabilita/ec-cliente/storico" },

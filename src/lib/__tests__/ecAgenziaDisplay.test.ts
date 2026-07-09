@@ -3,6 +3,7 @@ import {
   formatClienteEc,
   resolveImportoVersatoAgenzia,
   resolveTipoPagamentoLabelEcAgenzia,
+  resolveTipoPagamentoMiEcAgenzia,
 } from "@/lib/ecAgenziaDisplay";
 
 describe("ecAgenziaDisplay", () => {
@@ -20,8 +21,17 @@ describe("ecAgenziaDisplay", () => {
     ).toBe(100);
   });
 
-  it("resolveTipoPagamentoLabelEcAgenzia non espone abbuono", () => {
+  it("resolveTipoPagamentoLabelEcAgenzia non espone abbuono né compensazione", () => {
     expect(resolveTipoPagamentoLabelEcAgenzia("abbuono")).toBe("Premio saldato");
+    expect(resolveTipoPagamentoLabelEcAgenzia("compensato")).toBe("Premio saldato");
+    expect(resolveTipoPagamentoLabelEcAgenzia("misto_compensato")).toBe("Premio saldato");
     expect(resolveTipoPagamentoLabelEcAgenzia("bonifico")).toBe("Bonifico");
+  });
+
+  it("resolveTipoPagamentoMiEcAgenzia non espone abbuono", () => {
+    expect(resolveTipoPagamentoMiEcAgenzia("bonifico")).toBe("B");
+    expect(resolveTipoPagamentoMiEcAgenzia("abbuono")).toBe("B");
+    expect(resolveTipoPagamentoMiEcAgenzia("compensato")).toBe("B");
+    expect(resolveTipoPagamentoMiEcAgenzia("contanti")).toBe("C");
   });
 });

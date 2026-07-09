@@ -35,6 +35,7 @@ import {
   resolveImportoVersatoAgenzia,
   resolveTipoPagamentoBadgeVariant,
   resolveTipoPagamentoLabelEcAgenzia,
+  resolveTipoPagamentoMiEcAgenzia,
 } from "@/lib/ecAgenziaDisplay";
 
 const formatIbanMask = (s: string) =>
@@ -898,10 +899,9 @@ Consulbrokers`;
       const mesiIt = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
       const mapMI = (tp?: string | null) => {
         if (!tp) return "B";
-        const v = tp.toLowerCase();
-        if (v === "contanti") return "C";
-        if (v === "bonifico" || v === "abbuono") return "B";
-        if (v === "assegno") return "A";
+        const mapped = resolveTipoPagamentoMiEcAgenzia(tp);
+        if (mapped) return mapped;
+        if (tp.toLowerCase() === "assegno") return "A";
         return "*";
       };
 
@@ -1100,7 +1100,7 @@ Consulbrokers`;
           <FilterSearchableSelect value={filters.ufficio_id} onValueChange={(v) => set({ ufficio_id: v })} options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))} placeholder="Sede" allLabel="Tutte le sedi" className="w-[200px]" />
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo al</Label><DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" /></div>
-          <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }, { value: "abbuono", label: "Abbuono" }, { value: "pagamento_diretto_compagnia", label: "Pag. diretto compagnia" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
+          <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }, { value: "garantito", label: "Garantito" }, { value: "pagamento_diretto_compagnia", label: "Pag. diretto compagnia" }, { value: "anticipo", label: "Acconto" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
           
         </div>
       </div>

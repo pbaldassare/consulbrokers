@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { ArrowLeft, Download, Users, FileText, TrendingUp, Wallet } from "lucide-react";
+import { ArrowLeft, Users, FileText, TrendingUp, Wallet, FileSpreadsheet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
 import { format } from "date-fns";
-import { exportJsonToXlsx } from "@/lib/exportXlsx";
+import { exportEstrazioneWorkbook } from "@/lib/estrazioni/exportXlsx";
+import { buildEstrazionePdf, downloadEstrazionePdf } from "@/lib/estrazioni/exportPdf";
+import { aggregatePivot } from "@/lib/estrazioni/pivot";
+import { periodoLabel } from "@/lib/estrazioni/utils";
+import { toast } from "sonner";
 
 interface ClientePortafoglio {
   cliente_id: string;
@@ -22,6 +26,8 @@ interface ClientePortafoglio {
 const PortafoglioPerClientePage = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<EstrazioniFiltersState>({ ...defaultFilters });
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const periodo = periodoLabel(filters.dateFrom, filters.dateTo);
 
   const { data, isLoading } = useQuery({
     queryKey: ["portafoglio-per-cliente", filters],
@@ -70,18 +76,76 @@ const PortafoglioPerClientePage = () => {
   const totPolizze = rows.reduce((s, c) => s + c.num_polizze, 0);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
+  const pivotTipo = useMemo(
+    () =>
+      aggregatePivot(
+        rows,
+        (c) => (c.tipo_cliente === "azienda" ? "Azienda" : "Privato"),
+        (c) => ({ premio: c.totale_premi, incassato: c.totale_incassato }),
+      ),
+    [rows],
+  );
+
+  const commentary = useMemo(() => {
+    if (!rows.length) return `Nessun dato nel periodo ${periodo}.`;
+    const top = rows[0];
+    return [
+      `Portafoglio per cliente — periodo ${periodo}.`,
+      `${rows.length} clienti, ${totPolizze} polizze, ${fmt(totPremi)} di premi.`,
+      top ? `Cliente principale: ${top.label} (${fmt(top.totale_premi)}).` : "",
+    ].join("\n");
+  }, [rows, periodo, totPolizze, totPremi, fmt]);
+
   const exportExcel = () => {
-    exportJsonToXlsx(
-      rows.map((c) => ({
-        Cliente: c.label,
-        Tipo: c.tipo_cliente,
-        "N. Polizze": c.num_polizze,
-        "Totale Premi (€)": Number(c.totale_premi.toFixed(2)),
-        "Totale Incassato (€)": Number(c.totale_incassato.toFixed(2)),
-      })),
-      "Portafoglio Clienti",
-      `portafoglio_per_cliente_${format(new Date(), "yyyyMMdd")}.xlsx`,
-    );
+    exportEstrazioneWorkbook({
+      title: "Portafoglio per Cliente — Consulnet",
+      subtitle: `Periodo: ${periodo}`,
+      metaRows: [
+        [],
+        ["N. clienti", rows.length],
+        ["N. polizze", totPolizze],
+        ["Totale premi (€)", Number(totPremi.toFixed(2))],
+        ["Totale incassato (€)", Number(totIncassato.toFixed(2))],
+      ],
+      commentary,
+      dettaglio: {
+        name: "Riepilogo Clienti",
+        rows: rows.map((c) => ({
+          Cliente: c.label,
+          Tipo: c.tipo_cliente === "azienda" ? "Azienda" : "Privato",
+          "N. Polizze": c.num_polizze,
+          "Totale Premi (€)": Number(c.totale_premi.toFixed(2)),
+          "Totale Incassato (€)": Number(c.totale_incassato.toFixed(2)),
+        })),
+      },
+      pivots: [{ dimensione: "Tipo Cliente", rows: pivotTipo }],
+      fileName: `portafoglio_per_cliente_${format(new Date(), "yyyyMMdd")}.xlsx`,
+    });
+    toast.success("Excel generato");
+  };
+
+  const exportPdf = async () => {
+    try {
+      setExportingPdf(true);
+      const bytes = await buildEstrazionePdf({
+        title: "Portafoglio per Cliente",
+        subtitle: `Periodo: ${periodo}`,
+        kpis: [
+          { label: "Clienti", value: String(rows.length) },
+          { label: "Polizze", value: String(totPolizze) },
+          { label: "Premi", value: fmt(totPremi) },
+          { label: "Incassato", value: fmt(totIncassato) },
+        ],
+        commentary,
+        pivotTables: [{ title: "Pivot per Tipo Cliente", rows: pivotTipo }],
+      });
+      downloadEstrazionePdf(bytes, `portafoglio_per_cliente_${format(new Date(), "yyyyMMdd")}.pdf`);
+      toast.success("PDF generato");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Errore generazione PDF");
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   const kpiCards = [
@@ -103,12 +167,17 @@ const PortafoglioPerClientePage = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Portafoglio per Cliente</h1>
-            <p className="text-sm text-muted-foreground">Estrazione portafoglio raggruppato per cliente</p>
+            <p className="text-sm text-muted-foreground">Estrazione portafoglio raggruppato per cliente — Excel pivot e PDF</p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportExcel} disabled={!rows.length}>
-          <Download className="mr-2 h-4 w-4" /> Esporta Excel
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={exportExcel} disabled={!rows.length}>
+            <FileSpreadsheet className="mr-2 h-4 w-4 text-green-700" /> Esporta Excel
+          </Button>
+          <Button variant="outline" onClick={exportPdf} disabled={!rows.length || exportingPdf}>
+            <FileText className="mr-2 h-4 w-4" /> {exportingPdf ? "PDF..." : "Report PDF"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

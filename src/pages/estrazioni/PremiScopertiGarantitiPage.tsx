@@ -1,21 +1,27 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, ShieldCheck, ShieldAlert, FileText, TrendingUp } from "lucide-react";
+import { ArrowLeft, ShieldCheck, ShieldAlert, FileText, TrendingUp, FileSpreadsheet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
 import { format } from "date-fns";
-import { exportJsonToXlsx } from "@/lib/exportXlsx";
+import { exportEstrazioneWorkbook } from "@/lib/estrazioni/exportXlsx";
+import { buildEstrazionePdf, downloadEstrazionePdf } from "@/lib/estrazioni/exportPdf";
+import { aggregatePivot } from "@/lib/estrazioni/pivot";
+import { periodoLabel } from "@/lib/estrazioni/utils";
+import { toast } from "sonner";
 
 const PremiScopertiGarantitiPage = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<EstrazioniFiltersState>({ ...defaultFilters });
   const [filtroTipo, setFiltroTipo] = useState<string>("tutti");
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const periodo = periodoLabel(filters.dateFrom, filters.dateTo);
 
   const { data, isLoading } = useQuery({
     queryKey: ["premi-scoperti-garantiti", filters],
@@ -61,19 +67,97 @@ const PremiScopertiGarantitiPage = () => {
   const totScoperti = scoperti.reduce((s: number, t: any) => s + (Number(t.premio_lordo) || 0), 0);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
+  const pivotCompagnia = useMemo(
+    () =>
+      aggregatePivot(
+        filtered,
+        (t: any) => String(t.compagnia),
+        (t: any) => ({
+          premio: Number(t.premio_lordo) || 0,
+          incassato: t.classificazione === "garantito" ? Number(t.importo_incassato) || 0 : 0,
+        }),
+      ),
+    [filtered],
+  );
+
+  const pivotClassificazione = useMemo(
+    () =>
+      aggregatePivot(
+        filtered,
+        (t: any) => (t.classificazione === "garantito" ? "Garantito" : "Scoperto"),
+        (t: any) => ({
+          premio: Number(t.premio_lordo) || 0,
+          incassato: Number(t.importo_incassato) || 0,
+        }),
+      ),
+    [filtered],
+  );
+
+  const commentary = useMemo(() => {
+    if (!filtered.length) return `Nessun dato nel periodo ${periodo}.`;
+    return [
+      `Premi scoperti e garantiti — periodo ${periodo}.`,
+      `${garantiti.length} garantiti (${fmt(totGarantiti)}), ${scoperti.length} scoperti (${fmt(totScoperti)}).`,
+    ].join("\n");
+  }, [filtered, periodo, garantiti.length, scoperti.length, totGarantiti, totScoperti, fmt]);
+
   const exportExcel = () => {
-    exportJsonToXlsx(
-      filtered.map((t: any) => ({
-        "N. Polizza": t.numero_titolo,
-        Cliente: t.cliente,
-        Agenzia: t.compagnia,
-        "Premio Lordo (€)": Number(t.premio_lordo) || 0,
-        Stato: t.stato,
-        Classificazione: t.classificazione,
-      })),
-      "Scoperti Garantiti",
-      `premi_scoperti_garantiti_${format(new Date(), "yyyyMMdd")}.xlsx`,
-    );
+    exportEstrazioneWorkbook({
+      title: "Premi Scoperti e Garantiti — Consulnet",
+      subtitle: `Periodo: ${periodo}`,
+      metaRows: [
+        [],
+        ["N. garantiti", garantiti.length],
+        ["N. scoperti", scoperti.length],
+        ["Totale garantito (€)", Number(totGarantiti.toFixed(2))],
+        ["Totale scoperto (€)", Number(totScoperti.toFixed(2))],
+      ],
+      commentary,
+      dettaglio: {
+        name: "Dettaglio",
+        rows: filtered.map((t: any) => ({
+          "N. Polizza": t.numero_titolo,
+          Cliente: t.cliente,
+          Agenzia: t.compagnia,
+          "Premio Lordo (€)": Number(t.premio_lordo) || 0,
+          Stato: t.stato,
+          Classificazione: t.classificazione,
+        })),
+      },
+      pivots: [
+        { dimensione: "Compagnia", rows: pivotCompagnia },
+        { dimensione: "Classificazione", rows: pivotClassificazione },
+      ],
+      fileName: `premi_scoperti_garantiti_${format(new Date(), "yyyyMMdd")}.xlsx`,
+    });
+    toast.success("Excel generato");
+  };
+
+  const exportPdf = async () => {
+    try {
+      setExportingPdf(true);
+      const bytes = await buildEstrazionePdf({
+        title: "Premi Scoperti e Garantiti",
+        subtitle: `Periodo: ${periodo}`,
+        kpis: [
+          { label: "Garantiti", value: String(garantiti.length) },
+          { label: "Scoperti", value: String(scoperti.length) },
+          { label: "Tot. garantito", value: fmt(totGarantiti) },
+          { label: "Tot. scoperto", value: fmt(totScoperti) },
+        ],
+        commentary,
+        pivotTables: [
+          { title: "Pivot per Compagnia", rows: pivotCompagnia },
+          { title: "Pivot per Classificazione", rows: pivotClassificazione },
+        ],
+      });
+      downloadEstrazionePdf(bytes, `premi_scoperti_garantiti_${format(new Date(), "yyyyMMdd")}.pdf`);
+      toast.success("PDF generato");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Errore generazione PDF");
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   const kpiCards = [
@@ -95,12 +179,17 @@ const PremiScopertiGarantitiPage = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Premi Scoperti e Garantiti</h1>
-            <p className="text-sm text-muted-foreground">Analisi premi in base allo stato di incasso</p>
+            <p className="text-sm text-muted-foreground">Analisi premi in base allo stato di incasso — Excel pivot e PDF</p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportExcel} disabled={!filtered.length}>
-          <Download className="mr-2 h-4 w-4" /> Esporta Excel
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={exportExcel} disabled={!filtered.length}>
+            <FileSpreadsheet className="mr-2 h-4 w-4 text-green-700" /> Esporta Excel
+          </Button>
+          <Button variant="outline" onClick={exportPdf} disabled={!filtered.length || exportingPdf}>
+            <FileText className="mr-2 h-4 w-4" /> {exportingPdf ? "PDF..." : "Report PDF"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
