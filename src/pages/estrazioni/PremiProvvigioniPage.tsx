@@ -9,6 +9,12 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
 import { PREMI_PROVVIGIONI_COLUMNS } from "@/lib/premiProvvigioni/columns";
+import {
+  labelPremiProvvigioniCriterioData,
+  periodoConCriterioLabel,
+  PREMI_PROVVIGIONI_CRITERIO_DATA,
+  type PremiProvvigioniCriterioData,
+} from "@/lib/premiProvvigioni/criterioData";
 import { fetchPremiProvvigioni, periodoLabel } from "@/lib/premiProvvigioni/fetch";
 import { exportPremiProvvigioniXlsx } from "@/lib/premiProvvigioni/exportXlsx";
 import { buildPremiProvvigioniPdf, downloadPremiProvvigioniPdf } from "@/lib/premiProvvigioni/exportPdf";
@@ -21,14 +27,17 @@ const PREVIEW_COLS = ["nomeCliente", "nomeCompagnia", "polizza", "premio", "atti
 const PremiProvvigioniPage = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<EstrazioniFiltersState>({ ...defaultFilters });
+  const [criterioData, setCriterioData] = useState<PremiProvvigioniCriterioData>("cassa");
   const [filtroPagata, setFiltroPagata] = useState<string>("tutte");
   const [exportingPdf, setExportingPdf] = useState(false);
 
   const pagataFilter = filtroPagata === "pagate" ? "pagate" : filtroPagata === "non_pagate" ? "non_pagate" : "tutte";
   const periodo = periodoLabel(filters.dateFrom, filters.dateTo);
+  const criterioLabel = labelPremiProvvigioniCriterioData(criterioData);
+  const periodoDisplay = periodoConCriterioLabel(periodo, criterioData);
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["premi-provvigioni", filters, pagataFilter],
+    queryKey: ["premi-provvigioni", filters, pagataFilter, criterioData],
     queryFn: () =>
       fetchPremiProvvigioni({
         dateFrom: filters.dateFrom,
@@ -37,24 +46,29 @@ const PremiProvvigioniPage = () => {
         produttoreId: filters.produttore_id,
         compagniaId: filters.compagnia_id,
         pagata: pagataFilter,
+        criterioData,
       }),
   });
 
   const tot = useMemo(() => totaliPremiProvvigioni(rows), [rows]);
-  const commentary = useMemo(() => buildPremiProvvigioniCommentary(rows, periodo), [rows, periodo]);
+  const commentary = useMemo(
+    () => buildPremiProvvigioniCommentary(rows, periodo, criterioLabel),
+    [rows, periodo, criterioLabel],
+  );
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
   const filtriExport: Record<string, string> = {
-    Periodo: periodo,
+    Periodo: periodoDisplay,
+    "Criterio data": criterioLabel,
     Sede: filters.ufficio_id || "Tutte",
     Produttore: filters.produttore_id || "Tutti",
     Compagnia: filters.compagnia_id || "Tutte",
-    Pagamento: filtroPagata === "tutte" ? "Tutte" : filtroPagata === "pagate" ? "Solo pagate" : "Solo non pagate",
+    "Provv. produttore": filtroPagata === "tutte" ? "Tutte" : filtroPagata === "pagate" ? "Solo incassate" : "Solo non incassate",
   };
 
   const handleExportXlsx = () => {
     if (!rows.length) return;
-    exportPremiProvvigioniXlsx(rows, { periodoLabel: periodo, filtri: filtriExport });
+    exportPremiProvvigioniXlsx(rows, { periodoLabel: periodoDisplay, periodoBase: periodo, filtri: filtriExport, criterioLabel });
     toast.success("Excel generato");
   };
 
@@ -62,7 +76,7 @@ const PremiProvvigioniPage = () => {
     if (!rows.length) return;
     try {
       setExportingPdf(true);
-      const bytes = await buildPremiProvvigioniPdf(rows, periodo);
+      const bytes = await buildPremiProvvigioniPdf(rows, periodoDisplay, criterioLabel, periodo);
       downloadPremiProvvigioniPdf(bytes);
       toast.success("PDF generato");
     } catch (e: unknown) {
@@ -127,15 +141,34 @@ const PremiProvvigioniPage = () => {
 
       <EstrazioniFilters filters={filters} onChange={setFilters} showUfficio showProduttore showCompagnia />
 
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={criterioData} onValueChange={(v) => setCriterioData(v as PremiProvvigioniCriterioData)}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Criterio data" />
+          </SelectTrigger>
+          <SelectContent>
+            {PREMI_PROVVIGIONI_CRITERIO_DATA.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Il periodo sopra si applica a: <span className="font-medium text-foreground">{criterioLabel}</span>
+          {" "}(solo titoli già incassati)
+        </p>
+      </div>
+
       <div className="flex items-center gap-3">
         <Select value={filtroPagata} onValueChange={setFiltroPagata}>
           <SelectTrigger className="w-48">
-            <SelectValue placeholder="Stato pagamento" />
+            <SelectValue placeholder="Provv. incassate" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="tutte">Tutte</SelectItem>
-            <SelectItem value="pagate">Solo pagate</SelectItem>
-            <SelectItem value="non_pagate">Solo non pagate</SelectItem>
+            <SelectItem value="pagate">Solo incassate</SelectItem>
+            <SelectItem value="non_pagate">Solo non incassate</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -172,8 +205,8 @@ const PremiProvvigioniPage = () => {
                 <TableCell className="text-right">{fmt(Number(r.attive))}</TableCell>
                 <TableCell className="text-right">{fmt(Number(r.passive))}</TableCell>
                 <TableCell>
-                  <Badge variant={r.pagata === "Sì" ? "default" : "secondary"}>
-                    {r.pagata === "Sì" ? "Pagata" : "Da pagare"}
+                  <Badge variant={r.pagata === "Incassata" ? "default" : "secondary"}>
+                    {r.pagata === "Incassata" ? "Incassata" : "Non incassata"}
                   </Badge>
                 </TableCell>
               </TableRow>

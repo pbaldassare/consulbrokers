@@ -111,6 +111,6 @@ export function mapPremiProvvigioniRow(t: PremiProvvigioniRaw): PremiProvvigioni
     dipendenti: t.num_dipendenti ?? "",
     incassato: Number(t.importo_incassato) || 0,
     percProvv: t.perc_provv ?? "",
-    pagata: t.provv_pagata ? "Sì" : "No",
+    pagata: t.provv_pagata ? "Incassata" : "Non incassata",
   };
 }

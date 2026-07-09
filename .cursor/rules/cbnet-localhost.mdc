@@ -1,0 +1,20 @@
+---
+description: URL dev locale CBnet/Consulnet — porta dedicata per evitare conflitti con altri progetti
+alwaysApply: true
+---
+
+# CBnet — dev server locale
+
+**Questo workspace è Consulnet/CBnet.** Non usare `localhost:8080` (spesso occupata da altri progetti, es. Ielts Test).
+
+| Uso | URL |
+|---|---|
+| App (login) | **http://localhost:8082/login** |
+| Root | http://localhost:8082/ |
+| E/C Agenzie | http://localhost:8082/contabilita/ec-agenzia |
+
+**Avvio:** dalla root del repo `bun run dev` (porta **8082**, `strictPort: true`).
+
+**Produzione:** https://cbnet.it · **Preview Lovable:** https://id-preview--a3b1457e-dbbe-41da-866b-8411e8cba913.lovable.app
+
+Quando l'utente chiede di aprire CBnet in locale, usare sempre **http://localhost:8082**.

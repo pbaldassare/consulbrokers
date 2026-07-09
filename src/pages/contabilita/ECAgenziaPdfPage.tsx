@@ -13,17 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { calcolaRitenutaAcconto, resolvePercentualeRA } from "@/lib/resolvePercentualeRA";
-import { resolveCompagniaCollegataNome } from "@/lib/ecAgenziaDisplay";
-
-const mapTipoToMI = (tp?: string | null): string => {
-  if (!tp) return "B";
-  const v = tp.toLowerCase();
-  if (v === "contanti") return "C";
-  if (v === "bonifico") return "B";
-  if (v === "assegno") return "A";
-  if (v === "pos" || v === "carta_credito") return "B";
-  return "*";
-};
+import { resolveCompagniaCollegataNome, resolveMiCodiceEcAgenzia } from "@/lib/ecAgenziaDisplay";
 
 const mesiIt = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 
@@ -206,7 +196,7 @@ const ECAgenziaPdfPage = () => {
         // riga resta visibile con la sola provvigione.
         premio: t.pag_diretto_compagnia ? 0 : Number(t.premio_lordo) || 0,
         provvigioni: provv,
-        mi: mapTipoToMI(t.tipo_pagamento),
+        mi: resolveMiCodiceEcAgenzia(t.tipo_pagamento),
       };
     });
     const totalePremio = rows.reduce((s, r) => s + r.premio, 0);

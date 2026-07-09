@@ -198,7 +198,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
     enabled: !!effettivoPagatoreId && open,
     queryFn: async () => {
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
-        .select("id, data_anticipo, importo, importo_residuo, conto:conti_bancari(etichetta)")
+        .select("id, data_anticipo, importo, importo_residuo, conto_bancario_id, conto:conti_bancari(etichetta)")
         .eq("cliente_id", effettivoPagatoreId)
         .gt("importo_residuo", 0)
         .order("data_anticipo", { ascending: true });
@@ -798,6 +798,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
     setLoading(true);
 
     const anticipiOrdered = Object.entries(anticipiSel).filter(([, v]) => v > 0).map(([id, v]) => ({ id, residuo: v }));
+    const anticipiById = new Map((anticipi as any[]).map((a) => [a.id as string, a]));
     const { data: userResp } = await supabase.auth.getUser();
     const userId = userResp.user?.id ?? null;
 
@@ -880,12 +881,16 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       const tr = trattenutaByTitolo.get(t.id);
       const haCompensazioni = compForThis.length > 0;
       const tipoPagamentoPrincipale = bankIncasso ? "bonifico" : form.tipoPagamento;
+      const anticipiDaContoBancario =
+        utilizziPerTitolo.length > 0 &&
+        utilizziPerTitolo.every((u) => !!anticipiById.get(u.anticipo_id)?.conto_bancario_id);
       const tipoPag = resolveTipoPagamentoTitoloIncasso({
         dovuto: dovutoT,
         usatoAnticipi: usatoTitolo,
         residuoCash,
         haCompensazioni,
         tipoPagamentoPrincipale,
+        anticipiDaContoBancario,
       });
 
       let bancaLabel: string | null = null;

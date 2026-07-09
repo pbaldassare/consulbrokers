@@ -36,28 +36,33 @@ export function totaliPremiProvvigioni(rows: PremiProvvigioniRow[]) {
       totIncassato: acc.totIncassato + (Number(r.incassato) || 0),
       totProvvAttive: acc.totProvvAttive + (Number(r.attive) || 0),
       totProvvPassive: acc.totProvvPassive + (Number(r.passive) || 0),
-      nPagate: acc.nPagate + (r.pagata === "Sì" ? 1 : 0),
+      nIncassate: acc.nIncassate + (r.pagata === "Incassata" ? 1 : 0),
     }),
-    { nRighe: 0, totPremio: 0, totIncassato: 0, totProvvAttive: 0, totProvvPassive: 0, nPagate: 0 },
+    { nRighe: 0, totPremio: 0, totIncassato: 0, totProvvAttive: 0, totProvvPassive: 0, nIncassate: 0 },
   );
 }
 
-export function buildPremiProvvigioniCommentary(rows: PremiProvvigioniRow[], periodo: string): string {
+export function buildPremiProvvigioniCommentary(
+  rows: PremiProvvigioniRow[],
+  periodo: string,
+  criterioLabel?: string,
+): string {
   const tot = totaliPremiProvvigioni(rows);
   if (tot.nRighe === 0) {
-    return `Nessun titolo incassato nel periodo ${periodo}.`;
+    const suff = criterioLabel ? ` (criterio: ${criterioLabel})` : "";
+    return `Nessun titolo incassato nel periodo ${periodo}${suff}.`;
   }
 
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
   const topComp = pivotPremiPerCompagnia(rows)[0];
   const topProd = pivotPremiPerProduttore(rows)[0];
-  const pctPagate = ((tot.nPagate / tot.nRighe) * 100).toFixed(1);
+  const pctIncassate = ((tot.nIncassate / tot.nRighe) * 100).toFixed(1);
 
   const lines = [
-    `Estrazione premi e provvigioni — periodo ${periodo}.`,
+    `Estrazione premi e provvigioni — periodo ${periodo}${criterioLabel ? ` · criterio ${criterioLabel}` : ""}.`,
     `${tot.nRighe} titoli incassati per ${fmt(tot.totPremio)} di premio lordo (${fmt(tot.totIncassato)} incassato).`,
     `Provvigioni attive ${fmt(tot.totProvvAttive)}, passive ${fmt(tot.totProvvPassive)}.`,
-    `Provvigioni produttore pagate su ${tot.nPagate} titoli (${pctPagate}%).`,
+    `Provvigioni produttore incassate su ${tot.nIncassate} titoli (${pctIncassate}%).`,
   ];
 
   if (topComp) {

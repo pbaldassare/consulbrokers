@@ -3,6 +3,7 @@ import {
   formatClienteEc,
   resolveCompagniaCollegataNome,
   resolveImportoVersatoAgenzia,
+  resolveMiCodiceEcAgenzia,
   resolveTipoPagamentoLabelEcAgenzia,
   resolveTipoPagamentoMiEcAgenzia,
 } from "@/lib/ecAgenziaDisplay";
@@ -29,6 +30,12 @@ describe("ecAgenziaDisplay", () => {
     expect(resolveTipoPagamentoLabelEcAgenzia("bonifico")).toBe("Bonifico");
   });
 
+  it("resolveMiCodiceEcAgenzia mappa acconti bancari a B", () => {
+    expect(resolveMiCodiceEcAgenzia("anticipo")).toBe("B");
+    expect(resolveMiCodiceEcAgenzia(null)).toBe("B");
+    expect(resolveMiCodiceEcAgenzia("pagamento_diretto_compagnia")).toBe("*");
+  });
+
   it("resolveCompagniaCollegataNome legge gruppo compagnia", () => {
     expect(resolveCompagniaCollegataNome({ gruppi_compagnia: { descrizione: "AIG" } })).toBe("AIG");
     expect(resolveCompagniaCollegataNome({ gruppo_compagnia: "ALLIANZ" })).toBe("ALLIANZ");
@@ -40,5 +47,8 @@ describe("ecAgenziaDisplay", () => {
     expect(resolveTipoPagamentoMiEcAgenzia("abbuono")).toBe("B");
     expect(resolveTipoPagamentoMiEcAgenzia("compensato")).toBe("B");
     expect(resolveTipoPagamentoMiEcAgenzia("contanti")).toBe("C");
+    expect(resolveTipoPagamentoMiEcAgenzia("anticipo")).toBe("B");
+    expect(resolveTipoPagamentoMiEcAgenzia("anticipo_misto")).toBe("B");
+    expect(resolveTipoPagamentoMiEcAgenzia("assegno")).toBe("A");
   });
 });

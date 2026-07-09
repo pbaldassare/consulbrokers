@@ -37,7 +37,7 @@ export const PREMI_PROVVIGIONI_COLUMNS = [
   { key: "dipendenti", header: "Dipendenti" },
   { key: "incassato", header: "Incassato" },
   { key: "percProvv", header: "% Provv." },
-  { key: "pagata", header: "Provv. Pagata" },
+  { key: "pagata", header: "Provv. Incassata" },
 ] as const;
 
 export type PremiProvvigioniRow = Record<(typeof PREMI_PROVVIGIONI_COLUMNS)[number]["key"], string | number | null>;

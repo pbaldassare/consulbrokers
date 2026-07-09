@@ -11,6 +11,8 @@ import {
 export async function buildPremiProvvigioniPdf(
   rows: PremiProvvigioniRow[],
   periodoLabel: string,
+  criterioLabel?: string,
+  periodoBase?: string,
 ): Promise<Uint8Array> {
   const tot = totaliPremiProvvigioni(rows);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
@@ -24,7 +26,7 @@ export async function buildPremiProvvigioniPdf(
       { label: "Incassato", value: fmt(tot.totIncassato) },
       { label: "Provv. passive", value: fmt(tot.totProvvPassive) },
     ],
-    commentary: buildPremiProvvigioniCommentary(rows, periodoLabel),
+    commentary: buildPremiProvvigioniCommentary(rows, periodoBase ?? periodoLabel, criterioLabel),
     pivotTables: [
       { title: "Pivot per Compagnia", rows: pivotPremiPerCompagnia(rows) },
       { title: "Pivot per Produttore", rows: pivotPremiPerProduttore(rows) },

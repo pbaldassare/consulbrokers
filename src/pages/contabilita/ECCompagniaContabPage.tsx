@@ -36,7 +36,7 @@ import {
   resolveCompagniaCollegataNome,
   resolveTipoPagamentoBadgeVariant,
   resolveTipoPagamentoLabelEcAgenzia,
-  resolveTipoPagamentoMiEcAgenzia,
+  resolveMiCodiceEcAgenzia,
 } from "@/lib/ecAgenziaDisplay";
 
 const formatIbanMask = (s: string) =>
@@ -920,13 +920,6 @@ Consulbrokers`;
       const today = format(new Date(), "dd/MM/yyyy");
       const todayRef = format(new Date(), "yyMMdd");
       const mesiIt = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
-      const mapMI = (tp?: string | null) => {
-        if (!tp) return "B";
-        const mapped = resolveTipoPagamentoMiEcAgenzia(tp);
-        if (mapped) return mapped;
-        if (tp.toLowerCase() === "assegno") return "A";
-        return "*";
-      };
 
       for (const r of exportRows) {
         const comp = (compagnieFull || []).find((c: any) => c.id === r.compagnia_id);
@@ -961,7 +954,7 @@ Consulbrokers`;
             tp: "AM",
             premio: t.pag_diretto_compagnia ? 0 : Number(t.premio_lordo) || 0,
             provvigioni: provv,
-            mi: mapMI(t.tipo_pagamento),
+            mi: resolveMiCodiceEcAgenzia(t.tipo_pagamento),
           };
         });
 

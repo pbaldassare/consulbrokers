@@ -23,7 +23,9 @@ function rowsToSheet(rows: PremiProvvigioniRow[]) {
 
 export interface ExportPremiProvvigioniOpts {
   periodoLabel: string;
+  periodoBase?: string;
   filtri?: Record<string, string>;
+  criterioLabel?: string;
 }
 
 export function exportPremiProvvigioniXlsx(rows: PremiProvvigioniRow[], opts: ExportPremiProvvigioniOpts) {
@@ -39,10 +41,11 @@ export function exportPremiProvvigioniXlsx(rows: PremiProvvigioniRow[], opts: Ex
       ["Totale incassato (€)", Number(tot.totIncassato.toFixed(2))],
       ["Provv. attive (€)", Number(tot.totProvvAttive.toFixed(2))],
       ["Provv. passive (€)", Number(tot.totProvvPassive.toFixed(2))],
-      ["Provv. pagate", tot.nPagate],
+      ["Provv. incassate", tot.nIncassate],
+      ...(opts.criterioLabel ? [["Criterio data", opts.criterioLabel] as [string, string | number]] : []),
     ],
     filtri: opts.filtri,
-    commentary: buildPremiProvvigioniCommentary(rows, opts.periodoLabel),
+    commentary: buildPremiProvvigioniCommentary(rows, opts.periodoBase ?? opts.periodoLabel, opts.criterioLabel),
     dettaglio: { name: "Dettaglio", rows: rowsToSheet(rows) },
     pivots: [
       { dimensione: "Compagnia", rows: pivotPremiPerCompagnia(rows) },
