@@ -48,6 +48,7 @@ interface Filters {
   periodo_dal: Date | null;
   periodo_al: Date | null;
   tipo_pagamento: string | null;
+  stato_incasso: "incassate" | "non_incassate" | null;
 }
 
 interface TitoloDetail {
@@ -101,6 +102,7 @@ function createDefaultEcFilters(isAgenzia: boolean): Filters {
     periodo_dal: null,
     periodo_al: isAgenzia ? endOfMonth(new Date()) : null,
     tipo_pagamento: null,
+    stato_incasso: null,
   };
 }
 
@@ -302,7 +304,13 @@ Consulbrokers`;
         incassateBase.push(`data_messa_cassa.lte.${al}`);
         coperturaBase.push(`data_copertura.lte.${al}`);
       }
-      query = query.or(`and(${incassateBase.join(",")}),and(${coperturaBase.join(",")})`);
+      if (filters.stato_incasso === "incassate") {
+        query = query.or(`and(${incassateBase.join(",")})`);
+      } else if (filters.stato_incasso === "non_incassate") {
+        query = query.or(`and(${coperturaBase.join(",")})`);
+      } else {
+        query = query.or(`and(${incassateBase.join(",")}),and(${coperturaBase.join(",")})`);
+      }
 
       if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
 
@@ -391,6 +399,8 @@ Consulbrokers`;
         if (rimessiSet.has(t.id)) continue;
 
         if (filters.tipo_pagamento && t.tipo_pagamento !== filters.tipo_pagamento) continue;
+        if (filters.stato_incasso === "incassate" && t.stato !== "incassato") continue;
+        if (filters.stato_incasso === "non_incassate" && !isInCoperturaGarantita(t)) continue;
         const dataEff = t.data_messa_cassa || t.data_copertura;
 
         // Pagamento diretto compagnia: il premio è stato pagato dal cliente
@@ -701,7 +711,8 @@ Consulbrokers`;
       filters.ufficio_id ||
       filters.periodo_dal ||
       (filters.periodo_al && !isDefaultPeriodoAl(filters.periodo_al, isAgenzia)) ||
-      filters.tipo_pagamento,
+      filters.tipo_pagamento ||
+      filters.stato_incasso,
   );
 
   const formatDateRange = (min: string | null, max: string | null) => {
@@ -1114,7 +1125,17 @@ Consulbrokers`;
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo al</Label><DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" /></div>
           <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }, { value: "garantito", label: "Garantito" }, { value: "pagamento_diretto_compagnia", label: "Pag. diretto compagnia" }, { value: "anticipo", label: "Acconto" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
-          
+          <FilterSearchableSelect
+            value={filters.stato_incasso}
+            onValueChange={(v) => set({ stato_incasso: (v as Filters["stato_incasso"]) || null })}
+            options={[
+              { value: "incassate", label: "Solo incassate" },
+              { value: "non_incassate", label: "Solo non incassate" },
+            ]}
+            placeholder="Stato incasso"
+            allLabel="Tutte (incassate + garantite)"
+            className="w-[220px]"
+          />
         </div>
       </div>
 
