@@ -11420,6 +11420,10 @@ export type Database = {
           tipo_cliente: string
         }[]
       }
+      fn_backfill_madre_incassata_crea_rata1: {
+        Args: { p_madre_id: string }
+        Returns: string
+      }
       fn_collega_quietanza_appendice: {
         Args: { p_titolo_id: string }
         Returns: string
