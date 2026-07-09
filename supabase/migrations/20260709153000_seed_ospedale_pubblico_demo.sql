@@ -177,6 +177,7 @@ BEGIN
     stato, tipo_sinistro, ramo_sinistro, descrizione, dinamica,
     data_evento, data_apertura, data_denuncia,
     luogo_sinistro, citta_sinistro, provincia_sinistro, cap_sinistro,
+    reparto,
     controparte, importo_riserva, importo_liquidato, costo_preventivato,
     numero_sinistro_compagnia, note_perito, data_chiusura
   ) VALUES
@@ -186,6 +187,7 @@ BEGIN
       'Paziente ricoverato per intervento programmato — contestazione esito e danno biologico.',
       '2025-05-18', '2025-05-20', '2025-05-22',
       'Blocco Operatorio 3 — Padiglione Chirurgia', 'Milano', 'MI', '20122',
+      'Chirurgia',
       'Sig.ra Anna Verdi', 85000, 0, 95000, 'GEN-2025-OS-0101', '[DEMO] Perizia medico-legale in corso', NULL),
     ('SIN-OS-2025-002', v_cliente, v_ufficio, v_generali, v_t3,
       'chiuso', 'Infortunio', 'Infortuni',
@@ -193,6 +195,7 @@ BEGIN
       'Lesione lombare durante sollevamento assistito — prognosi 21 giorni.',
       '2025-03-10', '2025-03-11', '2025-03-12',
       'Reparto Ortopedia — Piano 4', 'Milano', 'MI', '20122',
+      'Ortopedia',
       NULL, 0, 2800, 3200, 'GEN-2025-OS-0202', '[DEMO] Liquidato', '2025-06-15'),
     ('SIN-OS-2025-003', v_cliente, v_ufficio, v_allianz, v_t4,
       'in_lavorazione', 'Furto', 'Property',
@@ -200,6 +203,7 @@ BEGIN
       'Sottrazione ecografo portatile e accessori — effrazione notturna.',
       '2025-07-02', '2025-07-03', '2025-07-04',
       'Deposito Tecnico — Via Lamarmora', 'Milano', 'MI', '20122',
+      'Servizi Tecnici',
       'Ignoti', 0, 0, 18500, 'AZ-2025-OS-0303', '[DEMO] Denuncia Polizia, perito assegnato', NULL),
     ('SIN-OS-2025-004', v_cliente, v_ufficio, v_nobis, v_t2,
       'aperto', 'RC Terzi', 'RCT/O',
@@ -207,6 +211,7 @@ BEGIN
       'Paziente scivola su pavimento bagnato — contusioni multiple.',
       '2025-08-14', '2025-08-15', '2025-08-16',
       'Day Hospital — Padiglione A', 'Milano', 'MI', '20122',
+      'Day Hospital',
       'Sig. Paolo Neri', 0, 0, 12000, 'NB-2025-OS-0404', '[DEMO] Attesa referti clinici', NULL),
     ('SIN-OS-2025-005', v_cliente, v_ufficio, v_lloyds, v_t5,
       'chiuso', 'Cyber', 'Cyber',
@@ -214,6 +219,7 @@ BEGIN
       'Compromissione credenziali utente — accesso a 47 cartelle, nessun dato esfiltrato confermato.',
       '2025-02-05', '2025-02-06', '2025-02-07',
       'Data Center Ospedaliero', 'Milano', 'MI', '20122',
+      'IT / Sistemi Informativi',
       'Ignoti', 0, 8500, 10000, 'LL-2025-OS-0505', '[DEMO] Indennizzo spese ripristino e notifica Garante', '2025-04-20'),
     ('SIN-OS-2026-006', v_cliente, v_ufficio, v_allianz, v_t6,
       'aperto', 'Sinistro Stradale', 'RC Auto',
@@ -221,6 +227,7 @@ BEGIN
       'Veicolo terzo tampona ambulanza ferma al semaforo — danni materiali, nessun paziente ferito.',
       '2026-04-18', '2026-04-19', '2026-04-19',
       'Corso di Porta Romana / Via Ripamonti', 'Milano', 'MI', '20122',
+      'Trasporto Sanitario',
       'Sig. Marco Bianchi — VW Golf AB456CD', 0, 0, 9800, 'AZ-2026-OS-0606', '[DEMO] Constatazione amichevole', NULL);
 
   -- Documenti demo (metadata — PDF caricati da edge function o placeholder path)

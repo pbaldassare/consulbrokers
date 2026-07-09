@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon, Check, FileDown } from "lucide-react";
+import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon, Check, FileDown, Building2 } from "lucide-react";
 
 // MultiSelect filter: array of values, "all" when empty
 function MultiSelectFilter({ label, values, options, onChange, formatOption }: {
@@ -82,6 +82,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import InfoHint from "@/components/cliente/InfoHint";
 import SinistriMap from "@/components/cliente/SinistriMap";
+import SinistriPerRepartoChart from "@/components/cliente/SinistriPerRepartoChart";
+import { isClienteSanitario, resolveReparto } from "@/lib/sinistriReparto";
 
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
 const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
@@ -102,6 +104,7 @@ export default function ClienteSinistri() {
   const { user, profile } = useAuth();
   const chartRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
+  const repartoChartRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [openNuovo, setOpenNuovo] = useState(false);
 
@@ -112,6 +115,7 @@ export default function ClienteSinistri() {
   const [fCompagnie, setFCompagnie] = useState<string[]>([]);
   const [fPolizze, setFPolizze] = useState<string[]>([]);
   const [fCitta, setFCitta] = useState<string[]>([]);
+  const [fReparti, setFReparti] = useState<string[]>([]);
   const [fDataDa, setFDataDa] = useState<Date | undefined>();
   const [fDataA, setFDataA] = useState<Date | undefined>();
 
@@ -128,7 +132,7 @@ export default function ClienteSinistri() {
       const id = typeof clienteIds[0] === "string" ? clienteIds[0] : (clienteIds[0] as any)?.id;
       const { data, error } = await supabase
         .from("clienti")
-        .select("tipo_cliente, ragione_sociale, nome, cognome, partita_iva, codice_fiscale, codice_fiscale_azienda, indirizzo_sede, cap_sede, citta_sede, provincia_sede, indirizzo_residenza, cap_residenza, citta_residenza, provincia_residenza, email, pec, telefono")
+        .select("tipo_cliente, ragione_sociale, nome, cognome, partita_iva, codice_fiscale, codice_fiscale_azienda, indirizzo_sede, cap_sede, citta_sede, provincia_sede, indirizzo_residenza, cap_residenza, citta_residenza, provincia_residenza, email, pec, telefono, spec_sx_sanita, settore, codice_ricerca, azienda_ssn_sx")
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
@@ -138,6 +142,7 @@ export default function ClienteSinistri() {
   });
 
   const isEnte = cliente?.tipo_cliente === "ente";
+  const isSanitario = isClienteSanitario(cliente);
 
   const { data: sinistri = [], refetch } = useQuery({
     queryKey: ["cliente-sinistri", user?.id],
@@ -163,6 +168,7 @@ export default function ClienteSinistri() {
   const optCompagnie = distinct((s) => s.compagnie?.nome);
   const optPolizze = distinct((s) => s.titoli?.numero_titolo);
   const optCitta = distinct((s) => s.citta_sinistro);
+  const optReparti = Array.from(new Set(sinistri.map((s: any) => resolveReparto(s)).filter((r) => r !== "Non specificato"))).sort((a, b) => a.localeCompare(b, "it"));
 
   const filteredSinistri = useMemo(() => {
     const q = fSearch.trim().toLowerCase();
@@ -172,6 +178,7 @@ export default function ClienteSinistri() {
       if (fCompagnie.length && !fCompagnie.includes(s.compagnie?.nome)) return false;
       if (fPolizze.length && !fPolizze.includes(s.titoli?.numero_titolo)) return false;
       if (fCitta.length && !fCitta.includes(s.citta_sinistro)) return false;
+      if (fReparti.length && !fReparti.includes(resolveReparto(s))) return false;
       if (fDataDa && (!s.data_evento || new Date(s.data_evento) < fDataDa)) return false;
       if (fDataA && (!s.data_evento || new Date(s.data_evento) > fDataA)) return false;
       if (q) {
@@ -181,11 +188,11 @@ export default function ClienteSinistri() {
       }
       return true;
     });
-  }, [sinistri, fSearch, fStati, fRami, fCompagnie, fPolizze, fCitta, fDataDa, fDataA]);
+  }, [sinistri, fSearch, fStati, fRami, fCompagnie, fPolizze, fCitta, fReparti, fDataDa, fDataA]);
 
   const resetFilters = () => {
     setFSearch(""); setFStati([]); setFRami([]); setFCompagnie([]);
-    setFPolizze([]); setFCitta([]);
+    setFPolizze([]); setFCitta([]); setFReparti([]);
     setFDataDa(undefined); setFDataA(undefined);
   };
 
@@ -280,19 +287,20 @@ export default function ClienteSinistri() {
     setGeneratingPdf(true);
     toast.info("Generazione report PDF in corso…");
     try {
-      const [chartImageBytes, staticMapBytes] = await Promise.all([
+      const [chartImageBytes, staticMapBytes, repartoChartBytes] = await Promise.all([
         captureElementAsPng(chartRef.current),
-        fetchStaticMapImage(list),
+        isSanitario ? Promise.resolve(null) : fetchStaticMapImage(list),
+        isSanitario ? captureElementAsPng(repartoChartRef.current) : Promise.resolve(null),
       ]);
-      let mapImageBytes = staticMapBytes;
+      let mapImageBytes = isSanitario ? repartoChartBytes : staticMapBytes;
       if (!mapImageBytes) {
-        mapImageBytes = await captureElementAsPng(mapRef.current);
+        mapImageBytes = await captureElementAsPng(isSanitario ? repartoChartRef.current : mapRef.current);
       }
 
       const ente = buildEnteInfoFromCliente(cliente);
       const generatedBy = profile ? `${profile.nome || ""} ${profile.cognome || ""}`.trim() || profile.email || "" : "";
       const filterLines = buildFilterSummary(
-        { search: fSearch, stati: fStati, rami: fRami, compagnie: fCompagnie, polizze: fPolizze, citta: fCitta, dataDa: fDataDa, dataA: fDataA },
+        { search: fSearch, stati: fStati, rami: fRami, compagnie: fCompagnie, polizze: fPolizze, citta: fCitta, reparti: fReparti, dataDa: fDataDa, dataA: fDataA },
         filteredSinistri.length,
         sinistri.length,
       );
@@ -308,9 +316,11 @@ export default function ClienteSinistri() {
         filterLines,
         kpis: computeKpis(list),
         sinPerRamo: aggregateSinPerRamo(list),
-        sinistri: mapSinistriToPdfRows(list),
+        sinistri: mapSinistriToPdfRows(list, { includeReparto: isSanitario }),
         chartImageBytes,
         mapImageBytes,
+        secondaryChartTitle: isSanitario ? "Sinistri per reparto" : undefined,
+        includeRepartoColumn: isSanitario,
       });
 
       const filename = buildReportFilename(ente.ragioneSociale);
@@ -394,14 +404,22 @@ export default function ClienteSinistri() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card ref={isSanitario ? repartoChartRef : undefined}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-teal-700" /> Mappa Sinistri
+                {isSanitario ? (
+                  <><Building2 className="h-4 w-4 text-teal-700" /> Sinistri per Reparto</>
+                ) : (
+                  <><MapPin className="h-4 w-4 text-teal-700" /> Mappa Sinistri</>
+                )}
               </CardTitle>
             </CardHeader>
-            <CardContent ref={mapRef}>
-              <SinistriMap sinistri={filteredSinistri} />
+            <CardContent ref={isSanitario ? undefined : mapRef}>
+              {isSanitario ? (
+                <SinistriPerRepartoChart sinistri={filteredSinistri} />
+              ) : (
+                <SinistriMap sinistri={filteredSinistri} />
+              )}
             </CardContent>
           </Card>
         </div>
@@ -419,7 +437,11 @@ export default function ClienteSinistri() {
             <MultiSelectFilter label="Tutte le garanzie" values={fRami} options={optRami} onChange={setFRami} />
             <MultiSelectFilter label="Tutte le compagnie" values={fCompagnie} options={optCompagnie} onChange={setFCompagnie} />
             <MultiSelectFilter label="Tutte le polizze" values={fPolizze} options={optPolizze} onChange={setFPolizze} />
-            <MultiSelectFilter label="Tutte le città" values={fCitta} options={optCitta} onChange={setFCitta} />
+            {isSanitario ? (
+              <MultiSelectFilter label="Tutti i reparti" values={fReparti} options={optReparti} onChange={setFReparti} />
+            ) : (
+              <MultiSelectFilter label="Tutte le città" values={fCitta} options={optCitta} onChange={setFCitta} />
+            )}
 
             <div className="flex gap-2">
               <Popover>
@@ -506,7 +528,7 @@ export default function ClienteSinistri() {
                     <TableHead>Garanzia</TableHead>
                     <TableHead>Polizza</TableHead>
                     <TableHead>Stato</TableHead>
-                    <TableHead>Luogo</TableHead>
+                    <TableHead>{isSanitario ? "Reparto" : "Luogo"}</TableHead>
                     <TableHead className="text-right">Riserva</TableHead>
                     <TableHead className="text-right">Liquidato</TableHead>
                     <TableHead>Data Evento</TableHead>
@@ -538,7 +560,9 @@ export default function ClienteSinistri() {
                           ) : "—"}
                         </TableCell>
                         <TableCell><Badge className={statoBadge[s.stato] || ""}>{s.stato?.replace(/_/g, " ")}</Badge></TableCell>
-                        <TableCell className="max-w-[200px] truncate">{s.citta_sinistro || s.luogo_sinistro || "—"}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {isSanitario ? resolveReparto(s) : (s.citta_sinistro || s.luogo_sinistro || "—")}
+                        </TableCell>
                         <TableCell className="text-right font-medium">{s.importo_riserva ? fmt(s.importo_riserva) : "—"}</TableCell>
                         <TableCell className="text-right font-medium text-emerald-600">{s.importo_liquidato ? fmt(s.importo_liquidato) : "—"}</TableCell>
                         <TableCell>{s.data_evento ? format(new Date(s.data_evento), "dd/MM/yyyy") : "—"}</TableCell>
@@ -558,12 +582,18 @@ export default function ClienteSinistri() {
                               )}
 
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {/* Indirizzo */}
+                                {/* Reparto / Luogo */}
                                 <div className="space-y-2">
-                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1"><MapPin className="h-3 w-3" /> Luogo sinistro</p>
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                                    {isSanitario ? <><Building2 className="h-3 w-3" /> Reparto</> : <><MapPin className="h-3 w-3" /> Luogo sinistro</>}
+                                  </p>
                                   <div className="text-sm space-y-0.5">
-                                    {s.indirizzo_sinistro && <p>{s.indirizzo_sinistro}</p>}
-                                    <p>{[s.cap_sinistro, s.citta_sinistro, s.provincia_sinistro ? `(${s.provincia_sinistro})` : null].filter(Boolean).join(" ") || s.luogo_sinistro || "—"}</p>
+                                    {isSanitario && (
+                                      <p><span className="text-muted-foreground">Reparto:</span> {resolveReparto(s)}</p>
+                                    )}
+                                    {s.luogo_sinistro && <p>{s.luogo_sinistro}</p>}
+                                    {!isSanitario && s.indirizzo_sinistro && <p>{s.indirizzo_sinistro}</p>}
+                                    <p>{[s.cap_sinistro, s.citta_sinistro, s.provincia_sinistro ? `(${s.provincia_sinistro})` : null].filter(Boolean).join(" ") || (!isSanitario ? s.luogo_sinistro : null) || "—"}</p>
                                   </div>
                                 </div>
 

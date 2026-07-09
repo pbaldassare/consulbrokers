@@ -17,6 +17,9 @@ export interface SinistriEnteReportData {
   sinistri: SinistroPdfRow[];
   chartImageBytes?: Uint8Array | null;
   mapImageBytes?: Uint8Array | null;
+  /** Titolo secondo grafico (es. "Sinistri per reparto" per clienti sanitari). Default: Distribuzione geografica */
+  secondaryChartTitle?: string;
+  includeRepartoColumn?: boolean;
 }
 
 const A4 = { w: 595.28, h: 841.89 };
@@ -232,6 +235,7 @@ async function drawChartsAndMap(ctx: Ctx, d: SinistriEnteReportData) {
   const hasMap = !!d.mapImageBytes?.length;
   if (!hasChart && !hasMap) return;
 
+  const secondaryTitle = d.secondaryChartTitle || "Distribuzione geografica";
   drawSectionTitle(ctx, "Grafici e mappa");
   if (hasChart && hasMap) {
     const halfW = (CONTENT_W - 8) / 2;
@@ -253,14 +257,14 @@ async function drawChartsAndMap(ctx: Ctx, d: SinistriEnteReportData) {
         const w = mapImg.width * scale;
         const h = mapImg.height * scale;
         const x = MARGIN.left + halfW + 8;
-        ctx.page.drawText("Distribuzione geografica", { x, y: yTop - 10, size: 8, font: ctx.bold, color: COLOR.muted });
+        ctx.page.drawText(secondaryTitle, { x, y: yTop - 10, size: 8, font: ctx.bold, color: COLOR.muted });
         ctx.page.drawImage(mapImg, { x, y: yTop - h - 14, width: w, height: h });
       }
       ctx.y = yTop - maxH - 22;
     }
   } else {
     if (hasChart) await drawImageBlock(ctx, "Sinistri per ramo", d.chartImageBytes, 180, CONTENT_W);
-    if (hasMap) await drawImageBlock(ctx, "Distribuzione geografica", d.mapImageBytes, 180, CONTENT_W);
+    if (hasMap) await drawImageBlock(ctx, secondaryTitle, d.mapImageBytes, 180, CONTENT_W);
   }
 }
 
@@ -320,7 +324,7 @@ function drawRamoSummary(ctx: Ctx, rows: SinPerRamoRow[]) {
   spacer(ctx, 6);
 }
 
-function drawSinistriTable(ctx: Ctx, rows: SinistroPdfRow[]) {
+function drawSinistriTable(ctx: Ctx, rows: SinistroPdfRow[], includeReparto = false) {
   if (!rows.length) return;
   drawSectionTitle(ctx, "Elenco sinistri");
 
@@ -329,7 +333,8 @@ function drawSinistriTable(ctx: Ctx, rows: SinistroPdfRow[]) {
     { key: "garanzia", title: "Garanzia", w: 58 },
     { key: "polizza", title: "Polizza", w: 52 },
     { key: "stato", title: "Stato", w: 52 },
-    { key: "luogo", title: "Luogo", w: 68 },
+    ...(includeReparto ? [{ key: "reparto", title: "Reparto", w: 60 }] : []),
+    { key: "luogo", title: includeReparto ? "Ubicazione" : "Luogo", w: includeReparto ? 52 : 68 },
     { key: "riserva", title: "Riserva", w: 52, align: "right" as const },
     { key: "liquidato", title: "Liquidato", w: 52, align: "right" as const },
     { key: "dataEvento", title: "Evento", w: 48 },
@@ -353,7 +358,17 @@ function drawSinistriTable(ctx: Ctx, rows: SinistroPdfRow[]) {
   drawHeaderRow();
   let alt = false;
   for (const r of rows) {
-    const cells = [r.numeroSinistro, r.garanzia, r.polizza, r.stato, r.luogo, r.riserva, r.liquidato, r.dataEvento];
+    const cells = [
+      r.numeroSinistro,
+      r.garanzia,
+      r.polizza,
+      r.stato,
+      ...(includeReparto ? [r.reparto || "—"] : []),
+      r.luogo,
+      r.riserva,
+      r.liquidato,
+      r.dataEvento,
+    ];
     let maxH = 12;
     cols.forEach((col, i) => {
       const lines = wrap(cells[i], ctx.font, 7.5, col.w - 4);
@@ -434,7 +449,7 @@ export async function buildSinistriEnteReportPdf(d: SinistriEnteReportData): Pro
   drawKpis(ctx, d.kpis);
   await drawChartsAndMap(ctx, d);
   drawRamoSummary(ctx, d.sinPerRamo);
-  drawSinistriTable(ctx, d.sinistri);
+  drawSinistriTable(ctx, d.sinistri, d.includeRepartoColumn);
   drawEconomicSummary(ctx, d.kpis);
   drawDisclaimer(ctx);
 

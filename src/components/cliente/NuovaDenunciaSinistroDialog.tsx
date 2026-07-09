@@ -10,9 +10,10 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Upload, X, MapPin } from "lucide-react";
+import { Upload, X, MapPin, Building2 } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { TIPI_SINISTRO as TIPI_SINISTRO_LIB } from "@/lib/tipiSinistro";
+import { isClienteSanitario, REPARTI_OSPEDALE_STANDARD } from "@/lib/sinistriReparto";
 
 interface Props {
   open: boolean;
@@ -51,18 +52,28 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
   const [dinamica, setDinamica] = useState("");
   const [controparte, setControparte] = useState("");
   const [targa, setTarga] = useState("");
+  const [reparto, setReparto] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [clienteSanitario, setClienteSanitario] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setTitoloId(""); setTipoSinistro(""); setIsPersonalizzato(false); setTipoPersonalizzato("");
     setDataEvento("");
     setIndirizzo(""); setCitta(""); setCap(""); setProvincia("");
-    setDinamica(""); setControparte(""); setTarga(""); setFiles([]);
+    setDinamica(""); setControparte(""); setTarga(""); setReparto(""); setFiles([]);
+    setClienteSanitario(false);
     (async () => {
       const { data: cIds } = await supabase.rpc("get_my_cliente_ids");
       const ids = (cIds ?? []).map((c: any) => c);
       if (!ids.length) return;
+      const { data: cli } = await supabase
+        .from("clienti")
+        .select("spec_sx_sanita, settore, codice_ricerca, azienda_ssn_sx")
+        .in("id", ids)
+        .limit(1)
+        .maybeSingle();
+      setClienteSanitario(isClienteSanitario(cli));
       const [titRes, cgaRes] = await Promise.all([
         supabase
           .from("titoli")
@@ -99,7 +110,8 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
   const tipoValido = isPersonalizzato
     ? tipoPersonalizzato.trim().length >= 3
     : !!tipoSinistro;
-  const canSubmit = tipoValido && dataEvento && dinamica.trim().length > 5;
+  const canSubmit = tipoValido && dataEvento && dinamica.trim().length > 5
+    && (!clienteSanitario || reparto.trim().length > 0);
 
   const submit = async () => {
     if (!user) return;
@@ -115,7 +127,9 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
       }
       const isCga = polizzaSelezionata?.id.startsWith("cga:");
       const numero = `WEB-${Date.now().toString().slice(-8)}`;
-      const luogoCompleto = [indirizzo, cap, citta, provincia].filter(Boolean).join(", ");
+      const luogoCompleto = clienteSanitario
+        ? [reparto, indirizzo].filter(Boolean).join(" — ")
+        : [indirizzo, cap, citta, provincia].filter(Boolean).join(", ");
       const { data: sin, error } = await supabase
         .from("sinistri")
         .insert({
@@ -131,6 +145,7 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
           data_evento: dataEvento || null,
           data_apertura: new Date().toISOString().slice(0, 10),
           data_denuncia: new Date().toISOString().slice(0, 10),
+          reparto: clienteSanitario ? reparto.trim() : null,
           luogo_sinistro: luogoCompleto || null,
           indirizzo_sinistro: indirizzo || null,
           citta_sinistro: citta || null,
@@ -250,28 +265,46 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
             </div>
           </div>
 
-          {/* Data + indirizzo */}
+          {/* Data + reparto / indirizzo */}
           <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label>Data evento *</Label>
                 <Input type="date" value={dataEvento} onChange={e => setDataEvento(e.target.value)} />
               </div>
+              {clienteSanitario && (
+                <div>
+                  <Label className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" />Reparto *</Label>
+                  <SearchableSelect
+                    options={REPARTI_OSPEDALE_STANDARD.map((r) => ({ value: r, label: r }))}
+                    value={reparto}
+                    onValueChange={setReparto}
+                    placeholder="Seleziona reparto"
+                    searchPlaceholder="Cerca reparto..."
+                  />
+                </div>
+              )}
             </div>
             <div>
-              <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />Indirizzo del sinistro</Label>
+              <Label className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5" />
+                {clienteSanitario ? "Dettaglio ubicazione (opzionale)" : "Indirizzo del sinistro"}
+              </Label>
               <AddressAutocomplete
                 value={indirizzo}
                 onChange={setIndirizzo}
                 onSelect={(c) => {
                   setIndirizzo(c.indirizzo);
-                  setCap(c.cap);
-                  setCitta(c.citta);
-                  setProvincia(c.provincia);
+                  if (!clienteSanitario) {
+                    setCap(c.cap);
+                    setCitta(c.citta);
+                    setProvincia(c.provincia);
+                  }
                 }}
-                placeholder="Inizia a digitare via, piazza..."
+                placeholder={clienteSanitario ? "Es. Padiglione A, Piano 3, corridoio..." : "Inizia a digitare via, piazza..."}
               />
             </div>
+            {!clienteSanitario && (
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label>Città</Label>
@@ -286,6 +319,7 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
                 <Input value={provincia} onChange={e => setProvincia(e.target.value.toUpperCase())} maxLength={2} />
               </div>
             </div>
+            )}
           </div>
 
           {/* Dinamica */}

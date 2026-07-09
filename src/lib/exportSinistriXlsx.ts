@@ -35,6 +35,7 @@ export async function exportSinistriXlsx(sinistri: any[]) {
       Città: s.citta_sinistro || "",
       Provincia: s.provincia_sinistro || "",
       Luogo: s.luogo_sinistro || "",
+      Reparto: s.reparto || "",
       Dinamica: s.dinamica || "",
       Controparte: s.controparte || "",
       "Targa Veicolo": s.targa_veicolo || "",

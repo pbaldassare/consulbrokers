@@ -7,6 +7,7 @@ import {
   writeGeocodeCache,
   type SinistroGeo,
 } from "./sinistriMapUtils";
+import { resolveReparto } from "./sinistriReparto";
 
 const GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY ||
   import.meta.env.VITE_GOOGLE_MAPS_API_KEY) as string | undefined;
@@ -18,6 +19,7 @@ export interface SinistriFilterState {
   compagnie: string[];
   polizze: string[];
   citta: string[];
+  reparti?: string[];
   dataDa?: Date;
   dataA?: Date;
 }
@@ -49,6 +51,7 @@ export interface SinistroPdfRow {
   compagnia: string;
   stato: string;
   luogo: string;
+  reparto?: string;
   riserva: string;
   liquidato: string;
   dataEvento: string;
@@ -85,6 +88,7 @@ export function buildFilterSummary(
   if (filters.compagnie.length) lines.push(`Compagnia: ${filters.compagnie.join(", ")}`);
   if (filters.polizze.length) lines.push(`Polizza: ${filters.polizze.join(", ")}`);
   if (filters.citta.length) lines.push(`Città: ${filters.citta.join(", ")}`);
+  if (filters.reparti?.length) lines.push(`Reparto: ${filters.reparti.join(", ")}`);
   if (filters.dataDa || filters.dataA) {
     const da = filters.dataDa ? format(filters.dataDa, "dd/MM/yyyy") : "—";
     const a = filters.dataA ? format(filters.dataA, "dd/MM/yyyy") : "—";
@@ -118,7 +122,7 @@ export function aggregateSinPerRamo(sinistri: any[]): SinPerRamoRow[] {
 }
 
 /** Righe tabella PDF — stessi campi essenziali di exportSinistriXlsx. */
-export function mapSinistriToPdfRows(sinistri: any[]): SinistroPdfRow[] {
+export function mapSinistriToPdfRows(sinistri: any[], opts?: { includeReparto?: boolean }): SinistroPdfRow[] {
   return sinistri.map((s) => ({
     numeroSinistro: s.numero_sinistro || "—",
     garanzia: s.ramo_sinistro || "—",
@@ -126,6 +130,7 @@ export function mapSinistriToPdfRows(sinistri: any[]): SinistroPdfRow[] {
     compagnia: s.compagnie?.nome || "—",
     stato: formatStatoLabel(s.stato),
     luogo: s.citta_sinistro || s.luogo_sinistro || s.indirizzo_sinistro || "—",
+    reparto: opts?.includeReparto ? resolveReparto(s) : undefined,
     riserva: s.importo_riserva ? fmtEur(s.importo_riserva) : "—",
     liquidato: s.importo_liquidato ? fmtEur(s.importo_liquidato) : "—",
     dataEvento: fmtDate(s.data_evento),
