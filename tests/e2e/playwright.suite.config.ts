@@ -12,7 +12,7 @@ dotenv.config({ path: path.resolve(ROOT, '.env') });
 const STORAGE_STATE = path.resolve(ROOT, 'tests/.auth/user.json');
 
 /** Porta effettiva del dev server CBnet (8080 spesso occupata da altri progetti). */
-const DEV_PORT = process.env.E2E_DEV_PORT || '8082';
+const DEV_PORT = process.env.VITE_DEV_PORT || process.env.E2E_DEV_PORT || '5175';
 
 export default defineConfig({
   testDir: path.resolve(ROOT, 'tests'),

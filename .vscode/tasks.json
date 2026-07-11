@@ -1,0 +1,57 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CBnet: Install Status Bar Extension",
+      "type": "shell",
+      "command": "cursor --install-extension ${workspaceFolder}/.vscode/cbnet-dev-status --force 2>nul || code --install-extension ${workspaceFolder}/.vscode/cbnet-dev-status --force 2>nul || echo Extension install skipped",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "close": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "CBnet: Dev Server",
+      "type": "npm",
+      "script": "dev",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": {
+          "regexp": "^.*$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "CBnet dev server|Local:\\s+http|ready in \\d"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "cbnet-dev",
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    },
+    {
+      "label": "CBnet: Avvio workspace (Dev + Status Bar)",
+      "dependsOn": ["CBnet: Install Status Bar Extension", "CBnet: Dev Server"],
+      "dependsOrder": "sequence",
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

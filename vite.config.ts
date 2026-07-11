@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import fs from "fs";
@@ -53,14 +53,37 @@ function forcePreviewFullReload(): Plugin {
   };
 }
 
+function devServerStartupLog(port: number, projectName: string): Plugin {
+  return {
+    name: "dev-server-startup-log",
+    apply: "serve",
+    configureServer(server) {
+      server.httpServer?.once("listening", () => {
+        const addr = server.httpServer?.address();
+        const activePort =
+          typeof addr === "object" && addr && "port" in addr ? addr.port : port;
+        console.log("");
+        console.log(`  \x1b[36m${projectName}\x1b[0m dev server → \x1b[32mhttp://localhost:${activePort}/login\x1b[0m`);
+        console.log(`  Porta: \x1b[33m${activePort}\x1b[0m (VITE_DEV_PORT)`);
+        console.log("");
+      });
+    },
+  };
+}
+
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const devPort = Number(env.VITE_DEV_PORT || process.env.VITE_DEV_PORT || 5175);
+  const projectName = "CBnet";
+
+  return {
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(APP_VERSION),
   },
   server: {
     host: "::",
-    port: 8082,
+    port: devPort,
     strictPort: true,
     headers: {
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
@@ -74,6 +97,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     writeVersionJson(),
+    devServerStartupLog(devPort, projectName),
     forcePreviewFullReload(),
     mode === "development" && componentTagger(),
   ].filter(Boolean),
@@ -82,4 +106,5 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-}));
+};
+});

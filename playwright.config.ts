@@ -22,7 +22,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:8082',
+    baseURL: process.env.VITE_DEV_PORT ? `http://localhost:${process.env.VITE_DEV_PORT}` : 'http://localhost:5175',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -58,7 +58,7 @@ export default defineConfig({
 
   webServer: {
     command: 'bun run dev',
-    url: 'http://localhost:8082',
+    url: process.env.VITE_DEV_PORT ? `http://localhost:${process.env.VITE_DEV_PORT}` : 'http://localhost:5175',
     reuseExistingServer: true,
     timeout: 120 * 1000,
   },
