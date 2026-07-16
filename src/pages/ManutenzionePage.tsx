@@ -5,7 +5,7 @@ import { logAttivita } from "@/lib/logAttivita";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, AlertTriangle, Bell, Loader2, CheckCircle, ShieldCheck, Users } from "lucide-react";
+import { RefreshCw, AlertTriangle, Bell, Loader2, CheckCircle, ShieldCheck, Users, FileDown, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 
 interface JobResult {
@@ -174,6 +174,58 @@ const ManutenzionePage = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileDown className="w-4 h-4" /> Import anagrafiche clienti (14/07/2026)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Report PDF dettagliato e Excel con le 348 anagrafiche non importate (validazione + errori DB).
+            Sede: San Donà di Piave · Specialist: Maria Midena · Importate: 2.092.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" asChild>
+              <a href="/reports/import-clienti/Report-Import-Clienti.pdf" download="Report-Import-Clienti.pdf">
+                <FileDown className="w-4 h-4 mr-1" /> Scarica report PDF
+              </a>
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <a href="/reports/import-clienti/Anagrafiche-Non-Importate.xlsx" download="Anagrafiche-Non-Importate.xlsx">
+                <FileSpreadsheet className="w-4 h-4 mr-1" /> Scarica Excel non importate
+              </a>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileDown className="w-4 h-4" /> Import rinnovi polizze (15/07/2026)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Report PDF e Excel con le 116 righe non importate (clienti mancanti, agenzie incerte, appendici).
+            Modello madre + quietanza · Importate: 217 coppie (434 titoli).
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" asChild>
+              <a href="/reports/import-rinnovi/Report-Import-Rinnovi.pdf" download="Report-Import-Rinnovi.pdf">
+                <FileDown className="w-4 h-4 mr-1" /> Scarica report PDF
+              </a>
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <a href="/reports/import-rinnovi/Rinnovi-Non-Importati.xlsx" download="Rinnovi-Non-Importati.xlsx">
+                <FileSpreadsheet className="w-4 h-4 mr-1" /> Scarica Excel non importate
+              </a>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Button onClick={runAll} disabled={isAnyRunning} variant="outline">
         {isAnyRunning ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RefreshCw className="w-4 h-4 mr-1" />}

@@ -63,7 +63,7 @@ test.describe('Sinistri — scheda dettaglio e tab', () => {
 
 test.describe('Sinistri — sottopagine', () => {
   const subpages = [
-    { path: '/sinistri/prescrizioni', heading: /Prescrizioni in Scadenza/i },
+    { path: '/sinistri/prescrizioni', heading: /Termini di prescrizione/i },
     { path: '/sinistri/scadenze', heading: /Scadenziario Sinistri/i },
     { path: '/sinistri/report-sir', heading: /Report Sanitario SIR/i },
   ];

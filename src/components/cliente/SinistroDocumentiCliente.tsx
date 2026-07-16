@@ -3,9 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Upload, FileText, Download, Eye, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 import DocPreviewDialog from "@/components/cliente/DocPreviewDialog";
+import { ensureFileExtension, fileBaseNameWithoutExt } from "@/lib/sanitizeFileName";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +27,7 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
   const { user } = useAuth();
   const [docs, setDocs] = useState<any[]>([]);
   const [file, setFile] = useState<File | null>(null);
+  const [displayName, setDisplayName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
   const [deleteDoc, setDeleteDoc] = useState<any>(null);
@@ -44,6 +47,12 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
 
   const upload = async () => {
     if (!file || !user) return;
+    const trimmed = displayName.trim();
+    if (!trimmed) {
+      toast.error("Inserisci un nome per il documento");
+      return;
+    }
+    const nomeFile = ensureFileExtension(trimmed, file.name);
     setUploading(true);
     try {
       const path = `${sinistroId}/${Date.now()}_${file.name}`;
@@ -52,7 +61,7 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
       const { error: dErr } = await supabase.from("documenti").insert({
         entita_tipo: "sinistro",
         entita_id: sinistroId,
-        nome_file: file.name,
+        nome_file: nomeFile,
         path_storage: path,
         bucket_name: "documenti_sinistri",
         caricato_da: user.id,
@@ -63,6 +72,7 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
       if (dErr) throw dErr;
       toast.success("Documento caricato");
       setFile(null);
+      setDisplayName("");
       load();
     } catch (e: any) {
       toast.error(e.message || "Errore upload");
@@ -130,8 +140,28 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
           </li>
         ))}
       </ul>
-      <div className="flex items-center gap-2 pt-1">
-        <Input type="file" onChange={e => setFile(e.target.files?.[0] ?? null)} className="text-xs" />
+      <div className="space-y-2 pt-1">
+        <Input
+          type="file"
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            setFile(f);
+            setDisplayName(f ? fileBaseNameWithoutExt(f.name) : "");
+          }}
+          className="text-xs"
+        />
+        {file && (
+          <div className="space-y-1">
+            <Label htmlFor="nome-doc-sinistro-cliente" className="text-xs">Nome documento</Label>
+            <Input
+              id="nome-doc-sinistro-cliente"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Nome del documento"
+              className="text-xs h-8"
+            />
+          </div>
+        )}
         <Button size="sm" onClick={upload} disabled={!file || uploading}>
           <Upload className="h-3.5 w-3.5 mr-1" />
           {uploading ? "..." : "Carica"}

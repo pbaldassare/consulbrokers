@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, Plus, Users, Briefcase, Pencil, UserCheck, Mail, Phone, MapPin, Banknote, Trash2 } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, UserCheck, Mail, Phone, MapPin, Banknote, Trash2, Search } from "lucide-react";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   const [deleteUfficio, setDeleteUfficio] = useState<Ufficio | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState<{ codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_bancario_id: string | null }>({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_bancario_id: null });
+  const [search, setSearch] = useState("");
 
   const { data: uffici = [], isLoading } = useQuery({
     queryKey: ["uffici"],
@@ -126,6 +127,26 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
     onError: (err: any) => toast.error(err.message),
   });
 
+  const filteredUffici = uffici.filter((u) => {
+    if (!search.trim()) return true;
+    const s = search.toLowerCase();
+    const haystack = [
+      u.codice_ufficio,
+      u.nome_ufficio,
+      u.indirizzo,
+      u.cap,
+      u.citta,
+      u.provincia,
+      u.email,
+      u.telefono,
+      composeIndirizzoFull(u),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(s);
+  });
+
   const openCreateDialog = () => {
     setEditingUfficio(null);
     setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_bancario_id: null });
@@ -196,7 +217,21 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Elenco Sedi</CardTitle></CardHeader>
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between space-y-0">
+          <CardTitle>Elenco Sedi</CardTitle>
+          <div className="flex w-full sm:w-auto items-center gap-3">
+            <div className="relative flex-1 sm:min-w-[280px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Cerca per codice, nome, indirizzo, email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Badge variant="secondary">{filteredUffici.length} risultati</Badge>
+          </div>
+        </CardHeader>
         <CardContent>
           {isLoading ? (
             <p className="text-muted-foreground text-center py-8">Caricamento...</p>
@@ -216,7 +251,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {uffici.map((u) => (
+                {filteredUffici.map((u) => (
                   <TableRow
                     key={u.id}
                     className={`cursor-pointer ${selectedUfficio?.id === u.id ? "bg-muted" : ""}`}
@@ -246,8 +281,8 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
                     </TableCell>
                   </TableRow>
                 ))}
-                {uffici.length === 0 && (
-                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nessuna sede trovata</TableCell></TableRow>
+                {filteredUffici.length === 0 && (
+                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">{search.trim() ? "Nessun risultato trovato" : "Nessuna sede trovata"}</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

@@ -184,7 +184,7 @@ const sidebarEntries: SidebarEntry[] = [
       children: [
         { label: "Ricerca", path: "/sinistri", icon: Search },
         { label: "Apertura", path: "/sinistri/apertura", icon: FilePlus },
-        { label: "Termini di decadenza", path: "/sinistri/prescrizioni", icon: Clock },
+        { label: "Termini di prescrizione", path: "/sinistri/prescrizioni", icon: Clock },
         { label: "Scadenze", path: "/sinistri/scadenze", icon: CalendarCheck },
         { label: "Report Sanitario SIR", path: "/sinistri/report-sir", icon: FileText },
       ],

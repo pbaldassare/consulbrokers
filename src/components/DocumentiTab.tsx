@@ -4,15 +4,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Upload, Download, Trash2, FileText, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Upload, Download, Trash2, FileText, Eye, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
 import PdfPreview from "@/components/PdfPreview";
-import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
+import { ensureFileExtension, fileBaseNameWithoutExt, sanitizeStorageFileName } from "@/lib/sanitizeFileName";
 import { labelTipoDocumento } from "@/lib/tipiDocumentoCliente";
 import { fetchMetadatiInvioMessaCassa, type InvioEmailMessaCassaMeta } from "@/lib/documentiMessaCassa";
 import { fetchMetadatiInvioEcCliente, type InvioEmailEcClienteMeta } from "@/lib/documentiEcCliente";
@@ -99,6 +101,11 @@ export default function DocumentiTab({
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -173,22 +180,39 @@ export default function DocumentiTab({
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const resetUploadDialog = () => {
+    setPendingFile(null);
+    setDisplayName("");
+    setUploadError("");
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const handleFileSelected = (file: File) => {
     if (file.size > MAX_FILE_SIZE) {
-      toast.error("Il file supera il limite di 10 MB");
-      if (fileRef.current) fileRef.current.value = "";
+      setUploadError("Il file supera il limite di 10 MB");
       return;
     }
+    setUploadError("");
+    setPendingFile(file);
+    setDisplayName(fileBaseNameWithoutExt(file.name));
+  };
+
+  const handleUpload = async () => {
+    if (!pendingFile) return;
+    const trimmed = displayName.trim();
+    if (!trimmed) {
+      setUploadError("Inserisci un nome per il documento");
+      return;
+    }
+    const nomeFile = ensureFileExtension(trimmed, pendingFile.name);
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const path = `${entitaTipo}/${uploadEntitaId}/${Date.now()}_${sanitizeStorageFileName(file.name)}`;
-      const { error: uploadErr } = await supabase.storage.from(bucket).upload(path, file);
+      const path = `${entitaTipo}/${uploadEntitaId}/${Date.now()}_${sanitizeStorageFileName(pendingFile.name)}`;
+      const { error: uploadErr } = await supabase.storage.from(bucket).upload(path, pendingFile);
       if (uploadErr) throw uploadErr;
       const { error: insertErr } = await supabase.from("documenti").insert({
-        nome_file: file.name,
+        nome_file: nomeFile,
         path_storage: path,
         bucket_name: bucket,
         entita_tipo: entitaTipo,
@@ -196,16 +220,30 @@ export default function DocumentiTab({
         caricato_da: user?.id,
       });
       if (insertErr) throw insertErr;
-      await logAttivita({ azione: "upload_documento", entita_tipo: entitaTipo, entita_id: uploadEntitaId, dettagli_json: { nome_file: file.name } });
+      await logAttivita({ azione: "upload_documento", entita_tipo: entitaTipo, entita_id: uploadEntitaId, dettagli_json: { nome_file: nomeFile } });
       toast.success("Documento caricato");
       qc.invalidateQueries({ queryKey: ["documenti", entitaTipo] });
-
+      resetUploadDialog();
+      setUploadDialogOpen(false);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
+  };
+
+  const handleRename = async (doc: any) => {
+    const trimmed = renameValue.trim();
+    if (!trimmed) return;
+    const nomeFile = ensureFileExtension(trimmed, doc.nome_file);
+    const { error } = await supabase.from("documenti").update({ nome_file: nomeFile }).eq("id", doc.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Documento rinominato");
+    setRenamingId(null);
+    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo] });
   };
 
   const handleDownload = async (doc: any) => {
@@ -314,10 +352,69 @@ export default function DocumentiTab({
             </>
           ) : (
             <>
-              <input ref={fileRef} type="file" className="hidden" onChange={handleUpload} />
-              <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+              <Button size="sm" onClick={() => setUploadDialogOpen(true)} disabled={uploading}>
                 <Upload className="h-4 w-4 mr-1" /> {uploading ? "Caricamento..." : "Carica Documento"}
               </Button>
+              <Dialog
+                open={uploadDialogOpen}
+                onOpenChange={(open) => {
+                  if (!open) resetUploadDialog();
+                  setUploadDialogOpen(open);
+                }}
+              >
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Carica Documento</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div
+                      className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                      {pendingFile ? (
+                        <p className="text-sm font-medium">
+                          {pendingFile.name} ({(pendingFile.size / 1024 / 1024).toFixed(2)} MB)
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Clicca per selezionare un file</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">Max 10 MB</p>
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleFileSelected(f);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="nome-documento">Nome documento</Label>
+                      <Input
+                        id="nome-documento"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="Nome del documento"
+                        disabled={!pendingFile}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        L&apos;estensione del file originale viene aggiunta automaticamente al salvataggio.
+                      </p>
+                    </div>
+                    {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setUploadDialogOpen(false)} disabled={uploading}>
+                      Annulla
+                    </Button>
+                    <Button onClick={handleUpload} disabled={!pendingFile || uploading}>
+                      {uploading ? "Caricamento..." : "Carica"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </>
           )}
         </div>
@@ -348,10 +445,31 @@ export default function DocumentiTab({
                 />
               </TableCell>
               <TableCell
-                className={`font-medium ${showPreview ? "cursor-pointer hover:underline" : ""}`}
-                onClick={showPreview ? () => openPreview(doc) : undefined}
+                className={`font-medium ${showPreview && renamingId !== doc.id ? "cursor-pointer hover:underline" : ""}`}
+                onClick={showPreview && renamingId !== doc.id ? () => openPreview(doc) : undefined}
               >
-                {doc.nome_file}
+                {renamingId === doc.id ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      className="h-8 text-sm"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void handleRename(doc);
+                        if (e.key === "Escape") setRenamingId(null);
+                      }}
+                    />
+                    <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => void handleRename(doc)}>
+                      <Check className="h-4 w-4 text-primary" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setRenamingId(null)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  doc.nome_file
+                )}
               </TableCell>
               {showTipologia && (
                 <TableCell>
@@ -413,6 +531,19 @@ export default function DocumentiTab({
                   <Button size="icon" variant="ghost" onClick={() => openPreview(doc)}><Eye className="h-4 w-4" /></Button>
                 )}
                 <Button size="icon" variant="ghost" onClick={() => handleDownload(doc)}><Download className="h-4 w-4" /></Button>
+                {!readOnly && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => {
+                      setRenamingId(doc.id);
+                      setRenameValue(fileBaseNameWithoutExt(doc.nome_file));
+                    }}
+                    title="Rinomina"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
                 {!readOnly && <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(doc)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
               </TableCell>
             </TableRow>
