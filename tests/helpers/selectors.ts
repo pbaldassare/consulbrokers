@@ -24,7 +24,7 @@ export const SEL = {
     annullaIncasso: /Annulla Incasso|Annulla Messa a Cassa/i,
   },
   portafoglio: {
-    caricoHeading: 'Avvisi di incasso',
+    caricoHeading: 'Incassi',
     totaleTitoli: 'Totale titoli',
     resetFiltri: /Reset Filtri/i,
     immissioneHeading: /Immissione Polizza/i,
@@ -33,9 +33,9 @@ export const SEL = {
   contabilita: {
     cruscottoHeading: /cruscotto/i,
     movBancariHeading: /Caricamento Movimenti Bancari/i,
-    ricongiungimentoHeading: /Ricongiungimento Bancario/i,
+    ricongiungimentoHeading: /Storico bonifici|Bonifici \(legacy\)/i,
     tabMonitor: /Monitor Real-time/i,
-    tabDaRicongiungere: /Da Ricongiungere/i,
+    tabDaRicongiungere: /Da collegare/i,
     tabStorico: /Storico/i,
     inserimentoManuale: /Inserimento manuale/i,
     salvaRicongiungimento: /Salva Ricongiungimento/i,

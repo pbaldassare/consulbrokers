@@ -1,7 +1,7 @@
 /** Selettori UI italiani per la suite e2e canonica. */
 export const SEL = {
   portafoglio: {
-    caricoHeading: 'Avvisi di incasso',
+    caricoHeading: 'Incassi',
     totaleTitoli: 'Totale titoli',
     resetFiltri: /Reset Filtri/i,
     quietanze: 'Quietanze',
@@ -10,8 +10,8 @@ export const SEL = {
   contabilita: {
     incassiHeading: /Riepilogo Messe a Cassa/i,
     movBancariHeading: /Caricamento Movimenti Bancari/i,
-    ricongiungimentoHeading: /Ricongiungimento Bancario/i,
-    tabDaRicongiungere: /Da Ricongiungere/i,
+    ricongiungimentoHeading: /Storico bonifici|Bonifici \(legacy\)/i,
+    tabDaRicongiungere: /Da collegare/i,
     tabStorico: /Storico/i,
     tabImportazione: /Importazione/i,
     tabMonitor: /Monitor Real-time/i,

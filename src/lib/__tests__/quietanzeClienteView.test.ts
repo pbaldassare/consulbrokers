@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   countQuietanzeDaIncassare,
   isQuietanzaDaMostrare,
+  quietanzaSogliaGaranziaDa,
   QUIETANZA_SCADENZA_SOGLIA_GIORNI,
 } from "@/lib/quietanzeClienteView";
 
@@ -68,6 +69,13 @@ describe("isQuietanzaDaMostrare", () => {
         garanzia_da: giorniDaOggi(365),
       }),
     ).toBe(true);
+  });
+  it("quietanzaSogliaGaranziaDa è oggi + soglia (YYYY-MM-DD)", () => {
+    const base = new Date("2026-07-16T12:00:00");
+    const expected = new Date(base);
+    expected.setHours(23, 59, 59, 999);
+    expected.setDate(expected.getDate() + QUIETANZA_SCADENZA_SOGLIA_GIORNI);
+    expect(quietanzaSogliaGaranziaDa(base)).toBe(expected.toISOString().slice(0, 10));
   });
 });
 

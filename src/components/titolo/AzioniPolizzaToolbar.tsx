@@ -267,70 +267,79 @@ export function AzioniPolizzaToolbar({
             <Undo2 className="h-4 w-4 mr-1" /> Storno
           </Button>
 
-          {/* Polizza-level */}
-          {statoPolizza === "sospesa" ? (
-            <Button size="sm" onClick={() => setRiattivazioneOpen(true)} disabled={!titoloMadreId}>
-              <Play className="h-4 w-4 mr-1" /> Riattiva
-            </Button>
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => setSospensioneOpen(true)} disabled={locked || !titoloMadreId}>
-              <Pause className="h-4 w-4 mr-1" /> Sospendi
-            </Button>
-          )}
-          <Button size="sm" variant="outline" onClick={() => setSostituzioneOpen(true)} disabled={locked || !titoloMadreId}>
-            <Replace className="h-4 w-4 mr-1" /> Sostituisci
-          </Button>
-          <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)} disabled={locked || !titoloMadreId}>
-            <XCircle className="h-4 w-4 mr-1" /> Estingui
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(numeroPolizza)}&clienteId=${encodeURIComponent(clienteId || "")}&titoloId=${encodeURIComponent(titoloMadreId || "")}`)}
-            disabled={!titoloMadreId}
-          >
-            <FilePlus2 className="h-4 w-4 mr-1" /> Appendici
-          </Button>
-          {regolazione && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${titoloMadreId}&quietanzaRefId=${titoloMadreId}`)}
-              disabled={!titoloMadreId}
-            >
-              <ScrollText className="h-4 w-4 mr-1" /> Regolazione
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(titoloMadreId || "")}&clienteId=${encodeURIComponent(clienteId || "")}`)}
-            disabled={!titoloMadreId}
-          >
-            <FileText className="h-4 w-4 mr-1" /> Precontrattuale
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button size="sm" variant="destructive" disabled={locked || !titoloMadreId || annullaLoading}>
-                <Ban className="h-4 w-4 mr-1" /> Annulla polizza (irreversibile)
+          {/* Azioni di ciclo vita contratto: solo sulla scheda polizza, non sulla quietanza */}
+          {!onQuietanza && (
+            <>
+              {statoPolizza === "sospesa" ? (
+                <Button size="sm" onClick={() => setRiattivazioneOpen(true)} disabled={!titoloMadreId}>
+                  <Play className="h-4 w-4 mr-1" /> Riattiva
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setSospensioneOpen(true)} disabled={locked || !titoloMadreId}>
+                  <Pause className="h-4 w-4 mr-1" /> Sospendi
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => setSostituzioneOpen(true)} disabled={locked || !titoloMadreId}>
+                <Replace className="h-4 w-4 mr-1" /> Sostituisci
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Conferma annullamento</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Verranno rimosse tutte le quietanze, provvigioni, rimesse e movimenti collegati a questa polizza.
-                  L'operazione è irreversibile.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Annulla</AlertDialogCancel>
-                <AlertDialogAction onClick={handleAnnullaPolizza}>
-                  {annullaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Conferma"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+              <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)} disabled={locked || !titoloMadreId}>
+                <XCircle className="h-4 w-4 mr-1" /> Estingui
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(numeroPolizza)}&clienteId=${encodeURIComponent(clienteId || "")}&titoloId=${encodeURIComponent(titoloMadreId || "")}`)}
+                disabled={!titoloMadreId}
+              >
+                <FilePlus2 className="h-4 w-4 mr-1" /> Appendici
+              </Button>
+              {regolazione && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate(`/portafoglio/immissione?mode=regolazione&titoloMadreId=${titoloMadreId}&quietanzaRefId=${titoloMadreId}`)}
+                  disabled={!titoloMadreId}
+                >
+                  <ScrollText className="h-4 w-4 mr-1" /> Regolazione
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(titoloMadreId || "")}&clienteId=${encodeURIComponent(clienteId || "")}`)}
+                disabled={!titoloMadreId}
+              >
+                <FileText className="h-4 w-4 mr-1" /> Precontrattuale
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="destructive" disabled={locked || !titoloMadreId || annullaLoading}>
+                    <Ban className="h-4 w-4 mr-1" /> Annulla polizza (irreversibile)
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Conferma annullamento</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Verranno rimosse tutte le quietanze, provvigioni, rimesse e movimenti collegati a questa polizza.
+                      L'operazione è irreversibile.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annulla</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleAnnullaPolizza}>
+                      {annullaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Conferma"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
+          )}
+          {onQuietanza && polizzaId && (
+            <Button size="sm" variant="outline" onClick={() => navigate(`/polizze/${polizzaId}`)}>
+              <FileText className="h-4 w-4 mr-1" /> Apri polizza contratto
+            </Button>
+          )}
         </CardContent>
       </Card>
 

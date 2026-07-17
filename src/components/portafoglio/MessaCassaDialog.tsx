@@ -8,13 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { CheckSquare, Wallet, Trash2, Calculator, Printer, FileText, Plus, Users, ArrowLeftRight } from "lucide-react";
+import { CheckSquare, Wallet, Trash2, Calculator, Printer, FileText, Plus, Users, ArrowLeftRight, Building2, Landmark } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
+import { Badge } from "@/components/ui/badge";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { useAuth } from "@/contexts/AuthContext";
+import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
 import {
   buildTrattenutaCtx,
@@ -28,6 +31,16 @@ import {
 } from "@/lib/modalitaIncasso";
 import { buildIncassoDateFields } from "@/lib/garantitoTitolo";
 import { resolveTipoPagamentoTitoloIncasso } from "@/lib/incassoTipoPagamento";
+import {
+  creaAnticipoDaTitoloACredito,
+  creditoDaPremioLordo,
+  isTitoloACredito,
+} from "@/lib/anticipoDaTitoloCredito";
+import {
+  fetchBonificiCandidatiPerIncasso,
+  ricongiungiEFinalizzaBonificoDaIncasso,
+  type BonificoCandidato,
+} from "@/lib/bonificoDaIncasso";
 
 /**
  * Input importo per riga di compensazione contabile.
@@ -112,12 +125,19 @@ export interface BankIncassoContext {
   importoByTitoloId: Record<string, number>;
 }
 
+/** Prefill da Incassi: apre in modalità Bonifico con conto/movimento suggeriti (importo non forzato). */
+export interface PreferredBonificoContext {
+  movimentoId: string;
+  contoBancarioId: string | null;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   titoli: TitoloMin[];
   onSuccess?: (dataMessaCassa: string) => void;
   bankIncasso?: BankIncassoContext;
+  preferredBonifico?: PreferredBonificoContext | null;
 }
 
 type EffettoContabile = "standard" | "abbuono" | "pag_diretto_compagnia" | "eccedenza";
@@ -146,7 +166,14 @@ interface MovimentoPreview {
   titolo?: string;
 }
 
-export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuccess, bankIncasso }: Props) => {
+export const MessaCassaDialog = ({
+  open,
+  onOpenChange,
+  titoli: titoliProp,
+  onSuccess,
+  bankIncasso,
+  preferredBonifico = null,
+}: Props) => {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   // Lista titoli mutabile: parte dalla selezione iniziale, ma è possibile
@@ -173,6 +200,10 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
   const [titoloSearch, setTitoloSearch] = useState("");
   // Flusso "per cliente": cliente di cui elencare le quietanze da incassare
   const [clienteQuietanze, setClienteQuietanze] = useState<{ id: string; nome: string } | null>(null);
+  /** Bonifico scelto dai caricamenti conti (solo se non si arriva già da Ricongiungimento). */
+  const [selectedBonificoId, setSelectedBonificoId] = useState<string | null>(null);
+  const [estrattoSearch, setEstrattoSearch] = useState("");
+  const { profile } = useAuth();
   const [clienteQuietanzeSearch, setClienteQuietanzeSearch] = useState("");
   // Quietanze spuntate nella checklist prima dell'aggiunta
   const [quietanzeSel, setQuietanzeSel] = useState<Record<string, boolean>>({});
@@ -198,14 +229,24 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
     enabled: !!effettivoPagatoreId && open,
     queryFn: async () => {
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
-        .select("id, data_anticipo, importo, importo_residuo, conto_bancario_id, conto:conti_bancari(etichetta)")
+        .select("id, data_anticipo, importo, importo_residuo, conto_bancario_id, note, titolo_origine_id, conto:conti_bancari(etichetta)")
         .eq("cliente_id", effettivoPagatoreId)
         .gt("importo_residuo", 0)
+        .is("rimborsato_il", null)
         .order("data_anticipo", { ascending: true });
       if (error) throw error;
       return data as any[];
     },
   });
+
+  const titoliACredito = useMemo(
+    () => titoli.filter((t) => isTitoloACredito(t)),
+    [titoli],
+  );
+  const totaleCredito = useMemo(
+    () => round2(titoliACredito.reduce((s, t) => s + creditoDaPremioLordo(t.premio_lordo), 0)),
+    [titoliACredito],
+  );
 
   // Nome del cliente pagatore (per etichette/giroconto)
   const { data: pagatoreCliente } = useQuery({
@@ -422,6 +463,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
   const haTrattenuta = trattenutaByTitolo.size > 0;
 
   const handleTipoPagamentoChange = (tipo: string) => {
+    setSelectedBonificoId(null);
     setForm((f) => ({
       ...f,
       tipoPagamento: tipo,
@@ -436,14 +478,15 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       const totLordoSeed = seed.reduce((s, x) => s + (Number(x.premio_lordo) || 0), 0);
       const bankCash = bankIncasso
         ? round2(Object.values(bankIncasso.importoByTitoloId).reduce((s, v) => s + (Number(v) || 0), 0))
-        : round2(totLordoSeed);
+        : round2(Math.max(0, totLordoSeed)); // titoli a credito (lordo < 0): cash 0, non importo negativo
       const cliIds = Array.from(new Set(seed.map((x) => x.cliente_anagrafica_id).filter(Boolean)));
+      const preferBonifico = !!bankIncasso || !!preferredBonifico;
       setTitoli(seed);
       setForm({
         dataMessaCassa: t,
         dataPagamento: t,
-        tipoPagamento: bankIncasso ? "bonifico" : "contanti",
-        banca: bankIncasso?.contoBancarioId ?? "",
+        tipoPagamento: preferBonifico ? "bonifico" : "contanti",
+        banca: bankIncasso?.contoBancarioId ?? preferredBonifico?.contoBancarioId ?? "",
         cashImporto: bankCash,
       });
       setAnticipiSel({});
@@ -456,9 +499,11 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       setClienteQuietanzeSearch("");
       setQuietanzeSel({});
       setModalitaByTitolo({});
+      setSelectedBonificoId(bankIncasso?.movimentoId ?? preferredBonifico?.movimentoId ?? null);
+      setEstrattoSearch("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, bankIncasso?.movimentoId]);
+  }, [open, bankIncasso?.movimentoId, preferredBonifico?.movimentoId]);
 
   // Date effettive per titolo (override oppure default globale del form)
   const getDate = (titoloId: string) =>
@@ -670,7 +715,124 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
     : round2(Number(form.cashImporto) || 0);
   const coperto = round2(cashEffettivo + totaleAnticipiUsati);
   const delta = round2(totaleDovutoConsul - coperto);
-  const quadrato = bankIncasso ? true : Math.abs(delta) < TOLLERANZA_QUADRATURA;
+  // Chiusura conguaglio a credito: nessun cash/acconto da quadrare
+  const isChiusuraCredito = dovutoFinale < -TOLLERANZA_QUADRATURA;
+  const quadrato = bankIncasso
+    ? true
+    : isChiusuraCredito
+      ? Math.abs(totaleAnticipiUsati) < TOLLERANZA_QUADRATURA && Math.abs(cashEffettivo) < TOLLERANZA_QUADRATURA
+      : Math.abs(delta) < TOLLERANZA_QUADRATURA;
+
+  const isBonifico = isBonificoTipo(form.tipoPagamento);
+  /** Pannello conti+estratti visibile per ogni bonifico (anche incasso a 0). */
+  const showBonificoPanel = isBonifico;
+  /** Collegamento obbligatorio movimento solo se c'è cash da quadrare sul conto. */
+  const needsBonificoLink = !bankIncasso && cashEffettivo > 0 && isBonifico && !!form.banca;
+  /** Carica estratti appena c'è un conto (anche con cash 0). */
+  const canLoadEstratti = open && !bankIncasso && isBonifico && !!form.banca;
+
+  const clienteIdsPerBonifico = useMemo(() => {
+    const ids = new Set<string>();
+    for (const t of titoli) {
+      if (t.cliente_anagrafica_id) ids.add(t.cliente_anagrafica_id);
+    }
+    if (effettivoPagatoreId) ids.add(effettivoPagatoreId);
+    return Array.from(ids);
+  }, [titoli, effettivoPagatoreId]);
+
+  const clienteNomiPerBonifico = useMemo(
+    () => clienteIdsPerBonifico.map((id) => clienteNomeById.get(id) || "").filter(Boolean),
+    [clienteIdsPerBonifico, clienteNomeById],
+  );
+
+  const { data: bonificiCandidati = [], isFetching: bonificiLoading } = useQuery({
+    queryKey: [
+      "messa-cassa-bonifici-candidati",
+      form.banca,
+      clienteIdsPerBonifico.join(","),
+      cashEffettivo,
+      clienteNomiPerBonifico.join("|"),
+    ],
+    enabled: canLoadEstratti,
+    queryFn: () =>
+      fetchBonificiCandidatiPerIncasso({
+        contoBancarioId: form.banca,
+        clienteIds: clienteIdsPerBonifico,
+        clienteNomi: clienteNomiPerBonifico,
+      }),
+  });
+
+  useEffect(() => {
+    if (!canLoadEstratti) return;
+    // Se l'operatore (o preferred) ha già una scelta valida sul conto, non sovrascrivere
+    if (selectedBonificoId && bonificiCandidati.some((b) => b.id === selectedBonificoId)) return;
+    // Preferenza da Incassi (match nome)
+    if (preferredBonifico?.movimentoId && bonificiCandidati.some((b) => b.id === preferredBonifico.movimentoId)) {
+      setSelectedBonificoId(preferredBonifico.movimentoId);
+      return;
+    }
+    // Solo nome/cliente: un match forte, o un solo movimento sul conto. Mai per importo.
+    const nameMatches = bonificiCandidati.filter(
+      (b) => b.matchReason === "cliente" || b.matchReason === "ordinante",
+    );
+    if (nameMatches.length === 1) setSelectedBonificoId(nameMatches[0].id);
+    else if (bonificiCandidati.length === 1) setSelectedBonificoId(bonificiCandidati[0].id);
+    else setSelectedBonificoId(null); // più candidati → scelta manuale (lista già ordinata per nome)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canLoadEstratti, form.banca, preferredBonifico?.movimentoId, bonificiCandidati.map((b) => b.id).join(",")]);
+
+  const selectedBonifico: BonificoCandidato | null = useMemo(
+    () => bonificiCandidati.find((b) => b.id === selectedBonificoId) ?? null,
+    [bonificiCandidati, selectedBonificoId],
+  );
+
+  const { data: contiBonificoRaw = [] } = useQuery({
+    queryKey: ["messa-cassa-conti-bonifico"],
+    enabled: open && showBonificoPanel && !bankIncasso,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("conti_bancari" as any)
+        .select("id, etichetta, iban, intestato_a, banca, tipo, is_default, attivo, conti_bancari_uffici(ufficio_id)")
+        .eq("attivo", true)
+        .in("tipo", ["generico", "incasso_clienti"])
+        .order("is_default", { ascending: false })
+        .order("etichetta");
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    staleTime: 60_000,
+  });
+
+  const contiBonifico = useMemo(
+    () =>
+      filterContiBancariPerSede(contiBonificoRaw, {
+        ruolo: profile?.ruolo,
+        ufficioId: profile?.ufficio_id,
+      }),
+    [contiBonificoRaw, profile?.ruolo, profile?.ufficio_id],
+  );
+
+  // Preseleziona il conto default (o il primo) quando si sceglie Bonifico
+  useEffect(() => {
+    if (!open || bankIncasso || !showBonificoPanel) return;
+    if (form.banca) return;
+    if (preferredBonifico?.contoBancarioId) {
+      setForm((f) => ({ ...f, banca: preferredBonifico.contoBancarioId || "" }));
+      return;
+    }
+    if (contiBonifico.length === 0) return;
+    const def = contiBonifico.find((c: any) => c.is_default) || contiBonifico[0];
+    if (def?.id) setForm((f) => ({ ...f, banca: def.id }));
+  }, [open, bankIncasso, showBonificoPanel, contiBonifico, form.banca, preferredBonifico?.contoBancarioId]);
+
+  const estrattiFiltrati = useMemo(() => {
+    const q = estrattoSearch.trim().toLowerCase();
+    if (!q) return bonificiCandidati;
+    return bonificiCandidati.filter((b) => {
+      const hay = `${b.ordinante || ""} ${b.descrizione || ""} ${b.importo} ${b.stato}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [bonificiCandidati, estrattoSearch]);
 
   useEffect(() => {
     if (!open || isMulti || !haTrattenuta) return;
@@ -766,8 +928,16 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       toast.error(`Non quadra: delta ${fmtEuro(delta)}`);
       return;
     }
-    if (cashEffettivo > 0 && isBonificoTipo(form.tipoPagamento) && !form.banca && !bankIncasso?.contoBancarioId) {
-      toast.error("Seleziona la banca per il bonifico");
+    if (isBonificoTipo(form.tipoPagamento) && !form.banca && !bankIncasso?.contoBancarioId) {
+      toast.error("Seleziona il conto Consulbrokers per il bonifico");
+      return;
+    }
+    if (
+      needsBonificoLink &&
+      bonificiCandidati.length > 0 &&
+      !selectedBonificoId
+    ) {
+      toast.error("Seleziona il bonifico tra i caricamenti del conto, oppure verifica in Incassi → Bonifici aperti");
       return;
     }
 
@@ -804,6 +974,10 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
 
     let ok = 0, ko = 0;
     const notificaTitoloIds: string[] = [];
+    let accontiCreati = 0;
+    let accontiImporto = 0;
+    const cashByTitolo: Record<string, number> = {};
+    const movimentoBancarioIdEffettivo = bankIncasso?.movimentoId ?? selectedBonificoId ?? null;
 
     for (const t of titoli) {
       if (t.stato === "sospeso") {
@@ -901,6 +1075,8 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
         bancaLabel = conto?.etichetta || conto?.banca || bancaId;
       }
 
+      if (residuoCash > 0) cashByTitolo[t.id] = residuoCash;
+
       const prevIncassato = Number(titoloRow?.importo_incassato ?? t.importo_incassato) || 0;
       // residuoCash è la quota cash/bonifico; usatoTitolo è la quota coperta da acconti.
       // Entrambe contribuiscono all'importo_incassato, altrimenti i pagamenti
@@ -939,6 +1115,34 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
 
       const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
       if (error) { ko++; continue; }
+
+      // Titolo a credito (es. appendice −150): crea acconto cliente riutilizzabile
+      if (isFullIncasso && creditoDaPremioLordo(lordo) > 0 && t.cliente_anagrafica_id) {
+        const resAcc = await creaAnticipoDaTitoloACredito(supabase, {
+          titoloId: t.id,
+          clienteId: t.cliente_anagrafica_id,
+          premioLordo: lordo,
+          numeroTitolo: t.numero_titolo,
+          dataAnticipo: d.mc,
+          userId,
+        });
+        if (!resAcc.ok) {
+          toast.warning(`Titolo chiuso ma acconto non creato (${t.numero_titolo ?? t.id}): ${resAcc.error}`);
+        } else if (!resAcc.skipped && resAcc.importo) {
+          accontiCreati += 1;
+          accontiImporto = round2(accontiImporto + resAcc.importo);
+          await logAttivita({
+            azione: "anticipo_da_titolo_credito",
+            entita_tipo: "titolo",
+            entita_id: t.id,
+            dettagli_json: {
+              anticipo_id: resAcc.anticipoId,
+              importo: resAcc.importo,
+              cliente_id: t.cliente_anagrafica_id,
+            },
+          });
+        }
+      }
 
       if (utilizziPerTitolo.length > 0) {
         const rows = utilizziPerTitolo.map((u) => ({
@@ -1092,7 +1296,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
           residuo_cash: residuoCash,
           importo_incassato_totale: nuovoIncassato,
           incasso_parziale: !isFullIncasso,
-          movimento_bancario_id: bankIncasso?.movimentoId ?? null,
+          movimento_bancario_id: movimentoBancarioIdEffettivo,
           trattenuta_provvigioni: tr
             ? {
                 prod_id: tr.prodId,
@@ -1136,6 +1340,47 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
         .catch(() => toast.warning("Notifica agenzia non inviata"));
     }
 
+    if (ok > 0 && !bankIncasso && selectedBonificoId && Object.keys(cashByTitolo).length > 0) {
+      const pagatore = effettivoPagatoreId || titoli.find((t) => t.cliente_anagrafica_id)?.cliente_anagrafica_id;
+      if (pagatore) {
+        try {
+          const titoliLink = titoli
+            .filter((t) => (cashByTitolo[t.id] || 0) > 0 && t.cliente_anagrafica_id)
+            .map((t) => ({
+              titoloId: t.id,
+              clienteId: t.cliente_anagrafica_id as string,
+              importo: cashByTitolo[t.id],
+            }));
+          await ricongiungiEFinalizzaBonificoDaIncasso({
+            movimentoId: selectedBonificoId,
+            clientePagatoreId: pagatore,
+            contoBancarioId: form.banca || null,
+            dataMessaCassa: form.dataMessaCassa,
+            titoli: titoliLink,
+            userId,
+            clienteLabel: clienteNomeById.get(pagatore) || "Cliente",
+            ufficioIdHint: titoli.find((t) => t.ufficio_id)?.ufficio_id ?? null,
+          });
+          toast.success("Bonifico collegato e segnato sui caricamenti conti");
+          queryClient.invalidateQueries({ queryKey: ["movimenti-bancari"] });
+          queryClient.invalidateQueries({ queryKey: ["mov-bancari"] });
+          queryClient.invalidateQueries({ queryKey: ["ricongiungimento"] });
+          queryClient.invalidateQueries({ queryKey: ["incassi-bonifici-aperti"] });
+          queryClient.invalidateQueries({ queryKey: ["messa-cassa-bonifici-candidati"] });
+        } catch (e: any) {
+          toast.warning(
+            `Incasso ok, ma collegamento bonifico non completato: ${e?.message || "errore"}. Verifica in Incassi → Bonifici aperti.`,
+          );
+        }
+      } else {
+        toast.warning("Incasso ok, ma manca il cliente pagatore per collegare il bonifico");
+      }
+    } else if (ok > 0 && needsBonificoLink && bonificiCandidati.length === 0) {
+      toast.warning(
+        "Incasso registrato senza bonifico in caricamento: importa il movimento da Caricamento Mov. Bancari, poi abbinalo in Incassi → Bonifici aperti.",
+      );
+    }
+
     setLoading(false);
     if (ok > 0) {
       const parziali = bankIncasso && titoli.some((t) => {
@@ -1145,8 +1390,12 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       });
       toast.success(
         isMulti
-          ? `${ok} polizze processate${ko > 0 ? `, ${ko} errori` : ""}${parziali ? " (alcune parziali, restano in carico)" : ""}`
-          : parziali ? "Incasso parziale registrato — quietanza resta in carico" : "Polizza incassata"
+          ? `${ok} polizze processate${ko > 0 ? `, ${ko} errori` : ""}${parziali ? " (alcune parziali, restano in carico)" : ""}${accontiCreati ? ` · ${accontiCreati} acconti creati (${fmtEuro(accontiImporto)})` : ""}`
+          : accontiCreati
+            ? `Conguaglio chiuso — creato acconto cliente ${fmtEuro(accontiImporto)}`
+            : parziali
+              ? "Incasso parziale registrato — quietanza resta in carico"
+              : "Polizza incassata"
       );
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-totale"] });
@@ -1161,6 +1410,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
       queryClient.invalidateQueries({ queryKey: ["ec-produttori"] });
       queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
       queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
+      queryClient.invalidateQueries({ queryKey: ["messa-cassa-bonifici-candidati"] });
       onSuccess?.(form.dataMessaCassa);
       onOpenChange(false);
     } else {
@@ -1321,9 +1571,13 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Conferma Messa a Cassa</DialogTitle>
+          <DialogTitle>
+            {titoliACredito.length > 0 && titoliACredito.length === titoli.length
+              ? "Chiusura conguaglio a credito"
+              : "Conferma Messa a Cassa"}
+          </DialogTitle>
           <DialogDescription>
             {isMulti ? (
               <>Incasso multiplo: <strong>{titoli.length} polizze</strong> — totale lordo {fmtEuro(totaleLordo)}</>
@@ -1333,6 +1587,19 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          {titoliACredito.length > 0 && (
+            <div className="rounded-md border border-violet-300 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800 px-3 py-2 text-xs text-violet-900 dark:text-violet-200">
+              <strong>Conguaglio a credito</strong>
+              {titoliACredito.length === 1 ? (
+                <> ({titoliACredito[0].numero_titolo || "titolo"}): </>
+              ) : (
+                <> ({titoliACredito.length} titoli): </>
+              )}
+              verrà creato un <strong>acconto cliente di {fmtEuro(totaleCredito)}</strong> utilizzabile
+              sulle prossime messe a cassa oppure segnabile come rimborsato/bonificato.
+              Non è un incasso in entrata.
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Data Messa a Cassa</Label>
@@ -1580,18 +1847,257 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
             </div>
           )}
 
-          {cashEffettivo > 0 && isBonificoTipo(form.tipoPagamento) && (
-            <div>
-              <Label className="text-xs">Conto Consulbrokers</Label>
-              <ContoBancarioSelect
-                tipi={["generico", "incasso_clienti"]}
-                value={form.banca || null}
-                onChange={(id) => setForm(f => ({ ...f, banca: id || "" }))}
-                placeholder="Cerca conto..."
-                showPreview
-                autoSelectDefault
-                className="mt-1"
-              />
+          {showBonificoPanel && (
+            <div className="rounded-lg border border-primary/20 bg-muted/20 p-4 space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <Landmark className="h-4 w-4 text-primary" />
+                    Ricongiungimento bonifico
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    1) Conto (default preselezionato) · 2) Estratto/movimento da collegare
+                    {cashEffettivo > 0
+                      ? ` all'incasso (${fmtEuro(cashEffettivo)})`
+                      : " (anche su incasso tecnico a €0)"}.
+                  </p>
+                </div>
+                {bankIncasso && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    Già collegato da flusso bonifico
+                  </Badge>
+                )}
+                {preferredBonifico?.movimentoId && !bankIncasso && (
+                  <Badge variant="outline" className="text-[10px] border-sky-400 text-sky-800">
+                    Proposto da Incassi (match nome)
+                  </Badge>
+                )}
+              </div>
+
+              {bankIncasso ? (
+                <div>
+                  <Label className="text-xs">Conto Consulbrokers</Label>
+                  <ContoBancarioSelect
+                    tipi={["generico", "incasso_clienti"]}
+                    value={form.banca || bankIncasso.contoBancarioId}
+                    onChange={(id) => setForm((f) => ({ ...f, banca: id || "" }))}
+                    placeholder="Cerca conto..."
+                    showPreview
+                    className="mt-1"
+                    disabled
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4">
+                  {/* STEP 1 — Conti */}
+                  <div className="rounded-md border bg-background p-3 space-y-2 min-h-[280px]">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      <Building2 className="h-3.5 w-3.5" />
+                      1. Conto
+                    </Label>
+                    <div className="max-h-[340px] overflow-y-auto space-y-1.5 pr-0.5">
+                      {contiBonifico.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic py-4 text-center">
+                          Nessun conto disponibile per la tua sede.
+                        </p>
+                      ) : (
+                        contiBonifico.map((c: any) => {
+                          const selected = form.banca === c.id;
+                          const iban = String(c.iban || "");
+                          const ibanShort =
+                            iban.length > 12 ? `${iban.slice(0, 4)}…${iban.slice(-4)}` : iban;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedBonificoId(null);
+                                setEstrattoSearch("");
+                                setForm((f) => ({ ...f, banca: c.id }));
+                              }}
+                              className={`w-full text-left rounded-md border px-2.5 py-2 transition-colors ${
+                                selected
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                                  : "hover:bg-muted/60"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-xs font-medium truncate">
+                                  {c.etichetta || c.banca || "Conto"}
+                                </span>
+                                {c.is_default && (
+                                  <Badge variant="outline" className="text-[9px] shrink-0">
+                                    default
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                                {ibanShort}
+                              </div>
+                              {c.banca && (
+                                <div className="text-[10px] text-muted-foreground truncate">{c.banca}</div>
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* STEP 2 — Estratti */}
+                  <div className="rounded-md border bg-background p-3 space-y-2 min-h-[280px]">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label className="text-xs flex items-center gap-1.5">
+                        <Landmark className="h-3.5 w-3.5" />
+                        2. Estratti / movimenti da congiungere
+                      </Label>
+                      {bonificiLoading && (
+                        <span className="text-[10px] text-muted-foreground">Caricamento…</span>
+                      )}
+                    </div>
+
+                    {!form.banca ? (
+                      <div className="flex h-[240px] items-center justify-center text-center px-4">
+                        <p className="text-sm text-muted-foreground">
+                          Seleziona un <strong>conto</strong> a sinistra per vedere gli estratti caricati
+                          e scegliere il bonifico da collegare.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <Input
+                          placeholder="Filtra per ordinante o descrizione…"
+                          value={estrattoSearch}
+                          onChange={(e) => setEstrattoSearch(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                        {estrattiFiltrati.length > 1 && (
+                          <p className="text-[10px] text-muted-foreground">
+                            Elenco ordinato per corrispondenza nome (cliente/ordinante), non per importo.
+                            Seleziona il movimento corretto.
+                          </p>
+                        )}
+                        {estrattiFiltrati.length === 0 && !bonificiLoading ? (
+                          <p className="text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-2">
+                            Nessun movimento aperto su questo conto. Puoi comunque incassare; poi importa da
+                            Caricamento Mov. Bancari e abbina in Incassi → Bonifici aperti.
+                          </p>
+                        ) : (
+                          <div className="max-h-[320px] overflow-auto rounded border">
+                            <table className="w-full text-xs">
+                              <thead className="sticky top-0 bg-muted/90 backdrop-blur z-10">
+                                <tr className="border-b text-left text-muted-foreground">
+                                  <th className="w-8 p-2" />
+                                  <th className="p-2 font-medium">#</th>
+                                  <th className="p-2 font-medium">Data</th>
+                                  <th className="p-2 font-medium text-right">Importo</th>
+                                  <th className="p-2 font-medium">Ordinante / descrizione</th>
+                                  <th className="p-2 font-medium">Match nome</th>
+                                  <th className="p-2 font-medium">Stato</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {estrattiFiltrati.map((b, idx) => {
+                                  const selected = selectedBonificoId === b.id;
+                                  const reason =
+                                    b.matchReason === "cliente"
+                                      ? "Cliente"
+                                      : b.matchReason === "ordinante"
+                                        ? "Ordinante"
+                                        : "Conto";
+                                  const preferred = preferredBonifico?.movimentoId === b.id;
+                                  return (
+                                    <tr
+                                      key={b.id}
+                                      className={`border-b last:border-0 cursor-pointer ${
+                                        selected ? "bg-primary/10" : preferred ? "bg-sky-50" : "hover:bg-muted/40"
+                                      }`}
+                                      onClick={() => {
+                                        setSelectedBonificoId(b.id);
+                                        if (b.data_movimento) {
+                                          setForm((f) => ({
+                                            ...f,
+                                            dataPagamento: b.data_movimento,
+                                          }));
+                                        }
+                                      }}
+                                    >
+                                      <td className="p-2 align-top">
+                                        <input
+                                          type="radio"
+                                          name="bonifico-candidato"
+                                          checked={selected}
+                                          onChange={() => {
+                                            setSelectedBonificoId(b.id);
+                                            if (b.data_movimento) {
+                                              setForm((f) => ({
+                                                ...f,
+                                                dataPagamento: b.data_movimento,
+                                              }));
+                                            }
+                                          }}
+                                        />
+                                      </td>
+                                      <td className="p-2 align-top text-muted-foreground tabular-nums">
+                                        {idx + 1}
+                                      </td>
+                                      <td className="p-2 align-top whitespace-nowrap tabular-nums">
+                                        {b.data_movimento
+                                          ? new Date(b.data_movimento).toLocaleDateString("it-IT")
+                                          : "—"}
+                                      </td>
+                                      <td className="p-2 align-top text-right font-medium tabular-nums whitespace-nowrap">
+                                        {fmtEuro(b.importo)}
+                                      </td>
+                                      <td className="p-2 align-top min-w-[160px]">
+                                        <div className="font-medium line-clamp-1">
+                                          {b.ordinante || "—"}
+                                        </div>
+                                        {b.descrizione && (
+                                          <div className="text-[10px] text-muted-foreground line-clamp-2">
+                                            {b.descrizione}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="p-2 align-top">
+                                        <div className="flex flex-col gap-0.5">
+                                          <Badge
+                                            variant={b.matchReason === "cliente" || b.matchReason === "ordinante" ? "default" : "outline"}
+                                            className="text-[9px] font-normal w-fit"
+                                          >
+                                            {reason}
+                                          </Badge>
+                                          {preferred && (
+                                            <span className="text-[9px] text-sky-700">da Incassi</span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="p-2 align-top capitalize text-muted-foreground">
+                                        {b.stato}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                        {selectedBonifico && (
+                          <p className="text-[11px] text-primary">
+                            Selezionato per congiungimento: <strong>{fmtEuro(selectedBonifico.importo)}</strong>
+                            {round2(selectedBonifico.importo - cashEffettivo) > 0.01
+                              ? ` · eccedenza ${fmtEuro(selectedBonifico.importo - cashEffettivo)} → acconto`
+                              : ""}
+                            {round2(cashEffettivo - selectedBonifico.importo) > 0.01
+                              ? ` · mancano ${fmtEuro(cashEffettivo - selectedBonifico.importo)} rispetto all'incasso`
+                              : ""}
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1757,11 +2263,24 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli: titoliProp, onSuc
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Annulla</Button>
           <Button
             className="bg-green-600 hover:bg-green-700 text-white"
-            disabled={loading || !quadrato || (cashEffettivo > 0 && isBonificoTipo(form.tipoPagamento) && !form.banca)}
+            disabled={
+              loading ||
+              !quadrato ||
+              (isBonifico && !form.banca && !bankIncasso?.contoBancarioId) ||
+              (needsBonificoLink && bonificiCandidati.length > 0 && !selectedBonificoId)
+            }
             onClick={handleConferma}
           >
             <CheckSquare className="w-4 h-4 mr-1" />
-            {loading ? "In corso..." : isMulti ? `Conferma Incasso (${titoli.length})` : "Conferma Incasso"}
+            {loading
+              ? "In corso..."
+              : titoliACredito.length > 0 && titoliACredito.length === titoli.length
+                ? isMulti
+                  ? `Chiudi conguagli (${titoli.length})`
+                  : "Chiudi conguaglio a credito"
+                : isMulti
+                  ? `Conferma Incasso (${titoli.length})`
+                  : "Conferma Incasso"}
           </Button>
         </DialogFooter>
       </DialogContent>

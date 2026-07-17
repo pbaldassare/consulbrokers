@@ -73,9 +73,11 @@ export default function RiepilogoAnticipiPage() {
   const elimina = useEliminaAnticipo("");
 
   const kpi = useMemo(() => {
-    const totDisp = rows.reduce((s, r) => s + Number(r.importo_residuo || 0), 0);
+    const totDisp = rows
+      .filter((r) => !r.rimborsato_il && Number(r.importo_residuo || 0) > 0)
+      .reduce((s, r) => s + Number(r.importo_residuo || 0), 0);
     const totVers = rows.reduce((s, r) => s + Number(r.importo || 0), 0);
-    const attivi = rows.filter((r) => r.importo_residuo > 0).length;
+    const attivi = rows.filter((r) => !r.rimborsato_il && r.importo_residuo > 0).length;
     return { totDisp, totVers, attivi };
   }, [rows]);
 
@@ -92,6 +94,7 @@ export default function RiepilogoAnticipiPage() {
 
   const StatoBadge = ({ r }: { r: any }) => {
     const s = statoAnticipo(r);
+    if (s === "rimborsato") return <Badge className="bg-slate-600 hover:bg-slate-700">Rimborsato</Badge>;
     if (s === "disponibile") return <Badge className="bg-green-600 hover:bg-green-700">Disponibile</Badge>;
     if (s === "parziale") return <Badge className="bg-amber-500 hover:bg-amber-600">Parziale</Badge>;
     return <Badge variant="secondary">Esaurito</Badge>;
@@ -248,7 +251,7 @@ export default function RiepilogoAnticipiPage() {
                     <TableCell><StatoBadge r={r} /></TableCell>
                     <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{r.note || "—"}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      {r.importo_residuo === r.importo && (
+                      {r.importo_residuo === r.importo && !r.rimborsato_il && (
                         <Button
                           size="icon"
                           variant="ghost"

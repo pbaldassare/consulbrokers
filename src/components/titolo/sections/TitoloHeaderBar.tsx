@@ -1,11 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, RefreshCw, Clock } from "lucide-react";
+import { ArrowLeft, RefreshCw, Clock, FilePen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { calcLordoQuietanzaTitolo } from "@/lib/premiGaranziaLoad";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { appendiceTipoLabel, isAppendice } from "@/lib/quietanze";
 
 interface MadreInfo {
   id: string;
@@ -20,7 +21,7 @@ interface Props {
   onBack: () => void;
   /** Quietanza madre collegata a una regolazione (RG). */
   madre?: MadreInfo | null;
-  /** Polizza madre della catena quando il titolo corrente è una quietanza. */
+  /** Polizza madre della catena quando il titolo corrente è quietanza o appendice. */
   polizzaMadre?: MadreInfo | null;
   /** Titolo corrente è una quietanza (sostituisce_polizza valorizzato). */
   isQuietanzaCorrente?: boolean;
@@ -34,8 +35,7 @@ interface Props {
 
 /**
  * Header sticky del dettaglio titolo.
- * Aggiunge un badge "Regolazione" e il riferimento alla quietanza madre
- * quando t.is_regolazione = true.
+ * Distingue polizza madre, quietanza, appendice modifica, proroga, regolazione.
  */
 export function TitoloHeaderBar({
   t,
@@ -49,7 +49,10 @@ export function TitoloHeaderBar({
 }: Props) {
   const isRegolazione = !!t.is_regolazione;
   const isProroga = !!t.is_proroga;
-  const isQuietanza = !!isQuietanzaCorrente && !isRegolazione && !isProroga;
+  const isAppendiceModifica = !!t.is_appendice_modifica;
+  const isAppendiceTitolo = isAppendice(t);
+  const appendiceSub = appendiceTipoLabel(t);
+  const isQuietanza = !!isQuietanzaCorrente && !isAppendiceTitolo;
   const fmtD = (d?: string | null) => (d ? format(new Date(d), "dd/MM/yyyy", { locale: it }) : "");
   const rataLbl = isQuietanza
     ? rataIndex && totRate && totRate > 1
@@ -71,7 +74,18 @@ export function TitoloHeaderBar({
   const importoLordo = isQuietanza
     ? calcLordoQuietanzaTitolo(t)
     : Number((t as any).premio_lordo ?? 0);
-  const importoLabel = isQuietanza ? "Importo Rata" : "Importo Firma";
+  const importoLabel = isQuietanza
+    ? "Importo Rata"
+    : isAppendiceTitolo
+      ? "Importo Appendice"
+      : "Importo Firma";
+
+  const numeroDisplay = t.numero_titolo || t.id.slice(0, 8);
+  const statoContrattoLabel = isAppendiceTitolo
+    ? "Appendice"
+    : isQuietanza
+      ? "Quietanza"
+      : "Polizza";
 
   return (
     <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60">
@@ -81,9 +95,11 @@ export function TitoloHeaderBar({
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground">
               {isProroga ? (
-                <>Proroga {t.numero_titolo || t.id.slice(0, 8)}</>
+                <>Proroga {numeroDisplay}</>
               ) : isRegolazione ? (
-                <>Regolazione {t.numero_titolo || t.id.slice(0, 8)}</>
+                <>Regolazione {numeroDisplay}</>
+              ) : isAppendiceModifica ? (
+                <>Appendice {numeroDisplay}</>
               ) : isQuietanza ? (
                 <>
                   Quietanza
@@ -91,7 +107,7 @@ export function TitoloHeaderBar({
                   {periodoGaranzia ? ` · ${periodoGaranzia}` : ""}
                 </>
               ) : (
-                <>Polizza {t.numero_titolo || t.id.slice(0, 8)}</>
+                <>Polizza {numeroDisplay}</>
               )}
             </h1>
             {isProroga ? (
@@ -102,10 +118,18 @@ export function TitoloHeaderBar({
               <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">
                 <RefreshCw className="w-3 h-3 mr-1" /> Regolazione
               </Badge>
+            ) : isAppendiceModifica ? (
+              <Badge
+                className="bg-appendice text-appendice-foreground border border-appendice/30 hover:bg-appendice"
+                title="Appendice di modifica"
+              >
+                <FilePen className="w-3 h-3 mr-1" />
+                {appendiceSub ? `Appendice ${appendiceSub}` : "Appendice"}
+              </Badge>
             ) : isQuietanza ? null : (
               <Badge variant="outline">Polizza originale</Badge>
             )}
-            {!isRegolazione && !isProroga && !isQuietanza && t.coassicurazione && (
+            {!isRegolazione && !isProroga && !isQuietanza && !isAppendiceModifica && t.coassicurazione && (
               <Badge className="bg-teal-600 hover:bg-teal-700 text-white" title="Premio ripartito tra più compagnie">
                 Coassicurazione
               </Badge>
@@ -125,6 +149,18 @@ export function TitoloHeaderBar({
               ) : (
                 <span className="text-muted-foreground">{t.numero_titolo || "—"}</span>
               )}
+            </p>
+          )}
+
+          {isAppendiceTitolo && !isProroga && !isRegolazione && polizzaMadre?.id && (
+            <p className="text-sm mt-0.5">
+              <span className="text-muted-foreground">Appendice della polizza </span>
+              <Link
+                to={`/titoli/${polizzaMadre.id}`}
+                className="font-medium text-primary hover:underline"
+              >
+                {polizzaMadre.numero_titolo || "—"}
+              </Link>
             </p>
           )}
 
@@ -184,11 +220,11 @@ export function TitoloHeaderBar({
           <div className="flex flex-col items-end gap-1 shrink-0">
             {polizzaStato && (
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Polizza</span>
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{statoContrattoLabel}</span>
                 <Badge
                   variant={polizzaStato === "attiva" ? "default" : polizzaStato === "annullata" ? "destructive" : "secondary"}
                   className={`text-xs ${polizzaStato === "attiva" ? "bg-teal-600 hover:bg-teal-700 text-white" : ""}`}
-                  title="Stato del contratto (tabella polizze)"
+                  title={isAppendiceTitolo ? "Stato contratto collegato" : "Stato del contratto (tabella polizze)"}
                 >
                   {polizzaStato}
                 </Badge>
@@ -201,7 +237,13 @@ export function TitoloHeaderBar({
               <Badge
                 variant={t.stato === "incassato" ? "default" : t.stato === "stornato" ? "destructive" : "secondary"}
                 className="text-xs"
-                title={isQuietanza ? "Stato della quietanza (rata)" : "Stato del titolo"}
+                title={
+                  isQuietanza
+                    ? "Stato della quietanza (rata)"
+                    : isAppendiceTitolo
+                      ? "Stato dell'appendice"
+                      : "Stato del titolo"
+                }
               >
                 {t.stato}
               </Badge>
@@ -212,4 +254,3 @@ export function TitoloHeaderBar({
     </div>
   );
 }
-

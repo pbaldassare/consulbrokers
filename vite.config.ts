@@ -11,9 +11,19 @@ import { APP_RELEASE_VERSION } from "./src/lib/appRelease";
 // loop di reload per mismatch versione.
 const APP_VERSION = APP_RELEASE_VERSION;
 
+/** Scrive version.json solo se il contenuto cambia (evita restart/HMR inutili in watch). */
+function writeFileIfChanged(filePath: string, payload: string) {
+  try {
+    if (fs.existsSync(filePath) && fs.readFileSync(filePath, "utf8") === payload) return;
+    fs.writeFileSync(filePath, payload);
+  } catch (err) {
+    console.warn(`[writeVersionJson] cannot write ${filePath}:`, err);
+  }
+}
+
 /**
  * Plugin che scrive `version.json` sia in `public/` (per dev server)
- * sia in `dist/` (per produzione) con lo stesso timestamp del bundle.
+ * sia in `dist/` (per produzione) con la stessa versione del bundle.
  */
 function writeVersionJson(): Plugin {
   const payload = JSON.stringify({ version: APP_VERSION }, null, 2);
@@ -21,34 +31,14 @@ function writeVersionJson(): Plugin {
     name: "write-version-json",
     apply: () => true,
     buildStart() {
-      try {
-        const publicDir = path.resolve(__dirname, "public");
-        if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
-        fs.writeFileSync(path.join(publicDir, "version.json"), payload);
-      } catch (err) {
-        console.warn("[writeVersionJson] cannot write public/version.json:", err);
-      }
+      const publicDir = path.resolve(__dirname, "public");
+      if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
+      writeFileIfChanged(path.join(publicDir, "version.json"), payload);
     },
     closeBundle() {
-      try {
-        const distDir = path.resolve(__dirname, "dist");
-        if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
-        fs.writeFileSync(path.join(distDir, "version.json"), payload);
-      } catch (err) {
-        console.warn("[writeVersionJson] cannot write dist/version.json:", err);
-      }
-    },
-  };
-}
-
-function forcePreviewFullReload(): Plugin {
-  return {
-    name: "force-preview-full-reload",
-    apply: "serve",
-    handleHotUpdate(ctx) {
-      if (ctx.file.includes("node_modules") || ctx.file.includes(".git")) return;
-      ctx.server.ws.send({ type: "full-reload", path: "*" });
-      return [];
+      const distDir = path.resolve(__dirname, "dist");
+      if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
+      writeFileIfChanged(path.join(distDir, "version.json"), payload);
     },
   };
 }
@@ -82,7 +72,8 @@ export default defineConfig(({ mode }) => {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(APP_VERSION),
   },
   server: {
-    host: "::",
+    // 127.0.0.1 evita problemi del Simple Browser / localhost su Windows con host "::"
+    host: "127.0.0.1",
     port: devPort,
     strictPort: true,
     headers: {
@@ -93,12 +84,16 @@ export default defineConfig(({ mode }) => {
     hmr: {
       overlay: false,
     },
+    // Evita che riscritture di version.json facciano ripartire il watcher
+    watch: {
+      ignored: ["**/public/version.json"],
+    },
   },
   plugins: [
     react(),
     writeVersionJson(),
     devServerStartupLog(devPort, projectName),
-    forcePreviewFullReload(),
+    // HMR standard (niente full-reload su ogni save)
     mode === "development" && componentTagger(),
   ].filter(Boolean),
   resolve: {

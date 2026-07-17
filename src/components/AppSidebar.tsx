@@ -197,14 +197,14 @@ const sidebarEntries: SidebarEntry[] = [
       icon: Calculator,
       permissionKey: "contabilita",
       children: [
-        { label: "Avvisi di incasso", path: "/portafoglio/carico", icon: Clock },
+        { label: "Incassi", path: "/portafoglio/carico", icon: Clock },
         { label: "Riepilogo Messe a Cassa", path: "/contabilita", icon: Landmark },
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
         { label: "Storico E/C Clienti", path: "/contabilita/ec-cliente/storico", icon: Archive },
         { label: "E/C Produttori", path: "/contabilita/ec-produttori", icon: Percent },
         { label: "Storico E/C Produttori", path: "/contabilita/ec-produttore/storico", icon: Archive },
         { label: "Riepilogo Acconti", path: "/contabilita/anticipi-clienti", icon: Wallet },
-        { label: "Bonifici", path: "/contabilita/ricongiungimento-bancario", icon: ArrowRightLeft, hideForRoles: ["manager","produttore","corrispondente","cliente","prospect"] },
+        { label: "Bonifici", path: "/portafoglio/carico?tab=bonifici", icon: ArrowRightLeft, hideForRoles: ["manager","produttore","corrispondente","cliente","prospect"] },
       ],
     },
   },
@@ -292,11 +292,10 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
   useEffect(() => {
     for (const entry of sidebarEntries) {
       if (entry.type === "group") {
-        const match = entry.group.children.some(
-          (child) =>
-            location.pathname === child.path ||
-            location.pathname.startsWith(child.path + "/")
-        );
+        const match = entry.group.children.some((child) => {
+          const base = child.path.split("?")[0];
+          return location.pathname === base || location.pathname.startsWith(base + "/");
+        });
         if (match) {
           setOpenGroups((prev) => {
             const next = new Set(prev);
@@ -390,11 +389,10 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
           );
           if (visibleChildren.length === 0) return null;
           const isOpen = openGroups.has(group.label);
-          const hasActiveChild = visibleChildren.some(
-            (child) =>
-              location.pathname === child.path ||
-              location.pathname.startsWith(child.path + "/")
-          );
+          const hasActiveChild = visibleChildren.some((child) => {
+            const base = child.path.split("?")[0];
+            return location.pathname === base || location.pathname.startsWith(base + "/");
+          });
 
           return (
             <div key={group.label} className="mb-1">

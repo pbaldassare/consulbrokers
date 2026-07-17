@@ -57,7 +57,7 @@ import { TitoloQuietanzePanel } from "@/components/titolo/sections/TitoloQuietan
 import { TitoloDataPersistenceInfo } from "@/components/titolo/sections/TitoloDataPersistenceInfo";
 import { PageContainer } from "@/components/shared/PageContainer";
 import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
-import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza, getTotQuietanze, getQuietanzaRataIndex } from "@/lib/quietanze";
+import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza, getTotQuietanze, getQuietanzaRataIndex, isAppendice, baseNumeroPolizza } from "@/lib/quietanze";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 // Guard difensivo: garantisce che ogni mutation aggiorni SOLO il record corrente.
@@ -289,19 +289,36 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
-  // Catena polizza: madre + tutte le quietanze sorelle (per banner + pannello "Quietanze")
+  // Catena polizza: madre + quietanze + appendici (per banner + pannello "Quietanze")
   const numeroTitolo = titolo?.numero_titolo || null;
+  const numeroTitoloCatena = titolo && numeroTitolo
+    ? (isAppendice(titolo as any) ? baseNumeroPolizza(numeroTitolo) : numeroTitolo)
+    : null;
   const { data: catenaTitoli = [] } = useQuery({
-    queryKey: ["catena-titoli", numeroTitolo],
+    queryKey: ["catena-titoli", numeroTitoloCatena],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("titoli")
-        .select("id, numero_titolo, riga, sostituisce_polizza, garanzia_da, garanzia_a, premio_lordo, stato, data_messa_cassa, created_at, coassicurazione")
-        .eq("numero_titolo", numeroTitolo!)
-        .order("garanzia_da", { ascending: true, nullsFirst: true });
-      return data || [];
+      const base = numeroTitoloCatena!;
+      const selectCols =
+        "id, numero_titolo, riga, sostituisce_polizza, garanzia_da, garanzia_a, premio_lordo, stato, data_messa_cassa, created_at, coassicurazione, is_appendice_modifica, is_proroga, is_regolazione";
+      const [exact, suffixed] = await Promise.all([
+        supabase.from("titoli").select(selectCols).eq("numero_titolo", base),
+        supabase.from("titoli").select(selectCols).like("numero_titolo", `${base}/%`),
+      ]);
+      const seen = new Set<string>();
+      const merged: any[] = [];
+      for (const row of [...(exact.data || []), ...(suffixed.data || [])]) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        merged.push(row);
+      }
+      merged.sort((a, b) => {
+        const da = a.garanzia_da || a.created_at || "";
+        const db = b.garanzia_da || b.created_at || "";
+        return String(da).localeCompare(String(db));
+      });
+      return merged;
     },
-    enabled: !!numeroTitolo,
+    enabled: !!numeroTitoloCatena,
   });
 
   // Allinea riparto coass su quietanze con madre coassicurata (se mancante o incompleto)
@@ -349,7 +366,7 @@ const TitoloDetail = () => {
   // Regolazioni collegate al titolo corrente (visualizzate sul titolo madre)
   const { data: regolazioniCollegate = [] } = useQuery({
     queryKey: ["regolazioni-collegate", id],
-    enabled: !!id && !(titolo as any)?.is_regolazione && !(titolo as any)?.is_proroga,
+    enabled: !!id && !(titolo as any)?.is_regolazione && !(titolo as any)?.is_proroga && !(titolo as any)?.is_appendice_modifica,
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
@@ -362,7 +379,7 @@ const TitoloDetail = () => {
 
   const { data: prorogheCollegate = [] } = useQuery({
     queryKey: ["proroghe-collegate", id],
-    enabled: !!id && !(titolo as any)?.is_regolazione && !(titolo as any)?.is_proroga,
+    enabled: !!id && !(titolo as any)?.is_regolazione && !(titolo as any)?.is_proroga && !(titolo as any)?.is_appendice_modifica,
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
@@ -1501,7 +1518,7 @@ const TitoloDetail = () => {
         toast.success(
           `Quietanza successiva generata${d ? ` con decorrenza ${d}` : ""}`,
           {
-            description: "Compare in Avvisi di incasso del periodo target.",
+            description: "Compare in Incassi del periodo target.",
             action: {
               label: "Apri",
               onClick: () => navigate(`/titoli/${res.quietanzaGenerata!.id}`),
@@ -1620,13 +1637,17 @@ const TitoloDetail = () => {
   const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
   const isRegolazione = !!(t as any).is_regolazione;
   const isProroga = !!(t as any).is_proroga;
-  const isTitoloDerivato = isRegolazione || isProroga;
+  const isAppendiceModifica = !!(t as any).is_appendice_modifica;
+  const isAppendiceTitolo = isAppendice(t as any);
+  // AM/PR/RG: titolo-incasso one-shot (non polizza madre)
+  const isTitoloDerivato = isAppendiceTitolo;
 
   // Catena polizza: usata per banner "scope" e pannello "Quietanze sorelle"
   const isQuietanzaCorrente = isQuietanzaTitolo(t);
-  /** Su quietanza già conclusa (incasso/messa a cassa) il premio quietanza non serve in UI. */
+  /** Su quietanza già conclusa o su appendice: niente dualismo Firma/Quietanza. */
   const nascondiPremioQuietanza =
-    isQuietanzaCorrente && (t.stato === "incassato" || !!t.data_messa_cassa);
+    isAppendiceTitolo ||
+    (isQuietanzaCorrente && (t.stato === "incassato" || !!t.data_messa_cassa));
   const catene = catenaTitoli && catenaTitoli.length > 0
     ? groupTitoliByPolizza(catenaTitoli)
     : [];
@@ -1652,9 +1673,7 @@ const TitoloDetail = () => {
   // Su queste l'incasso NON si fa mai — solo sulle quietanze, regolazioni e appendici.
   const isPolizzaMadre =
     !t.sostituisce_polizza &&
-    !isRegolazione &&
-    !isProroga &&
-    !(t as any).is_appendice_modifica;
+    !isAppendiceTitolo;
 
 
   return (
@@ -1666,7 +1685,7 @@ const TitoloDetail = () => {
         rataIndex={rataIndex}
         totRate={totRate}
         isQuietanzaCorrente={isQuietanzaCorrente}
-        polizzaMadre={isQuietanzaCorrente && madre ? {
+        polizzaMadre={(isQuietanzaCorrente || isAppendiceTitolo) && madre ? {
           id: madre.id,
           numero_titolo: madre.numero_titolo,
         } : null}
@@ -1688,23 +1707,27 @@ const TitoloDetail = () => {
 
 
       {/* Banner di blocco + banner scope quietanza */}
-      <TitoloScopeBanners
-        t={t}
-        isLocked={isLocked}
-        isQuietanzaCorrente={isQuietanzaCorrente}
-        totRate={totRate}
-        rataIndex={rataIndex}
-        madre={madre}
-        onNavigateMadre={(id) => navigate(`/titoli/${id}`)}
-      />
+      {!isAppendiceTitolo && (
+        <TitoloScopeBanners
+          t={t}
+          isLocked={isLocked}
+          isQuietanzaCorrente={isQuietanzaCorrente}
+          totRate={totRate}
+          rataIndex={rataIndex}
+          madre={madre}
+          onNavigateMadre={(id) => navigate(`/titoli/${id}`)}
+        />
+      )}
 
-      {/* Pannello "Quietanze di questa polizza" */}
-      <TitoloQuietanzePanel
-        t={t}
-        totRate={totRate}
-        catena={catenaCorrente || null}
-        onNavigate={(rid) => navigate(`/titoli/${rid}`)}
-      />
+      {/* Pannello "Quietanze di questa polizza" — non sull'appendice */}
+      {!isAppendiceTitolo && (
+        <TitoloQuietanzePanel
+          t={t}
+          totRate={totRate}
+          catena={catenaCorrente || null}
+          onNavigate={(rid) => navigate(`/titoli/${rid}`)}
+        />
+      )}
 
       {/* Pannello "Regolazioni collegate" — solo per titoli non-RG con almeno una RG */}
       {!isTitoloDerivato && regolazioniCollegate.length > 0 && (
@@ -1807,7 +1830,7 @@ const TitoloDetail = () => {
 
 
       {/* Card dedicata: rinnovo in attesa di messa a cassa della polizza precedente */}
-      {t.stato === "in_attesa_rinnovo" && (
+      {!isAppendiceTitolo && t.stato === "in_attesa_rinnovo" && (
         <Card className="border-orange-400 bg-orange-50/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -1820,7 +1843,7 @@ const TitoloDetail = () => {
               <span className="font-mono font-semibold">{t.sostituisce_polizza}</span>
               .
               Diventerà <strong>attivo automaticamente</strong> quando la polizza precedente verrà messa a cassa,
-              e solo allora apparirà in <em>Avvisi di incasso</em> di scadenza.
+              e solo allora apparirà in <em>Incassi</em> di scadenza.
             </p>
             {isAdmin && (
               <Button
@@ -1865,6 +1888,27 @@ const TitoloDetail = () => {
                 All&apos;incasso la scadenza della polizza madre verrà estesa automaticamente.
               </div>
             )}
+            {isAppendiceModifica && (
+              <div className="w-full -mt-1 mb-1 rounded-md border border-violet-300 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800 px-3 py-2 text-xs text-violet-900 dark:text-violet-200">
+                Questo titolo è un&apos;<strong>Appendice di modifica</strong>
+                {madre ? (
+                  <> della polizza{" "}
+                    <button type="button" className="font-medium underline" onClick={() => navigate(`/titoli/${madre.id}`)}>
+                      {madre.numero_titolo}
+                    </button>
+                  </>
+                ) : null}
+                . Non genera quietanze né consente sostituzione/estinzione/nuove appendici: sono disponibili incasso/messa a cassa e annullamento.
+              </div>
+            )}
+            {isAppendiceTitolo && Number(t.premio_lordo) < -0.009 && !t.data_messa_cassa && t.stato === "attivo" && (
+              <div className="w-full -mt-1 mb-1 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+                <strong>Appendice a credito</strong> ({fmtEuro(Math.abs(Number(t.premio_lordo) || 0))}).
+                Alla messa a cassa verrà creato un <strong>acconto cliente</strong> utilizzabile
+                sulle prossime quietanze oppure segnabile come rimborsato/bonificato
+                (Contabilità → Acconti clienti).
+              </div>
+            )}
             
             {!isTitoloDerivato && (
               <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
@@ -1907,16 +1951,28 @@ const TitoloDetail = () => {
                   size="sm"
                   className="text-destructive border-destructive/50 hover:bg-destructive/10"
                   disabled={t.stato === "annullato"}
-                  title={t.stato === "annullato" ? "Polizza già annullata" : undefined}
+                  title={
+                    t.stato === "annullato"
+                      ? (isAppendiceTitolo ? "Appendice già annullata" : "Polizza già annullata")
+                      : undefined
+                  }
                 >
-                  <XCircle className="w-4 h-4 mr-1" /> Annulla polizza (irreversibile)
+                  <XCircle className="w-4 h-4 mr-1" />{" "}
+                  {isAppendiceTitolo
+                    ? "Annulla appendice (irreversibile)"
+                    : "Annulla polizza (irreversibile)"}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Conferma annullamento polizza</AlertDialogTitle>
+                  <AlertDialogTitle>
+                    {isAppendiceTitolo
+                      ? "Conferma annullamento appendice"
+                      : "Conferma annullamento polizza"}
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
-                    Annullando la polizza {t.numero_titolo} verranno <strong>eliminati in transazione</strong>:
+                    Annullando {isAppendiceTitolo ? "l'appendice" : "la polizza"}{" "}
+                    {t.numero_titolo} verranno <strong>eliminati in transazione</strong>:
                     quietanze successive, provvigioni (anche se già pagate), righe pagamento provvigioni,
                     righe rimessa, testate rimessa rimaste vuote, movimenti contabili, movimenti polizza
                     e split commerciali collegati. Resterà solo il log dell&apos;operazione come traccia.
@@ -1929,8 +1985,9 @@ const TitoloDetail = () => {
                     onClick={async () => {
                       const res = await annullaPolizza(id!);
                       if (!res.ok) { toast.error(res.error || "Errore annullamento"); return; }
+                      const entitaLabel = isAppendiceTitolo ? "Appendice" : "Polizza";
                       toast.success(
-                        `Polizza annullata — eliminati: ${res.quietanzeEliminate ?? 0} quietanze, ${res.provvigioniEliminate ?? 0} provvigioni (${res.pagamentiRigheEliminate ?? 0} righe pagamento), ${res.rimessaDettagliEliminati ?? 0} righe rimessa, ${res.rimesseTestateEliminate ?? 0} testate rimessa, ${res.movimentiEliminati ?? 0} movimenti contabili, ${res.movimentiPolizzaEliminati ?? 0} movimenti polizza, ${res.splitsEliminati ?? 0} split${res.includevaProvvigioniPagate ? " (incluse provvigioni già pagate)" : ""}.`,
+                        `${entitaLabel} annullata — eliminati: ${res.quietanzeEliminate ?? 0} quietanze, ${res.provvigioniEliminate ?? 0} provvigioni (${res.pagamentiRigheEliminate ?? 0} righe pagamento), ${res.rimessaDettagliEliminati ?? 0} righe rimessa, ${res.rimesseTestateEliminate ?? 0} testate rimessa, ${res.movimentiEliminati ?? 0} movimenti contabili, ${res.movimentiPolizzaEliminati ?? 0} movimenti polizza, ${res.splitsEliminati ?? 0} split${res.includevaProvvigioniPagate ? " (incluse provvigioni già pagate)" : ""}.`,
                         { duration: 8000 }
                       );
                       queryClient.invalidateQueries();
@@ -2209,7 +2266,7 @@ const TitoloDetail = () => {
       )}
 
       {/* Dove sono salvati i dati — sezione informativa sulla persistenza delle operazioni ciclo vita */}
-      <TitoloDataPersistenceInfo />
+      {!isAppendiceTitolo && <TitoloDataPersistenceInfo />}
 
       {/* MESSA A CASSA — ora integrata nella card Operazioni sopra */}
 
@@ -2346,6 +2403,7 @@ const TitoloDetail = () => {
         </DialogContent>
       </Dialog>
 
+      {!isAppendiceTitolo && (<>
       <SectionCollapsible title="Contratto" icon={FileText}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingContratto ? (
@@ -2919,6 +2977,7 @@ const TitoloDetail = () => {
 
         )}
       </SectionCollapsible>
+      </>)}
 
       {/* COMMERCIALE & SPLIT */}
       <SectionCollapsible title="Commerciale & Provvigioni" icon={Percent}>
@@ -3391,6 +3450,7 @@ const TitoloDetail = () => {
             draftMode={editingImporti}
             showQuietanza={!nascondiPremioQuietanza}
             hideFirma={isQuietanzaCorrente && rataIndex > 1}
+            appendiceMode={isAppendiceTitolo}
             fallbackPremiTitoloId={
               isQuietanzaCorrente && madre?.id && madre.id !== t.id ? madre.id : null
             }
@@ -3418,7 +3478,7 @@ const TitoloDetail = () => {
               />
             </>
           )}
-          {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
+          {renderSplitImporti(isAppendiceTitolo ? "Provvigioni" : "Provvigioni alla Firma", sFirma, "teal")}
           {!nascondiPremioQuietanza && renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
         </div>
       </SectionCollapsible>
@@ -3426,6 +3486,7 @@ const TitoloDetail = () => {
       })()}
 
 
+      {!isAppendiceTitolo && (<>
       {/* NUMERI POLIZZA STORICI */}
       {numeriStorici.length > 0 && (
         <SectionCollapsible title="Numeri polizza storici" icon={RefreshCw} defaultOpen={false}>
@@ -3708,6 +3769,8 @@ const TitoloDetail = () => {
         </SectionCollapsible>
       )}
 
+      </>)}
+
       {/* Tabs */}
       <TitoloTabs
         id={id!}
@@ -3716,7 +3779,8 @@ const TitoloDetail = () => {
         provvigioni={provvigioni}
         appendiciPolizza={appendiciPolizza}
         navigate={navigate}
-        chainIds={chainIds}
+        chainIds={isAppendiceTitolo ? [t.id] : chainIds}
+        variant={isAppendiceTitolo ? "appendice" : "full"}
       />
 
 

@@ -206,7 +206,8 @@ const sezioni = [
       { nome: "Duplicazione Polizza", desc: "Copia polizza esistente come base per nuova emissione", ruoli: ["admin", "ufficio"] },
       { nome: "Conferma Emittende", desc: "Conferma emissione polizze in attesa di validazione", ruoli: ["admin", "ufficio"] },
       { nome: "Titoli", desc: "Gestione titoli di incasso (quietanze, ricevute) collegati alle polizze", ruoli: ["admin", "ufficio", "contabilita"] },
-      
+      { nome: "Incassi", desc: "Quietanze da mettere a cassa, KPI e bonifici aperti collegabili per ordinante", ruoli: ["admin", "ufficio", "contabilita", "backoffice"] },
+      { nome: "Bonifici (in Incassi)", desc: "Pannello bonifici aperti su Incassi; match ordinante ↔ cliente, non importo", ruoli: ["admin", "cfo", "ufficio", "contabilita"] },
     ],
   },
   {
@@ -240,6 +241,8 @@ const sezioni = [
       { nome: "Import Provvigioni", desc: "Importazione file provvigioni da agenzie (PDF/Excel)", ruoli: ["admin", "ufficio"] },
       { nome: "Diff. Provvigioni", desc: "Analisi differenze tra provvigioni attese e ricevute", ruoli: ["admin", "ufficio"] },
       { nome: "Report IVA", desc: "Report IVA periodico per adempimenti fiscali", ruoli: ["admin", "ufficio", "contabilita"] },
+      { nome: "Caricamento Mov. Bancari", desc: "Import estratti conto; i movimenti aperti si collegano da Incassi", ruoli: ["admin", "cfo"] },
+      { nome: "Storico bonifici", desc: "Storico movimenti bancari già collegati (route legacy ?tab=storico)", ruoli: ["admin", "cfo", "ufficio", "contabilita"] },
     ],
   },
   {

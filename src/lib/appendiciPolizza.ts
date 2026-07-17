@@ -60,25 +60,36 @@ export async function fetchAppendiciPolizzaForTitoli(
   return merged;
 }
 
-/** Tutti i titoli della stessa polizza (numero_titolo) per aggregare appendici a livello contratto. */
+/** Tutti i titoli della stessa polizza (madre + quietanze + appendici /AMx). */
 export async function fetchChainTitoloIds(
   supabase: SupabaseClient,
   titoloId: string,
 ): Promise<string[]> {
-  const { data: row, error } = await supabase
+  const madreId = await resolveTitoloMadreId(supabase, titoloId);
+  const { data: madreRow, error } = await supabase
     .from("titoli")
     .select("id, numero_titolo")
-    .eq("id", titoloId)
+    .eq("id", madreId)
     .maybeSingle();
   if (error) throw error;
-  if (!row?.numero_titolo) return [titoloId];
+  const base = (madreRow?.numero_titolo || "").trim();
+  if (!base) return [titoloId];
 
-  const { data: chain, error: cErr } = await supabase
-    .from("titoli")
-    .select("id")
-    .eq("numero_titolo", row.numero_titolo);
-  if (cErr) throw cErr;
-  const ids = (chain ?? []).map((t) => t.id as string);
+  const [exact, suffixed] = await Promise.all([
+    supabase.from("titoli").select("id").eq("numero_titolo", base),
+    supabase.from("titoli").select("id").like("numero_titolo", `${base}/%`),
+  ]);
+  if (exact.error) throw exact.error;
+  if (suffixed.error) throw suffixed.error;
+
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const row of [...(exact.data ?? []), ...(suffixed.data ?? [])]) {
+    const id = row.id as string;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
   return ids.length > 0 ? ids : [titoloId];
 }
 

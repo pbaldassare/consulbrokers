@@ -413,7 +413,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     onSuccess: (res) => {
       const info = TIPO_INFO[tipo];
       toast.success(`${info.title} creata`, {
-        description: `Titolo ${info.suffix} generato. Ora è in Avvisi di incasso e pronto per la messa a cassa (anche a €0).`,
+        description: `Titolo ${info.suffix} generato. Ora è in Incassi e pronto per la messa a cassa (anche a €0).`,
         action: res.titoloDerivatoId
           ? { label: "Apri titolo", onClick: () => navigate(`/titoli/${res.titoloDerivatoId}`) }
           : undefined,
@@ -603,6 +603,13 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
             {editorBlock}
           </div>
           {aggregated && <PremiRiepilogo aggregated={aggregated} percProvv={percProvv} />}
+          {aggregated && Number(aggregated.premio_lordo) < -0.009 && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+              <strong>Appendice a credito.</strong> Alla messa a cassa verrà creato un acconto cliente
+              di {fmt(Math.abs(Number(aggregated.premio_lordo)))} utilizzabile sulle quietanze successive
+              o segnabile come rimborsato.
+            </div>
+          )}
         </div>
       }
       footerStart={

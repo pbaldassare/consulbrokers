@@ -10,12 +10,21 @@ interface RoleGuardProps {
   permissionKey?: string;
 }
 
-const RoleGuard = ({ children, allowedRoles: _allowedRoles, permissionKey: _permissionKey }: RoleGuardProps) => {
-  const { user, profile, loading } = useAuth();
+const RoleGuard = ({ children, allowedRoles, permissionKey }: RoleGuardProps) => {
+  const { user, profile, loading, hasPermission } = useAuth();
   const navigate = useNavigate();
 
-  // Tutti gli utenti autenticati con un profilo hanno pieno accesso
-  const isAllowed = !!profile && profile.ruolo !== "cliente" && profile.ruolo !== "prospect";
+  const ruolo = profile?.ruolo || "";
+  const isClienteOrProspect = ruolo === "cliente" || ruolo === "prospect";
+
+  // Admin passa sempre; altrimenti ruolo in allowedRoles + eventuale permissionKey
+  const roleOk =
+    !!profile &&
+    !isClienteOrProspect &&
+    (ruolo === "admin" || allowedRoles.includes(ruolo));
+
+  const permOk = !permissionKey || hasPermission(permissionKey);
+  const isAllowed = roleOk && permOk;
 
   useEffect(() => {
     if (loading) return;
@@ -30,14 +39,16 @@ const RoleGuard = ({ children, allowedRoles: _allowedRoles, permissionKey: _perm
         entita_id: "00000000-0000-0000-0000-000000000000",
         dettagli_json: {
           path: window.location.pathname,
-          ruolo: profile?.ruolo || "nessuno",
+          ruolo: ruolo || "nessuno",
+          allowedRoles,
+          permissionKey: permissionKey || null,
         },
         severity: "warning",
       });
       const fallback = getDefaultRoute(profile);
       navigate(fallback, { replace: true });
     }
-  }, [loading, user, isAllowed, navigate, profile]);
+  }, [loading, user, isAllowed, navigate, profile, ruolo, allowedRoles, permissionKey]);
 
   if (loading) return null;
   if (!user || !isAllowed) return null;

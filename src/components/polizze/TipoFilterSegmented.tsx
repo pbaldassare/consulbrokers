@@ -64,9 +64,9 @@ export function TipoFilterSegmented({
   if (withRegolazioni) {
     items.push({
       key: "regolazioni",
-      label: "RG / PR",
+      label: "Appendici",
       count: counts?.regolazioni,
-      activeClasses: "bg-orange-600 text-white shadow-sm",
+      activeClasses: "bg-appendice text-appendice-foreground shadow-sm",
     });
   }
 

@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Link } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
 import * as XLSX from "xlsx";
@@ -124,23 +124,76 @@ const Page = () => {
   const { profile, isAdmin } = useAuth();
   const isCfo = profile?.ruolo === "cfo";
   const seeAll = isAdmin || isCfo;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const legacy = searchParams.get("legacy") === "1";
+
+  // Flusso primario "Da collegare" → Incassi. Restano storico e modalità legacy avanzata.
+  if (!legacy && tabParam !== "storico") {
+    return <Navigate to="/portafoglio/carico?tab=bonifici" replace />;
+  }
+
+  const activeTab =
+    tabParam === "da-ricongiungere" && legacy
+      ? "da-ricongiungere"
+      : tabParam === "storico"
+        ? "storico"
+        : legacy
+          ? "da-ricongiungere"
+          : "storico";
+
   return (
     <RoleGuard allowedRoles={["admin", "cfo", "ufficio", "backoffice", "contabilita"]} permissionKey="contabilita">
       <div className="container mx-auto py-6 space-y-4">
         <div>
-          <h1 className="text-2xl font-bold">Bonifici</h1>
-          <p className="text-sm text-muted-foreground">Collega i movimenti bancari alle polizze e mettile a cassa.</p>
+          <h1 className="text-2xl font-bold">
+            {activeTab === "storico" && !legacy ? "Storico bonifici" : "Bonifici (legacy)"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {activeTab === "storico" && !legacy
+              ? "Movimenti già collegati e incassati. Per i bonifici aperti usa Incassi."
+              : "Vista avanzata legacy. Il flusso operativo è in Incassi → Bonifici aperti."}
+          </p>
         </div>
 
-        <Tabs defaultValue="da-ricongiungere">
+        <div className="rounded-lg border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+          I bonifici da collegare si gestiscono da{" "}
+          <Link to="/portafoglio/carico?tab=bonifici" className="font-semibold underline underline-offset-2">
+            Incassi → Bonifici aperti
+          </Link>
+          {" "}(match su ordinante ↔ cliente, non sull&apos;importo).
+          {legacy && (
+            <>
+              {" "}Modalità legacy attiva —{" "}
+              <Link to="/portafoglio/carico?tab=bonifici" className="underline underline-offset-2">
+                torna a Incassi
+              </Link>
+              .
+            </>
+          )}
+        </div>
+
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            const sp = new URLSearchParams(searchParams);
+            sp.set("tab", v);
+            if (legacy) sp.set("legacy", "1");
+            setSearchParams(sp, { replace: true });
+          }}
+        >
           <TabsList>
-            <TabsTrigger value="da-ricongiungere">Da collegare</TabsTrigger>
+            {(legacy || activeTab === "da-ricongiungere") && (
+              <TabsTrigger value="da-ricongiungere">Da collegare</TabsTrigger>
+            )}
             <TabsTrigger value="storico">Storico</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="da-ricongiungere">
-            <DaRicongiungereTab profileUfficio={profile?.ufficio_id ?? null} seeAll={seeAll} />
-          </TabsContent>
+          {(legacy || activeTab === "da-ricongiungere") && (
+            <TabsContent value="da-ricongiungere">
+              <DaRicongiungereTab profileUfficio={profile?.ufficio_id ?? null} seeAll={seeAll} />
+            </TabsContent>
+          )}
 
           <TabsContent value="storico">
             <StoricoTab profileUfficio={profile?.ufficio_id ?? null} seeAll={seeAll} />

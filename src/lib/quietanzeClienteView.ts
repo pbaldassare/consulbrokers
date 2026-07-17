@@ -2,6 +2,14 @@ import { isAppendice } from "@/lib/quietanze";
 
 export const QUIETANZA_SCADENZA_SOGLIA_GIORNI = 60;
 
+/** Data limite (YYYY-MM-DD) per mostrare rate quietanza: oggi + soglia giorni. */
+export function quietanzaSogliaGaranziaDa(now: Date = new Date()): string {
+  const limite = new Date(now);
+  limite.setHours(23, 59, 59, 999);
+  limite.setDate(limite.getDate() + QUIETANZA_SCADENZA_SOGLIA_GIORNI);
+  return limite.toISOString().slice(0, 10);
+}
+
 /** Titolo quietanza/appendice ancora da incassare. */
 export function isTitoloNonIncassato(t: {
   stato?: string | null;

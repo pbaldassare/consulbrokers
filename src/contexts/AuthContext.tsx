@@ -109,12 +109,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await supabase.auth.signOut();
   };
 
-  const hasPermission = (_key: string): boolean => {
-    if (!profile) return false;
-    return true;
-  };
+  const isAdmin = profile?.ruolo === "admin";
 
-  const isAdmin = !!profile;
+  const hasPermission = (key: string): boolean => {
+    if (!profile) return false;
+    if (profile.ruolo === "admin") return true;
+
+    const perms = profile.permessi_json;
+    const read = (k: string) => !!(perms && typeof perms === "object" && perms[k]);
+
+    // Alias chiavi sidebar non sempre presenti in permessi_json
+    if (key === "dashboard") return true;
+    if (key === "portafoglio") return read("documentale") || read("titoli");
+    if (key === "impostazioni") return profile.ruolo === "ufficio" || read("impostazioni");
+
+    if (profile.ruolo === "cfo") {
+      if (perms && key in perms) return !!perms[key];
+      return !["manutenzione", "uffici", "tabelle_base"].includes(key);
+    }
+    return read(key);
+  };
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signOut, hasPermission, isAdmin }}>

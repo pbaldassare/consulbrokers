@@ -72,7 +72,37 @@ const ManutenzionePage = () => {
     onError: (e: any) => { setResults(prev => [...prev, { label: "Provisioning Corrispondenti", result: null, error: e.message }]); toast.error("Errore"); },
   });
 
-  const isAnyRunning = refreshKpi.isPending || checkScadenze.isPending || archiviaNotifiche.isPending || runQuality.isPending || provisionClienti.isPending || provisionCorrispondenti.isPending;
+  const provisionSedi = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("provision-sedi-users", {
+        body: { secret: "provision-sedi-2026", reset_password: true },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data: any) => {
+      setResults((prev) => [...prev, { label: "Provisioning Sedi", result: data }]);
+      const ok = data?.counts?.ok ?? 0;
+      const skipped = data?.counts?.skipped_no_email ?? 0;
+      toast.success("Provisioning sedi completato", {
+        description: `${ok} account sede · ${skipped} senza email`,
+      });
+    },
+    onError: (e: any) => {
+      setResults((prev) => [...prev, { label: "Provisioning Sedi", result: null, error: e.message }]);
+      toast.error("Errore provisioning sedi");
+    },
+  });
+
+  const isAnyRunning =
+    refreshKpi.isPending ||
+    checkScadenze.isPending ||
+    archiviaNotifiche.isPending ||
+    runQuality.isPending ||
+    provisionClienti.isPending ||
+    provisionCorrispondenti.isPending ||
+    provisionSedi.isPending;
 
   const runAll = async () => {
     setResults([]);
@@ -170,6 +200,23 @@ const ManutenzionePage = () => {
             <p className="text-xs text-muted-foreground mb-3">Crea utenti auth per tutti i produttori in anagrafica. Password default: Leone123!</p>
             <Button size="sm" onClick={() => provisionCorrispondenti.mutate()} disabled={isAnyRunning}>
               {provisionCorrispondenti.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Users className="w-4 h-4 mr-1" />} Esegui
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4" /> Provisioning Sedi
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              Crea/aggiorna account per ogni sede con email: ruolo <strong>ufficio</strong>, privilegi operativi,
+              visibilità solo polizze della sede. Password: Leone123!
+            </p>
+            <Button size="sm" onClick={() => provisionSedi.mutate()} disabled={isAnyRunning}>
+              {provisionSedi.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Users className="w-4 h-4 mr-1" />} Esegui
             </Button>
           </CardContent>
         </Card>

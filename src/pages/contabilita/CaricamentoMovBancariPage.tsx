@@ -11,13 +11,39 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { SearchableSelect } from "@/components/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Upload, FileSpreadsheet, Plus, Download } from "lucide-react";
+import { Upload, FileSpreadsheet, Plus, Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
-import { resolveUfficioFromConto, normalizeExcelRow, resolveOrdinanteImport } from "@/lib/movimentiBancari";
+import { OrdinanteCombobox } from "@/components/contabilita/OrdinanteCombobox";
+import { StoricoCarichiMovimenti } from "@/components/contabilita/StoricoCarichiMovimenti";
+import {
+  resolveUfficioFromConto,
+  resolveOrdinanteImport,
+  readEstrattoBancarioRows,
+  resolveImportoEstratto,
+  parseDataBancaria,
+  buildPreviewEstratto,
+  labelMotivoScarto,
+  countByMotivo,
+  type PreviewEstratto,
+} from "@/lib/movimentiBancari";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  eliminaMovimentiBancari,
+  isMovimentoCancellabile,
+} from "@/lib/eliminaMovimentiBancari";
 
 const STATO_LABEL: Record<string, { label: string; variant: "secondary" | "default" | "outline" | "destructive" }> = {
   importato: { label: "Importato", variant: "secondary" },
@@ -31,6 +57,7 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const parseImporto = (raw: any): number => {
+  // Usato anche dal dialog manuale
   if (typeof raw === "number") return raw;
   if (!raw) return 0;
   let s = String(raw).replace(/[€$\s]/g, "").trim();
@@ -40,87 +67,152 @@ const parseImporto = (raw: any): number => {
   return isNaN(n) ? 0 : n;
 };
 
-const parseDataExcel = (raw: any): string => {
-  if (!raw) return todayISO();
-  if (raw instanceof Date) {
-    return `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, "0")}-${String(raw.getDate()).padStart(2, "0")}`;
-  }
-  if (typeof raw === "number") {
-    const d = XLSX.SSF?.parse_date_code?.(raw);
-    if (d) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
-  }
-  const s = String(raw).trim();
-  const m1 = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
-  if (m1) {
-    const y = m1[3].length === 2 ? `20${m1[3]}` : m1[3];
-    return `${y}-${m1[2].padStart(2, "0")}-${m1[1].padStart(2, "0")}`;
-  }
-  const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m2) return m2[0];
-  return todayISO();
-};
-
 const Page = () => {
   const qc = useQueryClient();
   const [tab, setTab] = useState("importazione");
   const [importing, setImporting] = useState(false);
-  const [lastReport, setLastReport] = useState<{ inseriti: number; duplicati: number; senzaCliente: number } | null>(null);
+  const [lastReport, setLastReport] = useState<{
+    caricoId: string | null;
+    inseriti: number;
+    duplicati: number;
+    scarti: number;
+    senzaCliente: number;
+    nomeFile: string;
+    scartiByMotivo: Record<string, number>;
+  } | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [contoImportId, setContoImportId] = useState<string>("");
+  const [preview, setPreview] = useState<PreviewEstratto | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [parsingPreview, setParsingPreview] = useState(false);
 
+  /** Solo anteprima: non scrive ancora sul DB. */
   const handleFile = useCallback(async (file: File) => {
     if (!contoImportId) {
       toast.error("Seleziona il conto bancario prima di importare");
       return;
     }
-    setImporting(true);
+    setParsingPreview(true);
     try {
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array", cellDates: true });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true }).map(normalizeExcelRow);
+      const rows = await readEstrattoBancarioRows(file);
       if (rows.length === 0) {
         toast.error("Nessuna riga trovata nel file");
         return;
       }
-      const cols = Object.keys(rows[0]);
-      const colData = cols.find((c) => /data\s*contabile/i.test(c)) || cols.find((c) => /^data/i.test(c)) || cols[0];
-      const colImp = cols.find((c) => /^importo/i.test(c)) || cols.find((c) => /importo|amount/i.test(c));
-      const colOrd = cols.find((c) => /^ordinante/i.test(c)) || cols.find((c) => /ordinante|mittente|controparte/i.test(c));
-      const colDesc = cols.find((c) => /descri/i.test(c)) || cols.find((c) => /causale/i.test(c));
-      const colCliId = cols.find((c) => /cliente\s*id/i.test(c));
+      const p = buildPreviewEstratto(file.name, rows);
+      setPreview(p);
+      setPreviewOpen(true);
+    } catch (e: any) {
+      toast.error(`Errore lettura file: ${e.message ?? e}`);
+    } finally {
+      setParsingPreview(false);
+    }
+  }, [contoImportId]);
 
+  /** Conferma dall'anteprima: scrive carico + movimenti + scarti motivati. */
+  const confirmImport = useCallback(async () => {
+    if (!preview || !contoImportId) return;
+    setImporting(true);
+    try {
+      const rows = preview.rawRows;
+      const cols = preview.colonne;
       const { data: userResp } = await supabase.auth.getUser();
       const userId = userResp.user?.id ?? null;
       const ufficioDaConto = await resolveUfficioFromConto(contoImportId);
 
-      const records = rows
-        .map((r) => {
-          const importo = parseImporto(r[colImp as string]);
-          if (!importo) return null;
-          const descrizione = colDesc ? String(r[colDesc] ?? "").trim() : "";
-          const ordinante = resolveOrdinanteImport(colOrd ? String(r[colOrd] ?? "") : "", descrizione);
-          const rawCli = colCliId ? String(r[colCliId] ?? "").trim() : "";
-          const cliente_id = UUID_RE.test(rawCli) ? rawCli : null;
-          return {
-            data_movimento: parseDataExcel(r[colData as string]),
-            importo,
-            ordinante: ordinante || null,
+      type Scarto = {
+        riga_excel: number;
+        motivo: string;
+        data_movimento: string | null;
+        importo: number | null;
+        ordinante: string | null;
+        descrizione: string | null;
+        raw_json: Record<string, unknown>;
+      };
+      const scarti: Scarto[] = [];
+      const records: any[] = [];
+
+      rows.forEach((r, idx) => {
+        const rigaExcel = idx + 2;
+        const descrizione = cols.descrizione ? String(r[cols.descrizione] ?? "").trim() : "";
+        const ordinante =
+          resolveOrdinanteImport(cols.ordinante ? String(r[cols.ordinante] ?? "") : "", descrizione) || null;
+        const dataMov = parseDataBancaria(cols.data ? r[cols.data] : null);
+        const { importo, motivo } = resolveImportoEstratto(r, cols);
+        if (!importo) {
+          scarti.push({
+            riga_excel: rigaExcel,
+            motivo: motivo || "importo_zero_o_invalido",
+            data_movimento: dataMov || null,
+            importo: null,
+            ordinante,
             descrizione: descrizione || null,
-            cliente_id,
-            conto_bancario_id: contoImportId,
-            stato: (cliente_id ? "assegnato" : "importato") as "assegnato" | "importato",
-            caricato_da: userId,
-          };
-        })
-        .filter(Boolean) as any[];
+            raw_json: r,
+          });
+          return;
+        }
+        const rawCli = cols.clienteId ? String(r[cols.clienteId] ?? "").trim() : "";
+        const cliente_id = UUID_RE.test(rawCli) ? rawCli : null;
+        records.push({
+          data_movimento: dataMov,
+          importo,
+          ordinante,
+          descrizione: descrizione || null,
+          cliente_id,
+          conto_bancario_id: contoImportId,
+          stato: (cliente_id ? "assegnato" : "importato") as "assegnato" | "importato",
+          caricato_da: userId,
+          _riga_excel: rigaExcel,
+        });
+      });
+
+      const { data: caricoIns, error: errCarico } = await supabase
+        .from("movimenti_bancari_carichi" as any)
+        .insert({
+          nome_file: preview.nomeFile,
+          conto_bancario_id: contoImportId,
+          caricato_da: userId,
+          righe_file: rows.length,
+          righe_inserite: 0,
+          righe_duplicati: 0,
+          righe_scartate: 0,
+          righe_senza_cliente: 0,
+          note: Object.keys(preview.scartiByMotivo).length
+            ? `Anteprima scarti: ${JSON.stringify(preview.scartiByMotivo)}`
+            : null,
+        } as any)
+        .select("id")
+        .single();
+      if (errCarico) throw errCarico;
+      const caricoId = (caricoIns as any).id as string;
 
       if (records.length === 0) {
-        toast.error("Nessuna riga valida importata");
+        if (scarti.length > 0) {
+          await supabase.from("movimenti_bancari_carichi_scarti" as any).insert(
+            scarti.map((s) => ({ ...s, carico_id: caricoId })) as any,
+          );
+        }
+        await supabase.from("movimenti_bancari_carichi" as any).update({
+          righe_scartate: scarti.length,
+        } as any).eq("id", caricoId);
+        const byMotivo = countByMotivo(scarti.map((s) => s.motivo));
+        setLastReport({
+          caricoId,
+          inseriti: 0,
+          duplicati: 0,
+          scarti: scarti.length,
+          senzaCliente: 0,
+          nomeFile: preview.nomeFile,
+          scartiByMotivo: byMotivo,
+        });
+        toast.info(`Nessuna riga importata · ${scarti.length} scarti (vedi motivi)`);
+        setPreviewOpen(false);
+        setPreview(null);
+        qc.invalidateQueries({ queryKey: ["mov-bancari-carichi"] });
+        setTab("storico");
         return;
       }
 
-      // Risolvi ufficio_id per i cliente_id presenti
       const cliIds = Array.from(new Set(records.map((r) => r.cliente_id).filter(Boolean))) as string[];
       const ufficioMap = new Map<string, string | null>();
       if (cliIds.length > 0) {
@@ -131,9 +223,9 @@ const Page = () => {
         (r as any).ufficio_id = r.cliente_id
           ? (ufficioMap.get(r.cliente_id) ?? ufficioDaConto)
           : ufficioDaConto;
+        (r as any).carico_id = caricoId;
       }
 
-      // Dedup vs DB
       const keyOf = (r: any) => `${r.data_movimento}|${r.importo}|${r.ordinante ?? ""}|${r.descrizione ?? ""}`;
       const dates = Array.from(new Set(records.map((r) => r.data_movimento)));
       const { data: existing } = await supabase
@@ -141,17 +233,29 @@ const Page = () => {
         .select("data_movimento, importo, ordinante, descrizione")
         .in("data_movimento", dates as any);
       const existingKeys = new Set((existing as any[] | null ?? []).map(keyOf));
-      const toInsert = records.filter((r) => !existingKeys.has(keyOf(r)));
+
+      const toInsert: any[] = [];
+      for (const r of records) {
+        if (existingKeys.has(keyOf(r))) {
+          scarti.push({
+            riga_excel: r._riga_excel,
+            motivo: "duplicato",
+            data_movimento: r.data_movimento,
+            importo: r.importo,
+            ordinante: r.ordinante,
+            descrizione: r.descrizione,
+            raw_json: { data_movimento: r.data_movimento, importo: r.importo, ordinante: r.ordinante },
+          });
+        } else {
+          const { _riga_excel, ...row } = r;
+          toInsert.push(row);
+          existingKeys.add(keyOf(r));
+        }
+      }
+
       const duplicati = records.length - toInsert.length;
       const senzaCliente = toInsert.filter((r) => !r.cliente_id).length;
 
-      if (toInsert.length === 0) {
-        toast.info(`Nessun nuovo movimento: ${duplicati} già presenti`);
-        setLastReport({ inseriti: 0, duplicati, senzaCliente: 0 });
-        return;
-      }
-
-      // Insert in chunk per evitare timeout
       const CHUNK = 200;
       let inseriti = 0;
       for (let i = 0; i < toInsert.length; i += CHUNK) {
@@ -160,45 +264,71 @@ const Page = () => {
         if (error) throw error;
         inseriti += slice.length;
       }
-      setLastReport({ inseriti, duplicati, senzaCliente });
-      const parts = [`${inseriti} movimenti caricati e assegnati`];
-      if (duplicati) parts.push(`${duplicati} duplicati ignorati`);
-      if (senzaCliente) parts.push(`${senzaCliente} senza Cliente ID`);
+
+      if (scarti.length > 0) {
+        for (let i = 0; i < scarti.length; i += CHUNK) {
+          const slice = scarti.slice(i, i + CHUNK).map((s) => ({ ...s, carico_id: caricoId }));
+          const { error } = await supabase.from("movimenti_bancari_carichi_scarti" as any).insert(slice as any);
+          if (error) throw error;
+        }
+      }
+
+      await supabase.from("movimenti_bancari_carichi" as any).update({
+        righe_inserite: inseriti,
+        righe_duplicati: duplicati,
+        righe_scartate: scarti.length,
+        righe_senza_cliente: senzaCliente,
+      } as any).eq("id", caricoId);
+
+      const byMotivo = countByMotivo(scarti.map((s) => s.motivo));
+      setLastReport({
+        caricoId,
+        inseriti,
+        duplicati,
+        scarti: scarti.length,
+        senzaCliente,
+        nomeFile: preview.nomeFile,
+        scartiByMotivo: byMotivo,
+      });
+      const parts = [`${inseriti} movimenti caricati`];
+      if (duplicati) parts.push(`${duplicati} duplicati`);
+      if (scarti.length) parts.push(`${scarti.length} scarti`);
       toast.success(parts.join(" · "));
+      setPreviewOpen(false);
+      setPreview(null);
       qc.invalidateQueries({ queryKey: ["mov-bancari"] });
+      qc.invalidateQueries({ queryKey: ["mov-bancari-carichi"] });
+      qc.invalidateQueries({ queryKey: ["ordinanti-suggeriti"] });
+      setTab("storico");
     } catch (e: any) {
       toast.error(`Errore import: ${e.message ?? e}`);
     } finally {
       setImporting(false);
     }
-  }, [qc, contoImportId]);
+  }, [preview, contoImportId, qc]);
 
-  const handleManualInsert = async (payload: {
-    cliente_id: string;
-    ufficio_id: string | null;
-    conto_bancario_id: string | null;
-    data_movimento: string;
-    importo: number;
-    ordinante: string | null;
-    descrizione: string | null;
-    note: string | null;
-  }) => {
+  const handleManualInsert = async (payload: ManualInsertPayload) => {
     const { data: userResp } = await supabase.auth.getUser();
+    const ufficio_id = payload.conto_bancario_id
+      ? await resolveUfficioFromConto(payload.conto_bancario_id)
+      : null;
     const { error } = await supabase.from("movimenti_bancari" as any).insert({
       data_movimento: payload.data_movimento,
       importo: payload.importo,
       ordinante: payload.ordinante,
       descrizione: payload.descrizione,
       note: payload.note,
-      cliente_id: payload.cliente_id,
-      ufficio_id: payload.ufficio_id,
+      cliente_id: null,
+      ufficio_id,
       conto_bancario_id: payload.conto_bancario_id,
-      stato: "assegnato",
+      stato: "importato",
       caricato_da: userResp.user?.id ?? null,
     } as any);
     if (error) { toast.error(error.message); throw error; }
-    toast.success("Movimento creato e assegnato al cliente");
+    toast.success("Movimento creato — disponibile in Incassi → Bonifici aperti");
     qc.invalidateQueries({ queryKey: ["mov-bancari"] });
+    qc.invalidateQueries({ queryKey: ["ordinanti-suggeriti"] });
+    qc.invalidateQueries({ queryKey: ["incassi-bonifici-aperti"] });
   };
 
   return (
@@ -207,8 +337,8 @@ const Page = () => {
         <div>
           <h1 className="text-2xl font-bold">Caricamento Movimenti Bancari</h1>
           <p className="text-sm text-muted-foreground">
-            Carica l&apos;estratto Excel del conto bancario. La colonna <code>Cliente ID</code> è opzionale:
-            i movimenti senza cliente restano in coda in Bonifici.
+            Carica l&apos;estratto conto in Excel o CSV. La colonna <code>Cliente ID</code> è opzionale:
+            i movimenti senza cliente restano in coda in Incassi → Bonifici aperti.
           </p>
         </div>
 
@@ -216,6 +346,7 @@ const Page = () => {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <TabsList>
               <TabsTrigger value="importazione">Importazione</TabsTrigger>
+              <TabsTrigger value="storico">Storico carichi</TabsTrigger>
               <TabsTrigger value="monitor">Monitor Real-time</TabsTrigger>
             </TabsList>
             <Button onClick={() => setManualOpen(true)} size="sm" className="gap-1">
@@ -225,7 +356,7 @@ const Page = () => {
 
           <TabsContent value="importazione" className="space-y-4">
             <Card>
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Upload className="w-4 h-4" /> Upload Excel estratto conto</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Upload className="w-4 h-4" /> Upload estratto conto (Excel / CSV)</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <Label>Conto bancario *</Label>
@@ -236,27 +367,52 @@ const Page = () => {
                     autoSelectDefault
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Le sedi collegate a questo conto vedranno i movimenti in Bonifici.
+                    Le sedi collegate a questo conto vedranno i movimenti in Incassi → Bonifici aperti.
                   </p>
                 </div>
-                <DropZone disabled={importing || !contoImportId} onFile={handleFile} />
+                <DropZone disabled={importing || parsingPreview || !contoImportId} onFile={handleFile} />
                 <p className="text-xs text-muted-foreground">
-                  Colonne minime: <code>Data contabile</code>, <code>Importo</code>, <code>Descrizione</code>.
-                  L&apos;<code>Ordinante</code> viene letto dalla colonna o estratto dalla descrizione (es. estratti BCC).
-                  Opzionale: <code>Cliente ID</code> (UUID) per pre-assegnare il pagatore.
+                  Formati: <code>.xlsx</code>, <code>.xls</code>, <code>.csv</code> (separatore <code>;</code> o <code>,</code>).
+                  Dopo la selezione vedi l&apos;<strong>anteprima</strong> con le righe da importare e i motivi degli scarti, poi conferma.
                 </p>
+                {parsingPreview && (
+                  <p className="text-sm text-muted-foreground">Lettura file in corso…</p>
+                )}
                 {lastReport && (
-                  <div className="mt-4 rounded-md border bg-muted/30 p-3 text-sm">
-                    <div className="font-medium">Ultimo caricamento</div>
-                    <ul className="mt-1 text-muted-foreground space-y-0.5">
+                  <div className="mt-4 rounded-md border bg-muted/30 p-3 text-sm space-y-2">
+                    <div className="font-medium">Ultimo caricamento · {lastReport.nomeFile}</div>
+                    <ul className="text-muted-foreground space-y-0.5">
                       <li>· {lastReport.inseriti} movimenti inseriti</li>
-                      <li>· {lastReport.duplicati} duplicati ignorati</li>
+                      <li>· {lastReport.duplicati} duplicati</li>
+                      <li>· {lastReport.scarti} scarti</li>
                       <li>· {lastReport.senzaCliente} senza Cliente ID (stato: Importato)</li>
                     </ul>
+                    {Object.keys(lastReport.scartiByMotivo || {}).length > 0 && (
+                      <div className="rounded border bg-background/60 p-2 space-y-1">
+                        <p className="text-xs font-semibold text-foreground">Motivi scarto</p>
+                        {Object.entries(lastReport.scartiByMotivo).map(([motivo, n]) => (
+                          <div key={motivo} className="flex items-start justify-between gap-2 text-xs">
+                            <span className="text-muted-foreground">{labelMotivoScarto(motivo)}</span>
+                            <Badge variant="destructive" className="text-[10px] shrink-0">{n}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs">
+                      Dettaglio ed export nella tab{" "}
+                      <button type="button" className="underline font-medium" onClick={() => setTab("storico")}>
+                        Storico carichi
+                      </button>
+                      .
+                    </p>
                   </div>
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="storico">
+            <StoricoCarichiMovimenti />
           </TabsContent>
 
           <TabsContent value="monitor">
@@ -269,10 +425,156 @@ const Page = () => {
           onOpenChange={setManualOpen}
           onSubmit={async (p) => { await handleManualInsert(p); setManualOpen(false); }}
         />
+
+        <AnteprimaImportDialog
+          open={previewOpen}
+          preview={preview}
+          importing={importing}
+          onCancel={() => {
+            if (importing) return;
+            setPreviewOpen(false);
+            setPreview(null);
+          }}
+          onConfirm={() => void confirmImport()}
+        />
       </div>
     </RoleGuard>
   );
 };
+
+function AnteprimaImportDialog({
+  open,
+  preview,
+  importing,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  preview: PreviewEstratto | null;
+  importing: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!preview) return null;
+  const colHint = [
+    preview.colonne.data && `Data: ${preview.colonne.data}`,
+    preview.colonne.avere && `Avere: ${preview.colonne.avere}`,
+    preview.colonne.dare && `Dare: ${preview.colonne.dare}`,
+    preview.colonne.importo && `Importo: ${preview.colonne.importo}`,
+    preview.colonne.descrizione && `Desc: ${preview.colonne.descrizione}`,
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel(); }}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Anteprima import · {preview.nomeFile}</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+          <div className="rounded border px-2 py-1.5">
+            <div className="text-[10px] text-muted-foreground">Righe file</div>
+            <div className="font-bold tabular-nums">{preview.righeFile}</div>
+          </div>
+          <div className="rounded border px-2 py-1.5 border-emerald-300 bg-emerald-50/50">
+            <div className="text-[10px] text-muted-foreground">Da importare</div>
+            <div className="font-bold tabular-nums text-emerald-800">{preview.daImportare}</div>
+          </div>
+          <div className="rounded border px-2 py-1.5 border-destructive/40 bg-destructive/5">
+            <div className="text-[10px] text-muted-foreground">Scarti previsti</div>
+            <div className="font-bold tabular-nums text-destructive">{preview.scarti}</div>
+          </div>
+          <div className="rounded border px-2 py-1.5">
+            <div className="text-[10px] text-muted-foreground">Colonne rilevate</div>
+            <div className="text-[11px] leading-snug truncate" title={colHint}>{colHint || "—"}</div>
+          </div>
+        </div>
+
+        {Object.keys(preview.scartiByMotivo).length > 0 && (
+          <div className="rounded-md border p-3 space-y-1.5">
+            <p className="text-xs font-semibold">Perché verranno scartate</p>
+            {Object.entries(preview.scartiByMotivo).map(([motivo, n]) => (
+              <div key={motivo} className="flex items-start justify-between gap-3 text-xs">
+                <span className="text-muted-foreground">{labelMotivoScarto(motivo)}</span>
+                <Badge variant="destructive" className="text-[10px] shrink-0">{n}</Badge>
+              </div>
+            ))}
+            <p className="text-[11px] text-muted-foreground pt-1">
+              Gli scarti sono normali (es. uscite Dare). Verranno salvati nello storico con il motivo.
+            </p>
+          </div>
+        )}
+
+        <p className="text-xs text-muted-foreground">
+          Anteprima max 40 righe (mix OK / scarto). I duplicati rispetto all&apos;archivio si calcolano alla conferma.
+        </p>
+
+        <div className="flex-1 min-h-0 overflow-auto border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Riga</TableHead>
+                <TableHead>Esito</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead className="text-right">Importo</TableHead>
+                <TableHead>Ordinante</TableHead>
+                <TableHead>Motivo / Descrizione</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {preview.preview.map((r) => (
+                <TableRow key={r.riga} className={r.esito === "scarto" ? "bg-destructive/5" : undefined}>
+                  <TableCell className="text-xs">{r.riga}</TableCell>
+                  <TableCell>
+                    {r.esito === "ok" ? (
+                      <Badge className="bg-emerald-600 text-white text-[10px] h-5">OK</Badge>
+                    ) : (
+                      <Badge variant="destructive" className="text-[10px] h-5">Scarto</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">{r.data_movimento}</TableCell>
+                  <TableCell className="text-right text-xs tabular-nums">
+                    {r.importo != null ? fmtEuro(r.importo) : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs max-w-[160px] truncate" title={r.ordinante || undefined}>
+                    {r.ordinante || "—"}
+                  </TableCell>
+                  <TableCell className="text-xs max-w-[280px]">
+                    {r.motivo ? (
+                      <span className="text-destructive">{labelMotivoScarto(r.motivo)}</span>
+                    ) : (
+                      <span className="truncate block text-muted-foreground" title={r.descrizione || undefined}>
+                        {r.descrizione || "—"}
+                      </span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={importing}>
+            Annulla
+          </Button>
+          <Button
+            type="button"
+            onClick={onConfirm}
+            disabled={importing || (preview.daImportare === 0 && preview.scarti === 0)}
+          >
+            {importing
+              ? "Importazione…"
+              : preview.daImportare === 0
+                ? preview.scarti > 0
+                  ? `Registra solo scarti (${preview.scarti})`
+                  : "Niente da importare"
+                : `Conferma import (${preview.daImportare})`}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // === Drop zone ===
 const DropZone = ({ onFile, disabled }: { onFile: (f: File) => void; disabled?: boolean }) => {
@@ -285,20 +587,20 @@ const DropZone = ({ onFile, disabled }: { onFile: (f: File) => void; disabled?: 
       className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-8 cursor-pointer transition ${drag ? "border-primary bg-primary/5" : "border-muted-foreground/25"} ${disabled ? "opacity-50 pointer-events-none" : ""}`}
     >
       <FileSpreadsheet className="w-8 h-8 text-muted-foreground mb-2" />
-      <span className="text-sm">{disabled ? "Importazione in corso…" : "Trascina un file Excel o clicca per selezionare"}</span>
-      <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
+      <span className="text-sm">
+        {disabled ? "Attendere…" : "Trascina Excel/CSV o clicca — poi vedrai l'anteprima"}
+      </span>
+      <input type="file" accept=".xlsx,.xls,.csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
     </label>
   );
 };
 
 // === Monitor tab ===
 type ManualInsertPayload = {
-  cliente_id: string;
-  ufficio_id: string | null;
   conto_bancario_id: string | null;
   data_movimento: string;
   importo: number;
-  ordinante: string | null;
+  ordinante: string;
   descrizione: string | null;
   note: string | null;
 };
@@ -308,6 +610,9 @@ const MonitorTab = () => {
   const [filtroUfficio, setFiltroUfficio] = useState("");
   const [dal, setDal] = useState("");
   const [al, setAl] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici-all"],
@@ -318,7 +623,7 @@ const MonitorTab = () => {
     queryKey: ["mov-bancari", "monitor", filtroUfficio, dal, al],
     queryFn: async () => {
       let q = supabase.from("movimenti_bancari" as any)
-        .select("id, data_movimento, importo, ordinante, stato, ufficio_id, cliente_id, cliente:clienti(ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio), movimenti_clienti(id, importo_assegnato, anticipo, ammanco, movimenti_polizze(id, importo, tipo, messo_a_cassa))")
+        .select("id, data_movimento, importo, ordinante, descrizione, stato, ufficio_id, cliente_id, conto_bancario_id, carico_id, cliente:clienti(ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio), movimenti_clienti(id, importo_assegnato, anticipo, ammanco, movimenti_polizze(id, importo, tipo, messo_a_cassa))")
         .order("data_movimento", { ascending: false })
         .limit(500);
       if (filtroUfficio) q = q.eq("ufficio_id", filtroUfficio);
@@ -337,6 +642,15 @@ const MonitorTab = () => {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
+  const cancellabili = useMemo(
+    () => movs.filter((m: any) => isMovimentoCancellabile(m.stato)),
+    [movs],
+  );
+  const selectedCancellabili = useMemo(
+    () => movs.filter((m: any) => selectedIds.has(m.id) && isMovimentoCancellabile(m.stato)),
+    [movs, selectedIds],
+  );
+
   const kpi = useMemo(() => {
     const by = { importato: 0, matchato: 0, assegnato: 0, ricongiunti: 0, incassato: 0 };
     let totIncassato = 0;
@@ -346,6 +660,47 @@ const MonitorTab = () => {
     }
     return { ...by, totIncassato };
   }, [movs]);
+
+  const toggleOne = (id: string, can: boolean) => {
+    if (!can) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllCancellabili = (checked: boolean) => {
+    if (!checked) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(cancellabili.map((m: any) => m.id)));
+  };
+
+  const handleDelete = async () => {
+    if (selectedCancellabili.length === 0) return;
+    setDeleting(true);
+    try {
+      const { ok, skipped } = await eliminaMovimentiBancari(selectedCancellabili, {
+        motivo: "monitor_cancellazione_manuale",
+      });
+      toast.success(
+        `${ok} moviment${ok === 1 ? "o cancellato" : "i cancellati"}` +
+          (skipped ? ` · ${skipped} non cancellabili (già ricongiunti/incassati)` : ""),
+      );
+      setSelectedIds(new Set());
+      setConfirmOpen(false);
+      qc.invalidateQueries({ queryKey: ["mov-bancari"] });
+      qc.invalidateQueries({ queryKey: ["incassi-bonifici-aperti"] });
+      qc.invalidateQueries({ queryKey: ["ordinanti-suggeriti"] });
+    } catch (e: any) {
+      toast.error(`Errore cancellazione: ${e.message ?? e}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -389,11 +744,35 @@ const MonitorTab = () => {
               XLSX.utils.book_append_sheet(wb, ws, "Monitor");
               XLSX.writeFile(wb, `monitor-movimenti-${new Date().toISOString().slice(0, 10)}.xlsx`);
             }}><Download className="w-3 h-3 mr-1" />Export Excel</Button>
+            {selectedCancellabili.length > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-1"
+                onClick={() => setConfirmOpen(true)}
+                disabled={deleting}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Elimina ({selectedCancellabili.length})
+              </Button>
+            )}
           </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Si possono cancellare solo movimenti <strong>Importato / Matchato / Assegnato</strong>.
+            Ricongiunti e Incassati restano protetti. Ogni eliminazione viene registrata nel log attività.
+          </p>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow>
+              <TableHead className="w-[40px]">
+                <Checkbox
+                  checked={cancellabili.length > 0 && selectedCancellabili.length === cancellabili.length}
+                  onCheckedChange={(v) => toggleAllCancellabili(!!v)}
+                  disabled={cancellabili.length === 0}
+                  aria-label="Seleziona tutti i cancellabili"
+                />
+              </TableHead>
               <TableHead>Data</TableHead><TableHead>Ordinante</TableHead><TableHead>Cliente</TableHead><TableHead>Ufficio</TableHead>
               <TableHead className="text-right">Totale</TableHead><TableHead className="text-right">A cassa</TableHead>
               <TableHead>Polizze</TableHead><TableHead>Stato</TableHead>
@@ -403,8 +782,17 @@ const MonitorTab = () => {
                 const cliNome = m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "—";
                 const polizze = (m.movimenti_clienti ?? []).flatMap((mc: any) => mc.movimenti_polizze ?? []);
                 const aCassa = polizze.filter((p: any) => p.messo_a_cassa).reduce((s: number, p: any) => s + Number(p.importo || 0), 0);
+                const can = isMovimentoCancellabile(m.stato);
                 return (
                   <TableRow key={m.id} className={i % 2 ? "bg-muted/30" : ""}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(m.id)}
+                        disabled={!can}
+                        onCheckedChange={() => toggleOne(m.id, can)}
+                        aria-label={can ? "Seleziona movimento" : "Non cancellabile"}
+                      />
+                    </TableCell>
                     <TableCell>{m.data_movimento}</TableCell>
                     <TableCell className="text-sm max-w-[220px] truncate" title={m.ordinante || undefined}>{m.ordinante || "—"}</TableCell>
                     <TableCell className="text-sm">{cliNome}</TableCell>
@@ -416,20 +804,39 @@ const MonitorTab = () => {
                   </TableRow>
                 );
               })}
-              {movs.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
+              {movs.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare {selectedCancellabili.length} moviment{selectedCancellabili.length === 1 ? "o" : "i"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              L&apos;operazione è irreversibile. Verrà scritto un log con ordinante, importo, data e stato di ogni riga.
+              I movimenti già ricongiunti o incassati non vengono toccati.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Eliminazione…" : "Elimina"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
 
 // === Inserimento manuale (dialog popup) ===
 const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: boolean; onOpenChange: (v: boolean) => void; onSubmit: (p: ManualInsertPayload) => Promise<void> }) => {
-  const [clienteId, setClienteId] = useState<string>("");
-  const [clienteLabel, setClienteLabel] = useState<string>("");
-  const [ufficioId, setUfficioId] = useState<string | null>(null);
   const [dataMov, setDataMov] = useState(todayISO());
   const [importo, setImporto] = useState("");
   const [ordinante, setOrdinante] = useState("");
@@ -437,59 +844,37 @@ const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: bool
   const [note, setNote] = useState("");
   const [contoId, setContoId] = useState<string>("");
   const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState("");
-  const [debounced, setDebounced] = useState("");
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(search), 350);
-    return () => clearTimeout(t);
-  }, [search]);
-
-  const { data: clienti = [], isLoading: loadingClienti } = useQuery({
-    queryKey: ["clienti-search-mov-manual", debounced],
-    enabled: debounced.length >= 2,
-    queryFn: async () => {
-      const { data } = await supabase.from("clienti")
-        .select("id, ragione_sociale, nome, cognome, ufficio_id")
-        .or(`ragione_sociale.ilike.%${debounced}%,cognome.ilike.%${debounced}%,nome.ilike.%${debounced}%`)
-        .limit(25);
-      return (data as any[]) ?? [];
-    },
-  });
+  const [touched, setTouched] = useState<{ ordinante?: boolean; data?: boolean; importo?: boolean; conto?: boolean }>({});
 
   const importoNum = parseImporto(importo);
-  const [touched, setTouched] = useState<{ cliente?: boolean; data?: boolean; importo?: boolean }>({});
-
   const errors = {
-    cliente: !clienteId ? "Seleziona un cliente dall'elenco" : (!ufficioId ? "Il cliente selezionato non ha una sede associata: assegna una sede al cliente prima di procedere" : ""),
     conto: !contoId ? "Seleziona il conto bancario" : "",
+    ordinante: !ordinante.trim() ? "Indica l'ordinante del bonifico" : "",
     data: !dataMov ? "Inserisci la data del movimento" : "",
     importo: !importo ? "Inserisci l'importo" : (importoNum <= 0 ? "L'importo deve essere maggiore di zero" : ""),
   };
-  const hasErrors = !!(errors.cliente || errors.conto || errors.data || errors.importo);
+  const hasErrors = !!(errors.conto || errors.ordinante || errors.data || errors.importo);
   const canSubmit = !hasErrors && !saving;
 
   const handleSubmit = async () => {
-    setTouched({ cliente: true, data: true, importo: true });
+    setTouched({ ordinante: true, data: true, importo: true, conto: true });
     if (hasErrors) {
-      toast.error(errors.cliente || errors.data || errors.importo);
+      toast.error(errors.conto || errors.ordinante || errors.data || errors.importo);
       return;
     }
     setSaving(true);
     try {
       await onSubmit({
-        cliente_id: clienteId,
-        ufficio_id: ufficioId,
         conto_bancario_id: contoId || null,
         data_movimento: dataMov,
         importo: importoNum,
-        ordinante: ordinante || clienteLabel || null,
+        ordinante: ordinante.trim(),
         descrizione: descrizione || null,
         note: note || null,
       });
-      setClienteId(""); setClienteLabel(""); setUfficioId(null); setContoId("");
+      setContoId("");
       setDataMov(todayISO()); setImporto(""); setOrdinante(""); setDescrizione(""); setNote("");
-      setSearch(""); setTouched({});
+      setTouched({});
     } catch { /* toast handled in caller */ }
     finally { setSaving(false); }
   };
@@ -507,42 +892,32 @@ const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: bool
             <Label className="text-xs">Conto bancario *</Label>
             <ContoBancarioSelect
               value={contoId || null}
-              onChange={(id) => setContoId(id ?? "")}
+              onChange={(id) => {
+                setContoId(id ?? "");
+                setTouched((t) => ({ ...t, conto: true }));
+              }}
               tipi={["incasso_clienti", "generico"]}
               autoSelectDefault
             />
+            {touched.conto && errors.conto && (
+              <p className="text-[11px] text-destructive mt-1">{errors.conto}</p>
+            )}
           </div>
           <div>
-            <Label className="text-xs">Cliente *</Label>
-            <SearchableSelect
-              options={(clienti as any[]).map((c) => ({
-                value: c.id,
-                label: c.ragione_sociale || [c.nome, c.cognome].filter(Boolean).join(" "),
-                description: c.ufficio_id ? undefined : "⚠ Senza sede assegnata",
-              }))}
-              value={clienteId}
-              onValueChange={(v) => {
-                setClienteId(v);
-                setTouched((t) => ({ ...t, cliente: true }));
-                const c = (clienti as any[]).find((x) => x.id === v);
-                if (c) {
-                  const lbl = c.ragione_sociale || [c.nome, c.cognome].filter(Boolean).join(" ");
-                  setClienteLabel(lbl);
-                  setUfficioId(c.ufficio_id ?? null);
-                  if (!ordinante) setOrdinante(lbl);
-                } else {
-                  setUfficioId(null);
-                }
+            <Label className="text-xs">Ordinante *</Label>
+            <OrdinanteCombobox
+              value={ordinante}
+              onChange={(v) => {
+                setOrdinante(v);
+                setTouched((t) => ({ ...t, ordinante: true }));
               }}
-              onSearchChange={setSearch}
-              placeholder={loadingClienti ? "Caricamento…" : "Cerca cliente…"}
-              className={touched.cliente && errors.cliente ? "border-destructive" : ""}
+              className={touched.ordinante && errors.ordinante ? "border-destructive" : ""}
             />
-            {touched.cliente && errors.cliente && (
-              <p className="text-[11px] text-destructive mt-1">{errors.cliente}</p>
-            )}
-            {clienteId && ufficioId && (
-              <p className="text-[11px] text-muted-foreground mt-1">Sede assegnata automaticamente dal cliente</p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Nome come compare sul bonifico (lista o digita a mano). Il cliente si collega dopo, in Incassi.
+            </p>
+            {touched.ordinante && errors.ordinante && (
+              <p className="text-[11px] text-destructive mt-1">{errors.ordinante}</p>
             )}
           </div>
           <div>
@@ -568,10 +943,6 @@ const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: bool
             {touched.importo && errors.importo && <p className="text-[11px] text-destructive mt-1">{errors.importo}</p>}
           </div>
           <div>
-            <Label className="text-xs">Ordinante</Label>
-            <Input value={ordinante} onChange={(e) => setOrdinante(e.target.value)} />
-          </div>
-          <div>
             <Label className="text-xs">Descrizione</Label>
             <Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} />
           </div>
@@ -585,7 +956,9 @@ const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: bool
               <Plus className="w-4 h-4 mr-1" /> {saving ? "Salvataggio…" : "Aggiungi"}
             </Button>
           </div>
-          <p className="text-[10px] text-muted-foreground text-center">Il movimento verrà creato come <strong>Assegnato</strong> al cliente.</p>
+          <p className="text-[10px] text-muted-foreground text-center">
+            Il movimento viene creato come <strong>Importato</strong> e compare in Incassi → Bonifici aperti.
+          </p>
         </div>
       </DialogContent>
     </Dialog>

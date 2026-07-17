@@ -148,7 +148,7 @@ export default function QuietanzaDetail() {
               <BreadcrumbSeparator />
               <BreadcrumbItem>
                 <BreadcrumbLink asChild>
-                  <Link to={`/titoli/${polizza.id}`}>Polizza {polizza.numero_polizza}</Link>
+                  <Link to={`/polizze/${polizza.id}`}>Polizza {polizza.numero_polizza}</Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
             </>

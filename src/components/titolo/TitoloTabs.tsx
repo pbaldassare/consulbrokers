@@ -23,16 +23,19 @@ interface TitoloTabsProps {
   navigate: (path: string) => void;
   /** Id della catena (madre + tutte le quietanze) per condividere documenti su tutta la polizza. */
   chainIds?: string[];
+  /** Layout ridotto su dettaglio appendice AM/PR/RG. */
+  variant?: "full" | "appendice";
 }
 
 /**
  * Estratto da TitoloDetail.tsx (lines 3143-3280) per ridurre la complessità del file principale.
  * Comportamento e markup identici all'originale.
  */
-export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPolizza, navigate, chainIds }: TitoloTabsProps) => {
+export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPolizza, navigate, chainIds, variant = "full" }: TitoloTabsProps) => {
 
+  const isAppendiceView = variant === "appendice";
   const madreId = chainIds?.[0] ?? id;
-  const isMadreView = id === madreId;
+  const isMadreView = !isAppendiceView && id === madreId;
   /** Polizza madre: tutta la catena; quietanza: solo documenti della rata corrente. */
   const documentiIdsForRead = isMadreView
     ? (chainIds && chainIds.length > 0 ? chainIds : [id])
@@ -57,8 +60,10 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
   );
 
   // Lazy mount: ogni tab si monta solo la prima volta che viene aperto, poi resta in cache.
-  const [tab, setTab] = useState<string>("movimenti");
-  const [mounted, setMounted] = useState<Record<string, boolean>>({ movimenti: true });
+  const [tab, setTab] = useState<string>(isAppendiceView ? "documenti" : "movimenti");
+  const [mounted, setMounted] = useState<Record<string, boolean>>(
+    isAppendiceView ? { documenti: true } : { movimenti: true },
+  );
   const open = (v: string) => {
     setTab(v);
     setMounted((m) => (m[v] ? m : { ...m, [v]: true }));
@@ -67,13 +72,23 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
     <Tabs value={tab} onValueChange={open}>
       <TabsList className="flex-wrap h-auto">
 
-        <TabsTrigger value="movimenti"><List className="w-4 h-4 mr-1" />Movimenti ({movimentiPolizza.length})</TabsTrigger>
+        {!isAppendiceView && (
+          <TabsTrigger value="movimenti"><List className="w-4 h-4 mr-1" />Movimenti ({movimentiPolizza.length})</TabsTrigger>
+        )}
         <TabsTrigger value="provvigioni"><Percent className="w-4 h-4 mr-1" />Provvigioni ({provvigioni.length})</TabsTrigger>
-        <TabsTrigger value="appendici"><FileText className="w-4 h-4 mr-1" />Appendici ({appendiciVisibili.length})</TabsTrigger>
-        <TabsTrigger value="garanzie"><ShieldCheck className="w-4 h-4 mr-1" />Garanzie</TabsTrigger>
+        {!isAppendiceView && (
+          <TabsTrigger value="appendici"><FileText className="w-4 h-4 mr-1" />Appendici ({appendiciVisibili.length})</TabsTrigger>
+        )}
+        {!isAppendiceView && (
+          <TabsTrigger value="garanzie"><ShieldCheck className="w-4 h-4 mr-1" />Garanzie</TabsTrigger>
+        )}
         {/* Voci RCA spostate dentro la sezione Importi */}
-        <TabsTrigger value="familiari"><Users className="w-4 h-4 mr-1" />Familiari</TabsTrigger>
-        <TabsTrigger value="note"><StickyNote className="w-4 h-4 mr-1" />Note</TabsTrigger>
+        {!isAppendiceView && (
+          <TabsTrigger value="familiari"><Users className="w-4 h-4 mr-1" />Familiari</TabsTrigger>
+        )}
+        {!isAppendiceView && (
+          <TabsTrigger value="note"><StickyNote className="w-4 h-4 mr-1" />Note</TabsTrigger>
+        )}
         <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti</TabsTrigger>
         <TabsTrigger value="chat">Chat</TabsTrigger>
         <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Log Attività</TabsTrigger>

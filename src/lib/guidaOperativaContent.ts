@@ -34,12 +34,12 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     cosaSuccede: [
       "All'emissione della polizza il sistema crea automaticamente le quietanze previste (es. annuale = 1 rata, trimestrale = 4 rate, mensile = 12 rate).",
       "La polizza madre resta attiva come contratto: non va messa a cassa.",
-      "Le quietanze compaiono in Avvisi di incasso finché non sono incassate.",
+      "Le quietanze compaiono in Incassi finché non sono incassate.",
       "Polizze poliennali particolari possono avere solo la madre, senza rate automatiche.",
     ],
     casiParticolari: [
       "Ogni rata ha importi e date modificabili in autonomia.",
-      "In Avvisi di incasso vedi solo ciò che devi ancora incassare.",
+      "In Incassi vedi solo ciò che devi ancora incassare.",
     ],
   },
   {
@@ -49,14 +49,14 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     tags: ["messa a cassa", "incasso", "carico", "contanti", "bonifico"],
     intro: "Registra che il premio (o parte del premio) è stato pagato dal cliente.",
     cosaFai: [
-      "Vai in Avvisi di incasso o apri il dettaglio della quietanza.",
+      "Vai in Incassi o apri il dettaglio della quietanza.",
       "Clicca Metti a cassa.",
       "Indichi come è stato pagato, l'importo, la data e — se serve — acconti o rettifiche.",
       "Confermi solo se il totale torna (quadratura).",
     ],
     cosaSuccede: [
       "La quietanza viene segnata come incassata se l'importo copre tutto il premio.",
-      "Esce da Avvisi di incasso e compare negli incassi / storico.",
+      "Esce da Incassi e compare nello storico.",
       "Si calcolano le provvigioni sull'incasso.",
       "Parte l'email automatica di copertura all'agenzia/compagnia (se l'incasso è completo).",
       "Se la polizza è frazionata, può essere preparata la rata successiva da incassare più avanti.",
@@ -65,7 +65,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     ],
     casiParticolari: [
       "Polizza sospesa: non puoi incassare finché non viene tolta la sospensione.",
-      "Incasso parziale: resta in Avvisi di incasso con l'importo già registrato.",
+      "Incasso parziale: resta in Incassi con l'importo già registrato.",
       "Se l'email all'agenzia non parte per un errore tecnico, l'incasso resta valido — puoi reinviarla dal dettaglio titolo.",
     ],
   },
@@ -75,7 +75,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     area: "portafoglio",
     tags: ["bonifico", "banca", "conto", "messa a cassa"],
     cosaFai: [
-      "Selezioni la quietanza in Avvisi di incasso.",
+      "Selezioni la quietanza in Incassi.",
       "Apri Metti a cassa.",
       "Scegli Bonifico come tipo di pagamento.",
       "Indichi su quale conto bancario è arrivato il bonifico.",
@@ -84,15 +84,15 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     ],
     cosaSuccede: [
       "La quietanza risulta incassata con pagamento bonifico e banca registrata.",
-      "Esce da Avvisi di incasso se l'importo copre tutto.",
+      "Esce da Incassi se l'importo copre tutto.",
       "Si calcolano le provvigioni.",
       "Viene inviata l'email di copertura all'agenzia.",
       "Eventuale rata successiva o rinnovo come per ogni incasso completo.",
     ],
     casiParticolari: [
       "Senza conto bancario selezionato il sistema non fa proseguire.",
-      "Bonifico parziale: la quietanza resta in Avvisi di incasso; niente email agenzia finché non chiudi il saldo.",
-      "Se fai la stessa operazione da Bonifici, il bonifico importato viene collegato alle polizze (vedi voce dedicata).",
+      "Bonifico parziale: la quietanza resta in Incassi; niente email agenzia finché non chiudi il saldo.",
+      "Se sulla quietanza compare il badge Bonifico, puoi aprire direttamente la messa a cassa con il movimento già proposto (match su ordinante ↔ cliente, non sull'importo).",
     ],
     riepilogo: [
       { situazione: "Bonifico che copre tutto", risultato: "Quietanza incassata, esce dal carico, email agenzia" },
@@ -110,7 +110,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
       "Indichi importo e data; verifica che il totale quadri.",
     ],
     cosaSuccede: [
-      "Stesso effetto dell'incasso completo: quietanza chiusa, provvigioni, email agenzia, uscita da Avvisi di incasso.",
+      "Stesso effetto dell'incasso completo: quietanza chiusa, provvigioni, email agenzia, uscita da Incassi.",
       "Non serve selezionare un conto bancario.",
     ],
   },
@@ -124,7 +124,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     ],
     cosaSuccede: [
       "Il sistema salva quanto hai già incassato sulla quietanza.",
-      "La quietanza resta visibile in Avvisi di incasso finché non copri l'intero premio.",
+      "La quietanza resta visibile in Incassi finché non copri l'intero premio.",
       "Non invia l'email all'agenzia e non considera l'incasso chiuso.",
       "Al secondo incasso somma gli importi: quando il totale copre il premio, chiude come incasso normale.",
     ],
@@ -143,7 +143,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
       "Alla creazione: resta un saldo a favore del cliente.",
       "In messa a cassa: l'acconto scala dal saldo e copre parte (o tutto) il premio.",
       "Se bonifico + acconto insieme coprono il premio, l'incasso si chiude normalmente.",
-      "Acconto da Bonifici: se un bonifico è più alto del dovuto, il resto diventa acconto sul cliente collegato.",
+      "Acconto da eccedenza bonifico: se un bonifico è più alto del dovuto, il resto diventa acconto sul cliente collegato.",
     ],
     casiParticolari: [
       "Puoi cancellare un acconto solo se non è ancora stato utilizzato.",
@@ -176,34 +176,36 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     cosaSuccede: [
       "I bonifici entrano in coda come movimenti da lavorare.",
       "Il sistema può suggerire il cliente (match automatico); puoi correggere a mano.",
-      "I movimenti restano aperti finché non li colleghi in Bonifici.",
+      "I movimenti restano aperti finché non li colleghi da Incassi → Bonifici aperti.",
     ],
   },
   {
     id: "ricongiungimento-bancario",
-    titolo: "Bonifici",
-    area: "contabilita",
-    tags: ["ricongiungimento", "bonifico", "match", "incasso"],
-    intro: "Collega un bonifico arrivato in banca alle quietanze che paga.",
+    titolo: "Bonifici da Incassi",
+    area: "portafoglio",
+    tags: ["ricongiungimento", "bonifico", "match", "incasso", "ordinante"],
+    intro: "Collega un bonifico importato alle quietanze da Incassi. Il match usa ordinante/cliente, non l'importo.",
     cosaFai: [
-      "Apri un movimento bancario importato.",
-      "Assegni il cliente pagatore (obbligatorio prima di chiudere).",
-      "Selezioni le quietanze da incassare con quell'importo.",
-      "Metti a cassa dal flusso Bonifici.",
-      "Quadratura: importo bonifico = somma incassi ± acconto ± ammanco.",
+      "Apri Incassi (eventualmente con tab Bonifici aperti).",
+      "Se sulla quietanza c'è un badge Bonifico, cliccalo: con un solo match si apre subito la messa a cassa; con più match scegli il movimento.",
+      "Oppure apri Metti a cassa → Bonifico e seleziona conto + movimento dall'elenco ordinato per nome.",
+      "Confermi l'incasso: il bonifico viene collegato e chiuso.",
     ],
     cosaSuccede: [
-      "Le quietanze selezionate vengono incassate (anche parzialmente se previsto).",
+      "Le quietanze selezionate vengono incassate.",
       "Il movimento bancario risulta chiuso/incassato.",
       "Eccedenza → acconto sul cliente pagatore.",
-      "Mancanza (ammanco) → devi inserire una voce strutturale finché non quadra; non si chiude con una nota libera.",
-      "Stessi effetti dell'incasso normale: provvigioni, email agenzia se incasso completo, uscita da Avvisi di incasso.",
+      "Stessi effetti dell'incasso normale: provvigioni, email agenzia se incasso completo, uscita da Incassi.",
+    ],
+    casiParticolari: [
+      "Lo storico dei bonifici già collegati resta in Contabilità → Storico bonifici (?tab=storico).",
+      "La vecchia pagina «Da collegare» non è più il flusso primario.",
     ],
     riepilogo: [
-      { situazione: "Bonifico = somma quietanze", risultato: "Tutto chiuso, movimento incassato" },
-      { situazione: "Bonifico > somma quietanze", risultato: "Quietanze incassate + acconto residuo cliente" },
-      { situazione: "Bonifico < somma quietanze", risultato: "Incasso parziale sulle quietanze, resto in carico" },
-      { situazione: "Senza cliente assegnato", risultato: "Non puoi chiudere il movimento" },
+      { situazione: "Un match nome", risultato: "Un click sul badge → messa a cassa con bonifico proposto" },
+      { situazione: "Più match nome", risultato: "Scegli il bonifico dal popover, poi incassa" },
+      { situazione: "Bonifico > premio", risultato: "Quietanze incassate + acconto residuo cliente" },
+      { situazione: "Nessun match", risultato: "Scegli manualmente conto e movimento in Metti a cassa" },
     ],
   },
   {
@@ -309,7 +311,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     cosaSuccede: [
       "La polizza madre risulta sospesa.",
       "Le quietanze future e quella in corso passano a stato sospeso e non sono incassabili fino alla riattivazione.",
-      "Viene creato un titolo oneri di sospensione (anche a €0) visibile in Avvisi di incasso.",
+      "Viene creato un titolo oneri di sospensione (anche a €0) visibile in Incassi.",
     ],
   },
   {
@@ -380,7 +382,7 @@ export const GUIDA_PROCESSI: GuidaProcesso[] = [
     cosaSuccede: [
       "Si crea la polizza madre.",
       "Il sistema genera le quietanze (rate) previste dal frazionamento.",
-      "La prima rata compare in Avvisi di incasso pronta per l'incasso.",
+      "La prima rata compare in Incassi pronta per l'incasso.",
     ],
   },
   {

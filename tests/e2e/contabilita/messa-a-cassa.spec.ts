@@ -42,8 +42,8 @@ test.describe('Contabilità · Messa a Cassa (dialog)', () => {
     await expect(dialog).toBeHidden();
   });
 
-  test('da Ricongiungimento: Metti a Cassa apre lo stesso dialog quando la quadratura è ok', async ({ page }) => {
-    await page.goto('/contabilita/ricongiungimento-bancario');
+  test('da Bonifici legacy: Metti a Cassa apre lo stesso dialog quando la quadratura è ok', async ({ page }) => {
+    await page.goto('/contabilita/ricongiungimento-bancario?legacy=1');
     await expectPageHealthy(page);
 
     const trigger = page.locator('.cursor-pointer').filter({ hasText: /Ordinante:/i }).first();

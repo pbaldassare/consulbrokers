@@ -14,6 +14,9 @@ export interface Anticipo {
   creato_da: string | null;
   created_at: string;
   updated_at: string;
+  titolo_origine_id?: string | null;
+  rimborsato_il?: string | null;
+  rimborsato_note?: string | null;
   conto?: { id: string; etichetta: string; iban: string } | null;
 }
 
@@ -26,7 +29,12 @@ export interface AnticipoUtilizzo {
   created_at: string;
 }
 
-export const statoAnticipo = (a: { importo: number; importo_residuo: number }): "disponibile" | "parziale" | "esaurito" => {
+export const statoAnticipo = (a: {
+  importo: number;
+  importo_residuo: number;
+  rimborsato_il?: string | null;
+}): "disponibile" | "parziale" | "esaurito" | "rimborsato" => {
+  if (a.rimborsato_il) return "rimborsato";
   if (a.importo_residuo <= 0) return "esaurito";
   if (a.importo_residuo < a.importo) return "parziale";
   return "disponibile";
@@ -56,6 +64,7 @@ export function useAnticipiDisponibili(clienteId: string | undefined) {
         .select("*, conto:conti_bancari(id, etichetta, iban)")
         .eq("cliente_id", clienteId)
         .gt("importo_residuo", 0)
+        .is("rimborsato_il", null)
         .order("data_anticipo", { ascending: true });
       if (error) throw error;
       return (data || []) as Anticipo[];
@@ -136,5 +145,46 @@ export function useEliminaAnticipo(clienteId: string) {
       toast.success("Acconto eliminato");
     },
     onError: (e: any) => toast.error(e?.message || "Impossibile eliminare (potrebbe avere utilizzi associati)"),
+  });
+}
+
+export function useSegnaAnticipoRimborsato() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      anticipoId: string;
+      clienteId?: string | null;
+      dataRimborso: string;
+      note?: string | null;
+    }) => {
+      const { data: user } = await supabase.auth.getUser();
+      const { segnaAnticipoRimborsato } = await import("@/lib/anticipoDaTitoloCredito");
+      const res = await segnaAnticipoRimborsato(supabase, input.anticipoId, {
+        dataRimborso: input.dataRimborso,
+        note: input.note,
+        userId: user.user?.id ?? null,
+      });
+      if (!res.ok) throw new Error(res.error || "Errore rimborso");
+      await logAttivita({
+        azione: "anticipo_rimborsato",
+        entita_tipo: "cliente",
+        entita_id: input.clienteId || undefined,
+        dettagli_json: {
+          anticipo_id: input.anticipoId,
+          data_rimborso: input.dataRimborso,
+          note: input.note || null,
+        },
+      });
+      return res;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cliente-anticipi"] });
+      qc.invalidateQueries({ queryKey: ["cliente-anticipi-disponibili"] });
+      qc.invalidateQueries({ queryKey: ["anticipi-globale"] });
+      qc.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
+      qc.invalidateQueries({ queryKey: ["anticipo-utilizzi"] });
+      toast.success("Acconto segnato come rimborsato/bonificato");
+    },
+    onError: (e: any) => toast.error(e?.message || "Errore rimborso acconto"),
   });
 }

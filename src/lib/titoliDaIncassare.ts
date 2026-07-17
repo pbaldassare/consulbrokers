@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-/** Stessa logica di Avvisi di incasso (view v_portafoglio_quietanze). */
+/** Stessa logica di Incassi (view v_portafoglio_quietanze). */
 export const applyExcludeMadreConRate = (q: any) =>
   q.or(
     "is_regolazione.eq.true,is_proroga.eq.true,is_appendice_modifica.eq.true,numero_rata.gt.1,numero_rate_totali.lte.1,numero_rate_totali.is.null",
@@ -47,7 +47,7 @@ export function dedupeTitoliMadreQuietanza<T extends { id: string; numero_titolo
   return out;
 }
 
-/** Titoli eleggibili per collegamento bonifico / messa a cassa (allineato ad Avvisi di incasso). */
+/** Titoli eleggibili per collegamento bonifico / messa a cassa (allineato a Incassi). */
 export async function fetchTitoliClienteDaIncassare(
   clienteAnagraficaId: string,
   limit = 50,

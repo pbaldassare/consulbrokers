@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { appendiceTipoLabel, isAppendice } from "@/lib/quietanze";
 
 interface PolizzaHeaderCardProps {
   /** Titolo già caricato (preferito quando disponibile). */
   titolo?: any;
   /** In alternativa, ID titolo da fetchare. */
   titoloId?: string | null;
-  /** Titolo della pagina (es. "Sospensione Polizza"). Se omesso usa "Polizza {numero}". */
+  /** Titolo della pagina (es. "Sospensione Polizza"). Se omesso usa "Polizza/Appendice {numero}". */
   pageTitle?: string;
   /** Sottotitolo descrittivo della pagina. */
   pageSubtitle?: string;
@@ -49,6 +50,7 @@ export function PolizzaHeaderCard({
         .from("titoli")
         .select(
           "id, numero_titolo, stato, premio_lordo, prodotto_nome, " +
+            "is_appendice_modifica, is_proroga, is_regolazione, sostituisce_polizza, " +
             "cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale), " +
             "uffici(nome_ufficio), " +
             "prodotti(nome_prodotto, compagnie(nome)), " +
@@ -70,9 +72,29 @@ export function PolizzaHeaderCard({
       : t.cliente_anagrafica.ragione_sociale || "—"
     : "—";
 
+  const defaultEntityLabel = (() => {
+    if (!t) return "Polizza";
+    if (isAppendice(t)) {
+      const sub = appendiceTipoLabel(t);
+      return sub ? `Appendice ${sub}` : "Appendice";
+    }
+    if (t.sostituisce_polizza) return "Quietanza";
+    return "Polizza";
+  })();
+
   const titleText =
     pageTitle ||
-    (t?.numero_titolo ? `Polizza ${t.numero_titolo}` : t?.id ? `Polizza ${String(t.id).slice(0, 8)}` : "Polizza");
+    (t?.numero_titolo
+      ? `${defaultEntityLabel} ${t.numero_titolo}`
+      : t?.id
+        ? `${defaultEntityLabel} ${String(t.id).slice(0, 8)}`
+        : defaultEntityLabel);
+
+  const importoLabel = isAppendice(t || {})
+    ? "Importo Appendice"
+    : t?.sostituisce_polizza
+      ? "Importo Rata"
+      : "Importo Firma";
 
   const subtitleText =
     pageSubtitle ||
@@ -111,7 +133,7 @@ export function PolizzaHeaderCard({
               <span className="font-medium text-foreground">{t.uffici?.nome_ufficio || "—"}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Importo Firma:</span>
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">{importoLabel}:</span>
               <span className="font-semibold text-teal-700 tabular-nums">{fmtEuro(t.premio_lordo)}</span>
             </div>
           </div>

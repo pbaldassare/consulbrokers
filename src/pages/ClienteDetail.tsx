@@ -34,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { eliminaPolizza, eliminaQuietanza } from "@/lib/eliminaPolizza";
+import { eliminaPolizza, eliminaQuietanza, eliminaAppendice } from "@/lib/eliminaPolizza";
 import { format } from "date-fns";
 import { groupTitoliByPolizza, isAppendice, appendiceTipoLabel, baseNumeroPolizza } from "@/lib/quietanze";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
@@ -1174,10 +1174,11 @@ function PolizzeClienteTable({
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    kind: "madre" | "rata";
+    kind: "madre" | "rata" | "appendice";
     titoloId: string;
     numero: string;
     rateCount?: number;
+    sostituisce_polizza?: string | null;
   } | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggleExpand = (key: string) =>
@@ -1392,16 +1393,24 @@ function PolizzeClienteTable({
     if (!deleteConfirm) return;
     const { kind, titoloId } = deleteConfirm;
     setDeleting(titoloId);
-    const res = kind === "madre"
-      ? await eliminaPolizza(titoloId)
-      : await eliminaQuietanza(titoloId);
+    let res;
+    if (kind === "madre") {
+      res = await eliminaPolizza(titoloId);
+    } else if (kind === "appendice") {
+      res = await eliminaAppendice(titoloId, {
+        sostituisce_polizza: deleteConfirm.sostituisce_polizza,
+      });
+    } else {
+      res = await eliminaQuietanza(titoloId);
+    }
     setDeleting(null);
     setDeleteConfirm(null);
     if (!res.ok) {
       toast.error(`Errore eliminazione: ${res.error}`);
       return;
     }
-    const label = kind === "madre" ? "Polizza eliminata" : "Quietanza eliminata";
+    const label =
+      kind === "madre" ? "Polizza eliminata" : kind === "appendice" ? "Appendice eliminata" : "Quietanza eliminata";
     toast.success(label);
     queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
   };
@@ -1421,6 +1430,15 @@ function PolizzeClienteTable({
       kind: "rata",
       titoloId: r.id,
       numero: r.numero_titolo ?? "—",
+    });
+  };
+
+  const handleDeleteAppendice = (r: any) => {
+    setDeleteConfirm({
+      kind: "appendice",
+      titoloId: r.id,
+      numero: r.numero_titolo ?? "—",
+      sostituisce_polizza: r.sostituisce_polizza ?? null,
     });
   };
   const fmtNum = (n: number | null | undefined) => (n != null ? n.toFixed(2) : "—");
@@ -1715,19 +1733,21 @@ function PolizzeClienteTable({
                   <TableCell className="text-xs">{fmtDate(r.data_incasso || r.data_messa_cassa)}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      {!isAppendice(r) && (
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          disabled={!!deleting}
-                          title="Elimina quietanza (cascade incassi/provvigioni)"
-                          onClick={() => handleDeleteRata(r)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        disabled={!!deleting}
+                        title={
+                          isAppendice(r)
+                            ? "Elimina appendice (cascade incassi/provvigioni)"
+                            : "Elimina quietanza (cascade incassi/provvigioni)"
+                        }
+                        onClick={() => (isAppendice(r) ? handleDeleteAppendice(r) : handleDeleteRata(r))}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </TableCell>
                   )}
                 </TableRow>
@@ -1810,8 +1830,14 @@ function PolizzeClienteTable({
                           variant="ghost"
                           className="h-7 w-7"
                           disabled={!!deleting}
-                          title="Elimina polizza e quietanze (cascade incassi/provvigioni)"
-                          onClick={() => handleDeleteMadre(c)}
+                          title={
+                            isAppendice(head)
+                              ? "Elimina appendice (cascade incassi/provvigioni)"
+                              : "Elimina polizza e quietanze (cascade incassi/provvigioni)"
+                          }
+                          onClick={() =>
+                            isAppendice(head) ? handleDeleteAppendice(head) : handleDeleteMadre(c)
+                          }
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -1903,7 +1929,21 @@ function PolizzeClienteTable({
                         ) : "—"}
                       </TableCell>
                       <TableCell className="text-xs">{fmtDate(r.data_incasso || r.data_messa_cassa)}</TableCell>
-                      {isAdmin && <TableCell />}
+                      {isAdmin && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            disabled={!!deleting}
+                            title="Elimina appendice (cascade incassi/provvigioni)"
+                            onClick={() => handleDeleteAppendice(r)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </Fragment>
@@ -1927,6 +1967,11 @@ function PolizzeClienteTable({
                       {deleteConfirm.rateCount ? ` e ${deleteConfirm.rateCount} quietanze collegate` : ""}?
                     </p>
                   </>
+                ) : deleteConfirm?.kind === "appendice" ? (
+                  <p>
+                    Eliminare definitivamente l&apos;appendice N.{" "}
+                    <strong>{deleteConfirm?.numero}</strong>?
+                  </p>
                 ) : (
                   <p>
                     Eliminare definitivamente la quietanza N.{" "}

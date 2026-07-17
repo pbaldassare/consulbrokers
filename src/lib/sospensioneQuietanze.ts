@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { baseNumeroPolizza } from "@/lib/quietanze";
 
 /** Aggiunge giorni a una data ISO (YYYY-MM-DD), calcolo UTC per evitare drift timezone. */
 export function addDaysISO(iso: string, days: number): string {
@@ -95,30 +96,51 @@ export function computeShiftedDates(
   };
 }
 
-/** Se titoloId è una quietanza (sostituisce_polizza valorizzato), risolve l'id della polizza madre. */
+/** Se titoloId è quietanza o appendice (AM/PR/RG), risolve l'id della polizza madre. */
 export async function resolveTitoloMadreId(
   supabase: SupabaseClient,
   titoloId: string,
 ): Promise<string> {
   const { data: row, error } = await supabase
     .from("titoli")
-    .select("id, numero_titolo, sostituisce_polizza")
+    .select(
+      "id, numero_titolo, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, appendice_modifica_polizza_madre_id, proroga_polizza_madre_id",
+    )
     .eq("id", titoloId)
     .single();
   if (error || !row) return titoloId;
-  if (!row.sostituisce_polizza) return titoloId;
+
+  const fkMadre =
+    (row as { appendice_modifica_polizza_madre_id?: string | null }).appendice_modifica_polizza_madre_id ||
+    (row as { proroga_polizza_madre_id?: string | null }).proroga_polizza_madre_id ||
+    null;
+  if (fkMadre) return fkMadre;
+
+  const isApp = !!(
+    (row as { is_appendice_modifica?: boolean }).is_appendice_modifica ||
+    (row as { is_proroga?: boolean }).is_proroga ||
+    (row as { is_regolazione?: boolean }).is_regolazione
+  );
+  // Già polizza madre (non quietanza, non appendice)
+  if (!row.sostituisce_polizza && !isApp) return titoloId;
   if (!row.numero_titolo) return titoloId;
 
-  const { data: madre } = await supabase
-    .from("titoli")
-    .select("id")
-    .eq("numero_titolo", row.numero_titolo)
-    .is("sostituisce_polizza", null)
-    .order("riga", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const numeroBase = isApp ? baseNumeroPolizza(row.numero_titolo) : row.numero_titolo;
 
-  return madre?.id ?? titoloId;
+  const { data: candidates } = await supabase
+    .from("titoli")
+    .select("id, is_appendice_modifica, is_proroga, is_regolazione")
+    .eq("numero_titolo", numeroBase)
+    .is("sostituisce_polizza", null)
+    .order("riga", { ascending: true });
+
+  const madre = (candidates || []).find(
+    (t) =>
+      !(t as { is_appendice_modifica?: boolean }).is_appendice_modifica &&
+      !(t as { is_proroga?: boolean }).is_proroga &&
+      !(t as { is_regolazione?: boolean }).is_regolazione,
+  );
+  return madre?.id ?? candidates?.[0]?.id ?? titoloId;
 }
 
 /** Seleziona quietanze da congelare in sospensione (future + in corso). */

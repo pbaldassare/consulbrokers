@@ -370,9 +370,8 @@ const ImmissionePolizzaPage = () => {
   const [targaTelaio, setTargaTelaio] = useState("");
   const [descrizionePolizza, setDescrizionePolizza] = useState("");
 
-  // Periodo
-  const todayISO = new Date().toISOString().slice(0, 10);
-  const [durataDa, setDurataDa] = useState(todayISO);
+  // Periodo — Durata Da/A partono vuote; l'autocalcolo parte quando l'utente valorizza Durata Da
+  const [durataDa, setDurataDa] = useState("");
   const [durataA, setDurataA] = useState("");
   const [durataATouched, setDurataATouched] = useState(false);
   const [anniDurata, setAnniDurata] = useState("1");
@@ -955,16 +954,20 @@ const ImmissionePolizzaPage = () => {
       ? "Il cliente selezionato non ha un Gruppo Finanziario: aprilo nella scheda cliente e assegnalo prima di salvare la polizza"
       : !numeroPolizza.trim()
         ? "Il N° Polizza è obbligatorio"
-        : (cigObbligatorio && !cigRif.trim())
-          ? "Per i clienti di tipo Ente il CIG è obbligatorio"
-          : (cigRif.trim() && !cigValido)
-            ? "Il CIG deve essere di 10 caratteri alfanumerici (o spunta 'CIG temporaneo')"
-            : coassicurazione
-              ? (() => {
-                  const ripartoCheck = validateRipartoSum(ripartoRows);
-                  return ripartoCheck.valid ? null : (ripartoCheck.message || "Riparto coassicurazione non valido");
-                })()
-              : null;
+        : !durataDa
+          ? "Durata Da è obbligatoria"
+          : !durataA
+            ? "Durata A è obbligatoria"
+            : (cigObbligatorio && !cigRif.trim())
+              ? "Per i clienti di tipo Ente il CIG è obbligatorio"
+              : (cigRif.trim() && !cigValido)
+                ? "Il CIG deve essere di 10 caratteri alfanumerici (o spunta 'CIG temporaneo')"
+                : coassicurazione
+                  ? (() => {
+                      const ripartoCheck = validateRipartoSum(ripartoRows);
+                      return ripartoCheck.valid ? null : (ripartoCheck.message || "Riparto coassicurazione non valido");
+                    })()
+                  : null;
 
   // (eredità AE/Specialist/Produttore spostata sotto le query)
 
@@ -1663,6 +1666,18 @@ const ImmissionePolizzaPage = () => {
       premiQuietanzaRows.find((r) => r.sottoramoId)?.sottoramoId ||
       null;
     const ramoIdToSave = firstSottoramoId || selectedRamo || null;
+    if (!durataDa) {
+      toast.error("Durata Da è obbligatoria");
+      return;
+    }
+    if (!durataA) {
+      toast.error("Durata A è obbligatoria");
+      return;
+    }
+    if (durataDa > durataA) {
+      toast.error("Durata Da non può essere successiva a Durata A");
+      return;
+    }
     if (!selectedGruppoRamoId) {
       toast.error("Seleziona il Ramo");
       return;
@@ -2960,12 +2975,28 @@ const ImmissionePolizzaPage = () => {
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Durata Da</Label>
-            <Input type="date" value={durataDa} onChange={(e) => setDurataDa(e.target.value)} className="h-8 text-xs" />
+            <Label className="text-xs">Durata Da <span className="text-destructive">*</span></Label>
+            <Input
+              type="date"
+              value={durataDa}
+              onChange={(e) => setDurataDa(e.target.value)}
+              className={`h-8 text-xs ${!durataDa ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            />
+            {!durataDa && (
+              <p className="text-[10px] text-destructive mt-0.5">Obbligatorio</p>
+            )}
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Durata A</Label>
-            <Input type="date" value={durataA} onChange={(e) => { setDurataA(e.target.value); setDurataATouched(true); }} className="h-8 text-xs" />
+            <Label className="text-xs">Durata A <span className="text-destructive">*</span></Label>
+            <Input
+              type="date"
+              value={durataA}
+              onChange={(e) => { setDurataA(e.target.value); setDurataATouched(true); }}
+              className={`h-8 text-xs ${!durataA ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            />
+            {!durataA && (
+              <p className="text-[10px] text-destructive mt-0.5">Obbligatorio</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Anni Durata</Label>

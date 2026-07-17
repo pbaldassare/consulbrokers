@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Clock, Search, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass, RotateCcw } from "lucide-react";
+import { Clock, Search, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass, RotateCcw, ArrowRightLeft } from "lucide-react";
 
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -22,8 +22,10 @@ import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
-import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
+import { MessaCassaDialog, type PreferredBonificoContext } from "@/components/portafoglio/MessaCassaDialog";
 import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
+import { IncassiBonificiPanel } from "@/components/portafoglio/IncassiBonificiPanel";
+import { BonificoMatchBadge } from "@/components/portafoglio/BonificoMatchBadge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Shield } from "lucide-react";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
@@ -32,11 +34,21 @@ import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { rowBorderClass, isQuietanzaRow, displayStatoPolizza, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
 import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
+import { quietanzaSogliaGaranziaDa } from "@/lib/quietanzeClienteView";
+import { UfficiFilterMultiSelect } from "@/components/portafoglio/UfficiFilterMultiSelect";
+import { fetchBonificiApertiPerIncassi } from "@/lib/bonificoDaIncasso";
+import { suggestBonificiPerCliente, type BonificoAperto, type BonificoSuggerito } from "@/lib/bonificoMatch";
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
+const startOfMonthStr = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), "yyyy-MM-dd");
+const endOfMonthStr = () => format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), "yyyy-MM-dd");
+/** Da Incassi: priorità alla quietanza (non alla madre), come Portafoglio Attive. */
 const rowHref = (p: any): string | null => {
-  if (p?.polizza_id) return `/polizze/${p.polizza_id}`;
   if (p?.quietanza_id) return `/quietanze/${p.quietanza_id}`;
-  if (p?.id) return `/polizze/${p.id}`;
+  if (p?.is_appendice_modifica || p?.is_proroga || p?.is_regolazione) {
+    if (p?.id) return `/titoli/${p.id}`;
+  }
+  if (p?.polizza_id) return `/polizze/${p.polizza_id}`;
+  if (p?.id) return `/titoli/${p.id}`;
   return null;
 };
 
@@ -72,10 +84,36 @@ const PortafoglioCaricoPage = () => {
   const [garantitoDialogTitoli, setGarantitoDialogTitoli] = useState<Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>>([]);
   const [garantitoDialogOpen, setGarantitoDialogOpen] = useState(false);
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
+  const [filtroUffici, setFiltroUffici] = useState<string[]>(() => {
+    const raw = searchParams.get("sedi");
+    if (!raw) return [];
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  });
+  const [bonificiPanelOpen, setBonificiPanelOpen] = useState(() => searchParams.get("tab") === "bonifici");
+  const [preferredBonifico, setPreferredBonifico] = useState<PreferredBonificoContext | null>(null);
+  type VistaIncasso = "pendenti" | "incassati";
+  const [vistaIncasso, setVistaIncasso] = useState<VistaIncasso>(() =>
+    searchParams.get("vista") === "incassati" ? "incassati" : "pendenti",
+  );
+  const isVistaIncassati = vistaIncasso === "incassati";
 
-  const hasActiveFilters = !!dateDa || !!dateA || !!search || filtroPeriodo !== "tutte" || userTouched || filtroTipo !== "quietanze";
+  const hasActiveFilters =
+    !!dateDa ||
+    !!dateA ||
+    !!search ||
+    filtroPeriodo !== "tutte" ||
+    userTouched ||
+    filtroTipo !== "quietanze" ||
+    filtroUffici.length > 0 ||
+    vistaIncasso !== "pendenti";
 
-  const updateUrl = (next: { periodo?: Periodo | null; dal?: string | null; al?: string | null }) => {
+  const updateUrl = (next: {
+    periodo?: Periodo | null;
+    dal?: string | null;
+    al?: string | null;
+    sedi?: string[] | null;
+    vista?: VistaIncasso | null;
+  }) => {
     const sp = new URLSearchParams(searchParams);
     if (next.periodo !== undefined) {
       if (next.periodo) sp.set("periodo", next.periodo); else sp.delete("periodo");
@@ -85,6 +123,14 @@ const PortafoglioCaricoPage = () => {
     }
     if (next.al !== undefined) {
       if (next.al) sp.set("al", next.al); else sp.delete("al");
+    }
+    if (next.sedi !== undefined) {
+      if (next.sedi && next.sedi.length > 0) sp.set("sedi", next.sedi.join(","));
+      else sp.delete("sedi");
+    }
+    if (next.vista !== undefined) {
+      if (next.vista && next.vista !== "pendenti") sp.set("vista", next.vista);
+      else sp.delete("vista");
     }
     setSearchParams(sp, { replace: true });
   };
@@ -96,6 +142,23 @@ const PortafoglioCaricoPage = () => {
     setSearchParams(sp, { replace: true });
   }, []); // migrazione URL legacy messe_cassa → tutte (default)
 
+  useEffect(() => {
+    if (searchParams.get("tab") === "bonifici") setBonificiPanelOpen(true);
+    const v = searchParams.get("vista");
+    setVistaIncasso(v === "incassati" ? "incassati" : "pendenti");
+  }, [searchParams]);
+
+  const setBonificiPanelOpenSync = useCallback(
+    (open: boolean) => {
+      setBonificiPanelOpen(open);
+      const sp = new URLSearchParams(searchParams);
+      if (open) sp.set("tab", "bonifici");
+      else sp.delete("tab");
+      setSearchParams(sp, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
   const resetFilters = () => {
     setDateDa("");
     setDateA("");
@@ -103,10 +166,27 @@ const PortafoglioCaricoPage = () => {
     setFiltroPeriodo("tutte");
     setUserTouched(false);
     setFiltroTipo("quietanze");
+    setFiltroUffici([]);
+    setVistaIncasso("pendenti");
+    setSelectedIds(new Set());
     setPage(0);
     const sp = new URLSearchParams(searchParams);
-    sp.delete("periodo"); sp.delete("dal"); sp.delete("al");
+    sp.delete("periodo"); sp.delete("dal"); sp.delete("al"); sp.delete("sedi"); sp.delete("vista");
     setSearchParams(sp, { replace: true });
+  };
+
+  const switchVista = (v: VistaIncasso) => {
+    setVistaIncasso(v);
+    setSelectedIds(new Set());
+    setPage(0);
+    if (v === "incassati") {
+      setSortField("data_messa_cassa");
+      setSortDirection("desc");
+    } else {
+      setSortField("garanzia_a");
+      setSortDirection("asc");
+    }
+    updateUrl({ vista: v });
   };
 
   const handleSort = (field: string) => {
@@ -131,25 +211,42 @@ const PortafoglioCaricoPage = () => {
     );
   };
 
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroPeriodo, isDefaultExtended, filtroTipo, dateDa, dateA, sortField, sortDirection]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [
+    search,
+    filtroPeriodo,
+    isDefaultExtended,
+    filtroTipo,
+    dateDa,
+    dateA,
+    sortField,
+    sortDirection,
+    filtroUffici.join(","),
+    vistaIncasso,
+  ]);
+
+  const isDaIncassareTipo = !isVistaIncassati && (filtroTipo === "quietanze" || filtroTipo === "regolazioni");
 
   const applyTipoFilter = (q: any) => {
-    const noDerivati =
-      "is_regolazione.is.null,is_regolazione.eq.false,is_proroga.is.null,is_proroga.eq.false,is_appendice_modifica.is.null,is_appendice_modifica.eq.false";
-    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null).or(noDerivati);
-    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null).or(noDerivati);
+    // La view v_portafoglio_quietanze è già a livello quietanza (JOIN quietanze).
+    // Non usare sostituisce_polizza: sui titoli collegati alla quietanza è spesso NULL
+    // (la rata "cliente" con sostituisce_polizza valorizzato può non avere riga in quietanze).
+    if (filtroTipo === "polizze") {
+      return q
+        .not("is_appendice_modifica", "is", true)
+        .not("is_proroga", "is", true)
+        .not("is_regolazione", "is", true);
+    }
+    if (filtroTipo === "quietanze") {
+      return q
+        .not("is_appendice_modifica", "is", true)
+        .not("is_proroga", "is", true)
+        .not("is_regolazione", "is", true);
+    }
     if (filtroTipo === "regolazioni") {
       return q.or("is_regolazione.eq.true,is_proroga.eq.true,is_appendice_modifica.eq.true");
     }
     return q;
   };
-
-  // Esclude le polizze madre che hanno rate successive: non sono incassabili,
-  // l'incasso avviene sulla singola quietanza. Appendici, regolazioni, proroghe e monorata restano.
-  const applyExcludeMadreConRate = (q: any) =>
-    q.or(
-      "is_regolazione.eq.true,is_proroga.eq.true,is_appendice_modifica.eq.true,numero_rata.gt.1,numero_rate_totali.lte.1,numero_rate_totali.is.null",
-    );
 
   const applyDateRange = (q: any, col: string) => {
     if (dateDa) q = q.gte(col, dateDa);
@@ -157,21 +254,64 @@ const PortafoglioCaricoPage = () => {
     return q;
   };
 
+  const applySedeFilter = (q: any) =>
+    filtroUffici.length > 0 ? q.in("ufficio_id", filtroUffici) : q;
+
+  /**
+   * Pendenti: criteri vista cliente (attivo, senza messa a cassa, soglia 60gg).
+   * Incassati: stato=incassato; Dal/Al e "mese corrente" su data_messa_cassa.
+   */
   const applyPeriodoFilter = (q: any) => {
-    if (filtroPeriodo === "tutte") {
-      const attiveCond = ["stato.eq.attivo"];
-      if (dateDa) attiveCond.push(`data_scadenza.gte.${dateDa}`);
-      if (dateA) attiveCond.push(`data_scadenza.lte.${dateA}`);
-      const incassateCond = ["stato.eq.incassato"];
-      if (dateDa) incassateCond.push(`data_messa_cassa.gte.${dateDa}`);
-      if (dateA) incassateCond.push(`data_messa_cassa.lte.${dateA}`);
-      return q.in("stato", ["attivo", "incassato"]).or(
-        `and(${attiveCond.join(",")}),and(${incassateCond.join(",")})`
-      );
+    if (isVistaIncassati) {
+      q = q.eq("stato", "incassato");
+      if (dateDa || dateA) return applyDateRange(q, "data_messa_cassa");
+      if (filtroPeriodo === "mese_corrente") {
+        return q
+          .gte("data_messa_cassa", startOfMonthStr())
+          .lte("data_messa_cassa", endOfMonthStr());
+      }
+      return q;
     }
-    // mese_corrente
+
+    if (isDaIncassareTipo) {
+      q = q.eq("stato", "attivo").is("data_messa_cassa", null);
+
+      if (dateDa || dateA) {
+        // Range esplicito: rispetta Dal/Al su garanzia_da, e per le rate anche la soglia 60gg
+        if (filtroTipo === "quietanze") {
+          const soglia = quietanzaSogliaGaranziaDa();
+          const parts = [`garanzia_da.lte.${soglia}`];
+          if (dateDa) parts.push(`garanzia_da.gte.${dateDa}`);
+          if (dateA) parts.push(`garanzia_da.lte.${dateA}`);
+          return q.or(`garanzia_da.is.null,and(${parts.join(",")})`);
+        }
+        return applyDateRange(q, "garanzia_da");
+      }
+
+      if (filtroPeriodo === "mese_corrente") {
+        const today = todayStr();
+        const start = startOfMonthStr();
+        const end = endOfMonthStr();
+        const meseOArretrato = `or(garanzia_da.lt.${today},and(garanzia_da.gte.${start},garanzia_da.lte.${end}))`;
+        if (filtroTipo === "quietanze") {
+          const soglia = quietanzaSogliaGaranziaDa();
+          return q.or(
+            `garanzia_da.is.null,and(garanzia_da.lte.${soglia},${meseOArretrato})`,
+          );
+        }
+        // Appendici: arretrate o mese corrente (senza soglia 60gg)
+        return q.or(`garanzia_da.is.null,${meseOArretrato}`);
+      }
+
+      // "tutte": solo criteri di visibilità
+      if (filtroTipo === "quietanze") {
+        const soglia = quietanzaSogliaGaranziaDa();
+        return q.or(`garanzia_da.is.null,garanzia_da.lte.${soglia}`);
+      }
+      return q;
+    }
+
     if (isDefaultExtended) {
-      // default esteso: tutte le attive (incluse arretrati), nessun bordo
       return q.eq("stato", "attivo");
     }
     return applyDateRange(q.eq("stato", "attivo"), "data_scadenza");
@@ -181,16 +321,29 @@ const PortafoglioCaricoPage = () => {
     search ? q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`) : q;
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, dateDa, dateA, sortField, sortDirection],
+    queryKey: [
+      "portafoglio-carico",
+      search,
+      filtroPeriodo,
+      isDefaultExtended,
+      filtroTipo,
+      page,
+      dateDa,
+      dateA,
+      sortField,
+      sortDirection,
+      filtroUffici.join(","),
+      vistaIncasso,
+    ],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_quietanze").select(
-        "id, quietanza_id, polizza_id, numero_titolo, titolo_derivato_numero, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_copertura, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, appendice_tipo, regolazione_quietanza_id, proroga_polizza_madre_id, numero_rata, numero_rate_totali",
+        "id, quietanza_id, polizza_id, numero_titolo, titolo_derivato_numero, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, ufficio_id, data_messa_cassa, data_copertura, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, appendice_tipo, regolazione_quietanza_id, proroga_polizza_madre_id, numero_rata, numero_rate_totali",
         { count: "exact" }
       );
       q = applyPeriodoFilter(q);
       q = applySearch(q);
       q = applyTipoFilter(q);
-      q = applyExcludeMadreConRate(q);
+      q = applySedeFilter(q);
 
       const { data, count } = await q
         .order(sortField, { ascending: sortDirection === "asc" })
@@ -206,23 +359,42 @@ const PortafoglioCaricoPage = () => {
   const { data: compensazioniMap } = useCompensazioniByTitoli(titoloIdsRiga);
 
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, dateDa, dateA],
+    queryKey: [
+      "portafoglio-carico-totale",
+      search,
+      filtroPeriodo,
+      isDefaultExtended,
+      filtroTipo,
+      dateDa,
+      dateA,
+      filtroUffici.join(","),
+      vistaIncasso,
+    ],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_quietanze").select("premio_lordo, sostituisce_polizza, is_regolazione, numero_rata, numero_rate_totali");
+      let q = supabase
+        .from("v_portafoglio_quietanze")
+        .select(
+          "premio_lordo, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, numero_rata, numero_rate_totali",
+        );
       q = applyPeriodoFilter(q);
       q = applySearch(q);
-      q = applyExcludeMadreConRate(q);
+      q = applyTipoFilter(q);
+      q = applySedeFilter(q);
       const { data } = await q;
       const rows = (data || []);
       const sumAll = rows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0);
-      const polizzeRows = rows.filter((r) => !r.sostituisce_polizza);
-      const quietanzeRows = rows.filter((r) => !!r.sostituisce_polizza);
+      const quietanzeRows = rows.filter(
+        (r) => !!r.sostituisce_polizza && !r.is_regolazione && !r.is_proroga && !r.is_appendice_modifica,
+      );
+      const appendiciRows = rows.filter(
+        (r) => !!r.is_regolazione || !!r.is_proroga || !!r.is_appendice_modifica,
+      );
       return {
         totale: sumAll,
-        polizzeCount: polizzeRows.length,
-        polizzeTotale: polizzeRows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
         quietanzeCount: quietanzeRows.length,
         quietanzeTotale: quietanzeRows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
+        appendiciCount: appendiciRows.length,
+        appendiciTotale: appendiciRows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
       };
     },
   });
@@ -230,32 +402,125 @@ const PortafoglioCaricoPage = () => {
 
   // Rinnovi in attesa di messa a cassa della polizza precedente
   const { data: pendingRinnovi } = useQuery({
-    queryKey: ["portafoglio-carico-pending", dateDa, dateA],
+    queryKey: ["portafoglio-carico-pending", dateDa, dateA, filtroUffici.join(",")],
     queryFn: async () => {
       let q = supabase
         .from("v_portafoglio_quietanze")
-        .select("id, quietanza_id, polizza_id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza")
+        .select("id, quietanza_id, polizza_id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza, ufficio_id")
         .eq("stato", "in_attesa_rinnovo");
       q = applyDateRange(q, "data_scadenza");
+      q = applySedeFilter(q);
       const { data } = await q.order("data_scadenza", { ascending: true });
       return (data || []);
     },
   });
   const pendingCount = pendingRinnovi?.length || 0;
 
+  const { data: bonificiAperti = [], isFetching: bonificiLoading } = useQuery({
+    queryKey: ["incassi-bonifici-aperti", filtroUffici.join(",")],
+    queryFn: () =>
+      fetchBonificiApertiPerIncassi({
+        ufficioIds: filtroUffici.length > 0 ? filtroUffici : undefined,
+        limit: 200,
+      }),
+    staleTime: 30_000,
+  });
+  const totaleBonificiAperti = useMemo(
+    () => bonificiAperti.reduce((s, b) => s + (Number(b.importo) || 0), 0),
+    [bonificiAperti],
+  );
+
+  /** Per riga quietanza: match nome (importo ignorato). */
+  const suggerimentiByTitoloId = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof suggestBonificiPerCliente>>();
+    for (const p of polizze) {
+      if (p.stato !== "attivo" || p.data_messa_cassa) continue;
+      const sug = suggestBonificiPerCliente(bonificiAperti, {
+        clienteId: (p as any).cliente_anagrafica_id,
+        clienteNome: p.cliente_nome_display,
+      });
+      if (sug.length > 0) map.set(p.id, sug);
+    }
+    return map;
+  }, [polizze, bonificiAperti]);
+
+  const quietanzeConSuggerimento = suggerimentiByTitoloId.size;
+
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-totale"] });
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-pending"] });
+    queryClient.invalidateQueries({ queryKey: ["incassi-bonifici-aperti"] });
+    queryClient.invalidateQueries({ queryKey: ["messa-cassa-bonifici-candidati"] });
+    queryClient.invalidateQueries({ queryKey: ["mov-bancari"] });
     queryClient.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
     queryClient.invalidateQueries({ queryKey: ["anticipi-globale"] });
     queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
   };
 
+  const openIncassa = useCallback(
+    (
+      rows: Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>,
+      prefer?: PreferredBonificoContext | null,
+    ) => {
+      setPreferredBonifico(prefer ?? null);
+      setCassaDialogTitoli(rows);
+      setCassaDialogOpen(true);
+    },
+    [],
+  );
+
+  const pickBonificoPerRiga = useCallback(
+    (
+      p: { id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null },
+      b: BonificoSuggerito | BonificoAperto,
+    ) => {
+      openIncassa(
+        [{
+          id: p.id,
+          numero_titolo: p.numero_titolo,
+          premio_lordo: p.premio_lordo,
+          cliente_anagrafica_id: p.cliente_anagrafica_id,
+        }],
+        {
+          movimentoId: b.id,
+          contoBancarioId: b.conto_bancario_id,
+        },
+      );
+    },
+    [openIncassa],
+  );
+
   // Solo polizze attive E mai messe a cassa sono incassabili (evita doppio incasso)
   const selectedAttive = useMemo(
     () => polizze.filter(p => selectedIds.has(p.id) && p.stato === "attivo" && !p.data_messa_cassa),
     [polizze, selectedIds]
+  );
+
+  const handleUsaBonifico = useCallback(
+    (b: BonificoAperto) => {
+      const prefer: PreferredBonificoContext = {
+        movimentoId: b.id,
+        contoBancarioId: b.conto_bancario_id,
+      };
+      if (selectedAttive.length === 0) {
+        setPreferredBonifico(prefer);
+        toast.message("Bonifico memorizzato", {
+          description: "Seleziona le quietanze e poi clicca Incassa: il bonifico sarà già proposto.",
+        });
+        return;
+      }
+      openIncassa(
+        selectedAttive.map((p) => ({
+          id: p.id,
+          numero_titolo: p.numero_titolo,
+          premio_lordo: p.premio_lordo,
+          cliente_anagrafica_id: (p as any).cliente_anagrafica_id,
+        })),
+        prefer,
+      );
+    },
+    [selectedAttive, openIncassa],
   );
   const selectedGarantibile = useMemo(
     () => selectedAttive.filter(p => !isInCoperturaGarantita(p)),
@@ -371,39 +636,88 @@ const PortafoglioCaricoPage = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Avvisi di incasso</h1>
-        <p className="text-sm text-muted-foreground">
-          {(() => {
-            const labelBase = "Polizze in scadenza";
-            if (!dateDa && !dateA) {
-              return (
-                <>
-                  Tutte le polizze
-                  {isDefaultExtended && <span className="ml-2 text-xs text-primary">· inclusi arretrati non a cassa</span>}
-                </>
-              );
-            }
-            const da = dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : null;
-            const a = dateA ? format(new Date(dateA), "dd/MM/yyyy") : null;
-            if (da && a) return `${labelBase} dal ${da} al ${a}`;
-            if (da) return `${labelBase} dal ${da}`;
-            return `${labelBase} fino al ${a}`;
-          })()}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Incassi</h1>
+          <p className="text-sm text-muted-foreground">
+            {isVistaIncassati ? (
+              (() => {
+                if (!dateDa && !dateA && filtroPeriodo === "tutte") {
+                  return "Quietanze già messe a cassa. Annullando un incasso tornano tra i pendenti.";
+                }
+                if (!dateDa && !dateA && filtroPeriodo === "mese_corrente") {
+                  return "Incassate nel mese corrente (data messa a cassa).";
+                }
+                const da = dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : null;
+                const a = dateA ? format(new Date(dateA), "dd/MM/yyyy") : null;
+                if (da && a) return `Incassate dal ${da} al ${a}`;
+                if (da) return `Incassate dal ${da}`;
+                return `Incassate fino al ${a}`;
+              })()
+            ) : (
+              (() => {
+                const labelBase = "Da incassare";
+                if (!dateDa && !dateA) {
+                  return (
+                    <>
+                      Quietanze e appendici ancora da mettere a cassa
+                      {isDefaultExtended && <span className="ml-2 text-xs text-primary">· inclusi arretrati</span>}
+                    </>
+                  );
+                }
+                const da = dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : null;
+                const a = dateA ? format(new Date(dateA), "dd/MM/yyyy") : null;
+                if (da && a) return `${labelBase} dal ${da} al ${a}`;
+                if (da) return `${labelBase} dal ${da}`;
+                return `${labelBase} fino al ${a}`;
+              })()
+            )}
+          </p>
+        </div>
+        <ToggleGroup
+          type="single"
+          value={vistaIncasso}
+          onValueChange={(v) => {
+            if (!v) return;
+            switchVista(v as VistaIncasso);
+          }}
+          className="border rounded-md"
+        >
+          <ToggleGroupItem value="pendenti" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground px-4">
+            Pendenti
+          </ToggleGroupItem>
+          <ToggleGroupItem value="incassati" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground px-4">
+            Incassati
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {/* Bulk action buttons */}
       {(selectedAttive.length > 0 || selectedGarantibile.length > 0 || selectedIncassate.length > 0) && (
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
           <span className="text-sm text-muted-foreground">{selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}</span>
-          {selectedAttive.length > 0 && (
-            <Button size="sm" onClick={() => { setCassaDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setCassaDialogOpen(true); }} disabled={bulkLoading} className="gap-1">
+          {!isVistaIncassati && selectedAttive.length > 0 && (
+            <Button
+              size="sm"
+              onClick={() =>
+                openIncassa(
+                  selectedAttive.map((p) => ({
+                    id: p.id,
+                    numero_titolo: p.numero_titolo,
+                    premio_lordo: p.premio_lordo,
+                    cliente_anagrafica_id: (p as any).cliente_anagrafica_id,
+                  })),
+                  preferredBonifico,
+                )
+              }
+              disabled={bulkLoading}
+              className="gap-1"
+            >
               <Banknote className="h-3.5 w-3.5" />
               Incassa ({selectedAttive.length})
             </Button>
           )}
-          {selectedGarantibile.length > 0 && (
+          {!isVistaIncassati && selectedGarantibile.length > 0 && (
             <Button size="sm" onClick={() => { setGarantitoDialogTitoli(selectedGarantibile.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setGarantitoDialogOpen(true); }} disabled={bulkLoading} className="gap-1 bg-orange-500 hover:bg-orange-600 text-white">
               <Shield className="h-3.5 w-3.5" />
               Garantito ({selectedGarantibile.length})
@@ -418,14 +732,16 @@ const PortafoglioCaricoPage = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${isVistaIncassati ? "lg:grid-cols-2" : "lg:grid-cols-4"} gap-4`}>
         <Card>
           <CardContent className="flex items-center gap-4 p-4">
             <div className="rounded-lg bg-accent/50 p-3">
               <Clock className="h-6 w-6 text-accent-foreground" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Totale titoli</p>
+              <p className="text-sm text-muted-foreground">
+                {isVistaIncassati ? "Incassate (filtro)" : "Totale titoli"}
+              </p>
               <p className="text-2xl font-bold text-foreground">{totalCount}</p>
               <p className="text-xs text-muted-foreground">{fmtCurrency(totalePremio)}</p>
             </div>
@@ -437,28 +753,73 @@ const PortafoglioCaricoPage = () => {
               <Banknote className="h-6 w-6 text-secondary-foreground" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Quietanze</p>
-              <p className="text-2xl font-bold text-foreground">{totaleData?.quietanzeCount ?? 0}</p>
-              <p className="text-xs text-muted-foreground">{fmtCurrency(totaleData?.quietanzeTotale ?? 0)}</p>
+              <p className="text-sm text-muted-foreground">
+                {isVistaIncassati
+                  ? (filtroTipo === "regolazioni" ? "Appendici incassate" : "Quietanze incassate")
+                  : (filtroTipo === "regolazioni" ? "Appendici" : "Quietanze")}
+              </p>
+              <p className="text-2xl font-bold text-foreground">
+                {filtroTipo === "regolazioni"
+                  ? (totaleData?.appendiciCount ?? 0)
+                  : (totaleData?.quietanzeCount ?? 0)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {fmtCurrency(
+                  filtroTipo === "regolazioni"
+                    ? (totaleData?.appendiciTotale ?? 0)
+                    : (totaleData?.quietanzeTotale ?? 0),
+                )}
+              </p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="rounded-lg bg-orange-100 p-3">
-              <Hourglass className="h-6 w-6 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">In attesa rinnovo</p>
-              <p className="text-2xl font-bold text-foreground">{pendingCount}</p>
-              <p className="text-xs text-muted-foreground">polizza precedente non a cassa</p>
-            </div>
-          </CardContent>
-        </Card>
+        {!isVistaIncassati && (
+          <Card
+            className="cursor-pointer hover:bg-muted/30 transition-colors"
+            onClick={() => setBonificiPanelOpenSync(!bonificiPanelOpen)}
+          >
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="rounded-lg bg-sky-100 p-3">
+                <ArrowRightLeft className="h-6 w-6 text-sky-700" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Bonifici aperti</p>
+                <p className="text-2xl font-bold text-foreground">{bonificiAperti.length}</p>
+                <p className="text-xs text-muted-foreground">{fmtCurrency(totaleBonificiAperti)}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {!isVistaIncassati && (
+          <Card>
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="rounded-lg bg-orange-100 p-3">
+                <Hourglass className="h-6 w-6 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">In attesa rinnovo</p>
+                <p className="text-2xl font-bold text-foreground">{pendingCount}</p>
+                <p className="text-xs text-muted-foreground">polizza precedente non a cassa</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
+      {!isVistaIncassati && (
+        <IncassiBonificiPanel
+          open={bonificiPanelOpen}
+          onOpenChange={setBonificiPanelOpenSync}
+          bonifici={bonificiAperti}
+          loading={bonificiLoading}
+          sedeFilterActive={filtroUffici.length > 0}
+          suggerimentiCount={quietanzeConSuggerimento}
+          onUsaPerIncasso={handleUsaBonifico}
+        />
+      )}
+
       {/* Banner: rinnovi in attesa di messa a cassa della polizza precedente */}
-      {pendingCount > 0 && (
+      {!isVistaIncassati && pendingCount > 0 && (
         <button
           type="button"
           onClick={() => setPendingDialogOpen(true)}
@@ -534,8 +895,18 @@ const PortafoglioCaricoPage = () => {
             className="pl-9"
           />
         </div>
+        <UfficiFilterMultiSelect
+          value={filtroUffici}
+          onChange={(next) => {
+            setFiltroUffici(next);
+            setPage(0);
+            updateUrl({ sedi: next });
+          }}
+        />
         <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">Dal</span>
+          <span className="text-xs text-muted-foreground" title={isVistaIncassati ? "Data messa a cassa" : "Inizio garanzia"}>
+            Dal
+          </span>
           <Input
             type="date"
             value={dateDa}
@@ -549,6 +920,9 @@ const PortafoglioCaricoPage = () => {
             onChange={(e) => { setDateA(e.target.value); setPage(0); updateUrl({ al: e.target.value || null }); }}
             className="w-[150px]"
           />
+          {isVistaIncassati && (
+            <span className="text-[10px] text-muted-foreground ml-1 hidden sm:inline">(messa a cassa)</span>
+          )}
         </div>
         <ToggleGroup
           type="single"
@@ -562,7 +936,9 @@ const PortafoglioCaricoPage = () => {
           }}
           className="border rounded-md"
         >
-          <ToggleGroupItem value="mese_corrente" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Mese Corrente</ToggleGroupItem>
+          <ToggleGroupItem value="mese_corrente" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+            {isVistaIncassati ? "Mese corrente" : "Mese Corrente"}
+          </ToggleGroupItem>
           <ToggleGroupItem value="tutte" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Tutte</ToggleGroupItem>
         </ToggleGroup>
         <TipoFilterSegmented
@@ -582,7 +958,13 @@ const PortafoglioCaricoPage = () => {
       {isLoading ? (
         <div className="text-center py-10 text-muted-foreground">Caricamento...</div>
       ) : polizze.length === 0 ? (
-        <div className="text-center py-10 text-muted-foreground">Nessuna polizza trovata per questo mese</div>
+        <div className="text-center py-10 text-muted-foreground">
+          {isVistaIncassati
+            ? "Nessuna quietanza incassata con i filtri selezionati"
+            : filtroTipo === "regolazioni"
+              ? "Nessuna appendice da incassare"
+              : "Nessuna quietanza da incassare"}
+        </div>
       ) : (
         <>
           <div className="overflow-x-auto">
@@ -659,7 +1041,31 @@ const PortafoglioCaricoPage = () => {
                           />
                         )}
                       </TableCell>
-                      <TableCell>{p.cliente_nome_display || "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span>{p.cliente_nome_display || "—"}</span>
+                          {(() => {
+                            const sug = suggerimentiByTitoloId.get(p.id);
+                            if (!sug?.length || p.stato !== "attivo" || p.data_messa_cassa) return null;
+                            return (
+                              <BonificoMatchBadge
+                                suggerimenti={sug}
+                                onPick={(b) =>
+                                  pickBonificoPerRiga(
+                                    {
+                                      id: p.id,
+                                      numero_titolo: p.numero_titolo,
+                                      premio_lordo: p.premio_lordo,
+                                      cliente_anagrafica_id: (p as any).cliente_anagrafica_id,
+                                    },
+                                    b,
+                                  )
+                                }
+                              />
+                            );
+                          })()}
+                        </div>
+                      </TableCell>
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
                       <TableCell>{p.ramo_nome || "—"}</TableCell>
                       <TableCell>{fmtDate(p.garanzia_da)}</TableCell>
@@ -699,9 +1105,17 @@ const PortafoglioCaricoPage = () => {
 
       <MessaCassaDialog
         open={cassaDialogOpen}
-        onOpenChange={setCassaDialogOpen}
+        onOpenChange={(o) => {
+          setCassaDialogOpen(o);
+          if (!o) setPreferredBonifico(null);
+        }}
         titoli={cassaDialogTitoli}
-        onSuccess={() => { setSelectedIds(new Set()); invalidateQueries(); }}
+        preferredBonifico={preferredBonifico}
+        onSuccess={() => {
+          setSelectedIds(new Set());
+          setPreferredBonifico(null);
+          invalidateQueries();
+        }}
       />
 
       <GarantitoDialog

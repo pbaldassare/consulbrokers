@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,9 @@ import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { PageContainer } from "@/components/shared/PageContainer";
 import { AppendiceDialog } from "@/components/polizze/azioni/AppendiceDialog";
 import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
+import { eliminaAppendice } from "@/lib/eliminaPolizza";
+import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
+import { baseNumeroPolizza, isAppendice } from "@/lib/quietanze";
 
 const TITOLO_DERIVATO_LABEL: Record<string, string> = {
   modifica: "AM",
@@ -49,6 +52,53 @@ const AppendiciPolizzaPage = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [initialTipo, setInitialTipo] = useState<string | undefined>(undefined);
+  const [resolvedTitoloId, setResolvedTitoloId] = useState(paramTitoloId);
+  const [resolvedPolizza, setResolvedPolizza] = useState(paramPolizza);
+
+  // Se si apre la pagina da un titolo AM/PR/RG, ancora sulla polizza madre
+  useEffect(() => {
+    if (!paramTitoloId) return;
+    let cancelled = false;
+    (async () => {
+      const { data: row } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, is_appendice_modifica, is_proroga, is_regolazione, sostituisce_polizza")
+        .eq("id", paramTitoloId)
+        .maybeSingle();
+      if (cancelled || !row) return;
+      if (!isAppendice(row as any)) {
+        setResolvedTitoloId(paramTitoloId);
+        setResolvedPolizza(paramPolizza || row.numero_titolo || "");
+        return;
+      }
+      const madreId = await resolveTitoloMadreId(supabase, paramTitoloId);
+      const { data: madre } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo")
+        .eq("id", madreId)
+        .maybeSingle();
+      if (cancelled) return;
+      const madreNumero = madre?.numero_titolo || baseNumeroPolizza(row.numero_titolo);
+      setResolvedTitoloId(madreId);
+      setResolvedPolizza(madreNumero);
+      if (madreId !== paramTitoloId) {
+        const qs = new URLSearchParams();
+        qs.set("titoloId", madreId);
+        if (madreNumero) qs.set("polizza", madreNumero);
+        if (paramClienteId) qs.set("clienteId", paramClienteId);
+        navigate(`/portafoglio/appendici?${qs.toString()}`, { replace: true });
+        toast.message("Appendici della polizza madre", {
+          description: "Le nuove appendici si creano solo dalla polizza, non da un'appendice esistente.",
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [paramTitoloId, paramPolizza, paramClienteId, navigate]);
+
+  const effectiveTitoloId = resolvedTitoloId || paramTitoloId;
+  const effectivePolizza = resolvedPolizza || paramPolizza;
 
   const { data: clienteData } = useQuery({
     queryKey: ["cliente-by-id-appendici", paramClienteId],
@@ -60,26 +110,47 @@ const AppendiciPolizzaPage = () => {
   });
 
   const { data: appendici = [], isLoading: loadingAppendici } = useQuery({
-    queryKey: ["appendici-polizza", paramTitoloId],
-    queryFn: () => fetchAppendiciPolizzaForTitolo(supabase, paramTitoloId),
-    enabled: !!paramTitoloId,
+    queryKey: ["appendici-polizza", effectiveTitoloId],
+    queryFn: () => fetchAppendiciPolizzaForTitolo(supabase, effectiveTitoloId),
+    enabled: !!effectiveTitoloId,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (appendice: { id: string; file_path?: string | null; titolo_modifica_id?: string | null; titolo_proroga_id?: string | null; titolo_regolazione_id?: string | null }) => {
+    mutationFn: async (appendice: {
+      id: string;
+      file_path?: string | null;
+      titolo_modifica_id?: string | null;
+      titolo_proroga_id?: string | null;
+      titolo_regolazione_id?: string | null;
+    }) => {
       const derivato = getTitoloDerivatoId(appendice);
       if (derivato) {
-        throw new Error("Non è possibile eliminare un'appendice con titolo cassabile già generato. Annulla dal dettaglio titolo.");
+        // Prima elimina il titolo cassabile (AM/PR/RG) + finanze collegate
+        const res = await eliminaAppendice(derivato.id);
+        if (!res.ok) throw new Error(res.error || "Errore eliminazione titolo appendice");
+        // eliminaAppendice già cancella la riga appendici_polizza collegata via FK;
+        // se resta (solo header senza FK), cleanup sotto.
       }
+
       if (appendice.file_path) {
         await supabase.storage.from("documenti_titoli").remove([appendice.file_path]);
       }
-      const { error } = await supabase.from("appendici_polizza").delete().eq("id", appendice.id);
-      if (error) throw error;
+
+      const { data: stillThere } = await supabase
+        .from("appendici_polizza")
+        .select("id")
+        .eq("id", appendice.id)
+        .maybeSingle();
+
+      if (stillThere) {
+        const { error } = await supabase.from("appendici_polizza").delete().eq("id", appendice.id);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       toast.success("Appendice eliminata");
-      queryClient.invalidateQueries({ queryKey: ["appendici-polizza", paramTitoloId] });
+      queryClient.invalidateQueries({ queryKey: ["appendici-polizza", effectiveTitoloId] });
+      queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
     },
     onError: (err: Error) => toast.error(err.message || "Errore nell'eliminazione"),
   });
@@ -112,10 +183,10 @@ const AppendiciPolizzaPage = () => {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Appendici Polizza</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Storico appendici per la polizza {paramPolizza}. La creazione avviene nel modale con composizione premi completa.
+            Storico appendici per la polizza {effectivePolizza}. La creazione avviene nel modale con composizione premi completa.
           </p>
         </div>
-        <Button onClick={() => openNewAppendice()} disabled={!paramTitoloId}>
+        <Button onClick={() => openNewAppendice()} disabled={!effectiveTitoloId}>
           <Plus className="w-4 h-4 mr-1" /> Nuova appendice
         </Button>
       </div>
@@ -123,18 +194,18 @@ const AppendiciPolizzaPage = () => {
       <PolizzaSection title="Polizza">
         <div className="flex items-center gap-6 flex-wrap text-sm">
           <div><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{clienteLabel}</span></div>
-          <div><span className="text-muted-foreground">Polizza:</span> <span className="font-mono font-medium">{paramPolizza || "—"}</span></div>
+          <div><span className="text-muted-foreground">Polizza:</span> <span className="font-mono font-medium">{effectivePolizza || "—"}</span></div>
         </div>
       </PolizzaSection>
 
       <AppendiceDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        titoloId={paramTitoloId || null}
-        numeroTitolo={paramPolizza}
+        titoloId={effectiveTitoloId || null}
+        numeroTitolo={effectivePolizza}
         initialTipo={initialTipo}
         onCreated={() => {
-          queryClient.invalidateQueries({ queryKey: ["appendici-polizza", paramTitoloId] });
+          queryClient.invalidateQueries({ queryKey: ["appendici-polizza", effectiveTitoloId] });
           setDialogOpen(false);
         }}
       />
@@ -145,7 +216,7 @@ const AppendiciPolizzaPage = () => {
         ) : appendici.length === 0 ? (
           <div className="text-sm text-muted-foreground space-y-2">
             <p>Nessuna appendice registrata per questa polizza.</p>
-            <Button variant="outline" size="sm" onClick={() => openNewAppendice()} disabled={!paramTitoloId}>
+            <Button variant="outline" size="sm" onClick={() => openNewAppendice()} disabled={!effectiveTitoloId}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Crea la prima appendice
             </Button>
           </div>
@@ -203,8 +274,8 @@ const AppendiciPolizzaPage = () => {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-destructive hover:text-destructive"
-                              title="Elimina"
-                              disabled={!!derivato}
+                              title={derivato ? "Elimina appendice e titolo collegato" : "Elimina"}
+                              disabled={deleteMutation.isPending}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
@@ -213,7 +284,9 @@ const AppendiciPolizzaPage = () => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Conferma eliminazione</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Eliminare l&apos;appendice #{a.numero_appendice}? Operazione irreversibile.
+                                {derivato
+                                  ? `Eliminare l'appendice #${a.numero_appendice} e il titolo ${derivato.label} collegato? Verranno rimossi anche incassi/provvigioni. Operazione irreversibile.`
+                                  : `Eliminare l'appendice #${a.numero_appendice}? Operazione irreversibile.`}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -235,7 +308,7 @@ const AppendiciPolizzaPage = () => {
       </PolizzaSection>
 
       <div className="flex justify-end">
-        <Button variant="secondary" onClick={() => paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/attive")}>
+        <Button variant="secondary" onClick={() => effectiveTitoloId ? navigate(`/titoli/${effectiveTitoloId}`) : navigate("/portafoglio/attive")}>
           Chiudi
         </Button>
       </div>

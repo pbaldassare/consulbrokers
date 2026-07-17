@@ -78,6 +78,8 @@ export interface TitoloImportiPremiBlockProps {
   showQuietanza?: boolean;
   /** Su quietanza rata 2+ nasconde la card Firma (conta solo il premio quietanza della rata) */
   hideFirma?: boolean;
+  /** Appendice AM/PR/RG: un solo blocco premi, senza dualismo Firma/Quietanza */
+  appendiceMode?: boolean;
   /** Titolo sorgente (madre / rata 1) per caricare premi se assenti sul titolo corrente */
   fallbackPremiTitoloId?: string | null;
   /** True solo in modalità Modifica Importi: abilita edit garanzie e salvataggio esplicito. */
@@ -142,6 +144,7 @@ function TitoloImportiPremiBlock({
   provvigioniQuietanza,
   showQuietanza = true,
   hideFirma = false,
+  appendiceMode = false,
   fallbackPremiTitoloId = null,
   draftMode = false,
   onDirtyChange,
@@ -1031,6 +1034,8 @@ function TitoloImportiPremiBlock({
           ({ramoDescrizione || "—"}).
           {hideFirma ? (
             <> Modifica il <strong>premio quietanza</strong> di questa rata. I dati vengono caricati dal titolo o dalla polizza madre se non ancora salvati per garanzia.</>
+          ) : appendiceMode ? (
+            <> L&apos;appendice ha un <strong>unico premio</strong> (non genera quietanze). Compila le voci di garanzia qui sotto.</>
           ) : showQuietanza ? (
             <> La <strong>Quietanza</strong> si sincronizza <strong>automaticamente</strong> con
             la <strong>Firma</strong>: ogni voce modificata a mano nella Quietanza diventa
@@ -1109,7 +1114,13 @@ function TitoloImportiPremiBlock({
         rows={quietanzaRows}
         onRowsChange={onQuietanzaChange}
         readOnly={garanzieReadOnly}
-        titoloOverride={hideFirma ? "Premi per Garanzia — Rata" : undefined}
+        titoloOverride={
+          appendiceMode
+            ? "Premi per Garanzia — Appendice"
+            : hideFirma
+              ? "Premi per Garanzia — Rata"
+              : undefined
+        }
         addizionali={String(round2(accessoriQuietanzaNum))}
         provvigioni={displayProvvQuietanza}
         provvPctBreakdown={provvBreakdownQuietanza}

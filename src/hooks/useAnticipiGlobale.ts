@@ -10,6 +10,9 @@ export interface AnticipoGlobaleRow {
   importo_residuo: number;
   note: string | null;
   created_at: string;
+  titolo_origine_id?: string | null;
+  rimborsato_il?: string | null;
+  rimborsato_note?: string | null;
   cliente: {
     id: string;
     nome: string | null;
@@ -40,6 +43,7 @@ export function useAnticipiGlobale(filters: AnticipiGlobaleFilters) {
       let q = (supabase.from("cliente_anticipi") as any)
         .select(
           `id, cliente_id, data_anticipo, conto_bancario_id, importo, importo_residuo, note, created_at,
+           titolo_origine_id, rimborsato_il, rimborsato_note,
            cliente:clienti(id, nome, cognome, ragione_sociale, tipo_cliente, ufficio_id),
            conto:conti_bancari(id, etichetta, iban)`
         )
@@ -49,7 +53,7 @@ export function useAnticipiGlobale(filters: AnticipiGlobaleFilters) {
       if (filters.contoId) q = q.eq("conto_bancario_id", filters.contoId);
       if (filters.dataDa) q = q.gte("data_anticipo", filters.dataDa);
       if (filters.dataAl) q = q.lte("data_anticipo", filters.dataAl);
-      if (filters.stato === "disponibili") q = q.gt("importo_residuo", 0);
+      if (filters.stato === "disponibili") q = q.gt("importo_residuo", 0).is("rimborsato_il", null);
       if (filters.stato === "esauriti") q = q.lte("importo_residuo", 0);
 
       const { data, error } = await q;
@@ -61,7 +65,9 @@ export function useAnticipiGlobale(filters: AnticipiGlobaleFilters) {
         rows = rows.filter((r) => r.cliente?.ufficio_id === filters.ufficioId);
       }
       if (filters.stato === "parziali") {
-        rows = rows.filter((r) => r.importo_residuo > 0 && r.importo_residuo < r.importo);
+        rows = rows.filter(
+          (r) => !r.rimborsato_il && r.importo_residuo > 0 && r.importo_residuo < r.importo,
+        );
       }
       if (filters.search && filters.search.trim()) {
         const s = filters.search.toLowerCase();
