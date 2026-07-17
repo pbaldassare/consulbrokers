@@ -622,11 +622,23 @@ type ManualInsertPayload = {
 const MonitorTab = () => {
   const qc = useQueryClient();
   const [filtroUfficio, setFiltroUfficio] = useState("");
+  const [filtroContoId, setFiltroContoId] = useState<string | null>(null);
+  const [filtroOrdinante, setFiltroOrdinante] = useState("");
+  const [filtroOrdinanteDebounced, setFiltroOrdinanteDebounced] = useState("");
   const [dal, setDal] = useState("");
   const [al, setAl] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setFiltroOrdinanteDebounced(filtroOrdinante.trim()), 350);
+    return () => clearTimeout(t);
+  }, [filtroOrdinante]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [filtroUfficio, filtroContoId, filtroOrdinanteDebounced, dal, al]);
 
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici-all"],
@@ -634,13 +646,20 @@ const MonitorTab = () => {
   });
 
   const { data: movs = [] } = useQuery({
-    queryKey: ["mov-bancari", "monitor", filtroUfficio, dal, al],
+    queryKey: ["mov-bancari", "monitor", filtroUfficio, filtroContoId, filtroOrdinanteDebounced, dal, al],
     queryFn: async () => {
       let q = supabase.from("movimenti_bancari" as any)
-        .select("id, data_movimento, importo, ordinante, descrizione, stato, ufficio_id, cliente_id, conto_bancario_id, carico_id, cliente:clienti(ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio), movimenti_clienti(id, importo_assegnato, anticipo, ammanco, movimenti_polizze(id, importo, tipo, messo_a_cassa))")
+        .select("id, data_movimento, importo, ordinante, descrizione, stato, ufficio_id, cliente_id, conto_bancario_id, carico_id, cliente:clienti(ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio), conto:conti_bancari(etichetta), movimenti_clienti(id, importo_assegnato, anticipo, ammanco, movimenti_polizze(id, importo, tipo, messo_a_cassa))")
         .order("data_movimento", { ascending: false })
-        .limit(500);
+        .limit(1000);
       if (filtroUfficio) q = q.eq("ufficio_id", filtroUfficio);
+      if (filtroContoId) q = q.eq("conto_bancario_id", filtroContoId);
+      if (filtroOrdinanteDebounced) {
+        const term = filtroOrdinanteDebounced.replace(/[%*,()]/g, " ").trim();
+        if (term) {
+          q = q.or(`ordinante.ilike.%${term}%,descrizione.ilike.%${term}%`);
+        }
+      }
       if (dal) q = q.gte("data_movimento", dal);
       if (al) q = q.lte("data_movimento", al);
       const { data } = await q;
@@ -729,6 +748,25 @@ const MonitorTab = () => {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[220px] flex-1">
+              <Label>Ordinante</Label>
+              <Input
+                value={filtroOrdinante}
+                onChange={(e) => setFiltroOrdinante(e.target.value)}
+                placeholder="Cerca nome / azienda…"
+                className="h-9"
+              />
+            </div>
+            <div className="min-w-[240px] flex-1">
+              <Label>Conto corrente</Label>
+              <ContoBancarioSelect
+                value={filtroContoId}
+                onChange={setFiltroContoId}
+                placeholder="Tutti i conti…"
+                showPreview={false}
+                className="w-full"
+              />
+            </div>
             <div><Label>Ufficio</Label>
               <select value={filtroUfficio} onChange={(e) => setFiltroUfficio(e.target.value)} className="h-9 px-2 border rounded-md text-sm bg-background">
                 <option value="">Tutti</option>
@@ -745,6 +783,7 @@ const MonitorTab = () => {
                 return {
                   Data: m.data_movimento,
                   Ordinante: m.ordinante || "",
+                  "Conto corrente": m.conto?.etichetta || "",
                   Cliente: cliNome,
                   Ufficio: m.ufficio?.nome || "",
                   Totale: Number(m.importo) || 0,
@@ -787,9 +826,15 @@ const MonitorTab = () => {
                   aria-label="Seleziona tutti i cancellabili"
                 />
               </TableHead>
-              <TableHead>Data</TableHead><TableHead>Ordinante</TableHead><TableHead>Cliente</TableHead><TableHead>Ufficio</TableHead>
-              <TableHead className="text-right">Totale</TableHead><TableHead className="text-right">A cassa</TableHead>
-              <TableHead>Polizze</TableHead><TableHead>Stato</TableHead>
+              <TableHead>Data</TableHead>
+              <TableHead>Ordinante</TableHead>
+              <TableHead>Conto</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Ufficio</TableHead>
+              <TableHead className="text-right">Totale</TableHead>
+              <TableHead className="text-right">A cassa</TableHead>
+              <TableHead>Polizze</TableHead>
+              <TableHead>Stato</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {movs.map((m: any, i: number) => {
@@ -809,6 +854,7 @@ const MonitorTab = () => {
                     </TableCell>
                     <TableCell>{m.data_movimento}</TableCell>
                     <TableCell className="text-sm max-w-[220px] truncate" title={m.ordinante || undefined}>{m.ordinante || "—"}</TableCell>
+                    <TableCell className="text-sm max-w-[160px] truncate" title={m.conto?.etichetta || undefined}>{m.conto?.etichetta || "—"}</TableCell>
                     <TableCell className="text-sm">{cliNome}</TableCell>
                     <TableCell className="text-sm">{m.ufficio?.nome ?? "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmtEuro(m.importo)}</TableCell>
@@ -818,7 +864,7 @@ const MonitorTab = () => {
                   </TableRow>
                 );
               })}
-              {movs.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
+              {movs.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

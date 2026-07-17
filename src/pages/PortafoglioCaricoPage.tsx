@@ -202,7 +202,7 @@ const PortafoglioCaricoPage = () => {
   const SortableHeader = ({ field, children, className }: { field: string; children: React.ReactNode; className?: string }) => {
     const Icon = sortField === field ? (sortDirection === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
     return (
-      <TableHead className={`cursor-pointer select-none ${className || ""}`} onClick={() => handleSort(field)}>
+      <TableHead className={`cursor-pointer select-none bg-background ${className || ""}`} onClick={() => handleSort(field)}>
         <div className="flex items-center gap-1">
           {children}
           <Icon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -634,175 +634,248 @@ const PortafoglioCaricoPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Incassi</h1>
-          <p className="text-sm text-muted-foreground">
-            {isVistaIncassati ? (
-              (() => {
-                if (!dateDa && !dateA && filtroPeriodo === "tutte") {
-                  return "Quietanze già messe a cassa. Annullando un incasso tornano tra i pendenti.";
-                }
-                if (!dateDa && !dateA && filtroPeriodo === "mese_corrente") {
-                  return "Incassate nel mese corrente (data messa a cassa).";
-                }
-                const da = dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : null;
-                const a = dateA ? format(new Date(dateA), "dd/MM/yyyy") : null;
-                if (da && a) return `Incassate dal ${da} al ${a}`;
-                if (da) return `Incassate dal ${da}`;
-                return `Incassate fino al ${a}`;
-              })()
-            ) : (
-              (() => {
-                const labelBase = "Da incassare";
-                if (!dateDa && !dateA) {
-                  return (
-                    <>
-                      Quietanze e appendici ancora da mettere a cassa
-                      {isDefaultExtended && <span className="ml-2 text-xs text-primary">· inclusi arretrati</span>}
-                    </>
-                  );
-                }
-                const da = dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : null;
-                const a = dateA ? format(new Date(dateA), "dd/MM/yyyy") : null;
-                if (da && a) return `${labelBase} dal ${da} al ${a}`;
-                if (da) return `${labelBase} dal ${da}`;
-                return `${labelBase} fino al ${a}`;
-              })()
-            )}
-          </p>
-        </div>
-        <ToggleGroup
-          type="single"
-          value={vistaIncasso}
-          onValueChange={(v) => {
-            if (!v) return;
-            switchVista(v as VistaIncasso);
-          }}
-          className="border rounded-md"
-        >
-          <ToggleGroupItem value="pendenti" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground px-4">
-            Pendenti
-          </ToggleGroupItem>
-          <ToggleGroupItem value="incassati" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground px-4">
-            Incassati
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
-
-      {/* Bulk action buttons */}
-      {(selectedAttive.length > 0 || selectedGarantibile.length > 0 || selectedIncassate.length > 0) && (
-        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
-          <span className="text-sm text-muted-foreground">{selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}</span>
-          {!isVistaIncassati && selectedAttive.length > 0 && (
-            <Button
-              size="sm"
-              onClick={() =>
-                openIncassa(
-                  selectedAttive.map((p) => ({
-                    id: p.id,
-                    numero_titolo: p.numero_titolo,
-                    premio_lordo: p.premio_lordo,
-                    cliente_anagrafica_id: (p as any).cliente_anagrafica_id,
-                  })),
-                  preferredBonifico,
-                )
-              }
-              disabled={bulkLoading}
-              className="gap-1"
-            >
-              <Banknote className="h-3.5 w-3.5" />
-              Incassa ({selectedAttive.length})
-            </Button>
-          )}
-          {!isVistaIncassati && selectedGarantibile.length > 0 && (
-            <Button size="sm" onClick={() => { setGarantitoDialogTitoli(selectedGarantibile.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setGarantitoDialogOpen(true); }} disabled={bulkLoading} className="gap-1 bg-orange-500 hover:bg-orange-600 text-white">
-              <Shield className="h-3.5 w-3.5" />
-              Garantito ({selectedGarantibile.length})
-            </Button>
-          )}
-          {selectedIncassate.length > 0 && isAdmin && (
-            <Button size="sm" variant="outline" onClick={bulkAnnullaIncasso} disabled={bulkLoading} className="gap-1">
-              <Undo2 className="h-3.5 w-3.5" />
-              {bulkLoading ? "In corso..." : `Annulla Incasso (${selectedIncassate.length})`}
-            </Button>
-          )}
-        </div>
-      )}
-
-      <div className={`grid grid-cols-1 md:grid-cols-2 ${isVistaIncassati ? "lg:grid-cols-2" : "lg:grid-cols-4"} gap-4`}>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="rounded-lg bg-accent/50 p-3">
-              <Clock className="h-6 w-6 text-accent-foreground" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {isVistaIncassati ? "Incassate (filtro)" : "Totale titoli"}
-              </p>
-              <p className="text-2xl font-bold text-foreground">{totalCount}</p>
-              <p className="text-xs text-muted-foreground">{fmtCurrency(totalePremio)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="rounded-lg bg-secondary p-3">
-              <Banknote className="h-6 w-6 text-secondary-foreground" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {isVistaIncassati
-                  ? (filtroTipo === "regolazioni" ? "Appendici incassate" : "Quietanze incassate")
-                  : (filtroTipo === "regolazioni" ? "Appendici" : "Quietanze")}
-              </p>
-              <p className="text-2xl font-bold text-foreground">
-                {filtroTipo === "regolazioni"
-                  ? (totaleData?.appendiciCount ?? 0)
-                  : (totaleData?.quietanzeCount ?? 0)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {fmtCurrency(
-                  filtroTipo === "regolazioni"
-                    ? (totaleData?.appendiciTotale ?? 0)
-                    : (totaleData?.quietanzeTotale ?? 0),
-                )}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        {!isVistaIncassati && (
-          <Card
-            className="cursor-pointer hover:bg-muted/30 transition-colors"
-            onClick={() => setBonificiPanelOpenSync(!bonificiPanelOpen)}
+    <div className="space-y-4">
+      {/* Barra fissa sotto Topbar: titolo, KPI, filtri restano visibili mentre scorri le polizze */}
+      <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 pt-1 pb-3 space-y-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Incassi</h1>
+            <p className="text-sm text-muted-foreground">
+              {isVistaIncassati ? (
+                (() => {
+                  if (!dateDa && !dateA && filtroPeriodo === "tutte") {
+                    return "Quietanze già messe a cassa. Annullando un incasso tornano tra i pendenti.";
+                  }
+                  if (!dateDa && !dateA && filtroPeriodo === "mese_corrente") {
+                    return "Incassate nel mese corrente (data messa a cassa).";
+                  }
+                  const da = dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : null;
+                  const a = dateA ? format(new Date(dateA), "dd/MM/yyyy") : null;
+                  if (da && a) return `Incassate dal ${da} al ${a}`;
+                  if (da) return `Incassate dal ${da}`;
+                  return `Incassate fino al ${a}`;
+                })()
+              ) : (
+                (() => {
+                  const labelBase = "Da incassare";
+                  if (!dateDa && !dateA) {
+                    return (
+                      <>
+                        Quietanze e appendici ancora da mettere a cassa
+                        {isDefaultExtended && <span className="ml-2 text-xs text-primary">· inclusi arretrati</span>}
+                      </>
+                    );
+                  }
+                  const da = dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : null;
+                  const a = dateA ? format(new Date(dateA), "dd/MM/yyyy") : null;
+                  if (da && a) return `${labelBase} dal ${da} al ${a}`;
+                  if (da) return `${labelBase} dal ${da}`;
+                  return `${labelBase} fino al ${a}`;
+                })()
+              )}
+            </p>
+          </div>
+          <ToggleGroup
+            type="single"
+            value={vistaIncasso}
+            onValueChange={(v) => {
+              if (!v) return;
+              switchVista(v as VistaIncasso);
+            }}
+            className="border rounded-md"
           >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="rounded-lg bg-sky-100 p-3">
-                <ArrowRightLeft className="h-6 w-6 text-sky-700" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Bonifici aperti</p>
-                <p className="text-2xl font-bold text-foreground">{bonificiAperti.length}</p>
-                <p className="text-xs text-muted-foreground">{fmtCurrency(totaleBonificiAperti)}</p>
-              </div>
-            </CardContent>
-          </Card>
+            <ToggleGroupItem value="pendenti" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground px-4">
+              Pendenti
+            </ToggleGroupItem>
+            <ToggleGroupItem value="incassati" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground px-4">
+              Incassati
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        {/* Bulk action buttons */}
+        {(selectedAttive.length > 0 || selectedGarantibile.length > 0 || selectedIncassate.length > 0) && (
+          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
+            <span className="text-sm text-muted-foreground">{selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}</span>
+            {!isVistaIncassati && selectedAttive.length > 0 && (
+              <Button
+                size="sm"
+                onClick={() =>
+                  openIncassa(
+                    selectedAttive.map((p) => ({
+                      id: p.id,
+                      numero_titolo: p.numero_titolo,
+                      premio_lordo: p.premio_lordo,
+                      cliente_anagrafica_id: (p as any).cliente_anagrafica_id,
+                    })),
+                    preferredBonifico,
+                  )
+                }
+                disabled={bulkLoading}
+                className="gap-1"
+              >
+                <Banknote className="h-3.5 w-3.5" />
+                Incassa ({selectedAttive.length})
+              </Button>
+            )}
+            {!isVistaIncassati && selectedGarantibile.length > 0 && (
+              <Button size="sm" onClick={() => { setGarantitoDialogTitoli(selectedGarantibile.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo, cliente_anagrafica_id: (p as any).cliente_anagrafica_id }))); setGarantitoDialogOpen(true); }} disabled={bulkLoading} className="gap-1 bg-orange-500 hover:bg-orange-600 text-white">
+                <Shield className="h-3.5 w-3.5" />
+                Garantito ({selectedGarantibile.length})
+              </Button>
+            )}
+            {selectedIncassate.length > 0 && isAdmin && (
+              <Button size="sm" variant="outline" onClick={bulkAnnullaIncasso} disabled={bulkLoading} className="gap-1">
+                <Undo2 className="h-3.5 w-3.5" />
+                {bulkLoading ? "In corso..." : `Annulla Incasso (${selectedIncassate.length})`}
+              </Button>
+            )}
+          </div>
         )}
-        {!isVistaIncassati && (
+
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${isVistaIncassati ? "lg:grid-cols-2" : "lg:grid-cols-4"} gap-3`}>
           <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="rounded-lg bg-orange-100 p-3">
-                <Hourglass className="h-6 w-6 text-orange-600" />
+            <CardContent className="flex items-center gap-4 p-3">
+              <div className="rounded-lg bg-accent/50 p-2.5">
+                <Clock className="h-5 w-5 text-accent-foreground" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">In attesa rinnovo</p>
-                <p className="text-2xl font-bold text-foreground">{pendingCount}</p>
-                <p className="text-xs text-muted-foreground">polizza precedente non a cassa</p>
+                <p className="text-sm text-muted-foreground">
+                  {isVistaIncassati ? "Incassate (filtro)" : "Totale titoli"}
+                </p>
+                <p className="text-xl font-bold text-foreground">{totalCount}</p>
+                <p className="text-xs text-muted-foreground">{fmtCurrency(totalePremio)}</p>
               </div>
             </CardContent>
           </Card>
-        )}
+          <Card>
+            <CardContent className="flex items-center gap-4 p-3">
+              <div className="rounded-lg bg-secondary p-2.5">
+                <Banknote className="h-5 w-5 text-secondary-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {isVistaIncassati
+                    ? (filtroTipo === "regolazioni" ? "Appendici incassate" : "Quietanze incassate")
+                    : (filtroTipo === "regolazioni" ? "Appendici" : "Quietanze")}
+                </p>
+                <p className="text-xl font-bold text-foreground">
+                  {filtroTipo === "regolazioni"
+                    ? (totaleData?.appendiciCount ?? 0)
+                    : (totaleData?.quietanzeCount ?? 0)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {fmtCurrency(
+                    filtroTipo === "regolazioni"
+                      ? (totaleData?.appendiciTotale ?? 0)
+                      : (totaleData?.quietanzeTotale ?? 0),
+                  )}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          {!isVistaIncassati && (
+            <Card
+              className="cursor-pointer hover:bg-muted/30 transition-colors"
+              onClick={() => setBonificiPanelOpenSync(!bonificiPanelOpen)}
+            >
+              <CardContent className="flex items-center gap-4 p-3">
+                <div className="rounded-lg bg-sky-100 p-2.5">
+                  <ArrowRightLeft className="h-5 w-5 text-sky-700" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Bonifici aperti</p>
+                  <p className="text-xl font-bold text-foreground">{bonificiAperti.length}</p>
+                  <p className="text-xs text-muted-foreground">{fmtCurrency(totaleBonificiAperti)}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {!isVistaIncassati && (
+            <Card>
+              <CardContent className="flex items-center gap-4 p-3">
+                <div className="rounded-lg bg-orange-100 p-2.5">
+                  <Hourglass className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">In attesa rinnovo</p>
+                  <p className="text-xl font-bold text-foreground">{pendingCount}</p>
+                  <p className="text-xs text-muted-foreground">polizza precedente non a cassa</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Cerca per n° polizza, cliente, codice, targa..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+              className="pl-9"
+            />
+          </div>
+          <UfficiFilterMultiSelect
+            value={filtroUffici}
+            onChange={(next) => {
+              setFiltroUffici(next);
+              setPage(0);
+              updateUrl({ sedi: next });
+            }}
+          />
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground" title={isVistaIncassati ? "Data messa a cassa" : "Inizio garanzia"}>
+              Dal
+            </span>
+            <Input
+              type="date"
+              value={dateDa}
+              onChange={(e) => { setDateDa(e.target.value); setPage(0); updateUrl({ dal: e.target.value || null }); }}
+              className="w-[150px]"
+            />
+            <span className="text-xs text-muted-foreground ml-1">Al</span>
+            <Input
+              type="date"
+              value={dateA}
+              onChange={(e) => { setDateA(e.target.value); setPage(0); updateUrl({ al: e.target.value || null }); }}
+              className="w-[150px]"
+            />
+            {isVistaIncassati && (
+              <span className="text-[10px] text-muted-foreground ml-1 hidden sm:inline">(messa a cassa)</span>
+            )}
+          </div>
+          <ToggleGroup
+            type="single"
+            value={filtroPeriodo}
+            onValueChange={(v) => {
+              if (!v) return;
+              setFiltroPeriodo(v as Periodo);
+              setUserTouched(true);
+              setPage(0);
+              updateUrl({ periodo: v as Periodo });
+            }}
+            className="border rounded-md"
+          >
+            <ToggleGroupItem value="mese_corrente" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+              {isVistaIncassati ? "Mese corrente" : "Mese Corrente"}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="tutte" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Tutte</ToggleGroupItem>
+          </ToggleGroup>
+          <TipoFilterSegmented
+            value={filtroTipo}
+            onChange={(v) => { setFiltroTipo(v); setPage(0); }}
+            withRegolazioni
+            hidePolizze
+          />
+          {hasActiveFilters && (
+            <Button variant="outline" size="sm" onClick={resetFilters} className="gap-1">
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset Filtri
+            </Button>
+          )}
+        </div>
       </div>
 
       {!isVistaIncassati && (
@@ -884,76 +957,6 @@ const PortafoglioCaricoPage = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Cerca per n° polizza, cliente, codice, targa..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            className="pl-9"
-          />
-        </div>
-        <UfficiFilterMultiSelect
-          value={filtroUffici}
-          onChange={(next) => {
-            setFiltroUffici(next);
-            setPage(0);
-            updateUrl({ sedi: next });
-          }}
-        />
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground" title={isVistaIncassati ? "Data messa a cassa" : "Inizio garanzia"}>
-            Dal
-          </span>
-          <Input
-            type="date"
-            value={dateDa}
-            onChange={(e) => { setDateDa(e.target.value); setPage(0); updateUrl({ dal: e.target.value || null }); }}
-            className="w-[150px]"
-          />
-          <span className="text-xs text-muted-foreground ml-1">Al</span>
-          <Input
-            type="date"
-            value={dateA}
-            onChange={(e) => { setDateA(e.target.value); setPage(0); updateUrl({ al: e.target.value || null }); }}
-            className="w-[150px]"
-          />
-          {isVistaIncassati && (
-            <span className="text-[10px] text-muted-foreground ml-1 hidden sm:inline">(messa a cassa)</span>
-          )}
-        </div>
-        <ToggleGroup
-          type="single"
-          value={filtroPeriodo}
-          onValueChange={(v) => {
-            if (!v) return;
-            setFiltroPeriodo(v as Periodo);
-            setUserTouched(true);
-            setPage(0);
-            updateUrl({ periodo: v as Periodo });
-          }}
-          className="border rounded-md"
-        >
-          <ToggleGroupItem value="mese_corrente" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-            {isVistaIncassati ? "Mese corrente" : "Mese Corrente"}
-          </ToggleGroupItem>
-          <ToggleGroupItem value="tutte" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Tutte</ToggleGroupItem>
-        </ToggleGroup>
-        <TipoFilterSegmented
-          value={filtroTipo}
-          onChange={(v) => { setFiltroTipo(v); setPage(0); }}
-          withRegolazioni
-          hidePolizze
-        />
-        {hasActiveFilters && (
-          <Button variant="outline" size="sm" onClick={resetFilters} className="gap-1">
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset Filtri
-          </Button>
-        )}
-      </div>
-
       {isLoading ? (
         <div className="text-center py-10 text-muted-foreground">Caricamento...</div>
       ) : polizze.length === 0 ? (
@@ -966,18 +969,18 @@ const PortafoglioCaricoPage = () => {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40px]" onClick={(e) => e.stopPropagation()}>
+              <TableHeader className="[&_tr]:border-b sticky top-0 z-[5] bg-background shadow-sm">
+                <TableRow className="hover:bg-background">
+                  <TableHead className="w-[40px] bg-background" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={polizze.length > 0 && selectedIds.size === polizze.length}
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
                   <SortableHeader field="numero_titolo">N° Polizza</SortableHeader>
-                  <TableHead>Tipo</TableHead>
+                  <TableHead className="bg-background">Tipo</TableHead>
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
                   
                   <SortableHeader field="compagnia_nome">Agenzia</SortableHeader>

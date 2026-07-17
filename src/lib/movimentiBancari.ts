@@ -132,28 +132,40 @@ export function parseImportoBancario(raw: unknown): number {
 /** Data movimento da cella (preferisce gg/mm/aaaa italiani e ISO). */
 export function parseDataBancaria(raw: unknown): string {
   if (raw == null || raw === "") return todayISO();
-  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
-    // Estratti CSV spesso sono midnight UTC → usa UTC per non spostare il giorno
-    const y = raw.getUTCFullYear();
-    const m = String(raw.getUTCMonth() + 1).padStart(2, "0");
-    const d = String(raw.getUTCDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }
-  if (typeof raw === "number") {
+  // Seriale Excel (quando cellDates:false): calendario senza timezone
+  if (typeof raw === "number" && Number.isFinite(raw)) {
     const d = XLSX.SSF?.parse_date_code?.(raw);
     if (d) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
   }
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    // Mezzanotte locale (IT): usare componenti locali, non UTC (altrimenti giorno -1)
+    const y = raw.getFullYear();
+    const m = String(raw.getMonth() + 1).padStart(2, "0");
+    const d = String(raw.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
   const s = String(raw).trim();
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  // gg/mm/aaaa (estratti IT)
+  // Solo data ISO (yyyy-mm-dd); se c'è orario Z non usare il giorno UTC grezzo
+  const isoDateOnly = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDateOnly) return `${isoDateOnly[1]}-${isoDateOnly[2]}-${isoDateOnly[3]}`;
+  const isoDateTime = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s]/);
+  if (isoDateTime) {
+    const dt = new Date(s);
+    if (!Number.isNaN(dt.getTime())) {
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, "0");
+      const d = String(dt.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+    return `${isoDateTime[1]}-${isoDateTime[2]}-${isoDateTime[3]}`;
+  }
+  // gg/mm/aaaa (estratti IT) — sempre interpretato come giorno/mese (non US)
   const it = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
   if (it) {
     const y = it[3].length === 2 ? `20${it[3]}` : it[3];
     const day = Number(it[1]);
     const month = Number(it[2]);
-    // Se giorno > 12 è sicuramente IT; se mese > 12 invertito; altrimenti assume IT
-    if (day > 12 || month <= 12) {
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
       return `${y}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
   }
@@ -427,15 +439,17 @@ export async function readEstrattoBancarioRows(file: File): Promise<Record<strin
     const semi = (firstLine.match(/;/g) || []).length;
     const comma = (firstLine.match(/,/g) || []).length;
     const FS = semi > comma ? ";" : ",";
-    wb = XLSX.read(text, { type: "string", FS, cellDates: true });
+    // cellDates:false → evita interpretazione US di gg/mm; date restano stringhe o seriali Excel
+    wb = XLSX.read(text, { type: "string", FS, cellDates: false });
   } else {
     const buf = await file.arrayBuffer();
-    wb = XLSX.read(buf, { type: "array", cellDates: true });
+    wb = XLSX.read(buf, { type: "array", cellDates: false });
   }
 
   const sheet = wb.Sheets[wb.SheetNames[0]];
   if (!sheet) return [];
-  return (XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true }) as Record<string, unknown>[]).map(
+  // raw:false → stringhe formattate IT (es. 16/07/2026), non Date JS
+  return (XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false }) as Record<string, unknown>[]).map(
     normalizeExcelRow,
   );
 }

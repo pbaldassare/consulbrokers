@@ -16,7 +16,11 @@ describe("estratto bancario CSV/Excel", () => {
 
   it("parse data IT e ISO", () => {
     expect(parseDataBancaria("30/06/2026")).toBe("2026-06-30");
-    expect(parseDataBancaria("2026-06-30T22:00:00.000Z")).toBe("2026-06-30");
+    expect(parseDataBancaria("01/07/2026")).toBe("2026-07-01"); // non US 1 gennaio
+    expect(parseDataBancaria("07/10/2026")).toBe("2026-10-07");
+    expect(parseDataBancaria("2026-06-30")).toBe("2026-06-30");
+    // Date a mezzanotte locale IT: non usare UTC (giorno -1)
+    expect(parseDataBancaria(new Date(2026, 9, 7, 0, 0, 0))).toBe("2026-10-07");
   });
 
   it("rileva colonne DARE/AVERE tipiche CSV banca", () => {
