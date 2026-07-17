@@ -421,7 +421,6 @@ const PortafoglioCaricoPage = () => {
     queryFn: () =>
       fetchBonificiApertiPerIncassi({
         ufficioIds: filtroUffici.length > 0 ? filtroUffici : undefined,
-        limit: 200,
       }),
     staleTime: 30_000,
   });

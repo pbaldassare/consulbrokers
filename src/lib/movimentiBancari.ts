@@ -8,16 +8,67 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 const CAUSALE_STOP_RE =
   /\s+(CIG|RINNOVO|POLIZZ[AE]|PAGAMENTO|LIQUIDAZIONE|Info aggiuntive|PERP|RAMO|CYBER|CREAZIONE|ASSICURATIV).*$/i;
 
+/** IBAN (con o senza spazi) e frammenti tipici degli estratti IT. */
+const IBAN_RE = /\b[A-Z]{2}\s?\d{2}(?:[\s]?[A-Z0-9]){11,30}\b/gi;
+const BANK_CODE_RE = /\b(?:CRO|TRN|CIG|CUP|ABI|CAB|BIC|SWIFT)\s*[:\s]?\s*[A-Z0-9]+\b/gi;
+
+/** True se il testo è (quasi) solo un IBAN / coordinate conto, inutile per il match nominativo. */
+export function looksLikeIbanOrAccount(raw: string): boolean {
+  const s = String(raw || "").trim();
+  if (!s) return false;
+  const compact = s.replace(/[\s-]/g, "").toUpperCase();
+  if (/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(compact)) return true;
+  // Prefisso IBAN IT anche troncato in UI (IT92P030150…)
+  if (/^IT\d{2}[A-Z0-9]{8,}$/.test(compact) && compact.length >= 14) return true;
+  // Colonna che inizia con IBAN + indirizzo / end-to-end (tipico estratto IT)
+  if (/^[A-Z]{2}\d{2}[A-Z0-9]{10,}/i.test(compact)) return true;
+  // Dopo rimozione IBAN non resta un nominativo
+  const withoutIban = s
+    .replace(/\b[A-Z]{2}\s?\d{2}(?:[\s]?[A-Z0-9]){11,30}\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return withoutIban.length < 2 && /[A-Z]{2}\d{2}/i.test(compact);
+}
+
+/**
+ * Tiene solo il nominativo utile al coordinamento (nome/cognome/ragione sociale).
+ * Rimuove IBAN, CRO/TRN/CIG e coda causale.
+ */
+export function sanitizeOrdinanteNome(raw: string): string {
+  let s = String(raw ?? "").trim();
+  if (!s) return "";
+  if (looksLikeIbanOrAccount(s)) return "";
+
+  s = s.replace(IBAN_RE, " ");
+  s = s.replace(BANK_CODE_RE, " ");
+  s = s.replace(/\bIBAN\b[:\s]*/gi, " ");
+  s = s.replace(/\bIndirizzo\s+ordinante\b.*$/i, " ");
+  s = s.replace(/\bID\s+End\s+to\s+End\b.*$/i, " ");
+  s = s.replace(CAUSALE_STOP_RE, " ");
+  s = s.replace(/\s+\d{4}-\d{5,}-\d{6,}.*$/u, " ");
+  s = s.replace(/\s+\d{10,}.*$/u, " ");
+  s = s.replace(/[*_/|]+/g, " ");
+  s = s.replace(/\s+/g, " ").trim();
+
+  if (!s || looksLikeIbanOrAccount(s)) return "";
+  if (/^[\d\s./\-]+$/.test(s)) return "";
+  // Troppo corto o solo codice
+  if (s.length < 2) return "";
+  return s.slice(0, 120);
+}
+
 /** Estrae il pagatore da descrizione movimento (BCC, Intesa, ecc.) quando manca colonna Ordinante. */
 export function extractOrdinanteFromDescrizione(descrizione: string): string {
   const desc = String(descrizione ?? "").trim();
   if (!desc) return "";
 
-  const ordinanteLabel = desc.match(/ORDINANTE[:\s]+([^/\n]+?)(?:\s{2,}|$|CRO|TRN|IBAN)/i);
-  if (ordinanteLabel) return ordinanteLabel[1].trim();
+  const ordinanteLabel = desc.match(
+    /ORDINANTE[:\s]+(.+?)(?:\s+Causale\b|\s{2,}|\s+CRO\b|\s+TRN\b|\s+IBAN\b|$)/i,
+  );
+  if (ordinanteLabel) return sanitizeOrdinanteNome(ordinanteLabel[1]);
 
-  const da = desc.match(/DA\s+([A-ZÀ-Ü][A-ZÀ-Ü0-9\s&.'-]+?)(?:\s{2,}|$|CRO|TRN|IBAN)/);
-  if (da) return da[1].trim();
+  const da = desc.match(/DA\s+([A-ZÀ-Ü][A-ZÀ-Ü0-9\s&.'-]+?)(?:\s{2,}|$|CRO|TRN|IBAN|CAUSALE)/i);
+  if (da) return sanitizeOrdinanteNome(da[1]);
 
   const bcc = desc.match(/Bonifico\s+a\s+vs\s+favore\s+\*([^*]+)/i);
   if (bcc) {
@@ -25,10 +76,12 @@ export function extractOrdinanteFromDescrizione(descrizione: string): string {
     name = name.replace(CAUSALE_STOP_RE, "").trim();
     name = name.replace(/\s+\d{4}-\d{5,}-\d{6,}.*$/, "").trim();
     name = name.replace(/\s+\d{10,}.*$/, "").trim();
-    return name;
+    return sanitizeOrdinanteNome(name);
   }
 
-  return desc.split(/\s{2,}|;|\|/)[0].slice(0, 120).trim();
+  // Evita di prendere un IBAN come "prima parte" della descrizione
+  const first = desc.split(/\s{2,}|;|\|/)[0].slice(0, 120).trim();
+  return sanitizeOrdinanteNome(first);
 }
 
 /** Normalizza chiavi colonna Excel/CSV (spazi; BOM). */
@@ -38,14 +91,29 @@ export function normalizeExcelRow(row: Record<string, unknown>): Record<string, 
   );
 }
 
-/** Risolve ordinante: colonna dedicata, altrimenti estrazione da descrizione. */
+/**
+ * Risolve ordinante: nominativo da colonna (se non è IBAN), altrimenti da descrizione.
+ * Non salva IBAN / coordinate conto.
+ */
 export function resolveOrdinanteImport(
   ordinanteRaw: string,
   descrizione: string,
 ): string {
-  const fromCol = String(ordinanteRaw ?? "").trim();
-  if (fromCol) return fromCol;
-  return extractOrdinanteFromDescrizione(descrizione);
+  // Preferisci sempre il nominativo in descrizione (ORDINANTE: … Causale:)
+  const fromDesc = extractOrdinanteFromDescrizione(descrizione);
+  const rawCol = String(ordinanteRaw ?? "").trim();
+  if (fromDesc) {
+    // Se la colonna è solo IBAN/indirizzo, ignorala
+    if (!rawCol || looksLikeIbanOrAccount(rawCol)) return fromDesc;
+    const fromCol = sanitizeOrdinanteNome(rawCol);
+    // Preferisci descrizione se più “nome-like” (ha lettere e non è IBAN)
+    return fromCol && fromCol.length >= fromDesc.length ? fromCol : fromDesc;
+  }
+  if (rawCol && !looksLikeIbanOrAccount(rawCol)) {
+    const fromCol = sanitizeOrdinanteNome(rawCol);
+    if (fromCol) return fromCol;
+  }
+  return sanitizeOrdinanteNome(rawCol);
 }
 
 /** Importo numerico da cella (IT: 1.234,56 / EN: 1234.56). */
@@ -115,7 +183,12 @@ export function detectColonneEstratto(cols: string[]): ColonneEstratto {
     importo: find(/^importo$/i) || find(/importo|amount/i),
     avere: find(/^avere$/i) || find(/avere|accredito|^credito$/i),
     dare: find(/^dare$/i) || find(/dare|addebito|^debito$/i),
-    ordinante: find(/^ordinante$/i) || find(/ordinante|mittente|controparte/i),
+    // Evita "controparte" / colonne IBAN: spesso contengono solo coordinate conto
+    ordinante:
+      find(/^ordinante$/i) ||
+      find(/^mittente$/i) ||
+      find(/ordinante|mittente|nominativo|ragione\s*sociale/i) ||
+      null,
     descrizione: find(/descri/i) || find(/causale|operazione/i),
     clienteId: find(/cliente\s*id/i),
   };
@@ -144,9 +217,41 @@ export function resolveImportoEstratto(
 /** Etichette italiane per i motivi di scarto import. */
 export const MOTIVO_SCARTO_LABEL: Record<string, string> = {
   solo_dare: "Uscita (Dare): non è un accredito — esclusa dall'import",
-  duplicato: "Già presente in archivio (stessa data, importo, ordinante, descrizione)",
+  duplicato: "Già presente o già collegato (stesso conto, data, importo e descrizione)",
   importo_zero_o_invalido: "Importo mancante o non valido",
 };
+
+/** Normalizza descrizione per chiave anti-doppio (ignora IBAN / rumore). */
+export function normalizeDescrizioneDedup(desc: string | null | undefined): string {
+  return String(desc || "")
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b[A-Z]{2}\s?\d{2}(?:[\s]?[A-Z0-9]){11,30}\b/g, " ")
+    .replace(/[^A-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
+}
+
+/**
+ * Chiave stabile anti-doppio: conto + data + importo + descrizione.
+ * Non usa l'ordinante (può essere IBAN o nominativo a seconda del carico).
+ * Copre anche movimenti già ricongiunti/incassati sullo stesso conto.
+ */
+export function buildMovimentoDedupKey(r: {
+  conto_bancario_id?: string | null;
+  data_movimento: string;
+  importo: number | null | undefined;
+  descrizione?: string | null;
+  ordinante?: string | null;
+}): string {
+  const imp = round2(Number(r.importo) || 0);
+  const desc = normalizeDescrizioneDedup(r.descrizione);
+  // Se descrizione vuota, usa ordinante sanitizzato come fallback
+  const fallback = desc || sanitizeOrdinanteNome(String(r.ordinante || "")).toUpperCase();
+  return [r.conto_bancario_id || "", r.data_movimento || "", String(imp), fallback].join("|");
+}
 
 export function labelMotivoScarto(motivo: string | null | undefined): string {
   if (!motivo) return "Motivo non indicato";
@@ -174,12 +279,19 @@ export type PreviewEstratto = {
   rawRows: Record<string, unknown>[];
 };
 
-/** Anteprima parsing (senza dedup DB) per conferma import. */
-export function buildPreviewEstratto(fileName: string, rows: Record<string, unknown>[]): PreviewEstratto {
+/** Anteprima parsing; se `existingDedupKeys` è valorizzato marca i doppioni già in archivio/collegati. */
+export function buildPreviewEstratto(
+  fileName: string,
+  rows: Record<string, unknown>[],
+  opts?: { contoBancarioId?: string | null; existingDedupKeys?: Set<string> },
+): PreviewEstratto {
   const cols = detectColonneEstratto(Object.keys(rows[0] || {}));
   const scartiByMotivo: Record<string, number> = {};
   let daImportare = 0;
   const preview: PreviewRigaEstratto[] = [];
+  const seenInFile = new Set<string>();
+  const existing = opts?.existingDedupKeys;
+  const contoId = opts?.contoBancarioId || "";
 
   rows.forEach((r, idx) => {
     const riga = idx + 2;
@@ -204,6 +316,31 @@ export function buildPreviewEstratto(fileName: string, rows: Record<string, unkn
       }
       return;
     }
+
+    const dedupKey = buildMovimentoDedupKey({
+      conto_bancario_id: contoId,
+      data_movimento,
+      importo,
+      descrizione,
+      ordinante,
+    });
+    if (existing?.has(dedupKey) || seenInFile.has(dedupKey)) {
+      scartiByMotivo.duplicato = (scartiByMotivo.duplicato || 0) + 1;
+      if (preview.length < 40) {
+        preview.push({
+          riga,
+          data_movimento,
+          importo,
+          ordinante,
+          descrizione: descrizione || null,
+          esito: "scarto",
+          motivo: "duplicato",
+        });
+      }
+      return;
+    }
+    seenInFile.add(dedupKey);
+
     daImportare += 1;
     if (preview.length < 40) {
       preview.push({
@@ -229,6 +366,38 @@ export function buildPreviewEstratto(fileName: string, rows: Record<string, unkn
     preview,
     rawRows: rows,
   };
+}
+
+/** Carica chiavi dedup dei movimenti già presenti sul conto (qualsiasi stato, anche collegati). */
+export async function fetchExistingMovimentoDedupKeys(
+  contoBancarioId: string,
+  dates: string[],
+): Promise<Set<string>> {
+  const keys = new Set<string>();
+  if (!contoBancarioId || dates.length === 0) return keys;
+
+  const CHUNK = 100;
+  for (let i = 0; i < dates.length; i += CHUNK) {
+    const slice = dates.slice(i, i + CHUNK);
+    const { data, error } = await supabase
+      .from("movimenti_bancari" as any)
+      .select("conto_bancario_id, data_movimento, importo, descrizione, ordinante")
+      .eq("conto_bancario_id", contoBancarioId)
+      .in("data_movimento", slice as any);
+    if (error) throw error;
+    for (const row of (data as any[]) ?? []) {
+      keys.add(
+        buildMovimentoDedupKey({
+          conto_bancario_id: row.conto_bancario_id,
+          data_movimento: String(row.data_movimento || "").slice(0, 10),
+          importo: Number(row.importo) || 0,
+          descrizione: row.descrizione,
+          ordinante: row.ordinante,
+        }),
+      );
+    }
+  }
+  return keys;
 }
 
 export function countByMotivo(motivi: string[]): Record<string, number> {

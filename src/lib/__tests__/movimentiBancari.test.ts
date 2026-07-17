@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildMovimentoDedupKey,
   extractOrdinanteFromDescrizione,
+  looksLikeIbanOrAccount,
   normalizeExcelRow,
   resolveOrdinanteImport,
+  sanitizeOrdinanteNome,
 } from "@/lib/movimentiBancari";
 
 describe("extractOrdinanteFromDescrizione", () => {
@@ -27,17 +30,78 @@ describe("extractOrdinanteFromDescrizione", () => {
   it("legge etichetta ORDINANTE", () => {
     expect(extractOrdinanteFromDescrizione("ORDINANTE: ROSSI MARIO SRL CRO 123")).toBe("ROSSI MARIO SRL");
   });
+
+  it("estrae Ordinante: … Causale: tipico estratto IT", () => {
+    expect(
+      extractOrdinanteFromDescrizione(
+        "Ordinante: MOLTONI LUCA Causale: ORDINE CONTO Rinnovo polizza Moltoni",
+      ),
+    ).toBe("MOLTONI LUCA");
+    expect(
+      extractOrdinanteFromDescrizione(
+        "Ordinante: OFFICINE BORTOLUZZI REMO S.R.L Causale: ORDINE CONTO Saldo avviso",
+      ),
+    ).toBe("OFFICINE BORTOLUZZI REMO S.R.L");
+  });
 });
 
 describe("resolveOrdinanteImport", () => {
-  it("preferisce colonna dedicata", () => {
+  it("preferisce colonna nominativo dedicata", () => {
     expect(resolveOrdinanteImport("Cliente SRL", "Bonifico a vs favore *ALTRO")).toBe("Cliente SRL");
+  });
+
+  it("ignora IBAN in colonna e usa descrizione", () => {
+    expect(
+      resolveOrdinanteImport(
+        "IT92P0301503200000002123456",
+        "Bonifico a vs favore *ROSSI MARIO RINNOVO POLIZZA",
+      ),
+    ).toBe("ROSSI MARIO");
+  });
+
+  it("pulisce IBAN accanto al nome in colonna", () => {
+    expect(
+      resolveOrdinanteImport("ACME SPA IT60X0542811101000000123456", "altro"),
+    ).toBe("ACME SPA");
   });
 
   it("usa descrizione se colonna vuota", () => {
     expect(
       resolveOrdinanteImport("", "Bonifico a vs favore *CASSA RURALE ED ARTIGIANA DI CASTELLANA RINNOVO"),
     ).toBe("CASSA RURALE ED ARTIGIANA DI CASTELLANA");
+  });
+});
+
+describe("sanitize / iban", () => {
+  it("riconosce IBAN", () => {
+    expect(looksLikeIbanOrAccount("IT92P0301503200000002123456")).toBe(true);
+    expect(looksLikeIbanOrAccount("IT92 P030 1503 2000 0002 1234 56")).toBe(true);
+    expect(looksLikeIbanOrAccount("ROSSI MARIO")).toBe(false);
+  });
+
+  it("rimuove rumore bancario", () => {
+    expect(sanitizeOrdinanteNome("VERDI LUCA CRO 998877")).toBe("VERDI LUCA");
+    expect(sanitizeOrdinanteNome("IT54H0306936162100000123456")).toBe("");
+  });
+});
+
+describe("dedup key", () => {
+  it("è stabile rispetto all'ordinante (IBAN vs nome)", () => {
+    const a = buildMovimentoDedupKey({
+      conto_bancario_id: "c1",
+      data_movimento: "2026-06-30",
+      importo: 100,
+      descrizione: "Bonifico ROSSI",
+      ordinante: "IT92P0301503200000002123456",
+    });
+    const b = buildMovimentoDedupKey({
+      conto_bancario_id: "c1",
+      data_movimento: "2026-06-30",
+      importo: 100,
+      descrizione: "Bonifico ROSSI",
+      ordinante: "ROSSI MARIO",
+    });
+    expect(a).toBe(b);
   });
 });
 

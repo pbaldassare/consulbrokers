@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildMovimentoDedupKey,
+  buildPreviewEstratto,
   detectColonneEstratto,
   parseDataBancaria,
   parseImportoBancario,
@@ -23,6 +25,13 @@ describe("estratto bancario CSV/Excel", () => {
     expect(cols.avere).toBe("AVERE");
     expect(cols.dare).toBe("DARE");
     expect(cols.descrizione).toBe("DESCRIZIONE_OPERAZIONE");
+    expect(cols.ordinante).toBeNull();
+  });
+
+  it("non usa Controparte come ordinante (spesso IBAN)", () => {
+    const cols = detectColonneEstratto(["DATA", "CONTROPARTE", "AVERE", "DESCRIZIONE"]);
+    expect(cols.ordinante).toBeNull();
+    expect(cols.descrizione).toBe("DESCRIZIONE");
   });
 
   it("usa Avere come importo e scarta solo Dare", () => {
@@ -33,4 +42,35 @@ describe("estratto bancario CSV/Excel", () => {
       motivo: "solo_dare",
     });
   });
+
+  it("anteprima marca doppioni già in archivio e pulisce IBAN ordinante", () => {
+    const rows = [
+      {
+        VALUTA: "30/06/2026",
+        AVERE: 100,
+        DESCRIZIONE: "Bonifico a vs favore *ROSSI MARIO RINNOVO",
+        ORDINANTE: "IT92P0301503200000002123456",
+      },
+    ];
+    const p0 = buildPreviewEstratto("t.csv", rows, { contoBancarioId: "conto-1" });
+    expect(p0.daImportare).toBe(1);
+    expect(p0.preview[0]?.ordinante).toBe("ROSSI MARIO");
+
+    const existing = new Set([
+      buildMovimentoDedupKey({
+        conto_bancario_id: "conto-1",
+        data_movimento: "2026-06-30",
+        importo: 100,
+        descrizione: "Bonifico a vs favore *ROSSI MARIO RINNOVO",
+        ordinante: "ROSSI MARIO",
+      }),
+    ]);
+    const p = buildPreviewEstratto("t.csv", rows, {
+      contoBancarioId: "conto-1",
+      existingDedupKeys: existing,
+    });
+    expect(p.daImportare).toBe(0);
+    expect(p.scartiByMotivo.duplicato).toBe(1);
+  });
 });
+

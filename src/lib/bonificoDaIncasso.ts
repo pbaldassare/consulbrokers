@@ -91,12 +91,13 @@ export async function fetchBonificiCandidatiPerIncasso(opts: {
 
 /**
  * Bonifici aperti per la pagina Incassi, filtrati per sedi (→ conti abilitati) e/o ufficio.
+ * Carica tutti i record aperti (paginazione interna); `limit` opzionale solo se serve un tetto.
  */
 export async function fetchBonificiApertiPerIncassi(opts: {
   ufficioIds?: string[];
+  /** Se omesso, carica tutti i bonifici aperti (a pagine da 1000). */
   limit?: number;
 }): Promise<BonificoAperto[]> {
-  const limit = opts.limit ?? 200;
   let contoIds: string[] = [];
   if (opts.ufficioIds && opts.ufficioIds.length > 0) {
     const sets = await Promise.all(opts.ufficioIds.map((id) => fetchContoIdsForUfficio(id)));
@@ -104,36 +105,50 @@ export async function fetchBonificiApertiPerIncassi(opts: {
     if (contoIds.length === 0) return [];
   }
 
-  let q = supabase
-    .from("movimenti_bancari" as any)
-    .select(
-      "id, data_movimento, importo, ordinante, descrizione, stato, cliente_id, ufficio_id, conto_bancario_id, conto:conti_bancari(etichetta)",
-    )
-    .in("stato", ["importato", "matchato", "assegnato"])
-    .order("data_movimento", { ascending: false })
-    .limit(limit);
+  const PAGE = 1000;
+  const hardCap = opts.limit && opts.limit > 0 ? opts.limit : Number.POSITIVE_INFINITY;
+  const out: BonificoAperto[] = [];
+  let from = 0;
 
-  if (contoIds.length > 0) {
-    q = q.in("conto_bancario_id", contoIds);
-  } else if (opts.ufficioIds && opts.ufficioIds.length > 0) {
-    q = q.in("ufficio_id", opts.ufficioIds);
+  while (out.length < hardCap) {
+    const take = Math.min(PAGE, hardCap - out.length);
+    let q = supabase
+      .from("movimenti_bancari" as any)
+      .select(
+        "id, data_movimento, importo, ordinante, descrizione, stato, cliente_id, ufficio_id, conto_bancario_id, conto:conti_bancari(etichetta)",
+      )
+      .in("stato", ["importato", "matchato", "assegnato"])
+      .order("data_movimento", { ascending: false })
+      .range(from, from + take - 1);
+
+    if (contoIds.length > 0) {
+      q = q.in("conto_bancario_id", contoIds);
+    } else if (opts.ufficioIds && opts.ufficioIds.length > 0) {
+      q = q.in("ufficio_id", opts.ufficioIds);
+    }
+
+    const { data, error } = await q;
+    if (error) throw error;
+    const batch = (data as any[]) || [];
+    for (const r of batch) {
+      out.push({
+        id: r.id as string,
+        data_movimento: String(r.data_movimento || "").slice(0, 10),
+        importo: Number(r.importo) || 0,
+        ordinante: r.ordinante ?? null,
+        descrizione: r.descrizione ?? null,
+        stato: String(r.stato || ""),
+        cliente_id: r.cliente_id ?? null,
+        ufficio_id: r.ufficio_id ?? null,
+        conto_bancario_id: r.conto_bancario_id ?? null,
+        conto_etichetta: r.conto?.etichetta ?? null,
+      });
+    }
+    if (batch.length < take) break;
+    from += take;
   }
 
-  const { data, error } = await q;
-  if (error) throw error;
-
-  return ((data as any[]) || []).map((r) => ({
-    id: r.id as string,
-    data_movimento: String(r.data_movimento || "").slice(0, 10),
-    importo: Number(r.importo) || 0,
-    ordinante: r.ordinante ?? null,
-    descrizione: r.descrizione ?? null,
-    stato: String(r.stato || ""),
-    cliente_id: r.cliente_id ?? null,
-    ufficio_id: r.ufficio_id ?? null,
-    conto_bancario_id: r.conto_bancario_id ?? null,
-    conto_etichetta: r.conto?.etichetta ?? null,
-  }));
+  return out;
 }
 
 /**

@@ -25,6 +25,9 @@ import {
   resolveImportoEstratto,
   parseDataBancaria,
   buildPreviewEstratto,
+  buildMovimentoDedupKey,
+  fetchExistingMovimentoDedupKeys,
+  detectColonneEstratto,
   labelMotivoScarto,
   countByMotivo,
   type PreviewEstratto,
@@ -99,7 +102,16 @@ const Page = () => {
         toast.error("Nessuna riga trovata nel file");
         return;
       }
-      const p = buildPreviewEstratto(file.name, rows);
+      // Anteprima con anti-doppio: confronta anche movimenti già collegati sullo stesso conto
+      const colsPreview = detectColonneEstratto(Object.keys(rows[0] || {}));
+      const dates = Array.from(
+        new Set(rows.map((r) => parseDataBancaria(colsPreview.data ? r[colsPreview.data] : null))),
+      );
+      const existingKeys = await fetchExistingMovimentoDedupKeys(contoImportId, dates);
+      const p = buildPreviewEstratto(file.name, rows, {
+        contoBancarioId: contoImportId,
+        existingDedupKeys: existingKeys,
+      });
       setPreview(p);
       setPreviewOpen(true);
     } catch (e: any) {
@@ -226,17 +238,19 @@ const Page = () => {
         (r as any).carico_id = caricoId;
       }
 
-      const keyOf = (r: any) => `${r.data_movimento}|${r.importo}|${r.ordinante ?? ""}|${r.descrizione ?? ""}`;
       const dates = Array.from(new Set(records.map((r) => r.data_movimento)));
-      const { data: existing } = await supabase
-        .from("movimenti_bancari" as any)
-        .select("data_movimento, importo, ordinante, descrizione")
-        .in("data_movimento", dates as any);
-      const existingKeys = new Set((existing as any[] | null ?? []).map(keyOf));
+      const existingKeys = await fetchExistingMovimentoDedupKeys(contoImportId, dates);
 
       const toInsert: any[] = [];
       for (const r of records) {
-        if (existingKeys.has(keyOf(r))) {
+        const key = buildMovimentoDedupKey({
+          conto_bancario_id: contoImportId,
+          data_movimento: r.data_movimento,
+          importo: r.importo,
+          descrizione: r.descrizione,
+          ordinante: r.ordinante,
+        });
+        if (existingKeys.has(key)) {
           scarti.push({
             riga_excel: r._riga_excel,
             motivo: "duplicato",
@@ -249,7 +263,7 @@ const Page = () => {
         } else {
           const { _riga_excel, ...row } = r;
           toInsert.push(row);
-          existingKeys.add(keyOf(r));
+          existingKeys.add(key);
         }
       }
 
