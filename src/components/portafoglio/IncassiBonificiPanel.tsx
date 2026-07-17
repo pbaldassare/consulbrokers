@@ -42,6 +42,10 @@ type Props = {
   sedeFilterActive?: boolean;
   /** Quietanze in elenco con almeno un suggerimento nome. */
   suggerimentiCount?: number;
+  /** Testo search Incassi: elenco già ristretto ai bonifici collegati. */
+  searchTerm?: string;
+  /** Totale bonifici aperti prima del filtro search (per contesto). */
+  totaleApertiCount?: number;
   onUsaPerIncasso?: (bonifico: BonificoAperto) => void;
 };
 
@@ -56,9 +60,12 @@ export function IncassiBonificiPanel({
   loading,
   sedeFilterActive,
   suggerimentiCount = 0,
+  searchTerm,
+  totaleApertiCount,
   onUsaPerIncasso,
 }: Props) {
   const [filterOrdinante, setFilterOrdinante] = useState("");
+  const searchActive = !!searchTerm?.trim();
 
   const filtrati = useMemo(() => {
     const q = filterOrdinante.trim().toLowerCase();
@@ -72,7 +79,7 @@ export function IncassiBonificiPanel({
   const totale = filtrati.reduce((s, b) => s + (Number(b.importo) || 0), 0);
 
   return (
-    <div className="rounded-lg border bg-card">
+    <div className={`rounded-lg border bg-card ${searchActive && bonifici.length > 0 ? "border-sky-300 ring-1 ring-sky-200/80" : ""}`}>
       <button
         type="button"
         onClick={() => onOpenChange(!open)}
@@ -83,12 +90,24 @@ export function IncassiBonificiPanel({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground">
-            Bonifici aperti ({bonifici.length})
+            {searchActive ? "Bonifici collegati alla ricerca" : "Bonifici aperti"} ({bonifici.length})
             <span className="ml-2 font-normal text-muted-foreground">{fmtCurrency(totale)}</span>
           </p>
           <p className="text-xs text-muted-foreground">
-            Ambito: {sedeFilterActive ? "conti delle sedi filtrate" : "tutti i conti abilitati"}.
-            Il match alle quietanze usa solo ordinante ↔ cliente (non l&apos;importo).
+            {searchActive ? (
+              <>
+                Match con quietanze/clienti per «{searchTerm!.trim()}»
+                {typeof totaleApertiCount === "number" && totaleApertiCount > bonifici.length && (
+                  <span className="ml-1">· su {totaleApertiCount} aperti</span>
+                )}
+                . Solo ordinante ↔ cliente (non l&apos;importo).
+              </>
+            ) : (
+              <>
+                Ambito: {sedeFilterActive ? "conti delle sedi filtrate" : "tutti i conti abilitati"}.
+                Il match alle quietanze usa solo ordinante ↔ cliente (non l&apos;importo).
+              </>
+            )}
             {suggerimentiCount > 0 && (
               <span className="ml-1 text-sky-700 font-medium">
                 · {suggerimentiCount} quietanz{suggerimentiCount === 1 ? "a" : "e"} con suggerimento
@@ -116,7 +135,9 @@ export function IncassiBonificiPanel({
           ) : filtrati.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
               {bonifici.length === 0
-                ? `Nessun bonifico aperto${sedeFilterActive ? " per le sedi selezionate" : ""}.`
+                ? searchActive
+                  ? "Nessun bonifico collegato a questa ricerca."
+                  : `Nessun bonifico aperto${sedeFilterActive ? " per le sedi selezionate" : ""}.`
                 : "Nessun bonifico corrisponde al filtro ordinante."}
             </p>
           ) : (
@@ -134,7 +155,7 @@ export function IncassiBonificiPanel({
                 </TableHeader>
                 <TableBody>
                   {filtrati.map((b) => (
-                    <TableRow key={b.id}>
+                    <TableRow key={b.id} className={searchActive ? "bg-sky-50/60" : undefined}>
                       <TableCell className="whitespace-nowrap text-xs">{fmtDate(b.data_movimento)}</TableCell>
                       <TableCell className="text-sm max-w-[280px]">
                         <div className="truncate font-medium" title={b.ordinante || undefined}>

@@ -116,17 +116,83 @@ export function resolveOrdinanteImport(
   return sanitizeOrdinanteNome(rawCol);
 }
 
-/** Importo numerico da cella (IT: 1.234,56 / EN: 1234.56). */
+/**
+ * Importo numerico da cella (IT: 1.234,56 / EN: 1234.56).
+ * Su estratti BCC/XLS il valore numerico grezzo Excel (`v`) è spesso ×100 o ÷1000:
+ * usare sempre il testo formattato (`w` / stringa IT), non il number grezzo.
+ */
 export function parseImportoBancario(raw: unknown): number {
-  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   if (raw == null || raw === "") return 0;
+  // Number solo se già “euro” sensato (es. Avere=385 da CSV). Non usare i `v` BCC corrotti.
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return round2(Math.abs(raw));
+  }
   let s = String(raw).replace(/[€$\s]/g, "").trim();
   if (!s) return 0;
-  if (/^-?\d{1,3}(\.\d{3})*,\d{2}$/.test(s)) s = s.replace(/\./g, "").replace(",", ".");
-  else if (/^-?\d+,\d+$/.test(s)) s = s.replace(",", ".");
-  else s = s.replace(",", ".");
+  // Negativi tra parentesi o con segno
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) {
+    neg = true;
+    s = s.slice(1, -1);
+  } else if (s.startsWith("-")) {
+    neg = true;
+    s = s.slice(1);
+  }
+  // IT con migliaia: 1.234,56 / 10.255,07 / 42.000,00
+  if (/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(s) || /^\d{1,3}(\.\d{3})*,\d{2}$/.test(s)) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else if (/^\d+,\d{1,2}$/.test(s)) {
+    // IT senza migliaia: 838,09
+    s = s.replace(",", ".");
+  } else if (/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(s)) {
+    // EN con migliaia: 1,234.56
+    s = s.replace(/,/g, "");
+  } else {
+    // Ultimo fallback: sola virgola decimale
+    if (s.includes(",") && !s.includes(".")) s = s.replace(",", ".");
+    else s = s.replace(/,/g, "");
+  }
   const n = parseFloat(s);
-  return Number.isFinite(n) ? n : 0;
+  if (!Number.isFinite(n)) return 0;
+  return round2(neg ? -Math.abs(n) : Math.abs(n));
+}
+
+/** Valore cella Excel: preferisci testo formattato (`w`) al number grezzo (`v`). */
+export function excelCellDisplayValue(cell: XLSX.CellObject | undefined): unknown {
+  if (cell == null) return "";
+  if (cell.w != null && String(cell.w).trim() !== "") return String(cell.w);
+  return cell.v ?? "";
+}
+
+/**
+ * sheet_to_json che usa sempre `w` (display) quando presente.
+ * Evita gli importi BCC dove v=83809 ma w=" 838,09 ".
+ */
+export function sheetRowsPreferDisplay(sheet: XLSX.WorkSheet): Record<string, unknown>[] {
+  const ref = sheet["!ref"];
+  if (!ref) return [];
+  const range = XLSX.utils.decode_range(ref);
+  const headers: string[] = [];
+  for (let C = range.s.c; C <= range.e.c; C++) {
+    const addr = XLSX.utils.encode_cell({ r: range.s.r, c: C });
+    const raw = excelCellDisplayValue(sheet[addr]);
+    headers.push(String(raw ?? "").replace(/^\uFEFF/, "").trim());
+  }
+  const out: Record<string, unknown>[] = [];
+  for (let R = range.s.r + 1; R <= range.e.r; R++) {
+    const row: Record<string, unknown> = {};
+    let empty = true;
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const key = headers[C - range.s.c];
+      if (!key) continue;
+      const addr = XLSX.utils.encode_cell({ r: R, c: C });
+      const val = excelCellDisplayValue(sheet[addr]);
+      if (val !== "" && val != null) empty = false;
+      row[key] = val;
+    }
+    if (!empty) out.push(normalizeExcelRow(row));
+  }
+  return out;
 }
 
 /** Data movimento da cella (preferisce gg/mm/aaaa italiani e ISO). */
@@ -448,10 +514,8 @@ export async function readEstrattoBancarioRows(file: File): Promise<Record<strin
 
   const sheet = wb.Sheets[wb.SheetNames[0]];
   if (!sheet) return [];
-  // raw:false → stringhe formattate IT (es. 16/07/2026), non Date JS
-  return (XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false }) as Record<string, unknown>[]).map(
-    normalizeExcelRow,
-  );
+  // Preferisci sempre testo formattato cella (`w`): su BCC XLS il `v` numerico è ×100/÷1000
+  return sheetRowsPreferDisplay(sheet);
 }
 
 /** Conti bancari visibili per una sede (per filtrare movimenti). */

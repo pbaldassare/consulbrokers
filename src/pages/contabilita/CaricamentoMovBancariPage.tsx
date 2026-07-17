@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Upload, FileSpreadsheet, Plus, Download, Trash2 } from "lucide-react";
+import { Upload, FileSpreadsheet, Plus, Download, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
@@ -47,6 +47,13 @@ import {
   eliminaMovimentiBancari,
   isMovimentoCancellabile,
 } from "@/lib/eliminaMovimentiBancari";
+import {
+  matchClienteDaOrdinante,
+  matchClientiDaOrdinantiBatch,
+  normalizeNomeMatch,
+  type ClienteOrdinanteMatch,
+} from "@/lib/matchClienteOrdinante";
+import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 
 const STATO_LABEL: Record<string, { label: string; variant: "secondary" | "default" | "outline" | "destructive" }> = {
   importato: { label: "Importato", variant: "secondary" },
@@ -225,6 +232,31 @@ const Page = () => {
         return;
       }
 
+      // Match ordinante → cliente/sede per righe senza Cliente ID (cache per ordinante normalizzato)
+      const daMatchare = records.filter((r) => !r.cliente_id && r.ordinante);
+      let matchMap = new Map<string, ClienteOrdinanteMatch>();
+      if (daMatchare.length > 0) {
+        try {
+          matchMap = await matchClientiDaOrdinantiBatch(
+            daMatchare.map((r) => ({ ordinante: r.ordinante, descrizione: r.descrizione })),
+          );
+        } catch (e: any) {
+          console.warn("Match ordinante→cliente fallito, uso sede conto:", e?.message ?? e);
+        }
+      }
+      let autoMatchati = 0;
+      for (const r of records) {
+        if (!r.cliente_id && r.ordinante) {
+          const hit = matchMap.get(normalizeNomeMatch(r.ordinante));
+          if (hit) {
+            r.cliente_id = hit.cliente_id;
+            r.stato = "matchato";
+            (r as any).ufficio_id = hit.ufficio_id ?? ufficioDaConto;
+            autoMatchati++;
+          }
+        }
+      }
+
       const cliIds = Array.from(new Set(records.map((r) => r.cliente_id).filter(Boolean))) as string[];
       const ufficioMap = new Map<string, string | null>();
       if (cliIds.length > 0) {
@@ -232,9 +264,12 @@ const Page = () => {
         for (const c of (clienti as any[] ?? [])) ufficioMap.set(c.id, c.ufficio_id ?? null);
       }
       for (const r of records) {
-        (r as any).ufficio_id = r.cliente_id
-          ? (ufficioMap.get(r.cliente_id) ?? ufficioDaConto)
-          : ufficioDaConto;
+        if (r.cliente_id) {
+          const uCli = ufficioMap.get(r.cliente_id);
+          (r as any).ufficio_id = uCli ?? (r as any).ufficio_id ?? ufficioDaConto;
+        } else if ((r as any).ufficio_id == null) {
+          (r as any).ufficio_id = ufficioDaConto;
+        }
         (r as any).carico_id = caricoId;
       }
 
@@ -305,6 +340,7 @@ const Page = () => {
         scartiByMotivo: byMotivo,
       });
       const parts = [`${inseriti} movimenti caricati`];
+      if (autoMatchati) parts.push(`${autoMatchati} con cliente/sede da ordinante`);
       if (duplicati) parts.push(`${duplicati} duplicati`);
       if (scarti.length) parts.push(`${scarti.length} scarti`);
       toast.success(parts.join(" · "));
@@ -323,23 +359,40 @@ const Page = () => {
 
   const handleManualInsert = async (payload: ManualInsertPayload) => {
     const { data: userResp } = await supabase.auth.getUser();
-    const ufficio_id = payload.conto_bancario_id
+    const ufficioDaConto = payload.conto_bancario_id
       ? await resolveUfficioFromConto(payload.conto_bancario_id)
       : null;
+    let cliente_id: string | null = null;
+    let ufficio_id = ufficioDaConto;
+    let stato: "importato" | "matchato" = "importato";
+    try {
+      const match = await matchClienteDaOrdinante(payload.ordinante, payload.descrizione);
+      if (match) {
+        cliente_id = match.cliente_id;
+        ufficio_id = match.ufficio_id ?? ufficioDaConto;
+        stato = "matchato";
+      }
+    } catch (e: any) {
+      console.warn("Match ordinante→cliente fallito:", e?.message ?? e);
+    }
     const { error } = await supabase.from("movimenti_bancari" as any).insert({
       data_movimento: payload.data_movimento,
       importo: payload.importo,
       ordinante: payload.ordinante,
       descrizione: payload.descrizione,
       note: payload.note,
-      cliente_id: null,
+      cliente_id,
       ufficio_id,
       conto_bancario_id: payload.conto_bancario_id,
-      stato: "importato",
+      stato,
       caricato_da: userResp.user?.id ?? null,
     } as any);
     if (error) { toast.error(error.message); throw error; }
-    toast.success("Movimento creato — disponibile in Incassi → Bonifici aperti");
+    toast.success(
+      cliente_id
+        ? "Movimento creato con cliente/sede da ordinante"
+        : "Movimento creato — disponibile in Incassi → Bonifici aperti",
+    );
     qc.invalidateQueries({ queryKey: ["mov-bancari"] });
     qc.invalidateQueries({ queryKey: ["ordinanti-suggeriti"] });
     qc.invalidateQueries({ queryKey: ["incassi-bonifici-aperti"] });
@@ -627,6 +680,7 @@ const MonitorTab = () => {
   const [filtroOrdinanteDebounced, setFiltroOrdinanteDebounced] = useState("");
   const [dal, setDal] = useState("");
   const [al, setAl] = useState("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -645,12 +699,29 @@ const MonitorTab = () => {
     queryFn: async () => (await supabase.from("uffici").select("id, nome:nome_ufficio").order("nome_ufficio")).data ?? [],
   });
 
+  const toggleSortData = () => setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+
+  const SortableHeader = ({ children, className }: { children: React.ReactNode; className?: string }) => {
+    const Icon = sortDirection === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <TableHead
+        className={`cursor-pointer select-none ${className || ""}`}
+        onClick={toggleSortData}
+      >
+        <div className="flex items-center gap-1">
+          {children}
+          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+        </div>
+      </TableHead>
+    );
+  };
+
   const { data: movs = [] } = useQuery({
-    queryKey: ["mov-bancari", "monitor", filtroUfficio, filtroContoId, filtroOrdinanteDebounced, dal, al],
+    queryKey: ["mov-bancari", "monitor", filtroUfficio, filtroContoId, filtroOrdinanteDebounced, dal, al, sortDirection],
     queryFn: async () => {
       let q = supabase.from("movimenti_bancari" as any)
         .select("id, data_movimento, importo, ordinante, descrizione, stato, ufficio_id, cliente_id, conto_bancario_id, carico_id, cliente:clienti(ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio), conto:conti_bancari(etichetta), movimenti_clienti(id, importo_assegnato, anticipo, ammanco, movimenti_polizze(id, importo, tipo, messo_a_cassa))")
-        .order("data_movimento", { ascending: false })
+        .order("data_movimento", { ascending: sortDirection === "asc" })
         .limit(1000);
       if (filtroUfficio) q = q.eq("ufficio_id", filtroUfficio);
       if (filtroContoId) q = q.eq("conto_bancario_id", filtroContoId);
@@ -762,16 +833,22 @@ const MonitorTab = () => {
               <ContoBancarioSelect
                 value={filtroContoId}
                 onChange={setFiltroContoId}
-                placeholder="Tutti i conti…"
+                tipi={["incasso_clienti", "generico"]}
+                placeholder="Tutti i conti Consulbrokers…"
                 showPreview={false}
                 className="w-full"
               />
             </div>
-            <div><Label>Ufficio</Label>
-              <select value={filtroUfficio} onChange={(e) => setFiltroUfficio(e.target.value)} className="h-9 px-2 border rounded-md text-sm bg-background">
-                <option value="">Tutti</option>
-                {(uffici as any[]).map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
-              </select>
+            <div className="min-w-[200px]">
+              <Label>Sede</Label>
+              <FilterSearchableSelect
+                value={filtroUfficio || null}
+                onValueChange={(v) => setFiltroUfficio(v ?? "")}
+                options={(uffici as any[]).map((u) => ({ value: u.id, label: u.nome || u.id }))}
+                placeholder="Sede"
+                allLabel="Tutti"
+                className="w-full h-9"
+              />
             </div>
             <div><Label>Dal</Label><Input type="date" value={dal} onChange={(e) => setDal(e.target.value)} className="w-40" /></div>
             <div><Label>Al</Label><Input type="date" value={al} onChange={(e) => setAl(e.target.value)} className="w-40" /></div>
@@ -785,7 +862,7 @@ const MonitorTab = () => {
                   Ordinante: m.ordinante || "",
                   "Conto corrente": m.conto?.etichetta || "",
                   Cliente: cliNome,
-                  Ufficio: m.ufficio?.nome || "",
+                  Sede: m.ufficio?.nome || "",
                   Totale: Number(m.importo) || 0,
                   "A cassa": aCassa,
                   Polizze: polizze.length,
@@ -826,11 +903,11 @@ const MonitorTab = () => {
                   aria-label="Seleziona tutti i cancellabili"
                 />
               </TableHead>
-              <TableHead>Data</TableHead>
+              <SortableHeader>Data</SortableHeader>
               <TableHead>Ordinante</TableHead>
               <TableHead>Conto</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead>Ufficio</TableHead>
+              <TableHead>Sede</TableHead>
               <TableHead className="text-right">Totale</TableHead>
               <TableHead className="text-right">A cassa</TableHead>
               <TableHead>Polizze</TableHead>
@@ -974,7 +1051,7 @@ const InserimentoManualeDialog = ({ open, onOpenChange, onSubmit }: { open: bool
               className={touched.ordinante && errors.ordinante ? "border-destructive" : ""}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Nome come compare sul bonifico (lista o digita a mano). Il cliente si collega dopo, in Incassi.
+              Nome come compare sul bonifico (lista o digita a mano). Se riconoscibile, cliente e sede vengono assegnati automaticamente.
             </p>
             {touched.ordinante && errors.ordinante && (
               <p className="text-[11px] text-destructive mt-1">{errors.ordinante}</p>

@@ -14,6 +14,14 @@ describe("estratto bancario CSV/Excel", () => {
     expect(parseImportoBancario(385)).toBe(385);
   });
 
+  it("parse importi BCC con spazi e migliaia IT (non usare v Excel)", () => {
+    expect(parseImportoBancario(" 838,09 ")).toBeCloseTo(838.09);
+    expect(parseImportoBancario(" 5.323,40 ")).toBeCloseTo(5323.4);
+    expect(parseImportoBancario(" 42.000,00 ")).toBeCloseTo(42000);
+    expect(parseImportoBancario(" 1.000,00 ")).toBeCloseTo(1000);
+    expect(parseImportoBancario(" 226,00 ")).toBeCloseTo(226);
+  });
+
   it("parse data IT e ISO", () => {
     expect(parseDataBancaria("30/06/2026")).toBe("2026-06-30");
     expect(parseDataBancaria("01/07/2026")).toBe("2026-07-01"); // non US 1 gennaio

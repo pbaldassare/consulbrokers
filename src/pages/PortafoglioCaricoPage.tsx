@@ -37,7 +37,18 @@ import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 import { quietanzaSogliaGaranziaDa } from "@/lib/quietanzeClienteView";
 import { UfficiFilterMultiSelect } from "@/components/portafoglio/UfficiFilterMultiSelect";
 import { fetchBonificiApertiPerIncassi } from "@/lib/bonificoDaIncasso";
-import { suggestBonificiPerCliente, type BonificoAperto, type BonificoSuggerito } from "@/lib/bonificoMatch";
+import {
+  BONIFICO_MATCH_MIN_SCORE,
+  scoreOrdinanteVsNomi,
+  suggestBonificiPerCliente,
+  type BonificoAperto,
+  type BonificoSuggerito,
+} from "@/lib/bonificoMatch";
+
+/** Provvigione riga Incassi: quietanza se presente, altrimenti firma. */
+const provvigioneRiga = (r: { provvigioni_quietanza?: number | null; provvigioni_firma?: number | null }) =>
+  Number(r.provvigioni_quietanza ?? r.provvigioni_firma) || 0;
+
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 const startOfMonthStr = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), "yyyy-MM-dd");
 const endOfMonthStr = () => format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), "yyyy-MM-dd");
@@ -374,7 +385,7 @@ const PortafoglioCaricoPage = () => {
       let q = supabase
         .from("v_portafoglio_quietanze")
         .select(
-          "premio_lordo, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, numero_rata, numero_rate_totali",
+          "premio_lordo, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, numero_rata, numero_rate_totali, cliente_anagrafica_id, cliente_nome_display",
         );
       q = applyPeriodoFilter(q);
       q = applySearch(q);
@@ -383,22 +394,32 @@ const PortafoglioCaricoPage = () => {
       const { data } = await q;
       const rows = (data || []);
       const sumAll = rows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0);
+      const sumProvv = rows.reduce((s, r) => s + provvigioneRiga(r), 0);
       const quietanzeRows = rows.filter(
         (r) => !!r.sostituisce_polizza && !r.is_regolazione && !r.is_proroga && !r.is_appendice_modifica,
       );
       const appendiciRows = rows.filter(
         (r) => !!r.is_regolazione || !!r.is_proroga || !!r.is_appendice_modifica,
       );
+      const clientiById = new Map<string, string>();
+      for (const r of rows) {
+        const id = (r as any).cliente_anagrafica_id as string | null;
+        const nome = String((r as any).cliente_nome_display || "").trim();
+        if (id && nome && !clientiById.has(id)) clientiById.set(id, nome);
+      }
       return {
         totale: sumAll,
+        totaleProvvigioni: sumProvv,
         quietanzeCount: quietanzeRows.length,
         quietanzeTotale: quietanzeRows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
         appendiciCount: appendiciRows.length,
         appendiciTotale: appendiciRows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
+        clientiScope: Array.from(clientiById.entries()).map(([id, nome]) => ({ id, nome })),
       };
     },
   });
   const totalePremio = totaleData?.totale ?? 0;
+  const totaleProvvigioni = totaleData?.totaleProvvigioni ?? 0;
 
   // Rinnovi in attesa di messa a cassa della polizza precedente
   const { data: pendingRinnovi } = useQuery({
@@ -424,10 +445,39 @@ const PortafoglioCaricoPage = () => {
       }),
     staleTime: 30_000,
   });
+
+  const searchTrim = search.trim();
+  const searchActive = !!searchTrim && !isVistaIncassati;
+
+  /** Con search: solo bonifici collegati (cliente_id / nome / testo ordinante). */
+  const bonificiVisibili = useMemo(() => {
+    if (!searchActive) return bonificiAperti;
+    const term = searchTrim.toLowerCase();
+    const clienti = totaleData?.clientiScope || [];
+    const clienteIds = new Set(clienti.map((c) => c.id));
+    const nomi = clienti.map((c) => c.nome);
+
+    return bonificiAperti.filter((b) => {
+      if (b.cliente_id && clienteIds.has(b.cliente_id)) return true;
+      const hay = `${b.ordinante || ""} ${b.descrizione || ""}`.toLowerCase();
+      if (term.length >= 2 && hay.includes(term)) return true;
+      if (nomi.length > 0 && scoreOrdinanteVsNomi(b.ordinante, b.descrizione, nomi) >= BONIFICO_MATCH_MIN_SCORE) {
+        return true;
+      }
+      return false;
+    });
+  }, [bonificiAperti, searchActive, searchTrim, totaleData?.clientiScope]);
+
   const totaleBonificiAperti = useMemo(
-    () => bonificiAperti.reduce((s, b) => s + (Number(b.importo) || 0), 0),
-    [bonificiAperti],
+    () => bonificiVisibili.reduce((s, b) => s + (Number(b.importo) || 0), 0),
+    [bonificiVisibili],
   );
+
+  // Con ricerca e match: apri il pannello bonifici per farli vedere subito
+  useEffect(() => {
+    if (!searchActive) return;
+    if (bonificiVisibili.length > 0) setBonificiPanelOpenSync(true);
+  }, [searchActive, searchTrim, bonificiVisibili.length, setBonificiPanelOpenSync]);
 
   /** Per riga quietanza: match nome (importo ignorato). */
   const suggerimentiByTitoloId = useMemo(() => {
@@ -526,6 +576,19 @@ const PortafoglioCaricoPage = () => {
     [selectedAttive]
   );
   const selectedIncassate = useMemo(() => polizze.filter(p => selectedIds.has(p.id) && p.stato === "incassato"), [polizze, selectedIds]);
+
+  const selectedRows = useMemo(
+    () => polizze.filter((p) => selectedIds.has(p.id)),
+    [polizze, selectedIds],
+  );
+  const selectedPremi = useMemo(
+    () => selectedRows.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
+    [selectedRows],
+  );
+  const selectedProvvigioni = useMemo(
+    () => selectedRows.reduce((s, p) => s + provvigioneRiga(p), 0),
+    [selectedRows],
+  );
 
   const bulkMettiACassa = useCallback(async () => {
     if (selectedAttive.length === 0) return;
@@ -695,8 +758,16 @@ const PortafoglioCaricoPage = () => {
 
         {/* Bulk action buttons */}
         {(selectedAttive.length > 0 || selectedGarantibile.length > 0 || selectedIncassate.length > 0) && (
-          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
-            <span className="text-sm text-muted-foreground">{selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}</span>
+          <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/50 rounded-lg border">
+            <span className="text-sm text-muted-foreground">
+              {selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}
+            </span>
+            <span className="text-sm font-medium text-foreground tabular-nums">
+              Premi {fmtCurrency(selectedPremi)}
+            </span>
+            <span className="text-sm font-medium text-foreground tabular-nums">
+              Provvigioni {fmtCurrency(selectedProvvigioni)}
+            </span>
             {!isVistaIncassati && selectedAttive.length > 0 && (
               <Button
                 size="sm"
@@ -744,7 +815,12 @@ const PortafoglioCaricoPage = () => {
                   {isVistaIncassati ? "Incassate (filtro)" : "Totale titoli"}
                 </p>
                 <p className="text-xl font-bold text-foreground">{totalCount}</p>
-                <p className="text-xs text-muted-foreground">{fmtCurrency(totalePremio)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Premi {fmtCurrency(totalePremio)}
+                </p>
+                <p className="text-xs font-medium text-foreground/80">
+                  Provvigioni {fmtCurrency(totaleProvvigioni)}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -784,9 +860,14 @@ const PortafoglioCaricoPage = () => {
                   <ArrowRightLeft className="h-5 w-5 text-sky-700" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Bonifici aperti</p>
-                  <p className="text-xl font-bold text-foreground">{bonificiAperti.length}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {searchActive ? "Bonifici (ricerca)" : "Bonifici aperti"}
+                  </p>
+                  <p className="text-xl font-bold text-foreground">{bonificiVisibili.length}</p>
                   <p className="text-xs text-muted-foreground">{fmtCurrency(totaleBonificiAperti)}</p>
+                  {searchActive && bonificiAperti.length !== bonificiVisibili.length && (
+                    <p className="text-[10px] text-sky-700">su {bonificiAperti.length} aperti</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -882,10 +963,12 @@ const PortafoglioCaricoPage = () => {
         <IncassiBonificiPanel
           open={bonificiPanelOpen}
           onOpenChange={setBonificiPanelOpenSync}
-          bonifici={bonificiAperti}
+          bonifici={bonificiVisibili}
           loading={bonificiLoading}
           sedeFilterActive={filtroUffici.length > 0}
           suggerimentiCount={quietanzeConSuggerimento}
+          searchTerm={searchActive ? searchTrim : undefined}
+          totaleApertiCount={bonificiAperti.length}
           onUsaPerIncasso={handleUsaBonifico}
         />
       )}
