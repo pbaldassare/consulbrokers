@@ -30,16 +30,18 @@ export default function AnticipiCard({ clienteId }: Props) {
   const [openNuovo, setOpenNuovo] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const totaleDisponibile = anticipi.reduce((s, a) => s + Number(a.importo_residuo || 0), 0);
-  const attivi = anticipi.filter((a) => a.importo_residuo > 0);
-  const esauriti = anticipi.filter((a) => a.importo_residuo <= 0);
+  const totaleDisponibile = anticipi
+    .filter((a) => a.segno !== "-")
+    .reduce((s, a) => s + Number(a.importo_residuo || 0), 0);
+  const attivi = anticipi.filter((a) => a.segno === "-" || a.importo_residuo > 0);
+  const esauriti = anticipi.filter((a) => a.segno !== "-" && a.importo_residuo <= 0);
 
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div className="flex items-center gap-2">
           <Wallet className="w-4 h-4 text-primary" />
-          <CardTitle className="text-base">Acconti Cliente</CardTitle>
+          <CardTitle className="text-base">Acconti e compensazioni</CardTitle>
         </div>
         <Button size="sm" variant="outline" onClick={() => setOpenNuovo(true)}>
           <Plus className="w-3 h-3 mr-1" /> Nuovo
@@ -55,7 +57,7 @@ export default function AnticipiCard({ clienteId }: Props) {
           <div className="text-sm text-muted-foreground py-4 text-center">Caricamento...</div>
         ) : anticipi.length === 0 ? (
           <div className="text-sm text-muted-foreground py-6 text-center border-2 border-dashed rounded-md">
-            Nessun acconto registrato
+            Nessuna partita registrata
           </div>
         ) : (
           <>

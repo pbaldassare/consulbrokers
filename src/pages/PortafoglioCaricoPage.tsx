@@ -30,7 +30,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Shield } from "lucide-react";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
-import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { rowBorderClass, isQuietanzaRow, displayStatoPolizza, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
 import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
@@ -87,7 +86,6 @@ const PortafoglioCaricoPage = () => {
   const [dateDa, setDateDa] = useState<string>(searchParams.get("dal") || "");
   const [dateA, setDateA] = useState<string>(searchParams.get("al") || "");
   const isDefaultExtended = !userTouched && filtroPeriodo === "mese_corrente" && !dateDa && !dateA;
-  const [filtroTipo, setFiltroTipo] = useState<"polizze" | "quietanze" | "regolazioni" | "garantiti">("quietanze");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [cassaDialogTitoli, setCassaDialogTitoli] = useState<Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>>([]);
@@ -114,7 +112,6 @@ const PortafoglioCaricoPage = () => {
     !!search ||
     filtroPeriodo !== "tutte" ||
     userTouched ||
-    filtroTipo !== "quietanze" ||
     filtroUffici.length > 0 ||
     vistaIncasso !== "pendenti";
 
@@ -176,7 +173,6 @@ const PortafoglioCaricoPage = () => {
     setSearch("");
     setFiltroPeriodo("tutte");
     setUserTouched(false);
-    setFiltroTipo("quietanze");
     setFiltroUffici([]);
     setVistaIncasso("pendenti");
     setSelectedIds(new Set());
@@ -226,7 +222,6 @@ const PortafoglioCaricoPage = () => {
     search,
     filtroPeriodo,
     isDefaultExtended,
-    filtroTipo,
     dateDa,
     dateA,
     sortField,
@@ -235,29 +230,8 @@ const PortafoglioCaricoPage = () => {
     vistaIncasso,
   ]);
 
-  const isDaIncassareTipo = !isVistaIncassati && (filtroTipo === "quietanze" || filtroTipo === "regolazioni");
-
-  const applyTipoFilter = (q: any) => {
-    // La view v_portafoglio_quietanze è già a livello quietanza (JOIN quietanze).
-    // Non usare sostituisce_polizza: sui titoli collegati alla quietanza è spesso NULL
-    // (la rata "cliente" con sostituisce_polizza valorizzato può non avere riga in quietanze).
-    if (filtroTipo === "polizze") {
-      return q
-        .not("is_appendice_modifica", "is", true)
-        .not("is_proroga", "is", true)
-        .not("is_regolazione", "is", true);
-    }
-    if (filtroTipo === "quietanze") {
-      return q
-        .not("is_appendice_modifica", "is", true)
-        .not("is_proroga", "is", true)
-        .not("is_regolazione", "is", true);
-    }
-    if (filtroTipo === "regolazioni") {
-      return q.or("is_regolazione.eq.true,is_proroga.eq.true,is_appendice_modifica.eq.true");
-    }
-    return q;
-  };
+  /** Quietanze e appendici in un'unica lista. */
+  const isAppendiceExpr = "is_appendice_modifica.eq.true,is_regolazione.eq.true,is_proroga.eq.true";
 
   const applyDateRange = (q: any, col: string) => {
     if (dateDa) q = q.gte(col, dateDa);
@@ -284,48 +258,37 @@ const PortafoglioCaricoPage = () => {
       return q;
     }
 
-    if (isDaIncassareTipo) {
-      q = q.eq("stato", "attivo").is("data_messa_cassa", null);
+    // Pendenti: quietanze e appendici insieme (nessun filtro tipo).
+    q = q.eq("stato", "attivo").is("data_messa_cassa", null);
 
-      if (dateDa || dateA) {
-        // Range esplicito: rispetta Dal/Al su garanzia_da, e per le rate anche la soglia 60gg
-        if (filtroTipo === "quietanze") {
-          const soglia = quietanzaSogliaGaranziaDa();
-          const parts = [`garanzia_da.lte.${soglia}`];
-          if (dateDa) parts.push(`garanzia_da.gte.${dateDa}`);
-          if (dateA) parts.push(`garanzia_da.lte.${dateA}`);
-          return q.or(`garanzia_da.is.null,and(${parts.join(",")})`);
-        }
-        return applyDateRange(q, "garanzia_da");
-      }
-
-      if (filtroPeriodo === "mese_corrente") {
-        const today = todayStr();
-        const start = startOfMonthStr();
-        const end = endOfMonthStr();
-        const meseOArretrato = `or(garanzia_da.lt.${today},and(garanzia_da.gte.${start},garanzia_da.lte.${end}))`;
-        if (filtroTipo === "quietanze") {
-          const soglia = quietanzaSogliaGaranziaDa();
-          return q.or(
-            `garanzia_da.is.null,and(garanzia_da.lte.${soglia},${meseOArretrato})`,
-          );
-        }
-        // Appendici: arretrate o mese corrente (senza soglia 60gg)
-        return q.or(`garanzia_da.is.null,${meseOArretrato}`);
-      }
-
-      // "tutte": solo criteri di visibilità
-      if (filtroTipo === "quietanze") {
-        const soglia = quietanzaSogliaGaranziaDa();
-        return q.or(`garanzia_da.is.null,garanzia_da.lte.${soglia}`);
-      }
-      return q;
+    if (dateDa || dateA) {
+      // Range esplicito: rate con soglia 60gg; appendici solo con Dal/Al (senza soglia)
+      const soglia = quietanzaSogliaGaranziaDa();
+      const rangeParts: string[] = [];
+      if (dateDa) rangeParts.push(`garanzia_da.gte.${dateDa}`);
+      if (dateA) rangeParts.push(`garanzia_da.lte.${dateA}`);
+      const rateAnd = `and(garanzia_da.lte.${soglia},${rangeParts.join(",")})`;
+      const appAnd = `and(or(${isAppendiceExpr}),${rangeParts.join(",")})`;
+      return q.or(`garanzia_da.is.null,${rateAnd},${appAnd}`);
     }
 
-    if (isDefaultExtended) {
-      return q.eq("stato", "attivo");
+    if (filtroPeriodo === "mese_corrente") {
+      const today = todayStr();
+      const start = startOfMonthStr();
+      const end = endOfMonthStr();
+      const meseOArretrato = `or(garanzia_da.lt.${today},and(garanzia_da.gte.${start},garanzia_da.lte.${end}))`;
+      const soglia = quietanzaSogliaGaranziaDa();
+      // Rate: soglia 60gg + mese/arretrato; appendici: mese/arretrato senza soglia
+      return q.or(
+        `garanzia_da.is.null,and(garanzia_da.lte.${soglia},${meseOArretrato}),and(or(${isAppendiceExpr}),${meseOArretrato})`,
+      );
     }
-    return applyDateRange(q.eq("stato", "attivo"), "data_scadenza");
+
+    // "tutte": rate con soglia 60gg + tutte le appendici da incassare
+    const soglia = quietanzaSogliaGaranziaDa();
+    return q.or(
+      `garanzia_da.is.null,garanzia_da.lte.${soglia},${isAppendiceExpr}`,
+    );
   };
 
   const applySearch = (q: any) =>
@@ -337,7 +300,6 @@ const PortafoglioCaricoPage = () => {
       search,
       filtroPeriodo,
       isDefaultExtended,
-      filtroTipo,
       page,
       dateDa,
       dateA,
@@ -353,7 +315,6 @@ const PortafoglioCaricoPage = () => {
       );
       q = applyPeriodoFilter(q);
       q = applySearch(q);
-      q = applyTipoFilter(q);
       q = applySedeFilter(q);
 
       const { data, count } = await q
@@ -375,7 +336,6 @@ const PortafoglioCaricoPage = () => {
       search,
       filtroPeriodo,
       isDefaultExtended,
-      filtroTipo,
       dateDa,
       dateA,
       filtroUffici.join(","),
@@ -389,18 +349,11 @@ const PortafoglioCaricoPage = () => {
         );
       q = applyPeriodoFilter(q);
       q = applySearch(q);
-      q = applyTipoFilter(q);
       q = applySedeFilter(q);
       const { data } = await q;
       const rows = (data || []);
       const sumAll = rows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0);
       const sumProvv = rows.reduce((s, r) => s + provvigioneRiga(r), 0);
-      const quietanzeRows = rows.filter(
-        (r) => !!r.sostituisce_polizza && !r.is_regolazione && !r.is_proroga && !r.is_appendice_modifica,
-      );
-      const appendiciRows = rows.filter(
-        (r) => !!r.is_regolazione || !!r.is_proroga || !!r.is_appendice_modifica,
-      );
       const clientiById = new Map<string, string>();
       for (const r of rows) {
         const id = (r as any).cliente_anagrafica_id as string | null;
@@ -410,10 +363,7 @@ const PortafoglioCaricoPage = () => {
       return {
         totale: sumAll,
         totaleProvvigioni: sumProvv,
-        quietanzeCount: quietanzeRows.length,
-        quietanzeTotale: quietanzeRows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
-        appendiciCount: appendiciRows.length,
-        appendiciTotale: appendiciRows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
+        titoliCount: rows.length,
         clientiScope: Array.from(clientiById.entries()).map(([id, nome]) => ({ id, nome })),
       };
     },
@@ -707,7 +657,7 @@ const PortafoglioCaricoPage = () => {
               {isVistaIncassati ? (
                 (() => {
                   if (!dateDa && !dateA && filtroPeriodo === "tutte") {
-                    return "Quietanze già messe a cassa. Annullando un incasso tornano tra i pendenti.";
+                    return "Quietanze e appendici già messe a cassa. Annullando un incasso tornano tra i pendenti.";
                   }
                   if (!dateDa && !dateA && filtroPeriodo === "mese_corrente") {
                     return "Incassate nel mese corrente (data messa a cassa).";
@@ -831,21 +781,13 @@ const PortafoglioCaricoPage = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">
-                  {isVistaIncassati
-                    ? (filtroTipo === "regolazioni" ? "Appendici incassate" : "Quietanze incassate")
-                    : (filtroTipo === "regolazioni" ? "Appendici" : "Quietanze")}
+                  {isVistaIncassati ? "Incassate (filtro)" : "Quietanze e appendici"}
                 </p>
                 <p className="text-xl font-bold text-foreground">
-                  {filtroTipo === "regolazioni"
-                    ? (totaleData?.appendiciCount ?? 0)
-                    : (totaleData?.quietanzeCount ?? 0)}
+                  {totaleData?.titoliCount ?? 0}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {fmtCurrency(
-                    filtroTipo === "regolazioni"
-                      ? (totaleData?.appendiciTotale ?? 0)
-                      : (totaleData?.quietanzeTotale ?? 0),
-                  )}
+                  {fmtCurrency(totaleData?.totale ?? 0)}
                 </p>
               </div>
             </CardContent>
@@ -944,12 +886,6 @@ const PortafoglioCaricoPage = () => {
             </ToggleGroupItem>
             <ToggleGroupItem value="tutte" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Tutte</ToggleGroupItem>
           </ToggleGroup>
-          <TipoFilterSegmented
-            value={filtroTipo}
-            onChange={(v) => { setFiltroTipo(v); setPage(0); }}
-            withRegolazioni
-            hidePolizze
-          />
           {hasActiveFilters && (
             <Button variant="outline" size="sm" onClick={resetFilters} className="gap-1">
               <RotateCcw className="h-3.5 w-3.5" />
@@ -1045,10 +981,8 @@ const PortafoglioCaricoPage = () => {
       ) : polizze.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground">
           {isVistaIncassati
-            ? "Nessuna quietanza incassata con i filtri selezionati"
-            : filtroTipo === "regolazioni"
-              ? "Nessuna appendice da incassare"
-              : "Nessuna quietanza da incassare"}
+            ? "Nessuna quietanza o appendice incassata con i filtri selezionati"
+            : "Nessuna quietanza o appendice da incassare"}
         </div>
       ) : (
         <>

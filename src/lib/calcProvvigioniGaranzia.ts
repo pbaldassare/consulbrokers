@@ -164,6 +164,59 @@ export function calcLordoRiga(netto: number, accessori: number, tasse: number, s
   return netto + accessori + tasse + ssn;
 }
 
+export type DecomposeLordoArgs = {
+  lordo: number;
+  accessori?: number;
+  aliquotaTassePct?: number;
+  /** Se true, SSN = netto × aliquotaSsnPct / 100 (segue il segno del netto). */
+  ssnAuto?: boolean;
+  aliquotaSsnPct?: number;
+  /** SSN già impostato a mano (sottratto dal lordo prima dello split netto/tasse). */
+  ssnManuale?: number;
+};
+
+export type DecomposeLordoResult = {
+  netto: number;
+  tasse: number;
+  ssn: number;
+  /** Residuo di arrotondamento: lordo − (netto + accessori + tasse + ssn). */
+  tasseRettifica: number;
+};
+
+/**
+ * Scompone un lordo (anche negativo, es. appendice a credito) in netto / tasse / SSN.
+ * Non clamapa a zero: segno del lordo si propaga alle componenti proporzionali.
+ */
+export function decomposeLordoToPremi(args: DecomposeLordoArgs): DecomposeLordoResult {
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const lordo = Number(args.lordo) || 0;
+  const accessori = Number(args.accessori) || 0;
+  const r1 = (Number(args.aliquotaTassePct) || 0) / 100;
+  const ssnAuto = !!args.ssnAuto && (Number(args.aliquotaSsnPct) || 0) > 0;
+  const r2 = ssnAuto ? (Number(args.aliquotaSsnPct) || 0) / 100 : 0;
+  const ssnManuale = ssnAuto ? 0 : Number(args.ssnManuale) || 0;
+  const lordoBase = lordo - ssnManuale;
+
+  let nettoCalc: number;
+  let tasseCalc: number;
+  let ssnCalc: number;
+  if (r1 + r2 > 0) {
+    nettoCalc = (lordoBase - accessori * (1 + r1)) / (1 + r1 + r2);
+    tasseCalc = (nettoCalc + accessori) * r1;
+    ssnCalc = ssnAuto ? nettoCalc * r2 : ssnManuale;
+  } else {
+    nettoCalc = lordoBase - accessori;
+    tasseCalc = 0;
+    ssnCalc = ssnManuale;
+  }
+
+  const netto = round2(nettoCalc);
+  const ssn = round2(ssnCalc);
+  const tasse = r1 + r2 > 0 ? round2((netto + accessori) * r1) : round2(tasseCalc);
+  const tasseRettifica = round2(lordo - netto - accessori - ssn - tasse);
+  return { netto, tasse, ssn, tasseRettifica };
+}
+
 /** Importo persistito in premi_garanzia_polizza.firma/rata (netto o solo tasse per diritti agenzia). */
 export function premioRigaDbImporto(r: GaranziaRow): number {
   if (r.dirittiAgenzia) return parseDecimalItOr(r.tasse);

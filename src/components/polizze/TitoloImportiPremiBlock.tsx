@@ -18,9 +18,10 @@ import {
 } from "./premiSync";
 import {
   isProvvigioniManualStored,
-  provvigioniImportoFromPct,
   provvigioniImportoFromManualPctNetto,
+  provvigioniPctEffettivaBlocco,
   provvigioniPctFromImporto,
+  resolveProvvigioniForSave as resolveProvvigioniForSavePure,
 } from "@/lib/provvigioniManual";
 import {
   calcProvvigioniGaranzia,
@@ -31,6 +32,7 @@ import {
   provvPctBreakdown,
   calcTasseRiga,
   calcTasseEffettiveRiga,
+  isRigaEsclusaProvvigioni,
   type MatriceProvvAccessori,
   premioRigaDbImporto,
 } from "@/lib/calcProvvigioniGaranzia";
@@ -306,21 +308,21 @@ function TitoloImportiPremiBlock({
     const ssn = p.ssn != null ? Number(p.ssn) : 0;
     const ssnAuto = ssnAttivo ? round2((netto * aliquotaSsn) / 100) : 0;
     const ssnManualOverride = ssnAttivo && Math.abs(ssn - ssnAuto) > 0.01;
-    const tasseCalc = aliquotaTasse > 0 && (netto > 0 || accessori > 0)
+    const tasseCalc = aliquotaTasse > 0 && (Math.abs(netto) > 0.0001 || Math.abs(accessori) > 0.0001)
       ? calcTasseRiga(netto, accessori, aliquotaTasse)
       : 0;
     return {
       _localId: crypto.randomUUID(),
       codice: p.codice_garanzia || null,
       descrizione: cat?.descrizione || p.garanzia || "",
-      netto: netto ? netto.toFixed(2) : "",
-      accessori: accessori ? accessori.toFixed(2) : "",
-      tasse: escludiProvvigioni ? "0" : (tasseCalc ? tasseCalc.toFixed(2) : ""),
+      netto: Math.abs(netto) > 0.0001 ? netto.toFixed(2) : "",
+      accessori: Math.abs(accessori) > 0.0001 ? accessori.toFixed(2) : "",
+      tasse: escludiProvvigioni ? "0" : (Math.abs(tasseCalc) > 0.0001 ? tasseCalc.toFixed(2) : ""),
       tasseRettifica: rettifica !== 0 ? rettifica.toFixed(2) : "",
       tasseManualOverride: !escludiProvvigioni && rettifica !== 0,
       aliquotaTasse,
       sottoramoId: cat?.id || null,
-      ssn: ssn ? ssn.toFixed(2) : "",
+      ssn: Math.abs(ssn) > 0.0001 ? ssn.toFixed(2) : "",
       aliquotaSsn,
       ssnAttivo,
       ssnManualOverride,
@@ -569,9 +571,6 @@ function TitoloImportiPremiBlock({
     return round2(provvigioniImportoFromManualPctNetto(rows, pct, provvMatrice));
   };
 
-  const hasRowProvvOverride = (rows: GaranziaRow[]) =>
-    rows.some((r) => r.provvNettoPctOverride || r.provvAccessoriPctOverride);
-
   const resetManualProvvToAuto = (tipo: "firma" | "quietanza") => {
     if (tipo === "firma") {
       manualPctFirmaRef.current = "";
@@ -589,14 +588,59 @@ function TitoloImportiPremiBlock({
     bumpProvvDisplay((n) => n + 1);
   };
 
+  /** Unica verità = totale blocco (mai somma righe/matrice). */
   const resolveProvvigioniForSave = (
     tipo: "firma" | "quietanza",
     rows: GaranziaRow[],
-  ): number => {
-    if (hasRowProvvOverride(rows)) {
-      return round2(calcProvvigioniGaranzia(rows, provvMatrice));
+  ): number => resolveProvvigioniForSavePure(resolveProvvigioniImporto(tipo, rows));
+
+  const totNettoProvvEligible = (rows: GaranziaRow[]) =>
+    rows.reduce((s, r) => {
+      if (isRigaEsclusaProvvigioni(r)) return s;
+      return s + (parseFloat(r.netto || "0") || 0);
+    }, 0);
+
+  /** Dopo save su titoli: allinea quietanze (+ madre se quietanza-as-titolo). */
+  const syncProvvigioniQuietanzeAfterSave = async (updates: Record<string, number>) => {
+    const pf = updates.provvigioni_firma;
+    const pq = updates.provvigioni_quietanza;
+    if (pf == null && pq == null) return;
+
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (pf != null) patch.provvigioni_firma = pf;
+    if (pq != null) patch.provvigioni_quietanza = pq;
+
+    const { error: qErr } = await (supabase.from("quietanze") as any)
+      .update(patch)
+      .eq("titolo_id", titoloId);
+    if (qErr) {
+      console.warn("[syncProvvigioniQuietanze] quietanze corrente:", qErr.message);
     }
-    return resolveProvvigioniImporto(tipo, rows);
+
+    const sost = titoloMeta?.sostituisce_polizza;
+    if (!sost) return;
+
+    const { data: madre, error: madreErr } = await supabase
+      .from("titoli")
+      .select("id")
+      .eq("numero_titolo", String(sost).trim())
+      .is("sostituisce_polizza", null)
+      .maybeSingle();
+    if (madreErr || !madre?.id) {
+      if (madreErr) console.warn("[syncProvvigioniQuietanze] madre:", madreErr.message);
+      return;
+    }
+
+    const { error: tErr } = await supabase.from("titoli").update(patch as any).eq("id", madre.id);
+    if (tErr) console.warn("[syncProvvigioniQuietanze] update madre:", tErr.message);
+
+    const { error: qmErr } = await (supabase.from("quietanze") as any)
+      .update(patch)
+      .eq("titolo_id", madre.id);
+    if (qmErr) console.warn("[syncProvvigioniQuietanze] quietanze madre:", qmErr.message);
+
+    await qc.invalidateQueries({ queryKey: ["titolo", madre.id] });
+    await qc.invalidateQueries({ queryKey: ["portafoglio-carico"] });
   };
 
   const copyProvvFirmaToQuietanza = () => {
@@ -620,6 +664,15 @@ function TitoloImportiPremiBlock({
     setSaving(true);
     setSaveStatus("saving");
     try {
+      const blockProvv = resolveProvvigioniForSave(tipo, rows);
+      const auto =
+        tipo === "firma" ? provvFirmaAutoRef.current : provvQuietanzaAutoRef.current;
+      const nettoEligible = totNettoProvvEligible(rows);
+      const blockPctNetto =
+        !auto && nettoEligible > 0
+          ? round2(provvigioniPctEffettivaBlocco(blockProvv, nettoEligible))
+          : null;
+
       const payload = validRows.map((r, idx) => {
         const importo = premioRigaDbImporto(r);
         return {
@@ -637,7 +690,9 @@ function TitoloImportiPremiBlock({
           aliquota_tasse_pct: r.aliquotaTasse || null,
           ssn: parseFloat(r.ssn || "0") || 0,
           tasse_rettifica: parseFloat(r.tasseRettifica || "0") || 0,
-          provvigione_netto_pct: resolveRowPctNetto(r, provvMatrice).pct,
+          // In manuale blocco: % riga = % effettiva blocco (non matrice)
+          provvigione_netto_pct:
+            blockPctNetto != null ? blockPctNetto : resolveRowPctNetto(r, provvMatrice).pct,
           provvigione_accessori_pct: resolveRowPctAccessori(r, provvMatrice).pct,
           provvigione_netto_pct_override: !!r.provvNettoPctOverride,
           provvigione_accessori_pct_override: !!r.provvAccessoriPctOverride,
@@ -660,13 +715,13 @@ function TitoloImportiPremiBlock({
         updates.tasse = totTasse;
         updates.ssn_firma = totSsn;
         updates.premio_lordo = lordo;
-        updates.provvigioni_firma = resolveProvvigioniForSave("firma", rows);
+        updates.provvigioni_firma = blockProvv;
       } else {
         updates.premio_netto_quietanza = totNetto;
         updates.addizionali_quietanza = totAccessori;
         updates.tasse_quietanza = totTasse;
         updates.ssn_quietanza = totSsn;
-        updates.provvigioni_quietanza = resolveProvvigioniForSave("quietanza", rows);
+        updates.provvigioni_quietanza = blockProvv;
         updates.premio_lordo = lordo;
         // Su quietanza/rata: allinea anche i campi operativi usati da incasso e liste
         if (hideFirma || !!titoloMeta?.sostituisce_polizza) {
@@ -697,6 +752,8 @@ function TitoloImportiPremiBlock({
         throw rpcErr;
       }
 
+      await syncProvvigioniQuietanzeAfterSave(updates);
+
       lastSnapRef.current = JSON.stringify({
         f: tipo === "firma"
           ? validRows.map((r) => ({ c: r.codice, n: parseFloat(r.netto || "0") || 0, t: r.aliquotaTasse, s: parseFloat(r.ssn || "0") || 0 }))
@@ -714,6 +771,7 @@ function TitoloImportiPremiBlock({
       await qc.invalidateQueries({ queryKey: ["premi-garanzia", titoloId] });
       await qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
       await qc.invalidateQueries({ queryKey: ["riparto", titoloId] });
+      await qc.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       if (tipo === "firma" && !provvFirmaAutoRef.current) {
         manualUserEditFirmaRef.current = true;
       }
@@ -803,7 +861,6 @@ function TitoloImportiPremiBlock({
   const accessoriFirmaNum = firmaRows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
   const accessoriQuietanzaNum = quietanzaRows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
   const rowPctAccessoriFn = (row: GaranziaRow) => resolveRowPctAccessori(row, provvMatrice).pct;
-  const rowPctNettoFn = (row: GaranziaRow) => resolveRowPctNetto(row, provvMatrice).pct;
   const rowAgencyPctNettoFn = (row: GaranziaRow) => resolveRowPctNettoAgenzia(row, provvMatrice).pct;
   const rowAgencyPctAccessoriFn = (row: GaranziaRow) => resolveRowPctAccessoriAgenzia(row, provvMatrice).pct;
   const provvBreakdownFirma = provvPctBreakdown(firmaRows, provvMatrice);
@@ -942,6 +999,19 @@ function TitoloImportiPremiBlock({
   const totBaseQui = totNettoQui + accessoriQuietanzaNum;
   const displayProvvFirma = resolveProvvigioniImporto("firma", firmaRows);
   const displayProvvQuietanza = resolveProvvigioniImporto("quietanza", quietanzaRows);
+  const nettoEligibleFirma = totNettoProvvEligible(firmaRows);
+  const nettoEligibleQui = totNettoProvvEligible(quietanzaRows);
+  const blockPctFirma = !provvFirmaAuto
+    ? provvigioniPctEffettivaBlocco(displayProvvFirma, nettoEligibleFirma)
+    : null;
+  const blockPctQui = !provvQuietanzaAuto
+    ? provvigioniPctEffettivaBlocco(displayProvvQuietanza, nettoEligibleQui)
+    : null;
+  /** In manuale: % riga segue il blocco; in auto: matrice/override riga. */
+  const rowPctNettoFirmaFn = (row: GaranziaRow) =>
+    blockPctFirma != null ? blockPctFirma : resolveRowPctNetto(row, provvMatrice).pct;
+  const rowPctNettoQuietanzaFn = (row: GaranziaRow) =>
+    blockPctQui != null ? blockPctQui : resolveRowPctNetto(row, provvMatrice).pct;
   const pctFirma = !provvFirmaAuto
     ? (manualFromEuroFirmaRef.current && manualImportoFirmaRef.current != null
       ? provvigioniPctFromImporto(manualImportoFirmaRef.current, totBaseFirma)
@@ -1076,7 +1146,7 @@ function TitoloImportiPremiBlock({
         provvigioni={displayProvvFirma}
         provvPctBreakdown={provvBreakdownFirma}
         rowPctAccessori={rowPctAccessoriFn}
-        rowPctNetto={rowPctNettoFn}
+        rowPctNetto={rowPctNettoFirmaFn}
         rowAgencyPctNetto={rowAgencyPctNettoFn}
         rowAgencyPctAccessori={rowAgencyPctAccessoriFn}
         onProvvPctOverride={(idx, campo, next) => requestProvvPctOverride("firma", idx, campo, next)}
@@ -1125,7 +1195,7 @@ function TitoloImportiPremiBlock({
         provvigioni={displayProvvQuietanza}
         provvPctBreakdown={provvBreakdownQuietanza}
         rowPctAccessori={rowPctAccessoriFn}
-        rowPctNetto={rowPctNettoFn}
+        rowPctNetto={rowPctNettoQuietanzaFn}
         rowAgencyPctNetto={rowAgencyPctNettoFn}
         rowAgencyPctAccessori={rowAgencyPctAccessoriFn}
         onProvvPctOverride={(idx, campo, next) => requestProvvPctOverride("quietanza", idx, campo, next)}

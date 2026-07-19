@@ -8,6 +8,7 @@ import {
   resolveRowPctNetto,
   resolveRowPctNettoAgenzia,
   resolveRowPctAccessoriAgenzia,
+  decomposeLordoToPremi,
   type MatriceProvvAccessori,
 } from "@/lib/calcProvvigioniGaranzia";
 
@@ -55,6 +56,41 @@ describe("calcLordoGaranziaRow", () => {
   it("rettifica negativa riduce lordo", () => {
     const r = row({ netto: "100", accessori: "", tasse: "22", tasseRettifica: "-1.00" });
     expect(calcLordoGaranziaRow(r)).toBe(121);
+  });
+});
+
+describe("decomposeLordoToPremi", () => {
+  it("scompone lordo positivo con tasse", () => {
+    const p = decomposeLordoToPremi({ lordo: 122.5, aliquotaTassePct: 2.5 });
+    expect(p.netto + p.tasse + p.ssn + p.tasseRettifica).toBeCloseTo(122.5, 2);
+    expect(p.netto).toBeGreaterThan(0);
+    expect(p.tasse).toBeGreaterThan(0);
+  });
+
+  it("scompone lordo negativo (appendice a credito) senza clamp a zero", () => {
+    const p = decomposeLordoToPremi({ lordo: -176, aliquotaTassePct: 2.5 });
+    expect(p.netto).toBeLessThan(0);
+    expect(p.tasse).toBeLessThan(0);
+    expect(p.netto + p.tasse + p.ssn + p.tasseRettifica).toBeCloseTo(-176, 2);
+  });
+
+  it("senza aliquote: netto = lordo − accessori (anche negativo)", () => {
+    const p = decomposeLordoToPremi({ lordo: -100, accessori: 0 });
+    expect(p.netto).toBe(-100);
+    expect(p.tasse).toBe(0);
+    expect(p.ssn).toBe(0);
+  });
+
+  it("con SSN automatico propaga il segno sul netto", () => {
+    const p = decomposeLordoToPremi({
+      lordo: -115.5,
+      aliquotaTassePct: 0,
+      ssnAuto: true,
+      aliquotaSsnPct: 10.5,
+    });
+    expect(p.netto).toBeLessThan(0);
+    expect(p.ssn).toBeLessThan(0);
+    expect(p.netto + p.ssn + p.tasseRettifica).toBeCloseTo(-115.5, 2);
   });
 });
 

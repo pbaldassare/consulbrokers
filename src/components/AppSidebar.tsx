@@ -203,7 +203,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Storico E/C Clienti", path: "/contabilita/ec-cliente/storico", icon: Archive },
         { label: "E/C Produttori", path: "/contabilita/ec-produttori", icon: Percent },
         { label: "Storico E/C Produttori", path: "/contabilita/ec-produttore/storico", icon: Archive },
-        { label: "Riepilogo Acconti", path: "/contabilita/anticipi-clienti", icon: Wallet },
+        { label: "Acconti e compensazioni", path: "/contabilita/anticipi-clienti", icon: Wallet },
         { label: "Bonifici", path: "/portafoglio/carico?tab=bonifici", icon: ArrowRightLeft, hideForRoles: ["manager","produttore","corrispondente","cliente","prospect"] },
       ],
     },

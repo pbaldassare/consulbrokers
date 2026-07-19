@@ -21,7 +21,9 @@ export function useAnticipiResiduoByClienti(clienteIds: string[]) {
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
         .select("id, cliente_id, importo_residuo, data_anticipo")
         .in("cliente_id", ids)
+        .eq("segno", "+")
         .gt("importo_residuo", 0)
+        .is("rimborsato_il", null)
         .order("data_anticipo", { ascending: true });
       if (error) throw error;
       const map = new Map<string, AnticipoResiduoSummary>();

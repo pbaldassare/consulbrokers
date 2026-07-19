@@ -13,6 +13,8 @@ export interface AnticipoGlobaleRow {
   titolo_origine_id?: string | null;
   rimborsato_il?: string | null;
   rimborsato_note?: string | null;
+  causale_id?: string;
+  segno?: "+" | "-";
   cliente: {
     id: string;
     nome: string | null;
@@ -22,6 +24,7 @@ export interface AnticipoGlobaleRow {
     ufficio_id: string | null;
   } | null;
   conto: { id: string; etichetta: string; iban: string } | null;
+  causale?: { id: string; codice: string; descrizione: string } | null;
 }
 
 export type StatoFiltro = "tutti" | "disponibili" | "parziali" | "esauriti";
@@ -43,9 +46,10 @@ export function useAnticipiGlobale(filters: AnticipiGlobaleFilters) {
       let q = (supabase.from("cliente_anticipi") as any)
         .select(
           `id, cliente_id, data_anticipo, conto_bancario_id, importo, importo_residuo, note, created_at,
-           titolo_origine_id, rimborsato_il, rimborsato_note,
+           titolo_origine_id, rimborsato_il, rimborsato_note, causale_id, segno,
            cliente:clienti(id, nome, cognome, ragione_sociale, tipo_cliente, ufficio_id),
-           conto:conti_bancari(id, etichetta, iban)`
+           conto:conti_bancari(id, etichetta, iban),
+           causale:causali_contabili(id, codice, descrizione)`
         )
         .order("data_anticipo", { ascending: false });
 
@@ -53,8 +57,8 @@ export function useAnticipiGlobale(filters: AnticipiGlobaleFilters) {
       if (filters.contoId) q = q.eq("conto_bancario_id", filters.contoId);
       if (filters.dataDa) q = q.gte("data_anticipo", filters.dataDa);
       if (filters.dataAl) q = q.lte("data_anticipo", filters.dataAl);
-      if (filters.stato === "disponibili") q = q.gt("importo_residuo", 0).is("rimborsato_il", null);
-      if (filters.stato === "esauriti") q = q.lte("importo_residuo", 0);
+      if (filters.stato === "disponibili") q = q.eq("segno", "+").gt("importo_residuo", 0).is("rimborsato_il", null);
+      if (filters.stato === "esauriti") q = q.eq("segno", "+").lte("importo_residuo", 0);
 
       const { data, error } = await q;
       if (error) throw error;

@@ -73,11 +73,12 @@ export default function RiepilogoAnticipiPage() {
   const elimina = useEliminaAnticipo("");
 
   const kpi = useMemo(() => {
-    const totDisp = rows
+    const crediti = rows.filter((r) => r.segno !== "-");
+    const totDisp = crediti
       .filter((r) => !r.rimborsato_il && Number(r.importo_residuo || 0) > 0)
       .reduce((s, r) => s + Number(r.importo_residuo || 0), 0);
-    const totVers = rows.reduce((s, r) => s + Number(r.importo || 0), 0);
-    const attivi = rows.filter((r) => !r.rimborsato_il && r.importo_residuo > 0).length;
+    const totVers = crediti.reduce((s, r) => s + Number(r.importo || 0), 0);
+    const attivi = crediti.filter((r) => !r.rimborsato_il && r.importo_residuo > 0).length;
     return { totDisp, totVers, attivi };
   }, [rows]);
 
@@ -93,6 +94,7 @@ export default function RiepilogoAnticipiPage() {
   };
 
   const StatoBadge = ({ r }: { r: any }) => {
+    if (r.segno === "-") return <Badge variant="outline" className="border-red-300 text-red-700">Debito</Badge>;
     const s = statoAnticipo(r);
     if (s === "rimborsato") return <Badge className="bg-slate-600 hover:bg-slate-700">Rimborsato</Badge>;
     if (s === "disponibile") return <Badge className="bg-green-600 hover:bg-green-700">Disponibile</Badge>;
@@ -109,10 +111,10 @@ export default function RiepilogoAnticipiPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2">
-              <Wallet className="w-6 h-6 text-primary" /> Riepilogo Acconti Clienti
+              <Wallet className="w-6 h-6 text-primary" /> Acconti e compensazioni
             </h1>
             <p className="text-sm text-muted-foreground">
-              Versamenti dei clienti utilizzabili nelle messe a cassa — sincronizzato in tempo reale
+              Partite cliente collegate a causale contabile — credito utilizzabile in messa a cassa
             </p>
           </div>
         </div>
@@ -121,7 +123,7 @@ export default function RiepilogoAnticipiPage() {
             <RefreshCw className={`w-4 h-4 mr-1 ${isFetching ? "animate-spin" : ""}`} /> Aggiorna
           </Button>
           <Button onClick={() => setOpenNuovo(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo Acconto
+            <Plus className="w-4 h-4 mr-1" /> Nuovo
           </Button>
         </div>
       </div>
@@ -137,7 +139,7 @@ export default function RiepilogoAnticipiPage() {
           <CardContent className="text-2xl font-semibold">{fmtEuro(kpi.totVers)}</CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardDescription>Acconti Attivi</CardDescription></CardHeader>
+          <CardHeader className="pb-2"><CardDescription>Partite attive (credito)</CardDescription></CardHeader>
           <CardContent className="text-2xl font-semibold">{kpi.attivi}</CardContent>
         </Card>
       </div>
@@ -205,14 +207,14 @@ export default function RiepilogoAnticipiPage() {
       {/* Tabella */}
       <Card>
         <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">Acconti ({rows.length})</CardTitle>
+          <CardTitle className="text-sm">Partite ({rows.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="text-sm text-muted-foreground py-6 text-center">Caricamento...</div>
           ) : rows.length === 0 ? (
             <div className="text-sm text-muted-foreground py-8 text-center border-2 border-dashed rounded-md">
-              Nessun acconto trovato con i filtri correnti
+              Nessuna partita trovata con i filtri correnti
             </div>
           ) : (
             <Table>
@@ -220,6 +222,8 @@ export default function RiepilogoAnticipiPage() {
                 <TableRow>
                   <TableHead>Data</TableHead>
                   <TableHead>Cliente</TableHead>
+                  <TableHead>Causale</TableHead>
+                  <TableHead>Segno</TableHead>
                   <TableHead>Conto</TableHead>
                   <TableHead className="text-right">Importo</TableHead>
                   <TableHead className="text-right">Residuo</TableHead>
@@ -245,19 +249,27 @@ export default function RiepilogoAnticipiPage() {
                     >
                       {labelCliente(r.cliente)}
                     </TableCell>
+                    <TableCell className="text-sm">
+                      <span className="font-mono text-xs">{r.causale?.codice || "—"}</span>
+                    </TableCell>
+                    <TableCell className={`text-sm font-mono font-bold ${r.segno === "-" ? "text-red-600" : "text-green-600"}`}>
+                      {r.segno || "+"}
+                    </TableCell>
                     <TableCell className="text-sm">{r.conto?.etichetta || "—"}</TableCell>
                     <TableCell className="text-sm text-right">{fmtEuro(r.importo)}</TableCell>
-                    <TableCell className="text-sm text-right font-medium">{fmtEuro(r.importo_residuo)}</TableCell>
+                    <TableCell className="text-sm text-right font-medium">
+                      {r.segno === "-" ? "—" : fmtEuro(r.importo_residuo)}
+                    </TableCell>
                     <TableCell><StatoBadge r={r} /></TableCell>
                     <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{r.note || "—"}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      {r.importo_residuo === r.importo && !r.rimborsato_il && (
+                      {(r.segno === "-" || r.importo_residuo === r.importo) && !r.rimborsato_il && (
                         <Button
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7"
                           onClick={() => {
-                            if (confirm("Eliminare questo acconto?")) elimina.mutate(r.id);
+                            if (confirm("Eliminare questa partita?")) elimina.mutate(r.id);
                           }}
                         >
                           <Trash2 className="w-3 h-3 text-destructive" />

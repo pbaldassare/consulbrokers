@@ -17,7 +17,10 @@ export interface Anticipo {
   titolo_origine_id?: string | null;
   rimborsato_il?: string | null;
   rimborsato_note?: string | null;
+  causale_id: string;
+  segno: "+" | "-";
   conto?: { id: string; etichetta: string; iban: string } | null;
+  causale?: { id: string; codice: string; descrizione: string } | null;
 }
 
 export interface AnticipoUtilizzo {
@@ -46,7 +49,7 @@ export function useAnticipiCliente(clienteId: string | undefined) {
     enabled: !!clienteId,
     queryFn: async () => {
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
-        .select("*, conto:conti_bancari(id, etichetta, iban)")
+        .select("*, conto:conti_bancari(id, etichetta, iban), causale:causali_contabili(id, codice, descrizione)")
         .eq("cliente_id", clienteId)
         .order("data_anticipo", { ascending: false });
       if (error) throw error;
@@ -61,8 +64,9 @@ export function useAnticipiDisponibili(clienteId: string | undefined) {
     enabled: !!clienteId,
     queryFn: async () => {
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
-        .select("*, conto:conti_bancari(id, etichetta, iban)")
+        .select("*, conto:conti_bancari(id, etichetta, iban), causale:causali_contabili(id, codice, descrizione)")
         .eq("cliente_id", clienteId)
+        .eq("segno", "+")
         .gt("importo_residuo", 0)
         .is("rimborsato_il", null)
         .order("data_anticipo", { ascending: true });
@@ -90,7 +94,14 @@ export function useAnticipoUtilizzi(anticipoId: string | undefined) {
 export function useCreaAnticipo(clienteId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { data_anticipo: string; conto_bancario_id: string | null; importo: number; note?: string | null }) => {
+    mutationFn: async (input: {
+      data_anticipo: string;
+      conto_bancario_id: string | null;
+      importo: number;
+      note?: string | null;
+      causale_id: string;
+      segno: "+" | "-";
+    }) => {
       const { data: user } = await supabase.auth.getUser();
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
         .insert({
@@ -99,6 +110,10 @@ export function useCreaAnticipo(clienteId: string) {
           conto_bancario_id: input.conto_bancario_id,
           importo: input.importo,
           note: input.note ?? null,
+          causale_id: input.causale_id,
+          segno: input.segno,
+          // Partite a debito: residuo 0 (non utilizzabili come credito in messa a cassa)
+          importo_residuo: input.segno === "-" ? 0 : input.importo,
           creato_da: user.user?.id ?? null,
         })
         .select()
@@ -108,7 +123,13 @@ export function useCreaAnticipo(clienteId: string) {
         azione: "anticipo_creato",
         entita_tipo: "cliente",
         entita_id: clienteId,
-        dettagli_json: { anticipo_id: data.id, importo: input.importo, data: input.data_anticipo },
+        dettagli_json: {
+          anticipo_id: data.id,
+          importo: input.importo,
+          segno: input.segno,
+          causale_id: input.causale_id,
+          data: input.data_anticipo,
+        },
       });
       return data;
     },
@@ -117,9 +138,9 @@ export function useCreaAnticipo(clienteId: string) {
       qc.invalidateQueries({ queryKey: ["cliente-anticipi-disponibili", clienteId] });
       qc.invalidateQueries({ queryKey: ["anticipi-globale"] });
       qc.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
-      toast.success("Acconto creato");
+      toast.success("Acconto / compensazione creato");
     },
-    onError: (e: any) => toast.error(e?.message || "Errore creazione acconto"),
+    onError: (e: any) => toast.error(e?.message || "Errore creazione"),
   });
 }
 

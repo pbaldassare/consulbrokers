@@ -164,6 +164,8 @@ export async function ricongiungiEFinalizzaBonificoDaIncasso(opts: {
   userId: string | null;
   clienteLabel: string;
   ufficioIdHint?: string | null;
+  /** Se true, non crea un secondo acconto in cliente_anticipi (già registrato via causale ECCED). */
+  skipClienteAnticipoInsert?: boolean;
 }): Promise<void> {
   const righe = opts.titoli.filter((t) => t.importo > 0 && t.clienteId && t.titoloId);
   if (righe.length === 0) throw new Error("Nessuna quota bonifico da collegare");
@@ -293,7 +295,7 @@ export async function ricongiungiEFinalizzaBonificoDaIncasso(opts: {
     clienteId: opts.clientePagatoreId,
     contoBancarioId: opts.contoBancarioId ?? (mov as any).conto_bancario_id ?? null,
     dataMessaCassa: opts.dataMessaCassa,
-    anticipoImporto: anticipo,
+    anticipoImporto: opts.skipClienteAnticipoInsert ? 0 : anticipo,
     ammancoImporto: ammanco,
     polizzeLineIds,
     userId: opts.userId,

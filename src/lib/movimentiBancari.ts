@@ -568,6 +568,21 @@ export async function finalizeMovimentoBancarioIncasso(p: FinalizeMovimentoParam
 
   const ant = round2(Number(p.anticipoImporto) || 0);
   if (ant > 0) {
+    let causaleId: string | null = null;
+    for (const codice of ["ECCED", "ACC_CRED", "ACC_STOR"]) {
+      const { data: c } = await supabase
+        .from("causali_contabili" as any)
+        .select("id")
+        .eq("tipo_tabella", "compensazione_messa_cassa")
+        .eq("codice", codice)
+        .maybeSingle();
+      if ((c as any)?.id) {
+        causaleId = (c as any).id;
+        break;
+      }
+    }
+    if (!causaleId) throw new Error("Causale contabile ECCED non trovata per acconto da bonifico");
+
     const { error: errAnt } = await supabase.from("cliente_anticipi" as any).insert({
       cliente_id: p.clienteId,
       conto_bancario_id: p.contoBancarioId,
@@ -575,6 +590,8 @@ export async function finalizeMovimentoBancarioIncasso(p: FinalizeMovimentoParam
       data_anticipo: today,
       importo: ant,
       importo_residuo: ant,
+      causale_id: causaleId,
+      segno: "+",
       note: p.note ?? `Eccedenza bonifico movimento ${p.movimentoId.slice(0, 8)}`,
       creato_da: p.userId,
     } as any);

@@ -3,7 +3,9 @@ import {
   isRigaEsclusaProvvigioni,
   resolveRowPctAccessori,
   type MatriceProvvAccessori,
-} from "@/lib/calcProvvigioniGaranzia";import { parseDecimalItOr } from "@/lib/number";
+} from "@/lib/calcProvvigioniGaranzia";
+import { parseDecimalItOr } from "@/lib/number";
+
 
 /** Importo provvigione da % manuale su base unica (legacy / display inverso). */
 export function provvigioniImportoFromPct(base: number, pctStr: string): number {
@@ -44,4 +46,21 @@ export function isProvvigioniManualStored(stored: number, calculated: number): b
 export function provvigioniPctFromImporto(importo: number, base: number): string {
   if (base <= 0 || !Number.isFinite(importo)) return "";
   return String((importo / base) * 100);
+}
+
+/**
+ * % effettiva del blocco Firma/Quietanza sul premio netto.
+ * Unica verità UI quando il blocco è in modalità manuale (non matrice).
+ */
+export function provvigioniPctEffettivaBlocco(importoBlocco: number, premioNetto: number): number {
+  if (premioNetto <= 0 || !Number.isFinite(importoBlocco)) return 0;
+  return (importoBlocco / premioNetto) * 100;
+}
+
+/**
+ * Persistenza ufficiale: sempre il totale del blocco.
+ * Matrice / somma righe non devono sovrascrivere `provvigioni_firma|quietanza`.
+ */
+export function resolveProvvigioniForSave(blockImporto: number): number {
+  return Math.round(blockImporto * 100) / 100;
 }

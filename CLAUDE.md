@@ -44,7 +44,7 @@ Guida operativa per agenti AI esterni (Cursor, Claude Code, ecc.) che devono lav
 
 ```sh
 bun install            # installa dipendenze
-bun run dev            # dev server su http://localhost:8082
+bun run dev            # dev server su http://localhost:5175
 bun run build          # build di produzione
 bun run build:dev      # build development
 bun run lint           # ESLint
@@ -54,7 +54,7 @@ bun run test:e2e       # Playwright e2e
 bun run preview        # anteprima build
 ```
 
-Dev server: porta **8082** (dedicata CBnet; la 8080 è spesso occupata da altri progetti), host `::`, header `Cache-Control: no-store`.  
+Dev server: porta **5175** (`VITE_DEV_PORT`; la 8080 è spesso occupata da altri progetti), host `::`, header `Cache-Control: no-store`.  
 Migrazioni: `supabase/migrations/` (323 file).  
 Edge functions: `supabase/functions/` (42+ funzioni Deno).  
 Config `verify_jwt` per funzione: `supabase/config.toml`.

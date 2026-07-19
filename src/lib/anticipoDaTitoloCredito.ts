@@ -17,9 +17,22 @@ export function isTitoloACredito(t: {
   return creditoDaPremioLordo(t.premio_lordo) > 0;
 }
 
+/** Risolve l'id causale ACC_CRED (fallback ECCED / ACC_STOR). */
+async function resolveCausaleAccontoCredito(supabase: SupabaseClient): Promise<string | null> {
+  for (const codice of ["ACC_CRED", "ECCED", "ACC_STOR"]) {
+    const { data } = await (supabase.from("causali_contabili") as any)
+      .select("id")
+      .eq("tipo_tabella", "compensazione_messa_cassa")
+      .eq("codice", codice)
+      .maybeSingle();
+    if (data?.id) return data.id as string;
+  }
+  return null;
+}
+
 /**
  * Dopo messa a cassa completa di un titolo a credito, crea (idempotente)
- * un acconto cliente riutilizzabile / rimborsabile.
+ * un acconto cliente riutilizzabile / rimborsabile, sempre con causale contabile.
  */
 export async function creaAnticipoDaTitoloACredito(
   supabase: SupabaseClient,
@@ -30,6 +43,7 @@ export async function creaAnticipoDaTitoloACredito(
     numeroTitolo?: string | null;
     dataAnticipo: string;
     userId?: string | null;
+    causaleId?: string | null;
   },
 ): Promise<{ ok: boolean; anticipoId?: string; importo?: number; skipped?: boolean; error?: string }> {
   const importo = creditoDaPremioLordo(opts.premioLordo);
@@ -45,6 +59,9 @@ export async function creaAnticipoDaTitoloACredito(
     return { ok: true, anticipoId: existing.id, importo: Number(existing.importo) || importo, skipped: true };
   }
 
+  const causaleId = opts.causaleId || (await resolveCausaleAccontoCredito(supabase));
+  if (!causaleId) return { ok: false, error: "Causale contabile ACC_CRED/ECCED non trovata" };
+
   const num = (opts.numeroTitolo || "").trim() || opts.titoloId.slice(0, 8);
   const note = `Da appendice/titolo a credito ${num} (conguaglio premio)`;
 
@@ -58,6 +75,8 @@ export async function creaAnticipoDaTitoloACredito(
       titolo_origine_id: opts.titoloId,
       creato_da: opts.userId ?? null,
       conto_bancario_id: null,
+      causale_id: causaleId,
+      segno: "+",
     })
     .select("id, importo")
     .single();

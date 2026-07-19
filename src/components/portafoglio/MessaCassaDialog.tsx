@@ -155,7 +155,7 @@ interface CompensazioneRow {
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const TOLLERANZA_QUADRATURA = 0.01;
+/** Quadratura stretta: niente tolleranza — delta deve essere 0 (eventuali scostamenti via causali). */
 const isBonificoTipo = (tipo: string) => tipo === "bonifico";
 
 interface MovimentoPreview {
@@ -231,6 +231,7 @@ export const MessaCassaDialog = ({
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
         .select("id, data_anticipo, importo, importo_residuo, conto_bancario_id, note, titolo_origine_id, conto:conti_bancari(etichetta)")
         .eq("cliente_id", effettivoPagatoreId)
+        .eq("segno", "+")
         .gt("importo_residuo", 0)
         .is("rimborsato_il", null)
         .order("data_anticipo", { ascending: true });
@@ -689,8 +690,16 @@ export const MessaCassaDialog = ({
     [compensazioniByTitolo]
   );
   const totaleAnticipiUsati = round2(Object.values(anticipiSel).reduce((s, v) => s + (Number(v) || 0), 0));
-  const totaleCompPlus = round2(allCompensazioni.filter((c) => c.segno === "+").reduce((s, c) => s + c.importo, 0));
-  const totaleCompMinus = round2(allCompensazioni.filter((c) => c.segno === "-").reduce((s, c) => s + c.importo, 0));
+  const totaleCompPlus = round2(
+    allCompensazioni
+      .filter((c) => c.segno === "+" && c.effetto !== "eccedenza")
+      .reduce((s, c) => s + c.importo, 0),
+  );
+  const totaleCompMinus = round2(
+    allCompensazioni
+      .filter((c) => c.segno === "-" && c.effetto !== "eccedenza")
+      .reduce((s, c) => s + c.importo, 0),
+  );
   const dovutoFinale = round2(totaleLordo + totaleCompMinus - totaleCompPlus);
 
   const totaleDovutoConsul = useMemo(() => {
@@ -698,8 +707,12 @@ export const MessaCassaDialog = ({
       titoli.reduce((sum, t) => {
         const lordo = Number(t.premio_lordo) || 0;
         const compForThis = compensazioniByTitolo[t.id] || [];
-        const compPlusT = compForThis.filter((c) => c.segno === "+").reduce((s, c) => s + c.importo, 0);
-        const compMinusT = compForThis.filter((c) => c.segno === "-").reduce((s, c) => s + c.importo, 0);
+        const compPlusT = compForThis
+          .filter((c) => c.segno === "+" && c.effetto !== "eccedenza")
+          .reduce((s, c) => s + c.importo, 0);
+        const compMinusT = compForThis
+          .filter((c) => c.segno === "-" && c.effetto !== "eccedenza")
+          .reduce((s, c) => s + c.importo, 0);
         const dovutoT = round2(lordo + compMinusT - compPlusT);
         const tr = trattenutaByTitolo.get(t.id);
         if (tr) {
@@ -715,13 +728,27 @@ export const MessaCassaDialog = ({
     : round2(Number(form.cashImporto) || 0);
   const coperto = round2(cashEffettivo + totaleAnticipiUsati);
   const delta = round2(totaleDovutoConsul - coperto);
+  /** Surplus di cassa/anticipi rispetto al dovuto (es. Contanti 383 su premio 176 → 207). */
+  const surplusIncasso = round2(Math.max(0, -delta));
+
+  const totaleEccedenzaCausali = round2(
+    allCompensazioni
+      .filter((c) => c.effetto === "eccedenza" && c.importo > 0)
+      .reduce((s, c) => s + c.importo, 0),
+  );
+  /** Surplus coperto esattamente da causali ECCED → acconto, non altera il premio. */
+  const eccedenzaCashCoperto =
+    surplusIncasso > 0 && totaleEccedenzaCausali === surplusIncasso;
+
   // Chiusura conguaglio a credito: nessun cash/acconto da quadrare
-  const isChiusuraCredito = dovutoFinale < -TOLLERANZA_QUADRATURA;
+  const isChiusuraCredito = dovutoFinale < 0;
   const quadrato = bankIncasso
     ? true
     : isChiusuraCredito
-      ? Math.abs(totaleAnticipiUsati) < TOLLERANZA_QUADRATURA && Math.abs(cashEffettivo) < TOLLERANZA_QUADRATURA
-      : Math.abs(delta) < TOLLERANZA_QUADRATURA;
+      ? totaleAnticipiUsati === 0 && cashEffettivo === 0
+      : surplusIncasso > 0
+        ? eccedenzaCashCoperto
+        : delta === 0;
 
   const isBonifico = isBonificoTipo(form.tipoPagamento);
   /** Pannello conti+estratti visibile per ogni bonifico (anche incasso a 0). */
@@ -785,6 +812,28 @@ export const MessaCassaDialog = ({
     () => bonificiCandidati.find((b) => b.id === selectedBonificoId) ?? null,
     [bonificiCandidati, selectedBonificoId],
   );
+
+  /** Eccedenza/mancanza del bonifico rispetto al cash applicato alle quietanze. */
+  const eccedenzaBonifico = selectedBonifico
+    ? round2(selectedBonifico.importo - cashEffettivo)
+    : 0;
+  /** Bonifico allineato: importo = cash, oppure eccedenza coperta esattamente da causale ECCED. */
+  const bonificoAllineato =
+    !selectedBonifico ||
+    eccedenzaBonifico === 0 ||
+    (eccedenzaBonifico > 0 && totaleEccedenzaCausali === eccedenzaBonifico);
+  /** Importo da proporre in nuova causale: surplus cash, oppure eccedenza bonifico, oppure |delta|. */
+  const suggestCompImporto = isMulti
+    ? 0
+    : surplusIncasso > 0
+      ? surplusIncasso
+      : eccedenzaBonifico > 0
+        ? eccedenzaBonifico
+        : round2(Math.abs(delta));
+  const eccedenzaCausaliUsataPerAcconto =
+    (surplusIncasso > 0 && totaleEccedenzaCausali === surplusIncasso) ||
+    (eccedenzaBonifico > 0 && totaleEccedenzaCausali === eccedenzaBonifico);
+  const puoConfermare = quadrato && bonificoAllineato && eccedenzaBonifico >= 0;
 
   const { data: contiBonificoRaw = [] } = useQuery({
     queryKey: ["messa-cassa-conti-bonifico"],
@@ -925,7 +974,25 @@ export const MessaCassaDialog = ({
   const handleConferma = async () => {
     if (titoli.length === 0) return;
     if (!quadrato) {
-      toast.error(`Non quadra: delta ${fmtEuro(delta)}`);
+      if (surplusIncasso > 0) {
+        toast.error(
+          `Eccedenza incasso ${fmtEuro(surplusIncasso)}: aggiungi causale ECCED per lo stesso importo (ora ${fmtEuro(totaleEccedenzaCausali)}). Diventa acconto cliente.`,
+        );
+      } else {
+        toast.error(`Non quadra: delta ${fmtEuro(delta)}. Usa le causali contabili (+/−) per azzerare lo scostamento.`);
+      }
+      return;
+    }
+    if (selectedBonifico && eccedenzaBonifico < 0) {
+      toast.error(
+        `Il bonifico (${fmtEuro(selectedBonifico.importo)}) è inferiore al cash (${fmtEuro(cashEffettivo)}). Aggiusta importo o causali.`,
+      );
+      return;
+    }
+    if (selectedBonifico && eccedenzaBonifico > 0 && totaleEccedenzaCausali !== eccedenzaBonifico) {
+      toast.error(
+        `Eccedenza bonifico ${fmtEuro(eccedenzaBonifico)}: aggiungi causale ECCED per lo stesso importo (ora ${fmtEuro(totaleEccedenzaCausali)}).`,
+      );
       return;
     }
     if (isBonificoTipo(form.tipoPagamento) && !form.banca && !bankIncasso?.contoBancarioId) {
@@ -1011,8 +1078,12 @@ export const MessaCassaDialog = ({
         .maybeSingle();
 
       const compForThis = getComp(t.id);
-      const compPlusT = compForThis.filter((c) => c.segno === "+").reduce((s, c) => s + c.importo, 0);
-      const compMinusT = compForThis.filter((c) => c.segno === "-").reduce((s, c) => s + c.importo, 0);
+      const compPlusT = compForThis
+        .filter((c) => c.segno === "+" && c.effetto !== "eccedenza")
+        .reduce((s, c) => s + c.importo, 0);
+      const compMinusT = compForThis
+        .filter((c) => c.segno === "-" && c.effetto !== "eccedenza")
+        .reduce((s, c) => s + c.importo, 0);
       const dovutoT = round2(lordo + compMinusT - compPlusT);
 
       let daCoprireT = dovutoT;
@@ -1082,7 +1153,7 @@ export const MessaCassaDialog = ({
       // Entrambe contribuiscono all'importo_incassato, altrimenti i pagamenti
       // fatti interamente con acconti lasciano il titolo in stato "attivo".
       const nuovoIncassato = round2(prevIncassato + residuoCash + usatoTitolo);
-      const isFullIncasso = nuovoIncassato + TOLLERANZA_QUADRATURA >= dovutoT;
+      const isFullIncasso = nuovoIncassato >= dovutoT;
 
       const payload: any = {
         importo_incassato: nuovoIncassato,
@@ -1241,7 +1312,7 @@ export const MessaCassaDialog = ({
         }
 
         // Eccedenza di conto: il surplus versato dal cliente diventa un acconto
-        // riutilizzabile nelle messe a cassa future (cliente_anticipi).
+        // riutilizzabile (sempre con causale_id + segno dalla riga compensazione).
         const eccedenze = compForThis.filter((c) => c.effetto === "eccedenza" && c.importo > 0);
         if (eccedenze.length > 0) {
           const clienteAnticipoId = effettivoPagatoreId || t.cliente_anagrafica_id || null;
@@ -1252,6 +1323,8 @@ export const MessaCassaDialog = ({
               data_anticipo: d.mc,
               conto_bancario_id: contoId,
               importo: c.importo,
+              causale_id: c.causale_id,
+              segno: c.segno === "-" ? "-" : "+",
               note: `Eccedenza di conto da messa a cassa titolo ${t.numero_titolo ?? t.id}${c.note ? " · " + c.note : ""}`,
               creato_da: userId,
             }));
@@ -1360,6 +1433,8 @@ export const MessaCassaDialog = ({
             userId,
             clienteLabel: clienteNomeById.get(pagatore) || "Cliente",
             ufficioIdHint: titoli.find((t) => t.ufficio_id)?.ufficio_id ?? null,
+            // Acconto già creato via causale ECCED in messa a cassa → non duplicare
+            skipClienteAnticipoInsert: eccedenzaCausaliUsataPerAcconto,
           });
           toast.success("Bonifico collegato e segnato sui caricamenti conti");
           queryClient.invalidateQueries({ queryKey: ["movimenti-bancari"] });
@@ -1386,7 +1461,7 @@ export const MessaCassaDialog = ({
       const parziali = bankIncasso && titoli.some((t) => {
         const imp = bankIncasso.importoByTitoloId[t.id] ?? 0;
         const lordo = Number(t.premio_lordo) || 0;
-        return imp > 0 && imp < lordo - TOLLERANZA_QUADRATURA;
+        return imp > 0 && imp < lordo;
       });
       toast.success(
         isMulti
@@ -1504,7 +1579,7 @@ export const MessaCassaDialog = ({
           <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
             <Calculator className="w-4 h-4" /> Compensazioni contabili
           </div>
-          <Select value="" onValueChange={(v) => v && addCompFor(titoloId, v, isMulti ? 0 : Math.abs(delta))}>
+          <Select value="" onValueChange={(v) => v && addCompFor(titoloId, v, suggestCompImporto)}>
             <SelectTrigger className="w-56 h-8 text-xs">
               <SelectValue placeholder="+ Aggiungi causale..." />
             </SelectTrigger>
@@ -1513,6 +1588,9 @@ export const MessaCassaDialog = ({
                 <SelectItem key={c.id} value={c.id} className="text-xs">
                   <span className="font-mono mr-2">{c.segno_default}</span>
                   {c.codice} — {c.descrizione}
+                  {c.effetto_contabile === "eccedenza" && suggestCompImporto > 0 ? (
+                    <span className="text-amber-700 ml-1">(suggerito {fmtEuro(suggestCompImporto)})</span>
+                  ) : null}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1521,7 +1599,16 @@ export const MessaCassaDialog = ({
 
         {list.length === 0 ? (
           <p className="text-xs text-muted-foreground italic">
-            Nessuna compensazione. Usa per abbuoni (anche negativi), sconti, arrotondamenti, pagamento diretto compagnia ed eccedenze di conto.
+            {surplusIncasso > 0 || eccedenzaBonifico > 0 ? (
+              <>
+                Incasso superiore al dovuto ({fmtEuro(surplusIncasso > 0 ? surplusIncasso : eccedenzaBonifico)}):
+                aggiungi causale <strong>ECCED</strong> per quel importo → diventa acconto. Per sconti/abbuoni usa le altre causali (+/−).
+              </>
+            ) : (
+              <>
+                Nessuna compensazione. Usa per abbuoni (anche negativi), sconti, arrotondamenti, pagamento diretto compagnia ed eccedenze di conto (ECCED).
+              </>
+            )}
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -2082,17 +2169,6 @@ export const MessaCassaDialog = ({
                             </table>
                           </div>
                         )}
-                        {selectedBonifico && (
-                          <p className="text-[11px] text-primary">
-                            Selezionato per congiungimento: <strong>{fmtEuro(selectedBonifico.importo)}</strong>
-                            {round2(selectedBonifico.importo - cashEffettivo) > 0.01
-                              ? ` · eccedenza ${fmtEuro(selectedBonifico.importo - cashEffettivo)} → acconto`
-                              : ""}
-                            {round2(cashEffettivo - selectedBonifico.importo) > 0.01
-                              ? ` · mancano ${fmtEuro(cashEffettivo - selectedBonifico.importo)} rispetto all'incasso`
-                              : ""}
-                          </p>
-                        )}
                       </>
                     )}
                   </div>
@@ -2132,10 +2208,63 @@ export const MessaCassaDialog = ({
             {totaleAnticipiUsati > 0 && (
               <div className="flex justify-between text-primary"><span>− Acconti utilizzati</span><span>− {fmtEuro(totaleAnticipiUsati)}</span></div>
             )}
-            <div className="flex justify-between"><span>− Cash/bonifico</span><span>− {fmtEuro(cashEffettivo)}</span></div>
-            <div className={`flex justify-between font-bold border-t pt-1 ${quadrato ? "text-green-700" : "text-red-700"}`}>
-              <span>{quadrato ? "✅ Quadrato" : "⚠️ Delta da quadrare"}</span>
-              <span>{fmtEuro(delta)}</span>
+            <div className="flex justify-between"><span>− Cash/bonifico (applicato)</span><span>− {fmtEuro(cashEffettivo)}</span></div>
+            {surplusIncasso > 0 && (
+              <div className={`rounded border p-2 space-y-0.5 my-1 ${eccedenzaCashCoperto ? "border-green-300 bg-green-50/50 dark:bg-green-950/20" : "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20"}`}>
+                <div className={`font-medium ${eccedenzaCashCoperto ? "text-green-800 dark:text-green-300" : "text-amber-800 dark:text-amber-300"}`}>
+                  Eccedenza incasso → causale ECCED (acconto)
+                </div>
+                <div className="flex justify-between">
+                  <span>Surplus rispetto al dovuto</span>
+                  <span>
+                    {fmtEuro(surplusIncasso)}
+                    {eccedenzaCashCoperto ? " ✓" : ` · causali ${fmtEuro(totaleEccedenzaCausali)}`}
+                  </span>
+                </div>
+                {!eccedenzaCashCoperto && (
+                  <p className="text-[10px] text-amber-800 dark:text-amber-300 pt-0.5">
+                    Aggiungi causale <strong>ECCED</strong> per esattamente {fmtEuro(surplusIncasso)} nelle compensazioni contabili. Non modifica il premio: crea un acconto riutilizzabile.
+                  </p>
+                )}
+              </div>
+            )}
+            {selectedBonifico && (
+              <div className="rounded border border-primary/30 bg-primary/5 p-2 space-y-0.5 my-1">
+                <div className="font-medium text-primary">Bonifico selezionato per congiungimento</div>
+                <div className="flex justify-between">
+                  <span>Importo movimento</span>
+                  <span>{fmtEuro(selectedBonifico.importo)}</span>
+                </div>
+                {eccedenzaBonifico > 0 && (
+                  <div className={`flex justify-between ${bonificoAllineato ? "text-green-700" : "text-amber-700"}`}>
+                    <span>Eccedenza → causale ECCED (acconto)</span>
+                    <span>
+                      {fmtEuro(eccedenzaBonifico)}
+                      {bonificoAllineato
+                        ? " ✓"
+                        : ` · causali ${fmtEuro(totaleEccedenzaCausali)}`}
+                    </span>
+                  </div>
+                )}
+                {eccedenzaBonifico < 0 && (
+                  <div className="flex justify-between text-red-700">
+                    <span>Mancano rispetto al cash</span>
+                    <span>{fmtEuro(-eccedenzaBonifico)}</span>
+                  </div>
+                )}
+                {eccedenzaBonifico === 0 && (
+                  <div className="text-green-700">Bonifico allineato al cash ✓</div>
+                )}
+                {eccedenzaBonifico > 0 && !bonificoAllineato && (
+                  <p className="text-[10px] text-amber-800 dark:text-amber-300 pt-0.5">
+                    Aggiungi causale <strong>ECCED</strong> per esattamente {fmtEuro(eccedenzaBonifico)} nelle compensazioni contabili.
+                  </p>
+                )}
+              </div>
+            )}
+            <div className={`flex justify-between font-bold border-t pt-1 ${puoConfermare ? "text-green-700" : "text-red-700"}`}>
+              <span>{puoConfermare ? "✅ Quadrato" : "⚠️ Da quadrare (causali / bonifico)"}</span>
+              <span>{fmtEuro(eccedenzaCashCoperto ? 0 : delta)}</span>
             </div>
           </div>
 
@@ -2250,7 +2379,7 @@ export const MessaCassaDialog = ({
 
           <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
             <p className="text-sm font-medium text-destructive">
-              ⚠️ Operazione irreversibile senza privilegi admin. Tolleranza quadratura: {fmtEuro(TOLLERANZA_QUADRATURA)}.
+              ⚠️ Operazione irreversibile senza privilegi admin. Quadratura stretta: delta a zero, oppure eccedenza cassa/bonifico coperta da causale ECCED (acconto). Le altre causali (+/−) rettificano il dovuto.
             </p>
           </div>
         </div>
@@ -2265,7 +2394,7 @@ export const MessaCassaDialog = ({
             className="bg-green-600 hover:bg-green-700 text-white"
             disabled={
               loading ||
-              !quadrato ||
+              !puoConfermare ||
               (isBonifico && !form.banca && !bankIncasso?.contoBancarioId) ||
               (needsBonificoLink && bonificiCandidati.length > 0 && !selectedBonificoId)
             }

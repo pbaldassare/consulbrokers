@@ -15,9 +15,15 @@ import {
   calcTasseRiga,
   calcLordoGaranziaRow,
   calcTasseEffettiveRiga,
+  decomposeLordoToPremi,
 } from "@/lib/calcProvvigioniGaranzia";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** True se netto o accessori hanno un importo non nullo (anche negativo / appendice a credito). */
+function hasImponibile(netto: number, accessori: number): boolean {
+  return Math.abs(netto) > 0.0001 || Math.abs(accessori) > 0.0001;
+}
 
 /** Normalizza una stringa numerica inserita dall'utente al blur: "476,5" → "476.50". */
 function normalizeDecimalOnBlur(value: string, decimals = 2): string {
@@ -398,7 +404,7 @@ export function PremiGaranziaCardShell({
     const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
     const netto = parseDecimalItOr(rows[idx]?.netto);
     const accessori = parseDecimalItOr(rows[idx]?.accessori);
-    const tasseCalc = !escludi && !diritti && (netto > 0 || accessori > 0) && aliquota > 0
+    const tasseCalc = !escludi && !diritti && hasImponibile(netto, accessori) && aliquota > 0
       ? calcTasseRiga(netto, accessori, aliquota)
       : 0;
     updateRow(idx, {
@@ -408,10 +414,10 @@ export function PremiGaranziaCardShell({
       aliquotaTasse: aliquota,
       netto: diritti ? "" : rows[idx]?.netto || "",
       accessori: diritti ? "" : rows[idx]?.accessori || "",
-      tasse: escludi ? "0" : diritti ? (rows[idx]?.tasse || "") : (netto > 0 && aliquota > 0 ? tasseCalc.toFixed(2) : rows[idx]?.tasse || ""),
+      tasse: escludi ? "0" : diritti ? (rows[idx]?.tasse || "") : (hasImponibile(netto, 0) && aliquota > 0 ? tasseCalc.toFixed(2) : rows[idx]?.tasse || ""),
       ssnAttivo,
       aliquotaSsn,
-      ssn: diritti ? "" : (ssnAttivo && netto > 0 ? calcSsn(netto, tasseCalc, aliquotaSsn).toFixed(2) : ""),
+      ssn: diritti ? "" : (ssnAttivo && Math.abs(netto) > 0.0001 ? calcSsn(netto, tasseCalc, aliquotaSsn).toFixed(2) : ""),
       ssnManualOverride: false,
       escludiProvvigioni: escludi,
       dirittiAgenzia: diritti,
@@ -543,7 +549,7 @@ export function PremiGaranziaCardShell({
       updateRow(idx, {
         tasseManualOverride: false,
         tasseRettifica: "",
-        tasse: (netto > 0 || accessori > 0) && (r.aliquotaTasse || 0) > 0
+        tasse: hasImponibile(netto, accessori) && (r.aliquotaTasse || 0) > 0
           ? autoTasse.toFixed(2)
           : (r.tasse || ""),
         ssn: r.ssnAttivo ? ssnVal.toFixed(2) : (r.ssn || ""),
@@ -571,32 +577,19 @@ export function PremiGaranziaCardShell({
     const accessori = parseDecimalItOr(r?.accessori);
     const ssnAuto = !!r?.ssnAttivo && !r?.ssnManualOverride && aliquotaSsn > 0;
     const ssnManuale = !ssnAuto && r?.ssnAttivo ? parseDecimalItOr(r?.ssn) : 0;
-    const r1 = aliquota / 100;
-    const r2 = ssnAuto ? aliquotaSsn / 100 : 0;
-    const lordoSenzaSsnManuale = Math.max(0, lordo - ssnManuale);
-    let nettoCalc: number;
-    let tasseCalc: number;
-    let ssnCalc: number;
-    if (r1 + r2 > 0) {
-      nettoCalc = (lordoSenzaSsnManuale - accessori * (1 + r1)) / (1 + r1 + r2);
-      if (nettoCalc < 0) nettoCalc = 0;
-      tasseCalc = (nettoCalc + accessori) * r1;
-      ssnCalc = ssnAuto ? nettoCalc * r2 : ssnManuale;
-    } else {
-      nettoCalc = Math.max(0, lordoSenzaSsnManuale - accessori);
-      tasseCalc = 0;
-      ssnCalc = ssnManuale;
-    }
-    const round2 = (n: number) => Math.round(n * 100) / 100;
-    const nettoR = round2(nettoCalc);
-    const ssnR = r?.ssnAttivo ? round2(ssnCalc) : 0;
-    const tasseAutoR = r1 + r2 > 0 ? round2((nettoR + accessori) * r1) : round2(tasseCalc);
-    const rettificaR = round2(lordo - nettoR - accessori - ssnR - tasseAutoR);
+    const parts = decomposeLordoToPremi({
+      lordo,
+      accessori,
+      aliquotaTassePct: aliquota,
+      ssnAuto,
+      aliquotaSsnPct: aliquotaSsn,
+      ssnManuale,
+    });
     updateRow(idx, {
-      netto: nettoR.toFixed(2),
-      tasse: tasseAutoR.toFixed(2),
-      tasseRettifica: rettificaR !== 0 ? rettificaR.toFixed(2) : "",
-      ssn: r?.ssnAttivo ? ssnR.toFixed(2) : (r?.ssn || ""),
+      netto: parts.netto.toFixed(2),
+      tasse: parts.tasse.toFixed(2),
+      tasseRettifica: parts.tasseRettifica !== 0 ? parts.tasseRettifica.toFixed(2) : "",
+      ssn: r?.ssnAttivo ? parts.ssn.toFixed(2) : (r?.ssn || ""),
     });
   };
 

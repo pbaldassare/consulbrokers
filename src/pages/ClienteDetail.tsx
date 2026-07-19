@@ -1455,6 +1455,8 @@ function PolizzeClienteTable({
   };
   return (
     <div className="space-y-3">
+      {/* Toolbar + filtri sticky sotto header/tab cliente (offset ≈ topbar 3.5rem + chrome sticky) */}
+      <div className="sticky top-[11rem] z-10 -mx-2 px-2 pt-1 pb-3 space-y-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60 shadow-sm">
       {/* Toolbar: filtro Tipo (solo se non in mode fisso) + mini-KPI */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {mode ? <div /> : (
@@ -1602,6 +1604,7 @@ function PolizzeClienteTable({
           )}
         </div>
       )}
+      </div>
 
 
       <Table>
@@ -2026,6 +2029,8 @@ export default function ClienteDetail() {
   const VALID_TABS = ["polizze", "anagrafica", "sinistri", "relazioni", "documenti", "chat", "timeline", "trattative"] as const;
   const [activeTab, handleTabChange] = useTabParam(VALID_TABS, "polizze");
   const queryClient = useQueryClient();
+  const stickyChromeRef = useRef<HTMLDivElement>(null);
+  const [stickyChromeH, setStickyChromeH] = useState(176); // fallback ~11rem
   const [relazioneOpen, setRelazioneOpen] = useState(false);
   const [searchCliente, setSearchCliente] = useState("");
   const [selectedCollegatoId, setSelectedCollegatoId] = useState("");
@@ -2633,150 +2638,150 @@ export default function ClienteDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/archivi/clienti")}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{displayName}</h1>
-          <p className="text-muted-foreground flex items-center gap-1.5 flex-wrap">
-            {isPrivato ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
-            {isPrivato ? "Cliente Privato" : isAzienda ? "Cliente Azienda" : "Cliente Ente"}
-            {tipoIsAuto ? (
-              <span className="text-[10px] text-muted-foreground ml-1">(auto da Gruppo Finanziario)</span>
-            ) : (
-              <span
-                className="inline-flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 ml-1"
-                title="Nessun Gruppo Finanziario assegnato: tipologia derivata dal valore storico. Assegna un Gruppo Finanziario per allineare automaticamente i campi anagrafici."
-              >
-                <AlertTriangle className="h-3 w-3" />
-                Tipologia da valore storico — assegna un Gruppo Finanziario
-              </span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-card">
-          <Switch
-            checked={cliente.attivo ?? true}
-            onCheckedChange={async (v) => {
-              const { error } = await supabase.from("clienti").update({ attivo: v }).eq("id", cliente.id);
-              if (error) { toast.error("Errore: " + error.message); return; }
-              toast.success(v ? "Cliente attivato" : "Cliente disattivato");
-              try {
-                await logAttivita({
-                  entita_tipo: "cliente",
-                  entita_id: cliente.id,
-                  azione: v ? "cliente_attivato" : "cliente_disattivato",
-                });
-              } catch {}
-              queryClient.invalidateQueries({ queryKey: ["cliente", id] });
-              queryClient.invalidateQueries({ queryKey: ["clienti"] });
-            }}
-          />
-          <Label className="text-xs cursor-pointer select-none">
-            {cliente.attivo ? "Attivo" : "Disattivo"}
-          </Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/portafoglio/doc-precontrattuale?clienteId=${id}`)}
-          >
-            <FileText className="w-4 h-4 mr-1" /> Genera Precontrattuale
-          </Button>
-          {editMode ? (
-            <>
-              {missingRequired.length > 0 && (
-                <span className="text-xs text-destructive">Compila i campi obbligatori ({missingRequired.length})</span>
-              )}
-              <Button variant="outline" size="sm" onClick={() => { setEditFields({ ...cliente }); setEditMode(false); }}>Annulla</Button>
-              <Button
-                size="sm"
-                onClick={() => saveDetailsMutation.mutate(missingRequired)}
-                disabled={saveDetailsMutation.isPending || missingRequired.length > 0}
-              >
-                Salva
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>Modifica</Button>
-              {isAdmin && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setDeleteOpen(true)}
-                  title="Elimina cliente (lo storico polizze/sinistri/documenti viene preservato)"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Elimina
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs - positioned right after header */}
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-
-        <div className="flex items-center flex-wrap gap-1">
-          <TabsList className="flex-wrap">
-            {(() => {
-              // Conteggio basato sul numero polizza: ogni numero_titolo distinto = 1 polizza,
-              // le rate ulteriori sono quietanze. Robusto anche quando sostituisce_polizza è NULL
-              // (titoli legacy o generati dal trigger di auto-quietanza).
-              const numeriUnici = new Set(
-                polizze
-                  .filter((p: any) => !isAppendice(p))
-                  .map((p: any) => baseNumeroPolizza(p.numero_titolo))
-                  .filter(Boolean)
-              );
-              const nPol = numeriUnici.size;
-              const nApp = polizze.filter((p: any) => isAppendice(p)).length;
-              const nQuiet = countQuietanzeRateDaIncassare(polizze);
-              return (
-                <TabsTrigger value="polizze">
-                  <FileText className="w-4 h-4 mr-1" />
-                  Polizze ({nPol}) · Quietanze ({nQuiet}){nApp > 0 ? ` · Appendici (${nApp})` : ""}
-                </TabsTrigger>
-              );
-            })()}
-            <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
-            <TabsTrigger value="sinistri">
-              <AlertTriangle className="w-4 h-4 mr-1" />
-              Sinistri
-              {(relatedIds?.sinistriAperti ?? 0) > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-orange-500 text-white text-xs font-semibold">
-                  {relatedIds!.sinistriAperti}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
-            <TabsTrigger value="documenti">Documenti</TabsTrigger>
-            <TabsTrigger value="chat">Chat</TabsTrigger>
-            <TabsTrigger value="timeline">Log Attività</TabsTrigger>
-            <TabsTrigger value="trattative"><FileText className="w-4 h-4 mr-1" />Trattative</TabsTrigger>
-          </TabsList>
-          {ef.ha_incarico && (
-            <div
-              className="inline-flex items-center gap-1.5 min-h-9 px-3 py-1 rounded-md text-sm font-medium border border-input bg-background"
-              title="Incarico cliente"
-            >
-              <Briefcase className="w-4 h-4 text-primary shrink-0" />
-              <span>Incarico</span>
-              <span className="text-xs text-muted-foreground font-normal">
-                Inizio: {formatIncaricoDate(ef.incarico_da)} · Fine: {formatIncaricoDate(ef.incarico_a)}
-              </span>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-0">
+        {/* Header + tab sticky sotto Topbar (come Incassi): restano visibili mentre scorri polizze/quietanze */}
+        <div className="sticky top-14 z-20 -mx-3 sm:-mx-6 px-3 sm:px-6 pt-1 pb-3 space-y-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60 shadow-sm">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/archivi/clienti")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl font-bold truncate">{displayName}</h1>
+              <p className="text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                {isPrivato ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                {isPrivato ? "Cliente Privato" : isAzienda ? "Cliente Azienda" : "Cliente Ente"}
+                {tipoIsAuto ? (
+                  <span className="text-[10px] text-muted-foreground ml-1">(auto da Gruppo Finanziario)</span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 ml-1"
+                    title="Nessun Gruppo Finanziario assegnato: tipologia derivata dal valore storico. Assegna un Gruppo Finanziario per allineare automaticamente i campi anagrafici."
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    Tipologia da valore storico — assegna un Gruppo Finanziario
+                  </span>
+                )}
+              </p>
             </div>
-          )}
-          <AnticipiChip clienteId={id!} />
-          <AreaRiservataHeaderButton cliente={cliente} onUpdate={() => queryClient.invalidateQueries({ queryKey: ["cliente", id] })} />
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-card shrink-0">
+              <Switch
+                checked={cliente.attivo ?? true}
+                onCheckedChange={async (v) => {
+                  const { error } = await supabase.from("clienti").update({ attivo: v }).eq("id", cliente.id);
+                  if (error) { toast.error("Errore: " + error.message); return; }
+                  toast.success(v ? "Cliente attivato" : "Cliente disattivato");
+                  try {
+                    await logAttivita({
+                      entita_tipo: "cliente",
+                      entita_id: cliente.id,
+                      azione: v ? "cliente_attivato" : "cliente_disattivato",
+                    });
+                  } catch {}
+                  queryClient.invalidateQueries({ queryKey: ["cliente", id] });
+                  queryClient.invalidateQueries({ queryKey: ["clienti"] });
+                }}
+              />
+              <Label className="text-xs cursor-pointer select-none">
+                {cliente.attivo ? "Attivo" : "Disattivo"}
+              </Label>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/portafoglio/doc-precontrattuale?clienteId=${id}`)}
+              >
+                <FileText className="w-4 h-4 mr-1" /> Genera Precontrattuale
+              </Button>
+              {editMode ? (
+                <>
+                  {missingRequired.length > 0 && (
+                    <span className="text-xs text-destructive">Compila i campi obbligatori ({missingRequired.length})</span>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => { setEditFields({ ...cliente }); setEditMode(false); }}>Annulla</Button>
+                  <Button
+                    size="sm"
+                    onClick={() => saveDetailsMutation.mutate(missingRequired)}
+                    disabled={saveDetailsMutation.isPending || missingRequired.length > 0}
+                  >
+                    Salva
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>Modifica</Button>
+                  {isAdmin && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDeleteOpen(true)}
+                      title="Elimina cliente (lo storico polizze/sinistri/documenti viene preservato)"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Elimina
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center flex-wrap gap-1">
+            <TabsList className="flex-wrap">
+              {(() => {
+                // Conteggio basato sul numero polizza: ogni numero_titolo distinto = 1 polizza,
+                // le rate ulteriori sono quietanze. Robusto anche quando sostituisce_polizza è NULL
+                // (titoli legacy o generati dal trigger di auto-quietanza).
+                const numeriUnici = new Set(
+                  polizze
+                    .filter((p: any) => !isAppendice(p))
+                    .map((p: any) => baseNumeroPolizza(p.numero_titolo))
+                    .filter(Boolean)
+                );
+                const nPol = numeriUnici.size;
+                const nApp = polizze.filter((p: any) => isAppendice(p)).length;
+                const nQuiet = countQuietanzeRateDaIncassare(polizze);
+                return (
+                  <TabsTrigger value="polizze">
+                    <FileText className="w-4 h-4 mr-1" />
+                    Polizze ({nPol}) · Quietanze ({nQuiet}){nApp > 0 ? ` · Appendici (${nApp})` : ""}
+                  </TabsTrigger>
+                );
+              })()}
+              <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
+              <TabsTrigger value="sinistri">
+                <AlertTriangle className="w-4 h-4 mr-1" />
+                Sinistri
+                {(relatedIds?.sinistriAperti ?? 0) > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-orange-500 text-white text-xs font-semibold">
+                    {relatedIds!.sinistriAperti}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
+              <TabsTrigger value="documenti">Documenti</TabsTrigger>
+              <TabsTrigger value="chat">Chat</TabsTrigger>
+              <TabsTrigger value="timeline">Log Attività</TabsTrigger>
+              <TabsTrigger value="trattative"><FileText className="w-4 h-4 mr-1" />Trattative</TabsTrigger>
+            </TabsList>
+            {ef.ha_incarico && (
+              <div
+                className="inline-flex items-center gap-1.5 min-h-9 px-3 py-1 rounded-md text-sm font-medium border border-input bg-background"
+                title="Incarico cliente"
+              >
+                <Briefcase className="w-4 h-4 text-primary shrink-0" />
+                <span>Incarico</span>
+                <span className="text-xs text-muted-foreground font-normal">
+                  Inizio: {formatIncaricoDate(ef.incarico_da)} · Fine: {formatIncaricoDate(ef.incarico_a)}
+                </span>
+              </div>
+            )}
+            <AnticipiChip clienteId={id!} />
+            <AreaRiservataHeaderButton cliente={cliente} onUpdate={() => queryClient.invalidateQueries({ queryKey: ["cliente", id] })} />
+          </div>
         </div>
 
-
-        <TabsContent value="polizze">
+        <TabsContent value="polizze" className="mt-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base">Polizze del cliente</CardTitle>
