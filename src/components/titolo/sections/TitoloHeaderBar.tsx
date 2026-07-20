@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { calcLordoQuietanzaTitolo } from "@/lib/premiGaranziaLoad";
+import { labelCompagniaEAgenzia } from "@/lib/compagniaDisplay";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { appendiceTipoLabel, isAppendice } from "@/lib/quietanze";
 
@@ -190,7 +191,11 @@ export function TitoloHeaderBar({
             </p>
           )}
 
-          <p className="text-muted-foreground text-sm">{(t as any).prodotto_nome || t.prodotti?.nome_prodotto || ""} — {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "N/D"}</p>
+          <p className="text-muted-foreground text-sm">
+            {(t as any).prodotto_nome || t.prodotti?.nome_prodotto || ""}
+            {((t as any).prodotto_nome || t.prodotti?.nome_prodotto) ? " — " : ""}
+            {labelCompagniaEAgenzia(t as any) || "N/D"}
+          </p>
           <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
             <div className="flex items-center gap-1.5">
               <span className="text-xs uppercase tracking-wide text-muted-foreground">Cliente:</span>

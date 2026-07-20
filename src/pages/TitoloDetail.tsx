@@ -30,7 +30,7 @@ import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -164,7 +164,7 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale, attivita, gruppo_statistico, gruppo_finanziario_id, gruppi_finanziari(nome, tipo_soggetto)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice, tipo, gruppo_compagnia, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione)), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, aliquota_tasse_ramo, aliquota_tasse_ard, gruppo_ramo_id, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo), anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)")
+        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale, attivita, gruppo_statistico, gruppo_finanziario_id, gruppi_finanziari(nome, tipo_soggetto)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice, tipo, gruppo_compagnia, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(id, codice_rapporto, tipo_rapporto, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(id, descrizione, codice)), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, aliquota_tasse_ramo, aliquota_tasse_ard, gruppo_ramo_id, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo), anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -706,44 +706,6 @@ const TitoloDetail = () => {
     gruppo_ramo_id: null as string | null,
   });
 
-  // Rapporti attivi per la compagnia selezionata in editing
-  const { data: rapportiAgenziaEdit = [] } = useQuery({
-    queryKey: ["compagnia_rapporti_attivi_edit", contrattoForm.compagnia_id],
-    enabled: editingContratto && !!contrattoForm.compagnia_id,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("compagnia_rapporti")
-        .select("id, codice_rapporto, tipo_rapporto, attivo")
-        .eq("compagnia_id", contrattoForm.compagnia_id as string)
-        .eq("attivo", true)
-        .order("codice_rapporto");
-      return data || [];
-    },
-  });
-
-  // Auto-seleziona rapporto se uno solo / reset se non più valido
-  useEffect(() => {
-    if (!editingContratto) return;
-    if (!contrattoForm.compagnia_id) {
-      if (contrattoForm.compagnia_rapporto_id) {
-        setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
-      }
-      return;
-    }
-    const list = rapportiAgenziaEdit || [];
-    if (list.length === 1 && contrattoForm.compagnia_rapporto_id !== list[0].id) {
-      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: list[0].id }));
-    } else if (list.length === 0 && contrattoForm.compagnia_rapporto_id) {
-      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
-    } else if (
-      list.length >= 2 &&
-      contrattoForm.compagnia_rapporto_id &&
-      !list.find((r: any) => r.id === contrattoForm.compagnia_rapporto_id)
-    ) {
-      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
-    }
-  }, [rapportiAgenziaEdit, contrattoForm.compagnia_id, editingContratto]);
-
   const { data: produttoriOpts = [] } = useQuery({
     queryKey: ["produttori-anagrafiche"],
     queryFn: async () => {
@@ -817,11 +779,86 @@ const TitoloDetail = () => {
     return out;
   })();
 
+  const agenziaEditSel = useMemo(
+    () => (compagnieRaw || []).find((c: any) => c.id === contrattoForm.compagnia_id) as any,
+    [compagnieRaw, contrattoForm.compagnia_id],
+  );
+  const isBrokerLikeEdit = useMemo(() => {
+    const tipo = (agenziaEditSel?.tipo || "").toLowerCase();
+    return tipo === "broker" || tipo === "plurimandataria";
+  }, [agenziaEditSel]);
+
+  // Rapporti attivi: per broker/pluri filtrati sul gruppo compagnia (come Immissione)
+  const { data: rapportiAgenziaEdit = [] } = useQuery({
+    queryKey: [
+      "compagnia_rapporti_attivi_edit",
+      contrattoForm.compagnia_id,
+      contrattoForm.gruppo_compagnia_id,
+      isBrokerLikeEdit,
+    ],
+    enabled:
+      editingContratto &&
+      !!contrattoForm.compagnia_id &&
+      (!isBrokerLikeEdit || !!contrattoForm.gruppo_compagnia_id),
+    queryFn: async () => {
+      let q = supabase
+        .from("compagnia_rapporti")
+        .select("id, codice_rapporto, tipo_rapporto, gruppo_compagnia_id, attivo")
+        .eq("compagnia_id", contrattoForm.compagnia_id as string)
+        .eq("attivo", true);
+      if (isBrokerLikeEdit && contrattoForm.gruppo_compagnia_id) {
+        q = q.eq("gruppo_compagnia_id", contrattoForm.gruppo_compagnia_id);
+      }
+      const { data } = await q.order("codice_rapporto");
+      return data || [];
+    },
+  });
+
+  // Auto-seleziona rapporto se uno solo / reset se non più valido
+  useEffect(() => {
+    if (!editingContratto) return;
+    if (!contrattoForm.compagnia_id) {
+      if (contrattoForm.compagnia_rapporto_id) {
+        setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
+      }
+      return;
+    }
+    if (isBrokerLikeEdit && !contrattoForm.gruppo_compagnia_id) {
+      if (contrattoForm.compagnia_rapporto_id) {
+        setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
+      }
+      return;
+    }
+    const list = rapportiAgenziaEdit || [];
+    if (list.length === 1 && contrattoForm.compagnia_rapporto_id !== list[0].id) {
+      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: list[0].id }));
+    } else if (list.length === 0 && contrattoForm.compagnia_rapporto_id) {
+      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
+    } else if (
+      list.length >= 2 &&
+      contrattoForm.compagnia_rapporto_id &&
+      !list.find((r: any) => r.id === contrattoForm.compagnia_rapporto_id)
+    ) {
+      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
+    }
+  }, [
+    rapportiAgenziaEdit,
+    contrattoForm.compagnia_id,
+    contrattoForm.gruppo_compagnia_id,
+    contrattoForm.compagnia_rapporto_id,
+    editingContratto,
+    isBrokerLikeEdit,
+  ]);
 
   const startEditContratto = () => {
     if (titolo) {
       const t: any = titolo;
       const vincoloVal = (t.vincolo || (t.vincolo_attivo ? "altro" : "")) as string;
+      const tipoAg = (t.compagnia_diretta?.tipo || "").toLowerCase();
+      const isBroker = tipoAg === "broker" || tipoAg === "plurimandataria";
+      // Compagnia assicurativa = gruppo da rapporto (broker) oppure da anagrafica agenzia
+      const gruppoFromRapporto = t.compagnia_rapporto?.gruppo_compagnia_id ?? null;
+      const gruppoFromAgenzia = t.compagnia_diretta?.gruppo_compagnia_id ?? null;
       setContrattoForm({
         cig_rif: t.cig_rif ?? "",
         cig_temporaneo: !!t.cig_temporaneo,
@@ -831,7 +868,7 @@ const TitoloDetail = () => {
         prodotto_nome: t.prodotto_nome ?? "",
         note: t.note ?? "",
         compagnia_id: t.compagnia_id ?? null,
-        gruppo_compagnia_id: t.compagnia_diretta?.gruppo_compagnia_id ?? null,
+        gruppo_compagnia_id: (isBroker ? gruppoFromRapporto : null) || gruppoFromAgenzia || gruppoFromRapporto,
         compagnia_rapporto_id: t.compagnia_rapporto_id ?? null,
         ramo_id: t.ramo_id ?? null,
         gruppo_ramo_id: t.ramo?.gruppo_ramo_id ?? null,
@@ -846,6 +883,73 @@ const TitoloDetail = () => {
       const before: Record<string, any> = {};
       const after: Record<string, any> = {};
       const vincoloAttivo = !!contrattoForm.vincolo && contrattoForm.vincolo !== "nessuno";
+
+      if (!contrattoForm.gruppo_compagnia_id) {
+        throw new Error("Seleziona la Compagnia Assicurativa");
+      }
+      if (!contrattoForm.compagnia_id) {
+        throw new Error("Seleziona l'Agenzia di Riferimento");
+      }
+
+      const ag = (compagnieRaw || []).find((c: any) => c.id === contrattoForm.compagnia_id) as any;
+      const tipoAg = (ag?.tipo || "").toLowerCase();
+      const isBroker = tipoAg === "broker" || tipoAg === "plurimandataria";
+
+      // Risolvi rapporto coerente con gruppo compagnia (soprattutto broker/pluri)
+      let rapportoId = contrattoForm.compagnia_rapporto_id || null;
+      let rapportoSel: any =
+        (rapportiAgenziaEdit || []).find((r: any) => r.id === rapportoId) || null;
+
+      if (isBroker) {
+        if (!rapportoId || (rapportiAgenziaEdit || []).length === 0) {
+          const { data: rapRows, error: rapErr } = await supabase
+            .from("compagnia_rapporti")
+            .select("id, codice_rapporto, tipo_rapporto, gruppo_compagnia_id, attivo")
+            .eq("compagnia_id", contrattoForm.compagnia_id)
+            .eq("gruppo_compagnia_id", contrattoForm.gruppo_compagnia_id)
+            .eq("attivo", true)
+            .order("codice_rapporto");
+          if (rapErr) throw rapErr;
+          const list = rapRows || [];
+          if (list.length === 0) {
+            throw new Error(
+              "Nessun rapporto attivo tra questa agenzia e la Compagnia Assicurativa selezionata",
+            );
+          }
+          if (list.length >= 2 && !rapportoId) {
+            throw new Error("Seleziona il Rapporto Agenzia (più rapporti per questa compagnia)");
+          }
+          rapportoSel = list.find((r: any) => r.id === rapportoId) || list[0];
+          rapportoId = rapportoSel.id;
+        } else if ((rapportiAgenziaEdit || []).length >= 2 && !rapportoId) {
+          throw new Error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
+        }
+      } else if (
+        contrattoForm.compagnia_id &&
+        (rapportiAgenziaEdit || []).length >= 2 &&
+        !rapportoId
+      ) {
+        throw new Error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
+      }
+
+      if (!rapportoSel && rapportoId) {
+        const { data: rapRow } = await supabase
+          .from("compagnia_rapporti")
+          .select("id, codice_rapporto, tipo_rapporto, gruppo_compagnia_id")
+          .eq("id", rapportoId)
+          .maybeSingle();
+        rapportoSel = rapRow;
+      }
+
+      // Broker: il rapporto deve appartenere al gruppo compagnia scelto
+      if (
+        isBroker &&
+        rapportoSel?.gruppo_compagnia_id &&
+        rapportoSel.gruppo_compagnia_id !== contrattoForm.gruppo_compagnia_id
+      ) {
+        throw new Error("Il Rapporto Agenzia non corrisponde alla Compagnia Assicurativa selezionata");
+      }
+
       const fieldsForLog: { key: string; newVal: any }[] = [
         { key: "cig_rif", newVal: contrattoForm.cig_rif || null },
         { key: "vincolo", newVal: contrattoForm.vincolo || null },
@@ -854,19 +958,17 @@ const TitoloDetail = () => {
         { key: "prodotto_nome", newVal: contrattoForm.prodotto_nome || null },
         { key: "note", newVal: contrattoForm.note.trim() || null },
         { key: "compagnia_id", newVal: contrattoForm.compagnia_id || null },
-        { key: "compagnia_rapporto_id", newVal: contrattoForm.compagnia_rapporto_id || null },
+        { key: "compagnia_rapporto_id", newVal: rapportoId },
         { key: "ramo_id", newVal: contrattoForm.ramo_id || null },
       ];
       fieldsForLog.forEach(({ key, newVal }) => {
         const oldV = (titolo as any)?.[key] ?? null;
         if (oldV !== newVal) { before[key] = oldV; after[key] = newVal; }
       });
-
-      // Validazione: agenzia con 2+ rapporti richiede selezione
-      if (contrattoForm.compagnia_id && (rapportiAgenziaEdit || []).length >= 2 && !contrattoForm.compagnia_rapporto_id) {
-        throw new Error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
+      if (contrattoForm.gruppo_compagnia_id) {
+        after.gruppo_compagnia_id = contrattoForm.gruppo_compagnia_id;
       }
-      const rapportoSel = (rapportiAgenziaEdit || []).find((r: any) => r.id === contrattoForm.compagnia_rapporto_id);
+
       assertSameTitolo(id, titolo?.id, "saveContrattoMutation");
       const { error } = await supabase
         .from("titoli")
@@ -878,7 +980,7 @@ const TitoloDetail = () => {
           prodotto_nome: contrattoForm.prodotto_nome || null,
           note: contrattoForm.note.trim() || null,
           compagnia_id: contrattoForm.compagnia_id || null,
-          compagnia_rapporto_id: contrattoForm.compagnia_rapporto_id || null,
+          compagnia_rapporto_id: isBroker ? rapportoId : (rapportoId || null),
           codice_rapporto: rapportoSel?.codice_rapporto || null,
           ramo_id: contrattoForm.ramo_id || null,
         })
@@ -2440,12 +2542,17 @@ const TitoloDetail = () => {
         {!editingContratto ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-1">
             <FieldRow label="Compagnia" value={
-              <span>{t.compagnia_diretta?.gruppi_compagnia?.descrizione || t.compagnia_diretta?.gruppo_compagnia || "—"}</span>
+              <span>{
+                t.compagnia_rapporto?.gruppi_compagnia?.descrizione
+                || t.compagnia_diretta?.gruppi_compagnia?.descrizione
+                || t.compagnia_diretta?.gruppo_compagnia
+                || "—"
+              }</span>
             } />
             <FieldRow label="Agenzia di rif." value={
               <span>{t.compagnia_diretta?.codice || ""} - {t.compagnia_diretta?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
-            <FieldRow label="Codice Rapporto" value={fmt(t.codice_rapporto)} />
+            <FieldRow label="Codice Rapporto" value={fmt(t.compagnia_rapporto?.codice_rapporto || t.codice_rapporto)} />
             <FieldRow label="Gruppo Ramo" value={fmt(t.ramo?.gruppo_ramo?.descrizione)} />
             <FieldRow label="Garanzia" value={`${t.ramo?.codice || ""} ${t.ramo?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt(t.prodotto_nome || t.prodotti?.nome_prodotto)} />

@@ -67,6 +67,7 @@ import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
 import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
+import { labelCompagniaAssicurativa, labelAgenziaRiferimento, labelCompagniaEAgenzia } from "@/lib/compagniaDisplay";
 
 /* ===========================================================
  * Anagrafica form context + module-level field components
@@ -1210,7 +1211,12 @@ function PolizzeClienteTable({
   }, [polizze, filtroGruppoRamo]);
   const agenzieOpts = useMemo(() => {
     const s = new Set<string>();
-    polizze.forEach((p) => { const v = p.compagnia_diretta?.nome; if (v) s.add(v); });
+    polizze.forEach((p) => {
+      const comp = labelCompagniaAssicurativa(p);
+      const ag = labelAgenziaRiferimento(p);
+      if (comp) s.add(comp);
+      if (ag) s.add(ag);
+    });
     return Array.from(s).sort().map((v) => ({ value: v, label: v }));
   }, [polizze]);
   const statiOpts = useMemo(() => {
@@ -1240,7 +1246,13 @@ function PolizzeClienteTable({
     }
     if (filtroGruppoRamo && t.ramo?.gruppo_ramo?.descrizione !== filtroGruppoRamo) return false;
     if (filtroGaranzia && t.ramo?.descrizione !== filtroGaranzia) return false;
-    if (filtroAgenzia && t.compagnia_diretta?.nome !== filtroAgenzia) return false;
+    if (
+      filtroAgenzia &&
+      labelCompagniaAssicurativa(t) !== filtroAgenzia &&
+      labelAgenziaRiferimento(t) !== filtroAgenzia
+    ) {
+      return false;
+    }
     if (filtroStato && t.stato !== filtroStato) return false;
     return true;
   };
@@ -1571,14 +1583,14 @@ function PolizzeClienteTable({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label className="text-[10px] text-muted-foreground uppercase">Agenzia</Label>
+          <Label className="text-[10px] text-muted-foreground uppercase">Compagnia / Agenzia</Label>
           <SearchableSelect
             options={agenzieOpts}
             value={filtroAgenzia}
             onValueChange={setFiltroAgenzia}
             placeholder="Tutte"
             clearable
-            className="h-8 w-[180px]"
+            className="h-8 w-[200px]"
           />
         </div>
         {filtroTipo !== "garantiti" && (
@@ -1684,7 +1696,7 @@ function PolizzeClienteTable({
             <TableHead>Garanzia</TableHead>
             <TableHead>Inizio Garanzia</TableHead>
             <TableHead>Fine Garanzia</TableHead>
-            <TableHead>Agenzia</TableHead>
+            <TableHead>Compagnia / Agenzia</TableHead>
             <TableHead>Premio €</TableHead>
             <TableHead>Provvigioni €</TableHead>
             <TableHead>Data Copertura</TableHead>
@@ -1725,7 +1737,7 @@ function PolizzeClienteTable({
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
-                  <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
+                  <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
                   <TableCell className="font-mono">
                     {r.sostituisce_polizza || isAppendice(r) ? fmtNum(r.premio_lordo) : "—"}
                   </TableCell>
@@ -1779,7 +1791,7 @@ function PolizzeClienteTable({
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
-                  <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
+                  <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
                   <TableCell className="font-mono">
                     <div className="flex flex-col items-start gap-0.5">
                       <span>{fmtNum(r.premio_lordo)}</span>
@@ -1828,7 +1840,7 @@ function PolizzeClienteTable({
               const head = c.madre || c.all[0];
               const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
               const ramo = head.ramo?.descrizione || "—";
-              const agenzia = head.compagnia_diretta?.nome || "—";
+              const agenzia = labelCompagniaEAgenzia(head) || "—";
               const isOpen = !!expanded[c.numero];
               const hasRate = c.rate.length > 0;
               const hasAppendici = c.appendici.length > 0;
@@ -1931,7 +1943,7 @@ function PolizzeClienteTable({
                       <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                       <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
                       <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
-                      <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
+                      <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
                       <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                       <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
                       <TableCell className="text-xs">
@@ -1982,7 +1994,7 @@ function PolizzeClienteTable({
                       <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                       <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
                       <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
-                      <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
+                      <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
                       <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                       <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
                       <TableCell className="text-xs">
@@ -2425,7 +2437,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, data_copertura, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome)")
+        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, data_copertura, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, gruppo_compagnia, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(id, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione, codice))")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
