@@ -251,7 +251,7 @@ const TitoloDetail = () => {
   const { data: coassCompagnie = [] } = useQuery<any[]>({
     queryKey: ["coass-compagnie-labels"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("compagnie")
         .select("id, nome, codice, tipo, gruppo_compagnia_id")
         .eq("attivo", true);
