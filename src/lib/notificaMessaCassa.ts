@@ -8,6 +8,7 @@ export type NotificaMessaCassaInvokeResult = {
   documenti_archiviati?: number;
   path_storage?: string;
   error?: string;
+  archive_error?: string;
 };
 
 /** Invoca notifica agenzia + archivio PDF su uno o più titoli (bulk = 1 mail + 1 PDF condiviso). */

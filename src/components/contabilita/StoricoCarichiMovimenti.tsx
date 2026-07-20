@@ -60,7 +60,7 @@ export function StoricoCarichiMovimenti() {
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
-      return (data as CaricoRow[]) ?? [];
+      return ((data as unknown) as CaricoRow[]) ?? [];
     },
   });
 
@@ -141,7 +141,7 @@ function DettaglioCaricoDialog({ caricoId, onClose }: { caricoId: string | null;
         .eq("id", caricoId!)
         .maybeSingle();
       if (error) throw error;
-      return data as CaricoRow | null;
+      return (data as unknown) as CaricoRow | null;
     },
   });
 

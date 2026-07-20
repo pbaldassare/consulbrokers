@@ -248,7 +248,7 @@ const AppendiciPolizzaPage = () => {
                         <Badge variant="outline" className="capitalize">{a.tipo}</Badge>
                       </TableCell>
                       <TableCell className="text-sm tabular-nums">
-                        {a.premio_lordo != null ? `${Number(a.premio_lordo).toFixed(2)} €` : "—"}
+                        {(a as any).premio_lordo != null ? `${Number((a as any).premio_lordo).toFixed(2)} €` : "—"}
                       </TableCell>
                       <TableCell>
                         {derivato ? (

@@ -120,6 +120,7 @@ interface TitoloMin {
   cliente_nome_display?: string | null;
   ufficio_id?: string | null;
   importo_incassato?: number | null;
+  stato?: string | null;
 }
 
 export interface BankIncassoContext {

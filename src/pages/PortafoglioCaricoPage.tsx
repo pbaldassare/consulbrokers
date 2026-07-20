@@ -459,7 +459,7 @@ const PortafoglioCaricoPage = () => {
 
   const openIncassa = useCallback(
     (
-      rows: Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>,
+      rows: Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null; cliente_nome_display?: string | null }>,
       prefer?: PreferredBonificoContext | null,
     ) => {
       setPreferredBonifico(prefer ?? null);
@@ -471,7 +471,7 @@ const PortafoglioCaricoPage = () => {
 
   const pickBonificoPerRiga = useCallback(
     (
-      p: { id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null },
+      p: { id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null; cliente_nome_display?: string | null },
       b: BonificoSuggerito | BonificoAperto,
     ) => {
       openIncassa(

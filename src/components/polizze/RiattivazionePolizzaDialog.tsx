@@ -158,7 +158,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
         const { data: sospese } = await supabase
           .from("titoli")
           .select("id, riga, garanzia_da, garanzia_a, premio_lordo, stato")
-          .eq("numero_titolo", titoloRow.numero_titolo)
+          .eq("numero_titolo", titoloRow.numero_titolo as string)
           .eq("stato", "sospeso")
           .not("sostituisce_polizza", "is", null);
         frozenEntries = (sospese || []).map((q: Record<string, unknown>) => ({

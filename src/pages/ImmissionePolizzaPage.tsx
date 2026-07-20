@@ -204,7 +204,7 @@ const ImmissionePolizzaPage = () => {
         // Tasse: se l'AI non le ha estratte e abbiamo aliquota+netto, calcolale.
         let tasseStr = "";
         if (dirittiAgenzia) {
-          tasseStr = g.premio_imposte != null ? String(g.premio_imposte) : (g.premio_lordo != null ? String(g.premio_lordo) : "");
+          tasseStr = g.premio_imposte != null ? String(g.premio_imposte) : ((g as any).premio_lordo != null ? String((g as any).premio_lordo) : "");
         } else if (g.premio_imposte != null) {
           tasseStr = String(g.premio_imposte);
         } else if (aliquotaTasse > 0 && netto > 0) {

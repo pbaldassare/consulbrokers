@@ -248,14 +248,14 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
-  const { data: coassCompagnie = [] } = useQuery({
+  const { data: coassCompagnie = [] } = useQuery<any[]>({
     queryKey: ["coass-compagnie-labels"],
     queryFn: async () => {
       const { data } = await supabase
         .from("compagnie")
         .select("id, nome, codice, tipo, gruppo_compagnia_id")
         .eq("attivo", true);
-      return data || [];
+      return (data || []) as any[];
     },
     staleTime: 60_000,
   });

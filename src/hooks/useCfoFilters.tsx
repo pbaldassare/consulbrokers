@@ -13,6 +13,7 @@ export interface CfoRpcParams {
   _data_a?: string;
   _ufficio_id?: string;
   _compagnia_id?: string;
+  [key: string]: unknown;
 }
 
 function defaultFilters(): CfoFilters {
