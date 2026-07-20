@@ -87,6 +87,8 @@ export interface TitoloImportiPremiBlockProps {
   /** True solo in modalità Modifica Importi: abilita edit garanzie e salvataggio esplicito. */
   draftMode?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Totali da righe garanzia (per allineare il riquadro Importi in alto). */
+  onDisplayTotalsChange?: (totals: TitoloImportiPremiDisplayTotals) => void;
 }
 
 export type TitoloImportiPremiSaveStatus = "idle" | "saving";
@@ -97,6 +99,22 @@ export type TitoloImportiPremiBlockHandle = {
   /** Annulla bozza locale e forza ricarico da DB. */
   revertDraft: () => Promise<void>;
   hasPendingChanges: () => boolean;
+};
+
+/** Totali calcolati dalle righe garanzia (per riepilogo Importi e liste). */
+export type PremiGaranziaDisplayTotals = {
+  netto: number;
+  accessori: number;
+  tasse: number;
+  ssn: number;
+  lordo: number;
+  provvigioni: number;
+  hasRows: boolean;
+};
+
+export type TitoloImportiPremiDisplayTotals = {
+  firma: PremiGaranziaDisplayTotals;
+  quietanza: PremiGaranziaDisplayTotals;
 };
 
 type DbPremio = DbPremioLike & {
@@ -150,8 +168,10 @@ function TitoloImportiPremiBlock({
   fallbackPremiTitoloId = null,
   draftMode = false,
   onDirtyChange,
+  onDisplayTotalsChange,
 }, ref) {
   const qc = useQueryClient();
+  const reconcileDoneRef = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<TitoloImportiPremiSaveStatus>("idle");
   const savingRef = useRef(false);
@@ -995,10 +1015,191 @@ function TitoloImportiPremiBlock({
 
   const totNettoFirma = firmaRows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
   const totNettoQui = quietanzaRows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
+  const totAccessoriFirmaRows = firmaRows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
+  const totAccessoriQuiRows = quietanzaRows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
+  const totTasseFirmaRows = firmaRows.reduce((s, r) => s + calcTasseEffettiveRiga(r), 0);
+  const totTasseQuiRows = quietanzaRows.reduce((s, r) => s + calcTasseEffettiveRiga(r), 0);
+  const totSsnFirmaRows = firmaRows.reduce((s, r) => s + (parseFloat(r.ssn || "0") || 0), 0);
+  const totSsnQuiRows = quietanzaRows.reduce((s, r) => s + (parseFloat(r.ssn || "0") || 0), 0);
   const totBaseFirma = totNettoFirma + accessoriFirmaNum;
   const totBaseQui = totNettoQui + accessoriQuietanzaNum;
   const displayProvvFirma = resolveProvvigioniImporto("firma", firmaRows);
   const displayProvvQuietanza = resolveProvvigioniImporto("quietanza", quietanzaRows);
+
+  const displayTotals: TitoloImportiPremiDisplayTotals = useMemo(() => {
+    const build = (
+      rows: GaranziaRow[],
+      netto: number,
+      accessori: number,
+      tasse: number,
+      ssn: number,
+      provvigioni: number,
+    ): PremiGaranziaDisplayTotals => {
+      const hasRows = rows.some(rowHasContent);
+      const lordo = round2(netto + accessori + tasse + ssn);
+      return {
+        netto: round2(netto),
+        accessori: round2(accessori),
+        tasse: round2(tasse),
+        ssn: round2(ssn),
+        lordo,
+        provvigioni: round2(provvigioni),
+        hasRows,
+      };
+    };
+    return {
+      firma: build(
+        firmaRows,
+        totNettoFirma,
+        totAccessoriFirmaRows,
+        totTasseFirmaRows,
+        totSsnFirmaRows,
+        displayProvvFirma,
+      ),
+      quietanza: build(
+        quietanzaRows,
+        totNettoQui,
+        totAccessoriQuiRows,
+        totTasseQuiRows,
+        totSsnQuiRows,
+        displayProvvQuietanza,
+      ),
+    };
+  }, [
+    firmaRows,
+    quietanzaRows,
+    totNettoFirma,
+    totNettoQui,
+    totAccessoriFirmaRows,
+    totAccessoriQuiRows,
+    totTasseFirmaRows,
+    totTasseQuiRows,
+    totSsnFirmaRows,
+    totSsnQuiRows,
+    displayProvvFirma,
+    displayProvvQuietanza,
+  ]);
+
+  useEffect(() => {
+    onDisplayTotalsChange?.(displayTotals);
+  }, [displayTotals, onDisplayTotalsChange]);
+
+  /** Allinea campi aggregati su `titoli` quando le garanzie hanno importi ma il titolo no (es. import). */
+  useEffect(() => {
+    if (draftMode || isLocked || premiLoading || titoloMetaLoading || catalogoLoading) return;
+    if (!titoloMeta) return;
+    const key = `${titoloId}:${displayTotals.firma.provvigioni}:${displayTotals.quietanza.provvigioni}:${displayTotals.firma.lordo}:${displayTotals.quietanza.lordo}`;
+    if (reconcileDoneRef.current === key) return;
+
+    const drift = (stored: number, computed: number) => Math.abs(round2(stored) - round2(computed)) > 0.009;
+    const patch: Record<string, number> = {};
+    const isQuietanzaTitolo = !!titoloMeta.sostituisce_polizza;
+
+    const applyBlock = (
+      block: PremiGaranziaDisplayTotals,
+      fields: {
+        netto: string;
+        accessori: string;
+        tasse: string;
+        ssn: string;
+        provvigioni: string;
+        lordo?: string;
+      },
+    ) => {
+      if (!block.hasRows || (block.netto <= 0 && block.provvigioni <= 0 && block.tasse <= 0)) return;
+      const curNetto = Number((titoloMeta as any)[fields.netto]) || 0;
+      const curTasse = Number((titoloMeta as any)[fields.tasse]) || 0;
+      const curProvv = Number((titoloMeta as any)[fields.provvigioni]) || 0;
+      const curLordo = fields.lordo != null ? Number((titoloMeta as any)[fields.lordo]) || 0 : null;
+      // Solo se manca provvigione/tasse (tipico import) oppure lordo = netto senza tasse
+      const needsProvv = block.provvigioni > 0 && (curProvv === 0 || drift(curProvv, block.provvigioni));
+      const needsTasse = block.tasse > 0 && curTasse === 0;
+      const needsLordo =
+        fields.lordo != null &&
+        block.lordo > 0 &&
+        (curLordo === 0 || (curTasse === 0 && block.tasse > 0 && Math.abs(curLordo - block.netto) < 0.02));
+      if (!needsProvv && !needsTasse && !needsLordo) return;
+      if (needsProvv) patch[fields.provvigioni] = block.provvigioni;
+      if (needsTasse || needsLordo) {
+        patch[fields.netto] = block.netto;
+        patch[fields.accessori] = block.accessori;
+        patch[fields.tasse] = block.tasse;
+        patch[fields.ssn] = block.ssn;
+        if (fields.lordo) patch[fields.lordo] = block.lordo;
+      } else if (needsProvv && curNetto === 0 && block.netto > 0) {
+        patch[fields.netto] = block.netto;
+      }
+    };
+
+    if (!hideFirma) {
+      applyBlock(displayTotals.firma, {
+        netto: "premio_netto",
+        accessori: "addizionali",
+        tasse: "tasse",
+        ssn: "ssn_firma",
+        provvigioni: "provvigioni_firma",
+        lordo: "premio_lordo",
+      });
+    }
+    if (showQuietanza) {
+      applyBlock(displayTotals.quietanza, {
+        netto: "premio_netto_quietanza",
+        accessori: "addizionali_quietanza",
+        tasse: "tasse_quietanza",
+        ssn: "ssn_quietanza",
+        provvigioni: "provvigioni_quietanza",
+        lordo: hideFirma || isQuietanzaTitolo ? "premio_lordo" : undefined,
+      });
+    }
+    // Quietanza con sole righe Firma (import): copia provvigioni operative
+    if (
+      isQuietanzaTitolo &&
+      displayTotals.firma.hasRows &&
+      displayTotals.firma.provvigioni > 0 &&
+      (Number(titoloMeta.provvigioni_quietanza) || 0) === 0
+    ) {
+      patch.provvigioni_quietanza = displayTotals.firma.provvigioni;
+      if ((Number(titoloMeta.provvigioni_firma) || 0) === 0) {
+        patch.provvigioni_firma = displayTotals.firma.provvigioni;
+      }
+    }
+
+    if (Object.keys(patch).length === 0) {
+      reconcileDoneRef.current = key;
+      return;
+    }
+
+    reconcileDoneRef.current = key;
+    void (async () => {
+      const { error } = await supabase
+        .from("titoli")
+        .update({ ...patch, updated_at: new Date().toISOString() } as any)
+        .eq("id", titoloId);
+      if (error) {
+        console.warn("[reconcilePremiTitolo]", error.message);
+        reconcileDoneRef.current = null;
+        return;
+      }
+      await syncProvvigioniQuietanzeAfterSave(patch);
+      await qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
+      await qc.invalidateQueries({ queryKey: ["titolo-meta-premi", titoloId] });
+      await qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
+      await qc.invalidateQueries({ queryKey: ["portafoglio-carico"] });
+      await qc.invalidateQueries({ queryKey: ["compensazioni-by-titoli"] });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    draftMode,
+    isLocked,
+    premiLoading,
+    titoloMetaLoading,
+    catalogoLoading,
+    titoloId,
+    hideFirma,
+    showQuietanza,
+    displayTotals,
+    titoloMeta,
+  ]);
   const nettoEligibleFirma = totNettoProvvEligible(firmaRows);
   const nettoEligibleQui = totNettoProvvEligible(quietanzaRows);
   const blockPctFirma = !provvFirmaAuto

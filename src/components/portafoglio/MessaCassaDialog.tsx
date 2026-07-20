@@ -38,7 +38,7 @@ import {
 import {
   fetchBonificiCandidatiPerIncasso,
   findBestBonificoApertoPerCliente,
-  ricongiungiEFinalizzaBonificoDaIncasso,
+  ricongiungiEFinalizzaBonificiMultipliDaIncasso,
   type BonificoCandidato,
 } from "@/lib/bonificoDaIncasso";
 import { isBonificoNameMatch, pickAutoBonificoId } from "@/lib/bonificoMatch";
@@ -48,8 +48,6 @@ import {
   isCausaleMessaCassaMenu,
   rettificaDovutoQuietanza,
 } from "@/lib/compensazioniMessaCassa";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-
 /**
  * Input importo per riga di compensazione contabile.
  *
@@ -149,6 +147,8 @@ interface Props {
   onSuccess?: (dataMessaCassa: string) => void;
   bankIncasso?: BankIncassoContext;
   preferredBonifico?: PreferredBonificoContext | null;
+  /** Prefill pagatore (es. scheda cliente → Quietanze). */
+  preferredPagatoreId?: string | null;
 }
 
 type EffettoContabile = "standard" | "abbuono" | "pag_diretto_compagnia" | "eccedenza";
@@ -184,6 +184,7 @@ export const MessaCassaDialog = ({
   onSuccess,
   bankIncasso,
   preferredBonifico = null,
+  preferredPagatoreId = null,
 }: Props) => {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
@@ -198,8 +199,8 @@ export const MessaCassaDialog = ({
     cashImporto: 0,
   });
   const [anticipiSel, setAnticipiSel] = useState<Record<string, number>>({});
-  // Compensazioni indicizzate per titolo
-  const [compensazioniByTitolo, setCompensazioniByTitolo] = useState<Record<string, CompensazioneRow[]>>({});
+  /** Causali a livello cliente (abbuoni/arrotondamenti/acconti) — non per quietanza. */
+  const [compensazioniCliente, setCompensazioniCliente] = useState<CompensazioneRow[]>([]);
   // Ultima riga compensazione aggiunta (per auto-focus sull'importo)
   const [lastAddedCompId, setLastAddedCompId] = useState<string | null>(null);
   // Date specifiche per titolo (override rispetto alle date globali)
@@ -211,8 +212,8 @@ export const MessaCassaDialog = ({
   const [titoloSearch, setTitoloSearch] = useState("");
   // Flusso "per cliente": cliente di cui elencare le quietanze da incassare
   const [clienteQuietanze, setClienteQuietanze] = useState<{ id: string; nome: string } | null>(null);
-  /** Bonifico scelto dai caricamenti conti (solo se non si arriva già da Ricongiungimento). */
-  const [selectedBonificoId, setSelectedBonificoId] = useState<string | null>(null);
+  /** Bonifici scelti dai caricamenti conti (multi-selezione). */
+  const [selectedBonificoIds, setSelectedBonificoIds] = useState<string[]>([]);
   const [estrattoSearch, setEstrattoSearch] = useState("");
   /** Se true e ci sono match nome: mostra solo quelli (nasconde gli altri del conto). */
   const [soloMatchNome, setSoloMatchNome] = useState(true);
@@ -488,7 +489,7 @@ export const MessaCassaDialog = ({
   const haTrattenuta = trattenutaByTitolo.size > 0;
 
   const handleTipoPagamentoChange = (tipo: string) => {
-    setSelectedBonificoId(null);
+    setSelectedBonificoIds([]);
     setForm((f) => ({
       ...f,
       tipoPagamento: tipo,
@@ -515,22 +516,36 @@ export const MessaCassaDialog = ({
         cashImporto: bankCash,
       });
       setAnticipiSel({});
-      setCompensazioniByTitolo({});
+      setCompensazioniCliente([]);
       setDatesByTitolo({});
-      setPagatoreId(cliIds.length === 1 ? (cliIds[0] as string) : null);
+      setPagatoreId(
+        preferredPagatoreId ||
+          (cliIds.length === 1 ? (cliIds[0] as string) : null),
+      );
       setPagatoreSearch("");
       setTitoloSearch("");
-      setClienteQuietanze(null);
+      // Da scheda cliente: elenco quietanze già sul pagatore corrente
+      setClienteQuietanze(
+        preferredPagatoreId
+          ? { id: preferredPagatoreId, nome: seed[0]?.cliente_nome_display || "cliente" }
+          : null,
+      );
       setClienteQuietanzeSearch("");
       setQuietanzeSel({});
       setModalitaByTitolo({});
-      setSelectedBonificoId(bankIncasso?.movimentoId ?? preferredBonifico?.movimentoId ?? null);
+      setSelectedBonificoIds(
+        bankIncasso?.movimentoId
+          ? [bankIncasso.movimentoId]
+          : preferredBonifico?.movimentoId
+            ? [preferredBonifico.movimentoId]
+            : [],
+      );
       setEstrattoSearch("");
       setSoloMatchNome(true);
       setSuggerimentoAltroConto(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, bankIncasso?.movimentoId, preferredBonifico?.movimentoId]);
+  }, [open, bankIncasso?.movimentoId, preferredBonifico?.movimentoId, preferredPagatoreId]);
 
   // Date effettive per titolo (override oppure default globale del form)
   const getDate = (titoloId: string) =>
@@ -562,10 +577,6 @@ export const MessaCassaDialog = ({
   const removeTitolo = (id: string) => {
     setTitoli((prev) => prev.filter((t) => t.id !== id));
     setModalitaByTitolo((prev) => {
-      const { [id]: _, ...rest } = prev;
-      return rest;
-    });
-    setCompensazioniByTitolo((prev) => {
       const { [id]: _, ...rest } = prev;
       return rest;
     });
@@ -672,49 +683,35 @@ export const MessaCassaDialog = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [titoliClienti, pagatoreCliente]);
 
-  // === Helpers compensazioni per titolo ===
-  const getComp = (titoloId: string) => compensazioniByTitolo[titoloId] || [];
-
-  const addCompFor = (titoloId: string, causaleId: string, suggestImporto?: number) => {
+  // === Helpers causali a livello cliente ===
+  const addCompCliente = (causaleId: string, suggestImporto?: number) => {
     const c = causaliComp.find((x) => x.id === causaleId);
     if (!c) return;
     const tempId = crypto.randomUUID();
-    setCompensazioniByTitolo((prev) => {
-      const cur = prev[titoloId] || [];
-      const row: CompensazioneRow = {
-        tempId,
-        causale_id: c.id,
-        causale_codice: c.codice,
-        causale_descrizione: c.descrizione,
-        segno: c.segno_default,
-        importo: round2(suggestImporto && suggestImporto > 0 ? suggestImporto : 0),
-        note: "",
-        effetto: c.effetto_contabile || "standard",
-      };
-      return { ...prev, [titoloId]: [...cur, row] };
-    });
+    const row: CompensazioneRow = {
+      tempId,
+      causale_id: c.id,
+      causale_codice: c.codice,
+      causale_descrizione: c.descrizione,
+      segno: c.segno_default,
+      importo: round2(suggestImporto && suggestImporto > 0 ? suggestImporto : 0),
+      note: "",
+      effetto: c.effetto_contabile || "standard",
+    };
+    setCompensazioniCliente((prev) => [...prev, row]);
     setLastAddedCompId(tempId);
   };
 
-  const updateCompFor = (titoloId: string, tempId: string, patch: Partial<CompensazioneRow>) => {
-    setCompensazioniByTitolo((prev) => ({
-      ...prev,
-      [titoloId]: (prev[titoloId] || []).map((c) => (c.tempId === tempId ? { ...c, ...patch } : c)),
-    }));
+  const updateCompCliente = (tempId: string, patch: Partial<CompensazioneRow>) => {
+    setCompensazioniCliente((prev) => prev.map((c) => (c.tempId === tempId ? { ...c, ...patch } : c)));
   };
 
-  const removeCompFor = (titoloId: string, tempId: string) => {
-    setCompensazioniByTitolo((prev) => ({
-      ...prev,
-      [titoloId]: (prev[titoloId] || []).filter((c) => c.tempId !== tempId),
-    }));
+  const removeCompCliente = (tempId: string) => {
+    setCompensazioniCliente((prev) => prev.filter((c) => c.tempId !== tempId));
   };
 
   // === Calcoli quadratura ===
-  const allCompensazioni = useMemo(
-    () => Object.values(compensazioniByTitolo).flat(),
-    [compensazioniByTitolo]
-  );
+  const allCompensazioni = compensazioniCliente;
   const totaleAnticipiUsati = round2(Object.values(anticipiSel).reduce((s, v) => s + (Number(v) || 0), 0));
   const totaleCompPlus = round2(
     allCompensazioni
@@ -729,25 +726,19 @@ export const MessaCassaDialog = ({
   const dovutoFinale = round2(totaleLordo + totaleCompMinus - totaleCompPlus);
 
   const totaleDovutoConsul = useMemo(() => {
-    return round2(
+    const baseLordo = round2(
       titoli.reduce((sum, t) => {
         const lordo = Number(t.premio_lordo) || 0;
-        const compForThis = compensazioniByTitolo[t.id] || [];
-        const compPlusT = compForThis
-          .filter((c) => c.segno === "+" && rettificaDovutoQuietanza(c.causale_codice))
-          .reduce((s, c) => s + c.importo, 0);
-        const compMinusT = compForThis
-          .filter((c) => c.segno === "-" && rettificaDovutoQuietanza(c.causale_codice))
-          .reduce((s, c) => s + c.importo, 0);
-        const dovutoT = round2(lordo + compMinusT - compPlusT);
         const tr = trattenutaByTitolo.get(t.id);
         if (tr) {
-          return sum + calcIncassoConTrattenutaProvvigioni(dovutoT, tr.provvigioneLorda, tr.percentualeRa).importoVersatoConsul;
+          return sum + calcIncassoConTrattenutaProvvigioni(lordo, tr.provvigioneLorda, tr.percentualeRa).importoVersatoConsul;
         }
-        return sum + dovutoT;
+        return sum + lordo;
       }, 0),
     );
-  }, [titoli, compensazioniByTitolo, trattenutaByTitolo]);
+    // Causali cliente rettificano il dovuto complessivo (non per quietanza)
+    return round2(baseLordo + totaleCompMinus - totaleCompPlus);
+  }, [titoli, trattenutaByTitolo, totaleCompMinus, totaleCompPlus]);
 
   const cashEffettivo = isMulti
     ? round2(Math.max(0, totaleDovutoConsul - totaleAnticipiUsati))
@@ -818,16 +809,20 @@ export const MessaCassaDialog = ({
 
   useEffect(() => {
     if (!canLoadEstratti) return;
-    // Se l'operatore (o preferred) ha già una scelta valida sul conto, non sovrascrivere
-    if (selectedBonificoId && bonificiCandidati.some((b) => b.id === selectedBonificoId)) return;
+    // Mantieni selezioni ancora valide sul conto corrente
+    const valid = selectedBonificoIds.filter((id) => bonificiCandidati.some((b) => b.id === id));
+    if (valid.length > 0) {
+      if (valid.length !== selectedBonificoIds.length) setSelectedBonificoIds(valid);
+      return;
+    }
     // Preferenza da Incassi (match nome)
     if (preferredBonifico?.movimentoId && bonificiCandidati.some((b) => b.id === preferredBonifico.movimentoId)) {
-      setSelectedBonificoId(preferredBonifico.movimentoId);
+      setSelectedBonificoIds([preferredBonifico.movimentoId]);
       return;
     }
     // 1 match nome/cliente → auto; altrimenti solo se c'è un unico movimento sul conto
     const autoId = pickAutoBonificoId(bonificiCandidati);
-    setSelectedBonificoId(autoId);
+    setSelectedBonificoIds(autoId ? [autoId] : []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     canLoadEstratti,
@@ -835,6 +830,15 @@ export const MessaCassaDialog = ({
     preferredBonifico?.movimentoId,
     bonificiCandidati.map((b) => `${b.id}:${b.matchReason}`).join(","),
   ]);
+
+  const toggleBonificoSelezionato = (id: string, dataMovimento?: string | null) => {
+    setSelectedBonificoIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+    if (dataMovimento) {
+      setForm((f) => ({ ...f, dataPagamento: dataMovimento }));
+    }
+  };
 
   // Se sul conto corrente non c'è match nome, cerca su altri conti e suggerisci di cambiare
   useEffect(() => {
@@ -881,19 +885,23 @@ export const MessaCassaDialog = ({
     clienteNomiPerBonifico.join("|"),
   ]);
 
-  const selectedBonifico: BonificoCandidato | null = useMemo(
-    () => bonificiCandidati.find((b) => b.id === selectedBonificoId) ?? null,
-    [bonificiCandidati, selectedBonificoId],
+  const selectedBonifici: BonificoCandidato[] = useMemo(
+    () => bonificiCandidati.filter((b) => selectedBonificoIds.includes(b.id)),
+    [bonificiCandidati, selectedBonificoIds],
+  );
+  const totaleBonificiSelezionati = useMemo(
+    () => round2(selectedBonifici.reduce((s, b) => s + (Number(b.importo) || 0), 0)),
+    [selectedBonifici],
   );
 
-  /** Eccedenza/mancanza del bonifico rispetto al cash applicato alle quietanze. */
-  const eccedenzaBonifico = selectedBonifico
-    ? round2(selectedBonifico.importo - cashEffettivo)
+  /** Eccedenza/mancanza dei bonifici selezionati rispetto al cash applicato alle quietanze. */
+  const eccedenzaBonifico = selectedBonifici.length > 0
+    ? round2(totaleBonificiSelezionati - cashEffettivo)
     : 0;
-  /** Bonifico ok se copre il cash (surplus ammesso → acconto dal finalize, non da causale ECCED). */
-  const bonificoAllineato = !selectedBonifico || eccedenzaBonifico >= 0;
+  /** Bonifici ok se coprono il cash (surplus ammesso → acconto dal finalize). */
+  const bonificoAllineato = selectedBonifici.length === 0 || eccedenzaBonifico >= 0;
   /** Importo suggerito per abbuono/arrotondamento: scostamento da azzerare (mai ECCED). */
-  const suggestCompImporto = isMulti ? 0 : round2(Math.abs(delta));
+  const suggestCompImporto = round2(Math.abs(delta));
   const puoConfermare = quadrato && bonificoAllineato && eccedenzaBonifico >= 0;
 
   const { data: contiBonificoRaw = [] } = useQuery({
@@ -953,36 +961,29 @@ export const MessaCassaDialog = ({
 
   // === Anteprima scritture contabili ===
   const movimentiPreview: MovimentoPreview[] = useMemo(() => {
-    const rows: MovimentoPreview[] = [];
-    titoli.forEach((t) => {
-      const tag = isMulti ? (t.numero_titolo || t.id.slice(0, 8)) : undefined;
-      getComp(t.id).forEach((c) => {
-        const categoria = isCausaleAccontoCliente(c.causale_codice)
-          ? "acconto_cliente"
-          : c.effetto === "abbuono"
-            ? "abbuono"
-            : c.effetto === "pag_diretto_compagnia"
-              ? "pag_diretto_compagnia"
-              : "compensazione_titolo";
-        rows.push({
-          tipo: c.segno === "+" ? "uscita" : "entrata",
-          categoria,
-          descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
-          importo: c.importo,
-          titolo: tag,
-        });
-      });
+    return compensazioniCliente.map((c) => {
+      const categoria = isCausaleAccontoCliente(c.causale_codice)
+        ? "acconto_cliente"
+        : c.effetto === "abbuono"
+          ? "abbuono"
+          : c.effetto === "pag_diretto_compagnia"
+            ? "pag_diretto_compagnia"
+            : "compensazione_titolo";
+      return {
+        tipo: (c.segno === "+" ? "uscita" : "entrata") as "entrata" | "uscita",
+        categoria,
+        descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
+        importo: c.importo,
+        titolo: undefined,
+      };
     });
-    return rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compensazioniByTitolo, titoli, isMulti]);
+  }, [compensazioniCliente]);
 
   const stampaRiepilogo = () => {
     const t = titoli[0];
-    const comp = getComp(t?.id || "");
     const rows: string[] = [];
     rows.push(`<tr><td>Premio lordo</td><td style="text-align:right">${fmtEuro(totaleLordo)}</td></tr>`);
-    comp.forEach((c) => {
+    compensazioniCliente.forEach((c) => {
       rows.push(`<tr><td>${c.segno} ${c.causale_codice} — ${c.causale_descrizione}${c.note ? " (" + c.note + ")" : ""}</td><td style="text-align:right">${c.segno === "+" ? "− " : "+ "}${fmtEuro(c.importo)}</td></tr>`);
     });
     rows.push(`<tr style="border-top:1px solid #999"><td><strong>Dovuto finale</strong></td><td style="text-align:right"><strong>${fmtEuro(dovutoFinale)}</strong></td></tr>`);
@@ -1041,9 +1042,9 @@ export const MessaCassaDialog = ({
       );
       return;
     }
-    if (selectedBonifico && eccedenzaBonifico < 0) {
+    if (selectedBonifici.length > 0 && eccedenzaBonifico < 0) {
       toast.error(
-        `Il bonifico (${fmtEuro(selectedBonifico.importo)}) è inferiore al cash (${fmtEuro(cashEffettivo)}). Aggiusta importo o causali.`,
+        `I bonifici selezionati (${fmtEuro(totaleBonificiSelezionati)}) non coprono il cash (${fmtEuro(cashEffettivo)}). Aggiungi un altro movimento o riduci il cash.`,
       );
       return;
     }
@@ -1054,9 +1055,9 @@ export const MessaCassaDialog = ({
     if (
       needsBonificoLink &&
       bonificiCandidati.length > 0 &&
-      !selectedBonificoId
+      selectedBonificoIds.length === 0
     ) {
-      toast.error("Seleziona il bonifico tra i caricamenti del conto, oppure verifica in Incassi → Bonifici aperti");
+      toast.error("Seleziona uno o più bonifici tra i caricamenti del conto, oppure verifica in Incassi → Bonifici aperti");
       return;
     }
 
@@ -1084,6 +1085,18 @@ export const MessaCassaDialog = ({
       }
     }
 
+    const abbuoniCliente = compensazioniCliente.filter((c) => isCausaleCompMessaCassaUi(c.causale_codice));
+    const accontiCliente = compensazioniCliente.filter(
+      (c) => isCausaleAccontoCliente(c.causale_codice) && c.importo > 0,
+    );
+    if (accontiCliente.length > 0) {
+      const cliAcc = effettivoPagatoreId || titoli.find((x) => x.cliente_anagrafica_id)?.cliente_anagrafica_id;
+      if (!cliAcc) {
+        toast.error("Per creare acconti (ACC_*) seleziona il cliente pagatore");
+        return;
+      }
+    }
+
     setLoading(true);
 
     const anticipiOrdered = Object.entries(anticipiSel).filter(([, v]) => v > 0).map(([id, v]) => ({ id, residuo: v }));
@@ -1096,7 +1109,10 @@ export const MessaCassaDialog = ({
     let accontiCreati = 0;
     let accontiImporto = 0;
     const cashByTitolo: Record<string, number> = {};
-    const movimentoBancarioIdEffettivo = bankIncasso?.movimentoId ?? selectedBonificoId ?? null;
+    const movimentoBancarioIdEffettivo =
+      bankIncasso?.movimentoId ?? selectedBonificoIds[0] ?? null;
+    /** Prima quietanza effettivamente processata riceve gli abbuoni cliente. */
+    let titoloIdPerAbbuoni: string | null = null;
 
     for (const t of titoli) {
       if (t.stato === "sospeso") {
@@ -1120,6 +1136,8 @@ export const MessaCassaDialog = ({
         }
       }
 
+      if (!titoloIdPerAbbuoni) titoloIdPerAbbuoni = t.id;
+
       const lordo = Number(t.premio_lordo) || 0;
       const d = getDate(t.id);
 
@@ -1129,9 +1147,8 @@ export const MessaCassaDialog = ({
         .eq("id", t.id)
         .maybeSingle();
 
-      const compForThis = getComp(t.id);
-      const abbuoniForThis = compForThis.filter((c) => isCausaleCompMessaCassaUi(c.causale_codice));
-      const accontiForThis = compForThis.filter((c) => isCausaleAccontoCliente(c.causale_codice));
+      const abbuoniForThis = t.id === titoloIdPerAbbuoni ? abbuoniCliente : [];
+      const compForThis = abbuoniForThis;
       const compPlusT = abbuoniForThis
         .filter((c) => c.segno === "+")
         .reduce((s, c) => s + c.importo, 0);
@@ -1359,40 +1376,6 @@ export const MessaCassaDialog = ({
         }
       }
 
-      // Acconti (ACC_*) dal menu → scheda Acconti cliente (cliente_anticipi)
-      if (accontiForThis.length > 0) {
-        const clienteAnticipoId = effettivoPagatoreId || t.cliente_anagrafica_id || null;
-        if (!clienteAnticipoId) {
-          toast.warning(`Acconti su ${t.numero_titolo ?? t.id}: cliente non determinato, non creati`);
-        } else {
-          const contoId = form.banca || bankIncasso?.contoBancarioId || null;
-          const anticipoRows = accontiForThis
-            .filter((c) => c.importo > 0)
-            .map((c) => ({
-              cliente_id: clienteAnticipoId,
-              data_anticipo: d.mc,
-              conto_bancario_id: contoId,
-              importo: c.importo,
-              causale_id: c.causale_id,
-              segno: c.segno === "-" ? "-" : "+",
-              importo_residuo: c.segno === "-" ? 0 : c.importo,
-              note: `Da messa a cassa quietanza ${t.numero_titolo ?? t.id}${c.note ? " · " + c.note : ""}`,
-              creato_da: userId,
-            }));
-          if (anticipoRows.length > 0) {
-            const { error: errAcc } = await (supabase.from("cliente_anticipi") as any).insert(anticipoRows);
-            if (errAcc) {
-              toast.warning(`Acconti non creati su ${t.numero_titolo ?? t.id}: ${errAcc.message}`);
-            } else {
-              accontiCreati += anticipoRows.length;
-              accontiImporto = round2(
-                accontiImporto + anticipoRows.reduce((s, r) => s + (Number(r.importo) || 0), 0),
-              );
-            }
-          }
-        }
-      }
-
       if (isFullIncasso && modalitaByTitolo[t.id] === "produttore_trattiene_provv" && tr) {
         const calcTr = calcIncassoConTrattenutaProvvigioni(dovutoT, tr.provvigioneLorda, tr.percentualeRa);
         const { error: errMod } = await (supabase.from("titoli_modalita_incasso") as any).insert({
@@ -1458,6 +1441,42 @@ export const MessaCassaDialog = ({
       }
     }
 
+    // Acconti (ACC_*) a livello cliente → una sola volta sul pagatore
+    if (ok > 0 && accontiCliente.length > 0) {
+      const clienteAnticipoId =
+        effettivoPagatoreId || titoli.find((x) => x.cliente_anagrafica_id)?.cliente_anagrafica_id || null;
+      if (!clienteAnticipoId) {
+        toast.warning("Acconti non creati: cliente pagatore non determinato");
+      } else {
+        const contoId = form.banca || bankIncasso?.contoBancarioId || null;
+        const dataAnticipo = form.dataMessaCassa;
+        const quietanzeLabel = titoli
+          .map((t) => t.numero_titolo || t.id.slice(0, 8))
+          .slice(0, 5)
+          .join(", ");
+        const anticipoRows = accontiCliente.map((c) => ({
+          cliente_id: clienteAnticipoId,
+          data_anticipo: dataAnticipo,
+          conto_bancario_id: contoId,
+          importo: c.importo,
+          causale_id: c.causale_id,
+          segno: c.segno === "-" ? "-" : "+",
+          importo_residuo: c.segno === "-" ? 0 : c.importo,
+          note: `Da messa a cassa (${quietanzeLabel}${titoli.length > 5 ? "…" : ""})${c.note ? " · " + c.note : ""}`,
+          creato_da: userId,
+        }));
+        const { error: errAcc } = await (supabase.from("cliente_anticipi") as any).insert(anticipoRows);
+        if (errAcc) {
+          toast.warning(`Acconti cliente non creati: ${errAcc.message}`);
+        } else {
+          accontiCreati += anticipoRows.length;
+          accontiImporto = round2(
+            accontiImporto + anticipoRows.reduce((s, r) => s + (Number(r.importo) || 0), 0),
+          );
+        }
+      }
+    }
+
     if (notificaTitoloIds.length > 0) {
       invokeNotificaMessaCassa(notificaTitoloIds)
         .then(({ data, error }) => {
@@ -1470,7 +1489,7 @@ export const MessaCassaDialog = ({
         .catch(() => toast.warning("Notifica agenzia non inviata"));
     }
 
-    if (ok > 0 && !bankIncasso && selectedBonificoId && Object.keys(cashByTitolo).length > 0) {
+    if (ok > 0 && !bankIncasso && selectedBonificoIds.length > 0 && Object.keys(cashByTitolo).length > 0) {
       const pagatore = effettivoPagatoreId || titoli.find((t) => t.cliente_anagrafica_id)?.cliente_anagrafica_id;
       if (pagatore) {
         try {
@@ -1481,8 +1500,11 @@ export const MessaCassaDialog = ({
               clienteId: t.cliente_anagrafica_id as string,
               importo: cashByTitolo[t.id],
             }));
-          await ricongiungiEFinalizzaBonificoDaIncasso({
-            movimentoId: selectedBonificoId,
+          const movimentiImporti: Record<string, number> = {};
+          for (const b of selectedBonifici) movimentiImporti[b.id] = Number(b.importo) || 0;
+          await ricongiungiEFinalizzaBonificiMultipliDaIncasso({
+            movimentoIds: selectedBonificoIds,
+            movimentiImporti,
             clientePagatoreId: pagatore,
             contoBancarioId: form.banca || null,
             dataMessaCassa: form.dataMessaCassa,
@@ -1490,10 +1512,13 @@ export const MessaCassaDialog = ({
             userId,
             clienteLabel: clienteNomeById.get(pagatore) || "Cliente",
             ufficioIdHint: titoli.find((t) => t.ufficio_id)?.ufficio_id ?? null,
-            // Surplus bonifico → acconto creato qui dal finalize (non da causali titolo)
             skipClienteAnticipoInsert: false,
           });
-          toast.success("Bonifico collegato e segnato sui caricamenti conti");
+          toast.success(
+            selectedBonificoIds.length > 1
+              ? `${selectedBonificoIds.length} bonifici collegati e segnati sui caricamenti conti`
+              : "Bonifico collegato e segnato sui caricamenti conti",
+          );
           queryClient.invalidateQueries({ queryKey: ["movimenti-bancari"] });
           queryClient.invalidateQueries({ queryKey: ["mov-bancari"] });
           queryClient.invalidateQueries({ queryKey: ["ricongiungimento"] });
@@ -1620,89 +1645,85 @@ export const MessaCassaDialog = ({
   };
 
   /**
-   * Pannello per singola quietanza: abbuoni/arrotondamenti (+ acconti nello stesso menu).
-   * Abbuoni → titoli_compensazioni sulla quietanza; ACC_* → cliente_anticipi.
-   * Funzione (non componente) per non rimontare gli input a ogni re-render.
+   * Causali a livello cliente (niente picker quietanza).
+   * ABB/ARROT rettificano il dovuto complessivo; ACC_* → scheda Acconti del pagatore.
    */
-  const renderCompensazioniPanel = (titoloId: string, numeroTitolo?: string) => {
-    const list = getComp(titoloId);
-    const label = numeroTitolo || titoli.find((t) => t.id === titoloId)?.numero_titolo || titoloId.slice(0, 8);
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
-            <Calculator className="w-4 h-4" /> Abbuoni, arrotondamenti e acconti
-          </div>
-          <Select value="" onValueChange={(v) => v && addCompFor(titoloId, v, suggestCompImporto)}>
-            <SelectTrigger className="w-64 h-8 text-xs">
-              <SelectValue placeholder="+ Aggiungi causale…" />
-            </SelectTrigger>
-            <SelectContent>
-              {causaliComp.map((c) => (
-                <SelectItem key={c.id} value={c.id} className="text-xs">
-                  <span className="font-mono mr-2">{c.segno_default}</span>
-                  {c.codice} — {c.descrizione}
-                  {isCausaleAccontoCliente(c.codice) ? (
-                    <span className="text-muted-foreground ml-1">(acconto cliente)</span>
-                  ) : null}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+  const renderCompensazioniClientePanel = () => (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
+          <Calculator className="w-4 h-4" /> Abbuoni, arrotondamenti e acconti
         </div>
-        <p className="text-[11px] text-muted-foreground">
-          Sulla quietanza <span className="font-mono">{label}</span>: abbuoni/arrotondamenti rettificano il dovuto;
-          gli acconti (<span className="font-mono">ACC_*</span>) finiscono nella scheda Acconti del cliente.
-        </p>
-
-        {list.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">
-            Nessuna riga. Opzionale: abbuono / arrotondamento / acconto.
-          </p>
-        ) : (
-          <div className="space-y-1.5">
-            {list.map((c) => (
-              <div key={c.tempId} className="flex items-center gap-2 bg-background/80 rounded px-2 py-1.5">
-                <button
-                  type="button"
-                  onClick={() => updateCompFor(titoloId, c.tempId, { segno: c.segno === "+" ? "-" : "+" })}
-                  title={c.segno === "+" ? "Riduce il dovuto — clicca per invertire" : "Aumenta il dovuto — clicca per invertire"}
-                  className={`font-mono text-sm font-bold w-6 h-6 rounded border transition-colors ${
-                    c.segno === "+"
-                      ? "text-green-600 border-green-300 hover:bg-green-50"
-                      : "text-red-600 border-red-300 hover:bg-red-50"
-                  }`}
-                >
-                  {c.segno}
-                </button>
-                <div className="flex-1 text-xs min-w-0">
-                  <div className="font-medium">{c.causale_codice}</div>
-                  <div className="text-muted-foreground truncate">
-                    {c.causale_descrizione}
-                    {isCausaleAccontoCliente(c.causale_codice) ? " · acconto cliente" : ""}
-                  </div>
-                </div>
-                <Input
-                  type="text" placeholder="note"
-                  value={c.note}
-                  onChange={(e) => updateCompFor(titoloId, c.tempId, { note: e.target.value })}
-                  className="w-28 h-8 text-xs"
-                />
-                <ImportoCompensazioneInput
-                  value={c.importo}
-                  autoFocus={lastAddedCompId === c.tempId}
-                  onCommit={(n) => updateCompFor(titoloId, c.tempId, { importo: n })}
-                />
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeCompFor(titoloId, c.tempId)}>
-                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                </Button>
-              </div>
+        <Select value="" onValueChange={(v) => v && addCompCliente(v, suggestCompImporto)}>
+          <SelectTrigger className="w-64 h-8 text-xs">
+            <SelectValue placeholder="+ Aggiungi causale…" />
+          </SelectTrigger>
+          <SelectContent>
+            {causaliComp.map((c) => (
+              <SelectItem key={c.id} value={c.id} className="text-xs">
+                <span className="font-mono mr-2">{c.segno_default}</span>
+                {c.codice} — {c.descrizione}
+                {isCausaleAccontoCliente(c.codice) ? (
+                  <span className="text-muted-foreground ml-1">(acconto cliente)</span>
+                ) : null}
+              </SelectItem>
             ))}
-          </div>
-        )}
+          </SelectContent>
+        </Select>
       </div>
-    );
-  };
+      <p className="text-[11px] text-muted-foreground">
+        A livello cliente: abbuoni/arrotondamenti rettificano il dovuto; gli acconti (
+        <span className="font-mono">ACC_*</span>) finiscono nella scheda Acconti del pagatore.
+      </p>
+
+      {compensazioniCliente.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">
+          Nessuna riga. Opzionale: abbuono / arrotondamento / acconto.
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {compensazioniCliente.map((c) => (
+            <div key={c.tempId} className="flex items-center gap-2 bg-background/80 rounded px-2 py-1.5">
+              <button
+                type="button"
+                onClick={() => updateCompCliente(c.tempId, { segno: c.segno === "+" ? "-" : "+" })}
+                title={c.segno === "+" ? "Riduce il dovuto — clicca per invertire" : "Aumenta il dovuto — clicca per invertire"}
+                className={`font-mono text-sm font-bold w-6 h-6 rounded border transition-colors ${
+                  c.segno === "+"
+                    ? "text-green-600 border-green-300 hover:bg-green-50"
+                    : "text-red-600 border-red-300 hover:bg-red-50"
+                }`}
+              >
+                {c.segno}
+              </button>
+              <div className="flex-1 text-xs min-w-0">
+                <div className="font-medium">{c.causale_codice}</div>
+                <div className="text-muted-foreground truncate">
+                  {c.causale_descrizione}
+                  {isCausaleAccontoCliente(c.causale_codice) ? " · acconto cliente" : ""}
+                </div>
+              </div>
+              <Input
+                type="text"
+                placeholder="note"
+                value={c.note}
+                onChange={(e) => updateCompCliente(c.tempId, { note: e.target.value })}
+                className="w-28 h-8 text-xs"
+              />
+              <ImportoCompensazioneInput
+                value={c.importo}
+                autoFocus={lastAddedCompId === c.tempId}
+                onCommit={(n) => updateCompCliente(c.tempId, { importo: n })}
+              />
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeCompCliente(c.tempId)}>
+                <Trash2 className="w-3.5 h-3.5 text-destructive" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
 
   return (
@@ -2047,7 +2068,7 @@ export const MessaCassaDialog = ({
                               key={c.id}
                               type="button"
                               onClick={() => {
-                                setSelectedBonificoId(null);
+                                setSelectedBonificoIds([]);
                                 setEstrattoSearch("");
                                 setForm((f) => ({ ...f, banca: c.id }));
                               }}
@@ -2141,7 +2162,7 @@ export const MessaCassaDialog = ({
                               className="h-7 text-xs"
                               onClick={() => {
                                 setForm((f) => ({ ...f, banca: suggerimentoAltroConto.contoBancarioId }));
-                                setSelectedBonificoId(suggerimentoAltroConto.movimentoId);
+                                setSelectedBonificoIds([suggerimentoAltroConto.movimentoId]);
                                 setSoloMatchNome(true);
                               }}
                             >
@@ -2152,9 +2173,12 @@ export const MessaCassaDialog = ({
                         {estrattiFiltrati.length > 1 && (
                           <p className="text-[10px] text-muted-foreground">
                             Elenco ordinato per corrispondenza nome (cliente/ordinante), non per importo.
+                            Puoi selezionare più bonifici insieme se serve coprire il cash.
                             {nameMatchCandidati.length === 1
                               ? " Match unico: già selezionato."
-                              : " Seleziona il movimento corretto."}
+                              : selectedBonificoIds.length > 0
+                                ? ` Selezionati: ${selectedBonificoIds.length} · ${fmtEuro(totaleBonificiSelezionati)}.`
+                                : " Spunta uno o più movimenti."}
                           </p>
                         )}
                         {estrattiFiltrati.length === 0 && !bonificiLoading ? (
@@ -2179,7 +2203,7 @@ export const MessaCassaDialog = ({
                               </thead>
                               <tbody>
                                 {estrattiFiltrati.map((b, idx) => {
-                                  const selected = selectedBonificoId === b.id;
+                                  const selected = selectedBonificoIds.includes(b.id);
                                   const reason =
                                     b.matchReason === "cliente"
                                       ? "Cliente"
@@ -2193,30 +2217,13 @@ export const MessaCassaDialog = ({
                                       className={`border-b last:border-0 cursor-pointer ${
                                         selected ? "bg-primary/10" : preferred ? "bg-sky-50" : "hover:bg-muted/40"
                                       }`}
-                                      onClick={() => {
-                                        setSelectedBonificoId(b.id);
-                                        if (b.data_movimento) {
-                                          setForm((f) => ({
-                                            ...f,
-                                            dataPagamento: b.data_movimento,
-                                          }));
-                                        }
-                                      }}
+                                      onClick={() => toggleBonificoSelezionato(b.id, b.data_movimento)}
                                     >
-                                      <td className="p-2 align-top">
-                                        <input
-                                          type="radio"
-                                          name="bonifico-candidato"
+                                      <td className="p-2 align-top" onClick={(e) => e.stopPropagation()}>
+                                        <Checkbox
                                           checked={selected}
-                                          onChange={() => {
-                                            setSelectedBonificoId(b.id);
-                                            if (b.data_movimento) {
-                                              setForm((f) => ({
-                                                ...f,
-                                                dataPagamento: b.data_movimento,
-                                              }));
-                                            }
-                                          }}
+                                          onCheckedChange={() => toggleBonificoSelezionato(b.id, b.data_movimento)}
+                                          aria-label={`Seleziona bonifico ${fmtEuro(b.importo)}`}
                                         />
                                       </td>
                                       <td className="p-2 align-top text-muted-foreground tabular-nums">
@@ -2313,12 +2320,16 @@ export const MessaCassaDialog = ({
                 </p>
               </div>
             )}
-            {selectedBonifico && (
+            {selectedBonifici.length > 0 && (
               <div className="rounded border border-primary/30 bg-primary/5 p-2 space-y-0.5 my-1">
-                <div className="font-medium text-primary">Bonifico selezionato per congiungimento</div>
+                <div className="font-medium text-primary">
+                  {selectedBonifici.length === 1
+                    ? "Bonifico selezionato per congiungimento"
+                    : `${selectedBonifici.length} bonifici selezionati per congiungimento`}
+                </div>
                 <div className="flex justify-between">
-                  <span>Importo movimento</span>
-                  <span>{fmtEuro(selectedBonifico.importo)}</span>
+                  <span>Importo movimenti</span>
+                  <span>{fmtEuro(totaleBonificiSelezionati)}</span>
                 </div>
                 {eccedenzaBonifico > 0 && (
                   <div className="flex justify-between text-green-700">
@@ -2333,10 +2344,18 @@ export const MessaCassaDialog = ({
                   </div>
                 )}
                 {eccedenzaBonifico === 0 && (
-                  <div className="text-green-700">Bonifico allineato al cash ✓</div>
+                  <div className="text-green-700">Bonifici allineati al cash ✓</div>
                 )}
               </div>
             )}
+
+            {/* Causali a livello cliente (niente selezione quietanza) */}
+            {titoli.length > 0 && (
+              <div className="rounded border border-amber-400/40 bg-amber-50/50 dark:bg-amber-950/20 p-2 space-y-2 my-1">
+                {renderCompensazioniClientePanel()}
+              </div>
+            )}
+
             <div className={`flex justify-between font-bold border-t pt-1 ${puoConfermare ? "text-green-700" : "text-red-700"}`}>
               <span>{puoConfermare ? "✅ Quadrato" : "⚠️ Da quadrare"}</span>
               <span>{fmtEuro(delta)}</span>
@@ -2367,97 +2386,53 @@ export const MessaCassaDialog = ({
             </div>
           )}
 
-          {/* Modalità + abbuoni/acconti — single quietanza */}
-          {!isMulti && titoli[0] && (
-            <>
-              {renderModalitaPanel(titoli[0].id)}
-              <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
-                {renderCompensazioniPanel(titoli[0].id, titoli[0].numero_titolo || undefined)}
-              </div>
-            </>
-          )}
+          {/* Modalità — single quietanza */}
+          {!isMulti && titoli[0] && renderModalitaPanel(titoli[0].id)}
 
-          {/* Date per quietanza (bulk) */}
+          {/* Date + modalità per quietanza (bulk) */}
           {isMulti && (
-            <div className="rounded-md border bg-card p-3 space-y-2">
-              <div className="text-sm font-medium flex items-center gap-2 mb-1">
+            <div className="rounded-md border bg-card p-3 space-y-3">
+              <div className="text-sm font-medium flex items-center gap-2">
                 Date per quietanza
                 <span className="text-[10px] text-muted-foreground">(override rispetto alle date globali)</span>
               </div>
               <div className="space-y-2">
                 {titoli.map((t) => (
-                  <div key={t.id} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
-                    <span className="text-xs font-mono truncate text-muted-foreground">
-                      {t.numero_titolo || t.id.slice(0, 8)}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <Label className="text-[10px] text-muted-foreground whitespace-nowrap">M.C.</Label>
-                      <Input
-                        type="date"
-                        value={getDate(t.id).mc}
-                        onChange={(e) => setDate(t.id, { mc: e.target.value })}
-                        className="h-7 text-xs w-36"
-                      />
+                  <div key={t.id} className="space-y-2 border-b last:border-0 pb-2 last:pb-0">
+                    <div className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
+                      <span className="text-xs font-mono truncate text-muted-foreground">
+                        {t.numero_titolo || t.id.slice(0, 8)}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Label className="text-[10px] text-muted-foreground whitespace-nowrap">M.C.</Label>
+                        <Input
+                          type="date"
+                          value={getDate(t.id).mc}
+                          onChange={(e) => setDate(t.id, { mc: e.target.value })}
+                          className="h-7 text-xs w-36"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Pag.</Label>
+                        <Input
+                          type="date"
+                          value={getDate(t.id).pag}
+                          onChange={(e) => setDate(t.id, { pag: e.target.value })}
+                          className="h-7 text-xs w-36"
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Pag.</Label>
-                      <Input
-                        type="date"
-                        value={getDate(t.id).pag}
-                        onChange={(e) => setDate(t.id, { pag: e.target.value })}
-                        className="h-7 text-xs w-36"
-                      />
-                    </div>
+                    {renderModalitaPanel(t.id, t.numero_titolo || undefined)}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Abbuoni / acconti per quietanza (bulk) */}
-          {isMulti && (
-            <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
-              <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2 mb-2">
-                <Calculator className="w-4 h-4" /> Causali per quietanza
-                {allCompensazioni.length > 0 && (
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {allCompensazioni.length} righe su{" "}
-                    {Object.keys(compensazioniByTitolo).filter((k) => (compensazioniByTitolo[k] || []).length > 0).length}{" "}
-                    quietanze
-                  </span>
-                )}
-              </div>
-              <Accordion type="multiple" className="w-full">
-                {titoli.map((t) => {
-                  const n = getComp(t.id).length;
-                  return (
-                    <AccordionItem key={t.id} value={t.id} className="border-b last:border-0">
-                      <AccordionTrigger className="text-xs py-2 hover:no-underline">
-                        <div className="flex items-center gap-2 flex-1">
-                          <span className="font-mono">{t.numero_titolo || t.id.slice(0, 8)}</span>
-                          <span className="text-muted-foreground">— {fmtEuro(Number(t.premio_lordo) || 0)}</span>
-                          {n > 0 && (
-                            <span className="ml-auto mr-2 px-1.5 py-0.5 rounded text-[10px] bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100">
-                              {n} voci
-                            </span>
-                          )}
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-2 pb-3 space-y-3">
-                        {renderModalitaPanel(t.id, t.numero_titolo || undefined)}
-                        {renderCompensazioniPanel(t.id, t.numero_titolo || undefined)}
-                      </AccordionContent>
-                    </AccordionItem>
-                  );
-                })}
-              </Accordion>
-            </div>
-          )}
-
           <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
             <p className="text-sm font-medium text-destructive">
               ⚠️ Operazione irreversibile senza privilegi admin. Quadratura: cash + acconti usati = dovuto rettificato.
-              Abbuoni/arrotondamenti sulla quietanza; acconti nuovi (<span className="font-mono">ACC_*</span>) nella scheda Acconti.
+              Abbuoni/arrotondamenti a livello cliente; acconti nuovi (<span className="font-mono">ACC_*</span>) nella scheda Acconti del pagatore.
             </p>
           </div>
         </div>
@@ -2474,7 +2449,7 @@ export const MessaCassaDialog = ({
               loading ||
               !puoConfermare ||
               (isBonifico && !form.banca && !bankIncasso?.contoBancarioId) ||
-              (needsBonificoLink && bonificiCandidati.length > 0 && !selectedBonificoId)
+              (needsBonificoLink && bonificiCandidati.length > 0 && selectedBonificoIds.length === 0)
             }
             onClick={handleConferma}
           >

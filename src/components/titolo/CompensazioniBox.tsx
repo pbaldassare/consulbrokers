@@ -77,7 +77,8 @@ export const CompensazioniBox = ({ titoloId }: Props) => {
         </span>
       </div>
       <p className="mt-1 text-[10px] text-muted-foreground italic">
-        Registrate in Prima Nota con categoria <code className="font-mono">compensazione_titolo</code>.
+        Abbuoni/arrotondamenti dalla messa a cassa (livello cliente). In Prima Nota:{" "}
+        <code className="font-mono">compensazione_titolo</code> / <code className="font-mono">abbuono</code>.
       </p>
     </div>
   );

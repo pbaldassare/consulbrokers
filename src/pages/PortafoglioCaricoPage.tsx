@@ -294,7 +294,7 @@ const PortafoglioCaricoPage = () => {
   const applySearch = (q: any) =>
     search ? q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`) : q;
 
-  const { data: result, isLoading } = useQuery({
+  const { data: result, isLoading, isError, error: caricoError, refetch: refetchCarico } = useQuery({
     queryKey: [
       "portafoglio-carico",
       search,
@@ -308,18 +308,25 @@ const PortafoglioCaricoPage = () => {
       filtroUffici.join(","),
       vistaIncasso,
     ],
+    retry: 1,
+    staleTime: 15_000,
     queryFn: async () => {
+      // count estimated: evita secondo full-scan pesante su v_portafoglio_quietanze
       let q = supabase.from("v_portafoglio_quietanze").select(
         "id, quietanza_id, polizza_id, numero_titolo, titolo_derivato_numero, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, ufficio_id, data_messa_cassa, data_copertura, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, appendice_tipo, regolazione_quietanza_id, proroga_polizza_madre_id, numero_rata, numero_rate_totali",
-        { count: "exact" }
+        { count: "estimated" }
       );
       q = applyPeriodoFilter(q);
       q = applySearch(q);
       q = applySedeFilter(q);
 
-      const { data, count } = await q
+      const { data, count, error } = await q
         .order(sortField, { ascending: sortDirection === "asc" })
         .range(range.from, range.to);
+      if (error) {
+        console.error("[Incassi] query v_portafoglio_quietanze:", error);
+        throw new Error(error.message || "Errore caricamento Incassi");
+      }
       return { data: data || [], count: count || 0 };
     },
   });
@@ -341,17 +348,30 @@ const PortafoglioCaricoPage = () => {
       filtroUffici.join(","),
       vistaIncasso,
     ],
+    retry: 1,
+    staleTime: 15_000,
     queryFn: async () => {
-      let q = supabase
-        .from("v_portafoglio_quietanze")
-        .select(
-          "premio_lordo, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, numero_rata, numero_rate_totali, cliente_anagrafica_id, cliente_nome_display",
-        );
-      q = applyPeriodoFilter(q);
-      q = applySearch(q);
-      q = applySedeFilter(q);
-      const { data } = await q;
-      const rows = (data || []);
+      // Pagine da 1000: evita timeout su un'unica response enorme
+      const pageSize = 1000;
+      let from = 0;
+      const rows: any[] = [];
+      for (;;) {
+        let q = supabase
+          .from("v_portafoglio_quietanze")
+          .select(
+            "premio_lordo, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, numero_rata, numero_rate_totali, cliente_anagrafica_id, cliente_nome_display",
+          );
+        q = applyPeriodoFilter(q);
+        q = applySearch(q);
+        q = applySedeFilter(q);
+        const { data, error } = await q.range(from, from + pageSize - 1);
+        if (error) throw new Error(error.message || "Errore totali Incassi");
+        const batch = data || [];
+        rows.push(...batch);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+        if (from > 20_000) break;
+      }
       const sumAll = rows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0);
       const sumProvv = rows.reduce((s, r) => s + provvigioneRiga(r), 0);
       const clientiById = new Map<string, string>();
@@ -981,6 +1001,15 @@ const PortafoglioCaricoPage = () => {
 
       {isLoading ? (
         <div className="text-center py-10 text-muted-foreground">Caricamento...</div>
+      ) : isError ? (
+        <div className="text-center py-10 space-y-3">
+          <p className="text-destructive">
+            Errore caricamento Incassi: {(caricoError as Error)?.message || "riprova"}
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={() => refetchCarico()}>
+            Riprova
+          </Button>
+        </div>
       ) : polizze.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground">
           {isVistaIncassati

@@ -202,9 +202,13 @@ export async function ricongiungiEFinalizzaBonificoDaIncasso(opts: {
   ufficioIdHint?: string | null;
   /** Se true, non crea un secondo acconto in cliente_anticipi (già registrato via causale ECCED). */
   skipClienteAnticipoInsert?: boolean;
+  /** Consente finalize senza quietanze (intero movimento → acconto), es. multi-bonifico. */
+  allowSoloAnticipo?: boolean;
 }): Promise<void> {
   const righe = opts.titoli.filter((t) => t.importo > 0 && t.clienteId && t.titoloId);
-  if (righe.length === 0) throw new Error("Nessuna quota bonifico da collegare");
+  if (righe.length === 0 && !opts.allowSoloAnticipo) {
+    throw new Error("Nessuna quota bonifico da collegare");
+  }
 
   const { data: mov, error: movErr } = await supabase
     .from("movimenti_bancari" as any)
@@ -347,4 +351,79 @@ export async function ricongiungiEFinalizzaBonificoDaIncasso(opts: {
     statoNuovo: "incassato",
     note: `${righe.length} quietanze`,
   });
+}
+
+/**
+ * Collega più bonifici alla stessa messa a cassa: distribuisce le quote cash
+ * sui movimenti in ordine (greedy) e finalizza ciascuno.
+ */
+export async function ricongiungiEFinalizzaBonificiMultipliDaIncasso(opts: {
+  movimentoIds: string[];
+  movimentiImporti: Record<string, number>;
+  clientePagatoreId: string;
+  contoBancarioId: string | null;
+  dataMessaCassa: string;
+  titoli: Array<{ titoloId: string; clienteId: string; importo: number }>;
+  userId: string | null;
+  clienteLabel: string;
+  ufficioIdHint?: string | null;
+  skipClienteAnticipoInsert?: boolean;
+}): Promise<void> {
+  const ids = Array.from(new Set(opts.movimentoIds.filter(Boolean)));
+  if (ids.length === 0) throw new Error("Nessun bonifico selezionato");
+  if (ids.length === 1) {
+    await ricongiungiEFinalizzaBonificoDaIncasso({
+      movimentoId: ids[0],
+      clientePagatoreId: opts.clientePagatoreId,
+      contoBancarioId: opts.contoBancarioId,
+      dataMessaCassa: opts.dataMessaCassa,
+      titoli: opts.titoli,
+      userId: opts.userId,
+      clienteLabel: opts.clienteLabel,
+      ufficioIdHint: opts.ufficioIdHint,
+      skipClienteAnticipoInsert: opts.skipClienteAnticipoInsert,
+    });
+    return;
+  }
+
+  const remaining = opts.titoli
+    .filter((t) => t.importo > 0 && t.clienteId && t.titoloId)
+    .map((t) => ({ ...t, importo: round2(t.importo) }));
+
+  for (const movimentoId of ids) {
+    const cap = round2(Math.max(0, Number(opts.movimentiImporti[movimentoId]) || 0));
+    if (cap <= 0) continue;
+
+    const allocate: Array<{ titoloId: string; clienteId: string; importo: number }> = [];
+    let left = cap;
+    for (const r of remaining) {
+      if (left <= 0) break;
+      if (r.importo <= 0) continue;
+      const take = round2(Math.min(r.importo, left));
+      if (take <= 0) continue;
+      allocate.push({ titoloId: r.titoloId, clienteId: r.clienteId, importo: take });
+      r.importo = round2(r.importo - take);
+      left = round2(left - take);
+    }
+
+    await ricongiungiEFinalizzaBonificoDaIncasso({
+      movimentoId,
+      clientePagatoreId: opts.clientePagatoreId,
+      contoBancarioId: opts.contoBancarioId,
+      dataMessaCassa: opts.dataMessaCassa,
+      titoli: allocate,
+      userId: opts.userId,
+      clienteLabel: opts.clienteLabel,
+      ufficioIdHint: opts.ufficioIdHint,
+      skipClienteAnticipoInsert: opts.skipClienteAnticipoInsert,
+      allowSoloAnticipo: allocate.length === 0,
+    });
+  }
+
+  const leftover = round2(remaining.reduce((s, r) => s + r.importo, 0));
+  if (leftover > 0.009) {
+    throw new Error(
+      `I bonifici selezionati non coprono tutto il cash (mancano ${leftover.toFixed(2)} €). Aggiungi un altro movimento.`,
+    );
+  }
 }

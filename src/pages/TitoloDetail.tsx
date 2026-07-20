@@ -43,7 +43,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 
-import { TitoloImportiPremiBlock, type TitoloImportiPremiBlockHandle } from "@/components/polizze/TitoloImportiPremiBlock";
+import {
+  TitoloImportiPremiBlock,
+  type TitoloImportiPremiBlockHandle,
+  type TitoloImportiPremiDisplayTotals,
+  type PremiGaranziaDisplayTotals,
+} from "@/components/polizze/TitoloImportiPremiBlock";
 import { CoassicurazioneImportiBreakdown } from "@/components/polizze/CoassicurazioneImportiBreakdown";
 import { ripartoRowsFromDettaglio } from "@/lib/coassicurazione";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
@@ -1084,6 +1089,10 @@ const TitoloDetail = () => {
   // --- Importi edit state ---
   const [editingImporti, setEditingImporti] = useState(false);
   const premiBlockRef = useRef<TitoloImportiPremiBlockHandle>(null);
+  const [premiDisplayTotals, setPremiDisplayTotals] = useState<TitoloImportiPremiDisplayTotals | null>(null);
+  useEffect(() => {
+    setPremiDisplayTotals(null);
+  }, [id]);
   const [vociRcaTotali, setVociRcaTotali] = useState<{ netto: number; tasse: number; lordo: number } | null>(null);
   const vociRcaSyncTimer = useRef<any>(null);
   const vociRcaQuietanzaTimer = useRef<any>(null);
@@ -2279,11 +2288,19 @@ const TitoloDetail = () => {
           numero_titolo: t.numero_titolo,
           premio_lordo: t.premio_lordo,
           cliente_anagrafica_id: t.cliente_anagrafica_id,
+          cliente_nome_display: t.cliente_anagrafica
+            ? (t.cliente_anagrafica.tipo_cliente === "privato"
+              ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
+              : t.cliente_anagrafica.ragione_sociale || null)
+            : null,
           ufficio_id: t.ufficio_id,
         }]}
+        preferredPagatoreId={t.cliente_anagrafica_id || null}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
           queryClient.invalidateQueries({ queryKey: ["titoli"] });
+          queryClient.invalidateQueries({ queryKey: ["titoli-compensazioni"] });
+          queryClient.invalidateQueries({ queryKey: ["compensazioni-by-titoli"] });
         }}
       />
 
@@ -3329,34 +3346,84 @@ const TitoloDetail = () => {
           <div className="space-y-4">
             {/* Riepilogo totali Firma / Quietanza calcolati dalle righe garanzia (read-only) */}
             <div className={`grid grid-cols-1 ${nascondiPremioQuietanza ? "" : "md:grid-cols-2"} gap-4`}>
+              {(() => {
+                const fTot = premiDisplayTotals?.firma;
+                const qTot = premiDisplayTotals?.quietanza;
+                /** Usa totale garanzia se sul titolo manca (0/null) — tipico dopo import. */
+                const prefer = (stored: number | null | undefined, computed: number | undefined, hasRows?: boolean) => {
+                  const s = stored == null || Number.isNaN(Number(stored)) ? null : Number(stored);
+                  if (hasRows && computed != null && (s == null || s === 0) && computed > 0) return computed;
+                  return s ?? (hasRows ? computed ?? null : null);
+                };
+                const preferLordo = (
+                  storedLordo: number | null | undefined,
+                  storedNetto: number | null | undefined,
+                  storedTasse: number | null | undefined,
+                  computed: PremiGaranziaDisplayTotals | undefined,
+                ) => {
+                  const s = storedLordo == null ? null : Number(storedLordo);
+                  if (!computed?.hasRows || !(computed.lordo > 0)) return s;
+                  const tasseStored = Number(storedTasse) || 0;
+                  const nettoStored = Number(storedNetto) || 0;
+                  // Lordo titolo = solo netto mentre le garanzie hanno tasse → mostra garanzia
+                  if (tasseStored === 0 && computed.tasse > 0 && s != null && Math.abs(s - nettoStored) < 0.02) {
+                    return computed.lordo;
+                  }
+                  return prefer(s, computed.lordo, true);
+                };
+                const nettoF = prefer(t.premio_netto, fTot?.netto, fTot?.hasRows);
+                const tasseF = prefer(t.tasse, fTot?.tasse, fTot?.hasRows);
+                const lordoF = preferLordo(t.premio_lordo, t.premio_netto, t.tasse, fTot);
+                const provvF = prefer(t.provvigioni_firma, fTot?.provvigioni, fTot?.hasRows);
+                const nettoQ = prefer(t.premio_netto_quietanza, qTot?.netto, qTot?.hasRows);
+                const tasseQ = prefer(t.tasse_quietanza, qTot?.tasse, qTot?.hasRows);
+                const lordoStoredQ = (Number(t.premio_netto_quietanza) || 0) + (Number(t.tasse_quietanza) || 0);
+                const lordoQ = preferLordo(
+                  lordoStoredQ > 0 ? lordoStoredQ : null,
+                  t.premio_netto_quietanza,
+                  t.tasse_quietanza,
+                  qTot,
+                );
+                const provvQ = prefer(
+                  t.provvigioni_quietanza,
+                  qTot?.hasRows ? qTot.provvigioni : fTot?.provvigioni,
+                  qTot?.hasRows || fTot?.hasRows,
+                );
+                const splitF = provvF ?? sFirma;
+                const splitQ = provvQ ?? sQui;
+                return (
+                  <>
               <div className="rounded-md border border-teal-200 dark:border-teal-900 bg-teal-50/50 dark:bg-teal-950/20 p-3">
                 <h4 className="text-xs font-bold uppercase mb-2 text-teal-800 dark:text-teal-200">Premio alla Firma</h4>
                 <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div><div className="text-[10px] text-muted-foreground uppercase">Netto</div><div className="font-mono">{fmtEuro(t.premio_netto)}</div></div>
-                  <div><div className="text-[10px] text-muted-foreground uppercase">Tasse</div><div className="font-mono">{fmtEuro(t.tasse)}</div></div>
-                  <div><div className="text-[10px] text-muted-foreground uppercase">Lordo</div><div className="font-mono font-semibold">{fmtEuro(t.premio_lordo)}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Netto</div><div className="font-mono">{fmtEuro(nettoF)}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Tasse</div><div className="font-mono">{fmtEuro(tasseF)}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Lordo</div><div className="font-mono font-semibold">{fmtEuro(lordoF)}</div></div>
                 </div>
                 <div className="mt-2 pt-2 border-t border-teal-200 dark:border-teal-900">
-                  <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
+                  <FieldRow label="Provvigioni" value={fmtEuro(provvF)} />
                   <FieldRow label="Brokeraggio" value={fmtEuro(t.brokeraggio_firma)} />
-                  {renderSplitImporti("Split", sFirma, "teal")}
+                  {renderSplitImporti("Split", splitF, "teal")}
                 </div>
               </div>
               {!nascondiPremioQuietanza && (
               <div className="rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20 p-3">
                 <h4 className="text-xs font-bold uppercase mb-2 text-amber-800 dark:text-amber-200">Premio alla Quietanza</h4>
                 <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div><div className="text-[10px] text-muted-foreground uppercase">Netto</div><div className="font-mono">{fmtEuro(t.premio_netto_quietanza)}</div></div>
-                  <div><div className="text-[10px] text-muted-foreground uppercase">Tasse</div><div className="font-mono">{fmtEuro(t.tasse_quietanza)}</div></div>
-                  <div><div className="text-[10px] text-muted-foreground uppercase">Lordo</div><div className="font-mono font-semibold">{fmtEuro((Number(t.premio_netto_quietanza) || 0) + (Number(t.tasse_quietanza) || 0))}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Netto</div><div className="font-mono">{fmtEuro(nettoQ)}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Tasse</div><div className="font-mono">{fmtEuro(tasseQ)}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Lordo</div><div className="font-mono font-semibold">{fmtEuro(lordoQ)}</div></div>
                 </div>
                 <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-900">
-                  <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
+                  <FieldRow label="Provvigioni" value={fmtEuro(provvQ)} />
                   <FieldRow label="Brokeraggio" value={fmtEuro(t.brokeraggio_quietanza)} />
-                  {renderSplitImporti("Split", sQui, "amber")}
+                  {renderSplitImporti("Split", splitQ, "amber")}
                 </div>
               </div>
               )}
+                  </>
+                );
+              })()}
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground pt-2 border-t">
               <span>Valuta: <strong className="text-foreground">{t.valuta || "EUR"}</strong></span>
@@ -3458,6 +3525,7 @@ const TitoloDetail = () => {
             addizionaliQuietanza={t.addizionali_quietanza}
             provvigioniFirma={t.provvigioni_firma}
             provvigioniQuietanza={t.provvigioni_quietanza}
+            onDisplayTotalsChange={setPremiDisplayTotals}
           />
           {(t.coassicurazione || madre?.coassicurazione) && riparto.length >= 2 && (
             <>

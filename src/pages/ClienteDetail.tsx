@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, ChevronRight, ChevronDown, Sparkles, Briefcase, Loader2, Banknote, Shield } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, ChevronRight, ChevronDown, Sparkles, Briefcase, Loader2, Banknote, Shield, Calculator } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,6 +65,8 @@ import { cn } from "@/lib/utils";
 import AnticipiChip from "@/components/clienti/AnticipiChip";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
 import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
+import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
+import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 
 /* ===========================================================
  * Anagrafica form context + module-level field components
@@ -1146,18 +1148,26 @@ function PolizzeClienteTable({
   navigate,
   mode,
   clienteId,
+  clienteNome,
 }: {
   polizze: any[];
   navigate: (to: string) => void;
   mode?: "polizze" | "quietanze";
   clienteId?: string;
+  clienteNome?: string;
 }) {
   const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
   const [filtroTipoState, setFiltroTipoState] = useState<"polizze" | "quietanze" | "regolazioni" | "garantiti">("quietanze");
   const filtroTipo: "polizze" | "quietanze" | "regolazioni" | "garantiti" = mode ?? filtroTipoState;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [cassaDialogTitoli, setCassaDialogTitoli] = useState<
-    Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null; cliente_anagrafica_id?: string | null }>
+    Array<{
+      id: string;
+      numero_titolo?: string | null;
+      premio_lordo?: number | null;
+      cliente_anagrafica_id?: string | null;
+      cliente_nome_display?: string | null;
+    }>
   >([]);
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const [garantitoDialogTitoli, setGarantitoDialogTitoli] = useState<
@@ -1374,10 +1384,30 @@ function PolizzeClienteTable({
     numero_titolo: r.numero_titolo,
     premio_lordo: r.premio_lordo,
     cliente_anagrafica_id: r.cliente_anagrafica_id ?? clienteId ?? null,
+    cliente_nome_display: clienteNome || null,
   });
+
+  const openIncassa = (righe: any[]) => {
+    if (righe.length === 0) return;
+    setCassaDialogTitoli(righe.map(toTitoloMin));
+    setCassaDialogOpen(true);
+  };
+
+  const totPremioSelezionato = useMemo(
+    () => selectedAttive.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
+    [selectedAttive],
+  );
+
+  const quietanzeIdsPerComp = useMemo(
+    () => flatQuietanze.map((x) => x.rata.id).filter(Boolean),
+    [flatQuietanze],
+  );
+  const { data: compensazioniMap } = useCompensazioniByTitoli(quietanzeIdsPerComp);
 
   const invalidatePolizzeCliente = () => {
     queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
+    queryClient.invalidateQueries({ queryKey: ["compensazioni-by-titoli"] });
+    queryClient.invalidateQueries({ queryKey: ["cliente-anticipi"] });
     setSelectedIds(new Set());
   };
 
@@ -1571,36 +1601,62 @@ function PolizzeClienteTable({
         )}
       </div>
 
-      {filtroTipo === "quietanze" && (selectedAttive.length > 0 || selectedGarantibile.length > 0) && (
-        <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/50 rounded-lg border">
-          <span className="text-sm text-muted-foreground">
-            {selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}
-          </span>
+      {filtroTipo === "quietanze" && quietanzeIncassabili.length > 0 && (
+        <div className="rounded-lg border border-amber-400/40 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              <div className="text-sm font-medium text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                <Calculator className="h-4 w-4 shrink-0" />
+                Incasso cliente · abbuoni e acconti
+              </div>
+              <p className="text-[11px] text-muted-foreground max-w-xl">
+                Seleziona le quietanze e premi Incassa: nella conferma puoi aggiungere abbuoni, arrotondamenti e acconti
+                a <span className="font-medium text-foreground">livello cliente</span> (non per singola quietanza).
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedAttive.length === 0 ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openIncassa(quietanzeIncassabili)}
+                  className="gap-1"
+                >
+                  <Banknote className="h-3.5 w-3.5" />
+                  Incassa tutte ({quietanzeIncassabili.length})
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => openIncassa(selectedAttive)} className="gap-1">
+                  <Banknote className="h-3.5 w-3.5" />
+                  Incassa ({selectedAttive.length})
+                  <span className="font-mono text-[11px] opacity-90">
+                    · € {totPremioSelezionato.toFixed(2)}
+                  </span>
+                </Button>
+              )}
+              {selectedGarantibile.length > 0 && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setGarantitoDialogTitoli(selectedGarantibile.map(toTitoloMin));
+                    setGarantitoDialogOpen(true);
+                  }}
+                  className="gap-1 bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  Garantito ({selectedGarantibile.length})
+                </Button>
+              )}
+            </div>
+          </div>
           {selectedAttive.length > 0 && (
-            <Button
-              size="sm"
-              onClick={() => {
-                setCassaDialogTitoli(selectedAttive.map(toTitoloMin));
-                setCassaDialogOpen(true);
-              }}
-              className="gap-1"
-            >
-              <Banknote className="h-3.5 w-3.5" />
-              Incassa ({selectedAttive.length})
-            </Button>
-          )}
-          {selectedGarantibile.length > 0 && (
-            <Button
-              size="sm"
-              onClick={() => {
-                setGarantitoDialogTitoli(selectedGarantibile.map(toTitoloMin));
-                setGarantitoDialogOpen(true);
-              }}
-              className="gap-1 bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              <Shield className="h-3.5 w-3.5" />
-              Garantito ({selectedGarantibile.length})
-            </Button>
+            <p className="text-xs text-muted-foreground">
+              {selectedAttive.length} quietanz{selectedAttive.length === 1 ? "a" : "e"} selezionat
+              {selectedAttive.length === 1 ? "a" : "e"}
+              {selectedIds.size > selectedAttive.length
+                ? ` · ${selectedIds.size - selectedAttive.length} non incassabili ignorate`
+                : null}
+            </p>
           )}
         </div>
       )}
@@ -1665,7 +1721,7 @@ function PolizzeClienteTable({
                       />
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{r.targa_telaio || "—"}</TableCell>
+                  <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
@@ -1719,12 +1775,17 @@ function PolizzeClienteTable({
                       <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(r)} />
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{r.targa_telaio || "—"}</TableCell>
+                  <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
                   <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
-                  <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
+                  <TableCell className="font-mono">
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span>{fmtNum(r.premio_lordo)}</span>
+                      <CompensazioneBadge summary={compensazioniMap?.get(r.id)} titoloId={r.id} />
+                    </div>
+                  </TableCell>
                   <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
                   <TableCell className="text-xs">
                     {r.data_copertura ? (
@@ -2009,6 +2070,7 @@ function PolizzeClienteTable({
         open={cassaDialogOpen}
         onOpenChange={setCassaDialogOpen}
         titoli={cassaDialogTitoli}
+        preferredPagatoreId={clienteId || null}
         onSuccess={() => invalidatePolizzeCliente()}
       />
 
@@ -2807,7 +2869,16 @@ export default function ClienteDetail() {
                   <NuovaPolizzaButton clienteId={id} label="Nuova Polizza" />
                 </div>
               ) : (
-                <PolizzeClienteTable polizze={polizze} navigate={navigate} clienteId={id} />
+                <PolizzeClienteTable
+                  polizze={polizze}
+                  navigate={navigate}
+                  clienteId={id}
+                  clienteNome={
+                    (cliente as any)?.ragione_sociale ||
+                    [ (cliente as any)?.cognome, (cliente as any)?.nome ].filter(Boolean).join(" ") ||
+                    undefined
+                  }
+                />
               )}
             </CardContent>
           </Card>
