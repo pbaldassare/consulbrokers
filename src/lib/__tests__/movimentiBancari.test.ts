@@ -31,6 +31,24 @@ describe("extractOrdinanteFromDescrizione", () => {
     expect(extractOrdinanteFromDescrizione("ORDINANTE: ROSSI MARIO SRL CRO 123")).toBe("ROSSI MARIO SRL");
   });
 
+  it("estrae da BONIFICO A VOSTRO FAVORE … Data Regolamento", () => {
+    expect(
+      extractOrdinanteFromDescrizione(
+        "BONIFICO A VOSTRO FAVORE CISAF S.R.L. Data Regolamento: 07/01/26 Coord.Ordinante: IT39 N030 3211 1000 1000 0193 211 Banca Ordinante: 06115/23406-BACRIT22XXX Cro: 0303250201955623481110011100IT Note: RINNOVO POLIZZE CISAF",
+      ),
+    ).toBe("CISAF S.R.L.");
+    expect(
+      extractOrdinanteFromDescrizione(
+        "BONIFICO A VOSTRO FAVORE PIERREL S P A Data Regolamento: 08/01/26 Coord.Ordinante: IT59 L030 6914 9371 0000 0015 985",
+      ),
+    ).toBe("PIERREL S P A");
+    expect(
+      extractOrdinanteFromDescrizione(
+        "BONIFICO A VOSTRO FAVORE V.I.M. S.R.L. VENDITA INGROSSO MEDICINA Data Regolamento: 12/01/26 Coord.Ordinante: IT39 Z053",
+      ),
+    ).toBe("V.I.M. S.R.L. VENDITA INGROSSO MEDICINA");
+  });
+
   it("estrae Ordinante: … Causale: tipico estratto IT", () => {
     expect(
       extractOrdinanteFromDescrizione(

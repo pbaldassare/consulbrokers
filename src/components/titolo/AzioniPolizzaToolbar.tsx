@@ -150,7 +150,8 @@ export function AzioniPolizzaToolbar({
         toast.error(res.error || "Errore annullamento");
         return;
       }
-      const extra = res.rataSuccessivaEliminata ? " · rata successiva rimossa" : "";
+      const bonificiExtra = (res.bonificiRiaperti ?? 0) > 0 ? ` · ${res.bonificiRiaperti} bonifici riaperti` : "";
+      const extra = `${bonificiExtra}${res.rataSuccessivaEliminata ? " · rata successiva rimossa" : ""}`;
       toast.success(
         annullaState.mode === "incasso"
           ? `Incasso annullato · ${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov.${extra}`

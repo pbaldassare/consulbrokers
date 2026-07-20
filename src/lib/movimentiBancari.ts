@@ -62,14 +62,7 @@ export function extractOrdinanteFromDescrizione(descrizione: string): string {
   const desc = String(descrizione ?? "").trim();
   if (!desc) return "";
 
-  const ordinanteLabel = desc.match(
-    /ORDINANTE[:\s]+(.+?)(?:\s+Causale\b|\s{2,}|\s+CRO\b|\s+TRN\b|\s+IBAN\b|$)/i,
-  );
-  if (ordinanteLabel) return sanitizeOrdinanteNome(ordinanteLabel[1]);
-
-  const da = desc.match(/DA\s+([A-ZÀ-Ü][A-ZÀ-Ü0-9\s&.'-]+?)(?:\s{2,}|$|CRO|TRN|IBAN|CAUSALE)/i);
-  if (da) return sanitizeOrdinanteNome(da[1]);
-
+  // BCC: "Bonifico a vs favore *NOME …"
   const bcc = desc.match(/Bonifico\s+a\s+vs\s+favore\s+\*([^*]+)/i);
   if (bcc) {
     let name = bcc[1].trim();
@@ -77,6 +70,33 @@ export function extractOrdinanteFromDescrizione(descrizione: string): string {
     name = name.replace(/\s+\d{4}-\d{5,}-\d{6,}.*$/, "").trim();
     name = name.replace(/\s+\d{10,}.*$/, "").trim();
     return sanitizeOrdinanteNome(name);
+  }
+
+  // Intesa/Unicredit/BPM: "BONIFICO A VOSTRO FAVORE NOME Data Regolamento:"
+  // (prima di ORDINANTE: evita di matchare "Coord.Ordinante:" = IBAN)
+  const vostro = desc.match(
+    /BONIFICO\s+A\s+VOSTRO\s+FAVORE\s+(.+?)(?:\s+Data\s+Regolamento\b|\s+Coord\.?\s*Ordinante\b|\s+Cro\b|\s+Note\b|$)/i,
+  );
+  if (vostro) {
+    let name = vostro[1].trim();
+    name = name.replace(CAUSALE_STOP_RE, "").trim();
+    const cleaned = sanitizeOrdinanteNome(name);
+    if (cleaned) return cleaned;
+  }
+
+  // Etichetta "Ordinante:" / "ORDINANTE:" (non "Coord.Ordinante")
+  const ordinanteLabel = desc.match(
+    /(?:^|[\s;|/])ORDINANTE[:\s]+(.+?)(?:\s+Causale\b|\s{2,}|\s+CRO\b|\s+TRN\b|\s+IBAN\b|$)/i,
+  );
+  if (ordinanteLabel) {
+    const cleaned = sanitizeOrdinanteNome(ordinanteLabel[1]);
+    if (cleaned) return cleaned;
+  }
+
+  const da = desc.match(/DA\s+([A-ZÀ-Ü][A-ZÀ-Ü0-9\s&.'-]+?)(?:\s{2,}|$|CRO|TRN|IBAN|CAUSALE)/i);
+  if (da) {
+    const cleaned = sanitizeOrdinanteNome(da[1]);
+    if (cleaned) return cleaned;
   }
 
   // Evita di prendere un IBAN come "prima parte" della descrizione

@@ -12,6 +12,7 @@ export type AnnullaResult = {
   compensazioniEliminate?: number;
   rataSuccessivaEliminata?: boolean;
   quietanzeAggiornate?: number;
+  bonificiRiaperti?: number;
 };
 
 /**
@@ -36,5 +37,6 @@ export async function annullaMessaACassa(titoloId: string): Promise<AnnullaResul
     compensazioniEliminate: (r.compensazioni_eliminate as number) ?? 0,
     rataSuccessivaEliminata: !!r.rata_successiva_eliminata,
     quietanzeAggiornate: (r.quietanze_aggiornate as number) ?? 0,
+    bonificiRiaperti: (r.bonifici_riaperti as number) ?? 0,
   };
 }

@@ -51,7 +51,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   { id: "new-trattativa", label: "Nuova trattativa", icon: Plus, link: "/trattative?new=1", keywords: "nuova trattativa preventivo" },
   { id: "go-portafoglio", label: "Portafoglio Attive", icon: FileText, link: "/portafoglio/attive", keywords: "polizze attive portafoglio" },
   { id: "go-carico", label: "Incassi", icon: FileText, link: "/portafoglio/carico", keywords: "avvisi incasso incassi coperture carico mese scadenze" },
-  { id: "go-bonifici", label: "Bonifici (Incassi)", icon: Banknote, link: "/portafoglio/carico?tab=bonifici", keywords: "bonifici ricongiungimento bancario ordinante movimenti" },
+  { id: "go-bonifici", label: "Bonifici", icon: Banknote, link: "/contabilita/caricamento-mov-bancari?tab=da-ricongiungere", keywords: "bonifici ricongiungimento bancario ordinante movimenti" },
   { id: "go-ec-clienti", label: "E/C Clienti", icon: Receipt, link: "/contabilita/ec-clienti", keywords: "estratto conto cliente contabilita" },
   { id: "go-ec-produttori", label: "E/C Produttori", icon: Receipt, link: "/contabilita/ec-produttori", keywords: "estratto conto produttore provvigioni" },
   { id: "go-provvigioni", label: "Provvigioni Maturate", icon: Banknote, link: "/portafoglio/provvigioni-maturate", keywords: "provvigioni maturate produttori" },

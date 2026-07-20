@@ -62,6 +62,7 @@ describe("annullaMessaACassa", () => {
         compensazioni_eliminate: 1,
         rata_successiva_eliminata: false,
         quietanze_aggiornate: 1,
+        bonifici_riaperti: 2,
       },
       error: null,
     });
@@ -78,6 +79,7 @@ describe("annullaMessaACassa", () => {
       compensazioniEliminate: 1,
       rataSuccessivaEliminata: false,
       quietanzeAggiornate: 1,
+      bonificiRiaperti: 2,
     });
   });
 });

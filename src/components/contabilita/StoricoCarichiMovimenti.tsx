@@ -295,7 +295,7 @@ function DettaglioCaricoDialog({ caricoId, onClose }: { caricoId: string | null;
               Export scarti
             </Button>
             <Button type="button" size="sm" variant="secondary" className="h-8 text-xs" asChild>
-              <Link to="/portafoglio/carico?tab=bonifici">Apri Incassi</Link>
+              <Link to="/contabilita/caricamento-mov-bancari?tab=da-ricongiungere">Da ricongiungere</Link>
             </Button>
           </div>
         </div>

@@ -72,6 +72,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "stampa-sospesi": "Acconti",
   "anticipi-clienti": "Acconti",
   "ricongiungimento-bancario": "Storico bonifici",
+  "caricamento-mov-bancari": "Bonifici e Mov. Bancari",
   "anomalie-ko": "Anomalie KO",
   "note-restituzione": "Note Restituzione",
   "spedizioni": "Spedizioni",

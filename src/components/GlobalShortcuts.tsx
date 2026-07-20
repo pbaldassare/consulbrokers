@@ -24,7 +24,7 @@ export function GlobalShortcuts() {
     { combo: "g c", description: "Clienti", category: "Vai a", handler: () => navigate("/clienti") },
     { combo: "g p", description: "Polizze attive", category: "Vai a", handler: () => navigate("/portafoglio/attive") },
     { combo: "g k", description: "Incassi", category: "Vai a", handler: () => navigate("/portafoglio/carico") },
-    { combo: "g b", description: "Bonifici (Incassi)", category: "Vai a", handler: () => navigate("/portafoglio/carico?tab=bonifici") },
+    { combo: "g b", description: "Bonifici", category: "Vai a", handler: () => navigate("/contabilita/caricamento-mov-bancari?tab=da-ricongiungere") },
     { combo: "g s", description: "Sinistri", category: "Vai a", handler: () => navigate("/sinistri") },
     { combo: "g t", description: "Trattative", category: "Vai a", handler: () => navigate("/trattative") },
     { combo: "g a", description: "Compagnie", category: "Vai a", handler: () => navigate("/compagnie") },

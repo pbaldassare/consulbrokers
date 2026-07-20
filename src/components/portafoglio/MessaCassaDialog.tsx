@@ -194,7 +194,8 @@ export const MessaCassaDialog = ({
   const [form, setForm] = useState({
     dataMessaCassa: todayISO(),
     dataPagamento: todayISO(),
-    tipoPagamento: "contanti",
+    /** Vuoto finché l'utente non sceglie (obbligatorio se c'è cash da incassare). */
+    tipoPagamento: "",
     banca: "",
     cashImporto: 0,
   });
@@ -511,7 +512,8 @@ export const MessaCassaDialog = ({
       setForm({
         dataMessaCassa: t,
         dataPagamento: t,
-        tipoPagamento: preferBonifico ? "bonifico" : "contanti",
+        // Prefill solo da flusso bonifico; altrimenti vuoto (scelta obbligatoria)
+        tipoPagamento: preferBonifico ? "bonifico" : "",
         banca: bankIncasso?.contoBancarioId ?? preferredBonifico?.contoBancarioId ?? "",
         cashImporto: bankCash,
       });
@@ -902,7 +904,10 @@ export const MessaCassaDialog = ({
   const bonificoAllineato = selectedBonifici.length === 0 || eccedenzaBonifico >= 0;
   /** Importo suggerito per abbuono/arrotondamento: scostamento da azzerare (mai ECCED). */
   const suggestCompImporto = round2(Math.abs(delta));
-  const puoConfermare = quadrato && bonificoAllineato && eccedenzaBonifico >= 0;
+  /** Con cash residuo il tipo pagamento è obbligatorio (niente default Contanti). */
+  const tipoPagamentoObbligatorio = cashEffettivo > 0 && !bankIncasso;
+  const tipoPagamentoOk = !tipoPagamentoObbligatorio || !!form.tipoPagamento;
+  const puoConfermare = quadrato && bonificoAllineato && eccedenzaBonifico >= 0 && tipoPagamentoOk;
 
   const { data: contiBonificoRaw = [] } = useQuery({
     queryKey: ["messa-cassa-conti-bonifico"],
@@ -1040,6 +1045,10 @@ export const MessaCassaDialog = ({
       toast.error(
         `Non quadra: delta ${fmtEuro(delta)}. Riduci il cash oppure aggiungi abbuono/arrotondamento manuale.`,
       );
+      return;
+    }
+    if (tipoPagamentoObbligatorio && !form.tipoPagamento) {
+      toast.error("Seleziona il tipo di pagamento");
       return;
     }
     if (selectedBonifici.length > 0 && eccedenzaBonifico < 0) {
@@ -1974,9 +1983,16 @@ export const MessaCassaDialog = ({
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Tipo Pagamento</Label>
-                <Select value={form.tipoPagamento} onValueChange={handleTipoPagamentoChange}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <Label className="text-xs">
+                  Tipo Pagamento {tipoPagamentoObbligatorio && <span className="text-destructive">*</span>}
+                </Label>
+                <Select
+                  value={form.tipoPagamento || undefined}
+                  onValueChange={handleTipoPagamentoChange}
+                >
+                  <SelectTrigger className={`mt-1 ${tipoPagamentoObbligatorio && !form.tipoPagamento ? "ring-1 ring-amber-500" : ""}`}>
+                    <SelectValue placeholder="— Seleziona tipo pagamento —" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="contanti">Contanti</SelectItem>
                     <SelectItem value="pos">POS</SelectItem>
@@ -1991,9 +2007,17 @@ export const MessaCassaDialog = ({
           {/* Bulk: tipo pagamento per residuo cash */}
           {isMulti && cashEffettivo > 0 && (
             <div>
-              <Label className="text-xs">Tipo Pagamento {totaleAnticipiUsati > 0 && <span className="text-muted-foreground">(parte residua)</span>}</Label>
-              <Select value={form.tipoPagamento} onValueChange={handleTipoPagamentoChange}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <Label className="text-xs">
+                Tipo Pagamento <span className="text-destructive">*</span>{" "}
+                {totaleAnticipiUsati > 0 && <span className="text-muted-foreground">(parte residua)</span>}
+              </Label>
+              <Select
+                value={form.tipoPagamento || undefined}
+                onValueChange={handleTipoPagamentoChange}
+              >
+                <SelectTrigger className={`mt-1 ${!form.tipoPagamento ? "ring-1 ring-amber-500" : ""}`}>
+                  <SelectValue placeholder="— Seleziona tipo pagamento —" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="contanti">Contanti</SelectItem>
                   <SelectItem value="pos">POS</SelectItem>
@@ -2448,6 +2472,7 @@ export const MessaCassaDialog = ({
             disabled={
               loading ||
               !puoConfermare ||
+              !tipoPagamentoOk ||
               (isBonifico && !form.banca && !bankIncasso?.contoBancarioId) ||
               (needsBonificoLink && bonificiCandidati.length > 0 && selectedBonificoIds.length === 0)
             }

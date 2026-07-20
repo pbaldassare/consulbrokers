@@ -197,7 +197,7 @@ export function IncassiBonificiPanel({
           <p className="text-[11px] text-muted-foreground pt-1 border-t">
             Storico bonifici già collegati:{" "}
             <Link
-              to="/contabilita/ricongiungimento-bancario?tab=storico"
+              to="/contabilita/caricamento-mov-bancari?tab=ricongiunti"
               className="text-sky-700 underline underline-offset-2 font-medium"
             >
               apri storico

@@ -242,7 +242,7 @@ const sezioni = [
       { nome: "Diff. Provvigioni", desc: "Analisi differenze tra provvigioni attese e ricevute", ruoli: ["admin", "ufficio"] },
       { nome: "Report IVA", desc: "Report IVA periodico per adempimenti fiscali", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "Caricamento Mov. Bancari", desc: "Import estratti conto; i movimenti aperti si collegano da Incassi", ruoli: ["admin", "cfo"] },
-      { nome: "Storico bonifici", desc: "Storico movimenti bancari già collegati (route legacy ?tab=storico)", ruoli: ["admin", "cfo", "ufficio", "contabilita"] },
+      { nome: "Bonifici e Mov. Bancari", desc: "Da ricongiungere → Ricongiunti → Importazioni → Storico importazioni", ruoli: ["admin", "cfo", "ufficio", "contabilita"] },
     ],
   },
   {

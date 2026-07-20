@@ -2501,7 +2501,7 @@ const TitoloDetail = () => {
                   return;
                 }
                 toast.success(
-                  `${t?.stato === "incassato" ? "Incasso annullato" : "Messa a cassa annullata"} (${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov.${res.rataSuccessivaEliminata ? ", rata successiva rimossa" : ""})`
+                  `${t?.stato === "incassato" ? "Incasso annullato" : "Messa a cassa annullata"} (${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov.${(res.bonificiRiaperti ?? 0) > 0 ? `, ${res.bonificiRiaperti} bonifici riaperti` : ""}${res.rataSuccessivaEliminata ? ", rata successiva rimossa" : ""})`
                 );
                 queryClient.invalidateQueries({ queryKey: ["titolo", id] });
                 queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
@@ -2509,6 +2509,8 @@ const TitoloDetail = () => {
                 queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
                 queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-totale"] });
                 queryClient.invalidateQueries({ queryKey: ["portafoglio"] });
+                queryClient.invalidateQueries({ queryKey: ["incassi-bonifici-aperti"] });
+                queryClient.invalidateQueries({ queryKey: ["messa-cassa-bonifici-candidati"] });
                 setAnnullaDialogOpen(false);
               } catch {
                 toast.error("Errore di verifica");

@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import RoleGuard from "@/components/RoleGuard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +20,10 @@ import { fmtEuro } from "@/lib/formatCurrency";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import { OrdinanteCombobox } from "@/components/contabilita/OrdinanteCombobox";
 import { StoricoCarichiMovimenti } from "@/components/contabilita/StoricoCarichiMovimenti";
+import {
+  DaRicongiungereTab,
+  StoricoTab,
+} from "@/pages/contabilita/RicongiungimentoBancarioPage";
 import {
   resolveUfficioFromConto,
   resolveOrdinanteImport,
@@ -77,9 +83,42 @@ const parseImporto = (raw: any): number => {
   return isNaN(n) ? 0 : n;
 };
 
+const TAB_VALUES = [
+  "da-ricongiungere",
+  "ricongiunti",
+  "importazione",
+  "storico-importazioni",
+  "monitor",
+] as const;
+type TabValue = (typeof TAB_VALUES)[number];
+
+const isTabValue = (v: string | null): v is TabValue =>
+  !!v && (TAB_VALUES as readonly string[]).includes(v);
+
 const Page = () => {
   const qc = useQueryClient();
-  const [tab, setTab] = useState("importazione");
+  const { profile, isAdmin } = useAuth();
+  const isCfo = profile?.ruolo === "cfo";
+  const canImport = isAdmin || isCfo;
+  const seeAll = isAdmin || isCfo;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const rawTab: TabValue = isTabValue(tabParam) ? tabParam : "da-ricongiungere";
+  const importTabs: TabValue[] = ["importazione", "storico-importazioni", "monitor"];
+  const tab: TabValue =
+    !canImport && importTabs.includes(rawTab) ? "da-ricongiungere" : rawTab;
+  const setTab = (v: string) => {
+    const sp = new URLSearchParams(searchParams);
+    sp.set("tab", v);
+    setSearchParams(sp, { replace: true });
+  };
+
+  useEffect(() => {
+    if (!canImport && importTabs.includes(rawTab)) {
+      setTab("da-ricongiungere");
+    }
+  }, [canImport, rawTab]);
+
   const [importing, setImporting] = useState(false);
   const [lastReport, setLastReport] = useState<{
     caricoId: string | null;
@@ -391,7 +430,7 @@ const Page = () => {
     toast.success(
       cliente_id
         ? "Movimento creato con cliente/sede da ordinante"
-        : "Movimento creato — disponibile in Incassi → Bonifici aperti",
+        : "Movimento creato — disponibile in Da ricongiungere",
     );
     qc.invalidateQueries({ queryKey: ["mov-bancari"] });
     qc.invalidateQueries({ queryKey: ["ordinanti-suggeriti"] });
@@ -399,111 +438,151 @@ const Page = () => {
   };
 
   return (
-    <RoleGuard allowedRoles={["admin", "cfo"]} permissionKey="contabilita">
+    <RoleGuard
+      allowedRoles={["admin", "cfo", "ufficio", "backoffice", "contabilita"]}
+      permissionKey="contabilita"
+    >
       <div className="container mx-auto py-6 space-y-4">
         <div>
-          <h1 className="text-2xl font-bold">Caricamento Movimenti Bancari</h1>
+          <h1 className="text-2xl font-bold">Bonifici e Movimenti Bancari</h1>
           <p className="text-sm text-muted-foreground">
-            Carica l&apos;estratto conto in Excel o CSV. La colonna <code>Cliente ID</code> è opzionale:
-            i movimenti senza cliente restano in coda in Incassi → Bonifici aperti.
+            Bonifici da ricongiungere e già collegati, poi import estratto conto e storico carichi.
           </p>
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <TabsList>
-              <TabsTrigger value="importazione">Importazione</TabsTrigger>
-              <TabsTrigger value="storico">Storico carichi</TabsTrigger>
-              <TabsTrigger value="monitor">Monitor Real-time</TabsTrigger>
+            <TabsList className="flex-wrap h-auto">
+              <TabsTrigger value="da-ricongiungere">Da ricongiungere</TabsTrigger>
+              <TabsTrigger value="ricongiunti">Ricongiunti</TabsTrigger>
+              {canImport && (
+                <>
+                  <TabsTrigger value="importazione">Importazioni</TabsTrigger>
+                  <TabsTrigger value="storico-importazioni">Storico importazioni</TabsTrigger>
+                  <TabsTrigger value="monitor">Monitor Real-time</TabsTrigger>
+                </>
+              )}
             </TabsList>
-            <Button onClick={() => setManualOpen(true)} size="sm" className="gap-1">
-              <Plus className="w-4 h-4" /> Inserimento manuale
-            </Button>
+            {canImport && (tab === "importazione" || tab === "storico-importazioni") && (
+              <Button onClick={() => setManualOpen(true)} size="sm" className="gap-1">
+                <Plus className="w-4 h-4" /> Inserimento manuale
+              </Button>
+            )}
           </div>
 
-          <TabsContent value="importazione" className="space-y-4">
-            <Card>
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Upload className="w-4 h-4" /> Upload estratto conto (Excel / CSV)</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Conto bancario *</Label>
-                  <ContoBancarioSelect
-                    value={contoImportId || null}
-                    onChange={(id) => setContoImportId(id ?? "")}
-                    tipi={["incasso_clienti", "generico"]}
-                    autoSelectDefault
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Le sedi collegate a questo conto vedranno i movimenti in Incassi → Bonifici aperti.
-                  </p>
-                </div>
-                <DropZone disabled={importing || parsingPreview || !contoImportId} onFile={handleFile} />
-                <p className="text-xs text-muted-foreground">
-                  Formati: <code>.xlsx</code>, <code>.xls</code>, <code>.csv</code> (separatore <code>;</code> o <code>,</code>).
-                  Dopo la selezione vedi l&apos;<strong>anteprima</strong> con le righe da importare e i motivi degli scarti, poi conferma.
-                </p>
-                {parsingPreview && (
-                  <p className="text-sm text-muted-foreground">Lettura file in corso…</p>
-                )}
-                {lastReport && (
-                  <div className="mt-4 rounded-md border bg-muted/30 p-3 text-sm space-y-2">
-                    <div className="font-medium">Ultimo caricamento · {lastReport.nomeFile}</div>
-                    <ul className="text-muted-foreground space-y-0.5">
-                      <li>· {lastReport.inseriti} movimenti inseriti</li>
-                      <li>· {lastReport.duplicati} duplicati</li>
-                      <li>· {lastReport.scarti} scarti</li>
-                      <li>· {lastReport.senzaCliente} senza Cliente ID (stato: Importato)</li>
-                    </ul>
-                    {Object.keys(lastReport.scartiByMotivo || {}).length > 0 && (
-                      <div className="rounded border bg-background/60 p-2 space-y-1">
-                        <p className="text-xs font-semibold text-foreground">Motivi scarto</p>
-                        {Object.entries(lastReport.scartiByMotivo).map(([motivo, n]) => (
-                          <div key={motivo} className="flex items-start justify-between gap-2 text-xs">
-                            <span className="text-muted-foreground">{labelMotivoScarto(motivo)}</span>
-                            <Badge variant="destructive" className="text-[10px] shrink-0">{n}</Badge>
+          <TabsContent value="da-ricongiungere">
+            <DaRicongiungereTab
+              profileUfficio={profile?.ufficio_id ?? null}
+              seeAll={seeAll}
+            />
+          </TabsContent>
+
+          <TabsContent value="ricongiunti">
+            <StoricoTab
+              profileUfficio={profile?.ufficio_id ?? null}
+              seeAll={seeAll}
+            />
+          </TabsContent>
+
+          {canImport && (
+            <>
+              <TabsContent value="importazione" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Upload className="w-4 h-4" /> Upload estratto conto (Excel / CSV)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label>Conto bancario *</Label>
+                      <ContoBancarioSelect
+                        value={contoImportId || null}
+                        onChange={(id) => setContoImportId(id ?? "")}
+                        tipi={["incasso_clienti", "generico"]}
+                        autoSelectDefault
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        I movimenti senza cliente restano in coda nella tab Da ricongiungere.
+                      </p>
+                    </div>
+                    <DropZone disabled={importing || parsingPreview || !contoImportId} onFile={handleFile} />
+                    <p className="text-xs text-muted-foreground">
+                      Formati: <code>.xlsx</code>, <code>.xls</code>, <code>.csv</code> (separatore <code>;</code> o <code>,</code>).
+                      Dopo la selezione vedi l&apos;<strong>anteprima</strong> con le righe da importare e i motivi degli scarti, poi conferma.
+                    </p>
+                    {parsingPreview && (
+                      <p className="text-sm text-muted-foreground">Lettura file in corso…</p>
+                    )}
+                    {lastReport && (
+                      <div className="mt-4 rounded-md border bg-muted/30 p-3 text-sm space-y-2">
+                        <div className="font-medium">Ultimo caricamento · {lastReport.nomeFile}</div>
+                        <ul className="text-muted-foreground space-y-0.5">
+                          <li>· {lastReport.inseriti} movimenti inseriti</li>
+                          <li>· {lastReport.duplicati} duplicati</li>
+                          <li>· {lastReport.scarti} scarti</li>
+                          <li>· {lastReport.senzaCliente} senza Cliente ID (stato: Importato)</li>
+                        </ul>
+                        {Object.keys(lastReport.scartiByMotivo || {}).length > 0 && (
+                          <div className="rounded border bg-background/60 p-2 space-y-1">
+                            <p className="text-xs font-semibold text-foreground">Motivi scarto</p>
+                            {Object.entries(lastReport.scartiByMotivo).map(([motivo, n]) => (
+                              <div key={motivo} className="flex items-start justify-between gap-2 text-xs">
+                                <span className="text-muted-foreground">{labelMotivoScarto(motivo)}</span>
+                                <Badge variant="destructive" className="text-[10px] shrink-0">{n}</Badge>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
+                        <p className="text-xs">
+                          Dettaglio ed export nella tab{" "}
+                          <button
+                            type="button"
+                            className="underline font-medium"
+                            onClick={() => setTab("storico-importazioni")}
+                          >
+                            Storico importazioni
+                          </button>
+                          .
+                        </p>
                       </div>
                     )}
-                    <p className="text-xs">
-                      Dettaglio ed export nella tab{" "}
-                      <button type="button" className="underline font-medium" onClick={() => setTab("storico")}>
-                        Storico carichi
-                      </button>
-                      .
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-          <TabsContent value="storico">
-            <StoricoCarichiMovimenti />
-          </TabsContent>
+              <TabsContent value="storico-importazioni">
+                <StoricoCarichiMovimenti />
+              </TabsContent>
 
-          <TabsContent value="monitor">
-            <MonitorTab />
-          </TabsContent>
+              <TabsContent value="monitor">
+                <MonitorTab />
+              </TabsContent>
+            </>
+          )}
         </Tabs>
 
-        <InserimentoManualeDialog
-          open={manualOpen}
-          onOpenChange={setManualOpen}
-          onSubmit={async (p) => { await handleManualInsert(p); setManualOpen(false); }}
-        />
+        {canImport && (
+          <>
+            <InserimentoManualeDialog
+              open={manualOpen}
+              onOpenChange={setManualOpen}
+              onSubmit={async (p) => { await handleManualInsert(p); setManualOpen(false); }}
+            />
 
-        <AnteprimaImportDialog
-          open={previewOpen}
-          preview={preview}
-          importing={importing}
-          onCancel={() => {
-            if (importing) return;
-            setPreviewOpen(false);
-            setPreview(null);
-          }}
-          onConfirm={() => void confirmImport()}
-        />
+            <AnteprimaImportDialog
+              open={previewOpen}
+              preview={preview}
+              importing={importing}
+              onCancel={() => {
+                if (importing) return;
+                setPreviewOpen(false);
+                setPreview(null);
+              }}
+              onConfirm={() => void confirmImport()}
+            />
+          </>
+        )}
       </div>
     </RoleGuard>
   );

@@ -37,6 +37,7 @@ import { AggiungiPolizzaAltroClienteDialog, type PolizzaAggiunta } from "@/compo
 import { SearchableSelect } from "@/components/SearchableSelect";
 import {
   assegnaPagatoreMovimento,
+  extractOrdinanteFromDescrizione,
   fetchContoIdsForUfficio,
   finalizeMovimentoBancarioIncasso,
 } from "@/lib/movimentiBancari";
@@ -128,9 +129,13 @@ const Page = () => {
   const tabParam = searchParams.get("tab");
   const legacy = searchParams.get("legacy") === "1";
 
-  // Flusso primario "Da collegare" → Incassi. Restano storico e modalità legacy avanzata.
-  if (!legacy && tabParam !== "storico") {
-    return <Navigate to="/portafoglio/carico?tab=bonifici" replace />;
+  // Flusso primario → hub Bonifici su Caricamento Mov. Bancari
+  if (!legacy) {
+    const dest =
+      tabParam === "storico"
+        ? "/contabilita/caricamento-mov-bancari?tab=ricongiunti"
+        : "/contabilita/caricamento-mov-bancari?tab=da-ricongiungere";
+    return <Navigate to={dest} replace />;
   }
 
   const activeTab =
@@ -157,20 +162,14 @@ const Page = () => {
         </div>
 
         <div className="rounded-lg border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-          I bonifici da collegare si gestiscono da{" "}
-          <Link to="/portafoglio/carico?tab=bonifici" className="font-semibold underline underline-offset-2">
-            Incassi → Bonifici aperti
+          Vista legacy. Il flusso operativo è in{" "}
+          <Link
+            to="/contabilita/caricamento-mov-bancari?tab=da-ricongiungere"
+            className="font-semibold underline underline-offset-2"
+          >
+            Bonifici → Da ricongiungere
           </Link>
           {" "}(match su ordinante ↔ cliente, non sull&apos;importo).
-          {legacy && (
-            <>
-              {" "}Modalità legacy attiva —{" "}
-              <Link to="/portafoglio/carico?tab=bonifici" className="underline underline-offset-2">
-                torna a Incassi
-              </Link>
-              .
-            </>
-          )}
         </div>
 
         <Tabs
@@ -205,7 +204,7 @@ const Page = () => {
 };
 
 // === Tab: Da Ricongiungere ===
-const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null; seeAll: boolean }) => {
+export const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null; seeAll: boolean }) => {
   const qc = useQueryClient();
   const [filtroUfficio, setFiltroUfficio] = useState<string>("");
   const [dal, setDal] = useState("");
@@ -702,7 +701,14 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
           <div className="p-4 cursor-pointer hover:bg-muted/40 flex items-center justify-between">
             <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
               <div><span className="text-muted-foreground">Data: </span><span className="font-medium">{movimento.data_movimento}</span></div>
-              <div><span className="text-muted-foreground">Ordinante: </span><span className="font-medium">{movimento.ordinante || "—"}</span></div>
+              <div>
+                <span className="text-muted-foreground">Ordinante: </span>
+                <span className="font-medium">
+                  {(movimento.ordinante || "").trim() ||
+                    extractOrdinanteFromDescrizione(movimento.descrizione || "") ||
+                    "—"}
+                </span>
+              </div>
               <div><span className="text-muted-foreground">Cliente: </span><span className="font-medium">{cliNome}</span></div>
               <div className="text-right md:text-left"><span className="text-muted-foreground">Importo: </span><span className="font-bold tabular-nums">{fmtEuro(movimento.importo)}</span></div>
             </div>
@@ -973,7 +979,7 @@ type PolizzaCollegataRow = {
 };
 
 // === Tab: Storico ===
-const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null; seeAll: boolean }) => {
+export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string | null; seeAll: boolean }) => {
   const qc = useQueryClient();
   const [dal, setDal] = useState("");
   const [al, setAl] = useState("");
