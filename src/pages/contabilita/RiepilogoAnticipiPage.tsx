@@ -111,7 +111,7 @@ export default function RiepilogoAnticipiPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2">
-              <Wallet className="w-6 h-6 text-primary" /> Acconti e compensazioni
+              <Wallet className="w-6 h-6 text-primary" /> Acconti
             </h1>
             <p className="text-sm text-muted-foreground">
               Partite cliente collegate a causale contabile — credito utilizzabile in messa a cassa

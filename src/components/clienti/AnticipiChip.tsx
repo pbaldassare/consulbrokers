@@ -44,10 +44,10 @@ export default function AnticipiChip({ clienteId }: Props) {
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
-        title="Acconti e compensazioni"
+        title="Acconti del cliente"
       >
         <Wallet className="w-4 h-4 text-primary" />
-        <span>Acconti e compensazioni</span>
+        <span>Acconti</span>
         <Badge variant="secondary" className="ml-1 font-semibold">{fmtEuro(totaleDisponibile)}</Badge>
       </button>
 
@@ -55,7 +55,7 @@ export default function AnticipiChip({ clienteId }: Props) {
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-primary" /> Acconti e compensazioni
+              <Wallet className="w-5 h-5 text-primary" /> Acconti
             </DialogTitle>
           </DialogHeader>
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   BONIFICO_MATCH_MIN_SCORE,
+  nomeVariantsForMatch,
+  pickAutoBonificoId,
   scoreOrdinanteVsNomi,
   suggestBonificiPerCliente,
   type BonificoAperto,
@@ -29,6 +31,18 @@ describe("bonificoMatch", () => {
     expect(scoreOrdinanteVsNomi("ROSSI MARIO", null, ["Piergomme S.r.l."])).toBeLessThan(BONIFICO_MATCH_MIN_SCORE);
   });
 
+  it("matcha Comune con apostrofo / senza prefisso", () => {
+    expect(
+      scoreOrdinanteVsNomi("COMUNE DI POMIGLIANO D ARCO TESORERIA", null, [
+        "COMUNE DI POMIGLIANO D'ARCO",
+      ]),
+    ).toBe(100);
+    expect(
+      scoreOrdinanteVsNomi("POMIGLIANO D ARCO", null, ["COMUNE DI POMIGLIANO D'ARCO"]),
+    ).toBeGreaterThanOrEqual(BONIFICO_MATCH_MIN_SCORE);
+    expect(nomeVariantsForMatch("COMUNE DI SAN MARTINO IN PENSILIS")).toContain("SAN MARTINO IN PENSILIS");
+  });
+
   it("suggest prioritizza cliente_id e ignora importo", () => {
     const rows = [
       base({ id: "a", ordinante: "ALTRO SPA", importo: 100 }),
@@ -39,5 +53,23 @@ describe("bonificoMatch", () => {
     expect(sug[0].id).toBe("c");
     expect(sug.some((s) => s.id === "b")).toBe(true);
     expect(sug.some((s) => s.id === "a")).toBe(false);
+  });
+
+  it("pickAutoBonificoId: un solo match nome anche se ci sono altri del conto", () => {
+    const id = pickAutoBonificoId([
+      { id: "noise1", matchReason: "conto" },
+      { id: "hit", matchReason: "ordinante" },
+      { id: "noise2", matchReason: "conto" },
+    ]);
+    expect(id).toBe("hit");
+  });
+
+  it("pickAutoBonificoId: più match nome → nessuna auto-selezione", () => {
+    expect(
+      pickAutoBonificoId([
+        { id: "a", matchReason: "ordinante" },
+        { id: "b", matchReason: "cliente" },
+      ]),
+    ).toBeNull();
   });
 });

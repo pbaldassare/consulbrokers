@@ -8,6 +8,7 @@ import { notificaSedeMovimentoBancario } from "@/lib/notificheMovimentiBancari";
 import {
   BONIFICO_MATCH_MIN_SCORE,
   scoreOrdinanteVsNomi,
+  suggestBonificiPerCliente,
   type BonificoAperto,
 } from "@/lib/bonificoMatch";
 
@@ -29,6 +30,8 @@ export type BonificoCandidato = {
   score: number;
 };
 
+const FETCH_PAGE = 500;
+
 /**
  * Candidati bonifico su un conto: aperti (importato/matchato/assegnato).
  * Match solo per cliente_id / ordinante (l'importo NON è criterio di matching).
@@ -41,7 +44,7 @@ export async function fetchBonificiCandidatiPerIncasso(opts: {
   importoTarget?: number;
   limit?: number;
 }): Promise<BonificoCandidato[]> {
-  const limit = opts.limit ?? 40;
+  const limit = opts.limit ?? 120;
   const { data, error } = await supabase
     .from("movimenti_bancari" as any)
     .select(
@@ -50,10 +53,11 @@ export async function fetchBonificiCandidatiPerIncasso(opts: {
     .eq("conto_bancario_id", opts.contoBancarioId)
     .in("stato", ["importato", "matchato", "assegnato"])
     .order("data_movimento", { ascending: false })
-    .limit(80);
+    .limit(FETCH_PAGE);
   if (error) throw error;
 
   const clienteSet = new Set(opts.clienteIds.filter(Boolean));
+  const nomi = opts.clienteNomi.filter(Boolean);
 
   const rows = ((data as any[]) || []).map((r) => {
     let matchReason: BonificoCandidato["matchReason"] = "conto";
@@ -61,8 +65,8 @@ export async function fetchBonificiCandidatiPerIncasso(opts: {
     if (r.cliente_id && clienteSet.has(r.cliente_id)) {
       matchReason = "cliente";
       score = 200;
-    } else {
-      const ordScore = scoreOrdinanteVsNomi(r.ordinante, r.descrizione, opts.clienteNomi);
+    } else if (nomi.length > 0) {
+      const ordScore = scoreOrdinanteVsNomi(r.ordinante, r.descrizione, nomi);
       if (ordScore >= BONIFICO_MATCH_MIN_SCORE) {
         matchReason = "ordinante";
         score = 100 + ordScore;
@@ -87,6 +91,38 @@ export async function fetchBonificiCandidatiPerIncasso(opts: {
 
   rows.sort((a, b) => b.score - a.score || b.data_movimento.localeCompare(a.data_movimento));
   return rows.slice(0, limit);
+}
+
+/**
+ * Cerca il miglior bonifico aperto (qualsiasi conto) per nome/cliente.
+ * Usato quando sul conto corrente non c'è match nome — per suggerire di cambiare conto.
+ */
+export async function findBestBonificoApertoPerCliente(opts: {
+  clienteIds: string[];
+  clienteNomi: string[];
+  excludeContoId?: string | null;
+}): Promise<(BonificoAperto & { score: number; matchReason: "cliente" | "ordinante" }) | null> {
+  const aperti = await fetchBonificiApertiPerIncassi({});
+  const filtered = opts.excludeContoId
+    ? aperti.filter((b) => b.conto_bancario_id !== opts.excludeContoId)
+    : aperti;
+  const clienteId = opts.clienteIds[0] ?? null;
+  const sug = suggestBonificiPerCliente(filtered, {
+    clienteId,
+    clienteNomi: opts.clienteNomi,
+  });
+  // Anche match su altri clienteIds
+  if (opts.clienteIds.length > 1) {
+    for (const id of opts.clienteIds.slice(1)) {
+      for (const b of filtered) {
+        if (b.cliente_id === id && !sug.some((s) => s.id === b.id)) {
+          sug.push({ ...b, score: 200, matchReason: "cliente" });
+        }
+      }
+    }
+    sug.sort((a, b) => b.score - a.score || b.data_movimento.localeCompare(a.data_movimento));
+  }
+  return sug[0] ?? null;
 }
 
 /**

@@ -569,19 +569,21 @@ export async function finalizeMovimentoBancarioIncasso(p: FinalizeMovimentoParam
   const ant = round2(Number(p.anticipoImporto) || 0);
   if (ant > 0) {
     let causaleId: string | null = null;
-    for (const codice of ["ECCED", "ACC_CRED", "ACC_STOR"]) {
+    // Surplus bonifico → acconto cliente (ECCED disattivata; solo ACC_*)
+    for (const codice of ["ACC_CRED", "ACC_STOR"]) {
       const { data: c } = await supabase
         .from("causali_contabili" as any)
         .select("id")
         .eq("tipo_tabella", "compensazione_messa_cassa")
         .eq("codice", codice)
+        .eq("attivo", true)
         .maybeSingle();
       if ((c as any)?.id) {
         causaleId = (c as any).id;
         break;
       }
     }
-    if (!causaleId) throw new Error("Causale contabile ECCED non trovata per acconto da bonifico");
+    if (!causaleId) throw new Error("Causale contabile ACC_CRED/ACC_STOR non trovata per acconto da bonifico");
 
     const { error: errAnt } = await supabase.from("cliente_anticipi" as any).insert({
       cliente_id: p.clienteId,
@@ -592,7 +594,7 @@ export async function finalizeMovimentoBancarioIncasso(p: FinalizeMovimentoParam
       importo_residuo: ant,
       causale_id: causaleId,
       segno: "+",
-      note: p.note ?? `Eccedenza bonifico movimento ${p.movimentoId.slice(0, 8)}`,
+      note: p.note ?? `Acconto da surplus bonifico ${p.movimentoId.slice(0, 8)}`,
       creato_da: p.userId,
     } as any);
     if (errAnt) throw errAnt;

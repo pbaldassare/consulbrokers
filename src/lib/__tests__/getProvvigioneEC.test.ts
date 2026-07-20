@@ -22,6 +22,18 @@ describe("getProvvigioneEC", () => {
     ).toBe(150);
   });
 
+  it("Incassi/vista: quietanza=0 su madre non usa ?? (fallback firma)", () => {
+    // Caso Pensilis: quietanze.provvigioni_quietanza=0 ma firma corretta
+    expect(
+      getProvvigioneEC({
+        provvigioni_firma: 402.44,
+        provvigioni_quietanza: 0,
+        sostituisce_polizza: null,
+      }),
+    ).toBe(402.44);
+    expect(Number(0 ?? 402.44) || 0).toBe(0); // anti-pattern precedente
+  });
+
   it("quietanza senza sostituisce_polizza ma con quietanza > 0: preferisce quietanza", () => {
     expect(
       getProvvigioneEC({

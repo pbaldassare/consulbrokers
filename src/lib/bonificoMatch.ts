@@ -15,6 +15,28 @@ export function normalizeNomeMatch(s: string): string {
     .trim();
 }
 
+/** Prefissi tipici enti/comuni da strippare per confronto più tollerante. */
+const PREFISSI_ENTE =
+  /^(COMUNE DI|COMUNE DEL|COMUNE DELLA|COMUNE DELLO|CITTA DI|CITTA METROPOLITANA DI|PROVINCIA DI|CONSORZIO DI|CONSORZIO DEL|CONSORZIO|AZIENDA|ENTE)\s+/i;
+
+/**
+ * Varianti del nome cliente usate nel matching (nome pieno + senza prefisso ente).
+ */
+export function nomeVariantsForMatch(nome: string): string[] {
+  const full = normalizeNomeMatch(nome);
+  if (!full) return [];
+  const out = new Set<string>([full]);
+  let rest = full;
+  // strip ripetuto (es. "COMUNE DI COMUNE DI …" improbabile ma harmless)
+  for (let i = 0; i < 2; i++) {
+    const next = rest.replace(PREFISSI_ENTE, "").trim();
+    if (!next || next === rest) break;
+    out.add(next);
+    rest = next;
+  }
+  return Array.from(out).filter((v) => v.length >= 3);
+}
+
 /** Score 0–100: ordinante/descrizione vs uno o più nomi cliente. */
 export function scoreOrdinanteVsNomi(
   ordinante: string | null | undefined,
@@ -25,16 +47,19 @@ export function scoreOrdinanteVsNomi(
   if (!hay) return 0;
   let best = 0;
   for (const nome of nomi) {
-    const n = normalizeNomeMatch(nome);
-    if (!n || n.length < 3) continue;
-    if (hay.includes(n) || n.includes(hay)) {
-      best = Math.max(best, 100);
-      continue;
+    for (const n of nomeVariantsForMatch(nome)) {
+      if (hay.includes(n) || n.includes(hay)) {
+        best = Math.max(best, 100);
+        continue;
+      }
+      const tokens = n.split(" ").filter((t) => t.length >= 3);
+      if (tokens.length === 0) continue;
+      // Ignora token generici che da soli danno falsi positivi
+      const meaningful = tokens.filter((t) => !["COMUNE", "CITTA", "PROVINCIA", "CONSORZIO", "ENTE"].includes(t));
+      const use = meaningful.length > 0 ? meaningful : tokens;
+      const hit = use.filter((t) => hay.includes(t)).length;
+      if (hit > 0) best = Math.max(best, Math.round((hit / use.length) * 80));
     }
-    const tokens = n.split(" ").filter((t) => t.length >= 3);
-    if (tokens.length === 0) continue;
-    const hit = tokens.filter((t) => hay.includes(t)).length;
-    if (hit > 0) best = Math.max(best, Math.round((hit / tokens.length) * 80));
   }
   return best;
 }
@@ -60,16 +85,37 @@ export type BonificoSuggerito = BonificoAperto & {
   matchReason: "cliente" | "ordinante";
 };
 
+export function isBonificoNameMatch(reason: string | null | undefined): boolean {
+  return reason === "cliente" || reason === "ordinante";
+}
+
+/**
+ * Auto-selezione: 1 solo match nome/cliente, oppure un solo movimento sul conto.
+ * Mai per importo.
+ */
+export function pickAutoBonificoId<T extends { id: string; matchReason: string }>(
+  candidati: T[],
+): string | null {
+  const nameMatches = candidati.filter((b) => isBonificoNameMatch(b.matchReason));
+  if (nameMatches.length === 1) return nameMatches[0].id;
+  if (candidati.length === 1) return candidati[0].id;
+  return null;
+}
+
 /**
  * Tra i bonifici aperti, quelli suggeribili per un cliente (solo nome / cliente_id).
  * Importo ignorato deliberatamente.
  */
 export function suggestBonificiPerCliente(
   bonifici: BonificoAperto[],
-  opts: { clienteId?: string | null; clienteNome?: string | null },
+  opts: { clienteId?: string | null; clienteNome?: string | null; clienteNomi?: string[] },
 ): BonificoSuggerito[] {
-  const nome = (opts.clienteNome || "").trim();
-  const nomi = nome ? [nome] : [];
+  const nomi = [
+    ...(opts.clienteNomi || []),
+    ...(opts.clienteNome ? [opts.clienteNome] : []),
+  ]
+    .map((n) => n.trim())
+    .filter(Boolean);
   const out: BonificoSuggerito[] = [];
 
   for (const b of bonifici) {

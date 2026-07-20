@@ -43,10 +43,10 @@ import {
   type BonificoAperto,
   type BonificoSuggerito,
 } from "@/lib/bonificoMatch";
+import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 
-/** Provvigione riga Incassi: quietanza se presente, altrimenti firma. */
-const provvigioneRiga = (r: { provvigioni_quietanza?: number | null; provvigioni_firma?: number | null }) =>
-  Number(r.provvigioni_quietanza ?? r.provvigioni_firma) || 0;
+/** Stessa regola del dettaglio cliente / E/C (non usare ?? : lo 0 non fa fallback a firma). */
+const provvigioneRiga = getProvvigioneEC;
 
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 const startOfMonthStr = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), "yyyy-MM-dd");
@@ -480,6 +480,7 @@ const PortafoglioCaricoPage = () => {
           numero_titolo: p.numero_titolo,
           premio_lordo: p.premio_lordo,
           cliente_anagrafica_id: p.cliente_anagrafica_id,
+          cliente_nome_display: (p as any).cliente_nome_display ?? null,
         }],
         {
           movimentoId: b.id,
@@ -515,6 +516,7 @@ const PortafoglioCaricoPage = () => {
           numero_titolo: p.numero_titolo,
           premio_lordo: p.premio_lordo,
           cliente_anagrafica_id: (p as any).cliente_anagrafica_id,
+          cliente_nome_display: (p as any).cliente_nome_display ?? null,
         })),
         prefer,
       );
@@ -728,6 +730,7 @@ const PortafoglioCaricoPage = () => {
                       numero_titolo: p.numero_titolo,
                       premio_lordo: p.premio_lordo,
                       cliente_anagrafica_id: (p as any).cliente_anagrafica_id,
+                      cliente_nome_display: (p as any).cliente_nome_display ?? null,
                     })),
                     preferredBonifico,
                   )
@@ -1076,6 +1079,7 @@ const PortafoglioCaricoPage = () => {
                                       numero_titolo: p.numero_titolo,
                                       premio_lordo: p.premio_lordo,
                                       cliente_anagrafica_id: (p as any).cliente_anagrafica_id,
+                                      cliente_nome_display: p.cliente_nome_display ?? null,
                                     },
                                     b,
                                   )

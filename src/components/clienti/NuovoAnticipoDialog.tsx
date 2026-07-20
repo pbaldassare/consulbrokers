@@ -13,6 +13,7 @@ import { useClientiSearch } from "@/hooks/useAnticipiGlobale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
+import { isCausaleAccontoCliente } from "@/lib/compensazioniMessaCassa";
 
 interface Props {
   open: boolean;
@@ -36,7 +37,7 @@ export default function NuovoAnticipoDialog({ open, onOpenChange, clienteId }: P
   const creaFixed = useCreaAnticipo(clienteId || "__none__");
 
   const { data: causali = [] } = useQuery({
-    queryKey: ["causali-compensazione-anticipo"],
+    queryKey: ["causali-acconto-cliente"],
     enabled: open,
     queryFn: async () => {
       const { data, error } = await (supabase.from("causali_contabili") as any)
@@ -45,7 +46,8 @@ export default function NuovoAnticipoDialog({ open, onOpenChange, clienteId }: P
         .eq("attivo", true)
         .order("codice");
       if (error) throw error;
-      return (data || []) as CausaleOpt[];
+      // Solo acconti (ACC_*) — non abbuoni/arrotondamenti
+      return ((data || []) as CausaleOpt[]).filter((c) => isCausaleAccontoCliente(c.codice));
     },
   });
 

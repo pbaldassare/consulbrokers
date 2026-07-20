@@ -41,7 +41,7 @@ export default function AnticipiCard({ clienteId }: Props) {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div className="flex items-center gap-2">
           <Wallet className="w-4 h-4 text-primary" />
-          <CardTitle className="text-base">Acconti e compensazioni</CardTitle>
+          <CardTitle className="text-base">Acconti</CardTitle>
         </div>
         <Button size="sm" variant="outline" onClick={() => setOpenNuovo(true)}>
           <Plus className="w-3 h-3 mr-1" /> Nuovo
