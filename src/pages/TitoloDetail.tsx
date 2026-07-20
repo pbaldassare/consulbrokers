@@ -433,7 +433,7 @@ const TitoloDetail = () => {
   // --- Cassa dialog state ---
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
-  const [cassaForm, setCassaForm] = useState({ dataMessaCassa: todayStr, dataPagamento: todayStr, dataDecorrenza: todayStr, tipoPagamento: "contanti", banca: "" });
+  const [cassaForm, setCassaForm] = useState({ dataMessaCassa: todayStr, dataPagamento: todayStr, dataDecorrenza: todayStr, tipoPagamento: "", banca: "" });
 
 
   // --- Regolazione edit state ---
@@ -2353,7 +2353,7 @@ const TitoloDetail = () => {
                   {t.stato === "attivo" && (!t.data_messa_cassa || isPoliennale) && (
                     <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
                       const today = new Date().toISOString().slice(0, 10);
-                      setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
+                      setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "", banca: "" });
                       setCassaDialogOpen(true);
                     }} disabled={changeStatoMutation.isPending}>
                       <CheckSquare className="w-4 h-4 mr-1" /> {inCopertura ? "Incassa (fondi ricevuti)" : "Incassa"}
