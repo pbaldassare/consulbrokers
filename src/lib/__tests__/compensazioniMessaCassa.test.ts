@@ -2,15 +2,24 @@ import { describe, expect, it } from "vitest";
 import {
   isCausaleAccontoCliente,
   isCausaleCompMessaCassaUi,
+  isCausaleMessaCassaMenu,
+  rettificaDovutoQuietanza,
 } from "@/lib/compensazioniMessaCassa";
 
 describe("compensazioniMessaCassa", () => {
-  it("UI messa a cassa: solo abbuoni e arrotondamenti", () => {
-    expect(isCausaleCompMessaCassaUi("ABB_ATT")).toBe(true);
-    expect(isCausaleCompMessaCassaUi("ARROT_P")).toBe(true);
-    expect(isCausaleCompMessaCassaUi("ECCED")).toBe(false);
-    expect(isCausaleCompMessaCassaUi("SCONTO")).toBe(false);
-    expect(isCausaleCompMessaCassaUi("SPESE")).toBe(false);
+  it("menu messa a cassa: abbuoni, arrotondamenti e acconti", () => {
+    expect(isCausaleMessaCassaMenu("ABB_ATT")).toBe(true);
+    expect(isCausaleMessaCassaMenu("ARROT_P")).toBe(true);
+    expect(isCausaleMessaCassaMenu("ACC_STOR")).toBe(true);
+    expect(isCausaleMessaCassaMenu("ACC_CRED")).toBe(true);
+    expect(isCausaleMessaCassaMenu("ECCED")).toBe(false);
+    expect(isCausaleMessaCassaMenu("SCONTO")).toBe(false);
+  });
+
+  it("rettifica dovuto quietanza: solo abbuoni/arrotondamenti", () => {
+    expect(rettificaDovutoQuietanza("ABB_ATT")).toBe(true);
+    expect(rettificaDovutoQuietanza("ARROT_A")).toBe(true);
+    expect(rettificaDovutoQuietanza("ACC_STOR")).toBe(false);
     expect(isCausaleCompMessaCassaUi("ACC_STOR")).toBe(false);
   });
 

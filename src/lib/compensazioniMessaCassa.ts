@@ -1,13 +1,14 @@
 /**
  * Regole voci messa a cassa / acconti cliente.
  *
- * - Abbuoni e arrotondamenti: salvati su titoli_compensazioni (manuale),
+ * - Menu messa a cassa: abbuoni, arrotondamenti e acconti (stesso tendina).
+ * - Abbuoni / arrotondamenti: salvati su titoli_compensazioni (sulla quietanza),
  *   NON vanno in «Acconti» del cliente.
- * - Acconti: solo cliente_anticipi (scheda Acconti).
+ * - Acconti (ACC_*): salvati su cliente_anticipi (scheda Acconti).
  * - Eccedenza / sconto commerciale / spese accessorie: non usate.
  */
 
-/** Causali selezionabili in messa a cassa (abbuoni / arrotondamenti). */
+/** Causali che rettificano il dovuto sulla quietanza. */
 export const CAUSALI_COMP_MESSA_CASSA_UI = [
   "ABB_ATT",
   "ABB_PAS",
@@ -15,7 +16,7 @@ export const CAUSALI_COMP_MESSA_CASSA_UI = [
   "ARROT_P",
 ] as const;
 
-/** Causali per creazione manuale acconto cliente. */
+/** Causali per creazione acconto cliente (anche dal menu messa a cassa). */
 export const CAUSALI_ACCONTO_CLIENTE = ["ACC_STOR", "ACC_CRED"] as const;
 
 /** Causali da disattivare (non più selezionabili). */
@@ -31,4 +32,14 @@ export function isCausaleAccontoCliente(codice: string | null | undefined): bool
   if (!codice) return false;
   if ((CAUSALI_ACCONTO_CLIENTE as readonly string[]).includes(codice)) return true;
   return codice.startsWith("ACC_");
+}
+
+/** Voci nel menu a tendina messa a cassa: abbuoni/arrotondamenti + acconti. */
+export function isCausaleMessaCassaMenu(codice: string | null | undefined): boolean {
+  return isCausaleCompMessaCassaUi(codice) || isCausaleAccontoCliente(codice);
+}
+
+/** Solo abbuoni/arrotondamenti alterano il dovuto della quietanza. */
+export function rettificaDovutoQuietanza(codice: string | null | undefined): boolean {
+  return isCausaleCompMessaCassaUi(codice);
 }

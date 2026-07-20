@@ -42,7 +42,13 @@ import {
   type BonificoCandidato,
 } from "@/lib/bonificoDaIncasso";
 import { isBonificoNameMatch, pickAutoBonificoId } from "@/lib/bonificoMatch";
-import { isCausaleCompMessaCassaUi } from "@/lib/compensazioniMessaCassa";
+import {
+  isCausaleAccontoCliente,
+  isCausaleCompMessaCassaUi,
+  isCausaleMessaCassaMenu,
+  rettificaDovutoQuietanza,
+} from "@/lib/compensazioniMessaCassa";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 /**
  * Input importo per riga di compensazione contabile.
@@ -217,8 +223,6 @@ export const MessaCassaDialog = ({
     importo: number;
     contoEtichetta?: string | null;
   } | null>(null);
-  /** Quietanza su cui aggiungere abbuono/arrotondamento (scelta manuale). */
-  const [compTargetTitoloId, setCompTargetTitoloId] = useState<string>("");
   const { profile } = useAuth();
   const [clienteQuietanzeSearch, setClienteQuietanzeSearch] = useState("");
   // Quietanze spuntate nella checklist prima dell'aggiunta
@@ -386,9 +390,9 @@ export const MessaCassaDialog = ({
     },
   });
 
-  // Solo abbuoni / arrotondamenti (manuali). Niente ECCED / sconto / spese.
+  // Abbuoni / arrotondamenti / acconti nello stesso menu. Niente ECCED / sconto / spese.
   const { data: causaliCompRaw = [] } = useQuery({
-    queryKey: ["causali-compensazione-messa-cassa-v2"],
+    queryKey: ["causali-compensazione-messa-cassa-v3"],
     enabled: open,
     queryFn: async () => {
       const { data, error } = await (supabase.from("causali_contabili") as any)
@@ -401,7 +405,7 @@ export const MessaCassaDialog = ({
     },
   });
   const causaliComp = useMemo(
-    () => causaliCompRaw.filter((c) => isCausaleCompMessaCassaUi(c.codice)),
+    () => causaliCompRaw.filter((c) => isCausaleMessaCassaMenu(c.codice)),
     [causaliCompRaw],
   );
 
@@ -524,7 +528,6 @@ export const MessaCassaDialog = ({
       setEstrattoSearch("");
       setSoloMatchNome(true);
       setSuggerimentoAltroConto(null);
-      setCompTargetTitoloId("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bankIncasso?.movimentoId, preferredBonifico?.movimentoId]);
@@ -715,12 +718,12 @@ export const MessaCassaDialog = ({
   const totaleAnticipiUsati = round2(Object.values(anticipiSel).reduce((s, v) => s + (Number(v) || 0), 0));
   const totaleCompPlus = round2(
     allCompensazioni
-      .filter((c) => c.segno === "+" && c.effetto !== "eccedenza")
+      .filter((c) => c.segno === "+" && rettificaDovutoQuietanza(c.causale_codice))
       .reduce((s, c) => s + c.importo, 0),
   );
   const totaleCompMinus = round2(
     allCompensazioni
-      .filter((c) => c.segno === "-" && c.effetto !== "eccedenza")
+      .filter((c) => c.segno === "-" && rettificaDovutoQuietanza(c.causale_codice))
       .reduce((s, c) => s + c.importo, 0),
   );
   const dovutoFinale = round2(totaleLordo + totaleCompMinus - totaleCompPlus);
@@ -731,10 +734,10 @@ export const MessaCassaDialog = ({
         const lordo = Number(t.premio_lordo) || 0;
         const compForThis = compensazioniByTitolo[t.id] || [];
         const compPlusT = compForThis
-          .filter((c) => c.segno === "+" && c.effetto !== "eccedenza")
+          .filter((c) => c.segno === "+" && rettificaDovutoQuietanza(c.causale_codice))
           .reduce((s, c) => s + c.importo, 0);
         const compMinusT = compForThis
-          .filter((c) => c.segno === "-" && c.effetto !== "eccedenza")
+          .filter((c) => c.segno === "-" && rettificaDovutoQuietanza(c.causale_codice))
           .reduce((s, c) => s + c.importo, 0);
         const dovutoT = round2(lordo + compMinusT - compPlusT);
         const tr = trattenutaByTitolo.get(t.id);
@@ -954,14 +957,13 @@ export const MessaCassaDialog = ({
     titoli.forEach((t) => {
       const tag = isMulti ? (t.numero_titolo || t.id.slice(0, 8)) : undefined;
       getComp(t.id).forEach((c) => {
-        const categoria =
-          c.effetto === "abbuono"
+        const categoria = isCausaleAccontoCliente(c.causale_codice)
+          ? "acconto_cliente"
+          : c.effetto === "abbuono"
             ? "abbuono"
-            : c.effetto === "eccedenza"
-            ? "acconto_cliente"
             : c.effetto === "pag_diretto_compagnia"
-            ? "pag_diretto_compagnia"
-            : "compensazione_titolo";
+              ? "pag_diretto_compagnia"
+              : "compensazione_titolo";
         rows.push({
           tipo: c.segno === "+" ? "uscita" : "entrata",
           categoria,
@@ -1128,11 +1130,13 @@ export const MessaCassaDialog = ({
         .maybeSingle();
 
       const compForThis = getComp(t.id);
-      const compPlusT = compForThis
-        .filter((c) => c.segno === "+" && c.effetto !== "eccedenza")
+      const abbuoniForThis = compForThis.filter((c) => isCausaleCompMessaCassaUi(c.causale_codice));
+      const accontiForThis = compForThis.filter((c) => isCausaleAccontoCliente(c.causale_codice));
+      const compPlusT = abbuoniForThis
+        .filter((c) => c.segno === "+")
         .reduce((s, c) => s + c.importo, 0);
-      const compMinusT = compForThis
-        .filter((c) => c.segno === "-" && c.effetto !== "eccedenza")
+      const compMinusT = abbuoniForThis
+        .filter((c) => c.segno === "-")
         .reduce((s, c) => s + c.importo, 0);
       const dovutoT = round2(lordo + compMinusT - compPlusT);
 
@@ -1318,8 +1322,9 @@ export const MessaCassaDialog = ({
         if (errG) toast.warning(`Giroconto inter-cliente non registrato su ${t.numero_titolo ?? t.id}: ${errG.message}`);
       }
 
-      if (compForThis.length > 0) {
-        const compRows = compForThis.map((c) => ({
+      // Abbuoni/arrotondamenti → sulla quietanza (titoli_compensazioni)
+      if (abbuoniForThis.length > 0) {
+        const compRows = abbuoniForThis.map((c) => ({
           titolo_id: t.id,
           causale_id: c.causale_id,
           causale_codice: c.causale_codice,
@@ -1331,36 +1336,61 @@ export const MessaCassaDialog = ({
         }));
         const { error: errC } = await (supabase.from("titoli_compensazioni") as any).insert(compRows);
         if (errC) {
-          toast.error(`Errore registrazione compensazioni su ${t.numero_titolo ?? t.id}: ${errC.message}`);
+          toast.error(`Errore registrazione abbuoni su ${t.numero_titolo ?? t.id}: ${errC.message}`);
         } else {
-          // Categoria movimento in base all'effetto della causale:
-          //  abbuono → "abbuono" (write-off, audit/quadratura)
-          //  altri → "compensazione_titolo"
-          // Le eccedenze non generano un movimento qui: il surplus è tracciato
-          // come acconto cliente (registrato più sotto) e verrà contabilizzato
-          // come "utilizzo_anticipo" quando riutilizzato, evitando doppio conteggio.
           const categoriaFor = (eff: EffettoContabile) =>
             eff === "abbuono" ? "abbuono" : "compensazione_titolo";
-          const movRows = compForThis
-            .filter((c) => c.effetto !== "eccedenza")
-            .map((c) => ({
-              ufficio_id: t.ufficio_id || null,
-              tipo: c.segno === "+" ? "uscita" : "entrata",
-              categoria: categoriaFor(c.effetto),
-              riferimento_tipo: "titolo",
-              riferimento_id: t.id,
-              importo: c.importo,
-              data_movimento: form.dataMessaCassa,
-              descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
-              stato: "registrato",
-              created_by: userId,
-            }));
+          const movRows = abbuoniForThis.map((c) => ({
+            ufficio_id: t.ufficio_id || null,
+            tipo: c.segno === "+" ? "uscita" : "entrata",
+            categoria: categoriaFor(c.effetto),
+            riferimento_tipo: "titolo",
+            riferimento_id: t.id,
+            importo: c.importo,
+            data_movimento: form.dataMessaCassa,
+            descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
+            stato: "registrato",
+            created_by: userId,
+          }));
           if (movRows.length > 0) {
             const { error: errM } = await (supabase.from("movimenti_contabili") as any).insert(movRows);
-            if (errM) toast.warning(`Compensazioni salvate ma prima nota non aggiornata: ${errM.message}`);
+            if (errM) toast.warning(`Abbuoni salvati ma prima nota non aggiornata: ${errM.message}`);
           }
         }
+      }
 
+      // Acconti (ACC_*) dal menu → scheda Acconti cliente (cliente_anticipi)
+      if (accontiForThis.length > 0) {
+        const clienteAnticipoId = effettivoPagatoreId || t.cliente_anagrafica_id || null;
+        if (!clienteAnticipoId) {
+          toast.warning(`Acconti su ${t.numero_titolo ?? t.id}: cliente non determinato, non creati`);
+        } else {
+          const contoId = form.banca || bankIncasso?.contoBancarioId || null;
+          const anticipoRows = accontiForThis
+            .filter((c) => c.importo > 0)
+            .map((c) => ({
+              cliente_id: clienteAnticipoId,
+              data_anticipo: d.mc,
+              conto_bancario_id: contoId,
+              importo: c.importo,
+              causale_id: c.causale_id,
+              segno: c.segno === "-" ? "-" : "+",
+              importo_residuo: c.segno === "-" ? 0 : c.importo,
+              note: `Da messa a cassa quietanza ${t.numero_titolo ?? t.id}${c.note ? " · " + c.note : ""}`,
+              creato_da: userId,
+            }));
+          if (anticipoRows.length > 0) {
+            const { error: errAcc } = await (supabase.from("cliente_anticipi") as any).insert(anticipoRows);
+            if (errAcc) {
+              toast.warning(`Acconti non creati su ${t.numero_titolo ?? t.id}: ${errAcc.message}`);
+            } else {
+              accontiCreati += anticipoRows.length;
+              accontiImporto = round2(
+                accontiImporto + anticipoRows.reduce((s, r) => s + (Number(r.importo) || 0), 0),
+              );
+            }
+          }
+        }
       }
 
       if (isFullIncasso && modalitaByTitolo[t.id] === "produttore_trattiene_provv" && tr) {
@@ -1589,86 +1619,53 @@ export const MessaCassaDialog = ({
     );
   };
 
-  // Titolo target per nuova riga (default prima quietanza)
-  useEffect(() => {
-    if (!open) return;
-    if (compTargetTitoloId && titoli.some((t) => t.id === compTargetTitoloId)) return;
-    if (titoli[0]?.id) setCompTargetTitoloId(titoli[0].id);
-  }, [open, titoli, compTargetTitoloId]);
-
   /**
-   * Pannello unico (livello cliente): abbuoni/arrotondamenti manuali.
-   * L'utente sceglie a quale quietanza applicarli — niente auto per polizza.
-   * Non creano righe in Acconti cliente.
+   * Pannello per singola quietanza: abbuoni/arrotondamenti (+ acconti nello stesso menu).
+   * Abbuoni → titoli_compensazioni sulla quietanza; ACC_* → cliente_anticipi.
+   * Funzione (non componente) per non rimontare gli input a ogni re-render.
    */
-  const renderCompensazioniClientePanel = () => {
-    const flat = titoli.flatMap((t) =>
-      getComp(t.id).map((c) => ({
-        ...c,
-        titoloId: t.id,
-        numero: t.numero_titolo || t.id.slice(0, 8),
-      })),
-    );
+  const renderCompensazioniPanel = (titoloId: string, numeroTitolo?: string) => {
+    const list = getComp(titoloId);
+    const label = numeroTitolo || titoli.find((t) => t.id === titoloId)?.numero_titolo || titoloId.slice(0, 8);
     return (
       <div className="space-y-2">
-        <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
-          <Calculator className="w-4 h-4" /> Abbuoni e arrotondamenti
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
+            <Calculator className="w-4 h-4" /> Abbuoni, arrotondamenti e acconti
+          </div>
+          <Select value="" onValueChange={(v) => v && addCompFor(titoloId, v, suggestCompImporto)}>
+            <SelectTrigger className="w-64 h-8 text-xs">
+              <SelectValue placeholder="+ Aggiungi causale…" />
+            </SelectTrigger>
+            <SelectContent>
+              {causaliComp.map((c) => (
+                <SelectItem key={c.id} value={c.id} className="text-xs">
+                  <span className="font-mono mr-2">{c.segno_default}</span>
+                  {c.codice} — {c.descrizione}
+                  {isCausaleAccontoCliente(c.codice) ? (
+                    <span className="text-muted-foreground ml-1">(acconto cliente)</span>
+                  ) : null}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Manuali sul cliente: scegli la quietanza e la causale. Si salvano sull&apos;incasso,
-          <strong> non</strong> nella scheda Acconti del cliente (lì solo gli acconti).
+          Sulla quietanza <span className="font-mono">{label}</span>: abbuoni/arrotondamenti rettificano il dovuto;
+          gli acconti (<span className="font-mono">ACC_*</span>) finiscono nella scheda Acconti del cliente.
         </p>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="flex flex-col gap-1 min-w-[160px]">
-            <Label className="text-[10px] text-muted-foreground">Quietanza</Label>
-            <Select value={compTargetTitoloId} onValueChange={setCompTargetTitoloId}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Seleziona quietanza…" />
-              </SelectTrigger>
-              <SelectContent>
-                {titoli.map((t) => (
-                  <SelectItem key={t.id} value={t.id} className="text-xs font-mono">
-                    {t.numero_titolo || t.id.slice(0, 8)} — {fmtEuro(Number(t.premio_lordo) || 0)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1 min-w-[200px]">
-            <Label className="text-[10px] text-muted-foreground">Causale</Label>
-            <Select
-              value=""
-              onValueChange={(v) => {
-                if (!v || !compTargetTitoloId) return;
-                addCompFor(compTargetTitoloId, v, suggestCompImporto);
-              }}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="+ Aggiungi abbuono / arrotondamento…" />
-              </SelectTrigger>
-              <SelectContent>
-                {causaliComp.map((c) => (
-                  <SelectItem key={c.id} value={c.id} className="text-xs">
-                    <span className="font-mono mr-2">{c.segno_default}</span>
-                    {c.codice} — {c.descrizione}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
-        {flat.length === 0 ? (
+        {list.length === 0 ? (
           <p className="text-xs text-muted-foreground italic">
-            Nessuna riga. Opzionale: usa solo se serve correggere il dovuto (abbuono / arrotondamento).
+            Nessuna riga. Opzionale: abbuono / arrotondamento / acconto.
           </p>
         ) : (
           <div className="space-y-1.5">
-            {flat.map((c) => (
+            {list.map((c) => (
               <div key={c.tempId} className="flex items-center gap-2 bg-background/80 rounded px-2 py-1.5">
                 <button
                   type="button"
-                  onClick={() => updateCompFor(c.titoloId, c.tempId, { segno: c.segno === "+" ? "-" : "+" })}
+                  onClick={() => updateCompFor(titoloId, c.tempId, { segno: c.segno === "+" ? "-" : "+" })}
                   title={c.segno === "+" ? "Riduce il dovuto — clicca per invertire" : "Aumenta il dovuto — clicca per invertire"}
                   className={`font-mono text-sm font-bold w-6 h-6 rounded border transition-colors ${
                     c.segno === "+"
@@ -1679,24 +1676,24 @@ export const MessaCassaDialog = ({
                   {c.segno}
                 </button>
                 <div className="flex-1 text-xs min-w-0">
-                  <div className="font-medium">
-                    <span className="font-mono text-muted-foreground mr-1.5">{c.numero}</span>
-                    {c.causale_codice}
+                  <div className="font-medium">{c.causale_codice}</div>
+                  <div className="text-muted-foreground truncate">
+                    {c.causale_descrizione}
+                    {isCausaleAccontoCliente(c.causale_codice) ? " · acconto cliente" : ""}
                   </div>
-                  <div className="text-muted-foreground truncate">{c.causale_descrizione}</div>
                 </div>
                 <Input
                   type="text" placeholder="note"
                   value={c.note}
-                  onChange={(e) => updateCompFor(c.titoloId, c.tempId, { note: e.target.value })}
+                  onChange={(e) => updateCompFor(titoloId, c.tempId, { note: e.target.value })}
                   className="w-28 h-8 text-xs"
                 />
                 <ImportoCompensazioneInput
                   value={c.importo}
                   autoFocus={lastAddedCompId === c.tempId}
-                  onCommit={(n) => updateCompFor(c.titoloId, c.tempId, { importo: n })}
+                  onCommit={(n) => updateCompFor(titoloId, c.tempId, { importo: n })}
                 />
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeCompFor(c.titoloId, c.tempId)}>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeCompFor(titoloId, c.tempId)}>
                   <Trash2 className="w-3.5 h-3.5 text-destructive" />
                 </Button>
               </div>
@@ -2370,10 +2367,17 @@ export const MessaCassaDialog = ({
             </div>
           )}
 
-          {/* Modalità provvigioni — single */}
-          {!isMulti && titoli[0] && renderModalitaPanel(titoli[0].id)}
+          {/* Modalità + abbuoni/acconti — single quietanza */}
+          {!isMulti && titoli[0] && (
+            <>
+              {renderModalitaPanel(titoli[0].id)}
+              <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
+                {renderCompensazioniPanel(titoli[0].id, titoli[0].numero_titolo || undefined)}
+              </div>
+            </>
+          )}
 
-          {/* Date + modalità trattenuta per quietanza (bulk) */}
+          {/* Date per quietanza (bulk) */}
           {isMulti && (
             <div className="rounded-md border bg-card p-3 space-y-2">
               <div className="text-sm font-medium flex items-center gap-2 mb-1">
@@ -2382,47 +2386,78 @@ export const MessaCassaDialog = ({
               </div>
               <div className="space-y-2">
                 {titoli.map((t) => (
-                  <div key={t.id} className="space-y-1">
-                    <div className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
-                      <span className="text-xs font-mono truncate text-muted-foreground">
-                        {t.numero_titolo || t.id.slice(0, 8)}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <Label className="text-[10px] text-muted-foreground whitespace-nowrap">M.C.</Label>
-                        <Input
-                          type="date"
-                          value={getDate(t.id).mc}
-                          onChange={(e) => setDate(t.id, { mc: e.target.value })}
-                          className="h-7 text-xs w-36"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Pag.</Label>
-                        <Input
-                          type="date"
-                          value={getDate(t.id).pag}
-                          onChange={(e) => setDate(t.id, { pag: e.target.value })}
-                          className="h-7 text-xs w-36"
-                        />
-                      </div>
+                  <div key={t.id} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
+                    <span className="text-xs font-mono truncate text-muted-foreground">
+                      {t.numero_titolo || t.id.slice(0, 8)}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Label className="text-[10px] text-muted-foreground whitespace-nowrap">M.C.</Label>
+                      <Input
+                        type="date"
+                        value={getDate(t.id).mc}
+                        onChange={(e) => setDate(t.id, { mc: e.target.value })}
+                        className="h-7 text-xs w-36"
+                      />
                     </div>
-                    {renderModalitaPanel(t.id, t.numero_titolo || undefined)}
+                    <div className="flex items-center gap-1">
+                      <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Pag.</Label>
+                      <Input
+                        type="date"
+                        value={getDate(t.id).pag}
+                        onChange={(e) => setDate(t.id, { pag: e.target.value })}
+                        className="h-7 text-xs w-36"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Abbuoni / arrotondamenti — un solo pannello manuale (cliente), non auto per polizza */}
-          {titoli.length > 0 && (
+          {/* Abbuoni / acconti per quietanza (bulk) */}
+          {isMulti && (
             <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3">
-              {renderCompensazioniClientePanel()}
+              <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2 mb-2">
+                <Calculator className="w-4 h-4" /> Causali per quietanza
+                {allCompensazioni.length > 0 && (
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {allCompensazioni.length} righe su{" "}
+                    {Object.keys(compensazioniByTitolo).filter((k) => (compensazioniByTitolo[k] || []).length > 0).length}{" "}
+                    quietanze
+                  </span>
+                )}
+              </div>
+              <Accordion type="multiple" className="w-full">
+                {titoli.map((t) => {
+                  const n = getComp(t.id).length;
+                  return (
+                    <AccordionItem key={t.id} value={t.id} className="border-b last:border-0">
+                      <AccordionTrigger className="text-xs py-2 hover:no-underline">
+                        <div className="flex items-center gap-2 flex-1">
+                          <span className="font-mono">{t.numero_titolo || t.id.slice(0, 8)}</span>
+                          <span className="text-muted-foreground">— {fmtEuro(Number(t.premio_lordo) || 0)}</span>
+                          {n > 0 && (
+                            <span className="ml-auto mr-2 px-1.5 py-0.5 rounded text-[10px] bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100">
+                              {n} voci
+                            </span>
+                          )}
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2 pb-3 space-y-3">
+                        {renderModalitaPanel(t.id, t.numero_titolo || undefined)}
+                        {renderCompensazioniPanel(t.id, t.numero_titolo || undefined)}
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
             </div>
           )}
 
           <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
             <p className="text-sm font-medium text-destructive">
-              ⚠️ Operazione irreversibile senza privilegi admin. Quadratura: cash + acconti = dovuto. Abbuoni/arrotondamenti (manuali) rettificano il dovuto; gli acconti si gestiscono nella scheda Acconti del cliente.
+              ⚠️ Operazione irreversibile senza privilegi admin. Quadratura: cash + acconti usati = dovuto rettificato.
+              Abbuoni/arrotondamenti sulla quietanza; acconti nuovi (<span className="font-mono">ACC_*</span>) nella scheda Acconti.
             </p>
           </div>
         </div>
