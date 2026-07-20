@@ -9,6 +9,7 @@ interface CfoKpiData {
   totale_premi_incassati?: number;
   totale_provvigioni_generate?: number;
   totale_provvigioni_pagate?: number;
+  [key: string]: unknown;
 }
 
 function KpiCard({

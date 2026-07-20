@@ -31,7 +31,7 @@ describe("getProvvigioneEC", () => {
         sostituisce_polizza: null,
       }),
     ).toBe(402.44);
-    expect(Number(0 ?? 402.44) || 0).toBe(0); // anti-pattern precedente
+    // anti-pattern precedente rimosso
   });
 
   it("quietanza senza sostituisce_polizza ma con quietanza > 0: preferisce quietanza", () => {

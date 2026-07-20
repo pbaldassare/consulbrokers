@@ -146,7 +146,7 @@ const ContabilitaUfficio = () => {
         .gte("data_messa_cassa", meseDa)
         .lte("data_messa_cassa", meseA);
       if (error) throw error;
-      return (data || []) as TitoloCassa[];
+      return ((data || []) as unknown) as TitoloCassa[];
     },
   });
 

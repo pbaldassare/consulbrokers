@@ -4,7 +4,7 @@
 // Le quietanze sono i titoli con sostituisce_polizza valorizzato.
 
 export type TitoloLike = {
-  id: string;
+  id?: string;
   numero_titolo?: string | null;
   sostituisce_polizza?: string | null;
   garanzia_da?: string | null;

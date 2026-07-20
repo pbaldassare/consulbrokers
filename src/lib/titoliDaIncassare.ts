@@ -65,5 +65,5 @@ export async function fetchTitoliClienteDaIncassare(
     .order("data_scadenza", { ascending: true, nullsFirst: false })
     .limit(limit);
   if (error) throw error;
-  return dedupeTitoliMadreQuietanza((data as TitoloDaIncassareRow[]) ?? []);
+  return dedupeTitoliMadreQuietanza(((data as unknown) as TitoloDaIncassareRow[]) ?? []);
 }

@@ -75,7 +75,7 @@ export default function SinistroDetail() {
     const tabs = [...SINISTRO_TABS_BASE];
     if (canSeeReminder) {
       const idx = tabs.indexOf("prescrizioni");
-      tabs.splice(idx + 1, 0, "reminder");
+      tabs.splice(idx + 1, 0, "reminder" as any);
     }
     return tabs as readonly string[];
   }, [canSeeReminder]);

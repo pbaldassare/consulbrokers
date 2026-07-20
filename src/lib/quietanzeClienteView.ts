@@ -19,6 +19,7 @@ export function isTitoloNonIncassato(t: {
 }
 
 type QuietanzaViewTitolo = {
+  id?: string;
   stato?: string | null;
   data_messa_cassa?: string | null;
   garanzia_da?: string | null;

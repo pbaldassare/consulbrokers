@@ -361,7 +361,7 @@ export function CfoReportPanel({ embedded = true, initialFiltri }: CfoReportPane
               <button
                 key={r.id}
                 type="button"
-                onClick={() => caricaReport(r)}
+                onClick={() => caricaReport({ ...r, filtri_json: (r.filtri_json as Record<string, unknown>) ?? {} })}
                 className="w-full text-left p-2 rounded-md hover:bg-muted/50 transition-colors"
               >
                 <p className="text-sm font-medium truncate">{r.nome}</p>
