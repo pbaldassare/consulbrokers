@@ -254,6 +254,417 @@ export type Database = {
         }
         Relationships: []
       }
+      _snapshot_campobasso_titoli: {
+        Row: {
+          addizionali: number | null
+          addizionali_quietanza: number | null
+          ae_anagrafica_id: string | null
+          ae_nome: string | null
+          anagrafica_commerciale_id: string | null
+          anni_durata: number | null
+          appendice: string | null
+          appendice_modifica_polizza_madre_id: string | null
+          banca_pagamento: string | null
+          brokeraggio_firma: number | null
+          brokeraggio_quietanza: number | null
+          cambio: number | null
+          causale_estinzione: string | null
+          causale_sostituzione: string | null
+          causale_storno: string | null
+          cig_rif: string | null
+          cig_temporaneo: boolean | null
+          cliente_anagrafica_id: string | null
+          cliente_id: string | null
+          coassicurazione: boolean | null
+          codice_rapporto: string | null
+          commerciale_id: string | null
+          comp_assicurativa: string | null
+          comp_contabile: string | null
+          compagnia_id: string | null
+          compagnia_rapporto_id: string | null
+          conferimento_gestito: boolean | null
+          conto_incasso: string | null
+          created_at: string | null
+          data_competenza: string | null
+          data_conferimento_gestito: string | null
+          data_copertura: string | null
+          data_decorrenza_rinnovo: string | null
+          data_estinzione: string | null
+          data_incasso: string | null
+          data_messa_cassa: string | null
+          data_pagamento: string | null
+          data_riattivazione: string | null
+          data_scadenza: string | null
+          data_sospensione: string | null
+          data_sostituzione: string | null
+          data_storno: string | null
+          descrizione_polizza: string | null
+          disdetta_mesi: number | null
+          durata_a: string | null
+          durata_da: string | null
+          emissione_fee: boolean | null
+          filiale: string | null
+          fondi_ricevuti: boolean | null
+          formato_elettronico: boolean | null
+          frazionamento: string | null
+          garanzia_a: string | null
+          garanzia_da: string | null
+          giorni_presentazione: number | null
+          id: string | null
+          id_legacy: number | null
+          importo_incassato: number | null
+          indicizzata: boolean | null
+          is_appendice_modifica: boolean | null
+          is_oneri_riattivazione: boolean | null
+          is_oneri_sospensione: boolean | null
+          is_proroga: boolean | null
+          is_regolazione: boolean | null
+          libro_matricola: string | null
+          limite_mora: string | null
+          limite_riattivazione: string | null
+          mora_giorni: number | null
+          motivo_estinzione: string | null
+          motivo_sospensione: string | null
+          motivo_sostituzione: string | null
+          motivo_storno: string | null
+          no_calcolo_tasse: boolean | null
+          note: string | null
+          numero_titolo: string | null
+          pag_diretto_compagnia: boolean | null
+          percentuale_ae: number | null
+          percentuale_brokeraggio: number | null
+          percentuale_commerciale: number | null
+          percentuale_riparto: number | null
+          periodicita: string | null
+          polizza_id: string | null
+          polizza_rateo: boolean | null
+          polizza_temporanea: boolean | null
+          premio_lordo: number | null
+          premio_netto: number | null
+          premio_netto_quietanza: number | null
+          prodotto_id: string | null
+          prodotto_nome: string | null
+          produttore_id: string | null
+          produttore_nome: string | null
+          proroga_polizza_madre_id: string | null
+          provvigioni_firma: number | null
+          provvigioni_quietanza: number | null
+          quietanze_sospensione_snapshot: Json | null
+          ramo_id: string | null
+          rate: number | null
+          regolazione: boolean | null
+          regolazione_data_presunta: string | null
+          regolazione_fattore: string | null
+          regolazione_note: string | null
+          regolazione_quietanza_id: string | null
+          riga: number | null
+          rimborso: boolean | null
+          risk_type: string | null
+          search_vector: unknown
+          snapshot_at: string | null
+          sostituisce_appendice: string | null
+          sostituisce_polizza: string | null
+          sostituisce_riga: number | null
+          specialist: string | null
+          split_personalizzato: boolean | null
+          ssn_firma: number | null
+          ssn_quietanza: number | null
+          stato: string | null
+          storno_appendice: string | null
+          storno_polizza: string | null
+          storno_riga: number | null
+          tacito_rinnovo: boolean | null
+          targa_telaio: string | null
+          tasse: number | null
+          tasse_quietanza: number | null
+          tipo_incasso: string | null
+          tipo_lettera_regolazione: string | null
+          tipo_mandatario: string | null
+          tipo_pagamento: string | null
+          tipo_portafoglio: string | null
+          tipo_rinnovo: string | null
+          tipo_scadenza: string | null
+          titolo_storno_id: string | null
+          ufficio_id: string | null
+          updated_at: string | null
+          valuta: string | null
+          vincolo: string | null
+          vincolo_attivo: boolean | null
+        }
+        Insert: {
+          addizionali?: number | null
+          addizionali_quietanza?: number | null
+          ae_anagrafica_id?: string | null
+          ae_nome?: string | null
+          anagrafica_commerciale_id?: string | null
+          anni_durata?: number | null
+          appendice?: string | null
+          appendice_modifica_polizza_madre_id?: string | null
+          banca_pagamento?: string | null
+          brokeraggio_firma?: number | null
+          brokeraggio_quietanza?: number | null
+          cambio?: number | null
+          causale_estinzione?: string | null
+          causale_sostituzione?: string | null
+          causale_storno?: string | null
+          cig_rif?: string | null
+          cig_temporaneo?: boolean | null
+          cliente_anagrafica_id?: string | null
+          cliente_id?: string | null
+          coassicurazione?: boolean | null
+          codice_rapporto?: string | null
+          commerciale_id?: string | null
+          comp_assicurativa?: string | null
+          comp_contabile?: string | null
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
+          conferimento_gestito?: boolean | null
+          conto_incasso?: string | null
+          created_at?: string | null
+          data_competenza?: string | null
+          data_conferimento_gestito?: string | null
+          data_copertura?: string | null
+          data_decorrenza_rinnovo?: string | null
+          data_estinzione?: string | null
+          data_incasso?: string | null
+          data_messa_cassa?: string | null
+          data_pagamento?: string | null
+          data_riattivazione?: string | null
+          data_scadenza?: string | null
+          data_sospensione?: string | null
+          data_sostituzione?: string | null
+          data_storno?: string | null
+          descrizione_polizza?: string | null
+          disdetta_mesi?: number | null
+          durata_a?: string | null
+          durata_da?: string | null
+          emissione_fee?: boolean | null
+          filiale?: string | null
+          fondi_ricevuti?: boolean | null
+          formato_elettronico?: boolean | null
+          frazionamento?: string | null
+          garanzia_a?: string | null
+          garanzia_da?: string | null
+          giorni_presentazione?: number | null
+          id?: string | null
+          id_legacy?: number | null
+          importo_incassato?: number | null
+          indicizzata?: boolean | null
+          is_appendice_modifica?: boolean | null
+          is_oneri_riattivazione?: boolean | null
+          is_oneri_sospensione?: boolean | null
+          is_proroga?: boolean | null
+          is_regolazione?: boolean | null
+          libro_matricola?: string | null
+          limite_mora?: string | null
+          limite_riattivazione?: string | null
+          mora_giorni?: number | null
+          motivo_estinzione?: string | null
+          motivo_sospensione?: string | null
+          motivo_sostituzione?: string | null
+          motivo_storno?: string | null
+          no_calcolo_tasse?: boolean | null
+          note?: string | null
+          numero_titolo?: string | null
+          pag_diretto_compagnia?: boolean | null
+          percentuale_ae?: number | null
+          percentuale_brokeraggio?: number | null
+          percentuale_commerciale?: number | null
+          percentuale_riparto?: number | null
+          periodicita?: string | null
+          polizza_id?: string | null
+          polizza_rateo?: boolean | null
+          polizza_temporanea?: boolean | null
+          premio_lordo?: number | null
+          premio_netto?: number | null
+          premio_netto_quietanza?: number | null
+          prodotto_id?: string | null
+          prodotto_nome?: string | null
+          produttore_id?: string | null
+          produttore_nome?: string | null
+          proroga_polizza_madre_id?: string | null
+          provvigioni_firma?: number | null
+          provvigioni_quietanza?: number | null
+          quietanze_sospensione_snapshot?: Json | null
+          ramo_id?: string | null
+          rate?: number | null
+          regolazione?: boolean | null
+          regolazione_data_presunta?: string | null
+          regolazione_fattore?: string | null
+          regolazione_note?: string | null
+          regolazione_quietanza_id?: string | null
+          riga?: number | null
+          rimborso?: boolean | null
+          risk_type?: string | null
+          search_vector?: unknown
+          snapshot_at?: string | null
+          sostituisce_appendice?: string | null
+          sostituisce_polizza?: string | null
+          sostituisce_riga?: number | null
+          specialist?: string | null
+          split_personalizzato?: boolean | null
+          ssn_firma?: number | null
+          ssn_quietanza?: number | null
+          stato?: string | null
+          storno_appendice?: string | null
+          storno_polizza?: string | null
+          storno_riga?: number | null
+          tacito_rinnovo?: boolean | null
+          targa_telaio?: string | null
+          tasse?: number | null
+          tasse_quietanza?: number | null
+          tipo_incasso?: string | null
+          tipo_lettera_regolazione?: string | null
+          tipo_mandatario?: string | null
+          tipo_pagamento?: string | null
+          tipo_portafoglio?: string | null
+          tipo_rinnovo?: string | null
+          tipo_scadenza?: string | null
+          titolo_storno_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          valuta?: string | null
+          vincolo?: string | null
+          vincolo_attivo?: boolean | null
+        }
+        Update: {
+          addizionali?: number | null
+          addizionali_quietanza?: number | null
+          ae_anagrafica_id?: string | null
+          ae_nome?: string | null
+          anagrafica_commerciale_id?: string | null
+          anni_durata?: number | null
+          appendice?: string | null
+          appendice_modifica_polizza_madre_id?: string | null
+          banca_pagamento?: string | null
+          brokeraggio_firma?: number | null
+          brokeraggio_quietanza?: number | null
+          cambio?: number | null
+          causale_estinzione?: string | null
+          causale_sostituzione?: string | null
+          causale_storno?: string | null
+          cig_rif?: string | null
+          cig_temporaneo?: boolean | null
+          cliente_anagrafica_id?: string | null
+          cliente_id?: string | null
+          coassicurazione?: boolean | null
+          codice_rapporto?: string | null
+          commerciale_id?: string | null
+          comp_assicurativa?: string | null
+          comp_contabile?: string | null
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
+          conferimento_gestito?: boolean | null
+          conto_incasso?: string | null
+          created_at?: string | null
+          data_competenza?: string | null
+          data_conferimento_gestito?: string | null
+          data_copertura?: string | null
+          data_decorrenza_rinnovo?: string | null
+          data_estinzione?: string | null
+          data_incasso?: string | null
+          data_messa_cassa?: string | null
+          data_pagamento?: string | null
+          data_riattivazione?: string | null
+          data_scadenza?: string | null
+          data_sospensione?: string | null
+          data_sostituzione?: string | null
+          data_storno?: string | null
+          descrizione_polizza?: string | null
+          disdetta_mesi?: number | null
+          durata_a?: string | null
+          durata_da?: string | null
+          emissione_fee?: boolean | null
+          filiale?: string | null
+          fondi_ricevuti?: boolean | null
+          formato_elettronico?: boolean | null
+          frazionamento?: string | null
+          garanzia_a?: string | null
+          garanzia_da?: string | null
+          giorni_presentazione?: number | null
+          id?: string | null
+          id_legacy?: number | null
+          importo_incassato?: number | null
+          indicizzata?: boolean | null
+          is_appendice_modifica?: boolean | null
+          is_oneri_riattivazione?: boolean | null
+          is_oneri_sospensione?: boolean | null
+          is_proroga?: boolean | null
+          is_regolazione?: boolean | null
+          libro_matricola?: string | null
+          limite_mora?: string | null
+          limite_riattivazione?: string | null
+          mora_giorni?: number | null
+          motivo_estinzione?: string | null
+          motivo_sospensione?: string | null
+          motivo_sostituzione?: string | null
+          motivo_storno?: string | null
+          no_calcolo_tasse?: boolean | null
+          note?: string | null
+          numero_titolo?: string | null
+          pag_diretto_compagnia?: boolean | null
+          percentuale_ae?: number | null
+          percentuale_brokeraggio?: number | null
+          percentuale_commerciale?: number | null
+          percentuale_riparto?: number | null
+          periodicita?: string | null
+          polizza_id?: string | null
+          polizza_rateo?: boolean | null
+          polizza_temporanea?: boolean | null
+          premio_lordo?: number | null
+          premio_netto?: number | null
+          premio_netto_quietanza?: number | null
+          prodotto_id?: string | null
+          prodotto_nome?: string | null
+          produttore_id?: string | null
+          produttore_nome?: string | null
+          proroga_polizza_madre_id?: string | null
+          provvigioni_firma?: number | null
+          provvigioni_quietanza?: number | null
+          quietanze_sospensione_snapshot?: Json | null
+          ramo_id?: string | null
+          rate?: number | null
+          regolazione?: boolean | null
+          regolazione_data_presunta?: string | null
+          regolazione_fattore?: string | null
+          regolazione_note?: string | null
+          regolazione_quietanza_id?: string | null
+          riga?: number | null
+          rimborso?: boolean | null
+          risk_type?: string | null
+          search_vector?: unknown
+          snapshot_at?: string | null
+          sostituisce_appendice?: string | null
+          sostituisce_polizza?: string | null
+          sostituisce_riga?: number | null
+          specialist?: string | null
+          split_personalizzato?: boolean | null
+          ssn_firma?: number | null
+          ssn_quietanza?: number | null
+          stato?: string | null
+          storno_appendice?: string | null
+          storno_polizza?: string | null
+          storno_riga?: number | null
+          tacito_rinnovo?: boolean | null
+          targa_telaio?: string | null
+          tasse?: number | null
+          tasse_quietanza?: number | null
+          tipo_incasso?: string | null
+          tipo_lettera_regolazione?: string | null
+          tipo_mandatario?: string | null
+          tipo_pagamento?: string | null
+          tipo_portafoglio?: string | null
+          tipo_rinnovo?: string | null
+          tipo_scadenza?: string | null
+          titolo_storno_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          valuta?: string | null
+          vincolo?: string | null
+          vincolo_attivo?: boolean | null
+        }
+        Relationships: []
+      }
       ai_allowed_enums: {
         Row: {
           column_name: string
@@ -1435,6 +1846,7 @@ export type Database = {
       }
       cliente_anticipi: {
         Row: {
+          causale_id: string
           cliente_id: string
           conto_bancario_id: string | null
           created_at: string
@@ -1445,9 +1857,15 @@ export type Database = {
           importo_residuo: number
           movimento_bancario_id: string | null
           note: string | null
+          rimborsato_da: string | null
+          rimborsato_il: string | null
+          rimborsato_note: string | null
+          segno: string
+          titolo_origine_id: string | null
           updated_at: string
         }
         Insert: {
+          causale_id: string
           cliente_id: string
           conto_bancario_id?: string | null
           created_at?: string
@@ -1458,9 +1876,15 @@ export type Database = {
           importo_residuo?: number
           movimento_bancario_id?: string | null
           note?: string | null
+          rimborsato_da?: string | null
+          rimborsato_il?: string | null
+          rimborsato_note?: string | null
+          segno?: string
+          titolo_origine_id?: string | null
           updated_at?: string
         }
         Update: {
+          causale_id?: string
           cliente_id?: string
           conto_bancario_id?: string | null
           created_at?: string
@@ -1471,9 +1895,21 @@ export type Database = {
           importo_residuo?: number
           movimento_bancario_id?: string | null
           note?: string | null
+          rimborsato_da?: string | null
+          rimborsato_il?: string | null
+          rimborsato_note?: string | null
+          segno?: string
+          titolo_origine_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "cliente_anticipi_causale_id_fkey"
+            columns: ["causale_id"]
+            isOneToOne: false
+            referencedRelation: "causali_contabili"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cliente_anticipi_cliente_id_fkey"
             columns: ["cliente_id"]
@@ -1500,6 +1936,27 @@ export type Database = {
             columns: ["movimento_bancario_id"]
             isOneToOne: false
             referencedRelation: "movimenti_bancari"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_anticipi_rimborsato_da_fkey"
+            columns: ["rimborsato_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_anticipi_titolo_origine_id_fkey"
+            columns: ["titolo_origine_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_anticipi_titolo_origine_id_fkey"
+            columns: ["titolo_origine_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
         ]
@@ -4591,6 +5048,7 @@ export type Database = {
       movimenti_bancari: {
         Row: {
           caricato_da: string | null
+          carico_id: string | null
           cliente_id: string | null
           conto_bancario_id: string | null
           created_at: string
@@ -4606,6 +5064,7 @@ export type Database = {
         }
         Insert: {
           caricato_da?: string | null
+          carico_id?: string | null
           cliente_id?: string | null
           conto_bancario_id?: string | null
           created_at?: string
@@ -4621,6 +5080,7 @@ export type Database = {
         }
         Update: {
           caricato_da?: string | null
+          carico_id?: string | null
           cliente_id?: string | null
           conto_bancario_id?: string | null
           created_at?: string
@@ -4635,6 +5095,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "movimenti_bancari_carico_id_fkey"
+            columns: ["carico_id"]
+            isOneToOne: false
+            referencedRelation: "movimenti_bancari_carichi"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "movimenti_bancari_cliente_id_fkey"
             columns: ["cliente_id"]
@@ -4654,6 +5121,103 @@ export type Database = {
             columns: ["ufficio_id"]
             isOneToOne: false
             referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movimenti_bancari_carichi: {
+        Row: {
+          caricato_da: string | null
+          conto_bancario_id: string | null
+          created_at: string
+          id: string
+          nome_file: string
+          note: string | null
+          righe_duplicati: number
+          righe_file: number
+          righe_inserite: number
+          righe_scartate: number
+          righe_senza_cliente: number
+        }
+        Insert: {
+          caricato_da?: string | null
+          conto_bancario_id?: string | null
+          created_at?: string
+          id?: string
+          nome_file: string
+          note?: string | null
+          righe_duplicati?: number
+          righe_file?: number
+          righe_inserite?: number
+          righe_scartate?: number
+          righe_senza_cliente?: number
+        }
+        Update: {
+          caricato_da?: string | null
+          conto_bancario_id?: string | null
+          created_at?: string
+          id?: string
+          nome_file?: string
+          note?: string | null
+          righe_duplicati?: number
+          righe_file?: number
+          righe_inserite?: number
+          righe_scartate?: number
+          righe_senza_cliente?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimenti_bancari_carichi_conto_bancario_id_fkey"
+            columns: ["conto_bancario_id"]
+            isOneToOne: false
+            referencedRelation: "conti_bancari"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movimenti_bancari_carichi_scarti: {
+        Row: {
+          carico_id: string
+          created_at: string
+          data_movimento: string | null
+          descrizione: string | null
+          id: string
+          importo: number | null
+          motivo: string
+          ordinante: string | null
+          raw_json: Json | null
+          riga_excel: number | null
+        }
+        Insert: {
+          carico_id: string
+          created_at?: string
+          data_movimento?: string | null
+          descrizione?: string | null
+          id?: string
+          importo?: number | null
+          motivo: string
+          ordinante?: string | null
+          raw_json?: Json | null
+          riga_excel?: number | null
+        }
+        Update: {
+          carico_id?: string
+          created_at?: string
+          data_movimento?: string | null
+          descrizione?: string | null
+          id?: string
+          importo?: number | null
+          motivo?: string
+          ordinante?: string | null
+          raw_json?: Json | null
+          riga_excel?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimenti_bancari_carichi_scarti_carico_id_fkey"
+            columns: ["carico_id"]
+            isOneToOne: false
+            referencedRelation: "movimenti_bancari_carichi"
             referencedColumns: ["id"]
           },
         ]
@@ -8183,6 +8747,7 @@ export type Database = {
           polizza_id: string | null
           provincia_sinistro: string | null
           ramo_sinistro: string | null
+          reparto: string | null
           responsabile_id: string | null
           search_vector: unknown
           stato: string
@@ -8227,6 +8792,7 @@ export type Database = {
           polizza_id?: string | null
           provincia_sinistro?: string | null
           ramo_sinistro?: string | null
+          reparto?: string | null
           responsabile_id?: string | null
           search_vector?: unknown
           stato?: string
@@ -8271,6 +8837,7 @@ export type Database = {
           polizza_id?: string | null
           provincia_sinistro?: string | null
           ramo_sinistro?: string | null
+          reparto?: string | null
           responsabile_id?: string | null
           search_vector?: unknown
           stato?: string
@@ -10682,6 +11249,8 @@ export type Database = {
           ae_nome: string | null
           anagrafica_commerciale_id: string | null
           appendice_corrente: string | null
+          appendice_modifica_polizza_madre_id: string | null
+          appendice_tipo: string | null
           cig_rif: string | null
           cliente_anagrafica_id: string | null
           cliente_codice: string | null
@@ -10707,6 +11276,8 @@ export type Database = {
           garanzia_da: string | null
           id: string | null
           importo_incassato: number | null
+          is_appendice_modifica: boolean | null
+          is_proroga: boolean | null
           is_regolazione: boolean | null
           limite_riattivazione: string | null
           numero_polizza_snapshot: string | null
@@ -10719,6 +11290,7 @@ export type Database = {
           produttore_id: string | null
           produttore_nome: string | null
           produttori_display: string | null
+          proroga_polizza_madre_id: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
           quietanza_id: string | null
@@ -10738,6 +11310,7 @@ export type Database = {
           targa_telaio: string | null
           tasse: number | null
           tipo_portafoglio: string | null
+          titolo_derivato_numero: string | null
           titolo_legacy_id: string | null
           ufficio_id: string | null
         }
@@ -10793,13 +11366,6 @@ export type Database = {
           },
           {
             foreignKeyName: "quietanze_titolo_id_fkey"
-            columns: ["titolo_legacy_id"]
-            isOneToOne: false
-            referencedRelation: "titoli"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quietanze_titolo_id_fkey"
             columns: ["id"]
             isOneToOne: false
             referencedRelation: "titoli"
@@ -10809,7 +11375,7 @@ export type Database = {
             foreignKeyName: "quietanze_titolo_id_fkey"
             columns: ["titolo_legacy_id"]
             isOneToOne: false
-            referencedRelation: "v_portafoglio_titoli"
+            referencedRelation: "titoli"
             referencedColumns: ["id"]
           },
           {
@@ -10820,15 +11386,8 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "titoli_regolazione_quietanza_id_fkey"
-            columns: ["regolazione_quietanza_id"]
-            isOneToOne: false
-            referencedRelation: "titoli"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "titoli_regolazione_quietanza_id_fkey"
-            columns: ["regolazione_quietanza_id"]
+            foreignKeyName: "quietanze_titolo_id_fkey"
+            columns: ["titolo_legacy_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
@@ -11104,6 +11663,17 @@ export type Database = {
         Returns: undefined
       }
       _titoli_chain_ids: { Args: { p_titolo_id: string }; Returns: string[] }
+      admin_set_sede_profile: {
+        Args: {
+          p_cognome: string
+          p_email: string
+          p_nome: string
+          p_permessi: Json
+          p_ufficio_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       aggiorna_prescrizioni_scadute: { Args: never; Returns: number }
       ai_describe_table: {
         Args: { table_name: string }
