@@ -10,19 +10,33 @@ interface DatePickerProps {
   value: Date | null;
   onChange: (d: Date | null) => void;
   placeholder: string;
+  className?: string;
 }
 
-export function DatePicker({ value, onChange, placeholder }: DatePickerProps) {
+export function DatePicker({ value, onChange, placeholder, className }: DatePickerProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" className={cn("w-[150px] justify-start text-left font-normal", !value && "text-muted-foreground")}>
+        <Button
+          variant="outline"
+          className={cn(
+            "w-[150px] justify-start text-left font-normal",
+            !value && "text-muted-foreground",
+            className,
+          )}
+        >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {value ? format(value, "dd/MM/yyyy") : placeholder}
+          {value ? format(value, "dd/MM/yyyy", { locale: it }) : placeholder}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar mode="single" selected={value || undefined} onSelect={(d) => onChange(d || null)} className="p-3 pointer-events-auto" locale={it} />
+        <Calendar
+          mode="single"
+          selected={value || undefined}
+          onSelect={(d) => onChange(d || null)}
+          className="p-3 pointer-events-auto"
+          locale={it}
+        />
       </PopoverContent>
     </Popover>
   );

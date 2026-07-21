@@ -1,9 +1,16 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { DateInput } from "@/components/ui/date-input";
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   ({ className, type, ...props }, ref) => {
+    // Date native: il browser usa il locale OS (es. USA → mm/dd/yyyy).
+    // Sostituiamo con DateInput italiano (gg/mm/aaaa), value ISO invariato.
+    if (type === "date") {
+      return <DateInput ref={ref} className={className} {...props} />;
+    }
+
     return (
       <input
         type={type}
