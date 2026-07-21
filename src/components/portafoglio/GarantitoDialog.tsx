@@ -12,6 +12,7 @@ import { logAttivita } from "@/lib/logAttivita";
 import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { buildGarantitoPayload } from "@/lib/garantitoTitolo";
+import { canHaveDataCopertura } from "@/lib/quietanze";
 
 export interface TitoloMin {
   id: string;
@@ -19,6 +20,10 @@ export interface TitoloMin {
   premio_lordo?: number | null;
   cliente_anagrafica_id?: string | null;
   ufficio_id?: string | null;
+  sostituisce_polizza?: string | null;
+  is_appendice_modifica?: boolean | null;
+  is_proroga?: boolean | null;
+  is_regolazione?: boolean | null;
 }
 
 interface Props {
@@ -65,6 +70,23 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
     const notificaTitoloIds: string[] = [];
 
     for (const t of titoli) {
+      // La polizza madre non può andare in copertura: solo quietanze/appendici.
+      let row = t;
+      if (t.sostituisce_polizza === undefined) {
+        const { data } = await (supabase.from("titoli") as any)
+          .select("id, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione")
+          .eq("id", t.id)
+          .maybeSingle();
+        if (data) row = { ...t, ...data };
+      }
+      if (!canHaveDataCopertura(row)) {
+        toast.error(
+          `La polizza madre ${t.numero_titolo || ""} non può avere copertura — usa la quietanza`,
+        );
+        ko++;
+        continue;
+      }
+
       const payload = buildGarantitoPayload({ dataCopertura, dataDecorrenza });
       const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
       if (error) { ko++; continue; }

@@ -36,7 +36,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { eliminaPolizza, eliminaQuietanza, eliminaAppendice } from "@/lib/eliminaPolizza";
 import { format } from "date-fns";
-import { groupTitoliByPolizza, isAppendice, appendiceTipoLabel, baseNumeroPolizza } from "@/lib/quietanze";
+import {
+  groupTitoliByPolizza,
+  isAppendice,
+  appendiceTipoLabel,
+  baseNumeroPolizza,
+  isPolizzaMadre,
+  dataCoperturaUltimaQuietanza,
+  quietanzaUltimaCopertura,
+} from "@/lib/quietanze";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { isInCoperturaGarantita, isGarantitoDaIncassare } from "@/lib/garantitoTitolo";
 import { countQuietanzeDaIncassare, countQuietanzeRateDaIncassare, isQuietanzaDaMostrare } from "@/lib/quietanzeClienteView";
@@ -1891,13 +1899,34 @@ function PolizzeClienteTable({
                       {isAppendice(head) ? fmtNum(getProvvigioneEC(head)) : "—"}
                     </TableCell>
                     <TableCell className="text-xs">
-                      {head.data_copertura ? (
-                        <span className={isInCoperturaGarantita(head) ? "text-orange-700 font-medium" : undefined}>
-                          {fmtDate(head.data_copertura)}
-                        </span>
-                      ) : "—"}
+                      {(() => {
+                        // Polizza madre: nessuna copertura propria — mostra ultima quietanza.
+                        if (isPolizzaMadre(head)) {
+                          const d = dataCoperturaUltimaQuietanza(c.rate);
+                          const qUltima = quietanzaUltimaCopertura(c.rate);
+                          if (!d) return "—";
+                          return (
+                            <span
+                              className={qUltima && isInCoperturaGarantita(qUltima) ? "text-orange-700 font-medium" : undefined}
+                              title="Copertura ultima quietanza"
+                            >
+                              {fmtDate(d)}
+                            </span>
+                          );
+                        }
+                        if (!head.data_copertura) return "—";
+                        return (
+                          <span className={isInCoperturaGarantita(head) ? "text-orange-700 font-medium" : undefined}>
+                            {fmtDate(head.data_copertura)}
+                          </span>
+                        );
+                      })()}
                     </TableCell>
-                    <TableCell className="text-xs">{fmtDate(head.data_incasso || head.data_messa_cassa)}</TableCell>
+                    <TableCell className="text-xs">
+                      {isPolizzaMadre(head)
+                        ? "—"
+                        : fmtDate(head.data_incasso || head.data_messa_cassa)}
+                    </TableCell>
                     {isAdmin && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button

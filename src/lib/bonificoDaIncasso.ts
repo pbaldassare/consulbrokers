@@ -423,7 +423,7 @@ export async function ricongiungiEFinalizzaBonificiMultipliDaIncasso(opts: {
   const leftover = round2(remaining.reduce((s, r) => s + r.importo, 0));
   if (leftover > 0.009) {
     throw new Error(
-      `I bonifici selezionati non coprono tutto il cash (mancano ${leftover.toFixed(2)} €). Aggiungi un altro movimento.`,
+      `I bonifici selezionati non coprono tutto l'incasso (mancano ${leftover.toFixed(2)} €). Aggiungi un altro movimento.`,
     );
   }
 }

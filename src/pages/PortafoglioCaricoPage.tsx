@@ -33,6 +33,7 @@ import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge"
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { rowBorderClass, isQuietanzaRow, displayStatoPolizza, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
 import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
+import { canHaveDataCopertura } from "@/lib/quietanze";
 import { quietanzaSogliaGaranziaDa } from "@/lib/quietanzeClienteView";
 import { UfficiFilterMultiSelect } from "@/components/portafoglio/UfficiFilterMultiSelect";
 import { fetchBonificiApertiPerIncassi } from "@/lib/bonificoDaIncasso";
@@ -544,7 +545,7 @@ const PortafoglioCaricoPage = () => {
     [selectedAttive, openIncassa],
   );
   const selectedGarantibile = useMemo(
-    () => selectedAttive.filter(p => !isInCoperturaGarantita(p)),
+    () => selectedAttive.filter((p) => canHaveDataCopertura(p as any) && !isInCoperturaGarantita(p)),
     [selectedAttive]
   );
   const selectedIncassate = useMemo(() => polizze.filter(p => selectedIds.has(p.id) && p.stato === "incassato"), [polizze, selectedIds]);

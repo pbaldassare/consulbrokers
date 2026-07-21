@@ -1,19 +1,22 @@
-/** Titolo in fase copertura garantita (Garantito) senza incasso reale. */
-export function isInCoperturaGarantita(t: {
-  conferimento_gestito?: boolean | null;
-  data_copertura?: string | null;
-  data_messa_cassa?: string | null;
-}): boolean {
-  return !!t.conferimento_gestito && !!t.data_copertura && !t.data_messa_cassa;
-}
+import { canHaveDataCopertura, type TitoloLike } from "@/lib/quietanze";
 
-/** Tab/filtro Garantiti: solo copertura confermata, non ancora messa a cassa. */
-export function isGarantitoDaIncassare(t: {
+type CoperturaCtx = TitoloLike & {
   conferimento_gestito?: boolean | null;
   data_copertura?: string | null;
   data_messa_cassa?: string | null;
   stato?: string | null;
-}): boolean {
+};
+
+/** Titolo in fase copertura garantita (Garantito) senza incasso reale. */
+export function isInCoperturaGarantita(t: CoperturaCtx): boolean {
+  // La polizza madre non ha copertura: eventuali dati residui vanno ignorati.
+  if (!canHaveDataCopertura(t)) return false;
+  return !!t.conferimento_gestito && !!t.data_copertura && !t.data_messa_cassa;
+}
+
+/** Tab/filtro Garantiti: solo copertura confermata, non ancora messa a cassa. */
+export function isGarantitoDaIncassare(t: CoperturaCtx): boolean {
+  if (!canHaveDataCopertura(t)) return false;
   if (t.data_messa_cassa) return false;
   if (t.stato === "incassato") return false;
   return isInCoperturaGarantita(t);

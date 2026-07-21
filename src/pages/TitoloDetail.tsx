@@ -62,7 +62,7 @@ import { TitoloQuietanzePanel } from "@/components/titolo/sections/TitoloQuietan
 import { TitoloDataPersistenceInfo } from "@/components/titolo/sections/TitoloDataPersistenceInfo";
 import { PageContainer } from "@/components/shared/PageContainer";
 import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
-import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza, getTotQuietanze, getQuietanzaRataIndex, isAppendice, baseNumeroPolizza } from "@/lib/quietanze";
+import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza, getTotQuietanze, getQuietanzaRataIndex, isAppendice, baseNumeroPolizza, canHaveDataCopertura } from "@/lib/quietanze";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 // Guard difensivo: garantisce che ogni mutation aggiorni SOLO il record corrente.
@@ -1646,6 +1646,9 @@ const TitoloDetail = () => {
 
   const conferimentoGestitoMutation = useMutation({
     mutationFn: async (form: { dataCopertura: string; dataDecorrenza: string }) => {
+      if (!canHaveDataCopertura(titolo as any)) {
+        throw new Error("La polizza madre non può avere copertura — apri la quietanza");
+      }
       const payload = buildGarantitoPayload(form);
       const { error } = await supabase.from("titoli").update(payload).eq("id", id!);
       if (error) throw error;
@@ -1710,6 +1713,9 @@ const TitoloDetail = () => {
 
   const updateDateMutation = useMutation({
     mutationFn: async ({ field, value }: { field: "data_messa_cassa" | "data_pagamento" | "data_decorrenza_rinnovo" | "data_copertura"; value: string | null }) => {
+      if (field === "data_copertura" && !canHaveDataCopertura(titolo as any)) {
+        throw new Error("La polizza madre non può avere data copertura");
+      }
       const { error } = await supabase.from("titoli").update({ [field]: value || null, updated_at: new Date().toISOString() }).eq("id", id!);
       if (error) throw error;
       if (field === "data_copertura") {

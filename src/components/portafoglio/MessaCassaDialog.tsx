@@ -29,6 +29,7 @@ import {
   type ModalitaIncasso,
 } from "@/lib/modalitaIncasso";
 import { buildIncassoDateFields } from "@/lib/garantitoTitolo";
+import { canHaveDataCopertura } from "@/lib/quietanze";
 import { resolveTipoPagamentoTitoloIncasso } from "@/lib/incassoTipoPagamento";
 import {
   creaAnticipoDaTitoloACredito,
@@ -993,7 +994,7 @@ export const MessaCassaDialog = ({
     });
     rows.push(`<tr style="border-top:1px solid #999"><td><strong>Dovuto finale</strong></td><td style="text-align:right"><strong>${fmtEuro(dovutoFinale)}</strong></td></tr>`);
     if (totaleAnticipiUsati > 0) rows.push(`<tr><td>Acconti utilizzati</td><td style="text-align:right">− ${fmtEuro(totaleAnticipiUsati)}</td></tr>`);
-    rows.push(`<tr><td>Cash/bonifico (${form.tipoPagamento})</td><td style="text-align:right">− ${fmtEuro(cashEffettivo)}</td></tr>`);
+    rows.push(`<tr><td>Incasso applicato (${form.tipoPagamento})</td><td style="text-align:right">− ${fmtEuro(cashEffettivo)}</td></tr>`);
     rows.push(`<tr style="border-top:2px solid #000"><td><strong>Delta finale</strong></td><td style="text-align:right"><strong>${fmtEuro(delta)}</strong></td></tr>`);
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Riepilogo Messa a Cassa</title>
 <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;margin:0 0 16px;color:#666;font-weight:normal}table{width:100%;border-collapse:collapse;font-size:13px}td{padding:6px 4px}</style>
@@ -1043,7 +1044,7 @@ export const MessaCassaDialog = ({
     if (titoli.length === 0) return;
     if (!quadrato) {
       toast.error(
-        `Non quadra: delta ${fmtEuro(delta)}. Riduci il cash oppure aggiungi abbuono/arrotondamento manuale.`,
+        `Non quadra: delta ${fmtEuro(delta)}. Riduci l'incasso applicato oppure aggiungi abbuono/arrotondamento manuale.`,
       );
       return;
     }
@@ -1053,7 +1054,7 @@ export const MessaCassaDialog = ({
     }
     if (selectedBonifici.length > 0 && eccedenzaBonifico < 0) {
       toast.error(
-        `I bonifici selezionati (${fmtEuro(totaleBonificiSelezionati)}) non coprono il cash (${fmtEuro(cashEffettivo)}). Aggiungi un altro movimento o riduci il cash.`,
+        `I bonifici selezionati (${fmtEuro(totaleBonificiSelezionati)}) non coprono l'incasso applicato (${fmtEuro(cashEffettivo)}). Aggiungi un altro movimento o riduci l'incasso.`,
       );
       return;
     }
@@ -1073,11 +1074,17 @@ export const MessaCassaDialog = ({
     for (const t of titoli) {
       const { data: row } = await supabase
         .from("titoli")
-        .select("id, stato, sostituisce_polizza, numero_titolo, importo_incassato, data_messa_cassa")
+        .select("id, stato, sostituisce_polizza, numero_titolo, importo_incassato, data_messa_cassa, is_appendice_modifica, is_proroga, is_regolazione")
         .eq("id", t.id)
         .maybeSingle();
       if (row?.stato === "sospeso") {
         toast.error(`Impossibile incassare: titolo ${t.numero_titolo ?? t.id} è sospeso`);
+        return;
+      }
+      if (row && !canHaveDataCopertura(row as any)) {
+        toast.error(
+          `La polizza madre ${row.numero_titolo ?? t.id} non si mette a cassa — apri la quietanza`,
+        );
         return;
       }
       if (row?.sostituisce_polizza && row.numero_titolo) {
@@ -2197,7 +2204,7 @@ export const MessaCassaDialog = ({
                         {estrattiFiltrati.length > 1 && (
                           <p className="text-[10px] text-muted-foreground">
                             Elenco ordinato per corrispondenza nome (cliente/ordinante), non per importo.
-                            Puoi selezionare più bonifici insieme se serve coprire il cash.
+                            Puoi selezionare più bonifici insieme se serve coprire l'incasso.
                             {nameMatchCandidati.length === 1
                               ? " Match unico: già selezionato."
                               : selectedBonificoIds.length > 0
@@ -2333,14 +2340,14 @@ export const MessaCassaDialog = ({
             {totaleAnticipiUsati > 0 && (
               <div className="flex justify-between text-primary"><span>− Acconti utilizzati</span><span>− {fmtEuro(totaleAnticipiUsati)}</span></div>
             )}
-            <div className="flex justify-between"><span>− Cash/bonifico (applicato)</span><span>− {fmtEuro(cashEffettivo)}</span></div>
+            <div className="flex justify-between"><span>− Incasso applicato</span><span>− {fmtEuro(cashEffettivo)}</span></div>
             {surplusIncasso > 0 && (
               <div className="rounded border border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 p-2 space-y-0.5 my-1">
                 <div className="font-medium text-amber-800 dark:text-amber-300">
-                  Cash superiore al dovuto ({fmtEuro(surplusIncasso)})
+                  Incasso superiore al dovuto ({fmtEuro(surplusIncasso)})
                 </div>
                 <p className="text-[10px] text-amber-800 dark:text-amber-300">
-                  Riduci l&apos;importo cash/bonifico applicato, oppure registra un acconto dalla scheda Acconti del cliente.
+                  Riduci l&apos;importo incassato applicato, oppure registra un acconto dalla scheda Acconti del cliente.
                 </p>
               </div>
             )}
@@ -2357,18 +2364,18 @@ export const MessaCassaDialog = ({
                 </div>
                 {eccedenzaBonifico > 0 && (
                   <div className="flex justify-between text-green-700">
-                    <span>Surplus rispetto al cash → acconto cliente al finalize</span>
+                    <span>Eccedenza rispetto all&apos;incasso → acconto cliente al finalize</span>
                     <span>{fmtEuro(eccedenzaBonifico)}</span>
                   </div>
                 )}
                 {eccedenzaBonifico < 0 && (
                   <div className="flex justify-between text-red-700">
-                    <span>Mancano rispetto al cash</span>
+                    <span>Mancano rispetto all&apos;incasso</span>
                     <span>{fmtEuro(-eccedenzaBonifico)}</span>
                   </div>
                 )}
                 {eccedenzaBonifico === 0 && (
-                  <div className="text-green-700">Bonifici allineati al cash ✓</div>
+                  <div className="text-green-700">Bonifici allineati all&apos;incasso ✓</div>
                 )}
               </div>
             )}
@@ -2455,7 +2462,7 @@ export const MessaCassaDialog = ({
 
           <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
             <p className="text-sm font-medium text-destructive">
-              ⚠️ Operazione irreversibile senza privilegi admin. Quadratura: cash + acconti usati = dovuto rettificato.
+              ⚠️ Operazione irreversibile senza privilegi admin. Quadratura: incasso applicato + acconti usati = dovuto rettificato.
               Abbuoni/arrotondamenti a livello cliente; acconti nuovi (<span className="font-mono">ACC_*</span>) nella scheda Acconti del pagatore.
             </p>
           </div>

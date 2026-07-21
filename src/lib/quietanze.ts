@@ -15,6 +15,12 @@ export type TitoloLike = {
   is_regolazione?: boolean | null;
 };
 
+export type TitoloCoperturaLike = TitoloLike & {
+  data_copertura?: string | null;
+  conferimento_gestito?: boolean | null;
+  data_messa_cassa?: string | null;
+};
+
 export function isQuietanza(t: TitoloLike): boolean {
   // Le appendici (AM/PR/RG) sono titoli da incassare ma NON sono quietanze.
   return !!t.sostituisce_polizza && !isAppendice(t);
@@ -23,6 +29,49 @@ export function isQuietanza(t: TitoloLike): boolean {
 /** Titolo derivato da appendice (modifica / proroga / regolazione). */
 export function isAppendice(t: TitoloLike): boolean {
   return !!(t.is_appendice_modifica || t.is_proroga || t.is_regolazione);
+}
+
+/**
+ * Polizza madre (contenitore): senza sostituisce_polizza e senza flag appendice.
+ * La madre NON ha data_copertura / messa a cassa — solo quietanze e appendici.
+ * Se `sostituisce_polizza` non è nel payload (undefined), non si assume madre.
+ */
+export function isPolizzaMadre(t: TitoloLike): boolean {
+  if (isAppendice(t)) return false;
+  if (t.sostituisce_polizza === undefined) return false;
+  return !t.sostituisce_polizza;
+}
+
+/** True se il titolo può avere data_copertura (quietanza o appendice). */
+export function canHaveDataCopertura(t: TitoloLike): boolean {
+  return !isPolizzaMadre(t);
+}
+
+/**
+ * Copertura dell'ultima quietanza nella catena (MAX data ISO).
+ * Mai dalla polizza madre.
+ */
+export function dataCoperturaUltimaQuietanza<T extends TitoloCoperturaLike>(
+  rate: T[],
+): string | null {
+  let max: string | null = null;
+  for (const r of rate) {
+    const d = r.data_copertura;
+    if (d && (!max || d > max)) max = d;
+  }
+  return max;
+}
+
+/** Quietanza che porta la copertura più recente (per stile "in copertura garantita"). */
+export function quietanzaUltimaCopertura<T extends TitoloCoperturaLike>(
+  rate: T[],
+): T | null {
+  const max = dataCoperturaUltimaQuietanza(rate);
+  if (!max) return null;
+  for (let i = rate.length - 1; i >= 0; i--) {
+    if (rate[i].data_copertura === max) return rate[i];
+  }
+  return null;
 }
 
 /** Etichetta del sottotipo appendice, o null se non è un'appendice. */

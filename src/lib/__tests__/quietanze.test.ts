@@ -5,6 +5,10 @@ import {
   getQuietanzaRataIndex,
   tipoLabel,
   isQuietanza,
+  isPolizzaMadre,
+  canHaveDataCopertura,
+  dataCoperturaUltimaQuietanza,
+  quietanzaUltimaCopertura,
 } from "../quietanze";
 
 const titoli = [
@@ -44,6 +48,27 @@ describe("getTotQuietanze / getQuietanzaRataIndex", () => {
   it("tipoLabel: più quietanze → Rata N", () => {
     expect(tipoLabel(catenaA.rate[0], catenaA)).toBe("Rata 1");
     expect(tipoLabel(catenaA.rate[1], catenaA)).toBe("Rata 2");
+  });
+});
+
+describe("copertura polizza madre", () => {
+  it("madre non può avere data_copertura; quietanze sì", () => {
+    const madre = { id: "m", sostituisce_polizza: null as string | null };
+    const q = { id: "q", sostituisce_polizza: "POL-A" };
+    expect(isPolizzaMadre(madre)).toBe(true);
+    expect(canHaveDataCopertura(madre)).toBe(false);
+    expect(canHaveDataCopertura(q)).toBe(true);
+  });
+
+  it("dataCoperturaUltimaQuietanza = MAX sulle rate, mai dalla madre", () => {
+    const rate = [
+      { id: "q1", sostituisce_polizza: "m", data_copertura: "2026-01-10" },
+      { id: "q2", sostituisce_polizza: "m", data_copertura: "2026-07-15" },
+      { id: "q3", sostituisce_polizza: "m", data_copertura: null },
+    ];
+    expect(dataCoperturaUltimaQuietanza(rate)).toBe("2026-07-15");
+    expect(quietanzaUltimaCopertura(rate)?.id).toBe("q2");
+    expect(dataCoperturaUltimaQuietanza([])).toBeNull();
   });
 });
 
