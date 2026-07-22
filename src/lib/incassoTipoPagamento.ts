@@ -1,3 +1,10 @@
+/** Cliente ha pagato il premio direttamente alla compagnia (broker incassa solo la logica di chiusura / provvigione). */
+export const TIPO_PAGAMENTO_DIREITO_COMPAGNIA = "pagamento_diretto_compagnia";
+
+export function isPagamentoDirettoCompagnia(tipo: string | null | undefined): boolean {
+  return (tipo || "").toLowerCase() === TIPO_PAGAMENTO_DIREITO_COMPAGNIA;
+}
+
 /**
  * Risolve il tipo_pagamento da salvare su titoli in fase di messa a cassa.
  * Abbuono/compensazioni sono quadratura interna broker: non compaiono come
@@ -14,6 +21,10 @@ export function resolveTipoPagamentoTitoloIncasso(opts: {
 }): string {
   const { dovuto, usatoAnticipi, residuoCash, tipoPagamentoPrincipale, anticipiDaContoBancario } = opts;
   const principale = (tipoPagamentoPrincipale || "").toLowerCase();
+
+  if (isPagamentoDirettoCompagnia(principale)) {
+    return TIPO_PAGAMENTO_DIREITO_COMPAGNIA;
+  }
 
   if (dovuto === 0 && usatoAnticipi === 0) {
     return "incasso_zero";

@@ -1,8 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveTipoPagamentoTitoloIncasso } from "@/lib/incassoTipoPagamento";
+import {
+  resolveTipoPagamentoTitoloIncasso,
+  TIPO_PAGAMENTO_DIREITO_COMPAGNIA,
+} from "@/lib/incassoTipoPagamento";
 
 describe("resolveTipoPagamentoTitoloIncasso", () => {
+  it("pagamento diretto compagnia ha priorità su cash/acconti", () => {
+    expect(
+      resolveTipoPagamentoTitoloIncasso({
+        dovuto: 111.28,
+        usatoAnticipi: 0,
+        residuoCash: 0,
+        haCompensazioni: false,
+        tipoPagamentoPrincipale: TIPO_PAGAMENTO_DIREITO_COMPAGNIA,
+      }),
+    ).toBe(TIPO_PAGAMENTO_DIREITO_COMPAGNIA);
+  });
+
   it("bonifico principale con acconti → bonifico (non anticipo_misto)", () => {
     expect(
       resolveTipoPagamentoTitoloIncasso({

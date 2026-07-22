@@ -30,7 +30,11 @@ import {
 } from "@/lib/modalitaIncasso";
 import { buildIncassoDateFields } from "@/lib/garantitoTitolo";
 import { canHaveDataCopertura } from "@/lib/quietanze";
-import { resolveTipoPagamentoTitoloIncasso } from "@/lib/incassoTipoPagamento";
+import {
+  isPagamentoDirettoCompagnia,
+  resolveTipoPagamentoTitoloIncasso,
+  TIPO_PAGAMENTO_DIREITO_COMPAGNIA,
+} from "@/lib/incassoTipoPagamento";
 import {
   creaAnticipoDaTitoloACredito,
   creditoDaPremioLordo,
@@ -492,10 +496,14 @@ export const MessaCassaDialog = ({
 
   const handleTipoPagamentoChange = (tipo: string) => {
     setSelectedBonificoIds([]);
+    const pagDiretto = isPagamentoDirettoCompagnia(tipo);
+    if (pagDiretto) setAnticipiSel({});
     setForm((f) => ({
       ...f,
       tipoPagamento: tipo,
       banca: "",
+      // Pag. diretto: nessun incasso lato broker
+      cashImporto: pagDiretto ? 0 : f.cashImporto,
     }));
   };
 
@@ -743,9 +751,12 @@ export const MessaCassaDialog = ({
     return round2(baseLordo + totaleCompMinus - totaleCompPlus);
   }, [titoli, trattenutaByTitolo, totaleCompMinus, totaleCompPlus]);
 
-  const cashEffettivo = isMulti
-    ? round2(Math.max(0, totaleDovutoConsul - totaleAnticipiUsati))
-    : round2(Number(form.cashImporto) || 0);
+  const isPagDiretto = isPagamentoDirettoCompagnia(form.tipoPagamento);
+  const cashEffettivo = isPagDiretto
+    ? 0
+    : isMulti
+      ? round2(Math.max(0, totaleDovutoConsul - totaleAnticipiUsati))
+      : round2(Number(form.cashImporto) || 0);
   const coperto = round2(cashEffettivo + totaleAnticipiUsati);
   const delta = round2(totaleDovutoConsul - coperto);
   /** Surplus di cassa/anticipi rispetto al dovuto (es. Contanti 383 su premio 176 → 207). */
@@ -753,15 +764,18 @@ export const MessaCassaDialog = ({
 
   // Chiusura conguaglio a credito: nessun cash/acconto da quadrare
   const isChiusuraCredito = dovutoFinale < 0;
-  const quadrato = bankIncasso
-    ? true
-    : isChiusuraCredito
-      ? totaleAnticipiUsati === 0 && cashEffettivo === 0
-      : delta === 0;
+  // Pag. diretto compagnia: premio già versato in compagnia → chiusura a incasso 0.
+  const quadrato = isPagDiretto
+    ? cashEffettivo === 0 && totaleAnticipiUsati === 0
+    : bankIncasso
+      ? true
+      : isChiusuraCredito
+        ? totaleAnticipiUsati === 0 && cashEffettivo === 0
+        : delta === 0;
 
   const isBonifico = isBonificoTipo(form.tipoPagamento);
   /** Pannello conti+estratti visibile per ogni bonifico (anche incasso a 0). */
-  const showBonificoPanel = isBonifico;
+  const showBonificoPanel = isBonifico && !isPagDiretto;
   /** Collegamento obbligatorio movimento solo se c'è cash da quadrare sul conto. */
   const needsBonificoLink = !bankIncasso && cashEffettivo > 0 && isBonifico && !!form.banca;
   /** Carica estratti appena c'è un conto (anche con cash 0). */
@@ -905,8 +919,9 @@ export const MessaCassaDialog = ({
   const bonificoAllineato = selectedBonifici.length === 0 || eccedenzaBonifico >= 0;
   /** Importo suggerito per abbuono/arrotondamento: scostamento da azzerare (mai ECCED). */
   const suggestCompImporto = round2(Math.abs(delta));
-  /** Con cash residuo il tipo pagamento è obbligatorio (niente default Contanti). */
-  const tipoPagamentoObbligatorio = cashEffettivo > 0 && !bankIncasso;
+  /** Con incasso residuo (o pag. diretto) il tipo pagamento è obbligatorio. */
+  const tipoPagamentoObbligatorio =
+    !bankIncasso && (cashEffettivo > 0 || isPagDiretto || totaleDovutoConsul > 0);
   const tipoPagamentoOk = !tipoPagamentoObbligatorio || !!form.tipoPagamento;
   const puoConfermare = quadrato && bonificoAllineato && eccedenzaBonifico >= 0 && tipoPagamentoOk;
 
@@ -1187,8 +1202,14 @@ export const MessaCassaDialog = ({
 
       const usatoTitolo = round2(utilizziPerTitolo.reduce((s, u) => s + u.importo_utilizzato, 0));
       const bankImporto = bankIncasso?.importoByTitoloId[t.id];
+      const pagDirettoTitolo =
+        isPagamentoDirettoCompagnia(form.tipoPagamento) ||
+        compForThis.some((c) => c.effetto === "pag_diretto_compagnia");
+
       let residuoCash: number;
-      if (bankImporto != null) {
+      if (pagDirettoTitolo) {
+        residuoCash = 0;
+      } else if (bankImporto != null) {
         const maxCash = round2(Math.max(0, dovutoT - usatoTitolo));
         residuoCash = round2(Math.min(Number(bankImporto) || 0, maxCash));
         const trBank = trattenutaByTitolo.get(t.id);
@@ -1212,7 +1233,11 @@ export const MessaCassaDialog = ({
       }
       const tr = trattenutaByTitolo.get(t.id);
       const haCompensazioni = compForThis.length > 0;
-      const tipoPagamentoPrincipale = bankIncasso ? "bonifico" : form.tipoPagamento;
+      const tipoPagamentoPrincipale = pagDirettoTitolo
+        ? TIPO_PAGAMENTO_DIREITO_COMPAGNIA
+        : bankIncasso
+          ? "bonifico"
+          : form.tipoPagamento;
       const anticipiDaContoBancario =
         utilizziPerTitolo.length > 0 &&
         utilizziPerTitolo.every((u) => !!anticipiById.get(u.anticipo_id)?.conto_bancario_id);
@@ -1236,11 +1261,14 @@ export const MessaCassaDialog = ({
       if (residuoCash > 0) cashByTitolo[t.id] = residuoCash;
 
       const prevIncassato = Number(titoloRow?.importo_incassato ?? t.importo_incassato) || 0;
-      // residuoCash è la quota cash/bonifico; usatoTitolo è la quota coperta da acconti.
+      // residuoCash è la quota incasso/bonifico; usatoTitolo è la quota coperta da acconti.
       // Entrambe contribuiscono all'importo_incassato, altrimenti i pagamenti
       // fatti interamente con acconti lasciano il titolo in stato "attivo".
-      const nuovoIncassato = round2(prevIncassato + residuoCash + usatoTitolo);
-      const isFullIncasso = nuovoIncassato >= dovutoT;
+      // Pag. diretto: importo_incassato resta 0 (premio già in compagnia).
+      const nuovoIncassato = pagDirettoTitolo
+        ? 0
+        : round2(prevIncassato + residuoCash + usatoTitolo);
+      const isFullIncasso = pagDirettoTitolo || nuovoIncassato >= dovutoT;
 
       const payload: any = {
         importo_incassato: nuovoIncassato,
@@ -1263,12 +1291,11 @@ export const MessaCassaDialog = ({
         payload.data_copertura = dateFields.data_copertura;
       }
       if (bancaLabel) payload.banca_pagamento = bancaLabel;
-      // Pagamento diretto compagnia (causale di compensazione con effetto dedicato):
-      // il premio è già stato pagato dal cliente direttamente alla compagnia →
-      // nessuna entrata banca lato broker e il premio viene escluso dall'E/C
-      // compagnia (resta solo la provvigione).
-      if (compForThis.some((c) => c.effetto === "pag_diretto_compagnia")) {
+      // Pagamento diretto compagnia: premio pagato dal cliente in compagnia →
+      // nessuna entrata banca lato broker; E/C compagnia vede solo la provvigione.
+      if (pagDirettoTitolo) {
         payload.pag_diretto_compagnia = true;
+        payload.tipo_pagamento = TIPO_PAGAMENTO_DIREITO_COMPAGNIA;
       }
 
       const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
@@ -1981,10 +2008,18 @@ export const MessaCassaDialog = ({
                 <div className="flex gap-1 mt-1">
                   <Input
                     type="number" step="0.01" min="0"
-                    value={form.cashImporto}
+                    value={isPagDiretto ? 0 : form.cashImporto}
+                    disabled={isPagDiretto}
                     onChange={(e) => setForm(f => ({ ...f, cashImporto: round2(Number(e.target.value) || 0) }))}
                   />
-                  <Button type="button" variant="outline" size="sm" onClick={autoQuadra} title="Imposta al valore che fa quadrare">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={autoQuadra}
+                    disabled={isPagDiretto}
+                    title="Imposta al valore che fa quadrare"
+                  >
                     <Calculator className="w-3.5 h-3.5" />
                   </Button>
                 </div>
@@ -2005,18 +2040,23 @@ export const MessaCassaDialog = ({
                     <SelectItem value="pos">POS</SelectItem>
                     <SelectItem value="bonifico">Bonifico</SelectItem>
                     <SelectItem value="assegno">Assegno</SelectItem>
+                    <SelectItem value={TIPO_PAGAMENTO_DIREITO_COMPAGNIA}>
+                      Pagamento diretto compagnia
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
           )}
 
-          {/* Bulk: tipo pagamento per residuo cash */}
-          {isMulti && cashEffettivo > 0 && (
+          {/* Bulk: tipo pagamento (anche per pag. diretto a incasso 0) */}
+          {isMulti && !bankIncasso && (cashEffettivo > 0 || isPagDiretto || totaleDovutoConsul > 0) && (
             <div>
               <Label className="text-xs">
                 Tipo Pagamento <span className="text-destructive">*</span>{" "}
-                {totaleAnticipiUsati > 0 && <span className="text-muted-foreground">(parte residua)</span>}
+                {totaleAnticipiUsati > 0 && !isPagDiretto && (
+                  <span className="text-muted-foreground">(parte residua)</span>
+                )}
               </Label>
               <Select
                 value={form.tipoPagamento || undefined}
@@ -2030,6 +2070,9 @@ export const MessaCassaDialog = ({
                   <SelectItem value="pos">POS</SelectItem>
                   <SelectItem value="bonifico">Bonifico</SelectItem>
                   <SelectItem value="assegno">Assegno</SelectItem>
+                  <SelectItem value={TIPO_PAGAMENTO_DIREITO_COMPAGNIA}>
+                    Pagamento diretto compagnia
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2310,9 +2353,16 @@ export const MessaCassaDialog = ({
           )}
 
           {/* Incasso a zero (regolazione/proroga) */}
-          {totaleDovutoConsul === 0 && (
+          {totaleDovutoConsul === 0 && !isPagDiretto && (
             <div className="rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200 p-3 text-sm">
               Incasso tecnico a <strong>€0,00</strong>: conferma per registrare messa a cassa e tutte le conseguenze contabili.
+            </div>
+          )}
+
+          {isPagDiretto && (
+            <div className="rounded-md border border-orange-300 bg-orange-50 dark:bg-orange-950/30 text-orange-900 dark:text-orange-200 p-3 text-sm">
+              <strong>Pagamento diretto compagnia:</strong> il cliente ha versato il premio in compagnia.
+              Nessun incasso lato broker; in E/C resta solo la provvigione. La quietanza viene chiusa a messa a cassa.
             </div>
           )}
 
