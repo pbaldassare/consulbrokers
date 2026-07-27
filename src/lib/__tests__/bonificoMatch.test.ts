@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   BONIFICO_MATCH_MIN_SCORE,
   nomeVariantsForMatch,
-  pickAutoBonificoId,
   scoreOrdinanteVsNomi,
   suggestBonificiPerCliente,
   type BonificoAperto,
@@ -55,21 +54,4 @@ describe("bonificoMatch", () => {
     expect(sug.some((s) => s.id === "a")).toBe(false);
   });
 
-  it("pickAutoBonificoId: un solo match nome anche se ci sono altri del conto", () => {
-    const id = pickAutoBonificoId([
-      { id: "noise1", matchReason: "conto" },
-      { id: "hit", matchReason: "ordinante" },
-      { id: "noise2", matchReason: "conto" },
-    ]);
-    expect(id).toBe("hit");
-  });
-
-  it("pickAutoBonificoId: più match nome → nessuna auto-selezione", () => {
-    expect(
-      pickAutoBonificoId([
-        { id: "a", matchReason: "ordinante" },
-        { id: "b", matchReason: "cliente" },
-      ]),
-    ).toBeNull();
-  });
 });

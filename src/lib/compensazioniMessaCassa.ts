@@ -43,3 +43,24 @@ export function isCausaleMessaCassaMenu(codice: string | null | undefined): bool
 export function rettificaDovutoQuietanza(codice: string | null | undefined): boolean {
   return isCausaleCompMessaCassaUi(codice);
 }
+
+/**
+ * Differenza bonifico vs incasso applicato classificata a mano:
+ * - diff ≈ 0 → ok (anche via ABB/ARROT che riallineano il dovuto)
+ * - diff > 0 (eccedenza) → acconto attivo ACC_* con segno +
+ * - diff < 0 (mancanza) → acconto/accredito passivo ACC_* con segno −
+ */
+export function isDifferenzaBonificoClassificata(opts: {
+  diff: number;
+  accAttivo: number;
+  accPassivo: number;
+  toll?: number;
+}): boolean {
+  const toll = opts.toll ?? 0.005;
+  const d = Math.round((Number(opts.diff) || 0) * 100) / 100;
+  if (Math.abs(d) < toll) return true;
+  if (d > 0) {
+    return Math.abs((Number(opts.accAttivo) || 0) - d) < toll;
+  }
+  return Math.abs((Number(opts.accPassivo) || 0) - Math.abs(d)) < toll;
+}

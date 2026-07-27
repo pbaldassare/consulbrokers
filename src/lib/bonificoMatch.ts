@@ -90,19 +90,6 @@ export function isBonificoNameMatch(reason: string | null | undefined): boolean 
 }
 
 /**
- * Auto-selezione: 1 solo match nome/cliente, oppure un solo movimento sul conto.
- * Mai per importo.
- */
-export function pickAutoBonificoId<T extends { id: string; matchReason: string }>(
-  candidati: T[],
-): string | null {
-  const nameMatches = candidati.filter((b) => isBonificoNameMatch(b.matchReason));
-  if (nameMatches.length === 1) return nameMatches[0].id;
-  if (candidati.length === 1) return candidati[0].id;
-  return null;
-}
-
-/**
  * Tra i bonifici aperti, quelli suggeribili per un cliente (solo nome / cliente_id).
  * Importo ignorato deliberatamente.
  */

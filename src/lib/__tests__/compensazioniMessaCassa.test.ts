@@ -3,6 +3,7 @@ import {
   isCausaleAccontoCliente,
   isCausaleCompMessaCassaUi,
   isCausaleMessaCassaMenu,
+  isDifferenzaBonificoClassificata,
   rettificaDovutoQuietanza,
 } from "@/lib/compensazioniMessaCassa";
 
@@ -28,5 +29,13 @@ describe("compensazioniMessaCassa", () => {
     expect(isCausaleAccontoCliente("ACC_CRED")).toBe(true);
     expect(isCausaleAccontoCliente("ABB_ATT")).toBe(false);
     expect(isCausaleAccontoCliente("ECCED")).toBe(false);
+  });
+
+  it("differenza bonifico: attivo (eccedenza) e passivo (mancanza)", () => {
+    expect(isDifferenzaBonificoClassificata({ diff: 0, accAttivo: 0, accPassivo: 0 })).toBe(true);
+    expect(isDifferenzaBonificoClassificata({ diff: 4.16, accAttivo: 4.16, accPassivo: 0 })).toBe(true);
+    expect(isDifferenzaBonificoClassificata({ diff: 4.16, accAttivo: 0, accPassivo: 0 })).toBe(false);
+    expect(isDifferenzaBonificoClassificata({ diff: -1000.01, accAttivo: 0, accPassivo: 1000.01 })).toBe(true);
+    expect(isDifferenzaBonificoClassificata({ diff: -1000.01, accAttivo: 1000.01, accPassivo: 0 })).toBe(false);
   });
 });

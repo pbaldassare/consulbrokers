@@ -71,6 +71,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import AnticipiChip from "@/components/clienti/AnticipiChip";
+import AbbuoniChip from "@/components/clienti/AbbuoniChip";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
 import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
@@ -1709,6 +1710,7 @@ function PolizzeClienteTable({
             <TableHead>Provvigioni €</TableHead>
             <TableHead>Data Copertura</TableHead>
             <TableHead>Data Incasso</TableHead>
+            <TableHead>Data Pagamento</TableHead>
             {isAdmin && <TableHead className="w-12"></TableHead>}
           </TableRow>
 
@@ -1717,7 +1719,7 @@ function PolizzeClienteTable({
           {filtroTipo === "garantiti" ? (
             allGarant.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 13 : 12} className="text-center text-sm text-muted-foreground py-6">
+                <TableCell colSpan={isAdmin ? 14 : 13} className="text-center text-sm text-muted-foreground py-6">
                   Nessuna polizza in copertura garantita
                 </TableCell>
               </TableRow>
@@ -1754,6 +1756,7 @@ function PolizzeClienteTable({
                   </TableCell>
                   <TableCell className="text-xs">{fmtDate(r.data_copertura)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(r.data_incasso || r.data_messa_cassa)}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(r.data_pagamento)}</TableCell>
                   {isAdmin && <TableCell />}
                 </TableRow>
               ))
@@ -1761,7 +1764,7 @@ function PolizzeClienteTable({
           ) : filtroTipo === "quietanze" ? (
             flatQuietanze.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 13 : 12} className="text-center text-sm text-muted-foreground py-6">
+                <TableCell colSpan={isAdmin ? 14 : 13} className="text-center text-sm text-muted-foreground py-6">
                   Nessuna quietanza da incassare
                 </TableCell>
               </TableRow>
@@ -1815,6 +1818,7 @@ function PolizzeClienteTable({
                     ) : "—"}
                   </TableCell>
                   <TableCell className="text-xs">{fmtDate(r.data_incasso || r.data_messa_cassa)}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(r.data_pagamento)}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Button
@@ -1839,7 +1843,7 @@ function PolizzeClienteTable({
             )
           ) : filteredCatene.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={isAdmin ? 13 : 12} className="text-center text-sm text-muted-foreground py-6">
+                <TableCell colSpan={isAdmin ? 14 : 13} className="text-center text-sm text-muted-foreground py-6">
                 Nessuna polizza presente
               </TableCell>
             </TableRow>
@@ -1927,6 +1931,9 @@ function PolizzeClienteTable({
                         ? "—"
                         : fmtDate(head.data_incasso || head.data_messa_cassa)}
                     </TableCell>
+                    <TableCell className="text-xs">
+                      {isPolizzaMadre(head) ? "—" : fmtDate(head.data_pagamento)}
+                    </TableCell>
                     {isAdmin && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button
@@ -1983,6 +1990,7 @@ function PolizzeClienteTable({
                         ) : "—"}
                       </TableCell>
                       <TableCell className="text-xs">{fmtDate(r.data_incasso || r.data_messa_cassa)}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.data_pagamento)}</TableCell>
                       {isAdmin && (
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <Button
@@ -2034,6 +2042,7 @@ function PolizzeClienteTable({
                         ) : "—"}
                       </TableCell>
                       <TableCell className="text-xs">{fmtDate(r.data_incasso || r.data_messa_cassa)}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(r.data_pagamento)}</TableCell>
                       {isAdmin && (
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <Button
@@ -2466,7 +2475,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, data_copertura, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, gruppo_compagnia, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(id, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione, codice))")
+        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, data_pagamento, data_copertura, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, gruppo_compagnia, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(id, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione, codice))")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -2880,6 +2889,7 @@ export default function ClienteDetail() {
               </div>
             )}
             <AnticipiChip clienteId={id!} />
+            <AbbuoniChip clienteId={id!} />
             <AreaRiservataHeaderButton cliente={cliente} onUpdate={() => queryClient.invalidateQueries({ queryKey: ["cliente", id] })} />
           </div>
         </div>

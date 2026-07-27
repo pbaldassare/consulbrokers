@@ -200,7 +200,7 @@ export async function ricongiungiEFinalizzaBonificoDaIncasso(opts: {
   userId: string | null;
   clienteLabel: string;
   ufficioIdHint?: string | null;
-  /** Se true, non crea un secondo acconto in cliente_anticipi (già registrato via causale ECCED). */
+  /** Se true, non crea acconto automatico in cliente_anticipi da surplus bonifico (solo ACC_* manuali). */
   skipClienteAnticipoInsert?: boolean;
   /** Consente finalize senza quietanze (intero movimento → acconto), es. multi-bonifico. */
   allowSoloAnticipo?: boolean;

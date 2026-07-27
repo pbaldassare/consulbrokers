@@ -46,11 +46,12 @@ import {
   ricongiungiEFinalizzaBonificiMultipliDaIncasso,
   type BonificoCandidato,
 } from "@/lib/bonificoDaIncasso";
-import { isBonificoNameMatch, pickAutoBonificoId } from "@/lib/bonificoMatch";
+import { isBonificoNameMatch } from "@/lib/bonificoMatch";
 import {
   isCausaleAccontoCliente,
   isCausaleCompMessaCassaUi,
   isCausaleMessaCassaMenu,
+  isDifferenzaBonificoClassificata,
   rettificaDovutoQuietanza,
 } from "@/lib/compensazioniMessaCassa";
 /**
@@ -695,7 +696,11 @@ export const MessaCassaDialog = ({
   }, [titoliClienti, pagatoreCliente]);
 
   // === Helpers causali a livello cliente ===
-  const addCompCliente = (causaleId: string, suggestImporto?: number) => {
+  const addCompCliente = (
+    causaleId: string,
+    suggestImporto?: number,
+    segnoOverride?: "+" | "-",
+  ) => {
     const c = causaliComp.find((x) => x.id === causaleId);
     if (!c) return;
     const tempId = crypto.randomUUID();
@@ -704,7 +709,7 @@ export const MessaCassaDialog = ({
       causale_id: c.id,
       causale_codice: c.codice,
       causale_descrizione: c.descrizione,
-      segno: c.segno_default,
+      segno: segnoOverride ?? (c.segno_default as "+" | "-"),
       importo: round2(suggestImporto && suggestImporto > 0 ? suggestImporto : 0),
       note: "",
       effetto: c.effetto_contabile || "standard",
@@ -832,14 +837,13 @@ export const MessaCassaDialog = ({
       if (valid.length !== selectedBonificoIds.length) setSelectedBonificoIds(valid);
       return;
     }
-    // Preferenza da Incassi (match nome)
+    // Preferenza da Incassi (scelta esplicita dell'utente sul badge)
     if (preferredBonifico?.movimentoId && bonificiCandidati.some((b) => b.id === preferredBonifico.movimentoId)) {
       setSelectedBonificoIds([preferredBonifico.movimentoId]);
       return;
     }
-    // 1 match nome/cliente → auto; altrimenti solo se c'è un unico movimento sul conto
-    const autoId = pickAutoBonificoId(bonificiCandidati);
-    setSelectedBonificoIds(autoId ? [autoId] : []);
+    // Nessun flag automatico: anche con 1 solo match nome resta da spuntare a mano
+    setSelectedBonificoIds([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     canLoadEstratti,
@@ -911,19 +915,41 @@ export const MessaCassaDialog = ({
     [selectedBonifici],
   );
 
-  /** Eccedenza/mancanza dei bonifici selezionati rispetto al cash applicato alle quietanze. */
+  /** Eccedenza (+) / mancanza (−) bonifici rispetto al cash applicato. */
   const eccedenzaBonifico = selectedBonifici.length > 0
     ? round2(totaleBonificiSelezionati - cashEffettivo)
     : 0;
-  /** Bonifici ok se coprono il cash (surplus ammesso → acconto dal finalize). */
-  const bonificoAllineato = selectedBonifici.length === 0 || eccedenzaBonifico >= 0;
-  /** Importo suggerito per abbuono/arrotondamento: scostamento da azzerare (mai ECCED). */
-  const suggestCompImporto = round2(Math.abs(delta));
+  /** ACC_* segno +: eccedenza → acconto attivo in Acconti e compensazioni. */
+  const totaleAccAttivo = round2(
+    compensazioniCliente
+      .filter((c) => isCausaleAccontoCliente(c.causale_codice) && c.segno === "+" && c.importo > 0)
+      .reduce((s, c) => s + c.importo, 0),
+  );
+  /** ACC_* segno −: mancanza → accredito passivo in Acconti e compensazioni. */
+  const totaleAccPassivo = round2(
+    compensazioniCliente
+      .filter((c) => isCausaleAccontoCliente(c.causale_codice) && c.segno === "-" && c.importo > 0)
+      .reduce((s, c) => s + c.importo, 0),
+  );
+  /**
+   * Differenza bonifico classificata a mano (niente auto):
+   * eccedenza → ACC attivo (+); mancanza → ACC passivo (−);
+   * oppure ABB/ARROT che azzerano la differenza riallineando il dovuto.
+   */
+  const differenzaBonificoClassificata = isDifferenzaBonificoClassificata({
+    diff: eccedenzaBonifico,
+    accAttivo: totaleAccAttivo,
+    accPassivo: totaleAccPassivo,
+  });
+  /** Importo suggerito in tendina: |differenza bonifico| se c'è, altrimenti |delta|. */
+  const suggestCompImporto = round2(
+    Math.abs(eccedenzaBonifico) > 0 ? Math.abs(eccedenzaBonifico) : Math.abs(delta),
+  );
   /** Con incasso residuo (o pag. diretto) il tipo pagamento è obbligatorio. */
   const tipoPagamentoObbligatorio =
     !bankIncasso && (cashEffettivo > 0 || isPagDiretto || totaleDovutoConsul > 0);
   const tipoPagamentoOk = !tipoPagamentoObbligatorio || !!form.tipoPagamento;
-  const puoConfermare = quadrato && bonificoAllineato && eccedenzaBonifico >= 0 && tipoPagamentoOk;
+  const puoConfermare = quadrato && differenzaBonificoClassificata && tipoPagamentoOk;
 
   const { data: contiBonificoRaw = [] } = useQuery({
     queryKey: ["messa-cassa-conti-bonifico"],
@@ -975,10 +1001,11 @@ export const MessaCassaDialog = ({
     });
   }, [bonificiCandidati, nameMatchCandidati, soloMatchNome, estrattoSearch]);
 
+  // Allinea l'incasso applicato al dovuto rettificato (anche dopo ABB/ARROT attivi/passivi)
   useEffect(() => {
-    if (!open || isMulti || !haTrattenuta) return;
+    if (!open || isMulti || bankIncasso) return;
     setForm((f) => ({ ...f, cashImporto: round2(Math.max(0, totaleDovutoConsul - totaleAnticipiUsati)) }));
-  }, [open, isMulti, haTrattenuta, totaleDovutoConsul, totaleAnticipiUsati]);
+  }, [open, isMulti, bankIncasso, totaleDovutoConsul, totaleAnticipiUsati]);
 
   // === Anteprima scritture contabili ===
   const movimentiPreview: MovimentoPreview[] = useMemo(() => {
@@ -1067,10 +1094,16 @@ export const MessaCassaDialog = ({
       toast.error("Seleziona il tipo di pagamento");
       return;
     }
-    if (selectedBonifici.length > 0 && eccedenzaBonifico < 0) {
-      toast.error(
-        `I bonifici selezionati (${fmtEuro(totaleBonificiSelezionati)}) non coprono l'incasso applicato (${fmtEuro(cashEffettivo)}). Aggiungi un altro movimento o riduci l'incasso.`,
-      );
+    if (selectedBonifici.length > 0 && !differenzaBonificoClassificata) {
+      if (eccedenzaBonifico < 0) {
+        toast.error(
+          `Mancano ${fmtEuro(-eccedenzaBonifico)} sui bonifici: classifica con ACC_* (accredito passivo, segno −) oppure abbassa il dovuto con ABB_ATT/ARROT_A, oppure aggiungi un movimento.`,
+        );
+      } else {
+        toast.error(
+          `Eccedenza bonifico ${fmtEuro(eccedenzaBonifico)}: classifica con ACC_* (acconto attivo, segno +) oppure alza il dovuto con ABB_PAS/ARROT_P. Nessun percorso automatico.`,
+        );
+      }
       return;
     }
     if (isBonificoTipo(form.tipoPagamento) && !form.banca && !bankIncasso?.contoBancarioId) {
@@ -1504,8 +1537,12 @@ export const MessaCassaDialog = ({
           importo: c.importo,
           causale_id: c.causale_id,
           segno: c.segno === "-" ? "-" : "+",
+          // Passivo (−): partita in Acconti e compensazioni senza residuo spendibile
           importo_residuo: c.segno === "-" ? 0 : c.importo,
-          note: `Da messa a cassa (${quietanzeLabel}${titoli.length > 5 ? "…" : ""})${c.note ? " · " + c.note : ""}`,
+          note:
+            c.segno === "-"
+              ? `Accredito passivo / mancanza bonifico da messa a cassa (${quietanzeLabel}${titoli.length > 5 ? "…" : ""})${c.note ? " · " + c.note : ""}`
+              : `Acconto attivo da messa a cassa (${quietanzeLabel}${titoli.length > 5 ? "…" : ""})${c.note ? " · " + c.note : ""}`,
           creato_da: userId,
         }));
         const { error: errAcc } = await (supabase.from("cliente_anticipi") as any).insert(anticipoRows);
@@ -1555,7 +1592,8 @@ export const MessaCassaDialog = ({
             userId,
             clienteLabel: clienteNomeById.get(pagatore) || "Cliente",
             ufficioIdHint: titoli.find((t) => t.ufficio_id)?.ufficio_id ?? null,
-            skipClienteAnticipoInsert: false,
+            // Mai auto-acconto da surplus: gli ACC_* li crea solo la classificazione manuale sopra
+            skipClienteAnticipoInsert: true,
           });
           toast.success(
             selectedBonificoIds.length > 1
@@ -1605,6 +1643,7 @@ export const MessaCassaDialog = ({
       queryClient.invalidateQueries({ queryKey: ["anticipi-globale"] });
       queryClient.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
       queryClient.invalidateQueries({ queryKey: ["titoli-compensazioni"] });
+      queryClient.invalidateQueries({ queryKey: ["cliente-abbuoni"] });
       queryClient.invalidateQueries({ queryKey: ["titoli-modalita-incasso"] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni-generate"] });
       queryClient.invalidateQueries({ queryKey: ["ec-produttori"] });
@@ -1697,7 +1736,18 @@ export const MessaCassaDialog = ({
         <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
           <Calculator className="w-4 h-4" /> Abbuoni, arrotondamenti e acconti
         </div>
-        <Select value="" onValueChange={(v) => v && addCompCliente(v, suggestCompImporto)}>
+        <Select
+          value=""
+          onValueChange={(v) => {
+            if (!v) return;
+            const c = causaliComp.find((x) => x.id === v);
+            let segnoAcc: "+" | "-" | undefined;
+            if (c && isCausaleAccontoCliente(c.codice) && Math.abs(eccedenzaBonifico) > 0) {
+              segnoAcc = eccedenzaBonifico < 0 ? "-" : "+";
+            }
+            addCompCliente(v, suggestCompImporto, segnoAcc);
+          }}
+        >
           <SelectTrigger className="w-64 h-8 text-xs">
             <SelectValue placeholder="+ Aggiungi causale…" />
           </SelectTrigger>
@@ -1715,13 +1765,18 @@ export const MessaCassaDialog = ({
         </Select>
       </div>
       <p className="text-[11px] text-muted-foreground">
-        A livello cliente: abbuoni/arrotondamenti rettificano il dovuto; gli acconti (
-        <span className="font-mono">ACC_*</span>) finiscono nella scheda Acconti del pagatore.
+        Abbuoni/arrotondamenti rettificano il dovuto. <span className="font-mono">ACC_*</span>{" "}
+        → scheda Acconti e compensazioni: segno + acconto attivo (eccedenza), segno − accredito passivo (mancanza).
+        Nessuna classificazione automatica.
       </p>
 
       {compensazioniCliente.length === 0 ? (
         <p className="text-xs text-muted-foreground italic">
-          Nessuna riga. Opzionale: abbuono / arrotondamento / acconto.
+          {eccedenzaBonifico > 0
+            ? `Nessuna riga. Classifica l'eccedenza di ${fmtEuro(eccedenzaBonifico)} (ACC_* attivo oppure ABB_PAS/ARROT_P).`
+            : eccedenzaBonifico < 0
+              ? `Nessuna riga. Classifica la mancanza di ${fmtEuro(-eccedenzaBonifico)} (ACC_* passivo oppure ABB_ATT/ARROT_A).`
+              : "Nessuna riga. Opzionale: abbuono / arrotondamento / acconto."}
         </p>
       ) : (
         <div className="space-y-1.5">
@@ -1743,7 +1798,11 @@ export const MessaCassaDialog = ({
                 <div className="font-medium">{c.causale_codice}</div>
                 <div className="text-muted-foreground truncate">
                   {c.causale_descrizione}
-                  {isCausaleAccontoCliente(c.causale_codice) ? " · acconto cliente" : ""}
+                  {isCausaleAccontoCliente(c.causale_codice)
+                    ? c.segno === "-"
+                      ? " · accredito passivo (Acconti)"
+                      : " · acconto attivo (Acconti)"
+                    : ""}
                 </div>
               </div>
               <Input
@@ -2206,7 +2265,6 @@ export const MessaCassaDialog = ({
                           <div className="flex flex-wrap items-center gap-2 text-[10px]">
                             <Badge variant="default" className="font-normal">
                               {nameMatchCandidati.length} match nome
-                              {nameMatchCandidati.length === 1 ? " (selezionato)" : ""}
                             </Badge>
                             <button
                               type="button"
@@ -2248,11 +2306,9 @@ export const MessaCassaDialog = ({
                           <p className="text-[10px] text-muted-foreground">
                             Elenco ordinato per corrispondenza nome (cliente/ordinante), non per importo.
                             Puoi selezionare più bonifici insieme se serve coprire l'incasso.
-                            {nameMatchCandidati.length === 1
-                              ? " Match unico: già selezionato."
-                              : selectedBonificoIds.length > 0
-                                ? ` Selezionati: ${selectedBonificoIds.length} · ${fmtEuro(totaleBonificiSelezionati)}.`
-                                : " Spunta uno o più movimenti."}
+                            {selectedBonificoIds.length > 0
+                              ? ` Selezionati: ${selectedBonificoIds.length} · ${fmtEuro(totaleBonificiSelezionati)}.`
+                              : " Spunta uno o più movimenti."}
                           </p>
                         )}
                         {estrattiFiltrati.length === 0 && !bonificiLoading ? (
@@ -2413,15 +2469,29 @@ export const MessaCassaDialog = ({
                   <span>{fmtEuro(totaleBonificiSelezionati)}</span>
                 </div>
                 {eccedenzaBonifico > 0 && (
-                  <div className="flex justify-between text-green-700">
-                    <span>Eccedenza rispetto all&apos;incasso → acconto cliente al finalize</span>
-                    <span>{fmtEuro(eccedenzaBonifico)}</span>
+                  <div className="space-y-0.5 text-amber-900 dark:text-amber-200">
+                    <div className="flex justify-between font-medium">
+                      <span>Eccedenza rispetto all&apos;incasso (da classificare tu)</span>
+                      <span>{fmtEuro(eccedenzaBonifico)}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      {differenzaBonificoClassificata
+                        ? `Classificata: acconto attivo ${fmtEuro(totaleAccAttivo)}. Va in Acconti e compensazioni.`
+                        : "ACC_* (segno +) → acconto attivo, oppure ABB_PAS/ARROT_P per alzare il dovuto. Nessun automatico."}
+                    </p>
                   </div>
                 )}
                 {eccedenzaBonifico < 0 && (
-                  <div className="flex justify-between text-red-700">
-                    <span>Mancano rispetto all&apos;incasso</span>
-                    <span>{fmtEuro(-eccedenzaBonifico)}</span>
+                  <div className="space-y-0.5 text-amber-900 dark:text-amber-200">
+                    <div className="flex justify-between font-medium">
+                      <span>Mancano rispetto all&apos;incasso (da classificare tu)</span>
+                      <span>{fmtEuro(-eccedenzaBonifico)}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      {differenzaBonificoClassificata
+                        ? `Classificata: accredito passivo ${fmtEuro(totaleAccPassivo)}. Va in Acconti e compensazioni.`
+                        : "ACC_* (segno −, impostato in automatico) → accredito passivo, oppure ABB_ATT/ARROT_A per abbassare il dovuto."}
+                    </p>
                   </div>
                 )}
                 {eccedenzaBonifico === 0 && (
@@ -2513,7 +2583,7 @@ export const MessaCassaDialog = ({
           <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
             <p className="text-sm font-medium text-destructive">
               ⚠️ Operazione irreversibile senza privilegi admin. Quadratura: incasso applicato + acconti usati = dovuto rettificato.
-              Abbuoni/arrotondamenti a livello cliente; acconti nuovi (<span className="font-mono">ACC_*</span>) nella scheda Acconti del pagatore.
+              Differenze bonifico: classificale tu (abbuono / arrotondamento / acconto) — niente acconto automatico.
             </p>
           </div>
         </div>
