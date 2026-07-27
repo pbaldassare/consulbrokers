@@ -403,6 +403,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         cliente_id: clienteId,
         anagrafica_id: ae.anagrafica_id,
         ruolo: "AE",
+        // Sempre esplicito: insert multi-riga PostgREST altrimenti manda null e viola NOT NULL
+        escludi_provvigioni: false,
       });
     }
 
@@ -411,6 +413,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         cliente_id: clienteId,
         profilo_id: backofficeRole.profilo_id,
         ruolo: "Backoffice",
+        escludi_provvigioni: false,
       });
     }
 
