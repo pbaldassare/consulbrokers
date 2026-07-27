@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Sparkles, UploadCloud, Loader2, FileText, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { matchGaranzia, RCA_PRINCIPALE_CODE, type CatalogoVoce } from "@/lib/mapGaranzieRca";
@@ -85,8 +86,8 @@ export function ImportPolizzaAiButton({
 
   const handleFile = async (file: File) => {
     if (!file) return;
-    if (file.size > 15 * 1024 * 1024) {
-      toast.error("File troppo grande (max 15MB)");
+    if (isDocumentUploadTooLarge(file.size)) {
+      toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
       return;
     }
     setFileName(file.name);
@@ -271,7 +272,7 @@ export function ImportPolizzaAiButton({
               <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <UploadCloud className="h-10 w-10 text-teal-600" />
                 <span className="font-medium">Trascina qui la polizza oppure clicca per selezionare</span>
-                <span className="text-xs">PDF o immagini, max 15MB</span>
+                <span className="text-xs">PDF o immagini, max {MAX_DOCUMENT_UPLOAD_MB} MB</span>
               </div>
             )}
           </div>

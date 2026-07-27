@@ -30,6 +30,7 @@ import {
 } from "date-fns";
 import { it } from "date-fns/locale";
 import { CalendarCheck, List, Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle2, ArrowLeft, RefreshCw, X } from "lucide-react";
+import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 
 type ScadenzaItem = {
   id: string;
@@ -132,11 +133,7 @@ export default function SinistroScadenzePage() {
         // La scadenza della checklist è calcolata come created_at + 15 giorni, o data_apertura + 15 giorni
         const baseDate = c.created_at ? parseISO(c.created_at) : parseISO(c.sinistri.data_apertura);
         const dataScadenza = addDays(baseDate, 15);
-        const clienteNome = c.sinistri.clienti
-          ? c.sinistri.clienti.tipo_cliente === "azienda" && c.sinistri.clienti.ragione_sociale
-            ? c.sinistri.clienti.ragione_sociale
-            : `${c.sinistri.clienti.cognome || ""} ${c.sinistri.clienti.nome || ""}`.trim()
-          : "—";
+        const clienteNome = resolveClienteNome(c.sinistri.clienti);
 
         items.push({
           id: c.id,
@@ -157,11 +154,7 @@ export default function SinistroScadenzePage() {
       (eventiData || []).forEach((e: any) => {
         if (!e.sinistri) return;
         const dataScadenza = parseISO(e.data_scadenza);
-        const clienteNome = e.sinistri.clienti
-          ? e.sinistri.clienti.tipo_cliente === "azienda" && e.sinistri.clienti.ragione_sociale
-            ? e.sinistri.clienti.ragione_sociale
-            : `${e.sinistri.clienti.cognome || ""} ${e.sinistri.clienti.nome || ""}`.trim()
-          : "—";
+        const clienteNome = resolveClienteNome(e.sinistri.clienti);
 
         items.push({
           id: e.id,
@@ -182,11 +175,7 @@ export default function SinistroScadenzePage() {
       (prescrizioniData || []).forEach((p: any) => {
         if (!p.sinistri) return;
         const dataScadenza = parseISO(p.data_scadenza_risposta);
-        const clienteNome = p.sinistri.clienti
-          ? p.sinistri.clienti.tipo_cliente === "azienda" && p.sinistri.clienti.ragione_sociale
-            ? p.sinistri.clienti.ragione_sociale
-            : `${p.sinistri.clienti.cognome || ""} ${p.sinistri.clienti.nome || ""}`.trim()
-          : "—";
+        const clienteNome = resolveClienteNome(p.sinistri.clienti);
 
         items.push({
           id: p.id,

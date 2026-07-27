@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
-import { it } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -15,9 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Search, Pencil, UserCog, ExternalLink, CalendarIcon, UserPlus, KeyRound, Copy, Trash2 } from "lucide-react";
+import { DateInput } from "@/components/ui/date-input";
+import { Search, Pencil, UserCog, ExternalLink, UserPlus, KeyRound, Copy, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { LEVELS } from "@/lib/userLevels";
@@ -69,36 +67,12 @@ const emptyForm = {
   attivo: true,
 };
 
-const DateField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
-  const parsed = value ? parseISO(value) : undefined;
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className={cn("w-full justify-start text-left font-normal", !value && "text-muted-foreground")}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {parsed ? format(parsed, "dd/MM/yyyy") : <span>gg/mm/aaaa</span>}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={parsed}
-          onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : "")}
-          locale={it}
-          captionLayout="dropdown-buttons"
-          fromYear={1980}
-          toYear={new Date().getFullYear() + 1}
-          initialFocus
-          className={cn("p-3 pointer-events-auto")}
-        />
-      </PopoverContent>
-    </Popover>
-  );
-};
+const DateField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+  <DateInput
+    value={value?.slice(0, 10) ?? ""}
+    onChange={(e) => onChange(e.target.value)}
+  />
+);
 
 const SELECT_FIELDS =
   "id, nome, cognome, email, ruolo, ufficio_id, attivo, descrizione, indirizzo, cap, citta, provincia, telefono, fax, codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui, codice_contabile, percentuale_ra, iban, intestatario_cc, conto_bancario_id, percentuale_base, percentuale_consulenza, note";

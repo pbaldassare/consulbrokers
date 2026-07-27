@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ScanLine, Upload, Loader2, CheckCircle2, X } from "lucide-react";
+import { documentUploadTooLargeMessage, isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 export type DocumentType = "carta_identita" | "tessera_sanitaria" | "visura_camerale" | "copia_polizza" | "perizia" | "referto_medico";
 
@@ -16,7 +17,6 @@ const DOC_LABELS: Record<DocumentType, string> = {
 };
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 export interface AiScannerEntityContext {
   entityType: "cliente" | "prospect" | "sinistro" | "polizza" | "compagnia" | "trattativa";
@@ -51,8 +51,8 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, entityConte
       toast.error("Formato non supportato", { description: "Carica un file JPG, PNG, WEBP o PDF" });
       return;
     }
-    if (file.size > MAX_SIZE) {
-      toast.error("File troppo grande", { description: "Il file non deve superare 10MB" });
+    if (isDocumentUploadTooLarge(file.size)) {
+      toast.error("File troppo grande", { description: documentUploadTooLargeMessage() });
       return;
     }
 
@@ -170,7 +170,7 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, entityConte
             <Upload className="w-6 h-6 text-muted-foreground" />
             <p className="text-sm font-medium text-foreground">{buttonLabel}</p>
             <p className="text-xs text-muted-foreground">
-              Trascina o clicca per caricare • JPG, PNG, WEBP, PDF (max 10MB)
+              Trascina o clicca per caricare • JPG, PNG, WEBP, PDF (max {MAX_DOCUMENT_UPLOAD_MB} MB)
             </p>
           </div>
         )}

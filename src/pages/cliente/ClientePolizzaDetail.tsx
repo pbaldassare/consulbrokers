@@ -116,7 +116,7 @@ const ClientePolizzaDetail = () => {
     { label: "Anni durata", value: titolo.anni_durata },
     { label: "Frazionamento", value: titolo.frazionamento ?? titolo.periodicita },
     { label: "Tacito rinnovo", value: boolLabel(titolo.tacito_rinnovo) },
-    { label: "Disdetta (mesi)", value: titolo.disdetta_mesi },
+    { label: "Disdetta (giorni)", value: titolo.disdetta_giorni },
     { label: "Regolazione", value: boolLabel(titolo.regolazione) },
     { label: "Indicizzata", value: boolLabel(titolo.indicizzata) },
   ];

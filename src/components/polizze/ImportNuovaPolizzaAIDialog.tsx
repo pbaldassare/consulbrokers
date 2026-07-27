@@ -19,6 +19,7 @@ import {
   UserPlus, ArrowLeft, ArrowRight, Trash2, Calculator, Info, Search,
 } from "lucide-react";
 import { toast } from "sonner";
+import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { fmtEuro as fmtEur } from "@/lib/formatCurrency";
@@ -426,8 +427,8 @@ export function ImportNuovaPolizzaAIDialog({
 
   const handleFile = async (file: File) => {
     if (!file) return;
-    if (file.size > 15 * 1024 * 1024) {
-      toast.error("File troppo grande (max 15MB)");
+    if (isDocumentUploadTooLarge(file.size)) {
+      toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
       return;
     }
     if (!selectedGruppoRamoId) {
@@ -825,7 +826,7 @@ export function ImportNuovaPolizzaAIDialog({
                       ? "Trascina la scheda di polizza o clicca per selezionare"
                       : "Seleziona prima il Ramo per abilitare il caricamento"}
                   </span>
-                  <span className="text-xs">PDF o immagini, max 15MB</span>
+                  <span className="text-xs">PDF o immagini, max {MAX_DOCUMENT_UPLOAD_MB} MB</span>
                 </div>
               )}
             </div>

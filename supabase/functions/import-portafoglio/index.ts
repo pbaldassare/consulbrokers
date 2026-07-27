@@ -135,7 +135,10 @@ Deno.serve(async (req) => {
         data_incasso: stateRow.dt_incasso || null,
         rate: num(stateRow.rate),
         tipo_rinnovo: stateRow.rinnovo || null,
-        disdetta_mesi: num(stateRow.mesi_disd),
+        disdetta_giorni: (() => {
+          const mesi = num(stateRow.mesi_disd);
+          return mesi == null ? null : mesi <= 12 ? mesi * 30 : mesi;
+        })(),
         specialist: baseRow.nome_specialist || null,
         tipo_portafoglio: baseRow.tipo_portafoglio || null,
         stato: stato,

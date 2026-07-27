@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -32,6 +32,14 @@ import {
 import { applySoloMadriFilter, mergePolizze } from "@/lib/polizzeSearch";
 import type { SinistroPrescrizioneDraft, SinistroReminderDraft } from "@/lib/sinistroPrescrizioniReminder";
 import { DESTINATARIO_LABEL } from "@/lib/sinistroPrescrizioniReminder";
+import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
+import { formatPolizzaRamo, formatPolizzaScadenza } from "@/lib/titoliDisplay";
+import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
+import {
+  documentUploadTooLargeMessage,
+  isDocumentUploadTooLarge,
+  MAX_DOCUMENT_UPLOAD_MB,
+} from "@/lib/uploadLimits";
 
 const DRAFT_KEY = "sinistri:apertura:bozza";
 
@@ -86,6 +94,10 @@ export default function SinistroAperturaWizardPage() {
     data_scadenza_risposta: "",
   });
   const [reminderDraftForm, setReminderDraftForm] = useState<SinistroReminderDraft>({ testo: "" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  /** File originali in memoria (submit affidabile anche se la bozza omette base64). */
+  const pendingFilesRef = useRef<Map<string, File>>(new Map());
+  const [dragOver, setDragOver] = useState(false);
 
   // Inizializzazione React Hook Form
   const { register, control, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<WizardFormValues>({
@@ -107,8 +119,9 @@ export default function SinistroAperturaWizardPage() {
     setPolizzeLoading(true);
     try {
       const baseTitQuery = supabase.from('titoli')
-        .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, sostituisce_polizza, data_competenza, data_scadenza,
+        .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, compagnia_id, sostituisce_polizza, data_competenza, data_scadenza, garanzia_a,
           prodotti(nome_prodotto, compagnie(id, nome)),
+          ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)),
           clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
         .eq('cliente_anagrafica_id', clienteId)
         .order('created_at', { ascending: false })
@@ -202,6 +215,14 @@ export default function SinistroAperturaWizardPage() {
   const watchDocumenti = watch("documenti");
   const watchValues = watch();
 
+  const draftSnapshot = useMemo(
+    () => ({
+      ...watchValues,
+      documenti: (watchValues.documenti ?? []).map(({ file_base64: _b, path_temp: _p, ...rest }) => rest),
+    }),
+    [watchValues],
+  );
+
   // 1. Carica bozza se esistente
   useEffect(() => {
     const draft = loadDraft<WizardFormValues>(DRAFT_KEY);
@@ -213,8 +234,9 @@ export default function SinistroAperturaWizardPage() {
       // Se c'è una polizza già selezionata nella bozza, carichiamo le sue info
       if (d.titolo_id) {
         supabase.from("titoli").select(`
-          id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id,
+          id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, data_scadenza, garanzia_a,
           prodotti(nome_prodotto, compagnie(id, nome)),
+          ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)),
           clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
         `).eq("id", d.titolo_id).maybeSingle().then(({ data }) => {
           if (data) setSelectedPolizzaData(data);
@@ -226,7 +248,7 @@ export default function SinistroAperturaWizardPage() {
   }, [setValue]);
 
   // 2. Abilita salvataggio automatico bozza
-  useDraftPersistence(DRAFT_KEY, watchValues, { enabled: draftLoaded });
+  useDraftPersistence(DRAFT_KEY, draftSnapshot, { enabled: draftLoaded });
 
   // Query per lookup tipo documento (Step 3)
   const { data: lookupTipiDoc = [] } = useQuery({
@@ -260,44 +282,110 @@ export default function SinistroAperturaWizardPage() {
 
 
   // Gestione caricamento file (Step 3)
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
+  const processUploadedFiles = (files: FileList | File[]) => {
+    const list = Array.from(files);
+    if (list.length === 0) return;
 
-    Array.from(files).forEach((file) => {
+    let queued = 0;
+    let completed = 0;
+
+    list.forEach((file) => {
+      if (isDocumentUploadTooLarge(file.size)) {
+        toast.error(`${file.name}: ${documentUploadTooLargeMessage()}`);
+        return;
+      }
+
+      queued += 1;
+      const pathTemp = URL.createObjectURL(file);
+      pendingFilesRef.current.set(pathTemp, file);
+
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64Content = event.target?.result as string;
-        // Appendiamo all'array del form
         appendDoc({
           nome_file: file.name,
-          path_temp: URL.createObjectURL(file), // Usato temporaneamente per anteprima o download locale
+          path_temp: pathTemp,
           categoria: "",
           descrizione: "",
-          file_base64: base64Content // Salvato nella bozza
+          file_base64: base64Content,
         });
+        completed += 1;
+        if (completed === queued) {
+          toast.success(queued === 1 ? `File "${file.name}" aggiunto` : `${queued} file aggiunti`);
+        }
+      };
+      reader.onerror = () => {
+        URL.revokeObjectURL(pathTemp);
+        pendingFilesRef.current.delete(pathTemp);
+        toast.error(`Impossibile leggere il file "${file.name}"`);
+        completed += 1;
       };
       reader.readAsDataURL(file);
     });
-    // Resettiamo l'input file
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) {
+      processUploadedFiles(e.target.files);
+    }
     e.target.value = "";
+  };
+
+  const handleRemoveDocumento = (idx: number) => {
+    const pathTemp = getValues(`documenti.${idx}.path_temp`);
+    if (pathTemp) {
+      URL.revokeObjectURL(pathTemp);
+      pendingFilesRef.current.delete(pathTemp);
+    }
+    removeDoc(idx);
+  };
+
+  const base64ToBlob = (base64Content: string, fallbackName: string) => {
+    const mimeMatch = base64Content.match(/^data:([^;]+);/);
+    const mimeType = mimeMatch?.[1] || "application/octet-stream";
+    const base64Data = base64Content.split(",")[1];
+    if (!base64Data) throw new Error(`Contenuto non valido per ${fallbackName}`);
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    return new Blob([new Uint8Array(byteNumbers)], { type: mimeType });
+  };
+
+  // Commit eventuale digitazione DateInput ancora in focus prima della validazione step
+  const commitFocusedField = async () => {
+    const el = document.activeElement;
+    if (el instanceof HTMLElement && el !== document.body) {
+      el.blur();
+      // Attendi handler blur (DateInput → RHF) prima di trigger
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+    }
   };
 
   // Funzione per validare ed avanzare negli step
   const handleNextStep = async () => {
+    await commitFocusedField();
+
     let fieldsToValidate: any[] = [];
     if (currentStep === 1) {
-      // Polizza opzionale: nessuna validazione bloccante
-      fieldsToValidate = [];
+      if (!selectedClienteId) {
+        toast.error("Seleziona un cliente per proseguire");
+        return;
+      }
+      fieldsToValidate = ["data_evento"];
     } else if (currentStep === 2) {
-      fieldsToValidate = ["data_evento", "data_denuncia", "descrizione", "importo_riserva"];
+      fieldsToValidate = ["data_denuncia", "descrizione", "importo_riserva"];
       const tipoErr = validateTipoSinistro(getValues("tipo_sinistro"), getValues("tipo_sinistro_personalizzato"));
       if (tipoErr) {
         toast.error(tipoErr);
         return;
       }
     } else if (currentStep === 3) {
-      fieldsToValidate = ["documenti"];
+      // Step facoltativo: nessun blocco sui documenti in bozza
+      fieldsToValidate = [];
     }
 
 
@@ -328,9 +416,24 @@ export default function SinistroAperturaWizardPage() {
       if (!user) throw new Error("Utente non autenticato");
 
       // Recuperiamo la polizza e il cliente associato
-      const compagniaId = selectedPolizzaData?.prodotti?.compagnie?.id || null;
-      const clienteAnagraficaId = selectedPolizzaData?.cliente_anagrafica_id || null;
+      const compagniaId =
+        selectedPolizzaData?.compagnia_id ||
+        selectedPolizzaData?.prodotti?.compagnie?.id ||
+        null;
+      const clienteAnagraficaId = selectedClienteId || selectedPolizzaData?.cliente_anagrafica_id || null;
       const ufficioId = selectedPolizzaData?.ufficio_id || null;
+
+      if (!clienteAnagraficaId) {
+        throw new Error("Cliente non selezionato");
+      }
+
+      const docsConCategoriaMancante = (values.documenti ?? []).filter((d) => !d.categoria?.trim());
+      if (docsConCategoriaMancante.length > 0) {
+        toast.error("Seleziona il tipo documento per ogni file caricato prima di confermare");
+        setCurrentStep(3);
+        setSubmitting(false);
+        return;
+      }
 
       // 1. Creazione del sinistro tramite edge function unificata
       //    (checklist di default + log_attivita + evento timeline generati lato server)
@@ -339,43 +442,41 @@ export default function SinistroAperturaWizardPage() {
       const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
         body: {
           azione: "crea",
-          titolo_id: values.titolo_id && !values.titolo_id.startsWith("cga:") ? values.titolo_id : null,
+          titolo_id: values.titolo_id && !values.titolo_id.startsWith("cga:") ? values.titolo_id : undefined,
           cliente_anagrafica_id: clienteAnagraficaId,
-          compagnia_id: compagniaId,
-          ufficio_id: ufficioId,
+          ...(compagniaId ? { compagnia_id: compagniaId } : {}),
+          ...(ufficioId ? { ufficio_id: ufficioId } : {}),
           ...praticaPayload,
           user_id: user.id,
           stato_iniziale: "aperto",
-          prescrizioni_iniziali: prescrizioniDrafts.length > 0 ? prescrizioniDrafts : undefined,
-          reminder_iniziali: reminderDrafts.length > 0 ? reminderDrafts : undefined,
+          ...(prescrizioniDrafts.length > 0 ? { prescrizioni_iniziali: prescrizioniDrafts } : {}),
+          ...(reminderDrafts.length > 0 ? { reminder_iniziali: reminderDrafts } : {}),
         },
       });
-      if (invokeErr) throw invokeErr;
-      if (!invokeRes?.success) throw new Error(invokeRes?.error || "Errore creazione sinistro");
+      if (invokeErr || !invokeRes?.success) {
+        throw new Error(formatEdgeFunctionError(invokeErr, invokeRes));
+      }
       const newSinistro = invokeRes.sinistro as { id: string; numero_sinistro: string };
 
 
       // 3. Upload documenti se presenti
       if (values.documenti && values.documenti.length > 0) {
         for (const doc of values.documenti) {
-          if (!doc.file_base64) continue;
-          
-          // Convertiamo base64 in Blob
-          const base64Data = doc.file_base64.split(",")[1];
-          const byteCharacters = atob(base64Data);
-          const byteNumbers = new Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          const pendingFile = doc.path_temp ? pendingFilesRef.current.get(doc.path_temp) : undefined;
+          const blob = pendingFile ?? (doc.file_base64 ? base64ToBlob(doc.file_base64, doc.nome_file) : null);
+          if (!blob) {
+            toast.error(`File "${doc.nome_file}" non disponibile: ricaricalo nello step Documenti`);
+            continue;
           }
-          const byteArray = new Uint8Array(byteNumbers);
-          const blob = new Blob([byteArray], { type: "application/octet-stream" });
-          
+
           const storagePath = `sinistro/${newSinistro.id}/${Date.now()}_${doc.nome_file}`;
-          
+
           // Upload su Supabase Storage bucket documenti_sinistri
           const { error: uploadErr } = await supabase.storage
             .from("documenti_sinistri")
-            .upload(storagePath, blob);
+            .upload(storagePath, blob, {
+              contentType: pendingFile?.type || blob.type || "application/octet-stream",
+            });
 
           if (uploadErr) throw uploadErr;
 
@@ -388,10 +489,15 @@ export default function SinistroAperturaWizardPage() {
             entita_id: newSinistro.id,
             caricato_da: user.id,
             categoria: doc.categoria,
-            descrizione: doc.descrizione || null
+            descrizione: doc.descrizione || null,
           });
 
           if (docDbErr) throw docDbErr;
+
+          if (doc.path_temp) {
+            URL.revokeObjectURL(doc.path_temp);
+            pendingFilesRef.current.delete(doc.path_temp);
+          }
         }
       }
 
@@ -405,12 +511,6 @@ export default function SinistroAperturaWizardPage() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const getClienteNome = (c: any) => {
-    if (!c) return "—";
-    if (c.tipo_cliente === "azienda" && c.ragione_sociale) return c.ragione_sociale;
-    return `${c.cognome || ""} ${c.nome || ""}`.trim() || "—";
   };
 
   return (
@@ -495,7 +595,7 @@ export default function SinistroAperturaWizardPage() {
                   {selectedClienteData ? (
                     <div className="flex items-center justify-between gap-3 p-3 bg-muted/50 rounded-lg border">
                       <div className="text-sm">
-                        <p className="font-semibold">{getClienteNome(selectedClienteData)}</p>
+                        <p className="font-semibold">{resolveClienteNome(selectedClienteData)}</p>
                         <p className="text-xs text-muted-foreground">
                           {selectedClienteData.codice_fiscale || selectedClienteData.partita_iva || "—"}
                           {selectedClienteData.tipo_cliente ? ` · ${selectedClienteData.tipo_cliente}` : ""}
@@ -509,9 +609,9 @@ export default function SinistroAperturaWizardPage() {
                     <SearchableSelect
                       options={clientiList.map((c: any) => ({
                         value: c.id,
-                        label: getClienteNome(c) || "(senza nome)",
+                        label: resolveClienteNome(c) || "(senza nome)",
                         description: [c.codice_fiscale || c.partita_iva, c.tipo_cliente].filter(Boolean).join(" · "),
-                        searchText: `${getClienteNome(c)} ${c.codice_fiscale || ""} ${c.partita_iva || ""}`,
+                        searchText: `${resolveClienteNome(c)} ${c.codice_fiscale || ""} ${c.partita_iva || ""}`,
                       }))}
                       value=""
                       onValueChange={(val) => {
@@ -529,6 +629,19 @@ export default function SinistroAperturaWizardPage() {
 
                   )}
                 </div>
+
+                {/* Data accadimento (obbligatoria già in step 1) */}
+                {selectedClienteId && (
+                  <div className="space-y-2">
+                    <Label htmlFor="data_evento">Data Accadimento *</Label>
+                    <Input type="date" id="data_evento" {...register("data_evento")} />
+                    {errors.data_evento && (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> {errors.data_evento.message}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* 2) Selezione polizza del cliente */}
                 {selectedClienteId && (
@@ -587,18 +700,26 @@ export default function SinistroAperturaWizardPage() {
                 {selectedPolizzaData && (
                   <div className="p-4 bg-muted/50 rounded-lg border space-y-2">
                     <h4 className="font-semibold text-sm text-primary">Polizza Selezionata per il Sinistro</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 text-xs">
                       <div>
                         <span className="text-muted-foreground">Numero Polizza:</span>
                         <p className="font-semibold">{selectedPolizzaData.numero_titolo}</p>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Contraente:</span>
-                        <p className="font-semibold">{getClienteNome(selectedPolizzaData.clienti || selectedClienteData)}</p>
+                        <p className="font-semibold">{resolveClienteNome(selectedPolizzaData.clienti || selectedClienteData)}</p>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Stato Polizza:</span>
                         <p className="font-semibold capitalize"><Badge variant="outline">{selectedPolizzaData.stato}</Badge></p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Ramo collegato:</span>
+                        <p className="font-semibold">{formatPolizzaRamo(selectedPolizzaData)}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Data di scadenza:</span>
+                        <p className="font-semibold">{formatPolizzaScadenza(selectedPolizzaData)}</p>
                       </div>
                     </div>
                   </div>
@@ -620,27 +741,68 @@ export default function SinistroAperturaWizardPage() {
                 setValue={setValue}
                 watch={watch}
                 errors={errors}
+                showDataEvento={false}
               />
             )}
 
             {/* STEP 3: DOCUMENTI INIZIALI */}
             {currentStep === 3 && (
               <div className="space-y-4">
-                <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center hover:bg-muted/10 transition-colors">
+                <div
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                    dragOver
+                      ? "border-primary bg-primary/5"
+                      : "border-muted-foreground/30 hover:bg-muted/10"
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    setDragOver(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOver(false);
+                    if (e.dataTransfer.files?.length) {
+                      processUploadedFiles(e.dataTransfer.files);
+                    }
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                >
                   <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
                   <p className="text-sm font-medium">Trascina qui i tuoi documenti o clicca per sfogliare</p>
-                  <p className="text-xs text-muted-foreground mt-1 mb-4">Supportati file PDF, immagini (JPG, PNG)</p>
-                  <Input 
-                    type="file" 
-                    multiple 
-                    accept=".pdf,image/*" 
-                    onChange={handleFileUpload} 
-                    className="hidden" 
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">
+                    PDF e immagini (JPG, PNG) — max {MAX_DOCUMENT_UPLOAD_MB} MB per file
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
                     id="file-upload-input"
                   />
-                  <Label htmlFor="file-upload-input" asChild>
-                    <Button type="button" variant="secondary">Seleziona File</Button>
-                  </Label>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    Seleziona File
+                  </Button>
                 </div>
 
                 {watchDocumenti && watchDocumenti.length > 0 && (
@@ -683,7 +845,7 @@ export default function SinistroAperturaWizardPage() {
                             size="icon" 
                             variant="ghost" 
                             className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-                            onClick={() => removeDoc(idx)}
+                            onClick={() => handleRemoveDocumento(idx)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -836,18 +998,30 @@ export default function SinistroAperturaWizardPage() {
                     <span className="text-sm font-semibold text-primary">1. Polizza e Cliente</span>
                     <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(1)} className="text-xs h-7">Modifica</Button>
                   </div>
-                  <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  <div className="p-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 text-xs">
                     <div>
                       <span className="text-muted-foreground">Numero Polizza</span>
                       <p className="font-semibold mt-0.5">{selectedPolizzaData?.numero_titolo || "—"}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Cliente</span>
-                      <p className="font-semibold mt-0.5">{selectedPolizzaData ? getClienteNome(selectedPolizzaData.clienti) : "—"}</p>
+                      <p className="font-semibold mt-0.5">{resolveClienteNome(selectedPolizzaData?.clienti || selectedClienteData)}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Prodotto</span>
                       <p className="font-semibold mt-0.5">{selectedPolizzaData?.prodotti?.nome_prodotto || "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Ramo collegato</span>
+                      <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaRamo(selectedPolizzaData) : "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Data di scadenza</span>
+                      <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaScadenza(selectedPolizzaData) : "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Data Accadimento</span>
+                      <p className="font-semibold mt-0.5">{watch("data_evento") ? format(new Date(watch("data_evento")), "dd/MM/yyyy") : "—"}</p>
                     </div>
                   </div>
                 </div>
@@ -859,10 +1033,6 @@ export default function SinistroAperturaWizardPage() {
                     <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(2)} className="text-xs h-7">Modifica</Button>
                   </div>
                   <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Data Accadimento</span>
-                      <p className="font-semibold mt-0.5">{watch("data_evento") ? format(new Date(watch("data_evento")), "dd/MM/yyyy") : "—"}</p>
-                    </div>
                     <div>
                       <span className="text-muted-foreground">Data Denuncia</span>
                       <p className="font-semibold mt-0.5">{watch("data_denuncia") ? format(new Date(watch("data_denuncia")), "dd/MM/yyyy") : "—"}</p>

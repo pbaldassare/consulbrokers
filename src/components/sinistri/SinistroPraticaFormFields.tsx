@@ -24,6 +24,8 @@ interface Props {
   liquidatoriList?: LookupPerson[];
   /** Mostra campi evento (date, tipo, luogo, descrizione…) */
   showEvento?: boolean;
+  /** Mostra Data Accadimento (nascosta nel wizard step 2 se già in step 1) */
+  showDataEvento?: boolean;
   /** Mostra sezione importi economici (dettaglio) */
   showEconomici?: boolean;
   /** Mostra assegnazione responsabile/liquidatore (step 4 o dettaglio) */
@@ -41,6 +43,7 @@ export default function SinistroPraticaFormFields({
   liquidatoriList = [],
   showEconomici = false,
   showEvento = true,
+  showDataEvento = true,
   showAssegnazione = false,
   showNoteInterne = false,
 }: Props) {
@@ -53,12 +56,14 @@ export default function SinistroPraticaFormFields({
     <div className="space-y-4">
       {showEvento && (
         <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="data_evento">Data Accadimento *</Label>
-          <Input type="date" id="data_evento" {...register("data_evento")} />
-          {errors.data_evento && <p className="text-xs text-destructive">{errors.data_evento.message}</p>}
-        </div>
+      <div className={`grid grid-cols-1 ${showDataEvento ? "md:grid-cols-2" : ""} gap-4`}>
+        {showDataEvento && (
+          <div className="space-y-2">
+            <Label htmlFor="data_evento">Data Accadimento *</Label>
+            <Input type="date" id="data_evento" {...register("data_evento")} />
+            {errors.data_evento && <p className="text-xs text-destructive">{errors.data_evento.message}</p>}
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="data_denuncia">Data Denuncia *</Label>
           <Input type="date" id="data_denuncia" {...register("data_denuncia")} />

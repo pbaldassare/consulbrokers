@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useConsultazione } from "@/contexts/ConsultazioneContext";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -37,8 +38,15 @@ interface Doc {
   uploaded_at: string;
 }
 
-export default function DocumentalePage() {
-  const { isAdmin, user } = useAuth();
+type DocumentalePageProps = {
+  /** Area consultazione: sola lettura, senza azioni admin, log ricerche. */
+  consultazioneMode?: boolean;
+};
+
+export default function DocumentalePage({ consultazioneMode = false }: DocumentalePageProps) {
+  const { isAdmin: isAdminAuth, user } = useAuth();
+  const { logRicerca } = useConsultazione();
+  const isAdmin = consultazioneMode ? false : isAdminAuth;
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [breadcrumb, setBreadcrumb] = useState<{ id: string | null; name: string }[]>([{ id: null, name: "Home" }]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -48,6 +56,21 @@ export default function DocumentalePage() {
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const searchLogTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!consultazioneMode) return;
+    const q = search.trim();
+    if (q.length < 2) return;
+    if (searchLogTimer.current) clearTimeout(searchLogTimer.current);
+    searchLogTimer.current = setTimeout(() => {
+      const percorso = breadcrumb.map((b) => b.name).join(" / ");
+      logRicerca(q, percorso);
+    }, 800);
+    return () => {
+      if (searchLogTimer.current) clearTimeout(searchLogTimer.current);
+    };
+  }, [search, consultazioneMode, logRicerca, breadcrumb]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -193,7 +216,11 @@ export default function DocumentalePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Archivio Documentale</h1>
-          <p className="text-sm text-muted-foreground">CGA, Condizioni di Polizza, Fascicoli Informativi e Modulistica</p>
+          <p className="text-sm text-muted-foreground">
+            {consultazioneMode
+              ? "Consultazione in sola lettura — le ricerche vengono registrate"
+              : "CGA, Condizioni di Polizza, Fascicoli Informativi e Modulistica"}
+          </p>
         </div>
         {isAdmin && (
           <div className="flex gap-2">

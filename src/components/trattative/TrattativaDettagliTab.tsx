@@ -9,12 +9,8 @@ import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Save } from "lucide-react";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { DateInput } from "@/components/ui/date-input";
+import { Save } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -139,23 +135,11 @@ export const TrattativaDettagliTab = ({ trattativa, onSaved, onEvento }: Props) 
   const DateField = ({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) => (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !value && "text-muted-foreground")}>
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {value ? format(new Date(value), "dd/MM/yyyy", { locale: it }) : "Seleziona data"}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={value ? new Date(value) : undefined}
-            onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : null)}
-            initialFocus
-            className="p-3 pointer-events-auto"
-          />
-        </PopoverContent>
-      </Popover>
+      <DateInput
+        value={value?.slice(0, 10) ?? ""}
+        placeholder="Seleziona data"
+        onChange={(e) => onChange(e.target.value || null)}
+      />
     </div>
   );
 

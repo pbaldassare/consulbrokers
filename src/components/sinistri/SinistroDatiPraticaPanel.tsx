@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { Pencil, X, Save } from "lucide-react";
 import SinistroPraticaFormFields from "@/components/sinistri/SinistroPraticaFormFields";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
+import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
 import {
   sinistroPraticaSchema,
   sinistroRowToPraticaValues,
@@ -175,8 +176,9 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
           ...praticaValuesToDbPayload(values),
         },
       });
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Errore aggiornamento");
+      if (error || !data?.success) {
+        throw new Error(formatEdgeFunctionError(error, data));
+      }
       toast.success("Dati pratica aggiornati");
       setEditing(false);
       onSaved();

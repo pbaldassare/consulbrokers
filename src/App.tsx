@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ConsultazioneProvider } from "./contexts/ConsultazioneContext";
 import AuthGuard from "./components/AuthGuard";
 import MainLayout from "./components/MainLayout";
 import LoginPage from "./pages/LoginPage";
@@ -22,6 +23,7 @@ import { contabilitaRoutes } from "./routes/contabilita";
 import { sistemaRoutes } from "./routes/sistema";
 import { clienteRoutes } from "./routes/cliente";
 import { prospectRoutes } from "./routes/prospect";
+import { consultazioneRoutes } from "./routes/consultazione";
 import { installSwCleanupListener } from "./lib/swCleanupListener";
 
 installSwCleanupListener();
@@ -32,47 +34,52 @@ const App = () => (
   <AppErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <BrowserRouter>
-            <AppVersionGuard />
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route element={<AuthGuard><MainLayout /></AuthGuard>}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/mio-profilo" element={<MioProfilo />} />
-                <Route path="/ai-assistant" element={<AiAssistantPage />} />
-                <Route path="/guida-operativa" element={<GuidaOperativaPage />} />
+        <ConsultazioneProvider>
+          <TooltipProvider>
+            <Toaster />
+            <BrowserRouter>
+              <AppVersionGuard />
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route element={<AuthGuard><MainLayout /></AuthGuard>}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/mio-profilo" element={<MioProfilo />} />
+                  <Route path="/ai-assistant" element={<AiAssistantPage />} />
+                  <Route path="/guida-operativa" element={<GuidaOperativaPage />} />
+                  
+                  <Route element={<AppErrorBoundary section="Archivi"><Outlet /></AppErrorBoundary>}>
+                    {archiviRoutes}
+                  </Route>
+                  <Route element={<AppErrorBoundary section="Portafoglio"><Outlet /></AppErrorBoundary>}>
+                    {portafoglioRoutes}
+                  </Route>
+                  <Route element={<AppErrorBoundary section="Sinistri"><Outlet /></AppErrorBoundary>}>
+                    {sinistriRoutes}
+                  </Route>
+                  <Route element={<AppErrorBoundary section="Contabilità"><Outlet /></AppErrorBoundary>}>
+                    {contabilitaRoutes}
+                  </Route>
+                  <Route element={<AppErrorBoundary section="Sistema"><Outlet /></AppErrorBoundary>}>
+                    {sistemaRoutes}
+                  </Route>
+                </Route>
                 
-                <Route element={<AppErrorBoundary section="Archivi"><Outlet /></AppErrorBoundary>}>
-                  {archiviRoutes}
+                <Route element={<AppErrorBoundary section="Cliente"><Outlet /></AppErrorBoundary>}>
+                  {clienteRoutes}
                 </Route>
-                <Route element={<AppErrorBoundary section="Portafoglio"><Outlet /></AppErrorBoundary>}>
-                  {portafoglioRoutes}
+                <Route element={<AppErrorBoundary section="Prospect"><Outlet /></AppErrorBoundary>}>
+                  {prospectRoutes}
                 </Route>
-                <Route element={<AppErrorBoundary section="Sinistri"><Outlet /></AppErrorBoundary>}>
-                  {sinistriRoutes}
+                <Route element={<AppErrorBoundary section="Consultazione"><Outlet /></AppErrorBoundary>}>
+                  {consultazioneRoutes}
                 </Route>
-                <Route element={<AppErrorBoundary section="Contabilità"><Outlet /></AppErrorBoundary>}>
-                  {contabilitaRoutes}
-                </Route>
-                <Route element={<AppErrorBoundary section="Sistema"><Outlet /></AppErrorBoundary>}>
-                  {sistemaRoutes}
-                </Route>
-              </Route>
-              
-              <Route element={<AppErrorBoundary section="Cliente"><Outlet /></AppErrorBoundary>}>
-                {clienteRoutes}
-              </Route>
-              <Route element={<AppErrorBoundary section="Prospect"><Outlet /></AppErrorBoundary>}>
-                {prospectRoutes}
-              </Route>
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+                
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </ConsultazioneProvider>
       </AuthProvider>
     </QueryClientProvider>
   </AppErrorBoundary>

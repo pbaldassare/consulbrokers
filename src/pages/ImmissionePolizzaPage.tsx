@@ -388,7 +388,7 @@ const ImmissionePolizzaPage = () => {
   const [dataCompetenzaTouched, setDataCompetenzaTouched] = useState(false);
   const [limiteMora, setLimiteMora] = useState("");
   const [limiteMoraTouched, setLimiteMoraTouched] = useState(false);
-  const [disdettaMesi, setDisdettaMesi] = useState("");
+  const [disdettaGiorni, setDisdettaGiorni] = useState("");
 
 
   // Regolazione (promemoria) — allineato a TitoloDetail
@@ -561,7 +561,7 @@ const ImmissionePolizzaPage = () => {
         dataCompetenzaTouched: setDataCompetenzaTouched,
         limiteMora: setLimiteMora,
         limiteMoraTouched: setLimiteMoraTouched,
-        disdettaMesi: setDisdettaMesi,
+        disdettaGiorni: setDisdettaGiorni,
         regolazione: setRegolazione,
         regolazioneDataPresunta: setRegolazioneDataPresunta,
         regolazioneFattore: setRegolazioneFattore,
@@ -656,7 +656,7 @@ const ImmissionePolizzaPage = () => {
     cigRif, cigTemporaneo, vincolo, targaTelaio, descrizionePolizza,
     durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, polizzaTemporanea, polizzaRateo, frazionamento, moraGiorni,
     garanziaDa, garanziaDaTouched, garanziaA, garanziaATouched, dataCompetenza, dataCompetenzaTouched,
-    limiteMora, limiteMoraTouched, disdettaMesi,
+    limiteMora, limiteMoraTouched, disdettaGiorni,
     regolazione, regolazioneDataPresunta, regolazioneFattore, regolazioneNote,
     premiFirmaRows, premiQuietanzaRows, addizionali, valuta, addizionaliQuietanza,
     rimborso, indicizzata, noCalcoloTasse, pagDirettoCompagnia, emissioneFee, formatoElettronico, cambio,
@@ -1856,7 +1856,7 @@ const ImmissionePolizzaPage = () => {
         garanzia_a: garanziaA || null,
         data_competenza: dataCompetenza || null,
         limite_mora: limiteMora || null,
-        disdetta_mesi: disdettaMesi ? parseInt(disdettaMesi) : null,
+        disdetta_giorni: disdettaGiorni ? parseInt(disdettaGiorni) : null,
         regolazione,
         regolazione_data_presunta: regolazione ? (regolazioneDataPresunta || null) : null,
         regolazione_fattore: regolazione ? (regolazioneFattore || null) : null,
@@ -3080,10 +3080,10 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs flex items-center gap-1">
-              Disdetta (mesi)
-              <FieldHint>Mesi di preavviso richiesti per la disdetta della polizza prima della scadenza.</FieldHint>
+              Disdetta (giorni)
+              <FieldHint>Giorni di preavviso richiesti per la disdetta della polizza prima della scadenza.</FieldHint>
             </Label>
-            <Input type="number" value={disdettaMesi} onChange={(e) => setDisdettaMesi(e.target.value)} placeholder="0" className="h-8 text-xs" />
+            <Input type="number" min="0" value={disdettaGiorni} onChange={(e) => setDisdettaGiorni(e.target.value)} placeholder="60" className="h-8 text-xs" />
           </div>
         </div>
 

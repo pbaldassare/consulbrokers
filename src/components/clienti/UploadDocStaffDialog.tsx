@@ -10,9 +10,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { TIPI_DOCUMENTO_CLIENTE_STAFF } from "@/lib/tipiDocumentoCliente";
+import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-const MAX = 20 * 1024 * 1024;
 
 interface Props {
   open: boolean;
@@ -46,8 +46,8 @@ export default function UploadDocStaffDialog({
   };
 
   const handleFile = (f: File) => {
-    if (f.size > MAX) {
-      setErr("File troppo grande (max 20 MB)");
+    if (isDocumentUploadTooLarge(f.size)) {
+      setErr(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
       return;
     }
     if (!ALLOWED.includes(f.type)) {
@@ -144,7 +144,7 @@ export default function UploadDocStaffDialog({
             ) : (
               <p className="text-sm text-muted-foreground">Clicca per selezionare un file</p>
             )}
-            <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG — max 20 MB</p>
+            <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG — max {MAX_DOCUMENT_UPLOAD_MB} MB</p>
             <input
               id="up-doc-staff"
               type="file"

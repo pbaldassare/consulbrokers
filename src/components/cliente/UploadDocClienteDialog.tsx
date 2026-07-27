@@ -7,9 +7,9 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-const MAX = 20 * 1024 * 1024;
 
 const TIPI_DOCUMENTO = [
   "Quietanza", "Appendice", "Comunicazione compagnia", "Documento identità",
@@ -70,7 +70,7 @@ export default function UploadDocClienteDialog({ open, onOpenChange, fixedEntita
   }, [entitaTipo, clienteAnagraficaId, fixedEntita]);
 
   const handleFile = (f: File) => {
-    if (f.size > MAX) { setErr("File troppo grande (max 20MB)"); return; }
+    if (isDocumentUploadTooLarge(f.size)) { setErr(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`); return; }
     if (!ALLOWED.includes(f.type)) { setErr("Tipo non supportato. Usa PDF, JPG, PNG."); return; }
     setErr(""); setFile(f);
   };
@@ -166,7 +166,7 @@ export default function UploadDocClienteDialog({ open, onOpenChange, fixedEntita
             ) : (
               <p className="text-sm text-muted-foreground">Clicca per selezionare un file</p>
             )}
-            <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG — max 20MB</p>
+            <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG — max {MAX_DOCUMENT_UPLOAD_MB} MB</p>
             <input id="up-doc-cli" type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp"
               onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
           </div>

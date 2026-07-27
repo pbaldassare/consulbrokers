@@ -4,8 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+import { documentUploadTooLargeMessage, isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 interface Props {
   file: File | null;
@@ -29,8 +28,8 @@ export function OperazioneAllegatoField({
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (f.size > MAX_FILE_SIZE) {
-      toast.error("Il file supera il limite di 10 MB");
+    if (isDocumentUploadTooLarge(f.size)) {
+      toast.error(documentUploadTooLargeMessage());
       if (fileRef.current) fileRef.current.value = "";
       return;
     }
@@ -64,7 +63,7 @@ export function OperazioneAllegatoField({
           </Button>
         </div>
       )}
-      <p className="text-xs text-muted-foreground">Max 10 MB. Il nome è modificabile; l&apos;estensione viene preservata.</p>
+      <p className="text-xs text-muted-foreground">Max {MAX_DOCUMENT_UPLOAD_MB} MB. Il nome è modificabile; l&apos;estensione viene preservata.</p>
     </div>
   );
 }

@@ -16,16 +16,16 @@ const payloadSchema = z.discriminatedUnion("azione", [
     responsabile_id: z.string().uuid().nullable().optional(),
     liquidatore_id: z.string().uuid().nullable().optional(),
     ufficio_id: z.string().uuid().nullable().optional(),
-    descrizione: z.string().optional(),
+    descrizione: z.string().optional().nullable(),
     user_id: z.string().uuid().optional(),
     cliente_anagrafica_id: z.string().uuid().nullable().optional(),
     tipo_sinistro: z.string().optional().nullable(),
     tipo_sinistro_personalizzato: z.string().max(500).optional().nullable(),
-    luogo_sinistro: z.string().optional(),
+    luogo_sinistro: z.string().optional().nullable(),
     data_evento: z.string().optional(),
     data_denuncia: z.string().optional(),
     data_apertura: z.string().optional(),
-    numero_sinistro_compagnia: z.string().optional(),
+    numero_sinistro_compagnia: z.string().optional().nullable(),
     importo_riserva: z.number().nullable().optional(),
     controparte: z.string().optional().nullable(),
     targa_veicolo: z.string().optional().nullable(),
@@ -404,6 +404,10 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ error: "Azione non valida" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ success: false, error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

@@ -20,6 +20,7 @@ import { fetchMetadatiInvioMessaCassa, type InvioEmailMessaCassaMeta } from "@/l
 import { fetchMetadatiInvioEcCliente, type InvioEmailEcClienteMeta } from "@/lib/documentiEcCliente";
 import type { AppendicePolizzaRow } from "@/lib/appendiciPolizza";
 import UploadDocStaffDialog from "@/components/clienti/UploadDocStaffDialog";
+import { documentUploadTooLargeMessage, isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 interface DocumentiTabProps {
   entitaTipo: string;
@@ -178,7 +179,6 @@ export default function DocumentiTab({
   });
 
 
-  const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
   const resetUploadDialog = () => {
     setPendingFile(null);
@@ -188,8 +188,8 @@ export default function DocumentiTab({
   };
 
   const handleFileSelected = (file: File) => {
-    if (file.size > MAX_FILE_SIZE) {
-      setUploadError("Il file supera il limite di 10 MB");
+    if (isDocumentUploadTooLarge(file.size)) {
+      setUploadError(documentUploadTooLargeMessage());
       return;
     }
     setUploadError("");
@@ -379,7 +379,7 @@ export default function DocumentiTab({
                       ) : (
                         <p className="text-sm text-muted-foreground">Clicca per selezionare un file</p>
                       )}
-                      <p className="text-xs text-muted-foreground mt-1">Max 10 MB</p>
+                      <p className="text-xs text-muted-foreground mt-1">Max {MAX_DOCUMENT_UPLOAD_MB} MB</p>
                       <input
                         ref={fileRef}
                         type="file"

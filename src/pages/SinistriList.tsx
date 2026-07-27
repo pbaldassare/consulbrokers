@@ -12,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
+import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 
 const statiSinistro = ["in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
 
@@ -23,12 +24,6 @@ const statoBadge: Record<string, string> = {
   in_liquidazione: "bg-purple-100 text-purple-800",
   chiuso: "bg-green-100 text-green-800",
   respinto: "bg-red-100 text-red-800",
-};
-
-const getClienteName = (clienti: any) => {
-  if (!clienti) return "—";
-  if (clienti.tipo_cliente === "azienda" && clienti.ragione_sociale) return clienti.ragione_sociale;
-  return `${clienti.cognome || ""} ${clienti.nome || ""}`.trim() || "—";
 };
 
 export default function SinistriList() {
@@ -150,7 +145,7 @@ export default function SinistriList() {
             {sinistri.map((s: any) => (
               <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/sinistri/${s.id}`)}>
                 <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
-                <TableCell>{getClienteName(s.clienti)}</TableCell>
+                <TableCell>{resolveClienteNome(s.clienti)}</TableCell>
                 <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
                 <TableCell>{formatTipoSinistro(s)}</TableCell>
                 <TableCell>

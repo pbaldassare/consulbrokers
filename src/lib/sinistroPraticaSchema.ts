@@ -127,27 +127,39 @@ export const praticaValuesToDbPayload = (values: SinistroPraticaValues) => {
   const tipo = resolveTipoSinistroPayload(values);
   const descrizione = values.descrizione.trim();
   const showTarga = isTipoSinistroVeicolo(values.tipo_sinistro, values.tipo_sinistro_personalizzato);
+  const luogo = buildLuogoCompleto(values);
   return {
-    ...tipo,
+    ...(tipo.tipo_sinistro != null ? { tipo_sinistro: tipo.tipo_sinistro } : {}),
+    ...(tipo.tipo_sinistro_personalizzato != null
+      ? { tipo_sinistro_personalizzato: tipo.tipo_sinistro_personalizzato }
+      : {}),
     data_evento: values.data_evento,
     data_denuncia: values.data_denuncia,
-    numero_sinistro_compagnia: values.numero_sinistro_compagnia?.trim() || null,
-    descrizione: descrizione || null,
-    dinamica: descrizione || null,
-    luogo_sinistro: buildLuogoCompleto(values),
-    indirizzo_sinistro: values.indirizzo_sinistro?.trim() || null,
-    citta_sinistro: values.citta_sinistro?.trim() || null,
-    cap_sinistro: values.cap_sinistro?.trim() || null,
-    provincia_sinistro: values.provincia_sinistro?.trim() || null,
-    controparte: values.controparte?.trim() || null,
-    targa_veicolo: showTarga ? (values.targa_veicolo?.trim() || null) : null,
-    importo_riserva: values.importo_riserva ?? null,
-    responsabile_id: values.responsabile_id || null,
-    liquidatore_id: values.liquidatore_id || null,
-    note_interne: values.note_interne?.trim() || null,
-    costo_preventivato: values.costo_preventivato ?? null,
-    costo_effettivo: values.costo_effettivo ?? null,
-    franchigia: values.franchigia ?? null,
-    importo_liquidato: values.importo_liquidato ?? null,
+    ...(values.numero_sinistro_compagnia?.trim()
+      ? { numero_sinistro_compagnia: values.numero_sinistro_compagnia.trim() }
+      : {}),
+    descrizione: descrizione || undefined,
+    dinamica: descrizione || undefined,
+    ...(luogo ? { luogo_sinistro: luogo } : {}),
+    ...(values.indirizzo_sinistro?.trim()
+      ? { indirizzo_sinistro: values.indirizzo_sinistro.trim() }
+      : {}),
+    ...(values.citta_sinistro?.trim() ? { citta_sinistro: values.citta_sinistro.trim() } : {}),
+    ...(values.cap_sinistro?.trim() ? { cap_sinistro: values.cap_sinistro.trim() } : {}),
+    ...(values.provincia_sinistro?.trim()
+      ? { provincia_sinistro: values.provincia_sinistro.trim() }
+      : {}),
+    ...(values.controparte?.trim() ? { controparte: values.controparte.trim() } : {}),
+    ...(showTarga && values.targa_veicolo?.trim()
+      ? { targa_veicolo: values.targa_veicolo.trim() }
+      : {}),
+    ...(values.importo_riserva != null ? { importo_riserva: values.importo_riserva } : {}),
+    ...(values.responsabile_id ? { responsabile_id: values.responsabile_id } : {}),
+    ...(values.liquidatore_id ? { liquidatore_id: values.liquidatore_id } : {}),
+    ...(values.note_interne?.trim() ? { note_interne: values.note_interne.trim() } : {}),
+    ...(values.costo_preventivato != null ? { costo_preventivato: values.costo_preventivato } : {}),
+    ...(values.costo_effettivo != null ? { costo_effettivo: values.costo_effettivo } : {}),
+    ...(values.franchigia != null ? { franchigia: values.franchigia } : {}),
+    ...(values.importo_liquidato != null ? { importo_liquidato: values.importo_liquidato } : {}),
   };
 };

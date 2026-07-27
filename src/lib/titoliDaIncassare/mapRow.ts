@@ -26,7 +26,7 @@ export type TitoloDaIncassareRaw = {
   data_incasso?: string | null;
   data_messa_cassa?: string | null;
   conferimento_gestito?: boolean | null;
-  disdetta_mesi?: number | null;
+  disdetta_giorni?: number | null;
   filiale?: string | null;
   tipo_portafoglio?: string | null;
   tipo?: string | null;
@@ -106,7 +106,7 @@ export function mapTitoloDaIncassareRow(t: TitoloDaIncassareRaw): TitoloDaIncass
     dataGarantito: fmtDate(t.data_copertura),
     dataIncasso: fmtDate(t.data_messa_cassa || t.data_incasso),
     garantito,
-    mesiDisdetta: t.disdetta_mesi ?? 0,
+    giorniDisdetta: t.disdetta_giorni ?? 0,
     gruppoFinanziario: t.gruppo_finanziario_nome || "",
     filiale: t.filiale || "",
     indotto: t.indotto || "",

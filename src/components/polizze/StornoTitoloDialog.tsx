@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
+import { documentUploadTooLargeMessage, isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -23,8 +24,6 @@ interface Props {
   numeroPolizza?: string;
   onDone?: () => void;
 }
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const CAUSALI = [
   "Errore di emissione",
@@ -96,8 +95,8 @@ export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (f.size > MAX_FILE_SIZE) {
-      toast.error("Il file supera il limite di 10 MB");
+    if (isDocumentUploadTooLarge(f.size)) {
+      toast.error(documentUploadTooLargeMessage());
       if (fileRef.current) fileRef.current.value = "";
       return;
     }
@@ -376,7 +375,7 @@ export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza
                   </Button>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">Max 10 MB.</p>
+              <p className="text-xs text-muted-foreground">Max {MAX_DOCUMENT_UPLOAD_MB} MB.</p>
             </div>
           </div>
 

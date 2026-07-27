@@ -25,7 +25,7 @@ export const TITOLI_DA_INCASSARE_COLUMNS = [
   { key: "dataGarantito", header: "Data Garantito" },
   { key: "dataIncasso", header: "Data Incasso" },
   { key: "garantito", header: "Garantito" },
-  { key: "mesiDisdetta", header: "Mesi Disdetta" },
+  { key: "giorniDisdetta", header: "Giorni Disdetta" },
   { key: "gruppoFinanziario", header: "Gruppo Finanziario" },
   { key: "filiale", header: "Filiale" },
   { key: "indotto", header: "Indotto" },

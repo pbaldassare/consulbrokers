@@ -24,6 +24,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
+import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
+import { formatPolizzaRamo, formatPolizzaScadenza } from "@/lib/titoliDisplay";
 import SinistroDatiPraticaPanel from "@/components/sinistri/SinistroDatiPraticaPanel";
 import SinistroPrescrizioniPanel from "@/components/sinistri/SinistroPrescrizioniPanel";
 import SinistroReminderPanel from "@/components/sinistri/SinistroReminderPanel";
@@ -63,7 +65,7 @@ export default function SinistroDetail() {
     queryKey: ["sinistro", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("sinistri")
-        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), liquidatore:anagrafiche_professionali!sinistri_liquidatore_id_fkey(nome, cognome, ragione_sociale), titoli(numero_titolo), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
+        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), liquidatore:anagrafiche_professionali!sinistri_liquidatore_id_fkey(nome, cognome, ragione_sociale), titoli(numero_titolo, stato, garanzia_a, data_scadenza, ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione))), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
         .eq("id", id!).single();
       if (error) throw error;
       return data;
@@ -181,11 +183,7 @@ export default function SinistroDetail() {
 
   const isChiuso = sinistro.stato === "chiuso" || sinistro.stato === "respinto";
 
-  const clienteNome = sinistro.clienti
-    ? sinistro.clienti.tipo_cliente === "azienda"
-      ? sinistro.clienti.ragione_sociale
-      : `${sinistro.clienti.cognome || ""} ${sinistro.clienti.nome || ""}`.trim()
-    : "—";
+  const clienteNome = resolveClienteNome(sinistro.clienti);
 
   // Contesto AI per gli scanner di sinistro: include CF/P.IVA del cliente
   // collegato così l'AI sa a chi appartengono perizie e referti.
@@ -232,6 +230,11 @@ export default function SinistroDetail() {
           <CardContent className="pt-4">
             <p className="text-sm text-muted-foreground flex items-center gap-1"><FileText className="h-3 w-3" /> Polizza</p>
             <p className="font-semibold truncate">{sinistro.titoli?.numero_titolo || "—"}</p>
+            {sinistro.titoli && (
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                {formatPolizzaRamo(sinistro.titoli)} · Scadenza {formatPolizzaScadenza(sinistro.titoli)}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Data Evento</p><p className="font-semibold">{sinistro.data_evento ? format(new Date(sinistro.data_evento), "dd/MM/yyyy") : "—"}</p></CardContent></Card>

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { format, differenceInDays, addYears, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { Clock, FileSpreadsheet, AlertTriangle, ArrowLeft, Search, RefreshCw, X } from "lucide-react";
+import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 
 const statiSinistro = ["aperto", "in_lavorazione", "in_attesa_documenti", "chiuso", "respinto"];
 
@@ -122,12 +123,6 @@ export default function SinistroPrescrizioniPage() {
   const sinistri = result?.data || [];
   const totalCount = result?.count || 0;
 
-  const getClienteNome = (c: any) => {
-    if (!c) return "—";
-    if (c.tipo_cliente === "azienda" && c.ragione_sociale) return c.ragione_sociale;
-    return `${c.cognome || ""} ${c.nome || ""}`.trim() || "—";
-  };
-
   // Calcolo della prescrizione e dei giorni residui
   const getPrescrizioneInfo = (dataEventoStr: string | null, dataAperturaStr: string) => {
     const baseDate = dataEventoStr ? parseISO(dataEventoStr) : parseISO(dataAperturaStr);
@@ -201,7 +196,7 @@ export default function SinistroPrescrizioniPage() {
         const info = getPrescrizioneInfo(s.data_evento, s.data_apertura);
         return {
           "Numero Sinistro": s.numero_sinistro || "",
-          "Cliente": getClienteNome(s.clienti),
+          "Cliente": resolveClienteNome(s.clienti),
           "Compagnia": s.compagnie?.nome || "",
           "Garanzia": s.titoli?.rami?.descrizione || "—",
           "Data Accadimento": s.data_evento ? format(new Date(s.data_evento), "dd/MM/yyyy") : "",
@@ -387,7 +382,7 @@ export default function SinistroPrescrizioniPage() {
                         onClick={() => navigate(`/sinistri/${s.id}`)}
                       >
                         <TableCell className="font-semibold">{s.numero_sinistro || "—"}</TableCell>
-                        <TableCell>{getClienteNome(s.clienti)}</TableCell>
+                        <TableCell>{resolveClienteNome(s.clienti)}</TableCell>
                         <TableCell>{s.compagnie?.nome || "—"}</TableCell>
                         <TableCell>{s.titoli?.rami?.descrizione || "—"}</TableCell>
                         <TableCell>{s.data_evento ? format(new Date(s.data_evento), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>

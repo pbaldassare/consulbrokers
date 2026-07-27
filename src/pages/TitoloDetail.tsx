@@ -11,6 +11,7 @@ import { annullaPolizza } from "@/lib/annullaPolizza";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
+import { calcLimiteMora, calcMoraGiorni } from "@/lib/calcLimiteMora";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { Button } from "@/components/ui/button";
@@ -1021,9 +1022,10 @@ const TitoloDetail = () => {
     limite_mora: "" as string,
     mora_giorni: "" as string,
     tacito_rinnovo: true as boolean,
+    riforma_alla_scadenza: false as boolean,
     polizza_temporanea: false as boolean,
     polizza_rateo: false as boolean,
-    disdetta_mesi: "" as string,
+    disdetta_giorni: "" as string,
   });
 
   useEffect(() => {
@@ -1096,12 +1098,13 @@ const TitoloDetail = () => {
         garanzia_a: t.garanzia_a ?? "",
         data_competenza: t.data_competenza ?? "",
         data_scadenza: t.data_scadenza ?? "",
-        limite_mora: t.limite_mora ?? "",
         mora_giorni: t.mora_giorni != null ? String(t.mora_giorni) : "",
+        limite_mora: calcLimiteMora(t.garanzia_da, t.mora_giorni != null ? String(t.mora_giorni) : "") || (t.limite_mora ?? ""),
         tacito_rinnovo: t.tacito_rinnovo ?? true,
+        riforma_alla_scadenza: !!t.riforma_alla_scadenza,
         polizza_temporanea: !!t.polizza_temporanea,
         polizza_rateo: !!t.polizza_rateo,
-        disdetta_mesi: t.disdetta_mesi != null ? String(t.disdetta_mesi) : "",
+        disdetta_giorni: t.disdetta_giorni != null ? String(t.disdetta_giorni) : "",
       });
     }
     setEditingPeriodo(true);
@@ -1135,10 +1138,10 @@ const TitoloDetail = () => {
       const after: Record<string, any> = {};
       const fields: (keyof typeof periodoForm)[] = [
         "durata_da", "durata_a", "anni_durata", "rate", "frazionamento", "garanzia_da", "garanzia_a",
-        "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tacito_rinnovo", "polizza_temporanea", "polizza_rateo", "disdetta_mesi",
+        "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tacito_rinnovo", "riforma_alla_scadenza", "polizza_temporanea", "polizza_rateo", "disdetta_giorni",
       ];
-      const numericFields = new Set(["anni_durata", "rate", "mora_giorni", "disdetta_mesi"]);
-      const booleanFields = new Set(["tacito_rinnovo", "polizza_temporanea", "polizza_rateo"]);
+      const numericFields = new Set(["anni_durata", "rate", "mora_giorni", "disdetta_giorni"]);
+      const booleanFields = new Set(["tacito_rinnovo", "riforma_alla_scadenza", "polizza_temporanea", "polizza_rateo"]);
       if (periodoForm.polizza_temporanea) {
         periodoForm.tacito_rinnovo = false;
         periodoForm.frazionamento = "";
@@ -1150,6 +1153,10 @@ const TitoloDetail = () => {
       } else if (periodoForm.frazionamento) {
         const anni = Number(periodoForm.anni_durata) || 1;
         periodoForm.rate = String(frazionamentoToRate(periodoForm.frazionamento, anni));
+      }
+      if (periodoForm.garanzia_da) {
+        periodoForm.limite_mora =
+          calcLimiteMora(periodoForm.garanzia_da, periodoForm.mora_giorni) || periodoForm.limite_mora;
       }
       const payload: Record<string, any> = {};
       fields.forEach((f) => {
@@ -2850,7 +2857,8 @@ const TitoloDetail = () => {
             <FieldRow label="Limite Mora" value={fmtDate(t.limite_mora)} />
             <FieldRow label="GG Mora" value={fmt(t.mora_giorni)} />
             <FieldRow label="Tacito Rinnovo" value={t.tacito_rinnovo ? "Sì" : "No"} />
-            <FieldRow label="Disdetta (mesi)" value={fmt(t.disdetta_mesi)} />
+            <FieldRow label="Disdetta (giorni)" value={fmt(t.disdetta_giorni)} />
+            <FieldRow label="Riforma alla scadenza" value={t.riforma_alla_scadenza ? "Sì" : "No"} />
             <FieldRow label="Valuta" value={fmt(t.valuta)} />
             <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
             <FieldRow label="Rimborso" value={fmtBool(t.rimborso)} />
@@ -2921,21 +2929,11 @@ const TitoloDetail = () => {
                     if (field === "garanzia_a" && e.target.value) {
                       if (!p.data_scadenza) next.data_scadenza = e.target.value;
                     }
-                    // Binding bidirezionale GG Mora ↔ Limite Mora (base = data_competenza || garanzia_da)
-                    if (field === "data_competenza" && e.target.value) {
-                      const gg = Number(p.mora_giorni) || 0;
-                      if (gg >= 0) {
-                        const d = new Date(e.target.value);
-                        d.setDate(d.getDate() + gg);
-                        next.limite_mora = d.toISOString().slice(0, 10);
-                      }
+                    if (field === "garanzia_da" && e.target.value) {
+                      next.limite_mora = calcLimiteMora(e.target.value, p.mora_giorni);
                     }
                     if (field === "limite_mora" && e.target.value) {
-                      const base = p.data_competenza || p.garanzia_da;
-                      if (base) {
-                        const ms = new Date(e.target.value).getTime() - new Date(base).getTime();
-                        next.mora_giorni = String(Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24))));
-                      }
+                      next.mora_giorni = calcMoraGiorni(p.garanzia_da, e.target.value);
                     }
                     return next;
                   })}
@@ -2985,12 +2983,7 @@ const TitoloDetail = () => {
                 onChange={(e) => setPeriodoForm(p => {
                   const v = e.target.value;
                   const next: any = { ...p, mora_giorni: v };
-                  const base = p.data_competenza || p.garanzia_da;
-                  const gg = parseInt(v || "0") || 0;
-                  if (base) {
-                    const d = new Date(base); d.setDate(d.getDate() + gg);
-                    next.limite_mora = d.toISOString().slice(0, 10);
-                  }
+                  next.limite_mora = calcLimiteMora(p.garanzia_da, v);
                   return next;
                 })}
                 placeholder="15"
@@ -2999,16 +2992,17 @@ const TitoloDetail = () => {
 
 
             <div>
-              <Label className="text-xs">Disdetta (mesi)</Label>
+              <Label className="text-xs">Disdetta (giorni)</Label>
               <Input
                 type="number"
-                value={periodoForm.disdetta_mesi}
-                onChange={(e) => setPeriodoForm(p => ({ ...p, disdetta_mesi: e.target.value }))}
-                placeholder="3"
+                min="0"
+                value={periodoForm.disdetta_giorni}
+                onChange={(e) => setPeriodoForm(p => ({ ...p, disdetta_giorni: e.target.value }))}
+                placeholder="60"
               />
             </div>
 
-            <div className="col-span-2">
+            <div className="col-span-1">
               <Label className="text-xs">Tacito Rinnovo</Label>
               <div className="flex items-center gap-2 h-9">
                 <Switch
@@ -3018,6 +3012,18 @@ const TitoloDetail = () => {
                 />
                 <span className="text-sm text-muted-foreground">
                   {periodoForm.tacito_rinnovo ? "Sì" : "No"}
+                </span>
+              </div>
+            </div>
+            <div className="col-span-1">
+              <Label className="text-xs">Riforma alla scadenza</Label>
+              <div className="flex items-center gap-2 h-9">
+                <Switch
+                  checked={periodoForm.riforma_alla_scadenza}
+                  onCheckedChange={(v) => setPeriodoForm(p => ({ ...p, riforma_alla_scadenza: v }))}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {periodoForm.riforma_alla_scadenza ? "Sì" : "No"}
                 </span>
               </div>
             </div>

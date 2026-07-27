@@ -61,7 +61,7 @@ async function enrichTitoli(ids: string[]): Promise<Map<string, Partial<TitoloDa
     const { data: titoli } = await supabase
       .from("titoli")
       .select(`
-        id, valuta, cambio, filiale, limite_mora, disdetta_mesi, appendice,
+        id, valuta, cambio, filiale, limite_mora, disdetta_giorni, appendice,
         clienti!titoli_cliente_anagrafica_id_fkey(indotto, gruppi_finanziari(nome)),
         compagnie(gruppi_compagnia(descrizione)),
         uffici(nome_ufficio)
@@ -77,7 +77,7 @@ async function enrichTitoli(ids: string[]): Promise<Map<string, Partial<TitoloDa
         cambio: t.cambio,
         filiale: t.filiale,
         limite_mora: t.limite_mora,
-        disdetta_mesi: t.disdetta_mesi,
+        disdetta_giorni: t.disdetta_giorni,
         appendice: t.appendice,
         indotto: cli?.indotto,
         gruppo_finanziario_nome: cli?.gruppi_finanziari?.nome,

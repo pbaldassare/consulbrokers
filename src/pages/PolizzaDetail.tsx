@@ -163,7 +163,7 @@ export default function PolizzaDetail() {
               <Field label="Anni durata" value={polizza.anni_durata?.toString()} />
               <Field label="Frazionamento" value={polizza.frazionamento} />
               <Field label="Tacito rinnovo" value={polizza.tacito_rinnovo ? "Sì" : "No"} />
-              <Field label="Disdetta (mesi)" value={polizza.disdetta_mesi?.toString()} />
+              <Field label="Disdetta (giorni)" value={polizza.disdetta_giorni?.toString()} />
               <Field label="Regolazione" value={polizza.regolazione ? "Sì" : "No"} />
               <Field label="Indicizzata" value={polizza.indicizzata ? "Sì" : "No"} />
             </CompactCard>

@@ -26,6 +26,7 @@ import {
   AlertCircle, FileText, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { MAX_DOCUMENT_UPLOAD_BYTES, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import RamiAbilitatiEditor from "./RamiAbilitatiEditor";
 
 const TIPI_RAPPORTO = ["Direzione", "Agenzia", "Broker", "Plurimandataria", "Mandato diretto", "Sub-agenzia", "Convenzione broker", "Coverholder", "Altro"];
@@ -1545,8 +1546,6 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
       };
     });
 
-  const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
-
   const compressImage = async (file: File): Promise<{ base64: string; mime: string }> => {
     const dataUrl: string = await new Promise((res, rej) => {
       const r = new FileReader();
@@ -1593,8 +1592,8 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
       toast.error(msg);
       return;
     }
-    if (file.size > MAX_BYTES) {
-      const msg = `File troppo grande (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 8 MB. Per PDF pesanti, esporta come immagine JPG.`;
+    if (file.size > MAX_DOCUMENT_UPLOAD_BYTES) {
+      const msg = `File troppo grande (${(file.size / 1024 / 1024).toFixed(1)} MB). Max ${MAX_DOCUMENT_UPLOAD_MB} MB. Per PDF pesanti, esporta come immagine JPG.`;
       setErrorMsg(msg);
       toast.error(msg);
       return;

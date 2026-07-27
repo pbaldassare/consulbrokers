@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { logAttivita } from "@/lib/logAttivita";
 import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
+import { MAX_DOCUMENT_UPLOAD_BYTES, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 interface Props {
   open: boolean;
@@ -19,7 +20,6 @@ interface Props {
   onUploaded?: () => void;
 }
 
-const MAX = 10 * 1024 * 1024;
 
 export function CaricaDocDialog({ open, onOpenChange, titoloId, numeroTitolo, onUploaded }: Props) {
   const { user } = useAuth();
@@ -34,7 +34,7 @@ export function CaricaDocDialog({ open, onOpenChange, titoloId, numeroTitolo, on
       if (!files || files.length === 0) throw new Error("Seleziona almeno un file");
       const arr = Array.from(files);
       for (const f of arr) {
-        if (f.size > MAX) throw new Error(`${f.name} supera 10 MB`);
+        if (f.size > MAX_DOCUMENT_UPLOAD_BYTES) throw new Error(`${f.name} supera ${MAX_DOCUMENT_UPLOAD_MB} MB`);
       }
       for (const f of arr) {
         const path = `titolo/${titoloId}/${Date.now()}_${sanitizeStorageFileName(f.name)}`;
@@ -77,7 +77,7 @@ export function CaricaDocDialog({ open, onOpenChange, titoloId, numeroTitolo, on
         </DialogHeader>
 
         <div className="space-y-3">
-          <Label>File (max 10 MB ciascuno)</Label>
+          <Label>File (max {MAX_DOCUMENT_UPLOAD_MB} MB ciascuno)</Label>
           <Input type="file" multiple onChange={(e) => setFiles(e.target.files)} />
           {files && files.length > 0 && (
             <ul className="text-sm text-muted-foreground space-y-1">
