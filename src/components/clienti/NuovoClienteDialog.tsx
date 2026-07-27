@@ -395,10 +395,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   }, [backofficeRole.profilo_id, ufficioClienteId]);
 
   const insertCommercialRoles = async (clienteId: string) => {
-    const rows: any[] = [];
+    // 1) Default singoli storici (Specialist + primo AE/Produttore) → codici_commerciali_cliente
+    const codiciRows: Record<string, unknown>[] = [];
 
     if (ae.anagrafica_id) {
-      rows.push({
+      codiciRows.push({
         cliente_id: clienteId,
         anagrafica_id: ae.anagrafica_id,
         ruolo: "AE",
@@ -406,7 +407,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     }
 
     if (backofficeRole.profilo_id) {
-      rows.push({
+      codiciRows.push({
         cliente_id: clienteId,
         profilo_id: backofficeRole.profilo_id,
         ruolo: "Backoffice",
@@ -414,7 +415,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     }
 
     if (produttoreSede.anagrafica_id) {
-      rows.push({
+      codiciRows.push({
         cliente_id: clienteId,
         anagrafica_id: produttoreSede.anagrafica_id,
         ruolo: "Produttore Sede",
@@ -422,9 +423,38 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       });
     }
 
-    if (rows.length > 0) {
-      const { error } = await supabase.from("codici_commerciali_cliente").insert(rows as any);
-      if (error) console.error("Errore inserimento rete commerciale:", error);
+    if (codiciRows.length > 0) {
+      const { error } = await supabase.from("codici_commerciali_cliente").insert(codiciRows as any);
+      if (error) throw new Error(`Assegnazioni commerciali: ${error.message}`);
+    }
+
+    // 2) Default multi-valore usati dalla scheda cliente / nuove polizze → clienti_intermediari_default
+    const intermediariRows: Record<string, unknown>[] = [];
+    if (produttoreSede.anagrafica_id) {
+      intermediariRows.push({
+        cliente_id: clienteId,
+        tipo: "produttore",
+        anagrafica_commerciale_id: produttoreSede.anagrafica_id,
+        percentuale: 0,
+        ordine: 0,
+        escludi_provvigioni: !maturaProvvigioni,
+      });
+    }
+    if (ae.anagrafica_id) {
+      intermediariRows.push({
+        cliente_id: clienteId,
+        tipo: "ae",
+        anagrafica_commerciale_id: ae.anagrafica_id,
+        percentuale: 0,
+        ordine: 0,
+        escludi_provvigioni: false,
+      });
+    }
+    if (intermediariRows.length > 0) {
+      const { error } = await supabase
+        .from("clienti_intermediari_default")
+        .insert(intermediariRows as any);
+      if (error) throw new Error(`Intermediari di default: ${error.message}`);
     }
   };
 
@@ -579,12 +609,19 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     },
     onSuccess: async (data: any) => {
       if (data?.id) {
-        await Promise.all([
-          uploadScannedFiles(data.id),
-          insertCommercialRoles(data.id),
-        ]);
+        await uploadScannedFiles(data.id).catch(() => undefined);
+        try {
+          await insertCommercialRoles(data.id);
+          toast.success("Cliente creato con successo");
+        } catch (err: any) {
+          // Cliente già creato: avvisa sulle assegnazioni (non bloccare navigazione)
+          toast.warning(
+            err?.message
+              ? `Cliente creato, ma non tutte le assegnazioni sono state salvate: ${err.message}`
+              : "Cliente creato, ma le assegnazioni (Specialist / Produttore / AE) non sono state salvate. Completale nella scheda.",
+          );
+        }
         queryClient.invalidateQueries({ queryKey: ["clienti"] });
-        toast.success("Cliente creato con successo");
         const label = data.ragione_sociale || `${data.cognome || ""} ${data.nome || ""}`.trim();
         onCreated?.(data.id, label);
       }
