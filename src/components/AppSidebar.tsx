@@ -162,7 +162,7 @@ const sidebarEntries: SidebarEntry[] = [
   {
     type: "group",
     group: {
-      label: "Anagrafiche Utenti",
+      label: "Anagrafiche",
       icon: Briefcase,
       permissionKey: "anagrafiche",
       hideForRoles: ["ufficio"],
@@ -171,6 +171,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Anagrafiche Agenzie", path: "/archivi/anagrafiche-agenzie", icon: Scale },
         { label: "Anagrafiche Amministrative", path: "/archivi/anagrafiche-amministrative", icon: Briefcase },
         { label: "Conti Bancari", path: "/archivi/conti-bancari", icon: Banknote },
+        { label: "Compagnie / Agenzie", path: "/compagnie", icon: Building2 },
       ],
     },
   },
@@ -235,7 +236,6 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Anomalie Sistema", path: "/anomalie-sistema", icon: AlertTriangle },
         { label: "Backup & Export", path: "/backup-export", icon: HardDrive },
         { label: "Tabelle di Base", path: "/tabelle-base", icon: Database },
-        { label: "Compagnie / Agenzie", path: "/compagnie", icon: Building2 },
         { label: "Template Email", path: "/template", icon: Mail },
         { label: "Sitemap", path: "/sitemap", icon: Map },
       ],
