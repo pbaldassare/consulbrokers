@@ -3305,6 +3305,54 @@ export type Database = {
           },
         ]
       }
+      consultazione_accessi: {
+        Row: {
+          created_at: string
+          disclaimer_version: string
+          email: string
+          id: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          disclaimer_version: string
+          email: string
+          id?: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          disclaimer_version?: string
+          email?: string
+          id?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      consultazione_ricerche: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          percorso: string | null
+          query: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          percorso?: string | null
+          query: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          percorso?: string | null
+          query?: string
+        }
+        Relationships: []
+      }
       conti_bancari: {
         Row: {
           attivo: boolean
@@ -4051,6 +4099,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fattori_regolazione: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
       }
       filiali: {
         Row: {
@@ -6303,7 +6375,7 @@ export type Database = {
           data_riattivazione: string | null
           data_sospensione: string | null
           descrizione_polizza: string | null
-          disdetta_mesi: number | null
+          disdetta_giorni: number | null
           durata_a: string | null
           durata_da: string | null
           emissione_fee: boolean | null
@@ -6367,7 +6439,7 @@ export type Database = {
           data_riattivazione?: string | null
           data_sospensione?: string | null
           descrizione_polizza?: string | null
-          disdetta_mesi?: number | null
+          disdetta_giorni?: number | null
           durata_a?: string | null
           durata_da?: string | null
           emissione_fee?: boolean | null
@@ -6431,7 +6503,7 @@ export type Database = {
           data_riattivazione?: string | null
           data_sospensione?: string | null
           descrizione_polizza?: string | null
-          disdetta_mesi?: number | null
+          disdetta_giorni?: number | null
           durata_a?: string | null
           durata_da?: string | null
           emissione_fee?: boolean | null
@@ -9104,6 +9176,42 @@ export type Database = {
           },
         ]
       }
+      sottoramo_fattori_regolazione: {
+        Row: {
+          attivo: boolean
+          fattore_id: string
+          id: string
+          ramo_id: string
+        }
+        Insert: {
+          attivo?: boolean
+          fattore_id: string
+          id?: string
+          ramo_id: string
+        }
+        Update: {
+          attivo?: boolean
+          fattore_id?: string
+          id?: string
+          ramo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sottoramo_fattori_regolazione_fattore_id_fkey"
+            columns: ["fattore_id"]
+            isOneToOne: false
+            referencedRelation: "fattori_regolazione"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sottoramo_fattori_regolazione_ramo_id_fkey"
+            columns: ["ramo_id"]
+            isOneToOne: false
+            referencedRelation: "rami"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spedizioni_cartacee: {
         Row: {
           corriere: string | null
@@ -9438,10 +9546,11 @@ export type Database = {
           data_sostituzione: string | null
           data_storno: string | null
           descrizione_polizza: string | null
-          disdetta_mesi: number | null
+          disdetta_giorni: number | null
           durata_a: string | null
           durata_da: string | null
           emissione_fee: boolean | null
+          emittenda: boolean
           filiale: string | null
           fondi_ricevuti: boolean | null
           formato_elettronico: boolean | null
@@ -9493,9 +9602,11 @@ export type Database = {
           rate: number | null
           regolazione: boolean | null
           regolazione_data_presunta: string | null
+          regolazione_date_presunte: string[] | null
           regolazione_fattore: string | null
           regolazione_note: string | null
           regolazione_quietanza_id: string | null
+          riforma_alla_scadenza: boolean
           riga: number | null
           rimborso: boolean | null
           risk_type: string | null
@@ -9573,10 +9684,11 @@ export type Database = {
           data_sostituzione?: string | null
           data_storno?: string | null
           descrizione_polizza?: string | null
-          disdetta_mesi?: number | null
+          disdetta_giorni?: number | null
           durata_a?: string | null
           durata_da?: string | null
           emissione_fee?: boolean | null
+          emittenda?: boolean
           filiale?: string | null
           fondi_ricevuti?: boolean | null
           formato_elettronico?: boolean | null
@@ -9628,9 +9740,11 @@ export type Database = {
           rate?: number | null
           regolazione?: boolean | null
           regolazione_data_presunta?: string | null
+          regolazione_date_presunte?: string[] | null
           regolazione_fattore?: string | null
           regolazione_note?: string | null
           regolazione_quietanza_id?: string | null
+          riforma_alla_scadenza?: boolean
           riga?: number | null
           rimborso?: boolean | null
           risk_type?: string | null
@@ -9708,10 +9822,11 @@ export type Database = {
           data_sostituzione?: string | null
           data_storno?: string | null
           descrizione_polizza?: string | null
-          disdetta_mesi?: number | null
+          disdetta_giorni?: number | null
           durata_a?: string | null
           durata_da?: string | null
           emissione_fee?: boolean | null
+          emittenda?: boolean
           filiale?: string | null
           fondi_ricevuti?: boolean | null
           formato_elettronico?: boolean | null
@@ -9763,9 +9878,11 @@ export type Database = {
           rate?: number | null
           regolazione?: boolean | null
           regolazione_data_presunta?: string | null
+          regolazione_date_presunte?: string[] | null
           regolazione_fattore?: string | null
           regolazione_note?: string | null
           regolazione_quietanza_id?: string | null
+          riforma_alla_scadenza?: boolean
           riga?: number | null
           rimborso?: boolean | null
           risk_type?: string | null
@@ -10286,6 +10403,74 @@ export type Database = {
           {
             foreignKeyName: "titoli_proroghe_titolo_proroga_id_fkey"
             columns: ["titolo_proroga_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      titoli_regolazione_fattori: {
+        Row: {
+          anno: number
+          created_at: string | null
+          data_presunta: string | null
+          fattore_id: string
+          id: string
+          importo_esposto: number
+          note: string | null
+          ramo_id: string
+          titolo_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          anno: number
+          created_at?: string | null
+          data_presunta?: string | null
+          fattore_id: string
+          id?: string
+          importo_esposto?: number
+          note?: string | null
+          ramo_id: string
+          titolo_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          anno?: number
+          created_at?: string | null
+          data_presunta?: string | null
+          fattore_id?: string
+          id?: string
+          importo_esposto?: number
+          note?: string | null
+          ramo_id?: string
+          titolo_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_regolazione_fattori_fattore_id_fkey"
+            columns: ["fattore_id"]
+            isOneToOne: false
+            referencedRelation: "fattori_regolazione"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_regolazione_fattori_ramo_id_fkey"
+            columns: ["ramo_id"]
+            isOneToOne: false
+            referencedRelation: "rami"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_regolazione_fattori_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_regolazione_fattori_titolo_id_fkey"
+            columns: ["titolo_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
@@ -11369,23 +11554,9 @@ export type Database = {
           },
           {
             foreignKeyName: "quietanze_titolo_id_fkey"
-            columns: ["id"]
-            isOneToOne: false
-            referencedRelation: "titoli"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quietanze_titolo_id_fkey"
             columns: ["titolo_legacy_id"]
             isOneToOne: false
             referencedRelation: "titoli"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quietanze_titolo_id_fkey"
-            columns: ["id"]
-            isOneToOne: false
-            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
           {
@@ -11437,7 +11608,7 @@ export type Database = {
           data_scadenza: string | null
           data_sospensione: string | null
           descrizione_polizza: string | null
-          disdetta_mesi: number | null
+          disdetta_giorni: number | null
           durata_a: string | null
           durata_da: string | null
           emissione_fee: boolean | null
@@ -11912,6 +12083,10 @@ export type Database = {
         Args: { _cliente_id: string }
         Returns: boolean
       }
+      clear_data_copertura_polizza_madre: {
+        Args: { p_titolo_id: string }
+        Returns: undefined
+      }
       clone_premi_rateo_su_quietanze: {
         Args: { p_madre_id: string }
         Returns: undefined
@@ -12010,6 +12185,7 @@ export type Database = {
         Args: { p_madre_id: string }
         Returns: string
       }
+      format_numero_emittenda: { Args: { p_n: number }; Returns: string }
       generate_codice_cliente: { Args: never; Returns: string }
       get_canali_cliente_with_meta: {
         Args: { _limit?: number; _offset?: number; _user_id: string }
@@ -12082,11 +12258,24 @@ export type Database = {
         Returns: boolean
       }
       is_global_viewer: { Args: never; Returns: boolean }
+      log_consultazione_accesso: {
+        Args: {
+          p_disclaimer_version: string
+          p_email: string
+          p_user_agent?: string
+        }
+        Returns: Json
+      }
+      log_consultazione_ricerca: {
+        Args: { p_email: string; p_percorso?: string; p_query: string }
+        Returns: Json
+      }
       mark_canale_as_read: { Args: { _canale_id: string }; Returns: undefined }
       merge_cliente_atomico: {
         Args: { _legacy_id: string; _master_id: string }
         Returns: Json
       }
+      next_numero_emittenda: { Args: never; Returns: string }
       refresh_cfo_kpi: { Args: never; Returns: undefined }
       refresh_cfo_kpi_mensili: { Args: never; Returns: undefined }
       report_banca_ko: { Args: { _ufficio_id?: string }; Returns: Json }
@@ -12154,6 +12343,10 @@ export type Database = {
       save_conti_bancari_uffici: {
         Args: { p_conto_id: string; p_ufficio_ids: string[] }
         Returns: undefined
+      }
+      search_clienti_ranked: {
+        Args: { p_limit?: number; p_offset?: number; p_search: string }
+        Returns: Json
       }
       segna_ec_produttore_pagato: {
         Args: {

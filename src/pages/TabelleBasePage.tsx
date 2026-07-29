@@ -21,6 +21,10 @@ const matchSearch = (q: string, fields: (string | null | undefined | number)[]) 
 };
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
+import {
+  FATTORI_REGOLAZIONE_STANDARD,
+  isFattoreRegolazioneStandard,
+} from "@/lib/fattoriRegolazioneStandard";
 
 /* ────────── Generic CRUD Tab ────────── */
 
@@ -1525,12 +1529,338 @@ const CausaliCompensazioneTab = () => {
   );
 };
 
+/* ────────── Fattori regolazione (sottoramo ↔ fattore) ────────── */
+
+const FattoriRegolazioneTab = () => {
+  const qc = useQueryClient();
+  const [ramoId, setRamoId] = useState("");
+  const [mode, setMode] = useState<"existing" | "new">("existing");
+  const [fattoreId, setFattoreId] = useState("");
+  const [newCodice, setNewCodice] = useState("");
+  const [newDescrizione, setNewDescrizione] = useState("");
+  const [search, setSearch] = useState("");
+
+  const { data: rami = [] } = useQuery({
+    queryKey: ["rami-list-fattori"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("rami")
+        .select("id, codice, descrizione, attivo, gruppi_ramo(codice, descrizione)")
+        .eq("attivo", true)
+        .order("codice");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: fattori = [] } = useQuery({
+    queryKey: ["fattori-regolazione"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fattori_regolazione")
+        .select("id, codice, descrizione, attivo")
+        .order("codice");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: links = [], isLoading } = useQuery({
+    queryKey: ["sottoramo-fattori-regolazione"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sottoramo_fattori_regolazione")
+        .select("id, ramo_id, fattore_id, attivo, rami(codice, descrizione, gruppi_ramo(codice, descrizione)), fattori_regolazione(codice, descrizione)")
+        .order("ramo_id");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const existingFattoreIdsForRamo = new Set(
+    links.filter((l: any) => l.ramo_id === ramoId).map((l: any) => l.fattore_id as string),
+  );
+
+  const addCombination = useMutation({
+    mutationFn: async () => {
+      if (!ramoId) throw new Error("Seleziona un sottoramo");
+
+      let resolvedFattoreId = fattoreId;
+
+      if (mode === "new") {
+        const codice = newCodice.trim();
+        const descrizione = newDescrizione.trim();
+        if (!codice || !descrizione) throw new Error("Inserisci codice e descrizione del nuovo fattore");
+        const { data: created, error: createErr } = await supabase
+          .from("fattori_regolazione")
+          .insert({ codice, descrizione, attivo: true })
+          .select("id")
+          .single();
+        if (createErr) throw createErr;
+        resolvedFattoreId = created.id;
+      } else {
+        if (!resolvedFattoreId) throw new Error("Seleziona un fattore");
+        if (existingFattoreIdsForRamo.has(resolvedFattoreId)) {
+          throw new Error("Combinazione già presente per questo sottoramo");
+        }
+      }
+
+      const { error } = await supabase.from("sottoramo_fattori_regolazione").insert({
+        ramo_id: ramoId,
+        fattore_id: resolvedFattoreId,
+        attivo: true,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sottoramo-fattori-regolazione"] });
+      qc.invalidateQueries({ queryKey: ["fattori-regolazione"] });
+      qc.invalidateQueries({ queryKey: ["tabelle-base-counts"] });
+      toast.success("Combinazione salvata");
+      setFattoreId("");
+      setNewCodice("");
+      setNewDescrizione("");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore"),
+  });
+
+  const toggleAttivo = useMutation({
+    mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
+      const { error } = await supabase.from("sottoramo_fattori_regolazione").update({ attivo }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sottoramo-fattori-regolazione"] }),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("sottoramo_fattori_regolazione").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sottoramo-fattori-regolazione"] });
+      qc.invalidateQueries({ queryKey: ["tabelle-base-counts"] });
+      toast.success("Combinazione eliminata");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore"),
+  });
+
+  const ramoOpts = rami.map((r: any) => {
+    const g = r.gruppi_ramo;
+    const gLabel = g ? `${g.codice || ""} ${g.descrizione || ""}`.trim() : "";
+    return {
+      value: r.id as string,
+      label: gLabel
+        ? `${r.codice} — ${r.descrizione} (${gLabel})`
+        : `${r.codice} — ${r.descrizione}`,
+    };
+  });
+
+  const fattoreOpts = fattori
+    .filter((f: any) => f.attivo !== false)
+    .filter((f: any) => !existingFattoreIdsForRamo.has(f.id))
+    .map((f: any) => ({
+      value: f.id as string,
+      label: isFattoreRegolazioneStandard(f.codice)
+        ? `★ ${f.descrizione} (${f.codice}) — standard`
+        : `${f.descrizione} (${f.codice})`,
+      _std: isFattoreRegolazioneStandard(f.codice),
+    }))
+    .sort((a, b) => Number(b._std) - Number(a._std) || a.label.localeCompare(b.label, "it"));
+
+  const canSubmit =
+    !!ramoId &&
+    (mode === "existing"
+      ? !!fattoreId
+      : !!newCodice.trim() && !!newDescrizione.trim()) &&
+    !addCombination.isPending;
+
+  const filtered = links.filter((l: any) => {
+    const ramo = l.rami;
+    const fat = l.fattori_regolazione;
+    const g = ramo?.gruppi_ramo;
+    return matchSearch(search, [
+      ramo?.codice,
+      ramo?.descrizione,
+      g?.codice,
+      g?.descrizione,
+      fat?.codice,
+      fat?.descrizione,
+    ]);
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3 space-y-3">
+        <CardTitle className="text-lg">Fattori regolazione</CardTitle>
+        <div className="rounded-md border border-primary/20 bg-primary/5 p-3 space-y-2">
+          <p className="text-sm font-medium">5 fattori standard (sempre disponibili in polizza)</p>
+          <p className="text-xs text-muted-foreground">
+            Indipendenti dal sottoramo: in immissione sono sempre in griglia quando la regolazione è attiva.
+            Qui sotto puoi solo aggiungere combinazioni custom sottoramo ↔ fattore.
+          </p>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1 text-sm">
+            {FATTORI_REGOLAZIONE_STANDARD.map((f) => (
+              <li key={f.codice} className="font-mono text-xs">
+                <span className="text-muted-foreground">{f.codice}</span>
+                <span className="mx-1 text-muted-foreground">—</span>
+                <span className="font-sans">{f.descrizione}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Combinazioni custom sottoramo ↔ fattore (opzionali, in aggiunta agli standard).
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end rounded-md border p-3 bg-muted/30">
+          <div className="space-y-1 md:col-span-2">
+            <Label className="text-xs">Sottoramo</Label>
+            <SearchableSelect
+              options={ramoOpts}
+              value={ramoId}
+              onValueChange={(v) => {
+                setRamoId(v);
+                setFattoreId("");
+              }}
+              placeholder="Seleziona sottoramo"
+              clearable
+            />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label className="text-xs">Fattore</Label>
+            <RadioGroup
+              value={mode}
+              onValueChange={(v) => {
+                setMode(v as "existing" | "new");
+                setFattoreId("");
+                setNewCodice("");
+                setNewDescrizione("");
+              }}
+              className="flex flex-wrap gap-4"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="existing" id="fattore-mode-existing" />
+                <Label htmlFor="fattore-mode-existing" className="text-xs font-normal cursor-pointer">
+                  Fattore esistente
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="new" id="fattore-mode-new" />
+                <Label htmlFor="fattore-mode-new" className="text-xs font-normal cursor-pointer">
+                  Nuovo fattore
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+          {mode === "existing" ? (
+            <div className="space-y-1 md:col-span-2">
+              <Label className="text-xs">Seleziona fattore</Label>
+              <SearchableSelect
+                options={fattoreOpts}
+                value={fattoreId}
+                onValueChange={setFattoreId}
+                placeholder={ramoId ? "Seleziona fattore" : "Prima seleziona un sottoramo"}
+                disabled={!ramoId}
+                clearable
+              />
+              {ramoId && !fattoreOpts.length && (
+                <p className="text-xs text-muted-foreground">
+                  Tutti i fattori attivi sono già collegati a questo sottoramo — crea un nuovo fattore.
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1">
+                <Label className="text-xs">Codice</Label>
+                <Input
+                  value={newCodice}
+                  onChange={(e) => setNewCodice(e.target.value)}
+                  placeholder="es. fatturato"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Descrizione</Label>
+                <Input
+                  value={newDescrizione}
+                  onChange={(e) => setNewDescrizione(e.target.value)}
+                  placeholder="es. Fatturato"
+                  className="h-9"
+                />
+              </div>
+            </>
+          )}
+          <div className="md:col-span-2 flex justify-end">
+            <Button size="sm" onClick={() => addCombination.mutate()} disabled={!canSubmit}>
+              <Plus className="w-4 h-4 mr-1" /> Aggiungi combinazione
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="relative max-w-xs mb-3">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca…" className="h-8 pl-7" />
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Sottoramo</TableHead>
+              <TableHead>Ramo</TableHead>
+              <TableHead>Fattore (codice)</TableHead>
+              <TableHead>Descrizione</TableHead>
+              <TableHead className="w-24 text-center">Attivo</TableHead>
+              <TableHead className="w-20 text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessuna combinazione"}</TableCell></TableRow>
+            ) : (
+              filtered.map((l: any) => {
+                const ramo = l.rami;
+                const g = ramo?.gruppi_ramo;
+                const fat = l.fattori_regolazione;
+                return (
+                  <TableRow key={l.id}>
+                    <TableCell>
+                      <span className="font-mono text-xs mr-1">{ramo?.codice}</span>
+                      {ramo?.descrizione}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {g ? `${g.codice || ""} ${g.descrizione || ""}`.trim() : "—"}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{fat?.codice ?? "—"}</TableCell>
+                    <TableCell>{fat?.descrizione ?? "—"}</TableCell>
+                    <TableCell className="text-center">
+                      <Switch checked={!!l.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: l.id, attivo: v })} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => remove.mutate(l.id)}>
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+};
+
 /* ────────── Page ────────── */
 
 const tabConfig: { value: string; label: string; tableName: LookupTableName; queryKey: string; title: string; custom?: string | boolean }[] = [
   { value: "gruppi_ramo", label: "Gruppi Ramo", tableName: "gruppi_ramo", queryKey: "gruppi-ramo", title: "Gruppo Ramo" },
   { value: "rami", label: "Garanzie", tableName: "rami", queryKey: "rami-list", title: "Garanzia", custom: true },
-  
+  { value: "fattori_regolazione", label: "Fattori regolazione", tableName: "sottoramo_fattori_regolazione" as LookupTableName, queryKey: "sottoramo-fattori-regolazione", title: "Fattori regolazione", custom: "fattori_regolazione" },
+
   { value: "rca_usi", label: "Usi RCA", tableName: "rca_usi", queryKey: "rca-usi", title: "Uso RCA", custom: "rca_usi" },
   { value: "rca_garanzie", label: "Catalogo Garanzie RCA", tableName: "rca_garanzie", queryKey: "rca-garanzie", title: "Garanzia", custom: "rca_garanzie" },
   { value: "gruppi_statistici", label: "Gruppi Statistici", tableName: "gruppi_statistici", queryKey: "gruppi-statistici", title: "Gruppo Statistico" },
@@ -1595,6 +1925,8 @@ const TabelleBasePage = () => {
           <TabsContent key={t.value} value={t.value}>
             {t.custom === true || t.custom === "rami" ? (
               <RamiTab />
+            ) : t.custom === "fattori_regolazione" ? (
+              <FattoriRegolazioneTab />
             ) : t.custom === "gruppi_finanziari" ? (
               <GruppiFinanziariTab />
             ) : t.custom === "rca_usi" ? (

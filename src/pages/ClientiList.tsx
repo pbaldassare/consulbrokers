@@ -29,26 +29,32 @@ const ClientiList = () => {
   }, [search]);
 
   const { data: clientiResult, isLoading } = useQuery({
-    queryKey: ["clienti", debouncedSearch, page],
+    queryKey: ["clienti", debouncedSearch, page, pageSize],
     queryFn: async () => {
-      let query = supabase
-        .from("clienti")
-        .select("*", { count: "exact" })
-        .is("merged_into", null);
+      const term = debouncedSearch.trim();
 
-      if (debouncedSearch) {
-        const s = `%${debouncedSearch}%`;
-        query = query.or(
-          `nome.ilike.${s},cognome.ilike.${s},ragione_sociale.ilike.${s},codice_fiscale.ilike.${s},codice_fiscale_azienda.ilike.${s},partita_iva.ilike.${s},email.ilike.${s},pec.ilike.${s},telefono.ilike.${s},citta_residenza.ilike.${s},citta_sede.ilike.${s},codice_ricerca.ilike.${s},codice_cliente.ilike.${s}`
-        );
+      // Con ricerca: ranking per rilevanza (RPC) prima della paginazione
+      if (term) {
+        const { data, error } = await supabase.rpc("search_clienti_ranked", {
+          p_search: term,
+          p_limit: pageSize,
+          p_offset: range.from,
+        });
+        if (error) throw error;
+        const payload = data as { data?: any[]; total_count?: number } | null;
+        return {
+          data: payload?.data ?? [],
+          totalCount: Number(payload?.total_count ?? 0),
+        };
       }
 
-      query = query.order("cognome", { ascending: true, nullsFirst: false })
-                   .order("ragione_sociale", { ascending: true, nullsFirst: false });
-
-      query = query.range(range.from, range.to);
-
-      const { data, error, count } = await query;
+      const { data, error, count } = await supabase
+        .from("clienti")
+        .select("*", { count: "exact" })
+        .is("merged_into", null)
+        .order("cognome", { ascending: true, nullsFirst: false })
+        .order("ragione_sociale", { ascending: true, nullsFirst: false })
+        .range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], totalCount: count || 0 };
     },

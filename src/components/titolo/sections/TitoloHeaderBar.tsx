@@ -135,6 +135,11 @@ export function TitoloHeaderBar({
                 Coassicurazione
               </Badge>
             )}
+            {!!t.emittenda && (
+              <Badge variant="outline" title="Polizza emittenda: N° modificabile anche dopo messa a cassa">
+                Emittenda
+              </Badge>
+            )}
           </div>
 
           {isQuietanza && (

@@ -59,6 +59,18 @@ import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
 import { FieldHint } from "@/components/ui/field-hint";
 import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPersistence";
 import { computeQuietanzePlan } from "@/lib/quietanzePlan";
+import { resizeRegolazioneDatePresunte } from "@/lib/regolazioneDatePresunte";
+import {
+  buildRegolazioneFattoriRows,
+  regolazioneFattoreKey,
+  rowsToInsertPayload,
+} from "@/lib/regolazioneFattori";
+import {
+  FATTORI_REGOLAZIONE_STANDARD,
+  FATTORI_REGOLAZIONE_STANDARD_CODICI,
+  mergeFattoriRegolazione,
+} from "@/lib/fattoriRegolazioneStandard";
+import { RegolazioneFattoriImportiGrid } from "@/components/polizze/RegolazioneFattoriImportiGrid";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
 import { CoassicurazioneContrattoPanel } from "@/components/polizze/CoassicurazioneContrattoPanel";
@@ -343,10 +355,38 @@ const ImmissionePolizzaPage = () => {
   const [numeroPolizza, setNumeroPolizza] = useState("");
   const [notePolizza, setNotePolizza] = useState("");
   const [tipoOperazione, setTipoOperazione] = useState("polizza");
+  const [emittenda, setEmittenda] = useState(false);
+  const [emittendaLoading, setEmittendaLoading] = useState(false);
   const [polizzaAuto, setPolizzaAuto] = useState(false);
   const [righeMatricola, setRigheMatricola] = useState<LibroMatricolaRiga[]>([]);
   const [matricolaDialogOpen, setMatricolaDialogOpen] = useState(false);
   const isLibroMatricola = tipoOperazione === "libro_matricola";
+
+  const generaNumeroEmittenda = useCallback(async () => {
+    setEmittendaLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("next_numero_emittenda");
+      if (error) throw error;
+      const num = String(data || "").trim();
+      if (!num) throw new Error("Numero emittenda vuoto");
+      setNumeroPolizza(num);
+      return num;
+    } catch (e: any) {
+      toast.error(e?.message || "Impossibile generare il numero emittenda");
+      return null;
+    } finally {
+      setEmittendaLoading(false);
+    }
+  }, []);
+
+  const onEmittendaChange = useCallback(async (checked: boolean) => {
+    setEmittenda(checked);
+    if (!checked) return; // uncheck: lascia il numero editabile
+    if (!numeroPolizza.trim()) {
+      const num = await generaNumeroEmittenda();
+      if (!num) setEmittenda(false);
+    }
+  }, [numeroPolizza, generaNumeroEmittenda]);
   
   
 
@@ -393,8 +433,12 @@ const ImmissionePolizzaPage = () => {
 
   // Regolazione (promemoria) — allineato a TitoloDetail
   const [regolazione, setRegolazione] = useState(false);
-  const [regolazioneDataPresunta, setRegolazioneDataPresunta] = useState("");
-  const [regolazioneFattore, setRegolazioneFattore] = useState("");
+  const [regolazioneDatePresunte, setRegolazioneDatePresunte] = useState<string[]>([]);
+  /** Compat draft/legacy: prima data dell'array */
+  const regolazioneDataPresunta = regolazioneDatePresunte[0] ?? "";
+  const regolazioneDateTouchedRef = useRef<boolean[]>([]);
+  /** Importi esposti per fattore×anno — chiave `${fattoreId}|${anno}` */
+  const [regolazioneImporti, setRegolazioneImporti] = useState<Record<string, number>>({});
   const [regolazioneNote, setRegolazioneNote] = useState("");
 
   // Importi — multi-row garanzie
@@ -529,7 +573,16 @@ const ImmissionePolizzaPage = () => {
         selectedBackofficeId: setSelectedBackofficeId,
         numeroPolizza: setNumeroPolizza,
         notePolizza: setNotePolizza,
-        tipoOperazione: setTipoOperazione,
+        tipoOperazione: (v: any) => {
+          // Legacy bozza: tipoOperazione "emittenda" → polizza + flag
+          if (v === "emittenda") {
+            setTipoOperazione("polizza");
+            setEmittenda(true);
+            return;
+          }
+          setTipoOperazione(v);
+        },
+        emittenda: setEmittenda,
         polizzaAuto: setPolizzaAuto,
         selectedCompagnia: setSelectedCompagnia,
         selectedGruppoCompagniaId: setSelectedGruppoCompagniaId,
@@ -563,8 +616,24 @@ const ImmissionePolizzaPage = () => {
         limiteMoraTouched: setLimiteMoraTouched,
         disdettaGiorni: setDisdettaGiorni,
         regolazione: setRegolazione,
-        regolazioneDataPresunta: setRegolazioneDataPresunta,
-        regolazioneFattore: setRegolazioneFattore,
+        regolazioneDatePresunte: (dates: string[]) => {
+          const arr = Array.isArray(dates) ? dates : [];
+          setRegolazioneDatePresunte(arr);
+          regolazioneDateTouchedRef.current = arr.map(() => true);
+        },
+        regolazioneDataPresunta: (v: string) => {
+          // Migrazione bozze vecchie: sola stringa → array (skip se già presente array)
+          if (Array.isArray(d.regolazioneDatePresunte)) return;
+          if (v) {
+            setRegolazioneDatePresunte([v]);
+            regolazioneDateTouchedRef.current = [true];
+          }
+        },
+        regolazioneImporti: (v: Record<string, number>) => {
+          if (v && typeof v === "object") setRegolazioneImporti(v);
+        },
+        // Bozze legacy: singolo fattore (senza importi) — ignorato, griglia usa DB
+        regolazioneFattore: () => {},
         regolazioneNote: setRegolazioneNote,
         premiFirmaRows: setPremiFirmaRows,
         premiQuietanzaRows: setPremiQuietanzaRows,
@@ -651,13 +720,13 @@ const ImmissionePolizzaPage = () => {
 
   const draftSnapshot = {
     selectedAE, selectedAccountExecutiveId, selectedClienteId, selectedUfficioId, selectedBackofficeId,
-    numeroPolizza, notePolizza, tipoOperazione, polizzaAuto,
+    numeroPolizza, notePolizza, tipoOperazione, emittenda, polizzaAuto,
     selectedCompagnia, selectedGruppoCompagniaId, selectedRapportoId, coassicurazione, ripartoRows, selectedRamo, selectedGruppoRamoId, prodottoNome,
     cigRif, cigTemporaneo, vincolo, targaTelaio, descrizionePolizza,
     durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, polizzaTemporanea, polizzaRateo, frazionamento, moraGiorni,
     garanziaDa, garanziaDaTouched, garanziaA, garanziaATouched, dataCompetenza, dataCompetenzaTouched,
     limiteMora, limiteMoraTouched, disdettaGiorni,
-    regolazione, regolazioneDataPresunta, regolazioneFattore, regolazioneNote,
+    regolazione, regolazioneDatePresunte, regolazioneDataPresunta, regolazioneImporti, regolazioneNote,
     premiFirmaRows, premiQuietanzaRows, addizionali, valuta, addizionaliQuietanza,
     rimborso, indicizzata, noCalcoloTasse, pagDirettoCompagnia, emissioneFee, formatoElettronico, cambio,
     percentualeCommercialeAuto,
@@ -1246,6 +1315,67 @@ const ImmissionePolizzaPage = () => {
   const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
   const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === selectedGruppoRamoId);
 
+  /** Sottoramo effettivo per fattori regolazione (prima garanzia o selectedRamo) */
+  const regolazioneRamoId = useMemo(() => {
+    return (
+      premiFirmaRows.find((r) => r.sottoramoId)?.sottoramoId ||
+      premiQuietanzaRows.find((r) => r.sottoramoId)?.sottoramoId ||
+      selectedRamo ||
+      null
+    );
+  }, [premiFirmaRows, premiQuietanzaRows, selectedRamo]);
+
+  const { data: fattoriRegolazioneStandard = [], isLoading: loadingFattoriStandard } = useQuery({
+    queryKey: ["fattori-regolazione-standard"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fattori_regolazione")
+        .select("id, codice, descrizione, attivo")
+        .in("codice", [...FATTORI_REGOLAZIONE_STANDARD_CODICI])
+        .eq("attivo", true);
+      if (error) throw error;
+      const byCodice = new Map((data ?? []).map((f: any) => [f.codice as string, f]));
+      return FATTORI_REGOLAZIONE_STANDARD.map((s) => {
+        const f = byCodice.get(s.codice);
+        if (!f) return null;
+        return {
+          id: f.id as string,
+          codice: f.codice as string,
+          descrizione: (f.descrizione as string) || s.descrizione,
+        };
+      }).filter(Boolean) as Array<{ id: string; codice: string; descrizione: string }>;
+    },
+    enabled: !!regolazione,
+  });
+
+  const { data: regolazioneFattoriCustom = [], isLoading: loadingRegolazioneFattoriCustom } = useQuery({
+    queryKey: ["sottoramo-fattori-attivi", regolazioneRamoId],
+    queryFn: async () => {
+      if (!regolazioneRamoId) return [];
+      const { data, error } = await supabase
+        .from("sottoramo_fattori_regolazione")
+        .select("fattore_id, fattori_regolazione(id, codice, descrizione, attivo)")
+        .eq("ramo_id", regolazioneRamoId)
+        .eq("attivo", true);
+      if (error) throw error;
+      return (data ?? [])
+        .map((row: any) => row.fattori_regolazione)
+        .filter((f: any) => f && f.attivo !== false)
+        .map((f: any) => ({
+          id: f.id as string,
+          codice: f.codice as string,
+          descrizione: f.descrizione as string,
+        }));
+    },
+    enabled: !!regolazione && !!regolazioneRamoId,
+  });
+
+  const regolazioneFattoriLinked = useMemo(
+    () => mergeFattoriRegolazione(fattoriRegolazioneStandard, regolazioneFattoriCustom),
+    [fattoriRegolazioneStandard, regolazioneFattoriCustom],
+  );
+  const loadingRegolazioneFattori = loadingFattoriStandard || loadingRegolazioneFattoriCustom;
+
   // Detect RCA: gruppo ramo contiene "RCA" o "Auto" oppure checkbox polizzaAuto
   const isRCA = polizzaAuto || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("RCA") || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("AUTO");
 
@@ -1639,6 +1769,25 @@ const ImmissionePolizzaPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [durataDa, durataA, durataATouched, anniDurata, frazionamento, polizzaTemporanea, polizzaRateo, garanziaDa, garanziaDaTouched, garanziaA]);
 
+  // Auto date presunte regolazione (anniversari fine garanzia/durata)
+  useEffect(() => {
+    if (!regolazione) return;
+    const anni = Math.max(1, parseInt(anniDurata) || 1);
+    const { dates, touched } = resizeRegolazioneDatePresunte({
+      current: regolazioneDatePresunte,
+      touched: regolazioneDateTouchedRef.current,
+      durataDa,
+      garanziaDa,
+      anniDurata: anni,
+    });
+    regolazioneDateTouchedRef.current = touched;
+    const same =
+      dates.length === regolazioneDatePresunte.length &&
+      dates.every((d, i) => d === regolazioneDatePresunte[i]);
+    if (!same) setRegolazioneDatePresunte(dates);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regolazione, durataDa, garanziaDa, anniDurata]);
+
   // --- Handlers ---
 
   const clientePolizzePath = useMemo(() => {
@@ -1858,10 +2007,20 @@ const ImmissionePolizzaPage = () => {
         limite_mora: limiteMora || null,
         disdetta_giorni: disdettaGiorni ? parseInt(disdettaGiorni) : null,
         regolazione,
-        regolazione_data_presunta: regolazione ? (regolazioneDataPresunta || null) : null,
-        regolazione_fattore: regolazione ? (regolazioneFattore || null) : null,
+        regolazione_date_presunte: regolazione
+          ? (regolazioneDatePresunte.filter(Boolean).length
+              ? regolazioneDatePresunte.filter(Boolean)
+              : null)
+          : null,
+        regolazione_data_presunta: regolazione
+          ? (regolazioneDatePresunte.find(Boolean) || null)
+          : null,
+        regolazione_fattore: regolazione
+          ? (regolazioneFattoriLinked[0]?.codice || null)
+          : null,
         regolazione_note: regolazione ? (regolazioneNote || null) : null,
         libro_matricola: isLibroMatricola ? "auto" : null,
+        emittenda: !!emittenda,
         premio_netto_quietanza: premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null,
         addizionali_quietanza: accessoriQuietanzaNum || null,
         tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
@@ -1917,6 +2076,30 @@ const ImmissionePolizzaPage = () => {
         .select("id")
         .single();
       if (error) throw error;
+
+      // Fattori regolazione × anno (importi esposti sulla polizza). ramo_id obbligatorio in DB.
+      if (regolazione && regolazioneFattoriLinked.length > 0) {
+        if (!ramoIdToSave) {
+          toast.error("Seleziona il sottoramo per salvare i fattori di regolazione");
+        } else {
+          const dates = regolazioneDatePresunte.filter(Boolean);
+          const rows = buildRegolazioneFattoriRows({
+            datePresunte: dates,
+            fattori: regolazioneFattoriLinked,
+            importiMap: regolazioneImporti,
+            fallbackAnno: dates[0]
+              ? undefined
+              : (durataA ? Number(String(durataA).slice(0, 4)) : new Date().getFullYear() + 1),
+          });
+          const insertRows = rowsToInsertPayload(newTitolo.id, ramoIdToSave, rows);
+          if (insertRows.length) {
+            const { error: fatErr } = await supabase
+              .from("titoli_regolazione_fattori")
+              .insert(insertRows);
+            if (fatErr) throw fatErr;
+          }
+        }
+      }
 
       // Split commerciali multi-produttore (solo polizza madre, non regolazione)
       if (!regolazioneMode) {
@@ -2546,7 +2729,6 @@ const ImmissionePolizzaPage = () => {
           <RadioGroup value={tipoOperazione} onValueChange={setTipoOperazione} className="flex flex-wrap gap-4">
             {[
               { value: "polizza", label: "Polizza" },
-              { value: "emittenda", label: "Emittenda" },
               { value: "libro_matricola", label: "Polizza Libro Matricola" },
             ].map((opt) => (
               <div key={opt.value} className="flex items-center gap-2">
@@ -2854,18 +3036,36 @@ const ImmissionePolizzaPage = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
           <div className="space-y-1.5">
-            <Label className="text-xs">N° Polizza <span className="text-destructive">*</span></Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-xs">N° Polizza <span className="text-destructive">*</span></Label>
+              <div className="flex items-center gap-1.5">
+                <Checkbox
+                  id="emittenda-flag"
+                  checked={emittenda}
+                  disabled={emittendaLoading}
+                  onCheckedChange={(v) => void onEmittendaChange(v === true)}
+                />
+                <Label htmlFor="emittenda-flag" className="font-normal cursor-pointer text-xs text-muted-foreground">
+                  Emittenda{emittendaLoading ? "…" : ""}
+                </Label>
+              </div>
+            </div>
             <div className="relative">
               <Input
                 value={numeroPolizza}
                 onChange={(e) => setNumeroPolizza(e.target.value)}
-                placeholder="N° polizza"
-                className={`h-8 text-xs ${!numeroPolizza.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                placeholder={emittenda ? "IA0001" : "N° polizza"}
+                className={`h-8 text-xs font-mono ${!numeroPolizza.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
               />
               <Search className="absolute right-2 top-2 w-3.5 h-3.5 text-muted-foreground" />
             </div>
             {!numeroPolizza.trim() && (
               <p className="text-[10px] text-destructive mt-0.5">Obbligatorio</p>
+            )}
+            {emittenda && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Numero temporaneo IA…; modificabile anche dopo messa a cassa.
+              </p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -3127,29 +3327,54 @@ const ImmissionePolizzaPage = () => {
 
           {regolazione && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 rounded-md border border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 p-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Data presunta regolazione</Label>
-                <Input
-                  type="date"
-                  value={regolazioneDataPresunta}
-                  onChange={(e) => setRegolazioneDataPresunta(e.target.value)}
-                />
+              <div className="space-y-2 md:col-span-3">
+                <Label className="text-xs">Date presunte regolazione</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Fine garanzia di ogni anno (modificabili). Base: durata da / garanzia da.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {(regolazioneDatePresunte.length
+                    ? regolazioneDatePresunte
+                    : [""]
+                  ).map((date, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">
+                        Anno {idx + 1}
+                      </Label>
+                      <Input
+                        type="date"
+                        value={date}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setRegolazioneDatePresunte((prev) => {
+                            const base = prev.length ? [...prev] : [""];
+                            while (base.length <= idx) base.push("");
+                            base[idx] = v;
+                            return base;
+                          });
+                          const t = [...regolazioneDateTouchedRef.current];
+                          while (t.length <= idx) t.push(false);
+                          t[idx] = true;
+                          regolazioneDateTouchedRef.current = t;
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Fattore di regolazione</Label>
-                <SearchableSelect
-                  options={[
-                    { value: "fatturato", label: "Fatturato" },
-                    { value: "num_dipendenti", label: "N° dipendenti" },
-                    { value: "retribuzioni", label: "Retribuzioni" },
-                    { value: "altro", label: "Altro" },
-                  ]}
-                  value={regolazioneFattore}
-                  onValueChange={setRegolazioneFattore}
-                  placeholder="Seleziona fattore"
-                  clearable
-                />
-              </div>
+              <RegolazioneFattoriImportiGrid
+                ramoId={regolazioneRamoId}
+                datePresunte={regolazioneDatePresunte}
+                fattori={regolazioneFattoriLinked}
+                importiMap={regolazioneImporti}
+                loading={loadingRegolazioneFattori}
+                onImportoChange={(fattoreId, anno, value) => {
+                  setRegolazioneImporti((prev) => ({
+                    ...prev,
+                    [regolazioneFattoreKey(fattoreId, anno)]: value,
+                  }));
+                }}
+              />
               <div className="space-y-1 md:col-span-3">
                 <Label className="text-xs">Note</Label>
                 <Input

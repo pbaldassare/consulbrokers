@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type CausaleCambioNumero = "sostituzione" | "sospensione" | "riattivazione";
+export type CausaleCambioNumero = "sostituzione" | "sospensione" | "riattivazione" | "emittenda";
 
 /**
  * Cambia `numero_titolo` su TUTTE le righe della polizza (madre + quietanze + conguagli)

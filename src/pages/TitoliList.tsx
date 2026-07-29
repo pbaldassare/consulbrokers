@@ -479,7 +479,12 @@ const TitoliList = () => {
                 <TableBody>
                   {titoli.map((t: any) => (
                     <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/titoli/${t.id}`)}>
-                      <TableCell className="font-medium">{t.numero_titolo || "—"}</TableCell>
+                      <TableCell className="font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          {t.numero_titolo || "—"}
+                          {t.emittenda && <Badge variant="outline" className="text-[10px]">Emittenda</Badge>}
+                        </span>
+                      </TableCell>
                       <TableCell>{t.prodotti?.nome_prodotto || "—"}</TableCell>
                       <TableCell className="text-sm">{t.prodotti?.compagnie?.nome || "—"}</TableCell>
                       <TableCell className="font-mono text-xs">{t.targa_telaio || "—"}</TableCell>

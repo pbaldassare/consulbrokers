@@ -11,6 +11,18 @@ import { annullaPolizza } from "@/lib/annullaPolizza";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
+import { computeRegolazioneDatePresunte } from "@/lib/regolazioneDatePresunte";
+import {
+  buildRegolazioneFattoriRows,
+  regolazioneFattoreKey,
+  rowsToInsertPayload,
+} from "@/lib/regolazioneFattori";
+import {
+  FATTORI_REGOLAZIONE_STANDARD,
+  FATTORI_REGOLAZIONE_STANDARD_CODICI,
+  mergeFattoriRegolazione,
+} from "@/lib/fattoriRegolazioneStandard";
+import { RegolazioneFattoriImportiGrid } from "@/components/polizze/RegolazioneFattoriImportiGrid";
 import { calcLimiteMora, calcMoraGiorni } from "@/lib/calcLimiteMora";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
@@ -64,6 +76,8 @@ import { TitoloDataPersistenceInfo } from "@/components/titolo/sections/TitoloDa
 import { PageContainer } from "@/components/shared/PageContainer";
 import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza, getTotQuietanze, getQuietanzaRataIndex, isAppendice, baseNumeroPolizza, canHaveDataCopertura } from "@/lib/quietanze";
+import { aggiornaNumeroPolizza } from "@/lib/aggiornaNumeroPolizza";
+import { verificaNumeroPolizzaDuplicato } from "@/lib/clientiDuplicate";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 // Guard difensivo: garantisce che ogni mutation aggiorni SOLO il record corrente.
@@ -159,6 +173,11 @@ const TitoloDetail = () => {
   const [conferimentoDialogOpen, setConferimentoDialogOpen] = useState(false);
   const [conferimentoAccettato, setConferimentoAccettato] = useState(false);
   const [conferimentoForm, setConferimentoForm] = useState({ dataCopertura: "", dataDecorrenza: "" });
+
+  // --- Emittenda: modifica N° polizza anche se locked ---
+  const [editNumeroEmittendaOpen, setEditNumeroEmittendaOpen] = useState(false);
+  const [editNumeroEmittendaValue, setEditNumeroEmittendaValue] = useState("");
+  const [editNumeroEmittendaSaving, setEditNumeroEmittendaSaving] = useState(false);
 
   const { data: titolo, isLoading } = useQuery({
     queryKey: ["titolo", id],
@@ -441,8 +460,10 @@ const TitoloDetail = () => {
   const [editingReg, setEditingReg] = useState(false);
   const [regForm, setRegForm] = useState({
     regolazione: false,
-    regolazione_data_presunta: "", regolazione_fattore: "", regolazione_note: "",
+    regolazione_date_presunte: [] as string[],
+    regolazione_note: "",
   });
+  const [regImporti, setRegImporti] = useState<Record<string, number>>({});
 
   // --- Commerciale split state (multi-produttore) ---
   type SplitRow = {
@@ -655,34 +676,164 @@ const TitoloDetail = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const { data: titoloRegolazioneFattori = [] } = useQuery({
+    queryKey: ["titolo-regolazione-fattori", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("titoli_regolazione_fattori")
+        .select("id, fattore_id, ramo_id, importo_esposto, anno, data_presunta, note, fattori_regolazione(id, codice, descrizione)")
+        .eq("titolo_id", id!)
+        .order("anno");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!id,
+  });
+
+  const regolazioneRamoIdDetail = titolo?.ramo_id ?? null;
+
+  const { data: fattoriRegolazioneStandardDetail = [], isLoading: loadingFattoriStdDetail } = useQuery({
+    queryKey: ["fattori-regolazione-standard"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fattori_regolazione")
+        .select("id, codice, descrizione, attivo")
+        .in("codice", [...FATTORI_REGOLAZIONE_STANDARD_CODICI])
+        .eq("attivo", true);
+      if (error) throw error;
+      const byCodice = new Map((data ?? []).map((f: any) => [f.codice as string, f]));
+      return FATTORI_REGOLAZIONE_STANDARD.map((s) => {
+        const f = byCodice.get(s.codice);
+        if (!f) return null;
+        return {
+          id: f.id as string,
+          codice: f.codice as string,
+          descrizione: (f.descrizione as string) || s.descrizione,
+        };
+      }).filter(Boolean) as Array<{ id: string; codice: string; descrizione: string }>;
+    },
+    enabled: editingReg || !!titolo?.regolazione,
+  });
+
+  const { data: regolazioneFattoriCustomDetail = [], isLoading: loadingRegFattoriCustomDetail } = useQuery({
+    queryKey: ["sottoramo-fattori-attivi", regolazioneRamoIdDetail],
+    queryFn: async () => {
+      if (!regolazioneRamoIdDetail) return [];
+      const { data, error } = await supabase
+        .from("sottoramo_fattori_regolazione")
+        .select("fattore_id, fattori_regolazione(id, codice, descrizione, attivo)")
+        .eq("ramo_id", regolazioneRamoIdDetail)
+        .eq("attivo", true);
+      if (error) throw error;
+      return (data ?? [])
+        .map((row: any) => row.fattori_regolazione)
+        .filter((f: any) => f && f.attivo !== false)
+        .map((f: any) => ({
+          id: f.id as string,
+          codice: f.codice as string,
+          descrizione: f.descrizione as string,
+        }));
+    },
+    enabled: !!regolazioneRamoIdDetail && (editingReg || !!titolo?.regolazione),
+  });
+
+  const regolazioneFattoriLinkedDetail = useMemo(
+    () => mergeFattoriRegolazione(fattoriRegolazioneStandardDetail, regolazioneFattoriCustomDetail),
+    [fattoriRegolazioneStandardDetail, regolazioneFattoriCustomDetail],
+  );
+  const loadingRegFattoriDetail = loadingFattoriStdDetail || loadingRegFattoriCustomDetail;
+
   const startEditReg = () => {
     if (titolo) {
+      const arr = Array.isArray((titolo as any).regolazione_date_presunte)
+        ? ([...(titolo as any).regolazione_date_presunte] as string[])
+        : ((titolo as any).regolazione_data_presunta
+            ? [(titolo as any).regolazione_data_presunta as string]
+            : []);
       setRegForm({
         regolazione: titolo.regolazione ?? false,
-        regolazione_data_presunta: (titolo as any).regolazione_data_presunta ?? "",
-        regolazione_fattore: (titolo as any).regolazione_fattore ?? "",
+        regolazione_date_presunte: arr,
         regolazione_note: (titolo as any).regolazione_note ?? "",
       });
+      const map: Record<string, number> = {};
+      for (const row of titoloRegolazioneFattori as any[]) {
+        map[regolazioneFattoreKey(row.fattore_id, row.anno)] = Number(row.importo_esposto) || 0;
+      }
+      setRegImporti(map);
     }
     setEditingReg(true);
+  };
+
+  const autoFillRegDatePresunte = () => {
+    if (!titolo) return;
+    const dates = computeRegolazioneDatePresunte({
+      durataDa: titolo.durata_da,
+      garanziaDa: titolo.garanzia_da,
+      anniDurata: titolo.anni_durata ?? 1,
+    });
+    if (dates.length) {
+      setRegForm((p) => ({ ...p, regolazione_date_presunte: dates }));
+    } else {
+      toast.error("Imposta durata da / garanzia da e anni durata per calcolare le date");
+    }
   };
 
   const saveRegMutation = useMutation({
     mutationFn: async () => {
       assertSameTitolo(id, titolo?.id, "saveRegMutation");
+      const dates = regForm.regolazione
+        ? regForm.regolazione_date_presunte.filter(Boolean)
+        : [];
+      const firstCodice = regolazioneFattoriLinkedDetail[0]?.codice || null;
       const { error } = await supabase
         .from("titoli")
         .update({
           regolazione: regForm.regolazione,
-          regolazione_data_presunta: regForm.regolazione ? (regForm.regolazione_data_presunta || null) : null,
-          regolazione_fattore: regForm.regolazione ? (regForm.regolazione_fattore || null) : null,
+          regolazione_date_presunte: regForm.regolazione
+            ? (dates.length ? dates : null)
+            : null,
+          regolazione_data_presunta: regForm.regolazione
+            ? (dates[0] || null)
+            : null,
+          regolazione_fattore: regForm.regolazione ? firstCodice : null,
           regolazione_note: regForm.regolazione ? (regForm.regolazione_note || null) : null,
         } as any)
         .eq("id", id!);
       if (error) throw error;
+
+      // Replace righe fattori×anno
+      const { error: delErr } = await supabase
+        .from("titoli_regolazione_fattori")
+        .delete()
+        .eq("titolo_id", id!);
+      if (delErr) throw delErr;
+
+      if (regForm.regolazione && regolazioneFattoriLinkedDetail.length > 0) {
+        if (!regolazioneRamoIdDetail) {
+          throw new Error("Seleziona il sottoramo della polizza per salvare i fattori di regolazione");
+        }
+        const rows = buildRegolazioneFattoriRows({
+          datePresunte: dates,
+          fattori: regolazioneFattoriLinkedDetail,
+          importiMap: regImporti,
+          fallbackAnno: dates[0]
+            ? undefined
+            : (titolo?.durata_a
+                ? Number(String(titolo.durata_a).slice(0, 4))
+                : new Date().getFullYear() + 1),
+        });
+        const insertRows = rowsToInsertPayload(id!, regolazioneRamoIdDetail, rows);
+        if (insertRows.length) {
+          const { error: insErr } = await supabase
+            .from("titoli_regolazione_fattori")
+            .insert(insertRows);
+          if (insErr) throw insErr;
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["titolo-regolazione-fattori", id] });
       toast.success("Regolazione aggiornata");
       setEditingReg(false);
     },
@@ -1759,6 +1910,7 @@ const TitoloDetail = () => {
   // di creazione e non si può modificare inline. Operazioni dedicate
   // (Annulla Messa a Cassa, Storno, Rinnovo) restano disponibili.
   const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
+  const isEmittenda = !!(t as any).emittenda;
   const isRegolazione = !!(t as any).is_regolazione;
   const isProroga = !!(t as any).is_proroga;
   const isAppendiceModifica = !!(t as any).is_appendice_modifica;
@@ -2539,7 +2691,44 @@ const TitoloDetail = () => {
 
       {!isAppendiceTitolo && (<>
       <SectionCollapsible title="Contratto" icon={FileText}>
-        <div className="flex justify-end mb-2 gap-2">
+        <div className="flex justify-end mb-2 gap-2 flex-wrap items-center">
+          <div className="flex items-center gap-1.5 mr-auto">
+            <Checkbox
+              id="view-emittenda-flag"
+              checked={isEmittenda}
+              onCheckedChange={async (v) => {
+                const next = v === true;
+                try {
+                  assertSameTitolo(id, t.id, "toggle-emittenda-view");
+                  const { error } = await supabase
+                    .from("titoli")
+                    .update({ emittenda: next } as any)
+                    .eq("numero_titolo", t.numero_titolo);
+                  if (error) throw error;
+                  queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+                  toast.success(next ? "Flag Emittenda attivato" : "Flag Emittenda disattivato");
+                } catch (e: any) {
+                  toast.error(e?.message || "Errore aggiornamento Emittenda");
+                }
+              }}
+            />
+            <Label htmlFor="view-emittenda-flag" className="font-normal cursor-pointer text-xs text-muted-foreground">
+              Emittenda
+            </Label>
+          </div>
+          {isEmittenda && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditNumeroEmittendaValue(t.numero_titolo || "");
+                setEditNumeroEmittendaOpen(true);
+              }}
+              title="Emittenda: il N° polizza è modificabile anche dopo messa a cassa"
+            >
+              <Pencil className="w-4 h-4 mr-1" /> Modifica N° polizza
+            </Button>
+          )}
           {!editingContratto ? (
             <Button variant="ghost" size="sm" onClick={startEditContratto} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
@@ -2571,7 +2760,15 @@ const TitoloDetail = () => {
             <FieldRow label="Gruppo Ramo" value={fmt(t.ramo?.gruppo_ramo?.descrizione)} />
             <FieldRow label="Garanzia" value={`${t.ramo?.codice || ""} ${t.ramo?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt(t.prodotto_nome || t.prodotti?.nome_prodotto)} />
-            <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
+            <FieldRow
+              label="Numero Polizza"
+              value={
+                <span className="inline-flex items-center gap-1.5">
+                  {fmt(t.numero_titolo)}
+                  {isEmittenda && <Badge variant="outline" className="text-[10px]">Emittenda</Badge>}
+                </span>
+              }
+            />
             <FieldRow label="Note" value={fmt(t.note)} />
             {t.cliente_anagrafica ? (
               <div className="flex justify-between py-1">
@@ -2720,11 +2917,20 @@ const TitoloDetail = () => {
               </div>
             </div>
 
-            {/* Read-only chip per N° Polizza e Cliente */}
+            {/* N° Polizza: locked salvo emittenda (usa "Modifica N° polizza"); Cliente sempre locked */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Numero Polizza</Label>
-                <div className="h-8 px-2 flex items-center text-xs font-mono rounded-md border bg-muted/30">{fmt(t.numero_titolo)}</div>
+                <Label className={`text-xs flex items-center gap-1 ${isEmittenda ? "" : "text-muted-foreground"}`}>
+                  {isEmittenda ? "Numero Polizza" : "🔒 Numero Polizza"}
+                </Label>
+                <div className="h-8 px-2 flex items-center text-xs font-mono rounded-md border bg-muted/30">
+                  {fmt(t.numero_titolo)}
+                  {isEmittenda && (
+                    <span className="ml-auto text-[10px] text-muted-foreground font-sans">
+                      modificabile via «Modifica N° polizza»
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Note</Label>
@@ -3051,13 +3257,48 @@ const TitoloDetail = () => {
         {!editingReg ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
             <FieldRow label="Regolazione" value={fmtBool(t.regolazione)} />
-            <FieldRow label="Data presunta" value={fmtDate((t as any).regolazione_data_presunta)} />
-            <FieldRow label="Fattore" value={fmt({
-              fatturato: "Fatturato",
-              num_dipendenti: "N° dipendenti",
-              retribuzioni: "Retribuzioni",
-              altro: "Altro",
-            }[(t as any).regolazione_fattore as string] ?? null)} />
+            <div className="col-span-2 md:col-span-3 text-xs">
+              <span className="text-muted-foreground">Date presunte: </span>
+              <span>
+                {(() => {
+                  const arr = Array.isArray((t as any).regolazione_date_presunte)
+                    ? ((t as any).regolazione_date_presunte as string[])
+                    : ((t as any).regolazione_data_presunta
+                        ? [(t as any).regolazione_data_presunta as string]
+                        : []);
+                  if (!arr.length) return "—";
+                  return arr.map((d, i) => `Anno ${i + 1}: ${fmtDate(d)}`).join(" · ");
+                })()}
+              </span>
+            </div>
+            <div className="col-span-2 md:col-span-4 text-xs space-y-1">
+              <span className="text-muted-foreground">Fattori / importi esposti: </span>
+              {(titoloRegolazioneFattori as any[]).length === 0 ? (
+                <span>
+                  {fmt({
+                    fatturato: "Fatturato",
+                    num_dipendenti: "N° dipendenti",
+                    retribuzioni: "Retribuzioni",
+                    altro: "Altro",
+                  }[(t as any).regolazione_fattore as string] ?? null) || "—"}
+                </span>
+              ) : (
+                <ul className="mt-1 space-y-0.5">
+                  {(titoloRegolazioneFattori as any[]).map((row) => {
+                    const f = row.fattori_regolazione;
+                    return (
+                      <li key={row.id} className="tabular-nums">
+                        <span className="font-mono">{row.anno}</span>
+                        {" · "}
+                        {f?.descrizione || f?.codice || "—"}
+                        {" · "}
+                        {fmtEuro(Number(row.importo_esposto) || 0)}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
             {(t as any).regolazione_note && (
               <div className="col-span-2 md:col-span-4 text-xs">
                 <span className="text-muted-foreground">Note: </span>
@@ -3071,36 +3312,86 @@ const TitoloDetail = () => {
               <Switch
                 id="reg-check"
                 checked={regForm.regolazione}
-                onCheckedChange={(v) => setRegForm(p => ({ ...p, regolazione: !!v }))}
+                onCheckedChange={(v) => {
+                  const on = !!v;
+                  setRegForm((p) => {
+                    let dates = p.regolazione_date_presunte;
+                    if (on && dates.length === 0 && titolo) {
+                      dates = computeRegolazioneDatePresunte({
+                        durataDa: titolo.durata_da,
+                        garanziaDa: titolo.garanzia_da,
+                        anniDurata: titolo.anni_durata ?? 1,
+                      });
+                    }
+                    return { ...p, regolazione: on, regolazione_date_presunte: dates };
+                  });
+                }}
               />
               <Label htmlFor="reg-check" className="font-medium">Polizza in regolazione (promemoria)</Label>
             </div>
 
             {regForm.regolazione && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 rounded-md border border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 p-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Data presunta regolazione</Label>
-                  <Input
-                    type="date"
-                    value={regForm.regolazione_data_presunta}
-                    onChange={(e) => setRegForm(p => ({ ...p, regolazione_data_presunta: e.target.value }))}
-                  />
+                <div className="space-y-2 md:col-span-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-xs">Date presunte regolazione</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={autoFillRegDatePresunte}
+                    >
+                      Calcola da durata
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {(regForm.regolazione_date_presunte.length
+                      ? regForm.regolazione_date_presunte
+                      : [""]
+                    ).map((date, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">
+                          Anno {idx + 1}
+                        </Label>
+                        <Input
+                          type="date"
+                          value={date}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setRegForm((p) => {
+                              const next = p.regolazione_date_presunte.length
+                                ? [...p.regolazione_date_presunte]
+                                : [""];
+                              while (next.length <= idx) next.push("");
+                              next[idx] = v;
+                              return { ...p, regolazione_date_presunte: next };
+                            });
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Fattore di regolazione</Label>
-                  <SearchableSelect
-                    options={[
-                      { value: "fatturato", label: "Fatturato" },
-                      { value: "num_dipendenti", label: "N° dipendenti" },
-                      { value: "retribuzioni", label: "Retribuzioni" },
-                      { value: "altro", label: "Altro" },
-                    ]}
-                    value={regForm.regolazione_fattore}
-                    onValueChange={(v) => setRegForm(p => ({ ...p, regolazione_fattore: v }))}
-                    placeholder="Seleziona fattore"
-                    clearable
-                  />
-                </div>
+                <RegolazioneFattoriImportiGrid
+                  ramoId={regolazioneRamoIdDetail}
+                  datePresunte={regForm.regolazione_date_presunte}
+                  fattori={regolazioneFattoriLinkedDetail}
+                  importiMap={regImporti}
+                  loading={loadingRegFattoriDetail}
+                  existing={(titoloRegolazioneFattori as any[]).map((r) => ({
+                    fattore_id: r.fattore_id,
+                    anno: r.anno,
+                    importo_esposto: Number(r.importo_esposto) || 0,
+                    data_presunta: r.data_presunta,
+                  }))}
+                  onImportoChange={(fattoreId, anno, value) => {
+                    setRegImporti((prev) => ({
+                      ...prev,
+                      [regolazioneFattoreKey(fattoreId, anno)]: value,
+                    }));
+                  }}
+                />
                 <div className="space-y-1 md:col-span-3">
                   <Label className="text-xs">Note</Label>
                   <Input
@@ -3972,6 +4263,76 @@ const TitoloDetail = () => {
         variant={isAppendiceTitolo ? "appendice" : "full"}
       />
 
+
+      <Dialog open={editNumeroEmittendaOpen} onOpenChange={setEditNumeroEmittendaOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Modifica N° polizza</DialogTitle>
+            <DialogDescription>
+              Emittenda: il numero si aggiorna su tutte le quietanze/figli della polizza e resta modificabile anche dopo messa a cassa.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label className="text-xs">N° Polizza</Label>
+            <Input
+              value={editNumeroEmittendaValue}
+              onChange={(e) => setEditNumeroEmittendaValue(e.target.value)}
+              className="h-9 font-mono text-sm"
+              placeholder="N° polizza definitivo o IA…"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditNumeroEmittendaOpen(false)} disabled={editNumeroEmittendaSaving}>
+              Annulla
+            </Button>
+            <Button
+              disabled={editNumeroEmittendaSaving}
+              onClick={async () => {
+                const nuovo = editNumeroEmittendaValue.trim();
+                if (!nuovo) {
+                  toast.error("Il N° Polizza è obbligatorio");
+                  return;
+                }
+                if (nuovo === (t.numero_titolo || "").trim()) {
+                  setEditNumeroEmittendaOpen(false);
+                  return;
+                }
+                setEditNumeroEmittendaSaving(true);
+                try {
+                  assertSameTitolo(id, t.id, "emittenda-numero");
+                  const dup = await verificaNumeroPolizzaDuplicato(supabase, {
+                    numeroTitolo: nuovo,
+                    compagniaId: t.compagnia_id || null,
+                    excludeTitoloId: t.id,
+                  });
+                  if (dup.duplicato) {
+                    toast.error(`Numero polizza già presente: ${nuovo}`);
+                    return;
+                  }
+                  await aggiornaNumeroPolizza({
+                    titoloId: t.id,
+                    numeroCorrente: t.numero_titolo,
+                    numeroNuovo: nuovo,
+                    causale: "emittenda",
+                    motivo: "Cambio numero polizza emittenda",
+                  });
+                  toast.success("N° polizza aggiornato");
+                  setEditNumeroEmittendaOpen(false);
+                  queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+                  queryClient.invalidateQueries({ queryKey: ["catena-titoli"] });
+                } catch (e: any) {
+                  toast.error(e?.message || "Errore aggiornamento numero");
+                } finally {
+                  setEditNumeroEmittendaSaving(false);
+                }
+              }}
+            >
+              {editNumeroEmittendaSaving ? "Salvataggio…" : "Salva"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <SostituzionePolizzaDialog
         open={sostituzioneOpen}
