@@ -18,6 +18,7 @@ const fmtDate = (s: string) => {
 };
 
 const StatoBadge = ({ a }: { a: Anticipo }) => {
+  if (a.segno === "-") return <Badge variant="outline" className="border-red-300 text-red-700">Debito</Badge>;
   const s = statoAnticipo(a);
   if (s === "disponibile") return <Badge className="bg-green-600 hover:bg-green-700">Disponibile</Badge>;
   if (s === "parziale") return <Badge className="bg-amber-500 hover:bg-amber-600">Parziale</Badge>;
@@ -30,9 +31,12 @@ export default function AnticipiCard({ clienteId }: Props) {
   const [openNuovo, setOpenNuovo] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const totaleDisponibile = anticipi
+  const creditoDisponibile = anticipi
     .filter((a) => a.segno !== "-")
     .reduce((s, a) => s + Number(a.importo_residuo || 0), 0);
+  const debitoDaCompensare = anticipi
+    .filter((a) => a.segno === "-")
+    .reduce((s, a) => s + Number(a.importo || 0), 0);
   const attivi = anticipi.filter((a) => a.segno === "-" || a.importo_residuo > 0);
   const esauriti = anticipi.filter((a) => a.segno !== "-" && a.importo_residuo <= 0);
 
@@ -48,9 +52,17 @@ export default function AnticipiCard({ clienteId }: Props) {
         </Button>
       </CardHeader>
       <CardContent className="pt-2">
-        <div className="mb-3 rounded-md bg-primary/5 border border-primary/20 px-3 py-2">
-          <div className="text-xs text-muted-foreground">Totale disponibile</div>
-          <div className="text-xl font-semibold text-primary">{fmtEuro(totaleDisponibile)}</div>
+        <div className="mb-3 grid grid-cols-2 gap-3">
+          <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2">
+            <div className="text-xs text-muted-foreground">Credito disponibile</div>
+            <div className="text-xl font-semibold text-primary">{fmtEuro(creditoDisponibile)}</div>
+          </div>
+          <div className="rounded-md bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 px-3 py-2">
+            <div className="text-xs text-muted-foreground">Debito da compensare</div>
+            <div className={`text-xl font-semibold ${debitoDaCompensare > 0 ? "text-red-700" : "text-muted-foreground"}`}>
+              {fmtEuro(debitoDaCompensare)}
+            </div>
+          </div>
         </div>
 
         {isLoading ? (

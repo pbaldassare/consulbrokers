@@ -11,6 +11,7 @@ const payloadSchema = z.discriminatedUnion("azione", [
     azione: z.literal("crea"),
     numero_sinistro: z.string().min(1).optional(),
     titolo_id: z.string().uuid().nullable().optional(),
+    sinistro_terzi: z.boolean().optional(),
     cliente_id: z.string().uuid().nullable().optional(),
     compagnia_id: z.string().uuid().nullable().optional(),
     responsabile_id: z.string().uuid().nullable().optional(),
@@ -59,6 +60,8 @@ const payloadSchema = z.discriminatedUnion("azione", [
     azione: z.literal("aggiorna"),
     sinistro_id: z.string().uuid(),
     user_id: z.string().uuid().optional(),
+    sinistro_terzi: z.boolean().optional(),
+    titolo_id: z.string().uuid().nullable().optional(),
     data_evento: z.string().optional().nullable(),
     data_denuncia: z.string().optional().nullable(),
     tipo_sinistro: z.string().optional().nullable(),
@@ -127,7 +130,7 @@ Deno.serve(async (req) => {
 
     if (azione === "crea") {
       const {
-        numero_sinistro, titolo_id, cliente_id, compagnia_id, responsabile_id, liquidatore_id,
+        numero_sinistro, titolo_id, sinistro_terzi, cliente_id, compagnia_id, responsabile_id, liquidatore_id,
         ufficio_id, descrizione, user_id,
         cliente_anagrafica_id, tipo_sinistro, tipo_sinistro_personalizzato, luogo_sinistro, data_evento,
         data_denuncia, data_apertura, numero_sinistro_compagnia, importo_riserva,
@@ -142,10 +145,12 @@ Deno.serve(async (req) => {
       const stato = stato_iniziale ?? "aperto";
       const oggi = new Date().toISOString().split("T")[0];
       const descrizioneTesto = descrizione ?? dinamica ?? null;
+      const isTerzi = sinistro_terzi === true;
 
       const { data: sinistro, error } = await supabase.from("sinistri").insert({
         numero_sinistro: numero,
-        titolo_id: titolo_id ?? null,
+        titolo_id: isTerzi ? null : (titolo_id ?? null),
+        sinistro_terzi: isTerzi,
         cliente_id: cliente_id ?? null,
         compagnia_id: compagnia_id ?? null,
         responsabile_id: responsabile_id ?? null,
@@ -234,7 +239,7 @@ Deno.serve(async (req) => {
 
     if (azione === "aggiorna") {
       const {
-        sinistro_id, user_id, data_evento, data_denuncia, tipo_sinistro, tipo_sinistro_personalizzato,
+        sinistro_id, user_id, sinistro_terzi, titolo_id, data_evento, data_denuncia, tipo_sinistro, tipo_sinistro_personalizzato,
         numero_sinistro_compagnia, descrizione, dinamica, luogo_sinistro, indirizzo_sinistro,
         citta_sinistro, cap_sinistro, provincia_sinistro, controparte, targa_veicolo,
         importo_riserva, costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
@@ -284,6 +289,14 @@ Deno.serve(async (req) => {
       if (responsabile_id !== undefined) updateData.responsabile_id = responsabile_id;
       if (liquidatore_id !== undefined) updateData.liquidatore_id = liquidatore_id;
       if (note_interne !== undefined) updateData.note_interne = note_interne?.trim() || null;
+      if (sinistro_terzi !== undefined) {
+        updateData.sinistro_terzi = sinistro_terzi;
+        if (sinistro_terzi === true) updateData.titolo_id = null;
+      }
+      if (titolo_id !== undefined && sinistro_terzi !== true) {
+        updateData.titolo_id = titolo_id;
+        if (titolo_id) updateData.sinistro_terzi = false;
+      }
 
       const { data: sinistro, error } = await supabase
         .from("sinistri")

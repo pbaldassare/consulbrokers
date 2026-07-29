@@ -30,8 +30,9 @@ export default function SinistriList() {
   const navigate = useNavigate();
   const [filtroStato, setFiltroStato] = useState<string>("tutti");
   const [filtroCompagnia, setFiltroCompagnia] = useState<string>("tutti");
+  const [filtroTerzi, setFiltroTerzi] = useState<string>("tutti");
   const [search, setSearch] = useState("");
-  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato, filtroCompagnia, search]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato, filtroCompagnia, filtroTerzi, search]);
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -44,16 +45,20 @@ export default function SinistriList() {
   }, [qc]);
 
   const { data: sinistriResult } = useQuery({
-    queryKey: ["sinistri", filtroStato, filtroCompagnia, search, page],
+    queryKey: ["sinistri", filtroStato, filtroCompagnia, filtroTerzi, search, page],
     queryFn: async () => {
       let q = supabase.from("sinistri").select(
-        `*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome),
+        `id, numero_sinistro, stato, descrizione, data_apertura, sinistro_terzi, titolo_id, compagnia_id,
+         tipo_sinistro, tipo_sinistro_personalizzato,
+         compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome),
          clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente),
          titoli(numero_titolo)`,
         { count: "exact" }
       );
       if (filtroStato !== "tutti") q = q.eq("stato", filtroStato);
       if (filtroCompagnia !== "tutti") q = q.eq("compagnia_id", filtroCompagnia);
+      if (filtroTerzi === "terzi") q = q.eq("sinistro_terzi", true);
+      if (filtroTerzi === "con_polizza") q = q.eq("sinistro_terzi", false).not("titolo_id", "is", null);
       if (search) q = q.or(`numero_sinistro.ilike.%${search}%,descrizione.ilike.%${search}%`);
       const { data, error, count } = await q.order("created_at", { ascending: false }).range(range.from, range.to);
       if (error) throw error;
@@ -125,6 +130,14 @@ export default function SinistriList() {
             {compagnie?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filtroTerzi} onValueChange={handleFilterChange(setFiltroTerzi)}>
+          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutti">Tutti</SelectItem>
+            <SelectItem value="con_polizza">Con polizza</SelectItem>
+            <SelectItem value="terzi">Sinistro Terzi</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="border rounded-lg">
@@ -144,9 +157,18 @@ export default function SinistriList() {
           <TableBody>
             {sinistri.map((s: any) => (
               <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/sinistri/${s.id}`)}>
-                <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span>{s.numero_sinistro || "—"}</span>
+                    {s.sinistro_terzi && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-800 bg-amber-50">
+                        Sinistro Terzi
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>{resolveClienteNome(s.clienti)}</TableCell>
-                <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
+                <TableCell>{s.sinistro_terzi ? "—" : (s.titoli?.numero_titolo || "—")}</TableCell>
                 <TableCell>{formatTipoSinistro(s)}</TableCell>
                 <TableCell>
                   <Badge className={statoBadge[s.stato]}>{s.stato.replace(/_/g, " ")}</Badge>

@@ -8750,6 +8750,7 @@ export type Database = {
           reparto: string | null
           responsabile_id: string | null
           search_vector: unknown
+          sinistro_terzi: boolean
           stato: string
           targa_veicolo: string | null
           tipo_sinistro: string | null
@@ -8795,6 +8796,7 @@ export type Database = {
           reparto?: string | null
           responsabile_id?: string | null
           search_vector?: unknown
+          sinistro_terzi?: boolean
           stato?: string
           targa_veicolo?: string | null
           tipo_sinistro?: string | null
@@ -8840,6 +8842,7 @@ export type Database = {
           reparto?: string | null
           responsabile_id?: string | null
           search_vector?: unknown
+          sinistro_terzi?: boolean
           stato?: string
           targa_veicolo?: string | null
           tipo_sinistro?: string | null

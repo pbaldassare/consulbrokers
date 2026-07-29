@@ -203,8 +203,16 @@ export default function SinistroDetail() {
           <AlertTriangle className="h-5 w-5 text-orange-600" />
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold truncate">Sinistro {sinistro.numero_sinistro || "—"}</h1>
+          <h1 className="text-xl font-bold truncate flex items-center gap-2 flex-wrap">
+            <span>Sinistro {sinistro.numero_sinistro || "—"}</span>
+            {sinistro.sinistro_terzi && (
+              <Badge variant="outline" className="text-xs border-amber-400 text-amber-800 bg-amber-50 font-medium">
+                Sinistro Terzi
+              </Badge>
+            )}
+          </h1>
           <p className="text-sm text-muted-foreground truncate">
+            {sinistro.sinistro_terzi ? "Sinistro Terzi — senza polizza CBnet · " : ""}
             {formatTipoSinistro(sinistro)}
             {sinistro.compagnie?.nome ? ` · ${sinistro.compagnie.nome}` : ""}
           </p>
@@ -224,16 +232,27 @@ export default function SinistroDetail() {
           </CardContent>
         </Card>
         <Card
-          className={sinistro.titolo_id ? "cursor-pointer hover:bg-accent/40 transition-colors" : ""}
-          onClick={() => sinistro.titolo_id && navigate(`/titoli/${sinistro.titolo_id}`)}
+          className={!sinistro.sinistro_terzi && sinistro.titolo_id ? "cursor-pointer hover:bg-accent/40 transition-colors" : ""}
+          onClick={() => !sinistro.sinistro_terzi && sinistro.titolo_id && navigate(`/titoli/${sinistro.titolo_id}`)}
         >
           <CardContent className="pt-4">
             <p className="text-sm text-muted-foreground flex items-center gap-1"><FileText className="h-3 w-3" /> Polizza</p>
-            <p className="font-semibold truncate">{sinistro.titoli?.numero_titolo || "—"}</p>
-            {sinistro.titoli && (
-              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                {formatPolizzaRamo(sinistro.titoli)} · Scadenza {formatPolizzaScadenza(sinistro.titoli)}
-              </p>
+            {sinistro.sinistro_terzi || !sinistro.titolo_id ? (
+              <>
+                <p className="font-semibold truncate">—</p>
+                {sinistro.sinistro_terzi && (
+                  <p className="text-xs text-muted-foreground mt-0.5">Sinistro Terzi — senza polizza CBnet</p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="font-semibold truncate">{sinistro.titoli?.numero_titolo || "—"}</p>
+                {sinistro.titoli && (
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    {formatPolizzaRamo(sinistro.titoli)} · Scadenza {formatPolizzaScadenza(sinistro.titoli)}
+                  </p>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

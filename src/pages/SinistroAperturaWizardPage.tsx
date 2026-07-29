@@ -48,6 +48,7 @@ const DRAFT_KEY = "sinistri:apertura:bozza";
 // Schema di validazione Zod (campi pratica condivisi + step wizard)
 const wizardSchema = sinistroPraticaSchema.extend({
   titolo_id: z.string().optional(),
+  sinistro_terzi: z.boolean().optional(),
   documenti: z.array(
     z.object({
       nome_file: z.string(),
@@ -105,6 +106,7 @@ export default function SinistroAperturaWizardPage() {
     defaultValues: {
       ...sinistroPraticaDefaultValues,
       titolo_id: "",
+      sinistro_terzi: false,
       documenti: [],
     }
   });
@@ -212,8 +214,18 @@ export default function SinistroAperturaWizardPage() {
 
   // Watch dei valori critici
   const watchTitoloId = watch("titolo_id");
+  const watchSinistroTerzi = watch("sinistro_terzi");
   const watchDocumenti = watch("documenti");
   const watchValues = watch();
+
+  const setSinistroTerzi = (attivo: boolean) => {
+    setValue("sinistro_terzi", attivo);
+    if (attivo) {
+      setSelectedPolizzaData(null);
+      setValue("titolo_id", "");
+      setPolizzaSearchText("");
+    }
+  };
 
   const draftSnapshot = useMemo(
     () => ({
@@ -231,8 +243,10 @@ export default function SinistroAperturaWizardPage() {
       Object.keys(d).forEach((key) => {
         setValue(key as keyof WizardFormValues, d[key]);
       });
-      // Se c'è una polizza già selezionata nella bozza, carichiamo le sue info
-      if (d.titolo_id) {
+      // Se c'è una polizza già selezionata nella bozza (e non è Sinistro Terzi), carichiamo le sue info
+      if (d.sinistro_terzi) {
+        setValue("titolo_id", "");
+      } else if (d.titolo_id) {
         supabase.from("titoli").select(`
           id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, data_scadenza, garanzia_a,
           prodotti(nome_prodotto, compagnie(id, nome)),
@@ -416,12 +430,14 @@ export default function SinistroAperturaWizardPage() {
       if (!user) throw new Error("Utente non autenticato");
 
       // Recuperiamo la polizza e il cliente associato
-      const compagniaId =
-        selectedPolizzaData?.compagnia_id ||
-        selectedPolizzaData?.prodotti?.compagnie?.id ||
-        null;
+      const isTerzi = !!values.sinistro_terzi;
+      const compagniaId = isTerzi
+        ? null
+        : (selectedPolizzaData?.compagnia_id ||
+          selectedPolizzaData?.prodotti?.compagnie?.id ||
+          null);
       const clienteAnagraficaId = selectedClienteId || selectedPolizzaData?.cliente_anagrafica_id || null;
-      const ufficioId = selectedPolizzaData?.ufficio_id || null;
+      const ufficioId = isTerzi ? null : (selectedPolizzaData?.ufficio_id || null);
 
       if (!clienteAnagraficaId) {
         throw new Error("Cliente non selezionato");
@@ -438,11 +454,16 @@ export default function SinistroAperturaWizardPage() {
       // 1. Creazione del sinistro tramite edge function unificata
       //    (checklist di default + log_attivita + evento timeline generati lato server)
       const praticaPayload = praticaValuesToDbPayload(values);
+      const titoloId =
+        !isTerzi && values.titolo_id && !values.titolo_id.startsWith("cga:")
+          ? values.titolo_id
+          : null;
 
       const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
         body: {
           azione: "crea",
-          titolo_id: values.titolo_id && !values.titolo_id.startsWith("cga:") ? values.titolo_id : undefined,
+          sinistro_terzi: isTerzi,
+          titolo_id: titoloId,
           cliente_anagrafica_id: clienteAnagraficaId,
           ...(compagniaId ? { compagnia_id: compagniaId } : {}),
           ...(ufficioId ? { ufficio_id: ufficioId } : {}),
@@ -522,8 +543,14 @@ export default function SinistroAperturaWizardPage() {
             <AlertTriangle className="h-5 w-5 text-orange-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">Apertura Nuovo Sinistro</h1>
-            <p className="text-sm text-muted-foreground">Procedura guidata per l'apertura di un sinistro su polizza attiva</p>
+            <h1 className="text-xl font-bold">
+              {watchSinistroTerzi ? "Apertura Sinistro Terzi" : "Apertura Nuovo Sinistro"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {watchSinistroTerzi
+                ? "Procedura guidata per sinistro senza polizza CBnet"
+                : "Procedura guidata per l'apertura di un sinistro su polizza attiva"}
+            </p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={() => setCancelDialogOpen(true)} className="text-destructive border-destructive hover:bg-destructive/10">
@@ -554,7 +581,7 @@ export default function SinistroAperturaWizardPage() {
                 {stepIndex}
               </div>
               <span className={`text-[10px] font-medium mt-2 hidden sm:block ${currentStep === stepIndex ? "text-primary font-bold" : "text-muted-foreground"}`}>
-                {stepIndex === 1 && "Polizza"}
+                {stepIndex === 1 && (watchSinistroTerzi ? "Cliente" : "Polizza")}
                 {stepIndex === 2 && "Dati Sinistro"}
                 {stepIndex === 3 && "Documenti"}
                 {stepIndex === 4 && "Assegnazione"}
@@ -570,14 +597,16 @@ export default function SinistroAperturaWizardPage() {
         <Card className="shadow-md border-t-4 border-t-primary">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              {currentStep === 1 && "Step 1: Cliente e Polizza"}
+              {currentStep === 1 && (watchSinistroTerzi ? "Step 1: Cliente (Sinistro Terzi)" : "Step 1: Cliente e Polizza")}
               {currentStep === 2 && "Step 2: Dettagli dell'Accadimento"}
               {currentStep === 3 && "Step 3: Documenti Iniziali"}
               {currentStep === 4 && "Step 4: Assegnazione Pratica"}
               {currentStep === 5 && "Step 5: Riepilogo e Conferma"}
             </CardTitle>
             <CardDescription>
-              {currentStep === 1 && "Seleziona prima il cliente, poi scegli una delle sue polizze attive. La polizza è facoltativa."}
+              {currentStep === 1 && (watchSinistroTerzi
+                ? "Seleziona il cliente. Nessuna polizza CBnet verrà collegata a questa pratica."
+                : "Seleziona prima il cliente, poi scegli una delle sue polizze attive. La polizza è facoltativa.")}
               {currentStep === 2 && "Fornisci tutte le informazioni relative a quando, dove e come si è verificato il sinistro."}
               {currentStep === 3 && "Carica referti, foto o denunce firmate. Questo step è facoltativo."}
               {currentStep === 4 && "Assegna la pratica a un addetto interno e ad un liquidatore di riferimento."}
@@ -630,6 +659,23 @@ export default function SinistroAperturaWizardPage() {
                   )}
                 </div>
 
+                {/* Flag Sinistro Terzi */}
+                {selectedClienteId && (
+                  <label className="flex items-start gap-3 p-3 border rounded-lg bg-muted/30 cursor-pointer select-none">
+                    <Checkbox
+                      checked={!!watchSinistroTerzi}
+                      onCheckedChange={(c) => setSinistroTerzi(!!c)}
+                      className="mt-0.5"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="text-sm font-medium">Sinistro Terzi</span>
+                      <p className="text-xs text-muted-foreground">
+                        Sinistro gestito senza collegamento a una polizza CBnet. La selezione polizza viene disabilitata.
+                      </p>
+                    </div>
+                  </label>
+                )}
+
                 {/* Data accadimento (obbligatoria già in step 1) */}
                 {selectedClienteId && (
                   <div className="space-y-2">
@@ -643,8 +689,8 @@ export default function SinistroAperturaWizardPage() {
                   </div>
                 )}
 
-                {/* 2) Selezione polizza del cliente */}
-                {selectedClienteId && (
+                {/* 2) Selezione polizza del cliente — nascosta per Sinistro Terzi */}
+                {selectedClienteId && !watchSinistroTerzi && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <Label>Polizza del cliente {polizzeLoading && <span className="text-xs text-muted-foreground">(caricamento...)</span>}</Label>
@@ -696,8 +742,15 @@ export default function SinistroAperturaWizardPage() {
                   </div>
                 )}
 
+                {watchSinistroTerzi && selectedClienteId && (
+                  <div className="p-3 border rounded-lg bg-amber-50 border-amber-200 text-xs text-amber-900">
+                    <Badge variant="outline" className="mb-1 border-amber-400 text-amber-800">Sinistro Terzi</Badge>
+                    <p>Pratica senza polizza CBnet. Compagnia e ufficio restano opzionali.</p>
+                  </div>
+                )}
+
                 {/* Riepilogo polizza selezionata */}
-                {selectedPolizzaData && (
+                {!watchSinistroTerzi && selectedPolizzaData && (
                   <div className="p-4 bg-muted/50 rounded-lg border space-y-2">
                     <h4 className="font-semibold text-sm text-primary">Polizza Selezionata per il Sinistro</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 text-xs">
@@ -992,37 +1045,62 @@ export default function SinistroAperturaWizardPage() {
                   </div>
                 </div>
 
-                {/* Sezione 1: Polizza */}
+                {/* Sezione 1: Polizza / Terzi */}
                 <div className="border rounded-lg overflow-hidden">
                   <div className="bg-muted px-4 py-2 flex justify-between items-center border-b">
-                    <span className="text-sm font-semibold text-primary">1. Polizza e Cliente</span>
+                    <span className="text-sm font-semibold text-primary">
+                      {watchSinistroTerzi ? "1. Cliente (Sinistro Terzi)" : "1. Polizza e Cliente"}
+                    </span>
                     <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(1)} className="text-xs h-7">Modifica</Button>
                   </div>
                   <div className="p-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Numero Polizza</span>
-                      <p className="font-semibold mt-0.5">{selectedPolizzaData?.numero_titolo || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Cliente</span>
-                      <p className="font-semibold mt-0.5">{resolveClienteNome(selectedPolizzaData?.clienti || selectedClienteData)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Prodotto</span>
-                      <p className="font-semibold mt-0.5">{selectedPolizzaData?.prodotti?.nome_prodotto || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Ramo collegato</span>
-                      <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaRamo(selectedPolizzaData) : "—"}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Data di scadenza</span>
-                      <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaScadenza(selectedPolizzaData) : "—"}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Data Accadimento</span>
-                      <p className="font-semibold mt-0.5">{watch("data_evento") ? format(new Date(watch("data_evento")), "dd/MM/yyyy") : "—"}</p>
-                    </div>
+                    {watchSinistroTerzi ? (
+                      <>
+                        <div>
+                          <span className="text-muted-foreground">Tipo pratica</span>
+                          <p className="font-semibold mt-0.5"><Badge variant="outline">Sinistro Terzi</Badge></p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Cliente</span>
+                          <p className="font-semibold mt-0.5">{resolveClienteNome(selectedClienteData)}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Polizza CBnet</span>
+                          <p className="font-semibold mt-0.5">Nessuna</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Data Accadimento</span>
+                          <p className="font-semibold mt-0.5">{watch("data_evento") ? format(new Date(watch("data_evento")), "dd/MM/yyyy") : "—"}</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <span className="text-muted-foreground">Numero Polizza</span>
+                          <p className="font-semibold mt-0.5">{selectedPolizzaData?.numero_titolo || "—"}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Cliente</span>
+                          <p className="font-semibold mt-0.5">{resolveClienteNome(selectedPolizzaData?.clienti || selectedClienteData)}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Prodotto</span>
+                          <p className="font-semibold mt-0.5">{selectedPolizzaData?.prodotti?.nome_prodotto || "—"}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Ramo collegato</span>
+                          <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaRamo(selectedPolizzaData) : "—"}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Data di scadenza</span>
+                          <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaScadenza(selectedPolizzaData) : "—"}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Data Accadimento</span>
+                          <p className="font-semibold mt-0.5">{watch("data_evento") ? format(new Date(watch("data_evento")), "dd/MM/yyyy") : "—"}</p>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
