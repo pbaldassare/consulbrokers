@@ -10,6 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Download, FileSpreadsheet, Eye } from "lucide-react";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { formatDateIT } from "@/lib/formatDate";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Link } from "react-router-dom";
@@ -207,7 +208,7 @@ function DettaglioCaricoDialog({ caricoId, onClose }: { caricoId: string | null;
           Riga: s.riga_excel ?? "",
           Motivo: labelMotivoScarto(s.motivo),
           Codice: s.motivo,
-          Data: s.data_movimento || "",
+          Data: formatDateIT(s.data_movimento),
           Importo: Number(s.importo) || 0,
           Ordinante: s.ordinante || "",
           Descrizione: s.descrizione || "",
@@ -220,7 +221,7 @@ function DettaglioCaricoDialog({ caricoId, onClose }: { caricoId: string | null;
     const src = kind === "aperti" ? aperti : kind === "chiusi" ? chiusi : movimenti;
     exportRows(
       src.map((m: any) => ({
-        Data: m.data_movimento,
+        Data: formatDateIT(m.data_movimento),
         Importo: Number(m.importo) || 0,
         Ordinante: m.ordinante || "",
         Descrizione: m.descrizione || "",
@@ -345,7 +346,7 @@ function DettaglioCaricoDialog({ caricoId, onClose }: { caricoId: string | null;
                             {labelMotivoScarto(s.motivo)}
                           </span>
                         </TableCell>
-                        <TableCell className="text-xs">{s.data_movimento || "—"}</TableCell>
+                        <TableCell className="text-xs">{formatDateIT(s.data_movimento)}</TableCell>
                         <TableCell className="text-right text-xs tabular-nums">{fmtEuro(Number(s.importo) || 0)}</TableCell>
                         <TableCell className="text-xs max-w-[160px] truncate">{s.ordinante || "—"}</TableCell>
                         <TableCell className="text-xs max-w-[200px] truncate">{s.descrizione || "—"}</TableCell>
@@ -374,7 +375,7 @@ function DettaglioCaricoDialog({ caricoId, onClose }: { caricoId: string | null;
               <TableBody>
                 {shown.map((m: any) => (
                   <TableRow key={m.id}>
-                    <TableCell className="text-xs whitespace-nowrap">{m.data_movimento}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDateIT(m.data_movimento)}</TableCell>
                     <TableCell className="text-xs max-w-[200px] truncate" title={m.ordinante || undefined}>{m.ordinante || "—"}</TableCell>
                     <TableCell className="text-xs">{cliNome(m)}</TableCell>
                     <TableCell className="text-right text-xs tabular-nums">{fmtEuro(m.importo)}</TableCell>

@@ -540,6 +540,39 @@ export function buildPreviewEstratto(
 
 const DEDUP_FETCH_PAGE = 1000;
 
+/** Page size PostgREST per fetch multi-page di movimenti bancari (max tipico API = 1000). */
+export const MOVIMENTI_BANCARI_PAGE_SIZE = 1000;
+
+/**
+ * Scarica tutte le pagine di una query PostgREST (range 0–999, 1000–1999, …)
+ * finché una page restituisce meno di `pageSize` righe.
+ * `fetchPage` deve applicare `.range(from, to)` e restituire `{ data, error }`.
+ */
+export async function fetchAllQueryPages<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message?: string } | null }>,
+  pageSize: number = MOVIMENTI_BANCARI_PAGE_SIZE,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await fetchPage(from, from + pageSize - 1);
+    if (error) throw error;
+    const rows = data ?? [];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
+/** Sanitizza termine per filtri PostgREST `ilike` / `.or(...)` (evita wildcard e virgole). */
+export function sanitizeIlikeTerm(raw: string): string {
+  return String(raw || "")
+    .replace(/[%*,()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /**
  * Carica chiavi dedup dei movimenti già presenti sul conto (qualsiasi stato, anche collegati).
  * Paginazione PostgREST (page da 1000) su TUTTI i movimenti del conto — non solo le date del file —
@@ -554,31 +587,32 @@ export async function fetchExistingMovimentoDedupKeys(
   const keys = new Set<string>();
   if (!contoBancarioId) return keys;
 
-  let from = 0;
-  for (;;) {
-    const to = from + DEDUP_FETCH_PAGE - 1;
-    const { data, error } = await supabase
+  const rows = await fetchAllQueryPages<{
+    conto_bancario_id?: string | null;
+    data_movimento?: string | null;
+    importo?: number | null;
+    descrizione?: string | null;
+    ordinante?: string | null;
+  }>(async (from, to) =>
+    supabase
       .from("movimenti_bancari" as any)
       .select("conto_bancario_id, data_movimento, importo, descrizione, ordinante")
       .eq("conto_bancario_id", contoBancarioId)
       .order("id", { ascending: true })
-      .range(from, to);
-    if (error) throw error;
-    const rows = (data as any[]) ?? [];
-    for (const row of rows) {
-      const payload = {
-        conto_bancario_id: row.conto_bancario_id,
-        data_movimento: String(row.data_movimento || "").slice(0, 10),
-        importo: Number(row.importo) || 0,
-        descrizione: row.descrizione,
-        ordinante: row.ordinante,
-      };
-      keys.add(buildMovimentoDedupKey(payload));
-      const ck = buildMovimentoContentDedupKey(payload);
-      if (ck) keys.add(ck);
-    }
-    if (rows.length < DEDUP_FETCH_PAGE) break;
-    from += DEDUP_FETCH_PAGE;
+      .range(from, to),
+  DEDUP_FETCH_PAGE);
+
+  for (const row of rows) {
+    const payload = {
+      conto_bancario_id: row.conto_bancario_id,
+      data_movimento: String(row.data_movimento || "").slice(0, 10),
+      importo: Number(row.importo) || 0,
+      descrizione: row.descrizione,
+      ordinante: row.ordinante,
+    };
+    keys.add(buildMovimentoDedupKey(payload));
+    const ck = buildMovimentoContentDedupKey(payload);
+    if (ck) keys.add(ck);
   }
   return keys;
 }

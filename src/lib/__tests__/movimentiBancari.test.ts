@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildMovimentoDedupKey,
   extractOrdinanteFromDescrizione,
+  fetchAllQueryPages,
   looksLikeIbanOrAccount,
   normalizeExcelRow,
   resolveOrdinanteImport,
+  sanitizeIlikeTerm,
   sanitizeOrdinanteNome,
 } from "@/lib/movimentiBancari";
 
@@ -129,5 +131,34 @@ describe("normalizeExcelRow", () => {
       Importo: 10,
       "Data contabile": "2026-06-01",
     });
+  });
+});
+
+describe("fetchAllQueryPages", () => {
+  it("concatena le pagine finché una è incompleta", async () => {
+    const fetchPage = vi.fn(async (from: number, to: number) => {
+      const size = to - from + 1;
+      if (from === 0) {
+        return { data: Array.from({ length: size }, (_, i) => ({ id: i })), error: null };
+      }
+      return { data: [{ id: size }, { id: size + 1 }], error: null };
+    });
+    const rows = await fetchAllQueryPages(fetchPage, 3);
+    expect(rows.map((r) => r.id)).toEqual([0, 1, 2, 3, 4]);
+    expect(fetchPage).toHaveBeenCalledTimes(2);
+    expect(fetchPage).toHaveBeenNthCalledWith(1, 0, 2);
+    expect(fetchPage).toHaveBeenNthCalledWith(2, 3, 5);
+  });
+
+  it("propaga l'errore PostgREST", async () => {
+    await expect(
+      fetchAllQueryPages(async () => ({ data: null, error: { message: "boom" } }), 10),
+    ).rejects.toEqual({ message: "boom" });
+  });
+});
+
+describe("sanitizeIlikeTerm", () => {
+  it("rimuove wildcard e virgole pericolose per .or()", () => {
+    expect(sanitizeIlikeTerm(" Busso%, (SRL)* ")).toBe("Busso SRL");
   });
 });

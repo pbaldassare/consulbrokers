@@ -3,23 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { BonificoAperto } from "@/lib/bonificoMatch";
+import { formatDateIT } from "@/lib/formatDate";
 import { ArrowRightLeft, ChevronDown, ChevronUp, Search } from "lucide-react";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 const fmtCurrency = (n: number) =>
   new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
-
-const fmtDate = (d: string | null | undefined) => {
-  if (!d) return "—";
-  try {
-    return format(new Date(d), "dd/MM/yyyy", { locale: it });
-  } catch {
-    return d;
-  }
-};
 
 const statoLabel = (s: string) => {
   switch (s) {
@@ -156,7 +146,7 @@ export function IncassiBonificiPanel({
                 <TableBody>
                   {filtrati.map((b) => (
                     <TableRow key={b.id} className={searchActive ? "bg-sky-50/60" : undefined}>
-                      <TableCell className="whitespace-nowrap text-xs">{fmtDate(b.data_movimento)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">{formatDateIT(b.data_movimento)}</TableCell>
                       <TableCell className="text-sm max-w-[280px]">
                         <div className="truncate font-medium" title={b.ordinante || undefined}>
                           {b.ordinante || "—"}

@@ -49,6 +49,7 @@ import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { isInCoperturaGarantita, isGarantitoDaIncassare } from "@/lib/garantitoTitolo";
 import { countQuietanzeDaIncassare, countQuietanzeRateDaIncassare, isQuietanzaDaMostrare } from "@/lib/quietanzeClienteView";
 import { ultimaQuietanzaCatena } from "@/lib/ultimaQuietanzaCatena";
+import { totaliAnnoCatena, yearOfTitoloForAnno } from "@/lib/totaliAnnoCatena";
 import { isPolizzaAuto } from "@/lib/isPolizzaAuto";
 import { ModificaVeicoloDialog } from "@/components/polizze/ModificaVeicoloDialog";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -1240,6 +1241,7 @@ function PolizzeClienteTable({
   });
 
   const isCateneView = filtroTipo !== "quietanze" && filtroTipo !== "garantiti";
+  const annoCorrente = new Date().getFullYear();
   const colSpanBase = isCateneView
     ? (isAdmin ? 14 : 13)
     : (isAdmin ? 13 : 12);
@@ -1358,23 +1360,27 @@ function PolizzeClienteTable({
   // La polizza madre è il contratto, non un titolo da incassare: il premio
   // reale è la somma delle quietanze + appendici (titoli incassabili). Sommare
   // anche la madre raddoppierebbe il totale (es. annuale 1y: 1 madre + 1 quietanza).
+  // Totali aggregati: solo rate/appendici con year(garanzia_da|data_competenza|garanzia_a) === anno corrente.
+  const titoliAnnoCorrente = useMemo(() => {
+    const pool = filtroTipo === "quietanze" ? quietanzeVisibili : [...allQuiet, ...allApp];
+    return pool.filter((p) => yearOfTitoloForAnno(p) === annoCorrente);
+  }, [filtroTipo, quietanzeVisibili, allQuiet, allApp, annoCorrente]);
   const totPremio = useMemo(
-    () => (filtroTipo === "quietanze"
-      ? quietanzeVisibili.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0)
-      : [...allQuiet, ...allApp].reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0)),
-    [filtroTipo, quietanzeVisibili, allQuiet, allApp],
+    () => titoliAnnoCorrente.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
+    [titoliAnnoCorrente],
   );
   const totProvv = useMemo(
-    () => (filtroTipo === "quietanze"
-      ? quietanzeVisibili.reduce((s, p) => s + getProvvigioneEC(p), 0)
-      : [...allQuiet, ...allApp].reduce((s, p) => s + getProvvigioneEC(p), 0)),
-    [filtroTipo, quietanzeVisibili, allQuiet, allApp],
+    () => titoliAnnoCorrente.reduce((s, p) => s + getProvvigioneEC(p), 0),
+    [titoliAnnoCorrente],
   );
 
   const allGarant = useMemo(() => filteredTitoli.filter(isGarantitoDaIncassare), [filteredTitoli]);
   const totPremioGarant = useMemo(
-    () => allGarant.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
-    [allGarant],
+    () =>
+      allGarant
+        .filter((p) => yearOfTitoloForAnno(p) === annoCorrente)
+        .reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
+    [allGarant, annoCorrente],
   );
 
   // Flat quietanze filtrate (vista "Solo quietanze")
@@ -1574,7 +1580,7 @@ function PolizzeClienteTable({
               {countGarantiti !== allGarant.length && (
                 <> · <span className="text-muted-foreground">{countGarantiti} totali</span></>
               )}
-              {" · "}totale premio{" "}
+              {" · "}totale premio anno {annoCorrente}{" "}
               <span className="font-mono font-medium text-foreground">€ {totPremioGarant.toFixed(2)}</span>
             </>
           ) : filtroTipo === "quietanze" ? (
@@ -1586,9 +1592,9 @@ function PolizzeClienteTable({
               {countGarantiti > 0 && (
                 <> · <span className="font-medium text-orange-700">{countGarantiti}</span> garantiti</>
               )}
-              {" · "}totale premio{" "}
+              {" · "}totale premio anno {annoCorrente}{" "}
               <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
-              {" · "}totale provvigioni{" "}
+              {" · "}totale provvigioni anno {annoCorrente}{" "}
               <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
             </>
           ) : (
@@ -1601,9 +1607,9 @@ function PolizzeClienteTable({
               {countGarantiti > 0 && (
                 <> · <span className="font-medium text-orange-700">{countGarantiti}</span> garantiti</>
               )}
-              {" · "}totale premio{" "}
+              {" · "}totale premio anno {annoCorrente}{" "}
               <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
-              {" · "}totale provvigioni{" "}
+              {" · "}totale provvigioni anno {annoCorrente}{" "}
               <span className="font-mono font-medium text-foreground">€ {totProvv.toFixed(2)}</span>
             </>
           )}
@@ -1756,11 +1762,23 @@ function PolizzeClienteTable({
             <TableHead>Inizio Garanzia</TableHead>
             <TableHead>Fine Garanzia</TableHead>
             <TableHead>Compagnia / Agenzia</TableHead>
-            <TableHead title={isCateneView ? "Ultimo premio della quietanza più rilevante" : undefined}>
-              {isCateneView ? "Ultimo premio quiet." : "Premio €"}
+            <TableHead
+              title={
+                isCateneView
+                  ? `Somma premi lordo quietanze/appendici con garanzia_da (o fallback) nell'anno ${annoCorrente}`
+                  : undefined
+              }
+            >
+              {isCateneView ? `Premio ${annoCorrente}` : "Premio €"}
             </TableHead>
-            <TableHead title={isCateneView ? "Ultime provvigioni della quietanza più rilevante" : undefined}>
-              {isCateneView ? "Ultime provv. quiet." : "Provvigioni €"}
+            <TableHead
+              title={
+                isCateneView
+                  ? `Somma provvigioni quietanze/appendici con garanzia_da (o fallback) nell'anno ${annoCorrente}`
+                  : undefined
+              }
+            >
+              {isCateneView ? `Provv. ${annoCorrente}` : "Provvigioni €"}
             </TableHead>
             <TableHead>Data Copertura</TableHead>
             <TableHead title={isCateneView ? "Ultima data di incasso dalla quietanza più rilevante" : undefined}>
@@ -1917,6 +1935,15 @@ function PolizzeClienteTable({
               const qUltimaIncasso = isPolizzaMadre(head)
                 ? ultimaQuietanzaCatena(c.rate, c.appendici)
                 : null;
+              const totAnno = isPolizzaMadre(head)
+                ? totaliAnnoCatena(c.rate, c.appendici, annoCorrente)
+                : null;
+              const tooltipUltimoPremio = qUltimaIncasso
+                ? `di cui ultimo quietanza: ${fmtNum(qUltimaIncasso.premio_lordo)}`
+                : undefined;
+              const tooltipUltimeProvv = qUltimaIncasso
+                ? `di cui ultimo quietanza: ${fmtNum(getProvvigioneEC(qUltimaIncasso))}`
+                : undefined;
 
               return (
                 <Fragment key={c.numero}>
@@ -1961,18 +1988,18 @@ function PolizzeClienteTable({
                     <TableCell className="text-xs">{fmtDate(head.garanzia_da ?? head.durata_da)}</TableCell>
                     <TableCell className="text-xs">{fmtDate(head.garanzia_a ?? head.durata_a)}</TableCell>
                     <TableCell>{agenzia}</TableCell>
-                    <TableCell className="font-mono">
+                    <TableCell className="font-mono" title={isPolizzaMadre(head) ? tooltipUltimoPremio : undefined}>
                       {isAppendice(head)
                         ? fmtNum(head.premio_lordo)
                         : isPolizzaMadre(head)
-                          ? fmtNum(qUltimaIncasso?.premio_lordo)
+                          ? (totAnno && totAnno.count > 0 ? fmtNum(totAnno.premio) : "—")
                           : "—"}
                     </TableCell>
-                    <TableCell className="font-mono">
+                    <TableCell className="font-mono" title={isPolizzaMadre(head) ? tooltipUltimeProvv : undefined}>
                       {isAppendice(head)
                         ? fmtNum(getProvvigioneEC(head))
                         : isPolizzaMadre(head)
-                          ? (qUltimaIncasso ? fmtNum(getProvvigioneEC(qUltimaIncasso)) : "—")
+                          ? (totAnno && totAnno.count > 0 ? fmtNum(totAnno.provvigioni) : "—")
                           : "—"}
                     </TableCell>
                     <TableCell className="text-xs">

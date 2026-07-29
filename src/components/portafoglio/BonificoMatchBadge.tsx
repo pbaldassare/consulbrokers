@@ -2,22 +2,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { BonificoSuggerito } from "@/lib/bonificoMatch";
+import { formatDateIT } from "@/lib/formatDate";
 import { ArrowRightLeft } from "lucide-react";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
 import { useState } from "react";
 
 const fmtCurrency = (n: number) =>
   new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
-
-const fmtDate = (d: string | null | undefined) => {
-  if (!d) return "—";
-  try {
-    return format(new Date(d), "dd/MM/yyyy", { locale: it });
-  } catch {
-    return d;
-  }
-};
 
 type Props = {
   suggerimenti: BonificoSuggerito[];
@@ -98,7 +88,7 @@ export function BonificoMatchBadge({ suggerimenti, onPick }: Props) {
                       <div className="text-[11px] text-muted-foreground line-clamp-2">{b.descrizione}</div>
                     )}
                     <div className="text-[10px] text-muted-foreground mt-0.5">
-                      {fmtDate(b.data_movimento)}
+                      {formatDateIT(b.data_movimento)}
                       {b.conto_etichetta ? ` · ${b.conto_etichetta}` : ""}
                       {" · "}
                       {b.matchReason === "cliente" ? "Cliente assegnato" : "Ordinante"}

@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Save, Wallet, ChevronDown, Download, ExternalLink, Shield, Plus, X, User, Undo2 } from "lucide-react";
+import { Save, Wallet, ChevronDown, Download, ExternalLink, Shield, Plus, X, User, Undo2, ArrowUp, ArrowDown } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +27,7 @@ import {
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { formatDateIT } from "@/lib/formatDate";
 import * as XLSX from "xlsx";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
 import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
@@ -38,8 +39,10 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import {
   assegnaPagatoreMovimento,
   extractOrdinanteFromDescrizione,
+  fetchAllQueryPages,
   fetchContoIdsForUfficio,
   finalizeMovimentoBancarioIncasso,
+  sanitizeIlikeTerm,
 } from "@/lib/movimentiBancari";
 import { fetchTitoliClienteDaIncassare } from "@/lib/titoliDaIncassare";
 import { annullaBonificoCollegato } from "@/lib/annullaBonificoCollegato";
@@ -88,6 +91,8 @@ const FiltriMovimentiRow = ({
   setOrdinante,
   importo,
   setImporto,
+  sortDataAsc,
+  setSortDataAsc,
   children,
 }: {
   dal: string;
@@ -98,26 +103,46 @@ const FiltriMovimentiRow = ({
   setOrdinante: (v: string) => void;
   importo: string;
   setImporto: (v: string) => void;
+  sortDataAsc: boolean;
+  setSortDataAsc: (v: boolean | ((prev: boolean) => boolean)) => void;
   children?: ReactNode;
 }) => (
-  <div className="flex flex-wrap items-end gap-2">
-    <div>
-      <Label>Dal</Label>
-      <Input type="date" value={dal} onChange={(e) => setDal(e.target.value)} className="w-40" />
+  <div className="space-y-1.5">
+    <p className="text-xs text-muted-foreground">Date in formato gg/mm/aaaa</p>
+    <div className="flex flex-wrap items-end gap-2">
+      <div>
+        <Label>
+          Dal <span className="font-normal text-muted-foreground">(gg/mm/aaaa)</span>
+        </Label>
+        <Input type="date" value={dal} onChange={(e) => setDal(e.target.value)} className="w-40" title="gg/mm/aaaa" />
+      </div>
+      <div>
+        <Label>
+          Al <span className="font-normal text-muted-foreground">(gg/mm/aaaa)</span>
+        </Label>
+        <Input type="date" value={al} onChange={(e) => setAl(e.target.value)} className="w-40" title="gg/mm/aaaa" />
+      </div>
+      <div>
+        <Label>Nome ordinante</Label>
+        <Input value={ordinante} onChange={(e) => setOrdinante(e.target.value)} placeholder="Cerca…" className="w-56" />
+      </div>
+      <div>
+        <Label>Importo</Label>
+        <Input value={importo} onChange={(e) => setImporto(e.target.value)} placeholder="es. 150,00" className="w-32" />
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-9"
+        onClick={() => setSortDataAsc((v) => !v)}
+        title={sortDataAsc ? "Ordina: dal più vecchio al più recente" : "Ordina: dal più recente al più vecchio"}
+      >
+        {sortDataAsc ? <ArrowUp className="w-3.5 h-3.5 mr-1" /> : <ArrowDown className="w-3.5 h-3.5 mr-1" />}
+        Data {sortDataAsc ? "↑" : "↓"}
+      </Button>
+      {children}
     </div>
-    <div>
-      <Label>Al</Label>
-      <Input type="date" value={al} onChange={(e) => setAl(e.target.value)} className="w-40" />
-    </div>
-    <div>
-      <Label>Nome ordinante</Label>
-      <Input value={ordinante} onChange={(e) => setOrdinante(e.target.value)} placeholder="Cerca…" className="w-56" />
-    </div>
-    <div>
-      <Label>Importo</Label>
-      <Input value={importo} onChange={(e) => setImporto(e.target.value)} placeholder="es. 150,00" className="w-32" />
-    </div>
-    {children}
   </div>
 );
 
@@ -212,6 +237,7 @@ export const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio:
   const [ordinante, setOrdinante] = useState("");
   const [ordinanteDebounced, setOrdinanteDebounced] = useState("");
   const [importo, setImporto] = useState("");
+  const [sortDataAsc, setSortDataAsc] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setOrdinanteDebounced(ordinante), 350);
@@ -224,34 +250,40 @@ export const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio:
     queryFn: async () => (await supabase.from("uffici").select("id, nome:nome_ufficio").order("nome_ufficio")).data ?? [],
   });
 
+  // ordinante → server (ilike ordinante|descrizione); importo → client sul set completo (tolleranza ±0.01)
   const { data: movs = [], isLoading } = useQuery({
-    queryKey: ["mov-bancari", "ricongiungimento", profileUfficio, filtroUfficio, seeAll, dal, al],
+    queryKey: ["mov-bancari", "ricongiungimento", profileUfficio, filtroUfficio, seeAll, dal, al, ordinanteDebounced, sortDataAsc],
     queryFn: async () => {
-      let q = supabase.from("movimenti_bancari" as any)
-        .select("id, data_movimento, importo, ordinante, descrizione, stato, ufficio_id, cliente_id, conto_bancario_id, conto:conti_bancari(etichetta), cliente:clienti(id, ragione_sociale, nome, cognome)")
-        .in("stato", ["importato", "matchato", "assegnato", "ricongiunti"])
-        .order("data_movimento", { ascending: false })
-        .limit(200);
-      if (seeAll && filtroUfficio) q = q.eq("ufficio_id", filtroUfficio);
-      if (!seeAll && profileUfficio) {
-        const contoIds = await fetchContoIdsForUfficio(profileUfficio);
-        if (contoIds.length > 0) {
-          q = q.or(`ufficio_id.eq.${profileUfficio},conto_bancario_id.in.(${contoIds.join(",")})`);
-        } else {
-          q = q.eq("ufficio_id", profileUfficio);
+      const contoIds =
+        !seeAll && profileUfficio ? await fetchContoIdsForUfficio(profileUfficio) : ([] as string[]);
+      const ordTerm = sanitizeIlikeTerm(ordinanteDebounced);
+
+      return fetchAllQueryPages<any>(async (from, to) => {
+        let q = supabase.from("movimenti_bancari" as any)
+          .select("id, data_movimento, importo, ordinante, descrizione, stato, ufficio_id, cliente_id, conto_bancario_id, conto:conti_bancari(etichetta), cliente:clienti(id, ragione_sociale, nome, cognome)")
+          .in("stato", ["importato", "matchato", "assegnato", "ricongiunti"])
+          .order("data_movimento", { ascending: sortDataAsc })
+          .order("id", { ascending: sortDataAsc });
+        if (seeAll && filtroUfficio) q = q.eq("ufficio_id", filtroUfficio);
+        if (!seeAll && profileUfficio) {
+          if (contoIds.length > 0) {
+            q = q.or(`ufficio_id.eq.${profileUfficio},conto_bancario_id.in.(${contoIds.join(",")})`);
+          } else {
+            q = q.eq("ufficio_id", profileUfficio);
+          }
         }
-      }
-      if (dal) q = q.gte("data_movimento", dal);
-      if (al) q = q.lte("data_movimento", al);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data as any[]) ?? [];
+        if (dal) q = q.gte("data_movimento", dal);
+        if (al) q = q.lte("data_movimento", al);
+        if (ordTerm) q = q.or(`ordinante.ilike.%${ordTerm}%,descrizione.ilike.%${ordTerm}%`);
+        return q.range(from, to);
+      });
     },
   });
 
+  // Importo filtrato client-side (match esatto con tolleranza o sottostringa formattata)
   const movsFiltrati = useMemo(
-    () => filterMovimentiByOrdinanteImporto(movs, ordinanteDebounced, importo),
-    [movs, ordinanteDebounced, importo],
+    () => filterMovimentiByOrdinanteImporto(movs, "", importo),
+    [movs, importo],
   );
 
   return (
@@ -266,6 +298,8 @@ export const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio:
           setOrdinante={setOrdinante}
           importo={importo}
           setImporto={setImporto}
+          sortDataAsc={sortDataAsc}
+          setSortDataAsc={setSortDataAsc}
         >
           {seeAll && (
             <div>
@@ -277,6 +311,11 @@ export const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio:
             </div>
           )}
         </FiltriMovimentiRow>
+        {!isLoading && (
+          <p className="text-sm text-muted-foreground pt-2">
+            {movsFiltrati.length === 1 ? "1 movimento" : `${movsFiltrati.length} movimenti`}
+          </p>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         {isLoading ? <p className="text-sm">Caricamento…</p> :
@@ -700,7 +739,10 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
         <CollapsibleTrigger asChild>
           <div className="p-4 cursor-pointer hover:bg-muted/40 flex items-center justify-between">
             <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
-              <div><span className="text-muted-foreground">Data: </span><span className="font-medium">{movimento.data_movimento}</span></div>
+              <div>
+                <span className="text-muted-foreground">Data: </span>
+                <span className="font-medium" title="gg/mm/aaaa">{formatDateIT(movimento.data_movimento)}</span>
+              </div>
               <div>
                 <span className="text-muted-foreground">Ordinante: </span>
                 <span className="font-medium">
@@ -987,6 +1029,7 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
   const [ordinante, setOrdinante] = useState("");
   const [ordinanteDebounced, setOrdinanteDebounced] = useState("");
   const [importo, setImporto] = useState("");
+  const [sortDataAsc, setSortDataAsc] = useState(false);
   const [annullaTarget, setAnnullaTarget] = useState<StoricoMovimento | null>(null);
   const [annullaLoading, setAnnullaLoading] = useState(false);
   const [polizzeCollegate, setPolizzeCollegate] = useState<PolizzaCollegataRow[]>([]);
@@ -997,24 +1040,28 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
     return () => clearTimeout(t);
   }, [ordinante]);
 
-  const { data: movs = [] } = useQuery({
-    queryKey: ["mov-bancari", "storico", profileUfficio, seeAll, dal, al],
+  // ordinante → server (ilike ordinante|descrizione); importo + cliente → client sul set completo
+  const { data: movs = [], isLoading: storicoLoading } = useQuery({
+    queryKey: ["mov-bancari", "storico", profileUfficio, seeAll, dal, al, ordinanteDebounced, sortDataAsc],
     queryFn: async () => {
-      let q = supabase.from("movimenti_bancari" as any)
-        .select("id, data_movimento, importo, ordinante, ufficio_id, cliente:clienti(id, ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio)")
-        .eq("stato", "incassato")
-        .order("data_movimento", { ascending: false })
-        .limit(500);
-      if (!seeAll && profileUfficio) q = q.eq("ufficio_id", profileUfficio);
-      if (dal) q = q.gte("data_movimento", dal);
-      if (al) q = q.lte("data_movimento", al);
-      const { data } = await q;
-      return (data as any[]) ?? [];
+      const ordTerm = sanitizeIlikeTerm(ordinanteDebounced);
+      return fetchAllQueryPages<any>(async (from, to) => {
+        let q = supabase.from("movimenti_bancari" as any)
+          .select("id, data_movimento, importo, ordinante, descrizione, ufficio_id, cliente:clienti(id, ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio)")
+          .eq("stato", "incassato")
+          .order("data_movimento", { ascending: sortDataAsc })
+          .order("id", { ascending: sortDataAsc });
+        if (!seeAll && profileUfficio) q = q.eq("ufficio_id", profileUfficio);
+        if (dal) q = q.gte("data_movimento", dal);
+        if (al) q = q.lte("data_movimento", al);
+        if (ordTerm) q = q.or(`ordinante.ilike.%${ordTerm}%,descrizione.ilike.%${ordTerm}%`);
+        return q.range(from, to);
+      });
     },
   });
 
   const movsFiltrati = useMemo(() => {
-    let rows = filterMovimentiByOrdinanteImporto(movs, ordinanteDebounced, importo);
+    let rows = filterMovimentiByOrdinanteImporto(movs, "", importo);
     if (cliente) {
       const c = cliente.toLowerCase();
       rows = rows.filter((m) => {
@@ -1023,11 +1070,11 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
       });
     }
     return rows;
-  }, [movs, ordinanteDebounced, importo, cliente]);
+  }, [movs, importo, cliente]);
 
   const exportXlsx = () => {
     const rows = movsFiltrati.map((m: any) => ({
-      Data: m.data_movimento,
+      Data: formatDateIT(m.data_movimento),
       Ordinante: m.ordinante || "",
       Cliente: m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "",
       Ufficio: m.ufficio?.nome || "",
@@ -1108,6 +1155,8 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
           setOrdinante={setOrdinante}
           importo={importo}
           setImporto={setImporto}
+          sortDataAsc={sortDataAsc}
+          setSortDataAsc={setSortDataAsc}
         >
           <div>
             <Label>Cliente</Label>
@@ -1115,18 +1164,27 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
           </div>
           <Button variant="outline" size="sm" onClick={exportXlsx}><Download className="w-3 h-3 mr-1" />Export Excel</Button>
         </FiltriMovimentiRow>
+        {!storicoLoading && (
+          <p className="text-sm text-muted-foreground pt-2">
+            {movsFiltrati.length === 1 ? "1 movimento" : `${movsFiltrati.length} movimenti`}
+          </p>
+        )}
       </CardHeader>
       <CardContent>
+        {storicoLoading ? (
+          <p className="text-sm py-6 text-center">Caricamento…</p>
+        ) : (
         <Table>
           <TableHeader><TableRow>
-            <TableHead>Data</TableHead><TableHead>Ordinante</TableHead><TableHead>Cliente</TableHead>
+            <TableHead title="gg/mm/aaaa">Data <span className="font-normal text-muted-foreground text-xs">(gg/mm/aaaa)</span></TableHead>
+            <TableHead>Ordinante</TableHead><TableHead>Cliente</TableHead>
             <TableHead>Ufficio</TableHead><TableHead className="text-right">Importo</TableHead>
             <TableHead className="w-36 text-right">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {movsFiltrati.map((m: any, i: number) => (
               <TableRow key={m.id} className={i % 2 ? "bg-muted/30" : ""}>
-                <TableCell>{m.data_movimento}</TableCell>
+                <TableCell title="gg/mm/aaaa">{formatDateIT(m.data_movimento)}</TableCell>
                 <TableCell className="text-sm max-w-[200px] truncate">{m.ordinante || "—"}</TableCell>
                 <TableCell className="text-sm">{m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "—"}</TableCell>
                 <TableCell className="text-sm">{m.ufficio?.nome ?? "—"}</TableCell>
@@ -1147,6 +1205,7 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
             {movsFiltrati.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
           </TableBody>
         </Table>
+        )}
       </CardContent>
 
       <AlertDialog open={!!annullaTarget} onOpenChange={(v) => !v && !annullaLoading && setAnnullaTarget(null)}>
@@ -1160,7 +1219,9 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
                 </p>
                 {annullaTarget && (
                   <div className="rounded-md border p-3 space-y-1 text-foreground">
-                    <div><span className="text-muted-foreground">Data:</span> {annullaTarget.data_movimento}</div>
+                    <div><span className="text-muted-foreground">Data (gg/mm/aaaa):</span>{" "}
+                      <span title="gg/mm/aaaa">{formatDateIT(annullaTarget.data_movimento)}</span>
+                    </div>
                     <div><span className="text-muted-foreground">Ordinante:</span> {annullaTarget.ordinante || "—"}</div>
                     <div><span className="text-muted-foreground">Importo:</span> {fmtEuro(annullaTarget.importo)}</div>
                   </div>

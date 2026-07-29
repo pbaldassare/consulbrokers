@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Upload, FileSpreadsheet, Plus, Download, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { formatDateIT } from "@/lib/formatDate";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import { OrdinanteCombobox } from "@/components/contabilita/OrdinanteCombobox";
 import { StoricoCarichiMovimenti } from "@/components/contabilita/StoricoCarichiMovimenti";
@@ -687,7 +688,7 @@ function AnteprimaImportDialog({
                       <Badge variant="destructive" className="text-[10px] h-5">Scarto</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{r.data_movimento}</TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">{formatDateIT(r.data_movimento)}</TableCell>
                   <TableCell className="text-right text-xs tabular-nums">
                     {r.importo != null ? fmtEuro(r.importo) : "—"}
                   </TableCell>
@@ -947,7 +948,7 @@ const MonitorTab = () => {
                 const polizze = (m.movimenti_clienti ?? []).flatMap((mc: any) => mc.movimenti_polizze ?? []);
                 const aCassa = polizze.filter((p: any) => p.messo_a_cassa).reduce((s: number, p: any) => s + Number(p.importo || 0), 0);
                 return {
-                  Data: m.data_movimento,
+                  Data: formatDateIT(m.data_movimento),
                   Ordinante: m.ordinante || "",
                   "Conto corrente": m.conto?.etichetta || "",
                   Cliente: cliNome,
@@ -1018,7 +1019,7 @@ const MonitorTab = () => {
                         aria-label={can ? "Seleziona movimento" : "Non cancellabile"}
                       />
                     </TableCell>
-                    <TableCell>{m.data_movimento}</TableCell>
+                    <TableCell>{formatDateIT(m.data_movimento)}</TableCell>
                     <TableCell className="text-sm max-w-[220px] truncate" title={m.ordinante || undefined}>{m.ordinante || "—"}</TableCell>
                     <TableCell className="text-sm max-w-[160px] truncate" title={m.conto?.etichetta || undefined}>{m.conto?.etichetta || "—"}</TableCell>
                     <TableCell className="text-sm">{cliNome}</TableCell>

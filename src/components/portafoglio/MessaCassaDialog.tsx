@@ -15,6 +15,7 @@ import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import { Badge } from "@/components/ui/badge";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { formatDateIT } from "@/lib/formatDate";
 import { useAuth } from "@/contexts/AuthContext";
 import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
@@ -2360,9 +2361,7 @@ export const MessaCassaDialog = ({
                                         {idx + 1}
                                       </td>
                                       <td className="p-2 align-top whitespace-nowrap tabular-nums">
-                                        {b.data_movimento
-                                          ? new Date(b.data_movimento).toLocaleDateString("it-IT")
-                                          : "—"}
+                                        {formatDateIT(b.data_movimento)}
                                       </td>
                                       <td className="p-2 align-top text-right font-medium tabular-nums whitespace-nowrap">
                                         {fmtEuro(b.importo)}
