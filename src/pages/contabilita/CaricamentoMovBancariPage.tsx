@@ -32,6 +32,8 @@ import {
   parseDataBancaria,
   buildPreviewEstratto,
   buildMovimentoDedupKey,
+  buildMovimentoContentDedupKey,
+  isMovimentoDedupHit,
   fetchExistingMovimentoDedupKeys,
   detectColonneEstratto,
   labelMotivoScarto,
@@ -317,14 +319,14 @@ const Page = () => {
 
       const toInsert: any[] = [];
       for (const r of records) {
-        const key = buildMovimentoDedupKey({
+        const dedupPayload = {
           conto_bancario_id: contoImportId,
           data_movimento: r.data_movimento,
           importo: r.importo,
           descrizione: r.descrizione,
           ordinante: r.ordinante,
-        });
-        if (existingKeys.has(key)) {
+        };
+        if (isMovimentoDedupHit(dedupPayload, existingKeys)) {
           scarti.push({
             riga_excel: r._riga_excel,
             motivo: "duplicato",
@@ -337,7 +339,9 @@ const Page = () => {
         } else {
           const { _riga_excel, ...row } = r;
           toInsert.push(row);
-          existingKeys.add(key);
+          existingKeys.add(buildMovimentoDedupKey(dedupPayload));
+          const ck = buildMovimentoContentDedupKey(dedupPayload);
+          if (ck) existingKeys.add(ck);
         }
       }
 
@@ -629,6 +633,12 @@ function AnteprimaImportDialog({
             <div className="text-[10px] text-muted-foreground">Scarti previsti</div>
             <div className="font-bold tabular-nums text-destructive">{preview.scarti}</div>
           </div>
+          <div className="rounded border px-2 py-1.5 border-amber-300 bg-amber-50/60">
+            <div className="text-[10px] text-muted-foreground">Già in archivio</div>
+            <div className="font-bold tabular-nums text-amber-900">
+              {preview.scartiByMotivo.duplicato ?? 0}
+            </div>
+          </div>
           <div className="rounded border px-2 py-1.5">
             <div className="text-[10px] text-muted-foreground">Colonne rilevate</div>
             <div className="text-[11px] leading-snug truncate" title={colHint}>{colHint || "—"}</div>
@@ -645,13 +655,13 @@ function AnteprimaImportDialog({
               </div>
             ))}
             <p className="text-[11px] text-muted-foreground pt-1">
-              Gli scarti sono normali (es. uscite Dare). Verranno salvati nello storico con il motivo.
+              Gli scarti sono normali (uscite Dare, duplicati già presenti in qualsiasi stato). Verranno salvati nello storico con il motivo.
             </p>
           </div>
         )}
 
         <p className="text-xs text-muted-foreground">
-          Anteprima max 40 righe (mix OK / scarto). I duplicati rispetto all&apos;archivio si calcolano alla conferma.
+          Anteprima max 40 righe (mix OK / scarto). I duplicati rispetto all&apos;archivio (qualsiasi stato: da ricongiungere, matchato, ricongiunto, incassato, …) sono già calcolati qui: in conferma verranno importati solo i nuovi.
         </p>
 
         <div className="flex-1 min-h-0 overflow-auto border rounded-md">

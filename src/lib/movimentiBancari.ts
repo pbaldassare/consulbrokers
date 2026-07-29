@@ -185,8 +185,30 @@ export function excelCellDisplayValue(cell: XLSX.CellObject | undefined): unknow
 }
 
 /**
+ * Per colonne data: preferisci il seriale Excel (`v`) al testo `w` (spesso m/d/yy US negli estratti BCC),
+ * così la data resta YYYY-MM-DD coerente con il DB.
+ */
+export function excelCellValueForColumn(
+  cell: XLSX.CellObject | undefined,
+  columnName: string,
+): unknown {
+  if (cell == null) return "";
+  if (/data|valuta/i.test(columnName) && cell.t === "n" && typeof cell.v === "number" && Number.isFinite(cell.v)) {
+    // Seriali data Excel tipici (~1982–2064); evita di trattare importi piccoli come date
+    if (cell.v >= 30000 && cell.v <= 60000) {
+      const d = XLSX.SSF?.parse_date_code?.(cell.v);
+      if (d && d.y >= 1990 && d.y <= 2100) {
+        return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+      }
+    }
+  }
+  return excelCellDisplayValue(cell);
+}
+
+/**
  * sheet_to_json che usa sempre `w` (display) quando presente.
  * Evita gli importi BCC dove v=83809 ma w=" 838,09 ".
+ * Colonne data/valuta: seriale Excel → YYYY-MM-DD (non m/d/yy US del `w`).
  */
 export function sheetRowsPreferDisplay(sheet: XLSX.WorkSheet): Record<string, unknown>[] {
   const ref = sheet["!ref"];
@@ -206,7 +228,7 @@ export function sheetRowsPreferDisplay(sheet: XLSX.WorkSheet): Record<string, un
       const key = headers[C - range.s.c];
       if (!key) continue;
       const addr = XLSX.utils.encode_cell({ r: R, c: C });
-      const val = excelCellDisplayValue(sheet[addr]);
+      const val = excelCellValueForColumn(sheet[addr], key);
       if (val !== "" && val != null) empty = false;
       row[key] = val;
     }
@@ -315,17 +337,21 @@ export function resolveImportoEstratto(
 /** Etichette italiane per i motivi di scarto import. */
 export const MOTIVO_SCARTO_LABEL: Record<string, string> = {
   solo_dare: "Uscita (Dare): non è un accredito — esclusa dall'import",
-  duplicato: "Già presente o già collegato (stesso conto, data, importo e descrizione)",
+  duplicato: "Già presente in archivio (stesso conto/importo/descrizione, qualsiasi stato)",
   importo_zero_o_invalido: "Importo mancante o non valido",
 };
 
-/** Normalizza descrizione per chiave anti-doppio (ignora IBAN / rumore). */
+/** Lunghezza minima descrizione normalizzata per la content-key (senza data). */
+export const MIN_DESC_LEN_CONTENT_DEDUP = 24;
+
+/** Normalizza descrizione per chiave anti-doppio (ignora IBAN / CRO / rumore spazi). */
 export function normalizeDescrizioneDedup(desc: string | null | undefined): string {
   return String(desc || "")
     .toUpperCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\b[A-Z]{2}\s?\d{2}(?:[\s]?[A-Z0-9]){11,30}\b/g, " ")
+    .replace(/\b(?:CRO|TRN|CIG|CUP|ABI|CAB|BIC|SWIFT|ID[\s_]?BONIFICO)\s*[:\s]?\s*[A-Z0-9]+\b/g, " ")
     .replace(/[^A-Z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -336,6 +362,7 @@ export function normalizeDescrizioneDedup(desc: string | null | undefined): stri
  * Chiave stabile anti-doppio: conto + data + importo + descrizione.
  * Non usa l'ordinante (può essere IBAN o nominativo a seconda del carico).
  * Copre anche movimenti già ricongiunti/incassati sullo stesso conto.
+ * `data_movimento` va sempre come YYYY-MM-DD (slice 0,10).
  */
 export function buildMovimentoDedupKey(r: {
   conto_bancario_id?: string | null;
@@ -345,10 +372,50 @@ export function buildMovimentoDedupKey(r: {
   ordinante?: string | null;
 }): string {
   const imp = round2(Number(r.importo) || 0);
+  const data = String(r.data_movimento || "").slice(0, 10);
   const desc = normalizeDescrizioneDedup(r.descrizione);
   // Se descrizione vuota, usa ordinante sanitizzato come fallback
   const fallback = desc || sanitizeOrdinanteNome(String(r.ordinante || "")).toUpperCase();
-  return [r.conto_bancario_id || "", r.data_movimento || "", String(imp), fallback].join("|");
+  // Soft: solo importo+data se descrizione (e fallback) troppo corta — evita falsi positivi su bonifici omonimi
+  if (fallback.length < 8) {
+    return [r.conto_bancario_id || "", data, String(imp), ""].join("|");
+  }
+  return [r.conto_bancario_id || "", data, String(imp), fallback].join("|");
+}
+
+/**
+ * Chiave secondaria senza data: conto|importo|descrizione.
+ * Usata solo se la descrizione normalizzata è abbastanza lunga (≥ MIN_DESC_LEN_CONTENT_DEDUP)
+ * su entrambi i lati — cattura re-import con date storicamente parseate male (m/d vs d/m).
+ * Non usata per descrizioni corte (rischio falso positivo su stesso importo).
+ */
+export function buildMovimentoContentDedupKey(r: {
+  conto_bancario_id?: string | null;
+  importo: number | null | undefined;
+  descrizione?: string | null;
+  ordinante?: string | null;
+}): string | null {
+  const imp = round2(Number(r.importo) || 0);
+  const desc = normalizeDescrizioneDedup(r.descrizione);
+  const fallback = desc || sanitizeOrdinanteNome(String(r.ordinante || "")).toUpperCase();
+  if (fallback.length < MIN_DESC_LEN_CONTENT_DEDUP) return null;
+  return [r.conto_bancario_id || "", String(imp), fallback].join("|");
+}
+
+/** True se la riga matcha un movimento già in archivio (chiave primaria o content-key). */
+export function isMovimentoDedupHit(
+  r: {
+    conto_bancario_id?: string | null;
+    data_movimento: string;
+    importo: number | null | undefined;
+    descrizione?: string | null;
+    ordinante?: string | null;
+  },
+  existingDedupKeys: Set<string>,
+): boolean {
+  if (existingDedupKeys.has(buildMovimentoDedupKey(r))) return true;
+  const ck = buildMovimentoContentDedupKey(r);
+  return ck != null && existingDedupKeys.has(ck);
 }
 
 export function labelMotivoScarto(motivo: string | null | undefined): string {
@@ -415,14 +482,18 @@ export function buildPreviewEstratto(
       return;
     }
 
-    const dedupKey = buildMovimentoDedupKey({
+    const dedupPayload = {
       conto_bancario_id: contoId,
       data_movimento,
       importo,
       descrizione,
       ordinante,
-    });
-    if (existing?.has(dedupKey) || seenInFile.has(dedupKey)) {
+    };
+    const dedupKey = buildMovimentoDedupKey(dedupPayload);
+    const contentKey = buildMovimentoContentDedupKey(dedupPayload);
+    const dupInFile = seenInFile.has(dedupKey) || (contentKey != null && seenInFile.has(contentKey));
+    const dupInArchive = existing ? isMovimentoDedupHit(dedupPayload, existing) : false;
+    if (dupInArchive || dupInFile) {
       scartiByMotivo.duplicato = (scartiByMotivo.duplicato || 0) + 1;
       if (preview.length < 40) {
         preview.push({
@@ -438,6 +509,7 @@ export function buildPreviewEstratto(
       return;
     }
     seenInFile.add(dedupKey);
+    if (contentKey) seenInFile.add(contentKey);
 
     daImportare += 1;
     if (preview.length < 40) {
@@ -466,37 +538,53 @@ export function buildPreviewEstratto(
   };
 }
 
-/** Carica chiavi dedup dei movimenti già presenti sul conto (qualsiasi stato, anche collegati). */
+const DEDUP_FETCH_PAGE = 1000;
+
+/**
+ * Carica chiavi dedup dei movimenti già presenti sul conto (qualsiasi stato, anche collegati).
+ * Paginazione PostgREST (page da 1000) su TUTTI i movimenti del conto — non solo le date del file —
+ * così si intercettano anche righe con data storicamente parseata male (m/d vs d/m).
+ * Il set include chiave primaria (conto|data|importo|desc) e, se desc lunga, content-key (conto|importo|desc).
+ * `dates` è accettato per compatibilità chiamate ma non filtra più la query.
+ */
 export async function fetchExistingMovimentoDedupKeys(
   contoBancarioId: string,
-  dates: string[],
+  _dates?: string[],
 ): Promise<Set<string>> {
   const keys = new Set<string>();
-  if (!contoBancarioId || dates.length === 0) return keys;
+  if (!contoBancarioId) return keys;
 
-  const CHUNK = 100;
-  for (let i = 0; i < dates.length; i += CHUNK) {
-    const slice = dates.slice(i, i + CHUNK);
+  let from = 0;
+  for (;;) {
+    const to = from + DEDUP_FETCH_PAGE - 1;
     const { data, error } = await supabase
       .from("movimenti_bancari" as any)
       .select("conto_bancario_id, data_movimento, importo, descrizione, ordinante")
       .eq("conto_bancario_id", contoBancarioId)
-      .in("data_movimento", slice as any);
+      .order("id", { ascending: true })
+      .range(from, to);
     if (error) throw error;
-    for (const row of (data as any[]) ?? []) {
-      keys.add(
-        buildMovimentoDedupKey({
-          conto_bancario_id: row.conto_bancario_id,
-          data_movimento: String(row.data_movimento || "").slice(0, 10),
-          importo: Number(row.importo) || 0,
-          descrizione: row.descrizione,
-          ordinante: row.ordinante,
-        }),
-      );
+    const rows = (data as any[]) ?? [];
+    for (const row of rows) {
+      const payload = {
+        conto_bancario_id: row.conto_bancario_id,
+        data_movimento: String(row.data_movimento || "").slice(0, 10),
+        importo: Number(row.importo) || 0,
+        descrizione: row.descrizione,
+        ordinante: row.ordinante,
+      };
+      keys.add(buildMovimentoDedupKey(payload));
+      const ck = buildMovimentoContentDedupKey(payload);
+      if (ck) keys.add(ck);
     }
+    if (rows.length < DEDUP_FETCH_PAGE) break;
+    from += DEDUP_FETCH_PAGE;
   }
   return keys;
 }
+
+/** @internal esposto per test della paginazione */
+export const __DEDUP_FETCH_PAGE = DEDUP_FETCH_PAGE;
 
 export function countByMotivo(motivi: string[]): Record<string, number> {
   const out: Record<string, number> = {};
