@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, ChevronRight, ChevronDown, Sparkles, Briefcase, Loader2, Banknote, Shield, Calculator } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, ChevronRight, ChevronDown, Sparkles, Briefcase, Loader2, Banknote, Shield, Calculator, Car } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +48,9 @@ import {
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { isInCoperturaGarantita, isGarantitoDaIncassare } from "@/lib/garantitoTitolo";
 import { countQuietanzeDaIncassare, countQuietanzeRateDaIncassare, isQuietanzaDaMostrare } from "@/lib/quietanzeClienteView";
+import { ultimaQuietanzaCatena } from "@/lib/ultimaQuietanzaCatena";
+import { isPolizzaAuto } from "@/lib/isPolizzaAuto";
+import { ModificaVeicoloDialog } from "@/components/polizze/ModificaVeicoloDialog";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
@@ -1203,6 +1206,43 @@ function PolizzeClienteTable({
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggleExpand = (key: string) =>
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  const [veicoloDialog, setVeicoloDialog] = useState<{
+    titoloId: string;
+    numero: string | null;
+    stornato: boolean;
+  } | null>(null);
+
+  const madreIds = useMemo(() => {
+    const ids = new Set<string>();
+    catene.forEach((c: any) => {
+      const head = c.madre || c.all[0];
+      if (head?.id && isPolizzaMadre(head)) ids.add(head.id);
+    });
+    return [...ids];
+  }, [catene]);
+
+  const { data: veicoliByTitoloId = {} } = useQuery({
+    queryKey: ["veicoli_polizza_madri", clienteId, madreIds],
+    queryFn: async () => {
+      if (madreIds.length === 0) return {} as Record<string, { targa?: string | null }>;
+      const { data, error } = await supabase
+        .from("veicoli_polizza")
+        .select("titolo_id, targa")
+        .in("titolo_id", madreIds);
+      if (error) throw error;
+      const map: Record<string, { targa?: string | null }> = {};
+      (data || []).forEach((v: any) => {
+        if (v.titolo_id) map[v.titolo_id] = { targa: v.targa };
+      });
+      return map;
+    },
+    enabled: madreIds.length > 0,
+  });
+
+  const isCateneView = filtroTipo !== "quietanze" && filtroTipo !== "garantiti";
+  const colSpanBase = isCateneView
+    ? (isAdmin ? 14 : 13)
+    : (isAdmin ? 13 : 12);
 
   // Opzioni filtri (derivate dalle polizze caricate)
   const gruppiRamoOpts = useMemo(() => {
@@ -1250,8 +1290,9 @@ function PolizzeClienteTable({
     if (filtroNumero) {
       const q = filtroNumero.toLowerCase();
       const num = String(t.numero_titolo || "").toLowerCase();
-      const targa = String(t.targa_telaio || "").toLowerCase();
-      if (!num.includes(q) && !targa.includes(q)) return false;
+      const targaTitolo = String(t.targa_telaio || "").toLowerCase();
+      const targaVeicolo = String(veicoliByTitoloId[t.id]?.targa || "").toLowerCase();
+      if (!num.includes(q) && !targaTitolo.includes(q) && !targaVeicolo.includes(q)) return false;
     }
     if (filtroGruppoRamo && t.ramo?.gruppo_ramo?.descrizione !== filtroGruppoRamo) return false;
     if (filtroGaranzia && t.ramo?.descrizione !== filtroGaranzia) return false;
@@ -1275,7 +1316,7 @@ function PolizzeClienteTable({
       return c.appendici.some((a: any) => matchTitolo(a));
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [catene, filtroTipo, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato],
+    [catene, filtroTipo, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato, veicoliByTitoloId],
   );
 
   const hasAnyFilter = !!(filtroNumero || filtroGruppoRamo || filtroGaranzia || filtroAgenzia || filtroStato);
@@ -1708,17 +1749,24 @@ function PolizzeClienteTable({
               ) : null}
             </TableHead>
             <TableHead>N. Polizza</TableHead>
+            {isCateneView && <TableHead>Targa</TableHead>}
             <TableHead>Tipo</TableHead>
             <TableHead>Gruppo Ramo</TableHead>
             <TableHead>Garanzia</TableHead>
             <TableHead>Inizio Garanzia</TableHead>
             <TableHead>Fine Garanzia</TableHead>
             <TableHead>Compagnia / Agenzia</TableHead>
-            <TableHead>Premio €</TableHead>
-            <TableHead>Provvigioni €</TableHead>
+            <TableHead title={isCateneView ? "Ultimo premio della quietanza più rilevante" : undefined}>
+              {isCateneView ? "Ultimo premio quiet." : "Premio €"}
+            </TableHead>
+            <TableHead title={isCateneView ? "Ultime provvigioni della quietanza più rilevante" : undefined}>
+              {isCateneView ? "Ultime provv. quiet." : "Provvigioni €"}
+            </TableHead>
             <TableHead>Data Copertura</TableHead>
-            <TableHead>Data Incasso</TableHead>
-            {isAdmin && <TableHead className="w-12"></TableHead>}
+            <TableHead title={isCateneView ? "Ultima data di incasso dalla quietanza più rilevante" : undefined}>
+              {isCateneView ? "Ultima data incasso" : "Data Incasso"}
+            </TableHead>
+            {isAdmin && <TableHead className="w-16"></TableHead>}
           </TableRow>
 
         </TableHeader>
@@ -1726,7 +1774,7 @@ function PolizzeClienteTable({
           {filtroTipo === "garantiti" ? (
             allGarant.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 13 : 12} className="text-center text-sm text-muted-foreground py-6">
+                <TableCell colSpan={colSpanBase} className="text-center text-sm text-muted-foreground py-6">
                   Nessuna polizza in copertura garantita
                 </TableCell>
               </TableRow>
@@ -1770,7 +1818,7 @@ function PolizzeClienteTable({
           ) : filtroTipo === "quietanze" ? (
             flatQuietanze.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 13 : 12} className="text-center text-sm text-muted-foreground py-6">
+                <TableCell colSpan={colSpanBase} className="text-center text-sm text-muted-foreground py-6">
                   Nessuna quietanza da incassare
                 </TableCell>
               </TableRow>
@@ -1848,7 +1896,7 @@ function PolizzeClienteTable({
             )
           ) : filteredCatene.length === 0 ? (
             <TableRow>
-                <TableCell colSpan={isAdmin ? 13 : 12} className="text-center text-sm text-muted-foreground py-6">
+                <TableCell colSpan={colSpanBase} className="text-center text-sm text-muted-foreground py-6">
                 Nessuna polizza presente
               </TableCell>
             </TableRow>
@@ -1862,6 +1910,13 @@ function PolizzeClienteTable({
               const hasRate = c.rate.length > 0;
               const hasAppendici = c.appendici.length > 0;
               const isExpandable = hasRate || hasAppendici;
+              const hasVeicolo = !!veicoliByTitoloId[head.id];
+              const auto = isPolizzaAuto(head, hasVeicolo);
+              const targaDisplay =
+                (veicoliByTitoloId[head.id]?.targa || head.targa_telaio || "").toString().trim() || "—";
+              const qUltimaIncasso = isPolizzaMadre(head)
+                ? ultimaQuietanzaCatena(c.rate, c.appendici)
+                : null;
 
               return (
                 <Fragment key={c.numero}>
@@ -1889,6 +1944,11 @@ function PolizzeClienteTable({
                       ) : null}
                     </TableCell>
                     <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
+                    {isCateneView && (
+                      <TableCell className="font-mono text-xs uppercase">
+                        {auto ? targaDisplay : "—"}
+                      </TableCell>
+                    )}
                     <TableCell>
                       {isAppendice(head) ? (
                         <TipoPolizzaBadge tipo="appendice" appendiceLabel={appendiceTipoLabel(head)} messaACassa={isMessaACassa(head)} />
@@ -1902,10 +1962,18 @@ function PolizzeClienteTable({
                     <TableCell className="text-xs">{fmtDate(head.garanzia_a ?? head.durata_a)}</TableCell>
                     <TableCell>{agenzia}</TableCell>
                     <TableCell className="font-mono">
-                      {isAppendice(head) ? fmtNum(head.premio_lordo) : "—"}
+                      {isAppendice(head)
+                        ? fmtNum(head.premio_lordo)
+                        : isPolizzaMadre(head)
+                          ? fmtNum(qUltimaIncasso?.premio_lordo)
+                          : "—"}
                     </TableCell>
                     <TableCell className="font-mono">
-                      {isAppendice(head) ? fmtNum(getProvvigioneEC(head)) : "—"}
+                      {isAppendice(head)
+                        ? fmtNum(getProvvigioneEC(head))
+                        : isPolizzaMadre(head)
+                          ? (qUltimaIncasso ? fmtNum(getProvvigioneEC(qUltimaIncasso)) : "—")
+                          : "—"}
                     </TableCell>
                     <TableCell className="text-xs">
                       {(() => {
@@ -1932,27 +2000,54 @@ function PolizzeClienteTable({
                       })()}
                     </TableCell>
                     <TableCell className="text-xs">
-                      {isPolizzaMadre(head) ? "—" : fmtDataIncasso(head)}
+                      {isPolizzaMadre(head)
+                        ? (qUltimaIncasso ? fmtDataIncasso(qUltimaIncasso) : "—")
+                        : fmtDataIncasso(head)}
                     </TableCell>
                     {isAdmin && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          disabled={!!deleting}
-                          title={
-                            isAppendice(head)
-                              ? "Elimina appendice (cascade incassi/provvigioni)"
-                              : "Elimina polizza e quietanze (cascade incassi/provvigioni)"
-                          }
-                          onClick={() =>
-                            isAppendice(head) ? handleDeleteAppendice(head) : handleDeleteMadre(c)
-                          }
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex items-center gap-0.5">
+                          {auto && isPolizzaMadre(head) && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              title={
+                                head.stato === "stornato"
+                                  ? "Polizza stornata: modifica veicolo non consentita"
+                                  : "Modifica dati veicolo"
+                              }
+                              disabled={head.stato === "stornato"}
+                              onClick={() =>
+                                setVeicoloDialog({
+                                  titoloId: head.id,
+                                  numero: head.numero_titolo ?? null,
+                                  stornato: head.stato === "stornato",
+                                })
+                              }
+                            >
+                              <Car className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            disabled={!!deleting}
+                            title={
+                              isAppendice(head)
+                                ? "Elimina appendice (cascade incassi/provvigioni)"
+                                : "Elimina polizza e quietanze (cascade incassi/provvigioni)"
+                            }
+                            onClick={() =>
+                              isAppendice(head) ? handleDeleteAppendice(head) : handleDeleteMadre(c)
+                            }
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
@@ -1972,6 +2067,7 @@ function PolizzeClienteTable({
                       <TableCell className="font-mono text-xs pl-8 text-muted-foreground">
                         ↳ {r.numero_titolo || "—"}
                       </TableCell>
+                      {isCateneView && <TableCell />}
                       <TableCell>
                         <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(r)} />
                       </TableCell>
@@ -2023,6 +2119,7 @@ function PolizzeClienteTable({
                       <TableCell className="font-mono text-xs pl-8 text-muted-foreground">
                         ↳ {r.numero_titolo || "—"}
                       </TableCell>
+                      {isCateneView && <TableCell />}
                       <TableCell>
                         <TipoPolizzaBadge tipo="appendice" appendiceLabel={appendiceTipoLabel(r)} messaACassa={isMessaACassa(r)} />
                       </TableCell>
@@ -2127,6 +2224,17 @@ function PolizzeClienteTable({
         onOpenChange={setGarantitoDialogOpen}
         titoli={garantitoDialogTitoli}
         onSuccess={() => invalidatePolizzeCliente()}
+      />
+
+      <ModificaVeicoloDialog
+        open={!!veicoloDialog}
+        onOpenChange={(open) => {
+          if (!open) setVeicoloDialog(null);
+        }}
+        titoloId={veicoloDialog?.titoloId ?? null}
+        numeroPolizza={veicoloDialog?.numero}
+        disabled={!!veicoloDialog?.stornato}
+        onSaved={() => invalidatePolizzeCliente()}
       />
     </div>
   );
