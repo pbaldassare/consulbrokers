@@ -29,4 +29,14 @@ describe("scoreClienteSearch", () => {
       ),
     ).toBe(5);
   });
+
+  it("frase su cognome+nome: de gobbi trova DE GOBBI MARCO", () => {
+    const cliente = { cognome: "DE", nome: "GOBBI MARCO" };
+    // "de gobbi" è prefisso di "de gobbi marco" → starts with = 3
+    expect(scoreClienteSearch(cliente, "de gobbi")).toBe(3);
+    // "gobbi" è prefisso di nome "gobbi marco" → starts with = 3
+    expect(scoreClienteSearch(cliente, "gobbi")).toBe(3);
+    // token non contigui → token AND = contains-like
+    expect(scoreClienteSearch(cliente, "gobbi de")).toBe(4);
+  });
 });
