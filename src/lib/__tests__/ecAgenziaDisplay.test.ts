@@ -23,17 +23,20 @@ describe("ecAgenziaDisplay", () => {
     ).toBe(100);
   });
 
-  it("resolveTipoPagamentoLabelEcAgenzia non espone abbuono né compensazione", () => {
+  it("resolveTipoPagamentoLabelEcAgenzia non espone abbuono né compensazione legacy", () => {
     expect(resolveTipoPagamentoLabelEcAgenzia("abbuono")).toBe("Premio saldato");
     expect(resolveTipoPagamentoLabelEcAgenzia("compensato")).toBe("Premio saldato");
     expect(resolveTipoPagamentoLabelEcAgenzia("misto_compensato")).toBe("Premio saldato");
     expect(resolveTipoPagamentoLabelEcAgenzia("bonifico")).toBe("Bonifico");
+    expect(resolveTipoPagamentoLabelEcAgenzia("costi_consulbrokers")).toBe("Bonifico");
+    expect(resolveTipoPagamentoLabelEcAgenzia("compensazione")).toBe("Bonifico");
   });
 
-  it("resolveMiCodiceEcAgenzia mappa acconti bancari a B", () => {
+  it("resolveMiCodiceEcAgenzia mappa acconti e pag. diretto a B, garantito a *", () => {
     expect(resolveMiCodiceEcAgenzia("anticipo")).toBe("B");
     expect(resolveMiCodiceEcAgenzia(null)).toBe("B");
-    expect(resolveMiCodiceEcAgenzia("pagamento_diretto_compagnia")).toBe("*");
+    expect(resolveMiCodiceEcAgenzia("pagamento_diretto_compagnia")).toBe("B");
+    expect(resolveMiCodiceEcAgenzia("garantito")).toBe("*");
   });
 
   it("resolveCompagniaCollegataNome legge gruppo compagnia", () => {
@@ -44,11 +47,15 @@ describe("ecAgenziaDisplay", () => {
 
   it("resolveTipoPagamentoMiEcAgenzia non espone abbuono", () => {
     expect(resolveTipoPagamentoMiEcAgenzia("bonifico")).toBe("B");
+    expect(resolveTipoPagamentoMiEcAgenzia("costi_consulbrokers")).toBe("B");
+    expect(resolveTipoPagamentoMiEcAgenzia("compensazione")).toBe("B");
     expect(resolveTipoPagamentoMiEcAgenzia("abbuono")).toBe("B");
     expect(resolveTipoPagamentoMiEcAgenzia("compensato")).toBe("B");
     expect(resolveTipoPagamentoMiEcAgenzia("contanti")).toBe("C");
     expect(resolveTipoPagamentoMiEcAgenzia("anticipo")).toBe("B");
     expect(resolveTipoPagamentoMiEcAgenzia("anticipo_misto")).toBe("B");
     expect(resolveTipoPagamentoMiEcAgenzia("assegno")).toBe("A");
+    expect(resolveTipoPagamentoMiEcAgenzia("pagamento_diretto_compagnia")).toBe("B");
+    expect(resolveTipoPagamentoMiEcAgenzia("garantito")).toBe("*");
   });
 });

@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Clock, Search, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass, RotateCcw, ArrowRightLeft } from "lucide-react";
+import { Clock, Search, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass, RotateCcw, ArrowRightLeft, FileSpreadsheet, FileText, FileType, Loader2 } from "lucide-react";
 
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -45,6 +45,11 @@ import {
   type BonificoSuggerito,
 } from "@/lib/bonificoMatch";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
+import { mapCaricoExportRows } from "@/lib/portafoglioCarico/mapRow";
+import { exportCaricoXlsx } from "@/lib/portafoglioCarico/exportXlsx";
+import { buildCaricoPdf, downloadCaricoPdf } from "@/lib/portafoglioCarico/exportPdf";
+import { buildCaricoDocx, downloadCaricoDocx } from "@/lib/portafoglioCarico/exportDocx";
+import type { CaricoExportMeta } from "@/lib/portafoglioCarico/columns";
 
 /** Stessa regola del dettaglio cliente / E/C (non usare ?? : lo 0 non fa fallback a firma). */
 const provvigioneRiga = getProvvigioneEC;
@@ -64,7 +69,7 @@ const rowHref = (p: any): string | null => {
 };
 
 
-const PortafoglioCaricoPage = () => {
+const IncassiPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
@@ -101,6 +106,8 @@ const PortafoglioCaricoPage = () => {
   });
   const [bonificiPanelOpen, setBonificiPanelOpen] = useState(() => searchParams.get("tab") === "bonifici");
   const [preferredBonifico, setPreferredBonifico] = useState<PreferredBonificoContext | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingDocx, setExportingDocx] = useState(false);
   type VistaIncasso = "pendenti" | "incassati";
   const [vistaIncasso, setVistaIncasso] = useState<VistaIncasso>(() =>
     searchParams.get("vista") === "incassati" ? "incassati" : "pendenti",
@@ -334,6 +341,131 @@ const PortafoglioCaricoPage = () => {
 
   const polizze = (result?.data || []);
   const totalCount = result?.count || 0;
+
+  const { data: ufficiList = [] } = useQuery({
+    queryKey: ["uffici-filter-multi"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("uffici")
+        .select("id, codice_ufficio, nome_ufficio")
+        .eq("attivo", true)
+        .order("nome_ufficio");
+      if (error) throw error;
+      return (data || []) as Array<{ id: string; codice_ufficio: string; nome_ufficio: string }>;
+    },
+    staleTime: 60_000,
+  });
+
+  const ufficiById = useMemo(
+    () => new Map(ufficiList.map((u) => [u.id, u.nome_ufficio])),
+    [ufficiList],
+  );
+
+  const exportSourceRows = useMemo(
+    () => (selectedIds.size > 0 ? polizze.filter((p) => selectedIds.has(p.id)) : polizze),
+    [polizze, selectedIds],
+  );
+
+  const exportMeta = useMemo((): CaricoExportMeta => {
+    const totPremio = exportSourceRows.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0);
+    const totProvv = exportSourceRows.reduce((s, p) => s + provvigioneRiga(p), 0);
+    const sedeLabel =
+      filtroUffici.length === 0
+        ? "Tutte"
+        : filtroUffici
+            .map((id) => ufficiList.find((u) => u.id === id))
+            .filter(Boolean)
+            .map((u) => `${u!.codice_ufficio} — ${u!.nome_ufficio}`)
+            .join(", ") || `${filtroUffici.length} sedi`;
+
+    return {
+      vista: vistaIncasso,
+      scope: selectedIds.size > 0 ? "selezione" : "pagina",
+      nRighe: exportSourceRows.length,
+      totalePremio: totPremio,
+      totaleProvvigioni: totProvv,
+      totaleFiltrate: totalCount,
+      filtri: {
+        Vista: isVistaIncassati ? "Incassati" : "Pendenti",
+        Periodo: filtroPeriodo === "mese_corrente" ? "Mese corrente" : "Tutte",
+        Dal: dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : "—",
+        Al: dateA ? format(new Date(dateA), "dd/MM/yyyy") : "—",
+        Sedi: sedeLabel,
+        Ricerca: search.trim() || "—",
+      },
+    };
+  }, [
+    exportSourceRows,
+    selectedIds.size,
+    vistaIncasso,
+    isVistaIncassati,
+    filtroPeriodo,
+    dateDa,
+    dateA,
+    filtroUffici,
+    ufficiList,
+    search,
+    totalCount,
+  ]);
+
+  const handleExportXlsx = useCallback(() => {
+    if (!exportSourceRows.length) return;
+    try {
+      const rows = mapCaricoExportRows(exportSourceRows, ufficiById);
+      exportCaricoXlsx(rows, exportMeta);
+      if (exportMeta.scope === "pagina" && totalCount > exportSourceRows.length) {
+        toast.message("Export pagina corrente", {
+          description: `Esportate ${exportSourceRows.length} righe su ${totalCount} totali filtrate.`,
+        });
+      } else {
+        toast.success(`Excel generato (${exportSourceRows.length} righe)`);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Errore generazione Excel");
+    }
+  }, [exportSourceRows, ufficiById, exportMeta, totalCount]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!exportSourceRows.length) return;
+    try {
+      setExportingPdf(true);
+      const rows = mapCaricoExportRows(exportSourceRows, ufficiById);
+      const bytes = await buildCaricoPdf(rows, exportMeta);
+      downloadCaricoPdf(bytes, exportMeta);
+      if (exportMeta.scope === "pagina" && totalCount > exportSourceRows.length) {
+        toast.message("Export pagina corrente", {
+          description: `Esportate ${exportSourceRows.length} righe su ${totalCount} totali filtrate.`,
+        });
+      } else {
+        toast.success(`PDF generato (${exportSourceRows.length} righe)`);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Errore generazione PDF");
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [exportSourceRows, ufficiById, exportMeta, totalCount]);
+
+  const handleExportDocx = useCallback(async () => {
+    if (!exportSourceRows.length) return;
+    try {
+      setExportingDocx(true);
+      const rows = mapCaricoExportRows(exportSourceRows, ufficiById);
+      const blob = await buildCaricoDocx(rows, exportMeta);
+      downloadCaricoDocx(blob, exportMeta);
+      if (exportMeta.scope === "pagina" && totalCount > exportSourceRows.length) {
+        toast.message("Export pagina corrente", {
+          description: `Esportate ${exportSourceRows.length} righe su ${totalCount} totali filtrate.`,
+        });
+      } else {
+        toast.success(`Word generato (${exportSourceRows.length} righe)`);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Errore generazione Word");
+    } finally {
+      setExportingDocx(false);
+    }
+  }, [exportSourceRows, ufficiById, exportMeta, totalCount]);
 
   const titoloIdsRiga = useMemo(() => polizze.map((p: any) => p.id), [polizze]);
   const { data: compensazioniMap } = useCompensazioniByTitoli(titoloIdsRiga);
@@ -916,6 +1048,41 @@ const PortafoglioCaricoPage = () => {
               Reset Filtri
             </Button>
           )}
+          <div className="flex items-center gap-1 ml-auto sm:ml-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportXlsx}
+              disabled={!exportSourceRows.length}
+              className="gap-1"
+              title={selectedIds.size > 0 ? "Esporta selezione" : "Esporta righe in pagina"}
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-green-700" />
+              Excel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={!exportSourceRows.length || exportingPdf}
+              className="gap-1"
+              title={selectedIds.size > 0 ? "Esporta selezione" : "Esporta righe in pagina"}
+            >
+              {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+              {exportingPdf ? "PDF..." : "PDF"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportDocx}
+              disabled={!exportSourceRows.length || exportingDocx}
+              className="gap-1"
+              title={selectedIds.size > 0 ? "Esporta selezione" : "Esporta righe in pagina"}
+            >
+              {exportingDocx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileType className="h-3.5 w-3.5" />}
+              {exportingDocx ? "Word..." : "Word"}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -1182,4 +1349,4 @@ const PortafoglioCaricoPage = () => {
   );
 };
 
-export default PortafoglioCaricoPage;
+export default IncassiPage;

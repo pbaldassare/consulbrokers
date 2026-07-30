@@ -54,7 +54,7 @@ import { isInCoperturaGarantita, isGarantitoDaIncassare } from "@/lib/garantitoT
 import { countQuietanzeDaIncassare, countQuietanzeRateDaIncassare, isQuietanzaDaMostrare } from "@/lib/quietanzeClienteView";
 import { ultimaQuietanzaCatena } from "@/lib/ultimaQuietanzaCatena";
 import { totaliQuietanzamentoCatena } from "@/lib/totaliQuietanzamentoCatena";
-import { isPolizzaAuto } from "@/lib/isPolizzaAuto";
+import { isTipoPagamentoAliasBonificoEsterno } from "@/lib/incassoTipoPagamento";
 import { ModificaVeicoloDialog } from "@/components/polizze/ModificaVeicoloDialog";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
@@ -1498,7 +1498,7 @@ function PolizzeClienteTable({
   /** Una sola colonna «Data Incasso»: per bonifico = data ricezione bonifico (data_pagamento). */
   const fmtDataIncasso = (r: { tipo_pagamento?: string | null; data_pagamento?: string | null; data_incasso?: string | null; data_messa_cassa?: string | null } | null | undefined) => {
     if (!r) return "—";
-    const isBonifico = String(r.tipo_pagamento || "").toLowerCase() === "bonifico";
+    const isBonifico = isTipoPagamentoAliasBonificoEsterno(r.tipo_pagamento);
     if (isBonifico) return fmtDate(r.data_pagamento || r.data_incasso || r.data_messa_cassa);
     return fmtDate(r.data_pagamento || r.data_incasso || r.data_messa_cassa);
   };

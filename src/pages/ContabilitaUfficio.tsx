@@ -45,6 +45,10 @@ import {
   type RiepilogoTotali,
   type TitoloCassa,
 } from "@/lib/riepilogoMesseACassa";
+import {
+  resolveTipoPagamentoBadgeVariant,
+  resolveTipoPagamentoLabelEcAgenzia,
+} from "@/lib/ecAgenziaDisplay";
 
 function SummaryCells({ t }: { t: RiepilogoTotali }) {
   return (
@@ -77,10 +81,8 @@ function TitoliDetailTable({ titoli, navigate }: { titoli: TitoloCassa[]; naviga
         {titoli.map((t) => {
           const { lordo, provv, netto } = importiTitolo(t);
           const tp = t.tipo_pagamento;
-          const pagLabel =
-            tp === "contanti" ? "Contanti" : tp === "pos" || tp === "carta_credito" ? "POS" : tp === "bonifico" ? "Bonifico" : "—";
-          const pagVariant =
-            tp === "contanti" ? "secondary" : tp === "pos" || tp === "carta_credito" ? "default" : tp === "bonifico" ? "outline" : "secondary";
+          const pagLabel = resolveTipoPagamentoLabelEcAgenzia(tp);
+          const pagVariant = resolveTipoPagamentoBadgeVariant(tp);
           return (
             <TableRow key={t.id} className="cursor-pointer hover:bg-muted/40" onClick={() => navigate(`/titoli/${t.id}`)}>
               <TableCell className="font-mono text-sm">{t.numero_titolo || "—"}</TableCell>
@@ -164,8 +166,7 @@ const ContabilitaUfficio = () => {
   type Scope = { type: "globale" } | { type: "agenzia"; gruppo: GruppoAgenziaMessaCassa };
 
   const buildPdfData = (scope: Scope) => {
-    const tipoPagLabel = (tp: string | null | undefined) =>
-      tp === "contanti" ? "Contanti" : tp === "pos" || tp === "carta_credito" ? "POS" : tp === "bonifico" ? "Bonifico" : "—";
+    const tipoPagLabel = (tp: string | null | undefined) => resolveTipoPagamentoLabelEcAgenzia(tp);
     const tipoIncassoLabel = (t: TitoloCassa) =>
       t.conferimento_gestito ? (t.fondi_ricevuti ? "Cop. Garantita" : "In Attesa Fondi") : "Incasso diretto";
 

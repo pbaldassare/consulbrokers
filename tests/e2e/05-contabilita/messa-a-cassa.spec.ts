@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { STORAGE_STATE, expectPageHealthy } from '../../helpers/auth-helper';
-import { waitForPortafoglioCarico } from '../../helpers/contabilita-helper';
+import { waitForIncassi } from '../../helpers/contabilita-helper';
 import { SEL } from '../../helpers/selectors';
 
 test.use({ storageState: STORAGE_STATE });
@@ -10,10 +10,10 @@ test.use({ storageState: STORAGE_STATE });
  * I test aprono il dialog e lo chiudono senza confermare l'incasso (no mutazioni DB).
  */
 test.describe('Contabilità · Messa a Cassa (dialog)', () => {
-  test('da Portafoglio Carico: selezione + Incassa apre dialog Conferma Messa a Cassa', async ({ page }) => {
-    await page.goto('/portafoglio/carico');
+  test('da Incassi: selezione + Incassa apre dialog Conferma Messa a Cassa', async ({ page }) => {
+    await page.goto('/portafoglio/incassi');
     await expectPageHealthy(page);
-    await waitForPortafoglioCarico(page);
+    await waitForIncassi(page);
 
     const rowCheckbox = page.locator('table tbody tr').first().locator('[role="checkbox"]').first();
     if (!(await rowCheckbox.count())) {
@@ -36,10 +36,10 @@ test.describe('Contabilità · Messa a Cassa (dialog)', () => {
     await expect(dialog).toBeHidden();
   });
 
-  test('Portafoglio Carico: colonna Messa a Cassa visibile in vista Tutte', async ({ page }) => {
-    await page.goto('/portafoglio/carico');
+  test('Incassi: colonna Messa a Cassa visibile in vista Tutte', async ({ page }) => {
+    await page.goto('/portafoglio/incassi');
     await expectPageHealthy(page);
-    await waitForPortafoglioCarico(page);
+    await waitForIncassi(page);
     await expect(page.getByRole('columnheader', { name: /Messa a Cassa/i })).toBeVisible();
   });
 });

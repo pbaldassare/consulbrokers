@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isTipoPagamentoAliasBonificoEsterno,
+  resolveTipoPagamentoPerNotificaAgenzia,
   resolveTipoPagamentoTitoloIncasso,
+  TIPO_PAGAMENTO_COMPENSAZIONE,
+  TIPO_PAGAMENTO_COSTI_CONSULBROKERS,
   TIPO_PAGAMENTO_DIREITO_COMPAGNIA,
 } from "@/lib/incassoTipoPagamento";
 
@@ -40,6 +44,30 @@ describe("resolveTipoPagamentoTitoloIncasso", () => {
         tipoPagamentoPrincipale: "bonifico",
       }),
     ).toBe("bonifico");
+  });
+
+  it("costi consulbrokers con acconti → costi_consulbrokers (preservato)", () => {
+    expect(
+      resolveTipoPagamentoTitoloIncasso({
+        dovuto: 100,
+        usatoAnticipi: 40,
+        residuoCash: 60,
+        haCompensazioni: false,
+        tipoPagamentoPrincipale: TIPO_PAGAMENTO_COSTI_CONSULBROKERS,
+      }),
+    ).toBe(TIPO_PAGAMENTO_COSTI_CONSULBROKERS);
+  });
+
+  it("compensazione con acconti → compensazione (preservato)", () => {
+    expect(
+      resolveTipoPagamentoTitoloIncasso({
+        dovuto: 100,
+        usatoAnticipi: 30,
+        residuoCash: 70,
+        haCompensazioni: true,
+        tipoPagamentoPrincipale: TIPO_PAGAMENTO_COMPENSAZIONE,
+      }),
+    ).toBe(TIPO_PAGAMENTO_COMPENSAZIONE);
   });
 
   it("solo acconti da conto bancario → bonifico", () => {
@@ -89,5 +117,24 @@ describe("resolveTipoPagamentoTitoloIncasso", () => {
         tipoPagamentoPrincipale: "contanti",
       }),
     ).toBe("contanti");
+  });
+});
+
+describe("isTipoPagamentoAliasBonificoEsterno", () => {
+  it("include bonifico, costi consulbrokers e compensazione", () => {
+    expect(isTipoPagamentoAliasBonificoEsterno("bonifico")).toBe(true);
+    expect(isTipoPagamentoAliasBonificoEsterno(TIPO_PAGAMENTO_COSTI_CONSULBROKERS)).toBe(true);
+    expect(isTipoPagamentoAliasBonificoEsterno(TIPO_PAGAMENTO_COMPENSAZIONE)).toBe(true);
+    expect(isTipoPagamentoAliasBonificoEsterno("contanti")).toBe(false);
+    expect(isTipoPagamentoAliasBonificoEsterno("compensato")).toBe(false);
+  });
+});
+
+describe("resolveTipoPagamentoPerNotificaAgenzia", () => {
+  it("mappa alias bonifico esterno a Bonifico bancario", () => {
+    expect(resolveTipoPagamentoPerNotificaAgenzia("bonifico")).toBe("Bonifico bancario");
+    expect(resolveTipoPagamentoPerNotificaAgenzia(TIPO_PAGAMENTO_COSTI_CONSULBROKERS)).toBe("Bonifico bancario");
+    expect(resolveTipoPagamentoPerNotificaAgenzia(TIPO_PAGAMENTO_COMPENSAZIONE)).toBe("Bonifico bancario");
+    expect(resolveTipoPagamentoPerNotificaAgenzia("contanti")).toBe("Contanti");
   });
 });

@@ -1,3 +1,9 @@
+import {
+  isTipoPagamentoAliasBonificoEsterno,
+  TIPO_PAGAMENTO_COMPENSAZIONE,
+  TIPO_PAGAMENTO_COSTI_CONSULBROKERS,
+} from "@/lib/incassoTipoPagamento";
+
 type CompagniaCollegataSource = {
   gruppi_compagnia?: { descrizione?: string | null } | null;
   gruppo_compagnia?: string | null;
@@ -39,7 +45,9 @@ export function resolveTipoPagamentoLabelEcAgenzia(tipoPagamento: string | null 
   if (tp === "compensato" || tp === "misto_compensato") return "Premio saldato";
   if (tp === "contanti") return "Contanti";
   if (tp === "pos" || tp === "carta_credito") return "POS";
-  if (tp === "bonifico") return "Bonifico";
+  if (tp === "bonifico" || tp === TIPO_PAGAMENTO_COSTI_CONSULBROKERS || tp === TIPO_PAGAMENTO_COMPENSAZIONE) {
+    return "Bonifico";
+  }
   if (tp === "garantito") return "Garantito";
   if (tp === "pagamento_diretto_compagnia") return "Pag. diretto";
   if (tp === "anticipo" || tp === "anticipo_misto") return "Acconto";
@@ -50,16 +58,26 @@ export function resolveTipoPagamentoLabelEcAgenzia(tipoPagamento: string | null 
 export function resolveTipoPagamentoMiEcAgenzia(tipoPagamento: string | null | undefined): string {
   const tp = (tipoPagamento || "").toLowerCase();
   if (tp === "contanti") return "C";
-  if (tp === "bonifico" || tp === "abbuono" || tp === "compensato" || tp === "misto_compensato") return "B";
+  if (
+    tp === "bonifico" ||
+    tp === TIPO_PAGAMENTO_COSTI_CONSULBROKERS ||
+    tp === TIPO_PAGAMENTO_COMPENSAZIONE ||
+    tp === "abbuono" ||
+    tp === "compensato" ||
+    tp === "misto_compensato"
+  ) {
+    return "B";
+  }
   // Acconti da conto bancario → bonifico verso agenzia (come incasso reale)
   if (tp === "anticipo" || tp === "anticipo_misto") return "B";
   if (tp === "pos" || tp === "carta_credito") return "B";
   if (tp === "assegno") return "A";
-  if (tp === "garantito") return "G";
+  if (tp === "pagamento_diretto_compagnia") return "B";
+  if (tp === "garantito") return "*";
   return "";
 }
 
-/** Codice MI per riga PDF E/C agenzia (A/B/C/G/*). */
+/** Codice MI per riga PDF E/C agenzia (A/B/C/*). */
 export function resolveMiCodiceEcAgenzia(tipoPagamento: string | null | undefined): string {
   if (!tipoPagamento) return "B";
   const mapped = resolveTipoPagamentoMiEcAgenzia(tipoPagamento);
@@ -73,7 +91,13 @@ export function resolveTipoPagamentoBadgeVariant(
   const tp = (tipoPagamento || "").toLowerCase();
   if (tp === "contanti") return "secondary";
   if (tp === "pos" || tp === "carta_credito" || tp === "garantito") return "default";
-  if (tp === "bonifico" || tp === "compensato" || tp === "misto_compensato") return "outline";
+  if (
+    isTipoPagamentoAliasBonificoEsterno(tp) ||
+    tp === "compensato" ||
+    tp === "misto_compensato"
+  ) {
+    return "outline";
+  }
   if (tp === "pagamento_diretto_compagnia") return "outline";
   return "secondary";
 }

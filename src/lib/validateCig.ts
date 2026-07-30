@@ -4,6 +4,8 @@
  * I CIG temporanei/SmartCIG possono avere formato diverso → si richiede solo non vuoto.
  */
 export const CIG_REGEX = /^[A-Z0-9]{10}$/;
+/** CIG temporaneo auto-generato: CIG0001, CIG0002, … */
+export const GENERATED_CIG_TEMPORANEO_REGEX = /^CIG[0-9]+$/;
 
 export function normalizeCig(value: string): string {
   return (value || "").toUpperCase().replace(/\s+/g, "");
@@ -23,4 +25,8 @@ export function isValidCigWithFlag(value: string, temporaneo: boolean): boolean 
   if (!v) return false;
   if (temporaneo) return true;
   return CIG_REGEX.test(v);
+}
+
+export function isGeneratedCigTemporaneo(value: string): boolean {
+  return GENERATED_CIG_TEMPORANEO_REGEX.test(normalizeCig(value));
 }

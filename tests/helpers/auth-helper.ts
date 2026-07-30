@@ -186,7 +186,7 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Report Sanitario SIR', path: '/sinistri/report-sir' },
 
   // Contabilità operativa
-  { label: 'Incassi', path: '/portafoglio/carico' },
+  { label: 'Incassi', path: '/portafoglio/incassi' },
   { label: 'Riepilogo Messe a Cassa', path: '/contabilita' },
   { label: 'Gestione Polizze', path: '/portafoglio/gestione' },
   { label: 'E/C Clienti', path: '/contabilita/ec-clienti' },
@@ -203,7 +203,7 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Storico Rimesse', path: '/contabilita/storico-rimesse' },
   { label: 'Riepilogo Acconti', path: '/contabilita/anticipi-clienti' },
   { label: 'Caricamento Mov. Bancari', path: '/contabilita/caricamento-mov-bancari' },
-  { label: 'Bonifici (Incassi)', path: '/portafoglio/carico?tab=bonifici' },
+  { label: 'Bonifici (Incassi)', path: '/portafoglio/incassi?tab=bonifici' },
   { label: 'Storico bonifici', path: '/contabilita/ricongiungimento-bancario?tab=storico' },
   { label: 'Report IVA', path: '/report-iva' },
 

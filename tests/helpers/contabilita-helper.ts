@@ -43,8 +43,18 @@ export function removeTempFile(filePath: string) {
   }
 }
 
-/** Attende che Portafoglio Carico abbia finito il caricamento iniziale. */
+/** Attende che Portafoglio Carico (consultazione) abbia finito il caricamento iniziale. */
 export async function waitForPortafoglioCarico(page: Page) {
+  await expect(page.getByRole('heading', { name: 'Carico' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('Totale titoli')).toBeVisible({ timeout: 20_000 });
+  const loading = page.getByText('Caricamento...');
+  if (await loading.count()) {
+    await expect(loading).toHaveCount(0, { timeout: 30_000 });
+  }
+}
+
+/** Attende che la pagina Incassi abbia finito il caricamento iniziale. */
+export async function waitForIncassi(page: Page) {
   await expect(page.getByRole('heading', { name: 'Incassi' })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Totale titoli')).toBeVisible({ timeout: 20_000 });
   const loading = page.getByText('Caricamento...');

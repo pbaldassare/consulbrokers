@@ -12186,6 +12186,7 @@ export type Database = {
         Returns: string
       }
       format_numero_emittenda: { Args: { p_n: number }; Returns: string }
+      format_cig_temporaneo: { Args: { p_n: number }; Returns: string }
       generate_codice_cliente: { Args: never; Returns: string }
       get_canali_cliente_with_meta: {
         Args: { _limit?: number; _offset?: number; _user_id: string }
@@ -12276,6 +12277,7 @@ export type Database = {
         Returns: Json
       }
       next_numero_emittenda: { Args: never; Returns: string }
+      next_cig_temporaneo: { Args: never; Returns: string }
       refresh_cfo_kpi: { Args: never; Returns: undefined }
       refresh_cfo_kpi_mensili: { Args: never; Returns: undefined }
       report_banca_ko: { Args: { _ufficio_id?: string }; Returns: Json }

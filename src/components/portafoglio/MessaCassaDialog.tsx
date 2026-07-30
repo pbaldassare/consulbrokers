@@ -34,6 +34,8 @@ import { canHaveDataCopertura } from "@/lib/quietanze";
 import {
   isPagamentoDirettoCompagnia,
   resolveTipoPagamentoTitoloIncasso,
+  TIPO_PAGAMENTO_COMPENSAZIONE,
+  TIPO_PAGAMENTO_COSTI_CONSULBROKERS,
   TIPO_PAGAMENTO_DIREITO_COMPAGNIA,
 } from "@/lib/incassoTipoPagamento";
 import {
@@ -2100,6 +2102,12 @@ export const MessaCassaDialog = ({
                     <SelectItem value="pos">POS</SelectItem>
                     <SelectItem value="bonifico">Bonifico</SelectItem>
                     <SelectItem value="assegno">Assegno</SelectItem>
+                    <SelectItem value={TIPO_PAGAMENTO_COSTI_CONSULBROKERS}>
+                      Costi Consulbrokers
+                    </SelectItem>
+                    <SelectItem value={TIPO_PAGAMENTO_COMPENSAZIONE}>
+                      Compensazione
+                    </SelectItem>
                     <SelectItem value={TIPO_PAGAMENTO_DIREITO_COMPAGNIA}>
                       Pagamento diretto compagnia
                     </SelectItem>
@@ -2130,6 +2138,12 @@ export const MessaCassaDialog = ({
                   <SelectItem value="pos">POS</SelectItem>
                   <SelectItem value="bonifico">Bonifico</SelectItem>
                   <SelectItem value="assegno">Assegno</SelectItem>
+                  <SelectItem value={TIPO_PAGAMENTO_COSTI_CONSULBROKERS}>
+                    Costi Consulbrokers
+                  </SelectItem>
+                  <SelectItem value={TIPO_PAGAMENTO_COMPENSAZIONE}>
+                    Compensazione
+                  </SelectItem>
                   <SelectItem value={TIPO_PAGAMENTO_DIREITO_COMPAGNIA}>
                     Pagamento diretto compagnia
                   </SelectItem>

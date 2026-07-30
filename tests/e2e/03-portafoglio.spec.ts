@@ -17,15 +17,15 @@ test.describe('Portafoglio — Carico filtri e contatori', () => {
     await waitForPortafoglioCarico(page);
   });
 
-  test('mostra contatori Totale titoli, Quietanze e In attesa rinnovo', async ({ page }) => {
+  test('mostra contatori Totale titoli e Quietanze (consultazione)', async ({ page }) => {
     await expect(page.getByText(SEL.portafoglio.totaleTitoli)).toBeVisible();
     await expect(page.getByText(SEL.portafoglio.quietanze)).toBeVisible();
-    await expect(page.getByText(SEL.portafoglio.inAttesaRinnovo)).toBeVisible();
+    await expect(page.getByText(SEL.portafoglio.inAttesaRinnovo)).toHaveCount(0);
+    await expect(page.getByText(/Bonifici aperti/i)).toHaveCount(0);
 
     const counters = await readCaricoCounters(page);
     expect(counters.totale).toMatch(/^\d+$/);
     expect(counters.quietanze).toMatch(/^\d+$/);
-    expect(counters.inAttesa).toMatch(/^\d+$/);
   });
 
   test('toggle periodo Mese Corrente / Tutte aggiorna URL', async ({ page }) => {
@@ -74,7 +74,7 @@ test.describe('Portafoglio — Carico filtri e contatori', () => {
     expect(after.totale).toMatch(/^\d+$/);
 
     const tableRows = page.locator('table tbody tr');
-    const emptyMsg = page.getByText(/Nessuna polizza trovata/i);
+    const emptyMsg = page.getByText(/Nessuna quietanza|Nessuna polizza/i);
     const hasTable = (await tableRows.count()) > 0;
     const hasEmpty = (await emptyMsg.count()) > 0;
     expect(hasTable || hasEmpty).toBeTruthy();

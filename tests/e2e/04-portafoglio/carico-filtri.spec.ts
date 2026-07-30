@@ -10,7 +10,7 @@ import { SEL } from '../../helpers/selectors';
 test.use({ storageState: STORAGE_STATE });
 
 /**
- * Portafoglio Carico — filtri periodo, date range e reset.
+ * Portafoglio Carico — filtri periodo, date range e reset (consultazione).
  * Route: /portafoglio/carico
  */
 test.describe('Portafoglio · Carico — filtri', () => {
@@ -21,21 +21,20 @@ test.describe('Portafoglio · Carico — filtri', () => {
   });
 
   test('carico senza parametri: default Tutte', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Carico' })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Tutte' })).toHaveAttribute('data-state', 'on');
     await expect(page).not.toHaveURL(/[?&]periodo=/);
   });
 
-  test('toggle periodo: Mese Corrente / Tutte aggiornano URL e sottotitolo', async ({ page }) => {
+  test('toggle periodo: Mese Corrente / Tutte aggiornano URL', async ({ page }) => {
     await selectCaricoPeriodo(page, 'Mese Corrente');
     await expect(page).toHaveURL(/periodo=mese_corrente/);
-    await expect(page.getByText(/inclusi arretrati non a cassa|Tutte le polizze/i).first()).toBeVisible();
 
     await selectCaricoPeriodo(page, 'Tutte');
     await expect(page).toHaveURL(/periodo=tutte/);
-    await expect(page.getByText(/Tutte le polizze( messe a cassa)?/i).first()).toBeVisible();
   });
 
-  test('datepicker Dal/Al aggiorna i parametri URL e il sottotitolo', async ({ page }) => {
+  test('datepicker Dal/Al aggiorna i parametri URL', async ({ page }) => {
     const { dal, al } = caricoDateInputs(page);
     const da = '2025-01-01';
     const a = '2025-06-30';
@@ -45,7 +44,6 @@ test.describe('Portafoglio · Carico — filtri', () => {
 
     await expect(page).toHaveURL(new RegExp(`dal=${da}`));
     await expect(page).toHaveURL(new RegExp(`al=${a}`));
-    await expect(page.getByText(/dal 01\/01\/2025 al 30\/06\/2025/i)).toBeVisible();
   });
 
   test('Reset Filtri ripristina periodo default e rimuove date e query string', async ({ page }) => {
@@ -73,7 +71,7 @@ test.describe('Portafoglio · Carico — filtri', () => {
     await waitForPortafoglioCarico(page);
 
     const tableRows = page.locator('table tbody tr');
-    const emptyMsg = page.getByText(/Nessuna polizza trovata/i);
+    const emptyMsg = page.getByText(/Nessuna quietanza|Nessuna polizza/i);
     const hasTable = (await tableRows.count()) > 0;
     const hasEmpty = (await emptyMsg.count()) > 0;
     expect(hasTable || hasEmpty).toBeTruthy();

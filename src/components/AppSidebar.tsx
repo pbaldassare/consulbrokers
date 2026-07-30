@@ -148,6 +148,7 @@ const sidebarEntries: SidebarEntry[] = [
       children: [
         { label: "Clienti", path: "/archivi/clienti", icon: Users },
         { label: "Polizze Attive", path: "/portafoglio/attive", icon: Shield },
+        { label: "Carico", path: "/portafoglio/carico", icon: Clock },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
         { label: "Gestione Polizze", path: "/portafoglio/gestione", icon: Wand2 },
         
@@ -197,7 +198,7 @@ const sidebarEntries: SidebarEntry[] = [
       icon: Calculator,
       permissionKey: "contabilita",
       children: [
-        { label: "Incassi", path: "/portafoglio/carico", icon: Clock },
+        { label: "Incassi", path: "/portafoglio/incassi", icon: Clock },
         { label: "Riepilogo Messe a Cassa", path: "/contabilita", icon: Landmark },
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
         { label: "Storico E/C Clienti", path: "/contabilita/ec-cliente/storico", icon: Archive },

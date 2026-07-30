@@ -41,9 +41,10 @@ import ModalitaIncassoBox from "@/components/titolo/ModalitaIncassoBox";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
+import { isGeneratedCigTemporaneo, normalizeCig } from "@/lib/validateCig";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -856,6 +857,34 @@ const TitoloDetail = () => {
     ramo_id: "" as string | null,
     gruppo_ramo_id: null as string | null,
   });
+  const [cigTemporaneoLoading, setCigTemporaneoLoading] = useState(false);
+
+  const generaCigTemporaneo = useCallback(async () => {
+    setCigTemporaneoLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("next_cig_temporaneo");
+      if (error) throw error;
+      const num = String(data || "").trim();
+      if (!num) throw new Error("CIG temporaneo vuoto");
+      setContrattoForm((p) => ({ ...p, cig_rif: num }));
+      return num;
+    } catch (e: any) {
+      toast.error(e?.message || "Impossibile generare il CIG temporaneo");
+      return null;
+    } finally {
+      setCigTemporaneoLoading(false);
+    }
+  }, []);
+
+  const onCigTemporaneoChange = useCallback(async (checked: boolean) => {
+    setContrattoForm((p) => ({ ...p, cig_temporaneo: checked }));
+    if (!checked) return;
+    const cig = normalizeCig(contrattoForm.cig_rif);
+    if (!cig || isGeneratedCigTemporaneo(cig)) {
+      const num = await generaCigTemporaneo();
+      if (!num) setContrattoForm((p) => ({ ...p, cig_temporaneo: false }));
+    }
+  }, [contrattoForm.cig_rif, generaCigTemporaneo]);
 
   const { data: produttoriOpts = [] } = useQuery({
     queryKey: ["produttori-anagrafiche"],
@@ -1998,7 +2027,7 @@ const TitoloDetail = () => {
           id: madre.id,
           numero_titolo: madre.numero_titolo,
         } : null}
-        onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`) : navigate("/portafoglio/carico")}
+        onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`) : navigate("/portafoglio/incassi")}
         madre={isProroga && madreProroga ? {
           id: (madreProroga as any).id,
           numero_titolo: (madreProroga as any).numero_titolo,
@@ -3033,10 +3062,11 @@ const TitoloDetail = () => {
                     <Checkbox
                       id="cig-temp-detail"
                       checked={contrattoForm.cig_temporaneo}
-                      onCheckedChange={(v) => setContrattoForm(p => ({ ...p, cig_temporaneo: !!v }))}
+                      disabled={cigTemporaneoLoading}
+                      onCheckedChange={(v) => void onCigTemporaneoChange(v === true)}
                     />
                     <Label htmlFor="cig-temp-detail" className="text-[10px] cursor-pointer">
-                      CIG temporaneo (formato libero)
+                      CIG temporaneo (formato libero){cigTemporaneoLoading ? "…" : ""}
                     </Label>
                   </div>
                 </div>
@@ -3114,7 +3144,6 @@ const TitoloDetail = () => {
             <FieldRow label="Valuta" value={fmt(t.valuta)} />
             <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
             <FieldRow label="Rimborso" value={fmtBool(t.rimborso)} />
-            <FieldRow label="Pag. Diretto Comp." value={fmtBool(t.pag_diretto_compagnia)} />
             <FieldRow label="Formato Elettronico" value={fmtBool(t.formato_elettronico)} />
             <FieldRow label="Incassato" value={fmtEuro(t.importo_incassato)} />
             <FieldRow label="Data Incasso" value={fmtDate(t.data_incasso)} />
@@ -3881,7 +3910,6 @@ const TitoloDetail = () => {
               <span>Valuta: <strong className="text-foreground">{t.valuta || "EUR"}</strong></span>
               <span>Indicizzata: <strong className="text-foreground">{t.indicizzata ? "Sì" : "No"}</strong></span>
               <span>Rimborso: <strong className="text-foreground">{t.rimborso ? "Sì" : "No"}</strong></span>
-              <span>Pag. Diretto Comp.: <strong className="text-foreground">{t.pag_diretto_compagnia ? "Sì" : "No"}</strong></span>
               <span>Formato Elettronico: <strong className="text-foreground">{t.formato_elettronico ? "Sì" : "No"}</strong></span>
             </div>
           </div>

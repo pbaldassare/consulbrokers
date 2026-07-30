@@ -119,6 +119,8 @@ function modalitaLabel(t: TitoloRow): string {
     pos: "POS / Carta",
     rid: "RID / Addebito SEPA",
     garantito: "Bonifico bancario",
+    costi_consulbrokers: "Bonifico bancario",
+    compensazione: "Bonifico bancario",
   };
   return tipoPagLabels[String(t.tipo_pagamento || "").toLowerCase()] || String(t.tipo_pagamento || "—");
 }

@@ -54,12 +54,20 @@ test.describe('Navigazione — breadcrumb', () => {
     await expect(breadcrumb.getByText('Clienti')).toBeVisible();
   });
 
-  test('breadcrumb su Incassi include Portafoglio', async ({ page }) => {
+  test('breadcrumb su Incassi include Contabilità operativa', async ({ page }) => {
+    await page.goto('/portafoglio/incassi');
+    await expectPageHealthy(page);
+    const breadcrumb = page.locator('nav[aria-label="breadcrumb"], [data-slot="breadcrumb"]').first();
+    await expect(breadcrumb).toBeVisible();
+    await expect(breadcrumb.getByText(/Portafoglio|Incassi|Contabilità/i).first()).toBeVisible();
+  });
+
+  test('breadcrumb su Carico include Portafoglio', async ({ page }) => {
     await page.goto('/portafoglio/carico');
     await expectPageHealthy(page);
     const breadcrumb = page.locator('nav[aria-label="breadcrumb"], [data-slot="breadcrumb"]').first();
     await expect(breadcrumb).toBeVisible();
-    await expect(breadcrumb.getByText(/Portafoglio|Incassi/i).first()).toBeVisible();
+    await expect(breadcrumb.getByText(/Portafoglio|Carico/i).first()).toBeVisible();
   });
 
   test('breadcrumb su Riepilogo Messe a Cassa', async ({ page }) => {

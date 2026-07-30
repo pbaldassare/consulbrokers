@@ -16,7 +16,8 @@ import DocumentalePage from "@/pages/DocumentalePage";
 import ProvvigioniMaturatePage from "@/pages/ProvvigioniMaturatePage";
 
 import PortafoglioAttivePage from "@/pages/PortafoglioAttivePage";
-import PortafoglioCaricoPage from "@/pages/PortafoglioCaricoPage";
+import IncassiPage from "@/pages/IncassiPage";
+import PortafoglioCaricoConsultazionePage from "@/pages/PortafoglioCaricoConsultazionePage";
 import PortafoglioStoricoPage from "@/pages/PortafoglioStoricoPage";
 import PortafoglioDetail from "@/pages/PortafoglioDetail";
 import CompensazioniTitoloDetail from "@/pages/contabilita/CompensazioniTitoloDetail";
@@ -35,7 +36,8 @@ export const portafoglioRoutes = (
     <Route path="/quietanze/:id" element={<QuietanzaDetail />} />
     <Route path="/portafoglio" element={<Navigate to="/portafoglio/attive" replace />} />
     <Route path="/portafoglio/attive" element={<PortafoglioAttivePage />} />
-    <Route path="/portafoglio/carico" element={<PortafoglioCaricoPage />} />
+    <Route path="/portafoglio/carico" element={<PortafoglioCaricoConsultazionePage />} />
+    <Route path="/portafoglio/incassi" element={<IncassiPage />} />
     <Route path="/portafoglio/storico" element={<PortafoglioStoricoPage />} />
     <Route path="/portafoglio/:id/compensazioni" element={<CompensazioniTitoloDetail />} />
     <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />

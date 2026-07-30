@@ -148,10 +148,10 @@ const AdminDashboard = ({ loading, data }: { loading: boolean; data: ReturnType<
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <SummaryCard label="Rinnovi del Mese" value={String(d?.rinnoviMeseCount ?? 0)} sub={fmt(d?.rinnoviMeseImporto ?? 0)} icon={Calendar} variant="blue" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
-        <SummaryCard label="Polizze da Mettere a Cassa" value={String(d?.polizzeDaCassaCount ?? 0)} sub={fmt(d?.polizzeDaCassaImporto ?? 0)} icon={FileWarning} variant="yellow" loading={loading} onClick={() => navigate("/portafoglio/carico?stato=attivo")} />
-        <SummaryCard label="Incassi Ieri" value={String(d?.incassiIeriCount ?? 0)} sub={fmt(d?.incassiIeriImporto ?? 0)} icon={DollarSign} variant="orange" loading={loading} onClick={() => navigate("/portafoglio/carico?stato=incassato")} />
-        <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="teal" loading={loading} onClick={() => navigate("/portafoglio/carico?stato=incassato")} />
+        <SummaryCard label="Rinnovi del Mese" value={String(d?.rinnoviMeseCount ?? 0)} sub={fmt(d?.rinnoviMeseImporto ?? 0)} icon={Calendar} variant="blue" loading={loading} onClick={() => navigate("/portafoglio/incassi")} />
+        <SummaryCard label="Polizze da Mettere a Cassa" value={String(d?.polizzeDaCassaCount ?? 0)} sub={fmt(d?.polizzeDaCassaImporto ?? 0)} icon={FileWarning} variant="yellow" loading={loading} onClick={() => navigate("/portafoglio/incassi?stato=attivo")} />
+        <SummaryCard label="Incassi Ieri" value={String(d?.incassiIeriCount ?? 0)} sub={fmt(d?.incassiIeriImporto ?? 0)} icon={DollarSign} variant="orange" loading={loading} onClick={() => navigate("/portafoglio/incassi?stato=incassato")} />
+        <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="teal" loading={loading} onClick={() => navigate("/portafoglio/incassi?stato=incassato")} />
       </div>
       {/* Chat Non Risposte */}
       <div className="bg-card rounded-lg border border-border p-5">
@@ -200,9 +200,9 @@ const UfficioDashboard = ({ loading, data }: { loading: boolean; data: ReturnTyp
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <SummaryCard label="Scadenze del Mese" value={String(d?.scadenzeMeseCount ?? 0)} sub={fmt(d?.scadenzeMeseImporto ?? 0)} icon={Calendar} variant="yellow" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
-        <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="green" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
-        <SummaryCard label="Fuori Copertura" value={String(d?.fuoriCoperturaCount ?? 0)} sub={fmt(d?.fuoriCoperturaImporto ?? 0)} icon={AlertCircle} variant="orange" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
+        <SummaryCard label="Scadenze del Mese" value={String(d?.scadenzeMeseCount ?? 0)} sub={fmt(d?.scadenzeMeseImporto ?? 0)} icon={Calendar} variant="yellow" loading={loading} onClick={() => navigate("/portafoglio/incassi")} />
+        <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="green" loading={loading} onClick={() => navigate("/portafoglio/incassi")} />
+        <SummaryCard label="Fuori Copertura" value={String(d?.fuoriCoperturaCount ?? 0)} sub={fmt(d?.fuoriCoperturaImporto ?? 0)} icon={AlertCircle} variant="orange" loading={loading} onClick={() => navigate("/portafoglio/incassi")} />
         <SummaryCard label="Rimesse da Inviare" value={String(d?.rimesseDaInviareCount ?? 0)} sub={fmt(d?.rimesseDaInviareImporto ?? 0)} icon={Receipt} variant="orange" loading={loading} onClick={() => navigate("/rimesse")} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
