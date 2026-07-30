@@ -27,6 +27,7 @@ import PremiProvvigioniPage from "@/pages/estrazioni/PremiProvvigioniPage";
 import PremiScopertiGarantitiPage from "@/pages/estrazioni/PremiScopertiGarantitiPage";
 import ECClientiPage from "@/pages/estrazioni/ECClientiPage";
 import TitoliDaIncassarePage from "@/pages/estrazioni/TitoliDaIncassarePage";
+import PortafoglioRettificaProvvigioniPage from "@/pages/PortafoglioRettificaProvvigioniPage";
 
 export const portafoglioRoutes = (
   <>
@@ -46,6 +47,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/appendici" element={<AppendiciPolizzaPage />} />
     <Route path="/portafoglio/rinnovi" element={<RinnoviPolizzaPage />} />
     <Route path="/portafoglio/gestione" element={<GestionePolizzePage />} />
+    <Route path="/portafoglio/rettifica-provvigioni" element={<PortafoglioRettificaProvvigioniPage />} />
 
     <Route path="/portafoglio/doc-precontrattuale" element={<DocPrecontrattualePage />} />
     <Route path="/portafoglio/estrazioni-stampe" element={<EstrazioniStampePage />} />
