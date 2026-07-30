@@ -1,6 +1,6 @@
 /**
- * Griglia fattori di regolazione × anno (date presunte).
- * Chiave importi: `${fattoreId}|${anno}`.
+ * Righe esplicite fattori di regolazione (fattore × anno).
+ * Chiave: `${fattoreId}|${anno}` — unique DB (titolo_id, fattore_id, anno).
  */
 
 export type FattoreRegolazioneRef = {
@@ -17,13 +17,27 @@ export type RegolazioneFattoreExisting = {
   note?: string | null;
 };
 
-export type RegolazioneFattoreRow = {
-  anno: number;
-  data_presunta: string | null;
+/** Riga UI / state — solo le righe presenti si salvano. */
+export type RegolazioneFattoreRiga = {
+  key: string;
   fattore_id: string;
+  anno: number;
+  data_presunta?: string | null;
+  importo_esposto: number;
+  fattore_codice?: string;
+  fattore_descrizione?: string;
+};
+
+/** @deprecated alias — preferire RegolazioneFattoreRiga */
+export type RegolazioneFattoreRow = RegolazioneFattoreRiga & {
+  data_presunta: string | null;
   fattore_codice: string;
   fattore_descrizione: string;
-  importo_esposto: number;
+};
+
+export type AnnoSlot = {
+  anno: number;
+  data_presunta: string | null;
 };
 
 export function regolazioneFattoreKey(fattoreId: string, anno: number): string {
@@ -41,68 +55,116 @@ export function yearFromIsoDate(
   return null;
 }
 
+/** Slot anno da date presunte; se assenti, un anno fallback. */
+export function yearSlotsFromDatePresunte(
+  datePresunte: string[],
+  fallbackAnno?: number,
+): AnnoSlot[] {
+  const dates = (datePresunte ?? []).filter((d) => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d));
+  if (dates.length) {
+    return dates.map((d) => ({
+      anno: yearFromIsoDate(d)!,
+      data_presunta: d,
+    }));
+  }
+  const anno = fallbackAnno ?? new Date().getFullYear() + 1;
+  return [{ anno, data_presunta: null }];
+}
+
 /**
- * Costruisce le righe Anno×Fattore da date presunte e fattori collegati al sottoramo.
- * Se non ci sono date, usa almeno un anno (fallbackAnno o anno corrente).
+ * Costruisce le righe solo da `existing` (DB / bozza).
+ * Non esplode più date × tutti i fattori del catalogo.
  */
 export function buildRegolazioneFattoriRows(opts: {
-  datePresunte: string[];
-  fattori: FattoreRegolazioneRef[];
   existing?: RegolazioneFattoreExisting[];
-  importiMap?: Record<string, number>;
-  fallbackAnno?: number;
-}): RegolazioneFattoreRow[] {
-  const fattori = opts.fattori ?? [];
-  if (!fattori.length) return [];
+  fattori?: FattoreRegolazioneRef[];
+}): RegolazioneFattoreRiga[] {
+  const fattoriById = new Map((opts.fattori ?? []).map((f) => [f.id, f]));
+  const out: RegolazioneFattoreRiga[] = [];
+  const seen = new Set<string>();
 
-  const dates = (opts.datePresunte ?? []).filter((d) => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d));
-  const yearSlots: { anno: number; data_presunta: string | null }[] = [];
-
-  if (dates.length) {
-    for (const d of dates) {
-      const anno = yearFromIsoDate(d)!;
-      yearSlots.push({ anno, data_presunta: d });
-    }
-  } else {
-    const anno =
-      opts.fallbackAnno ??
-      new Date().getFullYear() + 1;
-    yearSlots.push({ anno, data_presunta: null });
-  }
-
-  const existingByKey = new Map<string, RegolazioneFattoreExisting>();
   for (const e of opts.existing ?? []) {
-    existingByKey.set(regolazioneFattoreKey(e.fattore_id, e.anno), e);
+    if (!e?.fattore_id || !Number.isFinite(e.anno)) continue;
+    const key = regolazioneFattoreKey(e.fattore_id, e.anno);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const f = fattoriById.get(e.fattore_id);
+    out.push({
+      key,
+      fattore_id: e.fattore_id,
+      anno: e.anno,
+      data_presunta: e.data_presunta ?? null,
+      importo_esposto: Number(e.importo_esposto) || 0,
+      fattore_codice: f?.codice,
+      fattore_descrizione: f?.descrizione,
+    });
   }
+  return out;
+}
 
-  const rows: RegolazioneFattoreRow[] = [];
-  for (const slot of yearSlots) {
-    for (const f of fattori) {
-      const key = regolazioneFattoreKey(f.id, slot.anno);
-      const fromMap = opts.importiMap?.[key];
-      const fromExisting = existingByKey.get(key);
-      const importo =
-        fromMap != null && Number.isFinite(fromMap)
-          ? fromMap
-          : Number(fromExisting?.importo_esposto) || 0;
-      rows.push({
-        anno: slot.anno,
-        data_presunta: slot.data_presunta,
-        fattore_id: f.id,
-        fattore_codice: f.codice,
-        fattore_descrizione: f.descrizione,
-        importo_esposto: importo,
-      });
-    }
+export function createRegolazioneFattoreRiga(opts: {
+  fattore: FattoreRegolazioneRef;
+  anno: number;
+  data_presunta?: string | null;
+  importo_esposto?: number;
+}): RegolazioneFattoreRiga {
+  const key = regolazioneFattoreKey(opts.fattore.id, opts.anno);
+  return {
+    key,
+    fattore_id: opts.fattore.id,
+    anno: opts.anno,
+    data_presunta: opts.data_presunta ?? null,
+    importo_esposto: Number(opts.importo_esposto) || 0,
+    fattore_codice: opts.fattore.codice,
+    fattore_descrizione: opts.fattore.descrizione,
+  };
+}
+
+/** Aggiunge una riga; no-op se già presente stesso fattore+anno. */
+export function addRegolazioneFattoreRiga(
+  righe: RegolazioneFattoreRiga[],
+  riga: RegolazioneFattoreRiga,
+): RegolazioneFattoreRiga[] {
+  if (righe.some((r) => r.key === riga.key || (r.fattore_id === riga.fattore_id && r.anno === riga.anno))) {
+    return righe;
   }
-  return rows;
+  return [...righe, riga];
+}
+
+export function removeRegolazioneFattoreRiga(
+  righe: RegolazioneFattoreRiga[],
+  key: string,
+): RegolazioneFattoreRiga[] {
+  return righe.filter((r) => r.key !== key);
+}
+
+export function updateRegolazioneFattoreImporto(
+  righe: RegolazioneFattoreRiga[],
+  key: string,
+  importo: number,
+): RegolazioneFattoreRiga[] {
+  return righe.map((r) =>
+    r.key === key ? { ...r, importo_esposto: Number.isFinite(importo) ? importo : 0 } : r,
+  );
+}
+
+/** Fattori del catalogo non ancora usati per lo stesso anno. */
+export function fattoriDisponibiliPerAnno(
+  fattori: FattoreRegolazioneRef[],
+  righe: RegolazioneFattoreRiga[],
+  anno: number,
+): FattoreRegolazioneRef[] {
+  const used = new Set(
+    righe.filter((r) => r.anno === anno).map((r) => r.fattore_id),
+  );
+  return (fattori ?? []).filter((f) => f?.id && !used.has(f.id));
 }
 
 /** Payload insert per titoli_regolazione_fattori. */
 export function rowsToInsertPayload(
   titoloId: string,
   ramoId: string,
-  rows: RegolazioneFattoreRow[],
+  rows: RegolazioneFattoreRiga[],
 ): Array<{
   titolo_id: string;
   ramo_id: string;
@@ -117,6 +179,6 @@ export function rowsToInsertPayload(
     fattore_id: r.fattore_id,
     importo_esposto: Number(r.importo_esposto) || 0,
     anno: r.anno,
-    data_presunta: r.data_presunta,
+    data_presunta: r.data_presunta ?? null,
   }));
 }

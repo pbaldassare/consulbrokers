@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   countQuietanzeDaIncassare,
+  countQuietanzeRateDaIncassare,
   isQuietanzaDaMostrare,
   quietanzaSogliaGaranziaDa,
   QUIETANZA_SCADENZA_SOGLIA_GIORNI,
@@ -59,17 +60,18 @@ describe("isQuietanzaDaMostrare", () => {
     ).toBe(false);
   });
 
-  it("appendice non incassata sempre visibile anche se decorrenza lontana", () => {
+  it("appendice non compare nel tab Quietanze (anche se non incassata)", () => {
     expect(
       isQuietanzaDaMostrare({
         stato: "attivo",
         data_messa_cassa: null,
         is_appendice_modifica: true,
         numero_titolo: "POL/AM1",
-        garanzia_da: giorniDaOggi(365),
+        garanzia_da: giorniDaOggi(10),
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
+
   it("quietanzaSogliaGaranziaDa è oggi + soglia (YYYY-MM-DD)", () => {
     const base = new Date("2026-07-16T12:00:00");
     const expected = new Date(base);
@@ -80,13 +82,14 @@ describe("isQuietanzaDaMostrare", () => {
 });
 
 describe("countQuietanzeDaIncassare", () => {
-  it("conta solo quietanze/appendici da mostrare", () => {
-    const n = countQuietanzeDaIncassare([
+  it("conta solo quietanze da mostrare, esclude appendici", () => {
+    const titoli = [
       { stato: "attivo", sostituisce_polizza: "x", garanzia_da: giorniDaOggi(-5) },
       { stato: "attivo", sostituisce_polizza: "x", garanzia_da: giorniDaOggi(120) },
       { stato: "incassato", data_messa_cassa: "2026-01-01", sostituisce_polizza: "x", garanzia_da: giorniDaOggi(-5) },
       { stato: "attivo", is_appendice_modifica: true, numero_titolo: "P/AM1", garanzia_da: giorniDaOggi(200) },
-    ]);
-    expect(n).toBe(2);
+    ];
+    expect(countQuietanzeDaIncassare(titoli)).toBe(1);
+    expect(countQuietanzeRateDaIncassare(titoli)).toBe(1);
   });
 });

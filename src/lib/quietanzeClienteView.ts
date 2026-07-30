@@ -31,13 +31,13 @@ type QuietanzaViewTitolo = {
 };
 
 /**
- * Vista Quietanze cliente: solo titoli da incassare.
- * Rate: decorrenza (garanzia_da) entro soglia o già passata (arretrate).
- * Appendici: sempre visibili se non incassate.
+ * Vista Quietanze cliente: solo rate quietanza da incassare.
+ * Decorrenza (garanzia_da) entro soglia o già passata (arretrate).
+ * Le appendici NON compaiono nel tab Quietanze (restano sotto la polizza madre).
  */
 export function isQuietanzaDaMostrare(t: QuietanzaViewTitolo): boolean {
   if (!isTitoloNonIncassato(t)) return false;
-  if (isAppendice(t)) return true;
+  if (isAppendice(t)) return false;
   if (!t.sostituisce_polizza) return false;
   if (!t.garanzia_da) return true;
   const limite = new Date();
@@ -48,13 +48,12 @@ export function isQuietanzaDaMostrare(t: QuietanzaViewTitolo): boolean {
   return decorrenza <= limite;
 }
 
+/** Conteggio tab Quietanze: solo rate, esclude appendici. */
 export function countQuietanzeDaIncassare(polizze: QuietanzaViewTitolo[]): number {
-  return polizze.filter(
-    (p) => (!!p.sostituisce_polizza || isAppendice(p)) && isQuietanzaDaMostrare(p),
-  ).length;
+  return countQuietanzeRateDaIncassare(polizze);
 }
 
-/** Solo rate quietanza (esclude appendici) — per conteggi tab separati. */
+/** Solo rate quietanza (esclude appendici) — per conteggi tab. */
 export function countQuietanzeRateDaIncassare(polizze: QuietanzaViewTitolo[]): number {
   return polizze.filter(
     (p) => !!p.sostituisce_polizza && !isAppendice(p) && isQuietanzaDaMostrare(p),

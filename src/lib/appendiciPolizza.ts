@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
+import { baseNumeroPolizza, isAppendice, type TitoloLike } from "@/lib/quietanze";
 
 export type AppendicePolizzaRow = {
   id: string;
@@ -17,6 +18,69 @@ export type AppendicePolizzaRow = {
   titolo_regolazione_id?: string | null;
   created_at?: string | null;
 };
+
+/** Campi minimi di `appendici_polizza` per collegare un titolo-appendice alla madre. */
+export type AppendiceLinkRow = {
+  titolo_id?: string | null;
+  quietanza_id?: string | null;
+  titolo_modifica_id?: string | null;
+  titolo_proroga_id?: string | null;
+  titolo_regolazione_id?: string | null;
+};
+
+/** Id del titolo-appendice (AM/PR/RG) puntato dalla riga `appendici_polizza`. */
+export function appendiceTitoloIdFromRow(row: AppendiceLinkRow): string | null {
+  return row.titolo_modifica_id || row.titolo_proroga_id || row.titolo_regolazione_id || null;
+}
+
+/** Id ancora (quietanza preferita, altrimenti polizza madre) per il numero base. */
+export function appendiceAncoraIdFromRow(row: AppendiceLinkRow): string | null {
+  return row.quietanza_id || row.titolo_id || null;
+}
+
+/**
+ * Risolve il numero base polizza per un'appendice tramite link `appendici_polizza`.
+ * Ritorna null se il link manca, è ambiguo (più righe) o l'ancora non ha numero.
+ */
+export function linkAppendiceAPolizzaBase(
+  appendiceTitoloId: string,
+  appendiciRows: AppendiceLinkRow[],
+  titoliById: Map<string, { numero_titolo?: string | null }>,
+): string | null {
+  const matches = appendiciRows.filter((r) => appendiceTitoloIdFromRow(r) === appendiceTitoloId);
+  if (matches.length !== 1) return null;
+  const ancoraId = appendiceAncoraIdFromRow(matches[0]);
+  if (!ancoraId) return null;
+  const ancora = titoliById.get(ancoraId);
+  const num = ancora?.numero_titolo;
+  if (!num?.trim()) return null;
+  return baseNumeroPolizza(num);
+}
+
+/**
+ * Override di raggruppamento: appendice id → numero base polizza madre,
+ * solo quando il link è univoco e il base da `numero_titolo` differisce
+ * (es. "2026/AM1" vs madre "2026/348272").
+ */
+export function buildAppendiceBaseOverrides<T extends TitoloLike>(
+  titoli: T[],
+  appendiciRows: AppendiceLinkRow[],
+): Map<string, string> {
+  const byId = new Map<string, T>();
+  for (const t of titoli) {
+    if (t.id) byId.set(t.id, t);
+  }
+
+  const out = new Map<string, string>();
+  for (const t of titoli) {
+    if (!t.id || !isAppendice(t)) continue;
+    const linkedBase = linkAppendiceAPolizzaBase(t.id, appendiciRows, byId);
+    if (!linkedBase) continue;
+    if (baseNumeroPolizza(t.numero_titolo) === linkedBase) continue;
+    out.set(t.id, linkedBase);
+  }
+  return out;
+}
 
 /** Appendici collegate a uno o più titoli della catena (madre, quietanze, derivati AM/PR/RG). */
 export async function fetchAppendiciPolizzaForTitoli(

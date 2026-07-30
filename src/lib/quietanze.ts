@@ -98,15 +98,24 @@ export type CatenaPolizza<T extends TitoloLike> = {
   all: T[];  // madre + rate + appendici, stesso ordine
 };
 
-export function groupTitoliByPolizza<T extends TitoloLike>(titoli: T[]): CatenaPolizza<T>[] {
+/**
+ * Raggruppa titoli in catene polizza.
+ * @param appendiceBaseOverrides mappa titolo-appendice id → numero base polizza
+ *   (da link `appendici_polizza` quando il numero appendice non collassa sulla madre).
+ */
+export function groupTitoliByPolizza<T extends TitoloLike>(
+  titoli: T[],
+  appendiceBaseOverrides?: Map<string, string>,
+): CatenaPolizza<T>[] {
   const byNumero = new Map<string, T[]>();
   for (const t of titoli) {
     // Le appendici (rilevate via flag) collassano sul numero base per finire
-    // sotto la polizza madre. Gli altri titoli restano raggruppati per numero
-    // esatto: così le pagine che non caricano i flag mantengono il comportamento
-    // precedente.
+    // sotto la polizza madre. Override da appendici_polizza se il numero è
+    // disallineato (es. "2026/AM1" vs madre "2026/348272").
+    // Gli altri titoli restano raggruppati per numero esatto.
+    const override = t.id && appendiceBaseOverrides?.get(t.id);
     const k = (isAppendice(t)
-      ? baseNumeroPolizza(t.numero_titolo)
+      ? (override || baseNumeroPolizza(t.numero_titolo))
       : (t.numero_titolo || "").trim()) || `__id_${t.id}`;
     const arr = byNumero.get(k) || [];
     arr.push(t);

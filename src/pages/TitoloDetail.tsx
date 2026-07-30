@@ -14,8 +14,8 @@ import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
 import { computeRegolazioneDatePresunte } from "@/lib/regolazioneDatePresunte";
 import {
   buildRegolazioneFattoriRows,
-  regolazioneFattoreKey,
   rowsToInsertPayload,
+  type RegolazioneFattoreRiga,
 } from "@/lib/regolazioneFattori";
 import {
   FATTORI_REGOLAZIONE_STANDARD,
@@ -463,7 +463,7 @@ const TitoloDetail = () => {
     regolazione_date_presunte: [] as string[],
     regolazione_note: "",
   });
-  const [regImporti, setRegImporti] = useState<Record<string, number>>({});
+  const [regRighe, setRegRighe] = useState<RegolazioneFattoreRiga[]>([]);
 
   // --- Commerciale split state (multi-produttore) ---
   type SplitRow = {
@@ -755,11 +755,17 @@ const TitoloDetail = () => {
         regolazione_date_presunte: arr,
         regolazione_note: (titolo as any).regolazione_note ?? "",
       });
-      const map: Record<string, number> = {};
-      for (const row of titoloRegolazioneFattori as any[]) {
-        map[regolazioneFattoreKey(row.fattore_id, row.anno)] = Number(row.importo_esposto) || 0;
-      }
-      setRegImporti(map);
+      setRegRighe(
+        buildRegolazioneFattoriRows({
+          existing: (titoloRegolazioneFattori as any[]).map((r) => ({
+            fattore_id: r.fattore_id,
+            anno: r.anno,
+            importo_esposto: Number(r.importo_esposto) || 0,
+            data_presunta: r.data_presunta,
+          })),
+          fattori: regolazioneFattoriLinkedDetail,
+        }),
+      );
     }
     setEditingReg(true);
   };
@@ -784,7 +790,11 @@ const TitoloDetail = () => {
       const dates = regForm.regolazione
         ? regForm.regolazione_date_presunte.filter(Boolean)
         : [];
-      const firstCodice = regolazioneFattoriLinkedDetail[0]?.codice || null;
+      const firstCodice = regForm.regolazione && regRighe[0]
+        ? (regolazioneFattoriLinkedDetail.find((f) => f.id === regRighe[0].fattore_id)?.codice
+            ?? regRighe[0].fattore_codice
+            ?? null)
+        : null;
       const { error } = await supabase
         .from("titoli")
         .update({
@@ -801,34 +811,22 @@ const TitoloDetail = () => {
         .eq("id", id!);
       if (error) throw error;
 
-      // Replace righe fattori×anno
+      // Replace: cancella sempre, reinserisci solo le righe esplicite in lista
       const { error: delErr } = await supabase
         .from("titoli_regolazione_fattori")
         .delete()
         .eq("titolo_id", id!);
       if (delErr) throw delErr;
 
-      if (regForm.regolazione && regolazioneFattoriLinkedDetail.length > 0) {
+      if (regForm.regolazione && regRighe.length > 0) {
         if (!regolazioneRamoIdDetail) {
           throw new Error("Seleziona il sottoramo della polizza per salvare i fattori di regolazione");
         }
-        const rows = buildRegolazioneFattoriRows({
-          datePresunte: dates,
-          fattori: regolazioneFattoriLinkedDetail,
-          importiMap: regImporti,
-          fallbackAnno: dates[0]
-            ? undefined
-            : (titolo?.durata_a
-                ? Number(String(titolo.durata_a).slice(0, 4))
-                : new Date().getFullYear() + 1),
-        });
-        const insertRows = rowsToInsertPayload(id!, regolazioneRamoIdDetail, rows);
-        if (insertRows.length) {
-          const { error: insErr } = await supabase
-            .from("titoli_regolazione_fattori")
-            .insert(insertRows);
-          if (insErr) throw insErr;
-        }
+        const insertRows = rowsToInsertPayload(id!, regolazioneRamoIdDetail, regRighe);
+        const { error: insErr } = await supabase
+          .from("titoli_regolazione_fattori")
+          .insert(insertRows);
+        if (insErr) throw insErr;
       }
     },
     onSuccess: () => {
@@ -851,6 +849,7 @@ const TitoloDetail = () => {
     descrizione_polizza: "",
     prodotto_nome: "",
     note: "",
+    numero_titolo: "",
     compagnia_id: "" as string | null,
     gruppo_compagnia_id: "" as string | null,
     compagnia_rapporto_id: "" as string | null,
@@ -1019,6 +1018,7 @@ const TitoloDetail = () => {
         descrizione_polizza: t.descrizione_polizza ?? "",
         prodotto_nome: t.prodotto_nome ?? "",
         note: t.note ?? "",
+        numero_titolo: t.numero_titolo ?? "",
         compagnia_id: t.compagnia_id ?? null,
         gruppo_compagnia_id: (isBroker ? gruppoFromRapporto : null) || gruppoFromAgenzia || gruppoFromRapporto,
         compagnia_rapporto_id: t.compagnia_rapporto_id ?? null,
@@ -1122,6 +1122,37 @@ const TitoloDetail = () => {
       }
 
       assertSameTitolo(id, titolo?.id, "saveContrattoMutation");
+
+      // N° polizza: solo se non locked; aggiorna tutta la catena (non la singola riga)
+      const lockedNow =
+        !!(titolo as any)?.data_messa_cassa ||
+        (titolo as any)?.stato === "incassato" ||
+        (titolo as any)?.stato === "stornato";
+      const numeroNuovo = (contrattoForm.numero_titolo || "").trim();
+      const numeroCorrente = ((titolo as any)?.numero_titolo || "").trim();
+      if (!lockedNow && numeroNuovo !== numeroCorrente) {
+        if (!numeroNuovo) {
+          throw new Error("Il N° Polizza è obbligatorio");
+        }
+        const dup = await verificaNumeroPolizzaDuplicato(supabase, {
+          numeroTitolo: numeroNuovo,
+          compagniaId: (contrattoForm.compagnia_id || (titolo as any)?.compagnia_id) || null,
+          excludeTitoloId: titolo?.id,
+        });
+        if (dup.duplicato) {
+          throw new Error(`Numero polizza già presente: ${numeroNuovo}`);
+        }
+        await aggiornaNumeroPolizza({
+          titoloId: titolo!.id,
+          numeroCorrente,
+          numeroNuovo,
+          causale: "emittenda",
+          motivo: "Cambio numero polizza",
+        });
+        before.numero_titolo = numeroCorrente;
+        after.numero_titolo = numeroNuovo;
+      }
+
       const { error } = await supabase
         .from("titoli")
         .update({
@@ -1152,6 +1183,7 @@ const TitoloDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["catena-titoli"] });
       toast.success("Contratto aggiornato");
       setEditingContratto(false);
     },
@@ -2716,7 +2748,7 @@ const TitoloDetail = () => {
               Emittenda
             </Label>
           </div>
-          {isEmittenda && (
+          {(!isLocked || isEmittenda) && (
             <Button
               variant="outline"
               size="sm"
@@ -2724,7 +2756,11 @@ const TitoloDetail = () => {
                 setEditNumeroEmittendaValue(t.numero_titolo || "");
                 setEditNumeroEmittendaOpen(true);
               }}
-              title="Emittenda: il N° polizza è modificabile anche dopo messa a cassa"
+              title={
+                isEmittenda
+                  ? "Emittenda: il N° polizza è modificabile anche dopo messa a cassa"
+                  : "Modifica il N° polizza su tutta la catena (polizza non a cassa)"
+              }
             >
               <Pencil className="w-4 h-4 mr-1" /> Modifica N° polizza
             </Button>
@@ -2917,20 +2953,29 @@ const TitoloDetail = () => {
               </div>
             </div>
 
-            {/* N° Polizza: locked salvo emittenda (usa "Modifica N° polizza"); Cliente sempre locked */}
+            {/* N° Polizza: editabile se !isLocked; se locked+emittenda via dialog; altrimenti bloccato */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className={`text-xs flex items-center gap-1 ${isEmittenda ? "" : "text-muted-foreground"}`}>
-                  {isEmittenda ? "Numero Polizza" : "🔒 Numero Polizza"}
+                <Label className={`text-xs flex items-center gap-1 ${!isLocked || isEmittenda ? "" : "text-muted-foreground"}`}>
+                  {!isLocked || isEmittenda ? "Numero Polizza" : "🔒 Numero Polizza"}
                 </Label>
-                <div className="h-8 px-2 flex items-center text-xs font-mono rounded-md border bg-muted/30">
-                  {fmt(t.numero_titolo)}
-                  {isEmittenda && (
-                    <span className="ml-auto text-[10px] text-muted-foreground font-sans">
-                      modificabile via «Modifica N° polizza»
-                    </span>
-                  )}
-                </div>
+                {!isLocked ? (
+                  <Input
+                    value={contrattoForm.numero_titolo}
+                    onChange={(e) => setContrattoForm((p) => ({ ...p, numero_titolo: e.target.value }))}
+                    placeholder="N° polizza"
+                    className="h-8 text-xs font-mono"
+                  />
+                ) : (
+                  <div className="h-8 px-2 flex items-center text-xs font-mono rounded-md border bg-muted/30">
+                    {fmt(t.numero_titolo)}
+                    {isEmittenda && (
+                      <span className="ml-auto text-[10px] text-muted-foreground font-sans">
+                        modificabile via «Modifica N° polizza»
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Note</Label>
@@ -3377,20 +3422,14 @@ const TitoloDetail = () => {
                   ramoId={regolazioneRamoIdDetail}
                   datePresunte={regForm.regolazione_date_presunte}
                   fattori={regolazioneFattoriLinkedDetail}
-                  importiMap={regImporti}
+                  righe={regRighe}
+                  onChange={setRegRighe}
                   loading={loadingRegFattoriDetail}
-                  existing={(titoloRegolazioneFattori as any[]).map((r) => ({
-                    fattore_id: r.fattore_id,
-                    anno: r.anno,
-                    importo_esposto: Number(r.importo_esposto) || 0,
-                    data_presunta: r.data_presunta,
-                  }))}
-                  onImportoChange={(fattoreId, anno, value) => {
-                    setRegImporti((prev) => ({
-                      ...prev,
-                      [regolazioneFattoreKey(fattoreId, anno)]: value,
-                    }));
-                  }}
+                  fallbackAnno={
+                    titolo?.durata_a
+                      ? Number(String(titolo.durata_a).slice(0, 4))
+                      : new Date().getFullYear() + 1
+                  }
                 />
                 <div className="space-y-1 md:col-span-3">
                   <Label className="text-xs">Note</Label>
@@ -4269,7 +4308,9 @@ const TitoloDetail = () => {
           <DialogHeader>
             <DialogTitle>Modifica N° polizza</DialogTitle>
             <DialogDescription>
-              Emittenda: il numero si aggiorna su tutte le quietanze/figli della polizza e resta modificabile anche dopo messa a cassa.
+              {isEmittenda
+                ? "Emittenda: il numero si aggiorna su tutte le quietanze/figli della polizza e resta modificabile anche dopo messa a cassa."
+                : "Il numero si aggiorna su tutte le quietanze e i titoli collegati della polizza."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -4278,7 +4319,7 @@ const TitoloDetail = () => {
               value={editNumeroEmittendaValue}
               onChange={(e) => setEditNumeroEmittendaValue(e.target.value)}
               className="h-9 font-mono text-sm"
-              placeholder="N° polizza definitivo o IA…"
+              placeholder="N° polizza"
               autoFocus
             />
           </div>
@@ -4289,6 +4330,10 @@ const TitoloDetail = () => {
             <Button
               disabled={editNumeroEmittendaSaving}
               onClick={async () => {
+                if (isLocked && !isEmittenda) {
+                  toast.error("N° polizza bloccato: titolo messo a cassa o stornato");
+                  return;
+                }
                 const nuovo = editNumeroEmittendaValue.trim();
                 if (!nuovo) {
                   toast.error("Il N° Polizza è obbligatorio");
@@ -4315,10 +4360,13 @@ const TitoloDetail = () => {
                     numeroCorrente: t.numero_titolo,
                     numeroNuovo: nuovo,
                     causale: "emittenda",
-                    motivo: "Cambio numero polizza emittenda",
+                    motivo: isEmittenda ? "Cambio numero polizza emittenda" : "Cambio numero polizza",
                   });
                   toast.success("N° polizza aggiornato");
                   setEditNumeroEmittendaOpen(false);
+                  if (editingContratto) {
+                    setContrattoForm((p) => ({ ...p, numero_titolo: nuovo }));
+                  }
                   queryClient.invalidateQueries({ queryKey: ["titolo", id] });
                   queryClient.invalidateQueries({ queryKey: ["catena-titoli"] });
                 } catch (e: any) {

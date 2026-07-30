@@ -62,8 +62,8 @@ import { computeQuietanzePlan } from "@/lib/quietanzePlan";
 import { resizeRegolazioneDatePresunte } from "@/lib/regolazioneDatePresunte";
 import {
   buildRegolazioneFattoriRows,
-  regolazioneFattoreKey,
   rowsToInsertPayload,
+  type RegolazioneFattoreRiga,
 } from "@/lib/regolazioneFattori";
 import {
   FATTORI_REGOLAZIONE_STANDARD,
@@ -437,8 +437,8 @@ const ImmissionePolizzaPage = () => {
   /** Compat draft/legacy: prima data dell'array */
   const regolazioneDataPresunta = regolazioneDatePresunte[0] ?? "";
   const regolazioneDateTouchedRef = useRef<boolean[]>([]);
-  /** Importi esposti per fattore×anno — chiave `${fattoreId}|${anno}` */
-  const [regolazioneImporti, setRegolazioneImporti] = useState<Record<string, number>>({});
+  /** Righe esplicite fattori regolazione (solo quelle aggiunte con +) */
+  const [regolazioneRighe, setRegolazioneRighe] = useState<RegolazioneFattoreRiga[]>([]);
   const [regolazioneNote, setRegolazioneNote] = useState("");
 
   // Importi — multi-row garanzie
@@ -629,10 +629,24 @@ const ImmissionePolizzaPage = () => {
             regolazioneDateTouchedRef.current = [true];
           }
         },
-        regolazioneImporti: (v: Record<string, number>) => {
-          if (v && typeof v === "object") setRegolazioneImporti(v);
+        regolazioneRighe: (v: RegolazioneFattoreRiga[]) => {
+          if (Array.isArray(v)) setRegolazioneRighe(v);
         },
-        // Bozze legacy: singolo fattore (senza importi) — ignorato, griglia usa DB
+        // Bozze legacy: mappa importi → lista righe (skip se già presente formato nuovo)
+        regolazioneImporti: (v: Record<string, number>) => {
+          if (Array.isArray(d.regolazioneRighe)) return;
+          if (!v || typeof v !== "object" || Array.isArray(v)) return;
+          const existing = Object.entries(v).map(([key, importo]) => {
+            const [fattore_id, annoStr] = key.split("|");
+            return {
+              fattore_id,
+              anno: Number(annoStr),
+              importo_esposto: Number(importo) || 0,
+            };
+          }).filter((e) => e.fattore_id && Number.isFinite(e.anno));
+          setRegolazioneRighe(buildRegolazioneFattoriRows({ existing }));
+        },
+        // Bozze legacy: singolo fattore (senza importi) — ignorato
         regolazioneFattore: () => {},
         regolazioneNote: setRegolazioneNote,
         premiFirmaRows: setPremiFirmaRows,
@@ -726,7 +740,7 @@ const ImmissionePolizzaPage = () => {
     durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, polizzaTemporanea, polizzaRateo, frazionamento, moraGiorni,
     garanziaDa, garanziaDaTouched, garanziaA, garanziaATouched, dataCompetenza, dataCompetenzaTouched,
     limiteMora, limiteMoraTouched, disdettaGiorni,
-    regolazione, regolazioneDatePresunte, regolazioneDataPresunta, regolazioneImporti, regolazioneNote,
+    regolazione, regolazioneDatePresunte, regolazioneDataPresunta, regolazioneRighe, regolazioneNote,
     premiFirmaRows, premiQuietanzaRows, addizionali, valuta, addizionaliQuietanza,
     rimborso, indicizzata, noCalcoloTasse, pagDirettoCompagnia, emissioneFee, formatoElettronico, cambio,
     percentualeCommercialeAuto,
@@ -2016,7 +2030,11 @@ const ImmissionePolizzaPage = () => {
           ? (regolazioneDatePresunte.find(Boolean) || null)
           : null,
         regolazione_fattore: regolazione
-          ? (regolazioneFattoriLinked[0]?.codice || null)
+          ? (regolazioneRighe[0]
+              ? (regolazioneFattoriLinked.find((f) => f.id === regolazioneRighe[0].fattore_id)?.codice
+                  ?? regolazioneRighe[0].fattore_codice
+                  ?? null)
+              : null)
           : null,
         regolazione_note: regolazione ? (regolazioneNote || null) : null,
         libro_matricola: isLibroMatricola ? "auto" : null,
@@ -2077,27 +2095,16 @@ const ImmissionePolizzaPage = () => {
         .single();
       if (error) throw error;
 
-      // Fattori regolazione × anno (importi esposti sulla polizza). ramo_id obbligatorio in DB.
-      if (regolazione && regolazioneFattoriLinked.length > 0) {
+      // Solo le righe esplicite aggiunte in griglia. ramo_id obbligatorio in DB.
+      if (regolazione && regolazioneRighe.length > 0) {
         if (!ramoIdToSave) {
           toast.error("Seleziona il sottoramo per salvare i fattori di regolazione");
         } else {
-          const dates = regolazioneDatePresunte.filter(Boolean);
-          const rows = buildRegolazioneFattoriRows({
-            datePresunte: dates,
-            fattori: regolazioneFattoriLinked,
-            importiMap: regolazioneImporti,
-            fallbackAnno: dates[0]
-              ? undefined
-              : (durataA ? Number(String(durataA).slice(0, 4)) : new Date().getFullYear() + 1),
-          });
-          const insertRows = rowsToInsertPayload(newTitolo.id, ramoIdToSave, rows);
-          if (insertRows.length) {
-            const { error: fatErr } = await supabase
-              .from("titoli_regolazione_fattori")
-              .insert(insertRows);
-            if (fatErr) throw fatErr;
-          }
+          const insertRows = rowsToInsertPayload(newTitolo.id, ramoIdToSave, regolazioneRighe);
+          const { error: fatErr } = await supabase
+            .from("titoli_regolazione_fattori")
+            .insert(insertRows);
+          if (fatErr) throw fatErr;
         }
       }
 
@@ -3366,14 +3373,14 @@ const ImmissionePolizzaPage = () => {
                 ramoId={regolazioneRamoId}
                 datePresunte={regolazioneDatePresunte}
                 fattori={regolazioneFattoriLinked}
-                importiMap={regolazioneImporti}
+                righe={regolazioneRighe}
+                onChange={setRegolazioneRighe}
                 loading={loadingRegolazioneFattori}
-                onImportoChange={(fattoreId, anno, value) => {
-                  setRegolazioneImporti((prev) => ({
-                    ...prev,
-                    [regolazioneFattoreKey(fattoreId, anno)]: value,
-                  }));
-                }}
+                fallbackAnno={
+                  durataA
+                    ? Number(String(durataA).slice(0, 4))
+                    : new Date().getFullYear() + 1
+                }
               />
               <div className="space-y-1 md:col-span-3">
                 <Label className="text-xs">Note</Label>

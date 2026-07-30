@@ -85,3 +85,40 @@ describe("isQuietanza — E/C Cliente Dare", () => {
     expect(dare - avere).toBe(1222.5);
   });
 });
+
+describe("groupTitoliByPolizza — appendici", () => {
+  it("collassa appendice /AM sotto la madre per base numero", () => {
+    const titoli = [
+      { id: "m", numero_titolo: "POL-A", sostituisce_polizza: null as string | null },
+      { id: "q", numero_titolo: "POL-A", sostituisce_polizza: "POL-A" },
+      { id: "am", numero_titolo: "POL-A/AM1", sostituisce_polizza: null, is_appendice_modifica: true },
+    ];
+    const [catena] = groupTitoliByPolizza(titoli);
+    expect(catena.numero).toBe("POL-A");
+    expect(catena.madre?.id).toBe("m");
+    expect(catena.rate.map((r) => r.id)).toEqual(["q"]);
+    expect(catena.appendici.map((a) => a.id)).toEqual(["am"]);
+  });
+
+  it("usa override da appendici_polizza se il numero appendice non matcha la madre", () => {
+    const titoli = [
+      { id: "m", numero_titolo: "2026/348272", sostituisce_polizza: null as string | null },
+      { id: "q", numero_titolo: "2026/348272", sostituisce_polizza: "2026/348272" },
+      { id: "am", numero_titolo: "2026/AM1", sostituisce_polizza: null, is_appendice_modifica: true },
+    ];
+    const overrides = new Map([["am", "2026/348272"]]);
+    const catene = groupTitoliByPolizza(titoli, overrides);
+    expect(catene).toHaveLength(1);
+    expect(catene[0].appendici.map((a) => a.id)).toEqual(["am"]);
+    expect(catene[0].madre?.id).toBe("m");
+  });
+
+  it("senza override l'appendice orfana forma catena separata", () => {
+    const titoli = [
+      { id: "m", numero_titolo: "2026/348272", sostituisce_polizza: null as string | null },
+      { id: "am", numero_titolo: "2026/AM1", sostituisce_polizza: null, is_appendice_modifica: true },
+    ];
+    const catene = groupTitoliByPolizza(titoli);
+    expect(catene).toHaveLength(2);
+  });
+});

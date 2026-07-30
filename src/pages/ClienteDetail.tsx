@@ -45,6 +45,10 @@ import {
   dataCoperturaUltimaQuietanza,
   quietanzaUltimaCopertura,
 } from "@/lib/quietanze";
+import {
+  buildAppendiceBaseOverrides,
+  fetchAppendiciPolizzaForTitoli,
+} from "@/lib/appendiciPolizza";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { isInCoperturaGarantita, isGarantitoDaIncassare } from "@/lib/garantitoTitolo";
 import { countQuietanzeDaIncassare, countQuietanzeRateDaIncassare, isQuietanzaDaMostrare } from "@/lib/quietanzeClienteView";
@@ -1170,7 +1174,23 @@ function PolizzeClienteTable({
   clienteId?: string;
   clienteNome?: string;
 }) {
-  const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
+  const titoloIds = useMemo(
+    () => polizze.map((p) => p.id as string).filter(Boolean),
+    [polizze],
+  );
+  const { data: appendiciLinks = [] } = useQuery({
+    queryKey: ["appendici_polizza_cliente", clienteId, titoloIds],
+    queryFn: () => fetchAppendiciPolizzaForTitoli(supabase, titoloIds),
+    enabled: titoloIds.length > 0,
+  });
+  const appendiceBaseOverrides = useMemo(
+    () => buildAppendiceBaseOverrides(polizze, appendiciLinks),
+    [polizze, appendiciLinks],
+  );
+  const catene = useMemo(
+    () => groupTitoliByPolizza(polizze, appendiceBaseOverrides),
+    [polizze, appendiceBaseOverrides],
+  );
   const [filtroTipoState, setFiltroTipoState] = useState<"polizze" | "quietanze" | "regolazioni" | "garantiti">("quietanze");
   const filtroTipo: "polizze" | "quietanze" | "regolazioni" | "garantiti" = mode ?? filtroTipoState;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1345,22 +1365,16 @@ function PolizzeClienteTable({
 
   const quietanzeVisibili = useMemo(
     () => (filtroTipo === "quietanze"
-      ? filteredTitoli.filter((p) => (!!p.sostituisce_polizza || isAppendice(p)) && isQuietanzaDaMostrare(p))
+      ? filteredTitoli.filter((p) => !!p.sostituisce_polizza && !isAppendice(p) && isQuietanzaDaMostrare(p))
       : []),
     [filteredTitoli, filtroTipo],
   );
-  const quietanzeVisibiliRate = useMemo(
-    () => quietanzeVisibili.filter((p) => !!p.sostituisce_polizza && !isAppendice(p)),
-    [quietanzeVisibili],
-  );
-  const quietanzeVisibiliApp = useMemo(
-    () => quietanzeVisibili.filter(isAppendice),
-    [quietanzeVisibili],
-  );
+  const quietanzeVisibiliRate = quietanzeVisibili;
   // La polizza madre è il contratto, non un titolo da incassare: il premio
   // reale è la somma delle quietanze + appendici (titoli incassabili). Sommare
   // anche la madre raddoppierebbe il totale (es. annuale 1y: 1 madre + 1 quietanza).
   // Totali aggregati: solo rate/appendici con year(garanzia_da|data_competenza|garanzia_a) === anno corrente.
+  // Tab Quietanze: solo rate (appendici restano sotto Polizze espansa).
   const titoliAnnoCorrente = useMemo(() => {
     const pool = filtroTipo === "quietanze" ? quietanzeVisibili : [...allQuiet, ...allApp];
     return pool.filter((p) => yearOfTitoloForAnno(p) === annoCorrente);
@@ -1383,7 +1397,7 @@ function PolizzeClienteTable({
     [allGarant, annoCorrente],
   );
 
-  // Flat quietanze filtrate (vista "Solo quietanze")
+  // Flat quietanze filtrate (vista "Solo quietanze") — solo rate, no appendici.
   const flatQuietanze = useMemo(() => {
     const out: { rata: any; madreNum: string | null; madreId: string | null; idx: number; totale: number }[] = [];
     filteredCatene.forEach((c: any) => {
@@ -1394,13 +1408,6 @@ function PolizzeClienteTable({
       c.rate.forEach((r: any, i: number) => {
         if (matchTitolo(r) && isQuietanzaDaMostrare(r)) {
           out.push({ rata: r, madreNum, madreId, idx: i + 1, totale });
-        }
-      });
-      // Le appendici (AM/PR/RG) sono titoli da incassare: si mostrano insieme
-      // alle quietanze ma con il proprio badge.
-      c.appendici.forEach((a: any) => {
-        if (matchTitolo(a) && isQuietanzaDaMostrare(a)) {
-          out.push({ rata: a, madreNum, madreId, idx: 0, totale: 0 });
         }
       });
     });
@@ -1586,9 +1593,6 @@ function PolizzeClienteTable({
           ) : filtroTipo === "quietanze" ? (
             <>
               <span className="font-medium text-foreground">{quietanzeVisibiliRate.length}</span> quietanze da incassare
-              {quietanzeVisibiliApp.length > 0 && (
-                <> · <span className="font-medium text-appendice">{quietanzeVisibiliApp.length}</span> appendici</>
-              )}
               {countGarantiti > 0 && (
                 <> · <span className="font-medium text-orange-700">{countGarantiti}</span> garantiti</>
               )}
