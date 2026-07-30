@@ -2039,13 +2039,13 @@ const ImmissionePolizzaPage = () => {
         regolazione_note: regolazione ? (regolazioneNote || null) : null,
         libro_matricola: isLibroMatricola ? "auto" : null,
         emittenda: !!emittenda,
-        premio_netto_quietanza: premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null,
-        addizionali_quietanza: accessoriQuietanzaNum || null,
-        tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
-        ssn_quietanza: ssnQuietanzaNum || 0,
-        provvigioni_quietanza: provvQuietanza || null,
+        premio_netto_quietanza: polizzaTemporanea ? null : (premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null),
+        addizionali_quietanza: polizzaTemporanea ? null : (accessoriQuietanzaNum || null),
+        tasse_quietanza: polizzaTemporanea ? null : (tasseQuietanza ? parseFloat(tasseQuietanza) : null),
+        ssn_quietanza: polizzaTemporanea ? 0 : (ssnQuietanzaNum || 0),
+        provvigioni_quietanza: polizzaTemporanea ? null : (provvQuietanza || null),
         brokeraggio_firma: brokFirma || null,
-        brokeraggio_quietanza: brokQuietanza || null,
+        brokeraggio_quietanza: polizzaTemporanea ? null : (brokQuietanza || null),
         percentuale_brokeraggio: percentualeBrokeraggio ? parseFloat(percentualeBrokeraggio) : null,
         rimborso, indicizzata, no_calcolo_tasse: noCalcoloTasse,
         pag_diretto_compagnia: pagDirettoCompagnia, emissione_fee: emissioneFee,
@@ -2262,7 +2262,7 @@ const ImmissionePolizzaPage = () => {
           }));
       const premiPayload = [
         ...buildPremiInsert(premiFirmaRows, "firma"),
-        ...buildPremiInsert(premiQuietanzaRows, "quietanza"),
+        ...(polizzaTemporanea ? [] : buildPremiInsert(premiQuietanzaRows, "quietanza")),
       ];
       if (premiPayload.length > 0) {
         await supabase.from("premi_garanzia_polizza").insert(premiPayload);
@@ -3497,19 +3497,21 @@ const ImmissionePolizzaPage = () => {
                   rowPctNetto={rowPctNettoFn}
                   {...provvPropsFirma}
                   headerExtra={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => {
-                        setPremiQuietanzaRows(mirrorAllFromFirma(premiFirmaRows));
-                        toast.success("Quietanza riallineata alla Firma");
-                      }}
-                      title="Riallinea l'intera Quietanza alla Firma, azzerando le personalizzazioni"
-                    >
-                      Copia in Quietanza
-                    </Button>
+                    polizzaTemporanea ? undefined : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setPremiQuietanzaRows(mirrorAllFromFirma(premiFirmaRows));
+                          toast.success("Quietanza riallineata alla Firma");
+                        }}
+                        title="Riallinea l'intera Quietanza alla Firma, azzerando le personalizzazioni"
+                      >
+                        Copia in Quietanza
+                      </Button>
+                    )
                   }
                   coassicurazioneBreakdown={
                     coassicurazione ? (
@@ -3534,42 +3536,44 @@ const ImmissionePolizzaPage = () => {
                     ) : undefined
                   }
                 />
-                <PremiGaranziaCardShell
-                  tipoPremio="quietanza"
-                  titoloOverride={polizzaRateo ? "Premio rata annua" : undefined}
-                  gruppoRamoId={selectedGruppoRamoId}
-                  defaultSottoramoId={defaultSottoramoId}
+                {!polizzaTemporanea && (
+                  <PremiGaranziaCardShell
+                    tipoPremio="quietanza"
+                    titoloOverride={polizzaRateo ? "Premio rata annua" : undefined}
+                    gruppoRamoId={selectedGruppoRamoId}
+                    defaultSottoramoId={defaultSottoramoId}
 
-                  rows={premiQuietanzaRows}
-                  onRowsChange={(next) => {
-                    setPremiQuietanzaRows((prev) => markQuietanzaEdits(prev, next));
-                  }}
-                  addizionali={String(accessoriQuietanzaNum)}
-                  provvigioni={provvQuietanza}
-                  provvPctBreakdown={provvBreakdownQuietanza}
-                  rowPctAccessori={rowPctAccessoriFn}
-                  rowPctNetto={rowPctNettoFn}
-                  {...provvPropsQuietanza}
-                  personalizzati={personalizzati}
-                  onResetRow={(idx) =>
-                    setPremiQuietanzaRows((prev) => resetQuietanzaRow(premiFirmaRows, prev, idx))
-                  }
-                  headerExtra={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      disabled={sincronizzata}
-                      onClick={() => {
-                        setPremiQuietanzaRows(mirrorAllFromFirma(premiFirmaRows));
-                      }}
-                      title="Riallinea tutte le voci alla Firma, azzerando le personalizzazioni"
-                    >
-                      Sincronizza da Firma
-                    </Button>
-                  }
-                />
+                    rows={premiQuietanzaRows}
+                    onRowsChange={(next) => {
+                      setPremiQuietanzaRows((prev) => markQuietanzaEdits(prev, next));
+                    }}
+                    addizionali={String(accessoriQuietanzaNum)}
+                    provvigioni={provvQuietanza}
+                    provvPctBreakdown={provvBreakdownQuietanza}
+                    rowPctAccessori={rowPctAccessoriFn}
+                    rowPctNetto={rowPctNettoFn}
+                    {...provvPropsQuietanza}
+                    personalizzati={personalizzati}
+                    onResetRow={(idx) =>
+                      setPremiQuietanzaRows((prev) => resetQuietanzaRow(premiFirmaRows, prev, idx))
+                    }
+                    headerExtra={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={sincronizzata}
+                        onClick={() => {
+                          setPremiQuietanzaRows(mirrorAllFromFirma(premiFirmaRows));
+                        }}
+                        title="Riallinea tutte le voci alla Firma, azzerando le personalizzazioni"
+                      >
+                        Sincronizza da Firma
+                      </Button>
+                    }
+                  />
+                )}
               </>
             );
 

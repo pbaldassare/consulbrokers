@@ -1952,9 +1952,10 @@ const TitoloDetail = () => {
 
   // Catena polizza: usata per banner "scope" e pannello "Quietanze sorelle"
   const isQuietanzaCorrente = isQuietanzaTitolo(t);
-  /** Su quietanza già conclusa o su appendice: niente dualismo Firma/Quietanza. */
+  /** Su quietanza già conclusa, appendice o polizza temporanea: niente dualismo Firma/Quietanza. */
   const nascondiPremioQuietanza =
     isAppendiceTitolo ||
+    !!t.polizza_temporanea ||
     (isQuietanzaCorrente && (t.stato === "incassato" || !!t.data_messa_cassa));
   const catene = catenaTitoli && catenaTitoli.length > 0
     ? groupTitoliByPolizza(catenaTitoli)
@@ -3765,7 +3766,7 @@ const TitoloDetail = () => {
         return (
       <SectionCollapsible title="Importi" icon={DollarSign}>
         <div className="flex justify-between items-center mb-2 gap-2">
-          {isPolizzaMadre ? (
+          {isPolizzaMadre && !t.polizza_temporanea ? (
             <p className="text-[11px] text-muted-foreground italic">
               I premi si modificano sulla <b>quietanza</b>, non sulla polizza originale.
             </p>
