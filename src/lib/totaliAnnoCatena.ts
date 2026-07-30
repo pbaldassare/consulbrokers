@@ -40,6 +40,7 @@ export function yearOfTitoloForAnno(t: {
 }
 
 /**
+ * @deprecated Usare `totaliQuietanzamentoCatena` per i totali in Polizze cliente.
  * Somma premio_lordo e getProvvigioneEC delle rate+appendici con appartenenza all'`anno`.
  * Non include la polizza madre.
  */
