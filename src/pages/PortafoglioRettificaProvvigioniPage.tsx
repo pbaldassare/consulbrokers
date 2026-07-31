@@ -30,8 +30,7 @@ import {
   validateRettificaNote,
   type QuietanzaRettificaSearchRow,
 } from "@/lib/rettificaProvvigioniQuietanza";
-const SEARCH_SELECT =
-  "id, numero_titolo, cliente_nome_display, compagnia_nome, premio_lordo, provvigioni_quietanza, data_messa_cassa, numero_rata, numero_rate_totali, stato";
+import { searchQuietanzePerRettifica } from "@/lib/rettificaProvvigioniSearch";
 
 const PortafoglioRettificaProvvigioniPage = () => {
   const [search, setSearch] = useState("");
@@ -45,28 +44,15 @@ const PortafoglioRettificaProvvigioniPage = () => {
   const [note, setNote] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const { data: results = [], isFetching } = useQuery({
+  const {
+    data: results = [],
+    isFetching,
+    isError,
+    error: searchError,
+  } = useQuery({
     queryKey: ["rettifica-provv-search", debouncedSearch],
     enabled: debouncedSearch.trim().length >= 2 && !selected,
-    queryFn: async () => {
-      const term = debouncedSearch.trim();
-      let q = supabase
-        .from("v_portafoglio_quietanze")
-        .select(SEARCH_SELECT)
-        .not("sostituisce_polizza", "is", null)
-        .or("is_regolazione.is.null,is_regolazione.eq.false")
-        .or("stato.eq.incassato,data_messa_cassa.not.is.null")
-        .order("data_messa_cassa", { ascending: false })
-        .limit(30);
-
-      q = q.or(
-        `numero_titolo.ilike.%${term}%,cliente_nome_display.ilike.%${term}%,cliente_codice.ilike.%${term}%`,
-      );
-
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data || []) as QuietanzaRettificaSearchRow[];
-    },
+    queryFn: () => searchQuietanzePerRettifica(debouncedSearch),
   });
 
   const nuovoImporto = useMemo(() => {
@@ -170,7 +156,7 @@ const PortafoglioRettificaProvvigioniPage = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   className="pl-9"
-                  placeholder="Es. 4344334 o Rossi"
+                  placeholder="Es. 801505372 o CASE"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   autoFocus
@@ -183,8 +169,14 @@ const PortafoglioRettificaProvvigioniPage = () => {
                     <div className="flex items-center justify-center py-8 text-muted-foreground">
                       <Loader2 className="w-5 h-5 animate-spin mr-2" /> Ricerca…
                     </div>
+                  ) : isError ? (
+                    <p className="text-sm text-destructive text-center py-8 px-4">
+                      Errore ricerca: {(searchError as Error)?.message || "riprova"}
+                    </p>
                   ) : results.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">Nessuna quietanza trovata</p>
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      Nessuna quietanza incassata / a cassa trovata
+                    </p>
                   ) : (
                     <Table>
                       <TableHeader>

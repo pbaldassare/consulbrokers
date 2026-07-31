@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Clock, Search, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass, RotateCcw, ArrowRightLeft, FileSpreadsheet, FileText, FileType, Loader2 } from "lucide-react";
 
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
@@ -269,15 +269,9 @@ const IncassiPage = () => {
     // Pendenti: quietanze e appendici insieme (nessun filtro tipo).
     q = q.eq("stato", "attivo").is("data_messa_cassa", null);
 
+    // Range esplicito Dal/Al: solo garanzia_da (senza soglia 60gg né null)
     if (dateDa || dateA) {
-      // Range esplicito: rate con soglia 60gg; appendici solo con Dal/Al (senza soglia)
-      const soglia = quietanzaSogliaGaranziaDa();
-      const rangeParts: string[] = [];
-      if (dateDa) rangeParts.push(`garanzia_da.gte.${dateDa}`);
-      if (dateA) rangeParts.push(`garanzia_da.lte.${dateA}`);
-      const rateAnd = `and(garanzia_da.lte.${soglia},${rangeParts.join(",")})`;
-      const appAnd = `and(or(${isAppendiceExpr}),${rangeParts.join(",")})`;
-      return q.or(`garanzia_da.is.null,${rateAnd},${appAnd}`);
+      return applyDateRange(q, "garanzia_da");
     }
 
     if (filtroPeriodo === "mese_corrente") {
@@ -388,8 +382,8 @@ const IncassiPage = () => {
       filtri: {
         Vista: isVistaIncassati ? "Incassati" : "Pendenti",
         Periodo: filtroPeriodo === "mese_corrente" ? "Mese corrente" : "Tutte",
-        Dal: dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : "—",
-        Al: dateA ? format(new Date(dateA), "dd/MM/yyyy") : "—",
+        Dal: dateDa ? format(dateDa.length === 10 ? parseISO(dateDa) : new Date(dateDa), "dd/MM/yyyy") : "—",
+        Al: dateA ? format(dateA.length === 10 ? parseISO(dateA) : new Date(dateA), "dd/MM/yyyy") : "—",
         Sedi: sedeLabel,
         Ricerca: search.trim() || "—",
       },
@@ -784,8 +778,16 @@ const IncassiPage = () => {
   const fmtCurrency = (v: number | null) =>
     v != null ? `€ ${Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—";
 
-  const fmtDate = (d: string | null) =>
-    d ? format(new Date(d), "dd/MM/yyyy") : "—";
+  const fmtDate = (d: string | null) => {
+    if (!d) return "—";
+    try {
+      const parsed = d.length === 10 ? parseISO(d) : new Date(d);
+      if (Number.isNaN(parsed.getTime())) return "—";
+      return format(parsed, "dd/MM/yyyy");
+    } catch {
+      return "—";
+    }
+  };
 
   const frazLabel = (r: number | null) => {
     if (!r) return "—";
@@ -817,8 +819,8 @@ const IncassiPage = () => {
                   if (!dateDa && !dateA && filtroPeriodo === "mese_corrente") {
                     return "Incassate nel mese corrente (data messa a cassa).";
                   }
-                  const da = dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : null;
-                  const a = dateA ? format(new Date(dateA), "dd/MM/yyyy") : null;
+                  const da = dateDa ? format(dateDa.length === 10 ? parseISO(dateDa) : new Date(dateDa), "dd/MM/yyyy") : null;
+                  const a = dateA ? format(dateA.length === 10 ? parseISO(dateA) : new Date(dateA), "dd/MM/yyyy") : null;
                   if (da && a) return `Incassate dal ${da} al ${a}`;
                   if (da) return `Incassate dal ${da}`;
                   return `Incassate fino al ${a}`;
@@ -834,8 +836,8 @@ const IncassiPage = () => {
                       </>
                     );
                   }
-                  const da = dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : null;
-                  const a = dateA ? format(new Date(dateA), "dd/MM/yyyy") : null;
+                  const da = dateDa ? format(dateDa.length === 10 ? parseISO(dateDa) : new Date(dateDa), "dd/MM/yyyy") : null;
+                  const a = dateA ? format(dateA.length === 10 ? parseISO(dateA) : new Date(dateA), "dd/MM/yyyy") : null;
                   if (da && a) return `${labelBase} dal ${da} al ${a}`;
                   if (da) return `${labelBase} dal ${da}`;
                   return `${labelBase} fino al ${a}`;
@@ -1011,14 +1013,36 @@ const IncassiPage = () => {
             <Input
               type="date"
               value={dateDa}
-              onChange={(e) => { setDateDa(e.target.value); setPage(0); updateUrl({ dal: e.target.value || null }); }}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDateDa(v);
+                setPage(0);
+                if (v || dateA) {
+                  setFiltroPeriodo("tutte");
+                  setUserTouched(true);
+                  updateUrl({ dal: v || null, periodo: "tutte" });
+                } else {
+                  updateUrl({ dal: null });
+                }
+              }}
               className="w-[150px]"
             />
             <span className="text-xs text-muted-foreground ml-1">Al</span>
             <Input
               type="date"
               value={dateA}
-              onChange={(e) => { setDateA(e.target.value); setPage(0); updateUrl({ al: e.target.value || null }); }}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDateA(v);
+                setPage(0);
+                if (v || dateDa) {
+                  setFiltroPeriodo("tutte");
+                  setUserTouched(true);
+                  updateUrl({ al: v || null, periodo: "tutte" });
+                } else {
+                  updateUrl({ al: null });
+                }
+              }}
               className="w-[150px]"
             />
             {isVistaIncassati && (

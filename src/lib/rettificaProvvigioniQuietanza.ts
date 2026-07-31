@@ -100,6 +100,59 @@ export type QuietanzaRettificaSearchRow = {
   stato: string | null;
 };
 
+export type ClienteAnagraficaSnippet = {
+  ragione_sociale?: string | null;
+  cognome?: string | null;
+  nome?: string | null;
+  codice_cliente?: string | null;
+};
+
+/** Escape caratteri speciali PostgREST / ILIKE nel termine di ricerca. */
+export function sanitizeRettificaSearchTerm(raw: string): string {
+  return raw
+    .trim()
+    .replace(/[%_,.()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function formatClienteNomeDisplay(c: ClienteAnagraficaSnippet | null | undefined): string | null {
+  if (!c) return null;
+  const rs = (c.ragione_sociale ?? "").trim();
+  if (rs) return rs;
+  const person = [c.cognome, c.nome].filter(Boolean).join(" ").trim();
+  return person || null;
+}
+
+/** Mappa riga titoli (+ join) → riga UI ricerca rettifica. */
+export function mapTitoloToRettificaSearchRow(row: {
+  id: string;
+  numero_titolo?: string | null;
+  premio_lordo?: number | null;
+  provvigioni_quietanza?: number | null;
+  data_messa_cassa?: string | null;
+  stato?: string | null;
+  riga?: number | null;
+  rate?: number | null;
+  clienti?: ClienteAnagraficaSnippet | ClienteAnagraficaSnippet[] | null;
+  compagnie?: { nome?: string | null } | { nome?: string | null }[] | null;
+}): QuietanzaRettificaSearchRow {
+  const clienti = Array.isArray(row.clienti) ? row.clienti[0] : row.clienti;
+  const compagnie = Array.isArray(row.compagnie) ? row.compagnie[0] : row.compagnie;
+  return {
+    id: row.id,
+    numero_titolo: row.numero_titolo ?? null,
+    cliente_nome_display: formatClienteNomeDisplay(clienti),
+    compagnia_nome: compagnie?.nome ?? null,
+    premio_lordo: row.premio_lordo ?? null,
+    provvigioni_quietanza: row.provvigioni_quietanza ?? null,
+    data_messa_cassa: row.data_messa_cassa ?? null,
+    numero_rata: row.riga ?? null,
+    numero_rate_totali: row.rate ?? null,
+    stato: row.stato ?? null,
+  };
+}
+
 export function formatRataLabel(rata: number | null | undefined, totale: number | null | undefined): string {
   if (rata == null) return "—";
   if (totale != null && totale > 0) return `${rata}/${totale}`;

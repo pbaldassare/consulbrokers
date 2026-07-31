@@ -5,6 +5,9 @@ import {
   validateNuovoImporto,
   validateRettificaNote,
   formatRataLabel,
+  sanitizeRettificaSearchTerm,
+  formatClienteNomeDisplay,
+  mapTitoloToRettificaSearchRow,
 } from "../rettificaProvvigioniQuietanza";
 
 describe("calcDeltaProvvigioni", () => {
@@ -56,5 +59,38 @@ describe("formatRataLabel", () => {
   it("formatta rata/totale", () => {
     expect(formatRataLabel(2, 4)).toBe("2/4");
     expect(formatRataLabel(null, 4)).toBe("—");
+  });
+});
+
+describe("sanitizeRettificaSearchTerm", () => {
+  it("rimuove metacaratteri PostgREST/ILIKE", () => {
+    expect(sanitizeRettificaSearchTerm("  2026/3249677  ")).toBe("2026/3249677");
+    expect(sanitizeRettificaSearchTerm("a%b_c,(x)")).toBe("a b c x");
+  });
+});
+
+describe("formatClienteNomeDisplay / mapTitoloToRettificaSearchRow", () => {
+  it("preferisce ragione sociale, poi cognome nome", () => {
+    expect(formatClienteNomeDisplay({ ragione_sociale: " ACME ", cognome: "Rossi" })).toBe("ACME");
+    expect(formatClienteNomeDisplay({ cognome: "CASE", nome: "WALTER" })).toBe("CASE WALTER");
+  });
+
+  it("mappa riga titoli su riga UI", () => {
+    const row = mapTitoloToRettificaSearchRow({
+      id: "t1",
+      numero_titolo: "801505372",
+      premio_lordo: 100,
+      provvigioni_quietanza: 12.5,
+      data_messa_cassa: "2026-07-29",
+      stato: "incassato",
+      riga: 2,
+      rate: 3,
+      clienti: { cognome: "CASE", nome: "WALTER", codice_cliente: "1000515" },
+      compagnie: { nome: "Agenzia X" },
+    });
+    expect(row.cliente_nome_display).toBe("CASE WALTER");
+    expect(row.compagnia_nome).toBe("Agenzia X");
+    expect(row.numero_rata).toBe(2);
+    expect(row.numero_rate_totali).toBe(3);
   });
 });

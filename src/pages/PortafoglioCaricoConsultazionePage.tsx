@@ -23,7 +23,7 @@ import {
   FileType,
   Loader2,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
@@ -305,8 +305,8 @@ const PortafoglioCaricoConsultazionePage = () => {
       filtri: {
         Vista: isVistaIncassati ? "Incassati" : "Pendenti",
         Periodo: filtroPeriodo === "mese_corrente" ? "Mese corrente" : "Tutte",
-        Dal: dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : "—",
-        Al: dateA ? format(new Date(dateA), "dd/MM/yyyy") : "—",
+        Dal: dateDa ? format(dateDa.length === 10 ? parseISO(dateDa) : new Date(dateDa), "dd/MM/yyyy") : "—",
+        Al: dateA ? format(dateA.length === 10 ? parseISO(dateA) : new Date(dateA), "dd/MM/yyyy") : "—",
         Sedi: sedeLabel,
         Ricerca: search.trim() || "—",
       },
@@ -454,7 +454,16 @@ const PortafoglioCaricoConsultazionePage = () => {
   const fmtCurrency = (v: number | null) =>
     v != null ? `€ ${Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—";
 
-  const fmtDate = (d: string | null) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
+  const fmtDate = (d: string | null) => {
+    if (!d) return "—";
+    try {
+      const parsed = d.length === 10 ? parseISO(d) : new Date(d);
+      if (Number.isNaN(parsed.getTime())) return "—";
+      return format(parsed, "dd/MM/yyyy");
+    } catch {
+      return "—";
+    }
+  };
 
   const frazLabel = (r: number | null) => {
     if (!r) return "—";
@@ -572,9 +581,16 @@ const PortafoglioCaricoConsultazionePage = () => {
               type="date"
               value={dateDa}
               onChange={(e) => {
-                setDateDa(e.target.value);
+                const v = e.target.value;
+                setDateDa(v);
                 setPage(0);
-                updateUrl({ dal: e.target.value || null });
+                if (v || dateA) {
+                  setFiltroPeriodo("tutte");
+                  setUserTouched(true);
+                  updateUrl({ dal: v || null, periodo: "tutte" });
+                } else {
+                  updateUrl({ dal: null });
+                }
               }}
               className="w-[150px]"
             />
@@ -583,9 +599,16 @@ const PortafoglioCaricoConsultazionePage = () => {
               type="date"
               value={dateA}
               onChange={(e) => {
-                setDateA(e.target.value);
+                const v = e.target.value;
+                setDateA(v);
                 setPage(0);
-                updateUrl({ al: e.target.value || null });
+                if (v || dateDa) {
+                  setFiltroPeriodo("tutte");
+                  setUserTouched(true);
+                  updateUrl({ al: v || null, periodo: "tutte" });
+                } else {
+                  updateUrl({ al: null });
+                }
               }}
               className="w-[150px]"
             />

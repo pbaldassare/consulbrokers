@@ -44,7 +44,8 @@ export const applySedeFilter = (q: any, filtroUffici: string[]) =>
   filtroUffici.length > 0 ? q.in("ufficio_id", filtroUffici) : q;
 
 /**
- * Pendenti: criteri vista cliente (attivo, senza messa a cassa, soglia 60gg).
+ * Pendenti: attivo, senza messa a cassa; default/mese usano soglia 60gg.
+ * Con Dal/Al espliciti: solo range su garanzia_da (niente soglia né null).
  * Incassati: stato=incassato; Dal/Al e "mese corrente" su data_messa_cassa.
  */
 export const applyPeriodoFilter = (
@@ -71,14 +72,9 @@ export const applyPeriodoFilter = (
 
   q = q.eq("stato", "attivo").is("data_messa_cassa", null);
 
+  // Range esplicito Dal/Al: solo garanzia_da (senza soglia 60gg né null)
   if (dateDa || dateA) {
-    const soglia = quietanzaSogliaGaranziaDa();
-    const rangeParts: string[] = [];
-    if (dateDa) rangeParts.push(`garanzia_da.gte.${dateDa}`);
-    if (dateA) rangeParts.push(`garanzia_da.lte.${dateA}`);
-    const rateAnd = `and(garanzia_da.lte.${soglia},${rangeParts.join(",")})`;
-    const appAnd = `and(or(${isAppendiceExpr}),${rangeParts.join(",")})`;
-    return q.or(`garanzia_da.is.null,${rateAnd},${appAnd}`);
+    return applyDateRange(q, "garanzia_da", dateDa, dateA);
   }
 
   if (filtroPeriodo === "mese_corrente") {
