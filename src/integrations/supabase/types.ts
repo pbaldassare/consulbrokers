@@ -12181,12 +12181,16 @@ export type Database = {
         Returns: number
       }
       fn_rate_per_anno: { Args: { frazionamento: string }; Returns: number }
+      fn_rigenera_provvigioni_generate: {
+        Args: { p_titolo_id: string }
+        Returns: number
+      }
       fn_risolvi_polizza_da_titolo_madre: {
         Args: { p_madre_id: string }
         Returns: string
       }
-      format_numero_emittenda: { Args: { p_n: number }; Returns: string }
       format_cig_temporaneo: { Args: { p_n: number }; Returns: string }
+      format_numero_emittenda: { Args: { p_n: number }; Returns: string }
       generate_codice_cliente: { Args: never; Returns: string }
       get_canali_cliente_with_meta: {
         Args: { _limit?: number; _offset?: number; _user_id: string }
@@ -12276,8 +12280,8 @@ export type Database = {
         Args: { _legacy_id: string; _master_id: string }
         Returns: Json
       }
-      next_numero_emittenda: { Args: never; Returns: string }
       next_cig_temporaneo: { Args: never; Returns: string }
+      next_numero_emittenda: { Args: never; Returns: string }
       refresh_cfo_kpi: { Args: never; Returns: undefined }
       refresh_cfo_kpi_mensili: { Args: never; Returns: undefined }
       report_banca_ko: { Args: { _ufficio_id?: string }; Returns: Json }
@@ -12323,6 +12327,15 @@ export type Database = {
       }
       rettifica_modalita_incasso_titolo: {
         Args: { p_modalita: string; p_note?: string; p_titolo_id: string }
+        Returns: Json
+      }
+      rettifica_provvigioni_quietanza: {
+        Args: {
+          p_data_rettifica?: string
+          p_note: string
+          p_nuovo_importo: number
+          p_titolo_id: string
+        }
         Returns: Json
       }
       risolvi_provvigione_compagnia: {
