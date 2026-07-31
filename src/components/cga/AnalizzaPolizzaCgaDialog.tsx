@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -394,12 +394,12 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
           {!extracted ? (
             <div className="space-y-3 py-2">
               <Label>PDF della polizza</Label>
-              <Input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-              {file && (
-                <div className="text-xs text-muted-foreground flex items-center gap-2">
-                  <FileText className="h-3 w-3" /> {file.name}
-                </div>
-              )}
+              <FileDropzone
+                accept="application/pdf,image/*"
+                selectedFiles={file ? [file] : undefined}
+                onFilesSelected={(files) => setFile(files[0] ?? null)}
+                hint="PDF o immagine"
+              />
             </div>
           ) : (
             <div className="space-y-4 py-2">

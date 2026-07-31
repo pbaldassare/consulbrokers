@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +9,7 @@ import { Upload, FileText, Download, Eye, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 import DocPreviewDialog from "@/components/cliente/DocPreviewDialog";
 import { ensureFileExtension, fileBaseNameWithoutExt } from "@/lib/sanitizeFileName";
+import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +49,10 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
 
   const upload = async () => {
     if (!file || !user) return;
+    if (isDocumentUploadTooLarge(file.size)) {
+      toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
+      return;
+    }
     const trimmed = displayName.trim();
     if (!trimmed) {
       toast.error("Inserisci un nome per il documento");
@@ -141,14 +147,20 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
         ))}
       </ul>
       <div className="space-y-2 pt-1">
-        <Input
-          type="file"
-          onChange={(e) => {
-            const f = e.target.files?.[0] ?? null;
+        <FileDropzone
+          size="sm"
+          selectedFiles={file ? [file] : undefined}
+          onFilesSelected={(files) => {
+            const f = files[0] ?? null;
+            if (f && isDocumentUploadTooLarge(f.size)) {
+              toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
+              return;
+            }
             setFile(f);
             setDisplayName(f ? fileBaseNameWithoutExt(f.name) : "");
           }}
-          className="text-xs"
+          disabled={uploading}
+          hint={`Max ${MAX_DOCUMENT_UPLOAD_MB} MB per file`}
         />
         {file && (
           <div className="space-y-1">

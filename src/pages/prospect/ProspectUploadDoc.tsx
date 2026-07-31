@@ -3,10 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { Label } from "@/components/ui/label";
 import { Upload, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 const ProspectUploadDoc = () => {
   const { user } = useAuth();
@@ -28,6 +29,10 @@ const ProspectUploadDoc = () => {
 
   const handleUpload = async () => {
     if (!file || !prospectId || !user) return;
+    if (isDocumentUploadTooLarge(file.size)) {
+      toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
+      return;
+    }
     setUploading(true);
 
     const path = `prospect/${prospectId}/${Date.now()}_${file.name}`;
@@ -87,11 +92,20 @@ const ProspectUploadDoc = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="file">File</Label>
-            <Input
-              id="file"
-              type="file"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            <Label>File</Label>
+            <FileDropzone
+              inputId="file"
+              selectedFiles={file ? [file] : undefined}
+              onFilesSelected={(files) => {
+                const f = files[0] ?? null;
+                if (f && isDocumentUploadTooLarge(f.size)) {
+                  toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
+                  return;
+                }
+                setFile(f);
+              }}
+              disabled={uploading}
+              hint={`Max ${MAX_DOCUMENT_UPLOAD_MB} MB per file`}
             />
           </div>
           {file && (

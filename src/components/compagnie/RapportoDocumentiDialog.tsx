@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Upload, FileText, Download, Trash2, Pencil, Check, X, Loader2 } from "lucide-react";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -55,11 +56,11 @@ export default function RapportoDocumentiDialog({ open, onOpenChange, rapportoId
     enabled: !!rapportoId && open,
   });
 
-  const handleUpload = async (files: FileList) => {
-    if (!rapportoId) return;
+  const handleUpload = async (files: File[]) => {
+    if (!rapportoId || files.length === 0) return;
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         const path = `compagnia_rapporti/${rapportoId}/${Date.now()}_${file.name}`;
         const { error: upErr } = await supabase.storage.from("documenti_generali").upload(path, file);
         if (upErr) throw upErr;
@@ -142,9 +143,17 @@ export default function RapportoDocumentiDialog({ open, onOpenChange, rapportoId
               type="file"
               multiple
               className="hidden"
-              onChange={(e) => { if (e.target.files?.length) handleUpload(e.target.files); }}
+              onChange={(e) => { if (e.target.files?.length) handleUpload(Array.from(e.target.files)); }}
             />
           </div>
+
+          <FileDropzone
+            size="sm"
+            multiple
+            disabled={uploading}
+            onFilesSelected={handleUpload}
+            hint="Trascina uno o più documenti qui oppure usa il pulsante Carica documento"
+          />
 
           {isLoading ? (
             <p className="text-sm text-muted-foreground py-6 text-center">Caricamento...</p>

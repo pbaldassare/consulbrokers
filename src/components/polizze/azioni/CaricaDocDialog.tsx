@@ -4,12 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { logAttivita } from "@/lib/logAttivita";
 import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { MAX_DOCUMENT_UPLOAD_BYTES, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 interface Props {
@@ -24,19 +23,18 @@ interface Props {
 export function CaricaDocDialog({ open, onOpenChange, titoloId, numeroTitolo, onUploaded }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [files, setFiles] = useState<FileList | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
 
-  useEffect(() => { if (open) setFiles(null); }, [open]);
+  useEffect(() => { if (open) setFiles([]); }, [open]);
 
   const mut = useMutation({
     mutationFn: async () => {
       if (!titoloId) throw new Error("Titolo non specificato");
-      if (!files || files.length === 0) throw new Error("Seleziona almeno un file");
-      const arr = Array.from(files);
-      for (const f of arr) {
+      if (files.length === 0) throw new Error("Seleziona almeno un file");
+      for (const f of files) {
         if (f.size > MAX_DOCUMENT_UPLOAD_BYTES) throw new Error(`${f.name} supera ${MAX_DOCUMENT_UPLOAD_MB} MB`);
       }
-      for (const f of arr) {
+      for (const f of files) {
         const path = `titolo/${titoloId}/${Date.now()}_${sanitizeStorageFileName(f.name)}`;
         const { error: upErr } = await supabase.storage.from("documenti_titoli").upload(path, f);
         if (upErr) throw upErr;
@@ -56,7 +54,7 @@ export function CaricaDocDialog({ open, onOpenChange, titoloId, numeroTitolo, on
           dettagli_json: { nome_file: f.name },
         });
       }
-      return arr.length;
+      return files.length;
     },
     onSuccess: (n) => {
       toast.success(`${n} documento/i caricato/i`);
@@ -76,19 +74,16 @@ export function CaricaDocDialog({ open, onOpenChange, titoloId, numeroTitolo, on
           <DialogDescription>I file vengono salvati nel bucket <code>documenti_titoli</code> e collegati alla polizza.</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <Label>File (max {MAX_DOCUMENT_UPLOAD_MB} MB ciascuno)</Label>
-          <Input type="file" multiple onChange={(e) => setFiles(e.target.files)} />
-          {files && files.length > 0 && (
-            <ul className="text-sm text-muted-foreground space-y-1">
-              {Array.from(files).map((f) => <li key={f.name}>• {f.name} ({Math.round(f.size / 1024)} KB)</li>)}
-            </ul>
-          )}
-        </div>
+        <FileDropzone
+          multiple
+          selectedFiles={files.length > 0 ? files : undefined}
+          onFilesSelected={setFiles}
+          hint={`Max ${MAX_DOCUMENT_UPLOAD_MB} MB per file. Puoi selezionare più file.`}
+        />
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>Annulla</Button>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId || !files?.length}>
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !titoloId || files.length === 0}>
             {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Carica
           </Button>

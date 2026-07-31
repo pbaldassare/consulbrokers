@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Upload } from "lucide-react";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -132,29 +132,13 @@ export default function UploadDocStaffDialog({
               placeholder="Seleziona tipologia"
             />
           </div>
-          <div
-            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => document.getElementById("up-doc-staff")?.click()}
-          >
-            <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-            {file ? (
-              <p className="text-sm font-medium">
-                {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">Clicca per selezionare un file</p>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG — max {MAX_DOCUMENT_UPLOAD_MB} MB</p>
-            <input
-              id="up-doc-staff"
-              type="file"
-              className="hidden"
-              accept=".pdf,.jpg,.jpeg,.png,.webp"
-              onChange={(e) => {
-                if (e.target.files?.[0]) handleFile(e.target.files[0]);
-              }}
-            />
-          </div>
+          <FileDropzone
+            inputId="up-doc-staff"
+            accept=".pdf,.jpg,.jpeg,.png,.webp"
+            selectedFiles={file ? [file] : undefined}
+            onFilesSelected={(files) => handleFile(files[0])}
+            hint={`PDF, JPG, PNG — max ${MAX_DOCUMENT_UPLOAD_MB} MB`}
+          />
           <div className="flex items-center justify-between rounded-md border p-3 bg-muted/30">
             <div>
               <Label htmlFor="visibile-cliente-doc">Visibile al cliente</Label>

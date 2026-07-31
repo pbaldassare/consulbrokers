@@ -7,9 +7,9 @@ import {
 } from "../uploadLimits";
 
 describe("uploadLimits", () => {
-  it("defines 25 MB as document upload limit", () => {
-    expect(MAX_DOCUMENT_UPLOAD_MB).toBe(25);
-    expect(MAX_DOCUMENT_UPLOAD_BYTES).toBe(25 * 1024 * 1024);
+  it("defines 50 MB as document upload limit", () => {
+    expect(MAX_DOCUMENT_UPLOAD_MB).toBe(50);
+    expect(MAX_DOCUMENT_UPLOAD_BYTES).toBe(50 * 1024 * 1024);
   });
 
   it("detects oversize files", () => {
@@ -18,6 +18,6 @@ describe("uploadLimits", () => {
   });
 
   it("returns Italian error message", () => {
-    expect(documentUploadTooLargeMessage()).toContain("25 MB");
+    expect(documentUploadTooLargeMessage()).toContain("50 MB");
   });
 });

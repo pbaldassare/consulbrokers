@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Upload } from "lucide-react";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -96,20 +96,14 @@ export default function UploadDocPolizzaDialog({ open, onOpenChange, titoloId, c
               placeholder="Seleziona tipologia"
             />
           </div>
-          <div
-            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-teal-500 transition-colors"
-            onClick={() => document.getElementById("up-doc-pol")?.click()}
-          >
-            <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-            {file ? (
-              <p className="text-sm font-medium">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</p>
-            ) : (
-              <p className="text-sm text-muted-foreground">Clicca per selezionare un file</p>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG — max {MAX_DOCUMENT_UPLOAD_MB} MB</p>
-            <input id="up-doc-pol" type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp"
-              onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
-          </div>
+          <FileDropzone
+            inputId="up-doc-pol"
+            accept=".pdf,.jpg,.jpeg,.png,.webp"
+            selectedFiles={file ? [file] : undefined}
+            onFilesSelected={(files) => handleFile(files[0])}
+            hint={`PDF, JPG, PNG — max ${MAX_DOCUMENT_UPLOAD_MB} MB`}
+            className="hover:border-teal-500"
+          />
           {err && <p className="text-sm text-destructive">{err}</p>}
         </div>
         <DialogFooter>

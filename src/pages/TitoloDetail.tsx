@@ -3792,6 +3792,63 @@ const TitoloDetail = () => {
         };
         const sFirma = t.provvigioni_firma;
         const sQui = t.provvigioni_quietanza;
+        const fTot = premiDisplayTotals?.firma;
+        const qTot = premiDisplayTotals?.quietanza;
+        /** Usa totale garanzia se sul titolo manca (0/null) — tipico dopo import. */
+        const prefer = (stored: number | null | undefined, computed: number | undefined, hasRows?: boolean) => {
+          const s = stored == null || Number.isNaN(Number(stored)) ? null : Number(stored);
+          if (hasRows && computed != null && (s == null || s === 0) && computed > 0) return computed;
+          return s ?? (hasRows ? computed ?? null : null);
+        };
+        const preferLordo = (
+          storedLordo: number | null | undefined,
+          storedNetto: number | null | undefined,
+          storedTasse: number | null | undefined,
+          computed: PremiGaranziaDisplayTotals | undefined,
+        ) => {
+          const s = storedLordo == null ? null : Number(storedLordo);
+          if (!computed?.hasRows || !(computed.lordo > 0)) return s;
+          const tasseStored = Number(storedTasse) || 0;
+          const nettoStored = Number(storedNetto) || 0;
+          if (tasseStored === 0 && computed.tasse > 0 && s != null && Math.abs(s - nettoStored) < 0.02) {
+            return computed.lordo;
+          }
+          return prefer(s, computed.lordo, true);
+        };
+        /** In modifica: totali live dalle garanzie; in lettura: prefer titolo/garanzia. */
+        const pick = (stored: number | null | undefined, computed: number | undefined, hasRows?: boolean) => {
+          if (editingImporti && hasRows && computed != null) return computed;
+          return prefer(stored, computed, hasRows);
+        };
+        const pickLordo = (
+          storedLordo: number | null | undefined,
+          storedNetto: number | null | undefined,
+          storedTasse: number | null | undefined,
+          computed: PremiGaranziaDisplayTotals | undefined,
+        ) => {
+          if (editingImporti && computed?.hasRows) return computed.lordo;
+          return preferLordo(storedLordo, storedNetto, storedTasse, computed);
+        };
+        const nettoF = pick(t.premio_netto, fTot?.netto, fTot?.hasRows);
+        const tasseF = pick(t.tasse, fTot?.tasse, fTot?.hasRows);
+        const lordoF = pickLordo(t.premio_lordo, t.premio_netto, t.tasse, fTot);
+        const provvF = pick(t.provvigioni_firma, fTot?.provvigioni, fTot?.hasRows);
+        const nettoQ = pick(t.premio_netto_quietanza, qTot?.netto, qTot?.hasRows);
+        const tasseQ = pick(t.tasse_quietanza, qTot?.tasse, qTot?.hasRows);
+        const lordoStoredQ = (Number(t.premio_netto_quietanza) || 0) + (Number(t.tasse_quietanza) || 0);
+        const lordoQ = pickLordo(
+          lordoStoredQ > 0 ? lordoStoredQ : null,
+          t.premio_netto_quietanza,
+          t.tasse_quietanza,
+          qTot,
+        );
+        const provvQ = pick(
+          t.provvigioni_quietanza,
+          qTot?.hasRows ? qTot.provvigioni : fTot?.provvigioni,
+          qTot?.hasRows || fTot?.hasRows,
+        );
+        const splitF = provvF ?? sFirma;
+        const splitQ = provvQ ?? sQui;
         return (
       <SectionCollapsible title="Importi" icon={DollarSign}>
         <div className="flex justify-between items-center mb-2 gap-2">
@@ -3823,57 +3880,42 @@ const TitoloDetail = () => {
           </div>
         </div>
 
+        {/* Totali premi/provvigioni sempre visibili (view + edit) */}
+        <div className={`mb-4 grid grid-cols-1 ${nascondiPremioQuietanza ? "" : "sm:grid-cols-2"} gap-2`}>
+          <div className="rounded-md border border-teal-300 dark:border-teal-800 bg-teal-50/70 dark:bg-teal-950/30 px-3 py-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-teal-800 dark:text-teal-200">Firma</span>
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm">
+              <span>
+                <span className="text-[10px] text-muted-foreground uppercase mr-1">Premio lordo</span>
+                <span className="font-mono font-semibold tabular-nums">{fmtEuro(lordoF)}</span>
+              </span>
+              <span>
+                <span className="text-[10px] text-muted-foreground uppercase mr-1">Provvigioni</span>
+                <span className="font-mono font-semibold tabular-nums">{fmtEuro(provvF)}</span>
+              </span>
+            </div>
+          </div>
+          {!nascondiPremioQuietanza && (
+            <div className="rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/30 px-3 py-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-200">Quietanza</span>
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm">
+                <span>
+                  <span className="text-[10px] text-muted-foreground uppercase mr-1">Premio lordo</span>
+                  <span className="font-mono font-semibold tabular-nums">{fmtEuro(lordoQ)}</span>
+                </span>
+                <span>
+                  <span className="text-[10px] text-muted-foreground uppercase mr-1">Provvigioni</span>
+                  <span className="font-mono font-semibold tabular-nums">{fmtEuro(provvQ)}</span>
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
         {!editingImporti ? (
           <div className="space-y-4">
-            {/* Riepilogo totali Firma / Quietanza calcolati dalle righe garanzia (read-only) */}
+            {/* Dettaglio Firma / Quietanza (netto, tasse, brokeraggio, split) */}
             <div className={`grid grid-cols-1 ${nascondiPremioQuietanza ? "" : "md:grid-cols-2"} gap-4`}>
-              {(() => {
-                const fTot = premiDisplayTotals?.firma;
-                const qTot = premiDisplayTotals?.quietanza;
-                /** Usa totale garanzia se sul titolo manca (0/null) — tipico dopo import. */
-                const prefer = (stored: number | null | undefined, computed: number | undefined, hasRows?: boolean) => {
-                  const s = stored == null || Number.isNaN(Number(stored)) ? null : Number(stored);
-                  if (hasRows && computed != null && (s == null || s === 0) && computed > 0) return computed;
-                  return s ?? (hasRows ? computed ?? null : null);
-                };
-                const preferLordo = (
-                  storedLordo: number | null | undefined,
-                  storedNetto: number | null | undefined,
-                  storedTasse: number | null | undefined,
-                  computed: PremiGaranziaDisplayTotals | undefined,
-                ) => {
-                  const s = storedLordo == null ? null : Number(storedLordo);
-                  if (!computed?.hasRows || !(computed.lordo > 0)) return s;
-                  const tasseStored = Number(storedTasse) || 0;
-                  const nettoStored = Number(storedNetto) || 0;
-                  // Lordo titolo = solo netto mentre le garanzie hanno tasse → mostra garanzia
-                  if (tasseStored === 0 && computed.tasse > 0 && s != null && Math.abs(s - nettoStored) < 0.02) {
-                    return computed.lordo;
-                  }
-                  return prefer(s, computed.lordo, true);
-                };
-                const nettoF = prefer(t.premio_netto, fTot?.netto, fTot?.hasRows);
-                const tasseF = prefer(t.tasse, fTot?.tasse, fTot?.hasRows);
-                const lordoF = preferLordo(t.premio_lordo, t.premio_netto, t.tasse, fTot);
-                const provvF = prefer(t.provvigioni_firma, fTot?.provvigioni, fTot?.hasRows);
-                const nettoQ = prefer(t.premio_netto_quietanza, qTot?.netto, qTot?.hasRows);
-                const tasseQ = prefer(t.tasse_quietanza, qTot?.tasse, qTot?.hasRows);
-                const lordoStoredQ = (Number(t.premio_netto_quietanza) || 0) + (Number(t.tasse_quietanza) || 0);
-                const lordoQ = preferLordo(
-                  lordoStoredQ > 0 ? lordoStoredQ : null,
-                  t.premio_netto_quietanza,
-                  t.tasse_quietanza,
-                  qTot,
-                );
-                const provvQ = prefer(
-                  t.provvigioni_quietanza,
-                  qTot?.hasRows ? qTot.provvigioni : fTot?.provvigioni,
-                  qTot?.hasRows || fTot?.hasRows,
-                );
-                const splitF = provvF ?? sFirma;
-                const splitQ = provvQ ?? sQui;
-                return (
-                  <>
               <div className="rounded-md border border-teal-200 dark:border-teal-900 bg-teal-50/50 dark:bg-teal-950/20 p-3">
                 <h4 className="text-xs font-bold uppercase mb-2 text-teal-800 dark:text-teal-200">Premio alla Firma</h4>
                 <div className="grid grid-cols-3 gap-2 text-sm">
@@ -3902,9 +3944,6 @@ const TitoloDetail = () => {
                 </div>
               </div>
               )}
-                  </>
-                );
-              })()}
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground pt-2 border-t">
               <span>Valuta: <strong className="text-foreground">{t.valuta || "EUR"}</strong></span>

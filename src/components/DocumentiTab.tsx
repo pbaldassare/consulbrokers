@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Upload, Download, Trash2, FileText, Eye, Pencil, Check, X } from "lucide-react";
+import { Upload, Download, Trash2, FileText, Eye, Pencil, Check, X, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
@@ -18,8 +18,17 @@ import { ensureFileExtension, fileBaseNameWithoutExt, sanitizeStorageFileName } 
 import { labelTipoDocumento } from "@/lib/tipiDocumentoCliente";
 import { fetchMetadatiInvioMessaCassa, type InvioEmailMessaCassaMeta } from "@/lib/documentiMessaCassa";
 import { fetchMetadatiInvioEcCliente, type InvioEmailEcClienteMeta } from "@/lib/documentiEcCliente";
+import {
+  DOC_CATEGORIA_INVIATO_EMAIL,
+  fetchMetadatiInvioDocumentoEmail,
+  fetchStoricoInviiPerDocumentoOrigine,
+  type InvioEmailDocumentoMeta,
+  type StoricoInvioDocumento,
+} from "@/lib/documentiInvioEmail";
+import { InviaDocumentoEmailDialog } from "@/components/documentale/InviaDocumentoEmailDialog";
 import type { AppendicePolizzaRow } from "@/lib/appendiciPolizza";
 import UploadDocStaffDialog from "@/components/clienti/UploadDocStaffDialog";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { documentUploadTooLargeMessage, isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 interface DocumentiTabProps {
@@ -99,7 +108,6 @@ export default function DocumentiTab({
   appendiciAllegati,
 }: DocumentiTabProps) {
   const qc = useQueryClient();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -111,7 +119,9 @@ export default function DocumentiTab({
   const [previewDoc, setPreviewDoc] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewPdfData, setPreviewPdfData] = useState<Uint8Array | null>(null);
+  const [invioDoc, setInvioDoc] = useState<any>(null);
   const bucket = bucketName || BUCKET_MAP[entitaTipo] || "documenti_generali";
+  const canInviaEmail = !readOnly && ["titolo", "cliente", "sinistro"].includes(entitaTipo);
 
   // Catena di id su cui leggere (es. polizza madre + tutte le quietanze). Fallback: solo entitaId.
   const idsForRead = (entitaIds && entitaIds.length > 0) ? entitaIds : [entitaId];
@@ -166,6 +176,16 @@ export default function DocumentiTab({
     [documenti],
   );
 
+  const docInviatiIds = useMemo(
+    () => (documenti ?? []).filter((d: any) => d.categoria === DOC_CATEGORIA_INVIATO_EMAIL).map((d: any) => d.id as string),
+    [documenti],
+  );
+
+  const allDocIds = useMemo(
+    () => (documenti ?? []).map((d: any) => d.id as string).filter(Boolean),
+    [documenti],
+  );
+
   const { data: invioEmailByDocId = new Map<string, InvioEmailMessaCassaMeta>() } = useQuery({
     queryKey: ["documenti-invio-email", avvisoIds.join(",")],
     enabled: avvisoIds.length > 0,
@@ -178,13 +198,24 @@ export default function DocumentiTab({
     queryFn: () => fetchMetadatiInvioEcCliente(ecEmailIds),
   });
 
+  const { data: invioDocByDocId = new Map<string, InvioEmailDocumentoMeta>() } = useQuery({
+    queryKey: ["documenti-invio-documento-email", docInviatiIds.join(",")],
+    enabled: docInviatiIds.length > 0,
+    queryFn: () => fetchMetadatiInvioDocumentoEmail(docInviatiIds),
+  });
+
+  const { data: storicoInviiByOrigine = new Map<string, StoricoInvioDocumento>() } = useQuery({
+    queryKey: ["documenti-storico-invii-origine", allDocIds.join(",")],
+    enabled: canInviaEmail && allDocIds.length > 0,
+    queryFn: () => fetchStoricoInviiPerDocumentoOrigine(allDocIds),
+  });
+
 
 
   const resetUploadDialog = () => {
     setPendingFile(null);
     setDisplayName("");
     setUploadError("");
-    if (fileRef.current) fileRef.current.value = "";
   };
 
   const handleFileSelected = (file: File) => {
@@ -329,7 +360,14 @@ export default function DocumentiTab({
   const previewIsImage = IMAGE_EXTENSIONS.includes(previewExt);
 
   const showTipologia = typedUpload || documenti?.some((d: any) => d.categoria) || (appendiciAllegati?.length ?? 0) > 0;
-  const showInvioEmail = documenti?.some((d: any) => d.categoria === "notifica_messa_cassa" || d.categoria === "ec_cliente_email");
+  const showInvioEmail =
+    canInviaEmail ||
+    documenti?.some(
+      (d: any) =>
+        d.categoria === "notifica_messa_cassa" ||
+        d.categoria === "ec_cliente_email" ||
+        d.categoria === DOC_CATEGORIA_INVIATO_EMAIL,
+    );
   const colSpan = (showTipologia ? 1 : 0) + (showInvioEmail ? 1 : 0) + 6;
 
   return (
@@ -367,29 +405,14 @@ export default function DocumentiTab({
                     <DialogTitle>Carica Documento</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <div
-                      className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                      onClick={() => fileRef.current?.click()}
-                    >
-                      <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                      {pendingFile ? (
-                        <p className="text-sm font-medium">
-                          {pendingFile.name} ({(pendingFile.size / 1024 / 1024).toFixed(2)} MB)
-                        </p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">Clicca per selezionare un file</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">Max {MAX_DOCUMENT_UPLOAD_MB} MB</p>
-                      <input
-                        ref={fileRef}
-                        type="file"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handleFileSelected(f);
-                        }}
-                      />
-                    </div>
+                    <FileDropzone
+                      selectedFiles={pendingFile ? [pendingFile] : undefined}
+                      onFilesSelected={(files) => {
+                        const f = files[0];
+                        if (f) handleFileSelected(f);
+                      }}
+                      hint={`Max ${MAX_DOCUMENT_UPLOAD_MB} MB`}
+                    />
                     <div className="space-y-1.5">
                       <Label htmlFor="nome-documento">Nome documento</Label>
                       <Input
@@ -481,7 +504,7 @@ export default function DocumentiTab({
                 </TableCell>
               )}
               {showInvioEmail && (
-                <TableCell className="text-xs max-w-[240px]">
+                <TableCell className="text-xs max-w-[260px]">
                   {doc.categoria === "notifica_messa_cassa" ? (() => {
                     const meta = invioEmailByDocId.get(doc.id);
                     if (!meta) return <span className="text-muted-foreground">—</span>;
@@ -518,7 +541,65 @@ export default function DocumentiTab({
                         )}
                       </div>
                     );
-                  })() : "—"}
+                  })() : doc.categoria === DOC_CATEGORIA_INVIATO_EMAIL ? (() => {
+                    const meta = invioDocByDocId.get(doc.id);
+                    if (!meta) return <span className="text-muted-foreground">Inviato</span>;
+                    return (
+                      <div className="space-y-0.5">
+                        <div className="truncate" title={meta.destinatario ?? undefined}>
+                          <span className="text-muted-foreground">A: </span>{meta.destinatario || "—"}
+                          {meta.destinatario_tipo ? (
+                            <span className="text-muted-foreground"> ({meta.destinatario_tipo})</span>
+                          ) : null}
+                        </div>
+                        <div className="truncate text-muted-foreground" title={meta.oggetto ?? undefined}>
+                          {meta.oggetto || "—"}
+                        </div>
+                        {meta.inviato_il && (
+                          <div className="text-muted-foreground">
+                            {format(new Date(meta.inviato_il), "dd/MM/yyyy HH:mm")}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })() : (() => {
+                    const st = storicoInviiByOrigine.get(doc.id);
+                    if (!st || (!st.cliente && !st.compagnia)) {
+                      return <span className="text-muted-foreground">Non inviato</span>;
+                    }
+                    return (
+                      <div className="flex flex-col gap-1">
+                        {st.cliente ? (
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant="default" className="text-[10px] font-normal bg-teal-700 hover:bg-teal-700">
+                              Cliente{st.countCliente > 1 ? ` ×${st.countCliente}` : ""}
+                            </Badge>
+                            {st.cliente.inviato_il && (
+                              <span className="text-[10px] text-muted-foreground" title={st.cliente.destinatario || undefined}>
+                                {format(new Date(st.cliente.inviato_il), "dd/MM/yy HH:mm")}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">Cliente: no</span>
+                        )}
+                        {st.compagnia ? (
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant="secondary" className="text-[10px] font-normal">
+                              Compagnia{st.countCompagnia > 1 ? ` ×${st.countCompagnia}` : ""}
+                            </Badge>
+                            {st.compagnia.inviato_il && (
+                              <span className="text-[10px] text-muted-foreground" title={st.compagnia.destinatario || undefined}>
+                                {format(new Date(st.compagnia.inviato_il), "dd/MM/yy HH:mm")}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">Compagnia: no</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </TableCell>
               )}
               <TableCell>{doc.profiles ? `${doc.profiles.nome} ${doc.profiles.cognome}` : "—"}</TableCell>
@@ -531,6 +612,25 @@ export default function DocumentiTab({
                   <Button size="icon" variant="ghost" onClick={() => openPreview(doc)}><Eye className="h-4 w-4" /></Button>
                 )}
                 <Button size="icon" variant="ghost" onClick={() => handleDownload(doc)}><Download className="h-4 w-4" /></Button>
+                {canInviaEmail && (() => {
+                  const st = storicoInviiByOrigine.get(doc.id);
+                  const giaInviato = !!(st?.cliente || st?.compagnia);
+                  return (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className={giaInviato ? "text-teal-700" : undefined}
+                    title={
+                      giaInviato
+                        ? `Già inviato${st?.cliente ? " al cliente" : ""}${st?.cliente && st?.compagnia ? " e" : ""}${st?.compagnia ? " alla compagnia" : ""} — puoi reinviarlo`
+                        : "Invia per email"
+                    }
+                    onClick={() => setInvioDoc(doc)}
+                  >
+                    <Mail className="h-4 w-4" />
+                  </Button>
+                  );
+                })()}
                 {!readOnly && (
                   <Button
                     size="icon"
@@ -629,6 +729,18 @@ export default function DocumentiTab({
           </DialogContent>
         </Dialog>
       )}
+
+      <InviaDocumentoEmailDialog
+        open={!!invioDoc}
+        onOpenChange={(open) => !open && setInvioDoc(null)}
+        documento={invioDoc}
+        storicoInvii={invioDoc ? storicoInviiByOrigine.get(invioDoc.id) ?? null : null}
+        onSent={() => {
+          qc.invalidateQueries({ queryKey: ["documenti", entitaTipo] });
+          qc.invalidateQueries({ queryKey: ["documenti-invio-documento-email"] });
+          qc.invalidateQueries({ queryKey: ["documenti-storico-invii-origine"] });
+        }}
+      />
     </div>
   );
 }

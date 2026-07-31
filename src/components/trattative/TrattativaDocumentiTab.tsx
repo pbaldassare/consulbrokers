@@ -3,12 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, FileText, Download, Trash2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 interface Props {
   trattativaId: string;
@@ -36,6 +37,11 @@ export const TrattativaDocumentiTab = ({ trattativaId, onEvento }: Props) => {
   });
 
   const handleUpload = async (file: File) => {
+    if (isDocumentUploadTooLarge(file.size)) {
+      toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     setUploading(true);
     try {
       const path = `trattative/${trattativaId}/${Date.now()}_${file.name}`;
@@ -104,6 +110,13 @@ export const TrattativaDocumentiTab = ({ trattativaId, onEvento }: Props) => {
           <input ref={fileRef} type="file" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleUpload(e.target.files[0]); }} />
         </div>
       </div>
+
+      <FileDropzone
+        size="sm"
+        disabled={uploading}
+        onFilesSelected={(files) => { if (files[0]) handleUpload(files[0]); }}
+        hint={`Trascina un documento qui oppure usa il pulsante Carica — max ${MAX_DOCUMENT_UPLOAD_MB} MB`}
+      />
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Caricamento...</p>

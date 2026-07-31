@@ -1,14 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Paperclip, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
-import { documentUploadTooLargeMessage, isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
+import { OperazioneAllegatoField, ensureAllegatoExt } from "@/components/polizze/operazione/OperazioneAllegatoField";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -33,17 +33,11 @@ const CAUSALI = [
   "Altro",
 ];
 
-const ensureExt = (displayName: string, originalName: string) => {
-  const origExt = originalName.includes(".") ? originalName.split(".").pop()!.toLowerCase() : "";
-  if (!origExt) return displayName;
-  const lower = displayName.toLowerCase();
-  return lower.endsWith("." + origExt) ? displayName : `${displayName}.${origExt}`;
-};
+const ensureExt = ensureAllegatoExt;
 
 export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza, onDone }: Props) => {
   const queryClient = useQueryClient();
   const todayISO = new Date().toISOString().slice(0, 10);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const [titoloRow, setTitoloRow] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -66,7 +60,6 @@ export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza
     setMotivo("");
     setFile(null);
     setDisplayName("");
-    if (fileRef.current) fileRef.current.value = "";
     setLoading(true);
     (async () => {
       const { data: tit } = await supabase.from("titoli").select("*").eq("id", titoloId).single();
@@ -91,23 +84,6 @@ export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, titoloId]);
-
-  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (isDocumentUploadTooLarge(f.size)) {
-      toast.error(documentUploadTooLargeMessage());
-      if (fileRef.current) fileRef.current.value = "";
-      return;
-    }
-    setFile(f);
-    setDisplayName(f.name);
-  };
-  const removeFile = () => {
-    setFile(null);
-    setDisplayName("");
-    if (fileRef.current) fileRef.current.value = "";
-  };
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -359,24 +335,13 @@ export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza
               )}
             </div>
 
-            <div className="space-y-1.5 border-t pt-3">
-              <Label>Documento allegato (opzionale)</Label>
-              <input ref={fileRef} type="file" className="hidden" onChange={handleFileSelected} />
-              {!file ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                  <Paperclip className="w-4 h-4 mr-1" /> Seleziona file
-                </Button>
-              ) : (
-                <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-2">
-                  <Paperclip className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Nome del documento" className="h-8 text-sm" />
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={removeFile} title="Rimuovi">
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">Max {MAX_DOCUMENT_UPLOAD_MB} MB.</p>
-            </div>
+            <OperazioneAllegatoField
+              file={file}
+              displayName={displayName}
+              onFileChange={(f, name) => { setFile(f); setDisplayName(name); }}
+              onDisplayNameChange={setDisplayName}
+              id="storno-allegato"
+            />
           </div>
 
           <DialogFooter>

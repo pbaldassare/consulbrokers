@@ -14,6 +14,8 @@ import { Upload, X, MapPin, Building2 } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { TIPI_SINISTRO as TIPI_SINISTRO_LIB } from "@/lib/tipiSinistro";
 import { isClienteSanitario, REPARTI_OSPEDALE_STANDARD } from "@/lib/sinistriReparto";
+import { FileDropzone } from "@/components/shared/FileDropzone";
+import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 interface Props {
   open: boolean;
@@ -115,6 +117,11 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
 
   const submit = async () => {
     if (!user) return;
+    const oversize = files.find((f) => isDocumentUploadTooLarge(f.size));
+    if (oversize) {
+      toast.error(`${oversize.name}: file troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
+      return;
+    }
     setSaving(true);
     try {
       const { data: cIds } = await supabase.rpc("get_my_cliente_ids");
@@ -345,7 +352,19 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
           {/* Allegati */}
           <div className="space-y-2">
             <Label>Allegati (foto, denuncia, perizia...)</Label>
-            <Input type="file" multiple onChange={e => setFiles(Array.from(e.target.files ?? []))} />
+            <FileDropzone
+              multiple
+              selectedFiles={files.length > 0 ? files : undefined}
+              onFilesSelected={(selected) => {
+                const oversize = selected.find((f) => isDocumentUploadTooLarge(f.size));
+                if (oversize) {
+                  toast.error(`${oversize.name}: file troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
+                  return;
+                }
+                setFiles(selected);
+              }}
+              hint={`Max ${MAX_DOCUMENT_UPLOAD_MB} MB per file`}
+            />
             {files.length > 0 && (
               <ul className="text-sm space-y-1 bg-muted/50 rounded p-2">
                 {files.map((f, i) => (

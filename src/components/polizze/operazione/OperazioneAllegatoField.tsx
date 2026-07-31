@@ -1,9 +1,9 @@
-import { useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { documentUploadTooLargeMessage, isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 interface Props {
@@ -23,14 +23,11 @@ export function OperazioneAllegatoField({
   label = "Documento allegato (opzionale)",
   id = "operazione-allegato",
 }: Props) {
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
+  const handleFilesSelected = (files: File[]) => {
+    const f = files[0];
     if (!f) return;
     if (isDocumentUploadTooLarge(f.size)) {
       toast.error(documentUploadTooLargeMessage());
-      if (fileRef.current) fileRef.current.value = "";
       return;
     }
     onFileChange(f, f.name);
@@ -38,17 +35,19 @@ export function OperazioneAllegatoField({
 
   const removeFile = () => {
     onFileChange(null, "");
-    if (fileRef.current) fileRef.current.value = "";
   };
 
   return (
     <div className="space-y-1.5 border-t pt-3">
       <Label htmlFor={id}>{label}</Label>
-      <input ref={fileRef} id={id} type="file" className="hidden" onChange={handleFileSelected} />
       {!file ? (
-        <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-          <Paperclip className="w-4 h-4 mr-1" /> Seleziona file
-        </Button>
+        <FileDropzone
+          inputId={id}
+          size="sm"
+          icon={Paperclip}
+          onFilesSelected={handleFilesSelected}
+          hint={`Max ${MAX_DOCUMENT_UPLOAD_MB} MB. Il nome è modificabile; l'estensione viene preservata.`}
+        />
       ) : (
         <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-2">
           <Paperclip className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -63,7 +62,6 @@ export function OperazioneAllegatoField({
           </Button>
         </div>
       )}
-      <p className="text-xs text-muted-foreground">Max {MAX_DOCUMENT_UPLOAD_MB} MB. Il nome è modificabile; l&apos;estensione viene preservata.</p>
     </div>
   );
 }

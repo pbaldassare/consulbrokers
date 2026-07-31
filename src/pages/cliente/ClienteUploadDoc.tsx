@@ -3,10 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { Upload, CheckCircle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
+import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 const ClienteUploadDoc = () => {
   const { user } = useAuth();
@@ -46,6 +47,10 @@ const ClienteUploadDoc = () => {
 
   const handleUpload = async () => {
     if (!file || !clienteId || !user) return;
+    if (isDocumentUploadTooLarge(file.size)) {
+      toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
+      return;
+    }
     setUploading(true);
     try {
       const path = `${clienteId}/${Date.now()}_${sanitizeStorageFileName(file.name)}`;
@@ -83,10 +88,18 @@ const ClienteUploadDoc = () => {
           <CardTitle className="text-base">Invia un documento all'agenzia</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Input
-            type="file"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          <FileDropzone
+            selectedFiles={file ? [file] : undefined}
+            onFilesSelected={(files) => {
+              const f = files[0] ?? null;
+              if (f && isDocumentUploadTooLarge(f.size)) {
+                toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
+                return;
+              }
+              setFile(f);
+            }}
             disabled={uploading}
+            hint={`Max ${MAX_DOCUMENT_UPLOAD_MB} MB per file`}
           />
           <Button onClick={handleUpload} disabled={!file || uploading || !clienteId} className="gap-2">
             {uploading ? "Caricamento…" : <><CheckCircle className="h-4 w-4" /> Carica</>}
