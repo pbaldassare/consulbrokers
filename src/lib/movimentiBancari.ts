@@ -594,12 +594,12 @@ export async function fetchExistingMovimentoDedupKeys(
     descrizione?: string | null;
     ordinante?: string | null;
   }>(async (from, to) =>
-    supabase
+    (supabase
       .from("movimenti_bancari" as any)
       .select("conto_bancario_id, data_movimento, importo, descrizione, ordinante")
       .eq("conto_bancario_id", contoBancarioId)
       .order("id", { ascending: true })
-      .range(from, to),
+      .range(from, to)) as any,
   DEDUP_FETCH_PAGE);
 
   for (const row of rows) {

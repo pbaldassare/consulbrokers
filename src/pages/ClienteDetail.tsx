@@ -85,6 +85,7 @@ import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { labelCompagniaAssicurativa, labelAgenziaRiferimento, labelCompagniaEAgenzia } from "@/lib/compagniaDisplay";
+import { isPolizzaAuto } from "@/lib/isPolizzaAuto";
 
 /* ===========================================================
  * Anagrafica form context + module-level field components
