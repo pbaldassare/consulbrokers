@@ -12331,6 +12331,7 @@ export type Database = {
       }
       rettifica_provvigioni_quietanza: {
         Args: {
+          p_applica_successive?: boolean
           p_data_rettifica?: string
           p_note: string
           p_nuovo_importo: number

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +31,10 @@ import {
   validateRettificaNote,
   type QuietanzaRettificaSearchRow,
 } from "@/lib/rettificaProvvigioniQuietanza";
-import { searchQuietanzePerRettifica } from "@/lib/rettificaProvvigioniSearch";
+import {
+  fetchQuietanzeSuccessivePerRettifica,
+  searchQuietanzePerRettifica,
+} from "@/lib/rettificaProvvigioniSearch";
 
 const PortafoglioRettificaProvvigioniPage = () => {
   const [search, setSearch] = useState("");
@@ -42,6 +46,7 @@ const PortafoglioRettificaProvvigioniPage = () => {
   const [selected, setSelected] = useState<QuietanzaRettificaSearchRow | null>(null);
   const [nuovoImportoStr, setNuovoImportoStr] = useState("");
   const [note, setNote] = useState("");
+  const [applicaSuccessive, setApplicaSuccessive] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const {
@@ -53,6 +58,12 @@ const PortafoglioRettificaProvvigioniPage = () => {
     queryKey: ["rettifica-provv-search", debouncedSearch],
     enabled: debouncedSearch.trim().length >= 2 && !selected,
     queryFn: () => searchQuietanzePerRettifica(debouncedSearch),
+  });
+
+  const { data: successive = [], isFetching: loadingSuccessive } = useQuery({
+    queryKey: ["rettifica-provv-successive", selected?.id],
+    enabled: !!selected?.id && !!selected.sostituisce_polizza,
+    queryFn: () => fetchQuietanzeSuccessivePerRettifica(selected!),
   });
 
   const nuovoImporto = useMemo(() => {
@@ -73,6 +84,7 @@ const PortafoglioRettificaProvvigioniPage = () => {
     setSelected(null);
     setNuovoImportoStr("");
     setNote("");
+    setApplicaSuccessive(false);
     setSearch("");
     setConfirmOpen(false);
   }, []);
@@ -88,6 +100,7 @@ const PortafoglioRettificaProvvigioniPage = () => {
         p_nuovo_importo: nuovoImporto,
         p_note: note.trim(),
         p_data_rettifica: format(new Date(), "yyyy-MM-dd"),
+        p_applica_successive: applicaSuccessive,
       });
 
       if (error) throw error;
@@ -95,15 +108,18 @@ const PortafoglioRettificaProvvigioniPage = () => {
         ok?: boolean;
         error?: string;
         in_rimessa?: boolean;
+        successive_aggiornate?: number;
       } | null;
       if (!result?.ok) throw new Error(result?.error || "Rettifica non riuscita");
       return result;
     },
     onSuccess: (result) => {
+      const succ = Number(result.successive_aggiornate) || 0;
+      const base = result.in_rimessa
+        ? "Creato titolo rettifica E/C agenzie per il delta."
+        : "Il delta aggiorna la contabilità; le provvigioni precedenti restano contabilizzate.";
       toast.success("Rettifica provvigioni applicata", {
-        description: result.in_rimessa
-          ? "Creato titolo rettifica E/C agenzie per il delta."
-          : "Il nuovo importo comparirà al prossimo E/C agenzie.",
+        description: succ > 0 ? `${base} Aggiornate ${succ} quietanze successive.` : base,
       });
       resetForm();
     },
@@ -115,6 +131,7 @@ const PortafoglioRettificaProvvigioniPage = () => {
   const handleSelect = (row: QuietanzaRettificaSearchRow) => {
     setSelected(row);
     setNuovoImportoStr(String(row.provvigioni_quietanza ?? 0));
+    setApplicaSuccessive(false);
     setSearch("");
   };
 
@@ -141,7 +158,8 @@ const PortafoglioRettificaProvvigioniPage = () => {
             Rettifica Provvigioni Quietanza
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Modifica l&apos;importo provvigione di una quietanza già messa a cassa. Non modifica premio cliente né messa a cassa.
+            Imposta il nuovo importo: il sistema gestisce il delta sulle provvigioni già contabilizzate.
+            Opzionale: aggiorna anche le quietanze successive non ancora a cassa.
           </p>
         </div>
 
@@ -275,7 +293,7 @@ const PortafoglioRettificaProvvigioniPage = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="nuovo-importo">Importo provvigione (€)</Label>
+                  <Label htmlFor="nuovo-importo">Nuovo importo provvigione (€)</Label>
                   <Input
                     id="nuovo-importo"
                     type="text"
@@ -284,7 +302,32 @@ const PortafoglioRettificaProvvigioniPage = () => {
                     value={nuovoImportoStr}
                     onChange={(e) => setNuovoImportoStr(e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Modifica le cifre: la differenza (delta) è ciò che viene rettificato in contabilità.
+                  </p>
                   {importoError && <p className="text-sm text-destructive">{importoError}</p>}
+                </div>
+
+                <div className="flex items-start gap-3 rounded-lg border p-3">
+                  <Checkbox
+                    id="applica-successive"
+                    checked={applicaSuccessive}
+                    onCheckedChange={(v) => setApplicaSuccessive(v === true)}
+                    disabled={successive.length === 0 && !loadingSuccessive}
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="applica-successive" className="cursor-pointer font-medium leading-snug">
+                      Aggiorna anche le quietanze successive
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Scrive il nuovo importo sulle rate future non ancora a cassa (nessun delta contabile).
+                      {loadingSuccessive
+                        ? " Caricamento…"
+                        : successive.length > 0
+                          ? ` ${successive.length} quietanza/e trovata/e.`
+                          : " Nessuna quietanza successiva disponibile."}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -340,14 +383,26 @@ const PortafoglioRettificaProvvigioniPage = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Confermare la rettifica?</DialogTitle>
-              <DialogDescription>
-                Verrà applicata una variazione di{" "}
-                <strong className="font-mono">
-                  {delta >= 0 ? "+" : ""}
-                  {fmtEuro(delta)}
-                </strong>{" "}
-                sulla provvigione della quietanza {selected?.numero_titolo}. L&apos;operazione aggiorna E/C produttori e,
-                se la quietanza è già in rimessa agenzia, crea un titolo rettifica separato per il delta.
+              <DialogDescription asChild>
+                <div className="text-sm text-muted-foreground space-y-2">
+                  <p>
+                    Verrà applicata una variazione di{" "}
+                    <strong className="font-mono text-foreground">
+                      {delta >= 0 ? "+" : ""}
+                      {fmtEuro(delta)}
+                    </strong>{" "}
+                    sulla quietanza {selected?.numero_titolo} (delta sulle provvigioni già contabilizzate).
+                  </p>
+                  {applicaSuccessive && successive.length > 0 && (
+                    <p>
+                      Inoltre verrà impostato il nuovo importo{" "}
+                      <strong className="font-mono text-foreground">
+                        {nuovoImporto != null ? fmtEuro(nuovoImporto) : "—"}
+                      </strong>{" "}
+                      su {successive.length} quietanza/e successive non a cassa.
+                    </p>
+                  )}
+                </div>
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

@@ -8,6 +8,7 @@ import {
   sanitizeRettificaSearchTerm,
   formatClienteNomeDisplay,
   mapTitoloToRettificaSearchRow,
+  filterQuietanzeSuccessiveNonContabilizzate,
 } from "../rettificaProvvigioniQuietanza";
 
 describe("calcDeltaProvvigioni", () => {
@@ -85,6 +86,8 @@ describe("formatClienteNomeDisplay / mapTitoloToRettificaSearchRow", () => {
       stato: "incassato",
       riga: 2,
       rate: 3,
+      sostituisce_polizza: "801505372",
+      garanzia_da: "2026-01-01",
       clienti: { cognome: "CASE", nome: "WALTER", codice_cliente: "1000515" },
       compagnie: { nome: "Agenzia X" },
     });
@@ -92,5 +95,21 @@ describe("formatClienteNomeDisplay / mapTitoloToRettificaSearchRow", () => {
     expect(row.compagnia_nome).toBe("Agenzia X");
     expect(row.numero_rata).toBe(2);
     expect(row.numero_rate_totali).toBe(3);
+    expect(row.sostituisce_polizza).toBe("801505372");
+  });
+});
+
+describe("filterQuietanzeSuccessiveNonContabilizzate", () => {
+  const selected = { id: "q1", riga: 1, garanzia_da: "2026-06-17" };
+  const rows = [
+    { id: "q1", riga: 1, garanzia_da: "2026-06-17", data_messa_cassa: "2026-07-22", stato: "incassato" },
+    { id: "q2", riga: 2, garanzia_da: "2027-06-17", data_messa_cassa: null, stato: "attivo" },
+    { id: "q0", riga: 0, garanzia_da: "2025-01-01", data_messa_cassa: null, stato: "attivo" },
+    { id: "q3", riga: 3, garanzia_da: "2028-01-01", data_messa_cassa: "2026-01-01", stato: "incassato" },
+  ];
+
+  it("include solo rate con riga successiva non a cassa", () => {
+    const filtered = filterQuietanzeSuccessiveNonContabilizzate(selected, rows);
+    expect(filtered.map((r) => r.id)).toEqual(["q2"]);
   });
 });

@@ -98,7 +98,39 @@ export type QuietanzaRettificaSearchRow = {
   numero_rata: number | null;
   numero_rate_totali: number | null;
   stato: string | null;
+  sostituisce_polizza: string | null;
+  garanzia_da: string | null;
 };
+
+export type QuietanzaSuccessivaCandidate = {
+  id: string;
+  numero_titolo?: string | null;
+  riga: number | null;
+  garanzia_da: string | null;
+  data_messa_cassa: string | null;
+  stato: string | null;
+  is_regolazione?: boolean | null;
+  provvigioni_quietanza?: number | null;
+};
+
+/**
+ * Rate successive non ancora contabilizzate (stessa catena).
+ * Allineata alla RPC: riga > selezionata, altrimenti garanzia_da > selezionata.
+ */
+export function filterQuietanzeSuccessiveNonContabilizzate(
+  selected: { id: string; riga: number | null; garanzia_da: string | null },
+  candidates: QuietanzaSuccessivaCandidate[],
+): QuietanzaSuccessivaCandidate[] {
+  return candidates.filter((c) => {
+    if (!c || c.id === selected.id) return false;
+    if (c.is_regolazione) return false;
+    if (c.data_messa_cassa) return false;
+    if (c.stato === "incassato" || c.stato === "annullato") return false;
+    if (selected.riga != null && c.riga != null) return c.riga > selected.riga;
+    if (selected.garanzia_da && c.garanzia_da) return c.garanzia_da > selected.garanzia_da;
+    return false;
+  });
+}
 
 export type ClienteAnagraficaSnippet = {
   ragione_sociale?: string | null;
@@ -134,6 +166,8 @@ export function mapTitoloToRettificaSearchRow(row: {
   stato?: string | null;
   riga?: number | null;
   rate?: number | null;
+  sostituisce_polizza?: string | null;
+  garanzia_da?: string | null;
   clienti?: ClienteAnagraficaSnippet | ClienteAnagraficaSnippet[] | null;
   compagnie?: { nome?: string | null } | { nome?: string | null }[] | null;
 }): QuietanzaRettificaSearchRow {
@@ -150,6 +184,8 @@ export function mapTitoloToRettificaSearchRow(row: {
     numero_rata: row.riga ?? null,
     numero_rate_totali: row.rate ?? null,
     stato: row.stato ?? null,
+    sostituisce_polizza: row.sostituisce_polizza ?? null,
+    garanzia_da: row.garanzia_da ?? null,
   };
 }
 
