@@ -55,9 +55,10 @@ export async function searchQuietanzePerRettifica(rawTerm: string): Promise<Quie
   }
 
   const merged = new Map<string, QuietanzaRettificaSearchRow>();
-  for (const row of [...(byNum || []), ...byCliente]) {
+  for (const raw of [...(byNum || []), ...byCliente]) {
+    const row = raw as unknown as Parameters<typeof mapTitoloToRettificaSearchRow>[0];
     if (!row?.id || merged.has(row.id)) continue;
-    merged.set(row.id, mapTitoloToRettificaSearchRow(row as Parameters<typeof mapTitoloToRettificaSearchRow>[0]));
+    merged.set(row.id, mapTitoloToRettificaSearchRow(row));
   }
 
   return Array.from(merged.values()).slice(0, 30);
