@@ -98,3 +98,9 @@ verify_jwt = false
 
 [functions.chiedi-polizza-cga]
 verify_jwt = false
+
+[functions.chiedi-libreria-cga]
+verify_jwt = false
+
+[functions.chiedi-mercato-assicurativo]
+verify_jwt = false

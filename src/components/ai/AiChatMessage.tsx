@@ -19,11 +19,16 @@ export interface AiToolCall {
   block?: any;
 }
 
+export type AiMessageFonte =
+  | { title?: string; url?: string; snippet?: string }
+  | { prodotto_id?: string; nome_prodotto?: string; compagnia?: string | null; ramo?: string | null };
+
 export interface AiMessage {
   id?: string;
   role: "user" | "assistant";
   content: string;
   tool_calls?: AiToolCall[];
+  fonti?: AiMessageFonte[];
 }
 
 const CHART_COLORS = [
@@ -199,6 +204,37 @@ export const AiChatMessage = ({ message }: Props) => {
         {!isUser && renderBlocks.map((tc, i) => (
           <RenderBlock key={`block-${i}`} block={tc.block} kind={tc.tool ?? ""} />
         ))}
+
+        {!isUser && message.fonti && message.fonti.length > 0 && (
+          <div className="text-xs text-muted-foreground space-y-1">
+            <div className="font-medium text-foreground flex items-center gap-1">
+              <ExternalLink className="h-3 w-3" /> Fonti ({message.fonti.length})
+            </div>
+            <ul className="space-y-0.5 border-l-2 border-border pl-3">
+              {message.fonti.map((f, i) => {
+                const web = f as { title?: string; url?: string; snippet?: string };
+                const cga = f as { nome_prodotto?: string; compagnia?: string | null; ramo?: string | null };
+                if (web.url) {
+                  return (
+                    <li key={i}>
+                      <a href={web.url} target="_blank" rel="noreferrer" className="text-primary underline">
+                        {web.title || web.url}
+                      </a>
+                      {web.snippet && <span className="block text-[10px] opacity-80">{web.snippet}</span>}
+                    </li>
+                  );
+                }
+                return (
+                  <li key={i}>
+                    {cga.compagnia ? `${cga.compagnia} · ` : ""}
+                    {cga.nome_prodotto || "Prodotto CGA"}
+                    {cga.ramo ? ` (${cga.ramo})` : ""}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         {!isUser && queryBlocks.length > 0 && (
           <details className="text-xs text-muted-foreground">

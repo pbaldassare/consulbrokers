@@ -748,6 +748,97 @@ export type Database = {
           },
         ]
       }
+      garanzie_chat_conversazioni: {
+        Row: {
+          autore_email: string | null
+          compagnia: string | null
+          condivisa: boolean
+          condivisa_at: string | null
+          created_at: string
+          id: string
+          prodotto_cga_id: string | null
+          ramo: string | null
+          tags: string[] | null
+          tipo: string
+          titolo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          autore_email?: string | null
+          compagnia?: string | null
+          condivisa?: boolean
+          condivisa_at?: string | null
+          created_at?: string
+          id?: string
+          prodotto_cga_id?: string | null
+          ramo?: string | null
+          tags?: string[] | null
+          tipo?: string
+          titolo?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          autore_email?: string | null
+          compagnia?: string | null
+          condivisa?: boolean
+          condivisa_at?: string | null
+          created_at?: string
+          id?: string
+          prodotto_cga_id?: string | null
+          ramo?: string | null
+          tags?: string[] | null
+          tipo?: string
+          titolo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "garanzie_chat_conversazioni_prodotto_cga_id_fkey"
+            columns: ["prodotto_cga_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti_cga"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      garanzie_chat_messaggi: {
+        Row: {
+          content: string
+          conversazione_id: string
+          created_at: string
+          fonti: Json | null
+          id: string
+          role: string
+        }
+        Insert: {
+          content?: string
+          conversazione_id: string
+          created_at?: string
+          fonti?: Json | null
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          conversazione_id?: string
+          created_at?: string
+          fonti?: Json | null
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "garanzie_chat_messaggi_conversazione_id_fkey"
+            columns: ["conversazione_id"]
+            isOneToOne: false
+            referencedRelation: "garanzie_chat_conversazioni"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_user_memory: {
         Row: {
           created_at: string

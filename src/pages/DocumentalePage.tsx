@@ -14,6 +14,7 @@ import DocumentCard from "@/components/documentale/DocumentCard";
 import CreateFolderDialog from "@/components/documentale/CreateFolderDialog";
 import UploadDocumentDialog from "@/components/documentale/UploadDocumentDialog";
 import LibreriaCgaSection from "@/components/documentale/LibreriaCgaSection";
+import AssistenteGaranzieSection from "@/components/documentale/AssistenteGaranzieSection";
 
 interface Folder {
   id: string;
@@ -240,6 +241,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
         <TabsList>
           <TabsTrigger value="archivio">Archivio</TabsTrigger>
           <TabsTrigger value="libreria-cga">Libreria CGA</TabsTrigger>
+          <TabsTrigger value="assistente-garanzie">Assistente Assicurativo</TabsTrigger>
         </TabsList>
 
         <TabsContent value="archivio" className="space-y-6 mt-4">
@@ -345,6 +347,10 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
 
         <TabsContent value="libreria-cga" className="mt-4">
           <LibreriaCgaSection />
+        </TabsContent>
+
+        <TabsContent value="assistente-garanzie" className="mt-4">
+          <AssistenteGaranzieSection consultazioneMode={consultazioneMode} />
         </TabsContent>
       </Tabs>
 
