@@ -45,6 +45,7 @@ type UseGaranzieChatOptions = {
   consultazioneMode?: boolean;
   extraBody?: () => Record<string, unknown>;
   convExtraFields?: () => Record<string, unknown>;
+  onBeforeSend?: (text: string) => void;
 };
 
 export function useGaranzieChat({
@@ -53,6 +54,7 @@ export function useGaranzieChat({
   consultazioneMode = false,
   extraBody,
   convExtraFields,
+  onBeforeSend,
 }: UseGaranzieChatOptions) {
   const { user, profile } = useAuth();
   const qc = useQueryClient();
@@ -161,6 +163,8 @@ export function useGaranzieChat({
 
   const sendMessage = async (text: string) => {
     if (isThinking) return;
+
+    onBeforeSend?.(text);
 
     let convId = activeId;
     let isFirst = false;

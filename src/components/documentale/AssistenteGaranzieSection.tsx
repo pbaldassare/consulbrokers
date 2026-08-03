@@ -1,6 +1,6 @@
 import { Globe, Sparkles, BookOpen } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import MercatoWebChatPanel from "@/components/documentale/MercatoWebChatPanel";
+import AssistenteWebChatPanel from "@/components/documentale/AssistenteWebChatPanel";
 import LibreriaCgaChatPanel from "@/components/documentale/LibreriaCgaChatPanel";
 
 type Props = {
@@ -15,27 +15,28 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
         <div>
           <h2 className="text-lg font-semibold">Assistente Assicurativo</h2>
           <p className="text-xs text-muted-foreground max-w-2xl">
-            Due modalità: ricerca sul <strong>mercato assicurativo</strong> via web, oppure consultazione
-            della <strong>Libreria CGA</strong> interna (garanzie, massimali, esclusioni).
+            <strong>Assistente Web</strong> — chat sul web stile ChatGPT, senza accesso a polizze o dati interni.
+            {" "}
+            <strong>Libreria CGA</strong> — garanzie, massimali ed esclusioni dal catalogo CBnet.
             {consultazioneMode
-              ? " Consulta le ricerche condivise dal team; per salvare nuove ricerche usa il gestionale."
-              : " Salva le ricerche utili e condividile con tutto il team."}
+              ? " Consulta le ricerche condivise; per salvare nuove chat usa il gestionale."
+              : " Salva le ricerche utili e condividile con il team."}
           </p>
         </div>
       </div>
 
-      <Tabs defaultValue="mercato-web" className="w-full">
+      <Tabs defaultValue="assistente-web" className="w-full">
         <TabsList>
-          <TabsTrigger value="mercato-web" className="gap-1.5">
-            <Globe className="h-3.5 w-3.5" /> Mercato Web
+          <TabsTrigger value="assistente-web" className="gap-1.5">
+            <Globe className="h-3.5 w-3.5" /> Assistente Web
           </TabsTrigger>
           <TabsTrigger value="libreria-cga" className="gap-1.5">
             <BookOpen className="h-3.5 w-3.5" /> Libreria CGA
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="mercato-web" className="mt-4">
-          <MercatoWebChatPanel consultazioneMode={consultazioneMode} />
+        <TabsContent value="assistente-web" className="mt-4">
+          <AssistenteWebChatPanel consultazioneMode={consultazioneMode} />
         </TabsContent>
 
         <TabsContent value="libreria-cga" className="mt-4">

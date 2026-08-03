@@ -107,7 +107,7 @@ const LoginPage = () => {
       return;
     }
     if (!isConsultazioneEmailAllowed(email)) {
-      toast.error("Usa un'email aziendale @consulbrokers.it");
+      toast.error("Email non autorizzata. Usa la tua email aziendale del partner.");
       return;
     }
     setLoading(true);
@@ -176,7 +176,7 @@ const LoginPage = () => {
             {resetMode
               ? "Inserisci la tua email per ricevere il link di reset"
               : isConsultazione
-                ? "Accesso con email aziendale Consulbrokers"
+                ? "Accesso con email aziendale autorizzata"
                 : "Inserisci le tue credenziali per accedere"}
           </p>
 
@@ -189,7 +189,7 @@ const LoginPage = () => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="nome.cognome@consulbrokers.it"
+                    placeholder="nome.cognome@azienda.it"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-9"

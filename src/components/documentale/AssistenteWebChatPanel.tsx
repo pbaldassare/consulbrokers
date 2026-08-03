@@ -1,25 +1,38 @@
 import { Globe } from "lucide-react";
 import { GaranzieChatLayout } from "@/components/documentale/GaranzieChatLayout";
+import { useConsultazione } from "@/contexts/ConsultazioneContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useGaranzieChat } from "@/hooks/useGaranzieChat";
 
 const SUGGERIMENTI = [
   "Ultimi provvedimenti IVASS su distribuzione assicurativa",
+  "Come funziona la copertura cyber per le PMI?",
+  "Differenza tra polizza tutela legale e D&O",
   "Trend premi RC auto in Italia 2025-2026",
-  "Requisiti minimi copertura cyber per PMI",
-  "Novità normative MIFID su prodotti assicurativi",
-  "Confronto mercato D&O in Italia",
-  "Obblighi informativi precontrattuali IVASS",
+  "Cosa prevede il Codice delle Assicurazioni sugli obblighi informativi?",
+  "Spiegami il concetto di retroattività in RC professionale",
 ];
 
 type Props = {
   consultazioneMode?: boolean;
 };
 
-export default function MercatoWebChatPanel({ consultazioneMode = false }: Props) {
+export default function AssistenteWebChatPanel({ consultazioneMode = false }: Props) {
+  const { email: consultazioneEmail, logRicerca } = useConsultazione();
+  const { user, profile } = useAuth();
+
+  const callerEmail = consultazioneMode
+    ? consultazioneEmail
+    : profile?.email ?? user?.email ?? null;
+
   const chat = useGaranzieChat({
     tipo: "web",
     edgeFunction: "chiedi-mercato-assicurativo",
     consultazioneMode,
+    extraBody: () => ({ email: callerEmail }),
+    onBeforeSend: consultazioneMode
+      ? (text) => logRicerca(text, "Assistente Web")
+      : undefined,
   });
 
   return (
@@ -43,9 +56,9 @@ export default function MercatoWebChatPanel({ consultazioneMode = false }: Props
       sendMessage={chat.sendMessage}
       suggestions={SUGGERIMENTI}
       emptyIcon={<Globe className="h-10 w-10 mb-3 opacity-40" />}
-      emptyTitle="Chiedi sul mercato assicurativo italiano"
-      emptyDescription="Le risposte cercano informazioni aggiornate sul web (IVASS, ANIA, stampa di settore) con citazione delle fonti."
-      thinkingLabel="Consul Mercato sta cercando sul web…"
+      emptyTitle="Assistente Web"
+      emptyDescription="Chiedi qualsiasi cosa sul web, come ChatGPT. Non accede alle tue polizze, ai clienti né al portafoglio CBnet."
+      thinkingLabel="Assistente Web sta cercando sul web…"
       formatConvDate={chat.formatConvDate}
     />
   );

@@ -39,7 +39,7 @@ export function ConsultazioneProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string) => {
     const normalized = normalizeConsultazioneEmail(email);
     if (!isConsultazioneEmailAllowed(normalized)) {
-      return { ok: false, error: "Usa un'email aziendale @consulbrokers.it" };
+      return { ok: false, error: "Email non autorizzata. Usa la tua email aziendale del partner." };
     }
     const next = writeConsultazioneSession(normalized);
     setSession(next);

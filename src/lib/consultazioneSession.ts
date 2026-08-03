@@ -1,8 +1,25 @@
 /** Sessione soft area consultazione (nessuna auth Supabase). */
 
-export const CONSULTAZIONE_DISCLAIMER_VERSION = "2026-07-27";
-export const CONSULTAZIONE_EMAIL_DOMAIN = "@consulbrokers.it";
+export const CONSULTAZIONE_DISCLAIMER_VERSION = "2026-08-03";
+
+/** Domini email autorizzati per area consultazione / Assistente Web. */
+export const CONSULTAZIONE_ALLOWED_EMAIL_DOMAINS = [
+  "consulbrokers.it",
+  "cbdigital.tech",
+  "etisicura.it",
+  "mpcunderwriting.it",
+  "interfidi.net",
+  "gbintermediazioni.it",
+  "exebroker.it",
+  "igbsrl.it",
+  "probroker.it",
+  "dibroker.it",
+] as const;
+
 export const CONSULTAZIONE_STORAGE_KEY = "cbnet_consultazione_session_v1";
+
+/** @deprecated Usare CONSULTAZIONE_ALLOWED_EMAIL_DOMAINS */
+export const CONSULTAZIONE_EMAIL_DOMAIN = "@consulbrokers.it";
 
 export type ConsultazioneSession = {
   email: string;
@@ -14,9 +31,17 @@ export function normalizeConsultazioneEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-export function isConsultazioneEmailAllowed(email: string): boolean {
+export function getEmailDomain(email: string): string | null {
   const e = normalizeConsultazioneEmail(email);
-  return e.endsWith(CONSULTAZIONE_EMAIL_DOMAIN) && e.length > CONSULTAZIONE_EMAIL_DOMAIN.length;
+  const at = e.lastIndexOf("@");
+  if (at <= 0 || at === e.length - 1) return null;
+  return e.slice(at + 1);
+}
+
+export function isConsultazioneEmailAllowed(email: string): boolean {
+  const domain = getEmailDomain(email);
+  if (!domain) return false;
+  return (CONSULTAZIONE_ALLOWED_EMAIL_DOMAINS as readonly string[]).includes(domain);
 }
 
 export function readConsultazioneSession(): ConsultazioneSession | null {
@@ -48,12 +73,12 @@ export function clearConsultazioneSession(): void {
 }
 
 export const CONSULTAZIONE_DISCLAIMER_TEXT = `
-Dichiaro di essere un dipendente di Consulbrokers e di accedere a quest'area esclusivamente per finalità lavorative.
+Dichiaro di accedere a quest'area esclusivamente per finalità professionali nel settore assicurativo e brokeraggio.
 
 Sono consapevole che:
-• i dati consultati e le ricerche effettuate vengono salvati e possono essere visualizzati da altri soggetti autorizzati all'interno di Consulbrokers;
-• l'uso di questo strumento è riservato all'attività professionale e non è consentito per scopi personali o esterni all'azienda;
-• l'accesso avviene mediante email aziendale e non sostituisce le autenticazioni del gestionale.
+• i dati consultati e le ricerche effettuate possono essere registrati e condivisi con soggetti autorizzati;
+• l'Assistente Web cerca informazioni sul web e non accede al portafoglio polizze o ai dati interni del gestionale;
+• l'uso è riservato all'attività professionale con email aziendale del partner autorizzato.
 
 Accettando, confermo di aver letto e compreso queste condizioni.
 `.trim();
