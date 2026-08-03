@@ -15,6 +15,7 @@ import CreateFolderDialog from "@/components/documentale/CreateFolderDialog";
 import UploadDocumentDialog from "@/components/documentale/UploadDocumentDialog";
 import LibreriaCgaSection from "@/components/documentale/LibreriaCgaSection";
 import AssistenteGaranzieSection from "@/components/documentale/AssistenteGaranzieSection";
+import CbBotLogo from "@/components/shared/CbBotLogo";
 
 interface Folder {
   id: string;
@@ -211,17 +212,28 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
     ? docs.filter((d) => d.file_name.toLowerCase().includes(search.toLowerCase()) || d.tags?.some((t) => t.toLowerCase().includes(search.toLowerCase())))
     : docs;
 
+  const defaultTab = consultazioneMode ? "assistente-garanzie" : "archivio";
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Archivio Documentale</h1>
-          <p className="text-sm text-muted-foreground">
-            {consultazioneMode
-              ? "Consultazione in sola lettura — le ricerche vengono registrate"
-              : "CGA, Condizioni di Polizza, Fascicoli Informativi e Modulistica"}
-          </p>
+          {consultazioneMode ? (
+            <>
+              <CbBotLogo className="h-10 w-auto" />
+              <p className="text-sm text-muted-foreground mt-2">
+                Assistente Web e Libreria CGA — salva e condividi le ricerche con il team
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold">Archivio Documentale</h1>
+              <p className="text-sm text-muted-foreground">
+                CGA, Condizioni di Polizza, Fascicoli Informativi e Modulistica
+              </p>
+            </>
+          )}
         </div>
         {isAdmin && (
           <div className="flex gap-2">
@@ -237,12 +249,30 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
         )}
       </div>
 
-      <Tabs defaultValue="archivio" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList>
-          <TabsTrigger value="archivio">Archivio</TabsTrigger>
-          <TabsTrigger value="libreria-cga">Libreria CGA</TabsTrigger>
-          <TabsTrigger value="assistente-garanzie">Assistente Assicurativo</TabsTrigger>
+          {consultazioneMode ? (
+            <>
+              <TabsTrigger value="assistente-garanzie">Cb Bot</TabsTrigger>
+              <TabsTrigger value="libreria-cga">Libreria CGA</TabsTrigger>
+              <TabsTrigger value="archivio">Archivio</TabsTrigger>
+            </>
+          ) : (
+            <>
+              <TabsTrigger value="archivio">Archivio</TabsTrigger>
+              <TabsTrigger value="libreria-cga">Libreria CGA</TabsTrigger>
+              <TabsTrigger value="assistente-garanzie">Cb Bot</TabsTrigger>
+            </>
+          )}
         </TabsList>
+
+        <TabsContent value="assistente-garanzie" className="mt-4">
+          <AssistenteGaranzieSection consultazioneMode={consultazioneMode} />
+        </TabsContent>
+
+        <TabsContent value="libreria-cga" className="mt-4">
+          <LibreriaCgaSection />
+        </TabsContent>
 
         <TabsContent value="archivio" className="space-y-6 mt-4">
           {/* Breadcrumb */}
@@ -343,14 +373,6 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
               )}
             </>
           )}
-        </TabsContent>
-
-        <TabsContent value="libreria-cga" className="mt-4">
-          <LibreriaCgaSection />
-        </TabsContent>
-
-        <TabsContent value="assistente-garanzie" className="mt-4">
-          <AssistenteGaranzieSection consultazioneMode={consultazioneMode} />
         </TabsContent>
       </Tabs>
 

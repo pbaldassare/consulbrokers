@@ -4,6 +4,7 @@ import { HardDrive, LogOut } from "lucide-react";
 import { useConsultazione } from "@/contexts/ConsultazioneContext";
 import { useNavigate } from "react-router-dom";
 import logoCbnet from "@/assets/logo-cbnet-transparent.png.asset.json";
+import CbBotLogo from "@/components/shared/CbBotLogo";
 
 export default function ConsultazioneLayout() {
   const { email, logout } = useConsultazione();
@@ -19,12 +20,13 @@ export default function ConsultazioneLayout() {
       <header className="border-b bg-card/80 backdrop-blur sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <img src={logoCbnet.url} alt="CBnet" className="h-7 w-auto" />
+            <img src={logoCbnet.url} alt="CBnet" className="h-7 w-auto shrink-0" />
+            <CbBotLogo className="h-8 w-auto shrink-0 hidden sm:block" />
             <div className="min-w-0">
               <div className="text-sm font-semibold truncate">Area consultazione</div>
               <div className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
                 <HardDrive className="h-3 w-3 shrink-0" />
-                Archivio documentale · {email}
+                {email}
               </div>
             </div>
           </div>

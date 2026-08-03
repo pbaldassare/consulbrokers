@@ -2,6 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  createConsultazione,
+  deleteConsultazione,
+  insertMsgConsultazione,
+  listMessagesConsultazione,
+  listMieConsultazione,
+  shareConsultazione,
+  touchConsultazione,
+} from "@/lib/garanzieChatConsultazione";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -29,20 +38,13 @@ export type GaranzieMsg = {
   created_at: string;
 };
 
-export type WebFonte = { title?: string; url?: string; snippet?: string };
-export type CgaFonte = {
-  prodotto_id?: string;
-  nome_prodotto?: string;
-  compagnia?: string | null;
-  ramo?: string | null;
-};
-
 type SidebarTab = "mie" | "condivise";
 
 type UseGaranzieChatOptions = {
   tipo: ChatTipo;
   edgeFunction: "chiedi-mercato-assicurativo" | "chiedi-libreria-cga";
   consultazioneMode?: boolean;
+  consultazioneEmail?: string | null;
   extraBody?: () => Record<string, unknown>;
   convExtraFields?: () => Record<string, unknown>;
   onBeforeSend?: (text: string) => void;
@@ -52,26 +54,32 @@ export function useGaranzieChat({
   tipo,
   edgeFunction,
   consultazioneMode = false,
+  consultazioneEmail = null,
   extraBody,
   convExtraFields,
   onBeforeSend,
 }: UseGaranzieChatOptions) {
   const { user, profile } = useAuth();
   const qc = useQueryClient();
-  const canPersist = !consultazioneMode && !!user;
 
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>(consultazioneMode ? "condivise" : "mie");
+  const isConsultazionePersist = consultazioneMode && !!consultazioneEmail && !user;
+  const canPersist = (!!user && !consultazioneMode) || isConsultazionePersist;
+
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("mie");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [ephemeralMessages, setEphemeralMessages] = useState<AiMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const queryKeyBase = ["garanzie-chat", tipo];
+  const queryKeyBase = ["garanzie-chat", tipo, isConsultazionePersist ? consultazioneEmail : user?.id];
 
   const { data: mieConversazioni = [] } = useQuery({
-    queryKey: [...queryKeyBase, "mie", user?.id],
+    queryKey: [...queryKeyBase, "mie"],
     enabled: canPersist,
     queryFn: async () => {
+      if (isConsultazionePersist) {
+        return listMieConsultazione(consultazioneEmail!, tipo);
+      }
       const { data, error } = await supabase
         .from("garanzie_chat_conversazioni")
         .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email")
@@ -100,9 +108,12 @@ export function useGaranzieChat({
   const sidebarList = sidebarTab === "mie" ? mieConversazioni : condivise;
 
   const { data: dbMessages = [] } = useQuery({
-    queryKey: [...queryKeyBase, "messages", activeId],
+    queryKey: [...queryKeyBase, "messages", activeId, sidebarTab],
     enabled: !!activeId,
     queryFn: async () => {
+      if (isConsultazionePersist && sidebarTab === "mie") {
+        return listMessagesConsultazione(consultazioneEmail!, activeId!);
+      }
       const { data, error } = await supabase
         .from("garanzie_chat_messaggi")
         .select("id, role, content, fonti, created_at")
@@ -137,6 +148,10 @@ export function useGaranzieChat({
 
   const shareMutation = useMutation({
     mutationFn: async (convId: string) => {
+      if (isConsultazionePersist) {
+        await shareConsultazione(consultazioneEmail!, convId);
+        return;
+      }
       const { error } = await supabase
         .from("garanzie_chat_conversazioni")
         .update({ condivisa: true, condivisa_at: new Date().toISOString() })
@@ -152,6 +167,10 @@ export function useGaranzieChat({
 
   const deleteMutation = useMutation({
     mutationFn: async (convId: string) => {
+      if (isConsultazionePersist) {
+        await deleteConsultazione(consultazioneEmail!, convId);
+        return;
+      }
       const { error } = await supabase.from("garanzie_chat_conversazioni").delete().eq("id", convId);
       if (error) throw error;
     },
@@ -168,37 +187,58 @@ export function useGaranzieChat({
 
     let convId = activeId;
     let isFirst = false;
+    const extra = convExtraFields?.() ?? {};
 
     if (canPersist && !convId) {
-      const { data, error } = await supabase
-        .from("garanzie_chat_conversazioni")
-        .insert({
-          user_id: user!.id,
-          autore_email: profile?.email ?? user!.email ?? null,
-          titolo: text.slice(0, 80),
-          tipo,
-          ...(convExtraFields?.() ?? {}),
-        })
-        .select("id")
-        .single();
-      if (error) {
+      try {
+        if (isConsultazionePersist) {
+          convId = await createConsultazione(consultazioneEmail!, tipo, text.slice(0, 80), {
+            compagnia: (extra.compagnia as string | null) ?? null,
+            ramo: (extra.ramo as string | null) ?? null,
+            prodotto_cga_id: (extra.prodotto_cga_id as string | null) ?? null,
+          });
+        } else {
+          const { data, error } = await supabase
+            .from("garanzie_chat_conversazioni")
+            .insert({
+              user_id: user!.id,
+              autore_email: profile?.email ?? user!.email ?? null,
+              titolo: text.slice(0, 80),
+              tipo,
+              ...extra,
+            })
+            .select("id")
+            .single();
+          if (error) throw error;
+          convId = data.id;
+        }
+        setActiveId(convId);
+        isFirst = true;
+        qc.invalidateQueries({ queryKey: [...queryKeyBase, "mie"] });
+      } catch {
         toast.error("Impossibile creare la conversazione");
         return;
       }
-      convId = data.id;
-      setActiveId(convId);
-      isFirst = true;
-      qc.invalidateQueries({ queryKey: [...queryKeyBase, "mie"] });
     }
 
     const userMsg: AiMessage = { role: "user", content: text };
     if (convId) {
-      await supabase.from("garanzie_chat_messaggi").insert({
-        conversazione_id: convId,
-        role: "user",
-        content: text,
-      });
-      qc.invalidateQueries({ queryKey: [...queryKeyBase, "messages", convId] });
+      try {
+        if (isConsultazionePersist) {
+          await insertMsgConsultazione(consultazioneEmail!, convId, "user", text);
+        } else {
+          const { error } = await supabase.from("garanzie_chat_messaggi").insert({
+            conversazione_id: convId,
+            role: "user",
+            content: text,
+          });
+          if (error) throw error;
+        }
+        qc.invalidateQueries({ queryKey: [...queryKeyBase, "messages", convId] });
+      } catch {
+        toast.error("Impossibile salvare il messaggio");
+        return;
+      }
     } else {
       setEphemeralMessages((prev) => [...prev, userMsg]);
     }
@@ -217,15 +257,20 @@ export function useGaranzieChat({
       const fonti = data?.fonti ?? [];
 
       if (convId) {
-        await supabase.from("garanzie_chat_messaggi").insert({
-          conversazione_id: convId,
-          role: "assistant",
-          content: assistantContent,
-          fonti,
-        });
-        const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
-        if (isFirst) updatePayload.titolo = text.slice(0, 80);
-        await supabase.from("garanzie_chat_conversazioni").update(updatePayload).eq("id", convId);
+        if (isConsultazionePersist) {
+          await insertMsgConsultazione(consultazioneEmail!, convId, "assistant", assistantContent, fonti);
+          await touchConsultazione(consultazioneEmail!, convId, isFirst ? text.slice(0, 80) : undefined);
+        } else {
+          await supabase.from("garanzie_chat_messaggi").insert({
+            conversazione_id: convId,
+            role: "assistant",
+            content: assistantContent,
+            fonti,
+          });
+          const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+          if (isFirst) updatePayload.titolo = text.slice(0, 80);
+          await supabase.from("garanzie_chat_conversazioni").update(updatePayload).eq("id", convId);
+        }
         qc.invalidateQueries({ queryKey: [...queryKeyBase, "messages", convId] });
         qc.invalidateQueries({ queryKey: [...queryKeyBase, "mie"] });
       } else {

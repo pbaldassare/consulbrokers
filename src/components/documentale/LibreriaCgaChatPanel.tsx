@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { BookOpen } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GaranzieChatLayout } from "@/components/documentale/GaranzieChatLayout";
+import { useConsultazione } from "@/contexts/ConsultazioneContext";
 import { useGaranzieChat } from "@/hooks/useGaranzieChat";
 import { useLibreriaCga } from "@/hooks/useLibreriaCga";
 
@@ -19,6 +20,7 @@ type Props = {
 };
 
 export default function LibreriaCgaChatPanel({ consultazioneMode = false }: Props) {
+  const { email: consultazioneEmail } = useConsultazione();
   const { data: libreria = [] } = useLibreriaCga();
 
   const [filtroCompagnia, setFiltroCompagnia] = useState<string>("__all__");
@@ -54,6 +56,7 @@ export default function LibreriaCgaChatPanel({ consultazioneMode = false }: Prop
     tipo: "cga",
     edgeFunction: "chiedi-libreria-cga",
     consultazioneMode,
+    consultazioneEmail,
     extraBody: () => filtriBody,
     convExtraFields: () => ({
       compagnia: filtriBody.compagnia ?? null,

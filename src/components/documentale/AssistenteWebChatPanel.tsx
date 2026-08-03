@@ -1,5 +1,5 @@
-import { Globe } from "lucide-react";
 import { GaranzieChatLayout } from "@/components/documentale/GaranzieChatLayout";
+import CbBotLogo from "@/components/shared/CbBotLogo";
 import { useConsultazione } from "@/contexts/ConsultazioneContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGaranzieChat } from "@/hooks/useGaranzieChat";
@@ -29,6 +29,7 @@ export default function AssistenteWebChatPanel({ consultazioneMode = false }: Pr
     tipo: "web",
     edgeFunction: "chiedi-mercato-assicurativo",
     consultazioneMode,
+    consultazioneEmail: consultazioneEmail,
     extraBody: () => ({ email: callerEmail }),
     onBeforeSend: consultazioneMode
       ? (text) => logRicerca(text, "Assistente Web")
@@ -55,7 +56,7 @@ export default function AssistenteWebChatPanel({ consultazioneMode = false }: Pr
       isSharedReadOnly={chat.isSharedReadOnly}
       sendMessage={chat.sendMessage}
       suggestions={SUGGERIMENTI}
-      emptyIcon={<Globe className="h-10 w-10 mb-3 opacity-40" />}
+      emptyIcon={<CbBotLogo className="h-14 w-auto mb-3 opacity-90" />}
       emptyTitle="Assistente Web"
       emptyDescription="Chiedi qualsiasi cosa sul web, come ChatGPT. Non accede alle tue polizze, ai clienti né al portafoglio CBnet."
       thinkingLabel="Assistente Web sta cercando sul web…"

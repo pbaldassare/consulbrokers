@@ -1,7 +1,8 @@
-import { Globe, Sparkles, BookOpen } from "lucide-react";
+import { Globe, BookOpen } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AssistenteWebChatPanel from "@/components/documentale/AssistenteWebChatPanel";
 import LibreriaCgaChatPanel from "@/components/documentale/LibreriaCgaChatPanel";
+import CbBotLogo from "@/components/shared/CbBotLogo";
 
 type Props = {
   consultazioneMode?: boolean;
@@ -11,15 +12,15 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-3">
-        <Sparkles className="h-6 w-6 text-primary shrink-0 mt-0.5" />
+        <CbBotLogo className="h-10 w-auto shrink-0" />
         <div>
-          <h2 className="text-lg font-semibold">Assistente Assicurativo</h2>
+          <h2 className="text-lg font-semibold sr-only">Cb Bot</h2>
           <p className="text-xs text-muted-foreground max-w-2xl">
             <strong>Assistente Web</strong> — chat sul web stile ChatGPT, senza accesso a polizze o dati interni.
             {" "}
             <strong>Libreria CGA</strong> — garanzie, massimali ed esclusioni dal catalogo CBnet.
             {consultazioneMode
-              ? " Consulta le ricerche condivise; per salvare nuove chat usa il gestionale."
+              ? " Salva le tue ricerche e condividile con il team."
               : " Salva le ricerche utili e condividile con il team."}
           </p>
         </div>
