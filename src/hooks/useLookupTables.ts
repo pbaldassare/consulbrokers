@@ -49,6 +49,7 @@ export function useLookupSettori() { return useLookup("lookup_settori"); }
 export function useLookupContratti() { return useLookup("lookup_contratti"); }
 export function useLookupFasceFatturato() { return useLookupOrdered("lookup_fasce_fatturato"); }
 export function useLookupFasceDipendenti() { return useLookupOrdered("lookup_fasce_dipendenti"); }
+export function useLookupTipologiaVeicolo() { return useLookup("lookup_tipologia_veicolo"); }
 
 export function useGruppiStatistici() {
   return useQuery<LookupOption[]>({

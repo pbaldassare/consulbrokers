@@ -4,7 +4,7 @@ export const CLASSI_MERITO = Array.from({ length: 18 }, (_, i) => ({
   label: `Classe ${i + 1}`,
 }));
 
-// Tipi veicolo standard
+// Tipi veicolo — fallback se lookup DB non disponibile; preferire useLookupTipologiaVeicolo()
 export const TIPI_VEICOLO = [
   "AUTOVETTURA",
   "AUTOTASSAMETRO",

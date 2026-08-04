@@ -45,7 +45,8 @@ type LookupTableName =
   | "lookup_fasce_fatturato"
   | "lookup_fasce_dipendenti"
   | "lookup_tipo_documento"
-  | "lookup_conti_incasso";
+  | "lookup_conti_incasso"
+  | "lookup_tipologia_veicolo";
 
 interface SimpleLookupTabProps {
   tableName: LookupTableName;
@@ -1862,6 +1863,7 @@ const tabConfig: { value: string; label: string; tableName: LookupTableName; que
   { value: "fattori_regolazione", label: "Fattori regolazione", tableName: "sottoramo_fattori_regolazione" as LookupTableName, queryKey: "sottoramo-fattori-regolazione", title: "Fattori regolazione", custom: "fattori_regolazione" },
 
   { value: "rca_usi", label: "Usi RCA", tableName: "rca_usi", queryKey: "rca-usi", title: "Uso RCA", custom: "rca_usi" },
+  { value: "lookup_tipologia_veicolo", label: "Tipologia Veicolo", tableName: "lookup_tipologia_veicolo", queryKey: "lookup-tipologia-veicolo", title: "Tipologia Veicolo" },
   { value: "rca_garanzie", label: "Catalogo Garanzie RCA", tableName: "rca_garanzie", queryKey: "rca-garanzie", title: "Garanzia", custom: "rca_garanzie" },
   { value: "gruppi_statistici", label: "Gruppi Statistici", tableName: "gruppi_statistici", queryKey: "gruppi-statistici", title: "Gruppo Statistico" },
   { value: "gruppi_finanziari", label: "Gruppi Finanziari", tableName: "gruppi_finanziari", queryKey: "gruppi-finanziari", title: "Gruppo Finanziario", custom: "gruppi_finanziari" },

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { TIPI_VEICOLO } from "@/lib/rcaConstants";
+import { useLookupTipologiaVeicolo } from "@/hooks/useLookupTables";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 
@@ -61,6 +62,8 @@ export function ModificaVeicoloDialog({
 }: Props) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<VeicoloForm>(EMPTY);
+  const { data: tipiVeicolo = [] } = useLookupTipologiaVeicolo();
+  const tipiVeicoloOpts = tipiVeicolo.length > 0 ? tipiVeicolo : TIPI_VEICOLO;
 
   const { data: veicolo, isLoading } = useQuery({
     queryKey: ["veicolo-polizza", titoloId],
@@ -186,7 +189,7 @@ export function ModificaVeicoloDialog({
                 className="h-9"
                 value={form.tipo_veicolo}
                 onValueChange={(v) => set("tipo_veicolo", v)}
-                options={TIPI_VEICOLO}
+                options={tipiVeicoloOpts}
                 placeholder="—"
                 disabled={disabled}
               />

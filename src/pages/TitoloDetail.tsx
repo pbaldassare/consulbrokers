@@ -32,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail, Truck } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DocumentiTab from "@/components/DocumentiTab";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
@@ -51,6 +51,8 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
+import { useLookupTipologiaVeicolo } from "@/hooks/useLookupTables";
+import { TIPI_VEICOLO } from "@/lib/rcaConstants";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -68,6 +70,17 @@ import { ripartoRowsFromDettaglio } from "@/lib/coassicurazione";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
+import {
+  LibroMatricolaDialog,
+  assignProgressivi,
+  mapDbToLibroMatricolaRiga,
+  rigaToDbPayload,
+  type LibroMatricolaRiga,
+} from "@/components/polizze/LibroMatricolaDialog";
+import {
+  buildLibroMatricolaOperazioniDiff,
+  insertLibroMatricolaOperazioni,
+} from "@/lib/libroMatricolaOps";
 // RegolazionePremioDialog rimosso: la regolazione passa da ImmissionePolizzaPage in mode=regolazione
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 import { TitoloHeaderBar } from "@/components/titolo/sections/TitoloHeaderBar";
@@ -179,6 +192,9 @@ const TitoloDetail = () => {
   const [editNumeroEmittendaOpen, setEditNumeroEmittendaOpen] = useState(false);
   const [editNumeroEmittendaValue, setEditNumeroEmittendaValue] = useState("");
   const [editNumeroEmittendaSaving, setEditNumeroEmittendaSaving] = useState(false);
+  const [matricolaDialogOpen, setMatricolaDialogOpen] = useState(false);
+  const [righeMatricola, setRigheMatricola] = useState<LibroMatricolaRiga[]>([]);
+  const [matricolaSaving, setMatricolaSaving] = useState(false);
 
   const { data: titolo, isLoading } = useQuery({
     queryKey: ["titolo", id],
@@ -325,7 +341,7 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const base = numeroTitoloCatena!;
       const selectCols =
-        "id, numero_titolo, riga, sostituisce_polizza, garanzia_da, garanzia_a, premio_lordo, stato, data_messa_cassa, created_at, coassicurazione, is_appendice_modifica, is_proroga, is_regolazione";
+        "id, numero_titolo, riga, sostituisce_polizza, garanzia_da, garanzia_a, premio_lordo, stato, data_messa_cassa, created_at, coassicurazione, is_appendice_modifica, is_proroga, is_regolazione, libro_matricola";
       const [exact, suffixed] = await Promise.all([
         supabase.from("titoli").select(selectCols).eq("numero_titolo", base),
         supabase.from("titoli").select(selectCols).like("numero_titolo", `${base}/%`),
@@ -345,6 +361,42 @@ const TitoloDetail = () => {
       return merged;
     },
     enabled: !!numeroTitoloCatena,
+  });
+
+  const libroMatricolaOwnerId = useMemo(() => {
+    if (!titolo) return null;
+    if (!(titolo as any).sostituisce_polizza) return titolo.id;
+    const m = (catenaTitoli || []).find(
+      (x: any) =>
+        !x.sostituisce_polizza &&
+        !x.is_regolazione &&
+        !x.is_proroga &&
+        !x.is_appendice_modifica,
+    );
+    return m?.id ?? null;
+  }, [titolo, catenaTitoli]);
+
+  const isLibroMatricolaTitolo = useMemo(() => {
+    const flag = (v: unknown) => typeof v === "string" && v.length > 0 && v !== "no";
+    if (flag((titolo as any)?.libro_matricola)) return true;
+    const m = (catenaTitoli || []).find((x: any) => x.id === libroMatricolaOwnerId);
+    return flag(m?.libro_matricola);
+  }, [titolo, catenaTitoli, libroMatricolaOwnerId]);
+
+  const { data: mezziMatricolaDb = [], refetch: refetchMezziMatricola } = useQuery({
+    queryKey: ["libro-matricola-mezzi", libroMatricolaOwnerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("libro_matricola_mezzi")
+        .select("*")
+        .eq("titolo_id", libroMatricolaOwnerId!)
+        .order("n_progressivo", { ascending: true, nullsFirst: false })
+        .order("data_inclusione", { ascending: true })
+        .order("targa", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!libroMatricolaOwnerId && isLibroMatricolaTitolo,
   });
 
   // Allinea riparto coass su quietanze con madre coassicurata (se mancante o incompleto)
@@ -1076,59 +1128,42 @@ const TitoloDetail = () => {
       const tipoAg = (ag?.tipo || "").toLowerCase();
       const isBroker = tipoAg === "broker" || tipoAg === "plurimandataria";
 
-      // Risolvi rapporto coerente con gruppo compagnia (soprattutto broker/pluri)
-      let rapportoId = contrattoForm.compagnia_rapporto_id || null;
-      let rapportoSel: any =
-        (rapportiAgenziaEdit || []).find((r: any) => r.id === rapportoId) || null;
+      // Risolvi rapporto coerente con gruppo compagnia (come ImmissionePolizzaPage).
+      // Per broker/pluri: sempre query DB sul gruppo scelto, mai riusare un rapporto stale.
+      // Per agenzie/direzioni: compagnia_rapporto_id = null (gruppo da anagrafica agenzia).
+      let rapportoId: string | null = null;
+      let rapportoSel: any = null;
 
       if (isBroker) {
-        if (!rapportoId || (rapportiAgenziaEdit || []).length === 0) {
-          const { data: rapRows, error: rapErr } = await supabase
-            .from("compagnia_rapporti")
-            .select("id, codice_rapporto, tipo_rapporto, gruppo_compagnia_id, attivo")
-            .eq("compagnia_id", contrattoForm.compagnia_id)
-            .eq("gruppo_compagnia_id", contrattoForm.gruppo_compagnia_id)
-            .eq("attivo", true)
-            .order("codice_rapporto");
-          if (rapErr) throw rapErr;
-          const list = rapRows || [];
-          if (list.length === 0) {
-            throw new Error(
-              "Nessun rapporto attivo tra questa agenzia e la Compagnia Assicurativa selezionata",
-            );
-          }
-          if (list.length >= 2 && !rapportoId) {
-            throw new Error("Seleziona il Rapporto Agenzia (più rapporti per questa compagnia)");
-          }
-          rapportoSel = list.find((r: any) => r.id === rapportoId) || list[0];
-          rapportoId = rapportoSel.id;
-        } else if ((rapportiAgenziaEdit || []).length >= 2 && !rapportoId) {
-          throw new Error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
+        const { data: rapRows, error: rapErr } = await supabase
+          .from("compagnia_rapporti")
+          .select("id, codice_rapporto, tipo_rapporto, gruppo_compagnia_id, attivo")
+          .eq("compagnia_id", contrattoForm.compagnia_id)
+          .eq("gruppo_compagnia_id", contrattoForm.gruppo_compagnia_id)
+          .eq("attivo", true)
+          .order("codice_rapporto");
+        if (rapErr) throw rapErr;
+        const list = rapRows || [];
+        if (list.length === 0) {
+          throw new Error(
+            "Nessun rapporto attivo tra questa agenzia e la Compagnia Assicurativa selezionata",
+          );
         }
+        const pickedId = contrattoForm.compagnia_rapporto_id || null;
+        if (list.length >= 2 && !pickedId) {
+          throw new Error("Seleziona il Rapporto Agenzia (più rapporti per questa compagnia)");
+        }
+        if (pickedId && !list.some((r: any) => r.id === pickedId)) {
+          throw new Error("Il Rapporto Agenzia non corrisponde alla Compagnia Assicurativa selezionata");
+        }
+        rapportoSel = (pickedId ? list.find((r: any) => r.id === pickedId) : null) || list[0];
+        rapportoId = rapportoSel.id;
       } else if (
         contrattoForm.compagnia_id &&
         (rapportiAgenziaEdit || []).length >= 2 &&
-        !rapportoId
+        !contrattoForm.compagnia_rapporto_id
       ) {
         throw new Error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
-      }
-
-      if (!rapportoSel && rapportoId) {
-        const { data: rapRow } = await supabase
-          .from("compagnia_rapporti")
-          .select("id, codice_rapporto, tipo_rapporto, gruppo_compagnia_id")
-          .eq("id", rapportoId)
-          .maybeSingle();
-        rapportoSel = rapRow;
-      }
-
-      // Broker: il rapporto deve appartenere al gruppo compagnia scelto
-      if (
-        isBroker &&
-        rapportoSel?.gruppo_compagnia_id &&
-        rapportoSel.gruppo_compagnia_id !== contrattoForm.gruppo_compagnia_id
-      ) {
-        throw new Error("Il Rapporto Agenzia non corrisponde alla Compagnia Assicurativa selezionata");
       }
 
       const fieldsForLog: { key: string; newVal: any }[] = [
@@ -1192,8 +1227,8 @@ const TitoloDetail = () => {
           prodotto_nome: contrattoForm.prodotto_nome || null,
           note: contrattoForm.note.trim() || null,
           compagnia_id: contrattoForm.compagnia_id || null,
-          compagnia_rapporto_id: isBroker ? rapportoId : (rapportoId || null),
-          codice_rapporto: rapportoSel?.codice_rapporto || null,
+          compagnia_rapporto_id: isBroker ? rapportoId : null,
+          codice_rapporto: isBroker ? (rapportoSel?.codice_rapporto || null) : null,
           ramo_id: contrattoForm.ramo_id || null,
         })
         .eq("id", id!);
@@ -1573,12 +1608,8 @@ const TitoloDetail = () => {
   const [editingVeicolo, setEditingVeicolo] = useState(false);
   const [veicoloForm, setVeicoloForm] = useState<any>({});
   const { data: rcaUsi = [] } = useRcaUsi();
-
-  const TIPI_VEICOLO_OPTS = [
-    "AUTOVETTURA","AUTOTASSAMETRO","AUTOBUS","AUTOCARRO","CICLOMOTORE","MOTOCICLO",
-    "MACCHINA OPERATRICE","MACCHINA AGRICOLA","NATANTE","RIMORCHIO","CARRELLO",
-    "AUTOARTICOLATO","CAMPER","QUADRICICLO",
-  ].map((v) => ({ value: v, label: v }));
+  const { data: tipiVeicoloLookup = [] } = useLookupTipologiaVeicolo();
+  const TIPI_VEICOLO_OPTS = tipiVeicoloLookup.length > 0 ? tipiVeicoloLookup : TIPI_VEICOLO;
   const CLASSI_BM_OPTS = Array.from({ length: 18 }, (_, i) => ({ value: String(i + 1), label: `Classe ${i + 1}` }));
   const ALIMENTAZIONE_OPTS = ["BENZINA","DIESEL","GPL","METANO","ELETTRICA","IBRIDA","IBRIDA PLUG-IN","BIFUEL","ALTRO"].map((v) => ({ value: v, label: v }));
   const TIPOLOGIA_GUIDA_OPTS = ["LIBERA","ESPERTA"].map((v) => ({ value: v, label: v }));
@@ -2266,6 +2297,22 @@ const TitoloDetail = () => {
             {!isTitoloDerivato && (
               <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}`)}>
                 <FileText className="w-4 h-4 mr-1" /> Precontrattuale
+              </Button>
+            )}
+            {isLibroMatricolaTitolo && libroMatricolaOwnerId && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-primary/40 text-primary hover:bg-primary/5"
+                onClick={() => {
+                  setRigheMatricola(
+                    (mezziMatricolaDb || []).map((row: any) => mapDbToLibroMatricolaRiga(row)),
+                  );
+                  setMatricolaDialogOpen(true);
+                }}
+              >
+                <Truck className="w-4 h-4 mr-1" />
+                Libro Matricola ({mezziMatricolaDb.length} mezzi)
               </Button>
             )}
             {isAdmin && !isMadreConRate && (t.stato === "incassato" || !!t.data_messa_cassa || (!!t.conferimento_gestito && !!t.data_copertura)) && (
@@ -4465,6 +4512,66 @@ const TitoloDetail = () => {
         numeroPolizza={t.numero_titolo || undefined}
         onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
       />
+
+      {isLibroMatricolaTitolo && libroMatricolaOwnerId && (
+        <LibroMatricolaDialog
+          open={matricolaDialogOpen}
+          onOpenChange={setMatricolaDialogOpen}
+          righe={righeMatricola}
+          onChange={setRigheMatricola}
+          saving={matricolaSaving}
+          onSave={async (righeValideRaw) => {
+            try {
+              setMatricolaSaving(true);
+              const ownerId = libroMatricolaOwnerId;
+              if (!ownerId) throw new Error("Titolo libro matricola non trovato");
+              const existing = (mezziMatricolaDb || []) as any[];
+              const existingIds = new Set(existing.map((r) => r.id as string));
+              const righeValide = assignProgressivi(righeValideRaw);
+              const keepIds = new Set(righeValide.map((r) => r.id).filter(Boolean) as string[]);
+
+              const toDelete = [...existingIds].filter((x) => !keepIds.has(x));
+              if (toDelete.length) {
+                const { error: delErr } = await supabase.from("libro_matricola_mezzi").delete().in("id", toDelete);
+                if (delErr) throw delErr;
+              }
+
+              const saved: LibroMatricolaRiga[] = [];
+              for (const r of righeValide) {
+                const payload = rigaToDbPayload(r, ownerId);
+                if (r.id && existingIds.has(r.id)) {
+                  const { error: upErr } = await supabase
+                    .from("libro_matricola_mezzi")
+                    .update(payload)
+                    .eq("id", r.id);
+                  if (upErr) throw upErr;
+                  saved.push(r);
+                } else {
+                  const { data: inserted, error: insErr } = await supabase
+                    .from("libro_matricola_mezzi")
+                    .insert(payload)
+                    .select("id")
+                    .single();
+                  if (insErr) throw insErr;
+                  saved.push({ ...r, id: inserted?.id });
+                }
+              }
+
+              const ops = buildLibroMatricolaOperazioniDiff(existing, saved, toDelete);
+              await insertLibroMatricolaOperazioni(ownerId, ops, user?.id || null);
+
+              await refetchMezziMatricola();
+              queryClient.invalidateQueries({ queryKey: ["libro-matricola-mezzi", ownerId] });
+              toast.success("Libro matricola aggiornato");
+              setMatricolaDialogOpen(false);
+            } catch (e: any) {
+              toast.error(e?.message || "Errore salvataggio libro matricola");
+            } finally {
+              setMatricolaSaving(false);
+            }
+          }}
+        />
+      )}
 
       {/* RegolazionePremioDialog deprecato: la regolazione ora apre ImmissionePolizzaPage in mode=regolazione */}
     </PageContainer>

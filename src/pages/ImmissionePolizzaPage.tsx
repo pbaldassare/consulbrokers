@@ -13,7 +13,14 @@ import { Switch } from "@/components/ui/switch";
 
 import { Search, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck, Truck, Trash2 } from "lucide-react";
 import { PremiGaranziaCardShell, emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
-import { LibroMatricolaDialog, filterRigheValide, type LibroMatricolaRiga } from "@/components/polizze/LibroMatricolaDialog";
+import {
+  LibroMatricolaDialog,
+  assignProgressivi,
+  filterRigheValide,
+  rigaToDbPayload,
+  type LibroMatricolaRiga,
+} from "@/components/polizze/LibroMatricolaDialog";
+import { insertLibroMatricolaOperazioni } from "@/lib/libroMatricolaOps";
 import {
   syncQuietanzaFromFirma,
   markQuietanzaEdits,
@@ -2141,18 +2148,46 @@ const ImmissionePolizzaPage = () => {
 
       // Libro Matricola: salva righe mezzi (solo se Tipo Operazione = libro_matricola)
       if (isLibroMatricola) {
-        const righeValide = filterRigheValide(righeMatricola);
+        const righeValide = assignProgressivi(filterRigheValide(righeMatricola));
         if (righeValide.length > 0) {
-          const { error: lmErr } = await supabase.from("libro_matricola_mezzi").insert(
-            righeValide.map((r) => ({
-              titolo_id: newTitolo.id,
-              targa: r.targa?.trim() || null,
-              data_inclusione: r.data_inclusione || null,
-              data_esclusione: r.data_esclusione || null,
-              note: r.note?.trim() || null,
-            }))
-          );
-          if (lmErr) console.error("Errore salvataggio mezzi libro matricola:", lmErr);
+          const { data: insertedMezzi, error: lmErr } = await supabase
+            .from("libro_matricola_mezzi")
+            .insert(righeValide.map((r) => rigaToDbPayload(r, newTitolo.id)))
+            .select("id, targa, data_inclusione, n_progressivo");
+          if (lmErr) {
+            console.error("Errore salvataggio mezzi libro matricola:", lmErr);
+          } else if (insertedMezzi?.length) {
+            try {
+              await insertLibroMatricolaOperazioni(
+                newTitolo.id,
+                (insertedMezzi as any[]).flatMap((m) => {
+                  const base = {
+                    mezzo_id: m.id as string,
+                    targa: (m.targa as string) || null,
+                    note: m.n_progressivo != null ? `N° ${m.n_progressivo}` : null,
+                  };
+                  const ops = [
+                    {
+                      tipo: "creazione" as const,
+                      ...base,
+                      data_evento: (m.data_inclusione as string) || new Date().toISOString().slice(0, 10),
+                    },
+                  ];
+                  if (m.data_inclusione) {
+                    ops.push({
+                      tipo: "inclusione" as const,
+                      ...base,
+                      data_evento: m.data_inclusione as string,
+                    });
+                  }
+                  return ops;
+                }),
+                user?.id || null,
+              );
+            } catch (opErr) {
+              console.error("Errore log operazioni libro matricola:", opErr);
+            }
+          }
         }
       }
 

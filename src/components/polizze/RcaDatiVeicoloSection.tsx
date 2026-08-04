@@ -6,6 +6,7 @@ import { SearchableSelect, type SearchableSelectOption } from "@/components/Sear
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { CLASSI_MERITO, TIPI_VEICOLO, PROVINCE_IT, isTargaItValid } from "@/lib/rcaConstants";
+import { useLookupTipologiaVeicolo } from "@/hooks/useLookupTables";
 
 export type RcaDatiVeicoloSectionProps = {
   isRCA: boolean;
@@ -84,6 +85,9 @@ export type RcaDatiVeicoloSectionProps = {
 const KW_PER_CV = 0.735499;
 
 export function RcaDatiVeicoloSection({ showBanner = false, ...p }: RcaDatiVeicoloSectionProps) {
+  const { data: tipiVeicolo = [] } = useLookupTipologiaVeicolo();
+  const tipiVeicoloOpts = tipiVeicolo.length > 0 ? tipiVeicolo : TIPI_VEICOLO;
+
   const aiCls = (key: string) =>
     p.aiPrefilled.has(key) ? "border-l-2 border-l-primary bg-primary/[0.03]" : "";
   const aiBadge = (key: string) =>
@@ -170,7 +174,7 @@ export function RcaDatiVeicoloSection({ showBanner = false, ...p }: RcaDatiVeico
                   p.clearAiPrefilled("vTipoVeicolo");
                 }}
                 placeholder="—"
-                options={TIPI_VEICOLO}
+                options={tipiVeicoloOpts}
               />
             </div>
             <div className="space-y-1">
