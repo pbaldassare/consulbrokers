@@ -4854,6 +4854,116 @@ export type Database = {
           },
         ]
       }
+      richieste_quietanza: {
+        Row: {
+          compagnia_id: string | null
+          compagnia_nome: string | null
+          corpo_html: string | null
+          created_at: string
+          destinatario_email: string
+          errore: string | null
+          id: string
+          inviato_at: string
+          inviato_da: string | null
+          num_titoli: number
+          oggetto: string
+          resend_id: string | null
+          stato: string
+        }
+        Insert: {
+          compagnia_id?: string | null
+          compagnia_nome?: string | null
+          corpo_html?: string | null
+          created_at?: string
+          destinatario_email: string
+          errore?: string | null
+          id?: string
+          inviato_at?: string
+          inviato_da?: string | null
+          num_titoli?: number
+          oggetto: string
+          resend_id?: string | null
+          stato?: string
+        }
+        Update: {
+          compagnia_id?: string | null
+          compagnia_nome?: string | null
+          corpo_html?: string | null
+          created_at?: string
+          destinatario_email?: string
+          errore?: string | null
+          id?: string
+          inviato_at?: string
+          inviato_da?: string | null
+          num_titoli?: number
+          oggetto?: string
+          resend_id?: string | null
+          stato?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "richieste_quietanza_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      richieste_quietanza_righe: {
+        Row: {
+          cliente_nome: string | null
+          created_at: string
+          data_scadenza: string | null
+          id: string
+          numero_polizza: string | null
+          premio_lordo: number | null
+          ramo: string | null
+          richiesta_id: string
+          tacito_rinnovo: boolean | null
+          titolo_id: string | null
+        }
+        Insert: {
+          cliente_nome?: string | null
+          created_at?: string
+          data_scadenza?: string | null
+          id?: string
+          numero_polizza?: string | null
+          premio_lordo?: number | null
+          ramo?: string | null
+          richiesta_id: string
+          tacito_rinnovo?: boolean | null
+          titolo_id?: string | null
+        }
+        Update: {
+          cliente_nome?: string | null
+          created_at?: string
+          data_scadenza?: string | null
+          id?: string
+          numero_polizza?: string | null
+          premio_lordo?: number | null
+          ramo?: string | null
+          richiesta_id?: string
+          tacito_rinnovo?: boolean | null
+          titolo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "richieste_quietanza_righe_richiesta_id_fkey"
+            columns: ["richiesta_id"]
+            isOneToOne: false
+            referencedRelation: "richieste_quietanza"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "richieste_quietanza_righe_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       log_attivita: {
         Row: {
           azione: string | null

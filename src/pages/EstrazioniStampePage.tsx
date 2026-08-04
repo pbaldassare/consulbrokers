@@ -8,6 +8,7 @@ import {
   FileText,
   Archive,
   Wallet,
+  Mail,
   LucideIcon,
 } from "lucide-react";
 
@@ -28,6 +29,8 @@ const actions: ActionCard[] = [
   { label: "E/C Agenzie", description: "Estratto conto verso agenzie con anteprima, stampa e archivio", icon: FileText, path: "/contabilita/ec-agenzia" },
   { label: "Storico E/C Agenzie", description: "PDF E/C Agenzie archiviati: ricerca, filtri e anteprima", icon: Archive, path: "/contabilita/ec-agenzia/storico" },
   { label: "Storico E/C Clienti", description: "PDF E/C Clienti archiviati: ricerca per cliente, periodo e download", icon: Archive, path: "/contabilita/ec-cliente/storico" },
+  { label: "Richiesta Quietanza", description: "Polizze in scadenza: filtri, invio mail aggregata e registro", icon: Mail, path: "/portafoglio/estrazioni/richiesta-quietanza" },
+  { label: "Registro Richieste Quietanza", description: "Storico invii email richiesta quietanza alle agenzie", icon: Archive, path: "/portafoglio/estrazioni/richiesta-quietanza/registro" },
 ];
 
 const EstrazioniStampePage = () => {
