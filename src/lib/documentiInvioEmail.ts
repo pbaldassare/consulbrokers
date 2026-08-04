@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { sendEmail } from "@/lib/sendEmail";
+import { htmlToPlainText, plainTextToEmailHtml, sendEmail } from "@/lib/sendEmail";
 import { logAttivita } from "@/lib/logAttivita";
 import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
 import { uint8ToBase64 } from "@/lib/documentiEcCliente";
@@ -283,10 +283,15 @@ export function defaultCorpoInvioDocumento(opts: {
     opts.destinatarioTipo === "compagnia"
       ? `Gentile ${opts.compagniaNome || "Compagnia"},`
       : `Gentile ${opts.clienteNome || "Cliente"},`;
-  const pol = opts.numeroPolizza ? ` relativo alla polizza <strong>${opts.numeroPolizza}</strong>` : "";
-  return `<p>${saluto}</p>
-<p>in allegato troverete il documento <strong>${opts.nomeFile}</strong>${pol}.</p>
-<p>Cordiali saluti,<br/>Consulbrokers</p>`;
+  const pol = opts.numeroPolizza ? ` relativo alla polizza ${opts.numeroPolizza}` : "";
+  return [
+    saluto,
+    "",
+    `in allegato troverete il documento ${opts.nomeFile}${pol}.`,
+    "",
+    "Cordiali saluti,",
+    "Consulbrokers",
+  ].join("\n");
 }
 
 export function applyTemplateVars(text: string, vars: Record<string, string>): string {
@@ -326,11 +331,12 @@ export async function inviaDocumentoPerEmail(opts: {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   const b64 = uint8ToBase64(bytes);
   const sentAt = new Date();
+  const corpoHtml = /<\w+[\s>]/.test(opts.html) ? opts.html : plainTextToEmailHtml(opts.html);
 
   const sendRes = await sendEmail({
     to,
     subject: opts.subject.trim(),
-    html: opts.html,
+    html: corpoHtml,
     apply_branding: true,
     template_id: opts.templateId || undefined,
     attachments: [{ filename: opts.documento.nome_file, content: b64 }],

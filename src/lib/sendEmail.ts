@@ -31,6 +31,39 @@ export interface SendEmailResult {
  * dell'account proprietario della chiave. Per inviare a indirizzi reali serve
  * verificare un dominio su resend.com.
  */
+export function plainTextToEmailHtml(text: string): string {
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  return escaped
+    .split(/\r?\n/)
+    .map((line) => (line.trim() === "" ? "<br/>" : `<p style="margin:0 0 8px 0;">${line}</p>`))
+    .join("\n");
+}
+
+/** Se il testo contiene tag HTML, li rimuove lasciando testo leggibile. */
+export function htmlToPlainText(html: string): string {
+  if (!/[<>]/.test(html)) return html;
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<\/td>/gi, "\t")
+    .replace(/<\/th>/gi, "\t")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
   const { data, error } = await supabase.functions.invoke("send-email", {
     body: params,

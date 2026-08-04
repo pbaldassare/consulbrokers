@@ -8,7 +8,7 @@ import { Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { sendEmail } from "@/lib/sendEmail";
+import { sendEmail, plainTextToEmailHtml } from "@/lib/sendEmail";
 import {
   defaultCorpoRichiestaQuietanza,
   defaultOggettoRichiestaQuietanza,
@@ -27,7 +27,7 @@ export function RichiestaQuietanzaEmailDialog({ open, onOpenChange, righe, onSen
   const { user } = useAuth();
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
-  const [html, setHtml] = useState("");
+  const [body, setBody] = useState("");
   const [agenziaNome, setAgenziaNome] = useState("");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -46,7 +46,7 @@ export function RichiestaQuietanzaEmailDialog({ open, onOpenChange, righe, onSen
         setAgenziaNome(displayNome);
         setTo(email);
         setSubject(defaultOggettoRichiestaQuietanza(displayNome));
-        setHtml(defaultCorpoRichiestaQuietanza(displayNome, righe));
+        setBody(defaultCorpoRichiestaQuietanza(displayNome, righe));
       } catch (e: unknown) {
         if (!cancelled) {
           toast.error(e instanceof Error ? e.message : "Errore caricamento destinatario");
@@ -70,12 +70,17 @@ export function RichiestaQuietanzaEmailDialog({ open, onOpenChange, righe, onSen
       toast.error("Oggetto obbligatorio");
       return;
     }
+    if (!body.trim()) {
+      toast.error("Messaggio obbligatorio");
+      return;
+    }
     try {
       setSending(true);
+      const plain = body.trim();
       const result = await sendEmail({
         to: dest,
         subject: subject.trim(),
-        html: html.trim(),
+        html: plainTextToEmailHtml(plain),
         apply_branding: true,
       });
 
@@ -87,7 +92,7 @@ export function RichiestaQuietanzaEmailDialog({ open, onOpenChange, righe, onSen
           compagnia_nome: agenziaNome || righe[0]?.compagnia_nome || null,
           destinatario_email: dest,
           oggetto: subject.trim(),
-          corpo_html: html.trim(),
+          corpo_html: plain,
           num_titoli: righe.length,
           stato: ok ? "inviato" : "errore",
           errore: ok ? null : result.error || "Invio fallito",
@@ -163,12 +168,12 @@ export function RichiestaQuietanzaEmailDialog({ open, onOpenChange, righe, onSen
               <Input id="rq-subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rq-body">Messaggio (HTML)</Label>
+              <Label htmlFor="rq-body">Messaggio</Label>
               <Textarea
                 id="rq-body"
-                value={html}
-                onChange={(e) => setHtml(e.target.value)}
-                className="min-h-[280px] font-mono text-xs"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                className="min-h-[280px] text-sm whitespace-pre-wrap"
               />
             </div>
             <div className="rounded-md border bg-muted/30 p-3">

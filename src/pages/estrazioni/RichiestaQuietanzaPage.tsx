@@ -19,7 +19,7 @@ import type { RichiestaQuietanzaRiga } from "@/lib/richiestaQuietanza";
 import { toast } from "sonner";
 
 const SELECT_FIELDS =
-  "id, polizza_id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, tacito_rinnovo, sostituisce_polizza";
+  "id, numero_titolo, compagnia_id, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, tacito_rinnovo, sostituisce_polizza";
 
 type TacitoFiltro = "tutti" | "si" | "no";
 
@@ -44,6 +44,7 @@ const RichiestaQuietanzaPage = () => {
   const [tacito, setTacito] = useState<TacitoFiltro>("tutti");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [emailOpen, setEmailOpen] = useState(false);
+  const [selectedCache, setSelectedCache] = useState<Map<string, RichiestaQuietanzaRiga>>(new Map());
 
   const { page, setPage, pageSize, range } = useServerPagination(25, [search, dateDa, dateA, agenziaId, tacito]);
 
@@ -72,7 +73,7 @@ const RichiestaQuietanzaPage = () => {
     [compagnie],
   );
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["richiesta-quietanza", page, search, dateDa, dateA, agenziaId, tacito],
     queryFn: async () => {
       let q = supabase
@@ -93,21 +94,17 @@ const RichiestaQuietanzaPage = () => {
         );
       }
 
-      const { data: rows, error, count } = await q
+      const { data: rows, error: qErr, count } = await q
         .order("garanzia_a", { ascending: true, nullsFirst: false })
         .order("numero_titolo", { ascending: true })
         .range(range.from, range.to);
-      if (error) throw error;
+      if (qErr) throw qErr;
       return { rows: (rows || []) as RichiestaQuietanzaRiga[], count: count || 0 };
     },
   });
 
   const rows = data?.rows || [];
   const totalCount = data?.count || 0;
-
-  // Keep selection across pages: store full row map for selected ids seen
-  const [selectedCache, setSelectedCache] = useState<Map<string, RichiestaQuietanzaRiga>>(new Map());
-
   const syncSelection = (ids: Set<string>, pageRows: RichiestaQuietanzaRiga[]) => {
     setSelectedIds(ids);
     setSelectedCache((prev) => {
@@ -296,6 +293,12 @@ const RichiestaQuietanzaPage = () => {
                   Caricamento…
                 </TableCell>
               </TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-10 text-destructive text-sm">
+                  Errore caricamento: {error instanceof Error ? error.message : "query fallita"}
+                </TableCell>
+              </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-10 text-muted-foreground text-sm">
@@ -307,7 +310,7 @@ const RichiestaQuietanzaPage = () => {
                 <TableRow
                   key={r.id}
                   className="cursor-pointer"
-                  onClick={() => navigate(r.polizza_id ? `/polizze/${r.polizza_id}` : `/titoli/${r.id}`)}
+                  onClick={() => navigate(`/titoli/${r.id}`)}
                 >
                   <TableCell
                     onClick={(e) => e.stopPropagation()}

@@ -12,7 +12,6 @@ export type RichiestaQuietanzaRiga = {
   tacito_rinnovo: boolean | null;
   compagnia_id: string | null;
   compagnia_nome: string | null;
-  polizza_id?: string | null;
 };
 
 export async function resolveAgenziaEmail(compagniaId: string): Promise<{
@@ -61,13 +60,8 @@ function fmtEuro(n: number | null | undefined): string {
   return v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+/** Converte testo normale in HTML minimale per Resend (a capo → paragrafi). */
+export { plainTextToEmailHtml } from "@/lib/sendEmail";
 
 export function defaultOggettoRichiestaQuietanza(agenziaNome: string): string {
   const oggi = format(new Date(), "dd/MM/yyyy");
@@ -78,35 +72,29 @@ export function defaultCorpoRichiestaQuietanza(
   agenziaNome: string,
   righe: RichiestaQuietanzaRiga[],
 ): string {
-  const rowsHtml = righe
-    .map((r) => {
+  const elenco = righe
+    .map((r, i) => {
       const scadenza = r.garanzia_a || r.data_scadenza;
-      return `<tr>
-  <td style="padding:6px 8px;border:1px solid #ddd;">${escapeHtml(r.numero_titolo || "—")}</td>
-  <td style="padding:6px 8px;border:1px solid #ddd;">${escapeHtml(r.ramo_nome || "—")}</td>
-  <td style="padding:6px 8px;border:1px solid #ddd;">${escapeHtml(r.cliente_nome_display || "—")}</td>
-  <td style="padding:6px 8px;border:1px solid #ddd;text-align:right;">${escapeHtml(fmtEuro(r.premio_lordo))}</td>
-  <td style="padding:6px 8px;border:1px solid #ddd;">${escapeHtml(fmtDate(scadenza))}</td>
-</tr>`;
+      return [
+        `${i + 1}) Polizza: ${r.numero_titolo || "—"}`,
+        `   Ramo: ${r.ramo_nome || "—"}`,
+        `   Cliente: ${r.cliente_nome_display || "—"}`,
+        `   Premio: ${fmtEuro(r.premio_lordo)}`,
+        `   Scadenza: ${fmtDate(scadenza)}`,
+      ].join("\n");
     })
-    .join("\n");
+    .join("\n\n");
 
-  return `<p>Spett.le <strong>${escapeHtml(agenziaNome || "Agenzia")}</strong>,</p>
-<p>con la presente chiediamo l'emissione delle quietanze relative alle polizze in scadenza elencate di seguito.</p>
-<table style="border-collapse:collapse;width:100%;font-size:13px;margin:16px 0;">
-  <thead>
-    <tr style="background:#f3f4f6;">
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Polizza</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Ramo</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Cliente</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:right;">Premio</th>
-      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Scadenza</th>
-    </tr>
-  </thead>
-  <tbody>
-${rowsHtml}
-  </tbody>
-</table>
-<p>Restiamo in attesa della documentazione e a disposizione per ogni chiarimento.</p>
-<p>Cordiali saluti,<br/>Consulbrokers</p>`;
+  return [
+    `Spett.le ${agenziaNome || "Agenzia"},`,
+    "",
+    "con la presente chiediamo l'emissione delle quietanze relative alle polizze in scadenza elencate di seguito.",
+    "",
+    elenco,
+    "",
+    "Restiamo in attesa della documentazione e a disposizione per ogni chiarimento.",
+    "",
+    "Cordiali saluti,",
+    "Consulbrokers",
+  ].join("\n");
 }

@@ -18,6 +18,7 @@ import {
   type DestinatarioTipoInvioDoc,
   type StoricoInvioDocumento,
 } from "@/lib/documentiInvioEmail";
+import { htmlToPlainText } from "@/lib/sendEmail";
 import { format } from "date-fns";
 
 type DocumentoInvio = {
@@ -125,7 +126,11 @@ export function InviaDocumentoEmailDialog({ open, onOpenChange, documento, stori
     const t = templates.find((x) => x.id === id);
     if (!t) return;
     setSubject(applyTemplateVars(t.oggetto || "", vars));
-    setHtml(applyTemplateVars(t.corpo || "", vars));
+    setHtml(
+      htmlToPlainText(
+        applyTemplateVars(t.corpo || "", vars),
+      ),
+    );
   };
 
   const onChangeDestTipo = (tipo: DestinatarioTipoInvioDoc) => {
@@ -311,13 +316,13 @@ export function InviaDocumentoEmailDialog({ open, onOpenChange, documento, stori
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="invio-doc-corpo">Corpo (HTML modificabile)</Label>
+              <Label htmlFor="invio-doc-corpo">Messaggio</Label>
               <Textarea
                 id="invio-doc-corpo"
                 value={html}
                 onChange={(e) => setHtml(e.target.value)}
                 rows={10}
-                className="font-mono text-xs"
+                className="text-sm whitespace-pre-wrap"
               />
             </div>
           </div>

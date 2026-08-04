@@ -1,14 +1,16 @@
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Mail } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Mail, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import ServerPagination from "@/components/ServerPagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 
@@ -33,6 +35,8 @@ const fmtDate = (iso: string | null | undefined) => {
 const fmtEuro = (n: number | null | undefined) =>
   (Number(n) || 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
+type TacitoFiltro = "tutti" | "si" | "no";
+
 type RichiestaRow = {
   id: string;
   compagnia_id: string | null;
@@ -55,22 +59,32 @@ type RigaRow = {
   cliente_nome: string | null;
   premio_lordo: number | null;
   data_scadenza: string | null;
+  tacito_rinnovo: boolean | null;
 };
 
 const RegistroRichiesteQuietanzaPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [agenziaId, setAgenziaId] = useState<string | null>(null);
+  const [dateDa, setDateDa] = useState("");
+  const [dateA, setDateA] = useState("");
+  const [tacito, setTacito] = useState<TacitoFiltro>("tutti");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, agenziaId]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [
+    search,
+    agenziaId,
+    dateDa,
+    dateA,
+    tacito,
+  ]);
 
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie-attive-registro-rq"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("compagnie")
-        .select("id, nome")
+        .select("id, nome, codice")
         .eq("attiva", true)
         .order("nome");
       if (error) throw error;
@@ -79,9 +93,38 @@ const RegistroRichiesteQuietanzaPage = () => {
     staleTime: 300_000,
   });
 
+  const agenziaOpts = useMemo(
+    () =>
+      compagnie.map((c) => ({
+        value: c.id,
+        label: c.nome,
+        description: c.codice || undefined,
+        searchText: `${c.nome} ${c.codice || ""}`,
+      })),
+    [compagnie],
+  );
+
   const { data, isLoading } = useQuery({
-    queryKey: ["registro-richieste-quietanza", page, search, agenziaId],
+    queryKey: ["registro-richieste-quietanza", page, search, agenziaId, dateDa, dateA, tacito],
     queryFn: async () => {
+      let richiestaIdsFilter: string[] | null = null;
+
+      if (tacito === "si" || tacito === "no") {
+        const { data: righeTacito, error: tacitoErr } = await supabase
+          .from("richieste_quietanza_righe" as any)
+          .select("richiesta_id")
+          .eq("tacito_rinnovo", tacito === "si");
+        if (tacitoErr) throw tacitoErr;
+        richiestaIdsFilter = [
+          ...new Set(
+            ((righeTacito || []) as { richiesta_id: string }[]).map((r) => r.richiesta_id).filter(Boolean),
+          ),
+        ];
+        if (richiestaIdsFilter.length === 0) {
+          return { rows: [] as RichiestaRow[], count: 0 };
+        }
+      }
+
       let q = supabase
         .from("richieste_quietanza" as any)
         .select(
@@ -90,6 +133,9 @@ const RegistroRichiesteQuietanzaPage = () => {
         );
 
       if (agenziaId) q = q.eq("compagnia_id", agenziaId);
+      if (dateDa) q = q.gte("inviato_at", `${dateDa}T00:00:00`);
+      if (dateA) q = q.lte("inviato_at", `${dateA}T23:59:59.999`);
+      if (richiestaIdsFilter) q = q.in("id", richiestaIdsFilter);
       if (search.trim()) {
         const s = search.trim();
         q = q.or(
@@ -116,7 +162,9 @@ const RegistroRichiesteQuietanzaPage = () => {
     queryFn: async () => {
       const { data: righe, error } = await supabase
         .from("richieste_quietanza_righe" as any)
-        .select("id, richiesta_id, titolo_id, numero_polizza, ramo, cliente_nome, premio_lordo, data_scadenza")
+        .select(
+          "id, richiesta_id, titolo_id, numero_polizza, ramo, cliente_nome, premio_lordo, data_scadenza, tacito_rinnovo",
+        )
         .in("richiesta_id", expandedIds);
       if (error) throw error;
       const map: Record<string, RigaRow[]> = {};
@@ -126,6 +174,14 @@ const RegistroRichiesteQuietanzaPage = () => {
       return map;
     },
   });
+
+  const resetFilters = () => {
+    setSearch("");
+    setAgenziaId(null);
+    setDateDa("");
+    setDateA("");
+    setTacito("tutti");
+  };
 
   return (
     <div className="space-y-4">
@@ -153,22 +209,70 @@ const RegistroRichiesteQuietanzaPage = () => {
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Input
-          className="h-9 max-w-sm"
-          placeholder="Cerca destinatario, oggetto, agenzia…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <FilterSearchableSelect
-          value={agenziaId}
-          onValueChange={setAgenziaId}
-          options={compagnie.map((c) => ({ value: c.id, label: c.nome }))}
-          placeholder="Agenzia"
-          allLabel="Tutte le agenzie"
-          className="w-[240px] h-9"
-        />
-      </div>
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="relative flex-1 min-w-[200px]">
+              <Input
+                className="h-9"
+                placeholder="Cerca destinatario, oggetto, agenzia…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <FilterSearchableSelect
+              value={agenziaId}
+              onValueChange={setAgenziaId}
+              options={agenziaOpts}
+              placeholder="Agenzia"
+              allLabel="Tutte le agenzie"
+              className="w-[240px] h-9"
+            />
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Invio dal</p>
+              <Input
+                type="date"
+                className="h-9 w-[150px]"
+                value={dateDa}
+                onChange={(e) => setDateDa(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">al</p>
+              <Input
+                type="date"
+                className="h-9 w-[150px]"
+                value={dateA}
+                onChange={(e) => setDateA(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Tacito rinnovo</p>
+              <ToggleGroup
+                type="single"
+                value={tacito}
+                onValueChange={(v) => {
+                  if (v) setTacito(v as TacitoFiltro);
+                }}
+                className="justify-start"
+              >
+                <ToggleGroupItem value="tutti" className="h-9 px-3 text-xs">
+                  Tutti
+                </ToggleGroupItem>
+                <ToggleGroupItem value="si" className="h-9 px-3 text-xs">
+                  Sì
+                </ToggleGroupItem>
+                <ToggleGroupItem value="no" className="h-9 px-3 text-xs">
+                  No
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+            <Button variant="ghost" size="sm" className="h-9" onClick={resetFilters}>
+              <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reset
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="border rounded-md overflow-x-auto">
         <Table>
@@ -240,6 +344,7 @@ const RegistroRichiesteQuietanzaPage = () => {
                                     <TableHead className="text-xs">Cliente</TableHead>
                                     <TableHead className="text-xs text-right">Premio</TableHead>
                                     <TableHead className="text-xs">Scadenza</TableHead>
+                                    <TableHead className="text-xs">Tacito</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -254,6 +359,15 @@ const RegistroRichiesteQuietanzaPage = () => {
                                       <TableCell className="text-xs">{d.cliente_nome || "—"}</TableCell>
                                       <TableCell className="text-xs text-right">{fmtEuro(d.premio_lordo)}</TableCell>
                                       <TableCell className="text-xs">{fmtDate(d.data_scadenza)}</TableCell>
+                                      <TableCell className="text-xs">
+                                        {d.tacito_rinnovo == null ? (
+                                          "—"
+                                        ) : (
+                                          <Badge variant={d.tacito_rinnovo ? "default" : "secondary"}>
+                                            {d.tacito_rinnovo ? "Sì" : "No"}
+                                          </Badge>
+                                        )}
+                                      </TableCell>
                                     </TableRow>
                                   ))}
                                 </TableBody>
