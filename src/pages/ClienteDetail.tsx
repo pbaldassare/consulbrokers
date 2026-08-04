@@ -53,8 +53,8 @@ import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { isInCoperturaGarantita, isGarantitoDaIncassare } from "@/lib/garantitoTitolo";
 import { countQuietanzeDaIncassare, countQuietanzeRateDaIncassare, isQuietanzaDaMostrare } from "@/lib/quietanzeClienteView";
 import { ultimaQuietanzaCatena } from "@/lib/ultimaQuietanzaCatena";
-import { totaliQuietanzamentoCatena } from "@/lib/totaliQuietanzamentoCatena";
 import { isTipoPagamentoAliasBonificoEsterno } from "@/lib/incassoTipoPagamento";
+import { importoAnnualitaDaRata } from "@/lib/frazionamento";
 import { ModificaVeicoloDialog } from "@/components/polizze/ModificaVeicoloDialog";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
@@ -1370,7 +1370,7 @@ function PolizzeClienteTable({
   );
   const quietanzeVisibiliRate = quietanzeVisibili;
   // Totali aggregati senza filtro anno solare.
-  // Vista catene (Polizze): somma quietanzamento per catena (solo rate, no madre/appendici).
+  // Vista catene (Polizze): premio/provvigioni di annualità = rata × rate/anno (frazionamento).
   // Vista quietanze: somma delle quietanze mostrate.
   const totPremio = useMemo(() => {
     if (filtroTipo === "quietanze") {
@@ -1379,7 +1379,7 @@ function PolizzeClienteTable({
     return filteredCatene.reduce((s, c: any) => {
       const head = c.madre || c.all[0];
       if (!isPolizzaMadre(head)) return s;
-      return s + totaliQuietanzamentoCatena(c.madre, c.rate, c.appendici).premio;
+      return s + importoAnnualitaDaRata(head.premio_lordo, head.frazionamento);
     }, 0);
   }, [filtroTipo, quietanzeVisibili, filteredCatene]);
   const totProvv = useMemo(() => {
@@ -1389,7 +1389,7 @@ function PolizzeClienteTable({
     return filteredCatene.reduce((s, c: any) => {
       const head = c.madre || c.all[0];
       if (!isPolizzaMadre(head)) return s;
-      return s + totaliQuietanzamentoCatena(c.madre, c.rate, c.appendici).provvigioni;
+      return s + importoAnnualitaDaRata(getProvvigioneEC(head), head.frazionamento);
     }, 0);
   }, [filtroTipo, quietanzeVisibili, filteredCatene]);
 
@@ -1745,10 +1745,11 @@ function PolizzeClienteTable({
       </div>
 
 
+      <div className="max-h-[calc(100vh-14rem)] overflow-auto rounded-md border [&>div]:!overflow-visible">
       <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-8" onClick={(e) => e.stopPropagation()}>
+        <TableHeader className="[&_tr]:border-b sticky top-0 z-[5] bg-background shadow-sm">
+          <TableRow className="hover:bg-background">
+            <TableHead className="w-8 bg-background" onClick={(e) => e.stopPropagation()}>
               {filtroTipo === "quietanze" && quietanzeIncassabili.length > 0 ? (
                 <Checkbox
                   checked={
@@ -1760,37 +1761,39 @@ function PolizzeClienteTable({
                 />
               ) : null}
             </TableHead>
-            <TableHead>N. Polizza</TableHead>
-            {isCateneView && <TableHead>Targa</TableHead>}
-            <TableHead>Tipo</TableHead>
-            <TableHead>Gruppo Ramo</TableHead>
-            <TableHead>Garanzia</TableHead>
-            <TableHead>Inizio Garanzia</TableHead>
-            <TableHead>Fine Garanzia</TableHead>
-            <TableHead>Compagnia / Agenzia</TableHead>
+            <TableHead className="bg-background">N. Polizza</TableHead>
+            {isCateneView && <TableHead className="bg-background">Targa</TableHead>}
+            <TableHead className="bg-background">Tipo</TableHead>
+            <TableHead className="bg-background">Gruppo Ramo</TableHead>
+            <TableHead className="bg-background">Garanzia</TableHead>
+            <TableHead className="bg-background">Inizio Garanzia</TableHead>
+            <TableHead className="bg-background">Fine Garanzia</TableHead>
+            <TableHead className="bg-background">Compagnia / Agenzia</TableHead>
             <TableHead
+              className="bg-background"
               title={
                 isCateneView
-                  ? "Somma quietanze della polizza (frazionamento/durata)"
+                  ? "Premio annuo = premio rata × rate/anno dal frazionamento"
                   : undefined
               }
             >
-              {isCateneView ? "Premio quietanz." : "Premio €"}
+              {isCateneView ? "Premio annualità" : "Premio €"}
             </TableHead>
             <TableHead
+              className="bg-background"
               title={
                 isCateneView
-                  ? "Somma quietanze della polizza (frazionamento/durata)"
+                  ? "Provvigioni annue = provvigione rata × rate/anno dal frazionamento"
                   : undefined
               }
             >
-              {isCateneView ? "Provv. quietanz." : "Provvigioni €"}
+              {isCateneView ? "Provv. annualità" : "Provvigioni €"}
             </TableHead>
-            <TableHead>Data Copertura</TableHead>
-            <TableHead title={isCateneView ? "Ultima data di incasso dalla quietanza più rilevante" : undefined}>
+            <TableHead className="bg-background">Data Copertura</TableHead>
+            <TableHead className="bg-background" title={isCateneView ? "Ultima data di incasso dalla quietanza più rilevante" : undefined}>
               {isCateneView ? "Ultima data incasso" : "Data Incasso"}
             </TableHead>
-            {isAdmin && <TableHead className="w-16"></TableHead>}
+            {isAdmin && <TableHead className="w-16 bg-background"></TableHead>}
           </TableRow>
 
         </TableHeader>
@@ -1941,16 +1944,18 @@ function PolizzeClienteTable({
               const qUltimaIncasso = isPolizzaMadre(head)
                 ? ultimaQuietanzaCatena(c.rate, c.appendici)
                 : null;
-              const totQuiet = isPolizzaMadre(head)
-                ? totaliQuietanzamentoCatena(c.madre, c.rate, c.appendici)
-                : null;
-              const tooltipUltimoPremio = [
-                "Somma quietanze della polizza (frazionamento/durata)",
-                qUltimaIncasso ? `di cui ultimo quietanza: ${fmtNum(qUltimaIncasso.premio_lordo)}` : null,
+              const premioAnnualita = importoAnnualitaDaRata(head.premio_lordo, head.frazionamento);
+              const provvAnnualita = importoAnnualitaDaRata(getProvvigioneEC(head), head.frazionamento);
+              const tooltipPremioAnnualita = [
+                "Premio annuo = rata × rate/anno (frazionamento)",
+                head.frazionamento ? `frazionamento: ${head.frazionamento}` : null,
+                `rata: ${fmtNum(head.premio_lordo)}`,
+                qUltimaIncasso ? `ultimo quietanza: ${fmtNum(qUltimaIncasso.premio_lordo)}` : null,
               ].filter(Boolean).join(" · ");
-              const tooltipUltimeProvv = [
-                "Somma quietanze della polizza (frazionamento/durata)",
-                qUltimaIncasso ? `di cui ultimo quietanza: ${fmtNum(getProvvigioneEC(qUltimaIncasso))}` : null,
+              const tooltipProvvAnnualita = [
+                "Provvigioni annue = rata × rate/anno (frazionamento)",
+                head.frazionamento ? `frazionamento: ${head.frazionamento}` : null,
+                qUltimaIncasso ? `ultimo quietanza: ${fmtNum(getProvvigioneEC(qUltimaIncasso))}` : null,
               ].filter(Boolean).join(" · ");
 
               return (
@@ -1996,18 +2001,18 @@ function PolizzeClienteTable({
                     <TableCell className="text-xs">{fmtDate(head.garanzia_da ?? head.durata_da)}</TableCell>
                     <TableCell className="text-xs">{fmtDate(head.garanzia_a ?? head.durata_a)}</TableCell>
                     <TableCell>{agenzia}</TableCell>
-                    <TableCell className="font-mono" title={isPolizzaMadre(head) ? tooltipUltimoPremio : undefined}>
+                    <TableCell className="font-mono" title={isPolizzaMadre(head) ? tooltipPremioAnnualita : undefined}>
                       {isAppendice(head)
                         ? fmtNum(head.premio_lordo)
                         : isPolizzaMadre(head)
-                          ? (totQuiet && totQuiet.count > 0 ? fmtNum(totQuiet.premio) : "—")
+                          ? (premioAnnualita > 0 ? fmtNum(premioAnnualita) : "—")
                           : "—"}
                     </TableCell>
-                    <TableCell className="font-mono" title={isPolizzaMadre(head) ? tooltipUltimeProvv : undefined}>
+                    <TableCell className="font-mono" title={isPolizzaMadre(head) ? tooltipProvvAnnualita : undefined}>
                       {isAppendice(head)
                         ? fmtNum(getProvvigioneEC(head))
                         : isPolizzaMadre(head)
-                          ? (totQuiet && totQuiet.count > 0 ? fmtNum(totQuiet.provvigioni) : "—")
+                          ? (provvAnnualita > 0 ? fmtNum(provvAnnualita) : "—")
                           : "—"}
                     </TableCell>
                     <TableCell className="text-xs">
@@ -2196,6 +2201,7 @@ function PolizzeClienteTable({
           )}
         </TableBody>
       </Table>
+      </div>
 
       <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open && !deleting) setDeleteConfirm(null); }}>
         <AlertDialogContent>
@@ -2616,7 +2622,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, data_pagamento, tipo_pagamento, data_copertura, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, gruppo_compagnia, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(id, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione, codice))")
+        .select("id, numero_titolo, stato, premio_lordo, frazionamento, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, data_pagamento, tipo_pagamento, data_copertura, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, gruppo_compagnia, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(id, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione, codice))")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -2629,6 +2635,44 @@ export default function ClienteDetail() {
     () => [...new Set(polizze.filter((p: any) => !p.sostituisce_polizza).map((p: any) => p.id as string))],
     [polizze],
   );
+
+  // Stessa queryKey di DocumentiTab (include avvisi messa a cassa sulle madri).
+  const documentiClienteIdsKey = id ?? "";
+  const documentiExtraTitoloKey = [...titoloIdsMadri].sort().join(",");
+  const { data: documentiCliente = [] } = useQuery({
+    queryKey: ["documenti", "cliente", documentiClienteIdsKey, documentiExtraTitoloKey, "notifica_messa_cassa"],
+    queryFn: async () => {
+      const { data: main } = await supabase
+        .from("documenti")
+        .select("*, profiles:caricato_da(nome, cognome)")
+        .eq("entita_tipo", "cliente")
+        .in("entita_id", [id!])
+        .order("created_at", { ascending: false });
+
+      let extra: any[] = [];
+      if (titoloIdsMadri.length > 0) {
+        const { data: titoloDocs } = await supabase
+          .from("documenti")
+          .select("*, profiles:caricato_da(nome, cognome)")
+          .eq("entita_tipo", "titolo")
+          .in("entita_id", titoloIdsMadri)
+          .in("categoria", ["notifica_messa_cassa"])
+          .order("created_at", { ascending: false });
+        extra = titoloDocs ?? [];
+      }
+
+      const seen = new Set<string>();
+      const merged: any[] = [];
+      for (const doc of [...(main ?? []), ...extra]) {
+        const key = doc.path_storage || doc.id;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(doc);
+      }
+      return merged;
+    },
+    enabled: !!id,
+  });
 
   // IDs delle entità collegate al cliente per aggregazione log attività
   const { data: relatedIds } = useQuery({
@@ -3012,7 +3056,7 @@ export default function ClienteDetail() {
                 )}
               </TabsTrigger>
               <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
-              <TabsTrigger value="documenti">Documenti</TabsTrigger>
+              <TabsTrigger value="documenti">Documenti ({documentiCliente.length})</TabsTrigger>
               <TabsTrigger value="chat">Chat</TabsTrigger>
               <TabsTrigger value="timeline">Log Attività</TabsTrigger>
               <TabsTrigger value="trattative"><FileText className="w-4 h-4 mr-1" />Trattative</TabsTrigger>

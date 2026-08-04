@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,6 +60,22 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
     [appendiciVisibili, isMadreView],
   );
 
+  // Stessa queryKey di DocumentiTab: cache condivisa + invalidazione su upload/delete.
+  const documentiIdsKey = [...documentiIdsForRead].sort().join(",");
+  const { data: documentiList } = useQuery({
+    queryKey: ["documenti", "titolo", documentiIdsKey, "", ""],
+    queryFn: async () => {
+      const { data: main } = await supabase
+        .from("documenti")
+        .select("*, profiles:caricato_da(nome, cognome)")
+        .eq("entita_tipo", "titolo")
+        .in("entita_id", documentiIdsForRead)
+        .order("created_at", { ascending: false });
+      return main ?? [];
+    },
+  });
+  const documentiCount = (documentiList?.length ?? 0) + appendiciAllegati.length;
+
   // Lazy mount: ogni tab si monta solo la prima volta che viene aperto, poi resta in cache.
   const [tab, setTab] = useState<string>(isAppendiceView ? "documenti" : "movimenti");
   const [mounted, setMounted] = useState<Record<string, boolean>>(
@@ -89,7 +106,7 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
         {!isAppendiceView && (
           <TabsTrigger value="note"><StickyNote className="w-4 h-4 mr-1" />Note</TabsTrigger>
         )}
-        <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti</TabsTrigger>
+        <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti ({documentiCount})</TabsTrigger>
         <TabsTrigger value="chat">Chat</TabsTrigger>
         <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Log Attività</TabsTrigger>
       </TabsList>

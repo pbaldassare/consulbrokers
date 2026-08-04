@@ -1,15 +1,20 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { FileDropzone } from "@/components/shared/FileDropzone";
+import {
+  MultiDocumentUploadPanel,
+  patchPendingFile,
+  type PendingDocumentFile,
+} from "@/components/shared/MultiDocumentUploadPanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, FileText, Download, Trash2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
+import { ensureFileExtension } from "@/lib/sanitizeFileName";
+import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 interface Props {
   trattativaId: string;
@@ -19,9 +24,9 @@ interface Props {
 export const TrattativaDocumentiTab = ({ trattativaId, onEvento }: Props) => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [tipoDoc, setTipoDoc] = useState("altro");
+  const [pendingFiles, setPendingFiles] = useState<PendingDocumentFile[]>([]);
 
   const { data: documenti = [], isLoading } = useQuery({
     queryKey: ["trattativa_documenti", trattativaId],
@@ -36,35 +41,55 @@ export const TrattativaDocumentiTab = ({ trattativaId, onEvento }: Props) => {
     },
   });
 
-  const handleUpload = async (file: File) => {
-    if (isDocumentUploadTooLarge(file.size)) {
-      toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
-      if (fileRef.current) fileRef.current.value = "";
+  const handleUpload = async () => {
+    if (pendingFiles.length === 0) return;
+    const emptyName = pendingFiles.find((p) => !p.displayName.trim());
+    if (emptyName) {
+      toast.error("Inserisci un nome per ogni documento");
       return;
     }
     setUploading(true);
+    let ok = 0;
+    let fail = 0;
     try {
-      const path = `trattative/${trattativaId}/${Date.now()}_${file.name}`;
-      const { error: upErr } = await supabase.storage.from("documenti_generali").upload(path, file);
-      if (upErr) throw upErr;
+      for (const item of pendingFiles) {
+        setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "uploading", error: undefined }));
+        try {
+          const nomeFile = ensureFileExtension(item.displayName.trim(), item.file.name);
+          const path = `trattative/${trattativaId}/${Date.now()}_${item.file.name}`;
+          const { error: upErr } = await supabase.storage.from("documenti_generali").upload(path, item.file);
+          if (upErr) throw upErr;
 
-      const { error: dbErr } = await supabase.from("trattativa_documenti").insert({
-        trattativa_id: trattativaId,
-        nome_file: file.name,
-        file_path: path,
-        tipo_documento: tipoDoc,
-        uploaded_by: profile?.id,
-      });
-      if (dbErr) throw dbErr;
+          const { error: dbErr } = await supabase.from("trattativa_documenti").insert({
+            trattativa_id: trattativaId,
+            nome_file: nomeFile,
+            file_path: path,
+            tipo_documento: tipoDoc,
+            uploaded_by: profile?.id,
+          });
+          if (dbErr) throw dbErr;
 
-      onEvento("documento", `Documento caricato: ${file.name}`, { tipo: tipoDoc });
-      queryClient.invalidateQueries({ queryKey: ["trattativa_documenti", trattativaId] });
-      toast.success("Documento caricato");
-    } catch (err: any) {
-      toast.error(err.message);
+          onEvento("documento", `Documento caricato: ${nomeFile}`, { tipo: tipoDoc });
+          setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "done" }));
+          ok += 1;
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "Errore caricamento";
+          setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "error", error: msg }));
+          fail += 1;
+        }
+      }
+      if (ok > 0) queryClient.invalidateQueries({ queryKey: ["trattativa_documenti", trattativaId] });
+      if (ok > 0 && fail === 0) {
+        toast.success(ok === 1 ? "Documento caricato" : `${ok} documenti caricati`);
+        setPendingFiles([]);
+      } else if (ok > 0) {
+        toast.warning(`${ok} caricati, ${fail} con errore`);
+        setPendingFiles((prev) => prev.filter((p) => p.status !== "done"));
+      } else {
+        toast.error("Nessun documento caricato");
+      }
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
   };
 
@@ -92,31 +117,37 @@ export const TrattativaDocumentiTab = ({ trattativaId, onEvento }: Props) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-sm font-semibold text-foreground">Documenti ({documenti.length})</h3>
-        <div className="flex items-center gap-2">
-          <Select value={tipoDoc} onValueChange={setTipoDoc}>
-            <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="preventivo">Preventivo</SelectItem>
-              <SelectItem value="proposta">Proposta</SelectItem>
-              <SelectItem value="contratto">Contratto</SelectItem>
-              <SelectItem value="allegato">Allegato</SelectItem>
-              <SelectItem value="altro">Altro</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading} className="gap-1">
-            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-            Carica
-          </Button>
-          <input ref={fileRef} type="file" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleUpload(e.target.files[0]); }} />
-        </div>
+        <Select value={tipoDoc} onValueChange={setTipoDoc}>
+          <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="preventivo">Preventivo</SelectItem>
+            <SelectItem value="proposta">Proposta</SelectItem>
+            <SelectItem value="contratto">Contratto</SelectItem>
+            <SelectItem value="allegato">Allegato</SelectItem>
+            <SelectItem value="altro">Altro</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <FileDropzone
-        size="sm"
+      <MultiDocumentUploadPanel
+        files={pendingFiles}
+        onFilesChange={setPendingFiles}
         disabled={uploading}
-        onFilesSelected={(files) => { if (files[0]) handleUpload(files[0]); }}
-        hint={`Trascina un documento qui oppure usa il pulsante Carica — max ${MAX_DOCUMENT_UPLOAD_MB} MB`}
+        hint={`Trascina uno o più documenti — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
       />
+
+      {pendingFiles.length > 0 && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => void handleUpload()} disabled={uploading} className="gap-1">
+            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+            {uploading
+              ? "Caricamento..."
+              : pendingFiles.length > 1
+                ? `Carica ${pendingFiles.length} documenti`
+                : "Carica"}
+          </Button>
+        </div>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Caricamento...</p>

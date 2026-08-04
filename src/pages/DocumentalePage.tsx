@@ -153,30 +153,49 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
     fetchData();
   };
 
-  const handleUpload = async (file: File, description: string, tags: string[]) => {
+  const handleUpload = async (files: File[], description: string, tags: string[]) => {
     if (!currentFolderId) { toast.error("Seleziona prima una cartella"); return; }
+    if (files.length === 0) return;
     setActionLoading(true);
-    const path = `${currentFolderId}/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("document-library").upload(path, file);
-    if (uploadError) { setActionLoading(false); toast.error("Errore upload: " + uploadError.message); return; }
+    let ok = 0;
+    let fail = 0;
+    for (const file of files) {
+      const path = `${currentFolderId}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("document-library").upload(path, file);
+      if (uploadError) {
+        toast.error(`${file.name}: ${uploadError.message}`);
+        fail += 1;
+        continue;
+      }
 
-    const { data: urlData } = supabase.storage.from("document-library").getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from("document-library").getPublicUrl(path);
 
-    const { error: dbError } = await supabase.from("document_library").insert({
-      folder_id: currentFolderId,
-      file_name: file.name,
-      file_url: urlData.publicUrl,
-      file_type: file.type,
-      file_size: file.size,
-      description: description || null,
-      tags,
-      uploaded_by: user?.id,
-    });
+      const { error: dbError } = await supabase.from("document_library").insert({
+        folder_id: currentFolderId,
+        file_name: file.name,
+        file_url: urlData.publicUrl,
+        file_type: file.type,
+        file_size: file.size,
+        description: description || null,
+        tags,
+        uploaded_by: user?.id,
+      });
+      if (dbError) {
+        toast.error(`${file.name}: errore salvataggio`);
+        fail += 1;
+        continue;
+      }
+      ok += 1;
+    }
     setActionLoading(false);
-    if (dbError) { toast.error("Errore salvataggio documento"); return; }
-    toast.success("Documento caricato");
-    setShowUpload(false);
-    fetchData();
+    if (ok > 0 && fail === 0) {
+      toast.success(ok === 1 ? "Documento caricato" : `${ok} documenti caricati`);
+      setShowUpload(false);
+      fetchData();
+    } else if (ok > 0) {
+      toast.warning(`${ok} caricati, ${fail} con errore`);
+      fetchData();
+    }
   };
 
   const handleDownload = async (doc: Doc) => {

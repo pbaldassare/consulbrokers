@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { FileDropzone } from "@/components/shared/FileDropzone";
+import {
+  MultiDocumentUploadPanel,
+  patchPendingFile,
+  type PendingDocumentFile,
+} from "@/components/shared/MultiDocumentUploadPanel";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Upload, FileText, Download, Eye, Trash2, User } from "lucide-react";
+import { Upload, FileText, Download, Eye, Trash2, User, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import DocPreviewDialog from "@/components/cliente/DocPreviewDialog";
-import { ensureFileExtension, fileBaseNameWithoutExt } from "@/lib/sanitizeFileName";
-import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
+import { ensureFileExtension } from "@/lib/sanitizeFileName";
+import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,8 +30,7 @@ interface Props {
 export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
   const { user } = useAuth();
   const [docs, setDocs] = useState<any[]>([]);
-  const [file, setFile] = useState<File | null>(null);
-  const [displayName, setDisplayName] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<PendingDocumentFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
   const [deleteDoc, setDeleteDoc] = useState<any>(null);
@@ -48,40 +49,53 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
   useEffect(() => { load(); }, [sinistroId]);
 
   const upload = async () => {
-    if (!file || !user) return;
-    if (isDocumentUploadTooLarge(file.size)) {
-      toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
+    if (pendingFiles.length === 0 || !user) return;
+    const emptyName = pendingFiles.find((p) => !p.displayName.trim());
+    if (emptyName) {
+      toast.error("Inserisci un nome per ogni documento");
       return;
     }
-    const trimmed = displayName.trim();
-    if (!trimmed) {
-      toast.error("Inserisci un nome per il documento");
-      return;
-    }
-    const nomeFile = ensureFileExtension(trimmed, file.name);
     setUploading(true);
+    let ok = 0;
+    let fail = 0;
     try {
-      const path = `${sinistroId}/${Date.now()}_${file.name}`;
-      const { error: sErr } = await supabase.storage.from("documenti_sinistri").upload(path, file);
-      if (sErr) throw sErr;
-      const { error: dErr } = await supabase.from("documenti").insert({
-        entita_tipo: "sinistro",
-        entita_id: sinistroId,
-        nome_file: nomeFile,
-        path_storage: path,
-        bucket_name: "documenti_sinistri",
-        caricato_da: user.id,
-        caricato_da_cliente: true,
-        visibile_al_cliente: true,
-        categoria: "allegato_cliente",
-      });
-      if (dErr) throw dErr;
-      toast.success("Documento caricato");
-      setFile(null);
-      setDisplayName("");
-      load();
-    } catch (e: any) {
-      toast.error(e.message || "Errore upload");
+      for (const item of pendingFiles) {
+        setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "uploading", error: undefined }));
+        try {
+          const nomeFile = ensureFileExtension(item.displayName.trim(), item.file.name);
+          const path = `${sinistroId}/${Date.now()}_${item.file.name}`;
+          const { error: sErr } = await supabase.storage.from("documenti_sinistri").upload(path, item.file);
+          if (sErr) throw sErr;
+          const { error: dErr } = await supabase.from("documenti").insert({
+            entita_tipo: "sinistro",
+            entita_id: sinistroId,
+            nome_file: nomeFile,
+            path_storage: path,
+            bucket_name: "documenti_sinistri",
+            caricato_da: user.id,
+            caricato_da_cliente: true,
+            visibile_al_cliente: true,
+            categoria: "allegato_cliente",
+          });
+          if (dErr) throw dErr;
+          setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "done" }));
+          ok += 1;
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : "Errore upload";
+          setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "error", error: msg }));
+          fail += 1;
+        }
+      }
+      if (ok > 0) load();
+      if (ok > 0 && fail === 0) {
+        toast.success(ok === 1 ? "Documento caricato" : `${ok} documenti caricati`);
+        setPendingFiles([]);
+      } else if (ok > 0) {
+        toast.warning(`${ok} caricati, ${fail} con errore`);
+        setPendingFiles((prev) => prev.filter((p) => p.status !== "done"));
+      } else {
+        toast.error("Nessun documento caricato");
+      }
     } finally {
       setUploading(false);
     }
@@ -147,36 +161,21 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
         ))}
       </ul>
       <div className="space-y-2 pt-1">
-        <FileDropzone
-          size="sm"
-          selectedFiles={file ? [file] : undefined}
-          onFilesSelected={(files) => {
-            const f = files[0] ?? null;
-            if (f && isDocumentUploadTooLarge(f.size)) {
-              toast.error(`File troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
-              return;
-            }
-            setFile(f);
-            setDisplayName(f ? fileBaseNameWithoutExt(f.name) : "");
-          }}
+        <MultiDocumentUploadPanel
+          files={pendingFiles}
+          onFilesChange={setPendingFiles}
           disabled={uploading}
+          visibileAlClienteDefault
           hint={`Max ${MAX_DOCUMENT_UPLOAD_MB} MB per file`}
+          className="space-y-2"
         />
-        {file && (
-          <div className="space-y-1">
-            <Label htmlFor="nome-doc-sinistro-cliente" className="text-xs">Nome documento</Label>
-            <Input
-              id="nome-doc-sinistro-cliente"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Nome del documento"
-              className="text-xs h-8"
-            />
-          </div>
-        )}
-        <Button size="sm" onClick={upload} disabled={!file || uploading}>
-          <Upload className="h-3.5 w-3.5 mr-1" />
-          {uploading ? "..." : "Carica"}
+        <Button size="sm" onClick={() => void upload()} disabled={pendingFiles.length === 0 || uploading}>
+          {uploading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
+          {uploading
+            ? "..."
+            : pendingFiles.length > 1
+              ? `Carica ${pendingFiles.length}`
+              : "Carica"}
         </Button>
       </div>
 
@@ -187,7 +186,7 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminare il documento?</AlertDialogTitle>
             <AlertDialogDescription>
-              Stai per eliminare <strong>{deleteDoc?.nome_file}</strong>. L'operazione è irreversibile.
+              Stai per eliminare <strong>{deleteDoc?.nome_file}</strong>. L&apos;operazione è irreversibile.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

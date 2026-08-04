@@ -3,16 +3,22 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { ArrowLeft, Users, FileText, TrendingUp, Wallet, FileSpreadsheet } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ArrowLeft, Users, FileText, TrendingUp, Wallet, FileSpreadsheet, Search, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
-import { format } from "date-fns";
+import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
+import { useProduttoriLookup } from "@/hooks/useProduttoriLookup";
+import { format, parseISO, isValid } from "date-fns";
 import { exportEstrazioneWorkbook } from "@/lib/estrazioni/exportXlsx";
 import { buildEstrazionePdf, downloadEstrazionePdf } from "@/lib/estrazioni/exportPdf";
 import { aggregatePivot } from "@/lib/estrazioni/pivot";
 import { periodoLabel } from "@/lib/estrazioni/utils";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+type TacitoFiltro = "tutti" | "si" | "no";
 
 interface ClientePortafoglio {
   cliente_id: string;
@@ -23,40 +29,164 @@ interface ClientePortafoglio {
   totale_incassato: number;
 }
 
+function parseDateInput(value: string): Date | null {
+  if (!value) return null;
+  const d = parseISO(value);
+  return isValid(d) ? d : null;
+}
+
 const PortafoglioPerClientePage = () => {
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<EstrazioniFiltersState>({ ...defaultFilters });
+  const [search, setSearch] = useState("");
+  const [dateDa, setDateDa] = useState("");
+  const [dateA, setDateA] = useState("");
+  const [ufficioId, setUfficioId] = useState<string | null>(null);
+  const [produttoreId, setProduttoreId] = useState<string | null>(null);
+  const [agenziaId, setAgenziaId] = useState<string | null>(null);
+  const [tacito, setTacito] = useState<TacitoFiltro>("tutti");
   const [exportingPdf, setExportingPdf] = useState(false);
-  const periodo = periodoLabel(filters.dateFrom, filters.dateTo);
+
+  const dateFrom = parseDateInput(dateDa);
+  const dateTo = parseDateInput(dateA);
+  const periodo = periodoLabel(dateFrom, dateTo);
+
+  const hasActiveFilters =
+    !!search.trim() ||
+    !!dateDa ||
+    !!dateA ||
+    !!ufficioId ||
+    !!produttoreId ||
+    !!agenziaId ||
+    tacito !== "tutti";
+
+  const resetFilters = () => {
+    setSearch("");
+    setDateDa("");
+    setDateA("");
+    setUfficioId(null);
+    setProduttoreId(null);
+    setAgenziaId(null);
+    setTacito("tutti");
+  };
+
+  const { data: uffici = [] } = useQuery({
+    queryKey: ["uffici-filter-portafoglio-cliente"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("uffici")
+        .select("id, nome_ufficio")
+        .eq("attivo", true)
+        .order("nome_ufficio");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 300_000,
+  });
+
+  const { data: produttori = [] } = useProduttoriLookup();
+
+  const { data: compagnie = [] } = useQuery({
+    queryKey: ["compagnie-attive-portafoglio-cliente"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("compagnie")
+        .select("id, nome, codice")
+        .eq("attiva", true)
+        .order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 300_000,
+  });
+
+  const ufficioOpts = useMemo(
+    () => uffici.map((u) => ({ value: u.id, label: u.nome_ufficio })),
+    [uffici],
+  );
+
+  const produttoreOpts = useMemo(
+    () => produttori.map((p) => ({ value: p.value, label: p.label })),
+    [produttori],
+  );
+
+  const agenziaOpts = useMemo(
+    () =>
+      compagnie.map((c) => ({
+        value: c.id,
+        label: c.nome,
+        description: c.codice || undefined,
+        searchText: `${c.nome} ${c.codice || ""}`,
+      })),
+    [compagnie],
+  );
 
   const { data, isLoading } = useQuery({
-    queryKey: ["portafoglio-per-cliente", filters],
+    queryKey: [
+      "portafoglio-per-cliente",
+      search,
+      dateDa,
+      dateA,
+      ufficioId,
+      produttoreId,
+      agenziaId,
+      tacito,
+    ],
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("premio_lordo, importo_incassato, stato, cliente_anagrafica_id, ufficio_id, produttore_id, prodotto_id, clienti!titoli_cliente_anagrafica_id_fkey(id, nome, cognome, ragione_sociale, tipo_cliente), prodotti(compagnia_id)")
+        .select(
+          "premio_lordo, importo_incassato, stato, cliente_anagrafica_id, ufficio_id, anagrafica_commerciale_id, compagnia_id, numero_titolo, tacito_rinnovo, data_incasso, clienti!titoli_cliente_anagrafica_id_fkey(id, nome, cognome, ragione_sociale, tipo_cliente)",
+        )
         .not("cliente_anagrafica_id", "is", null)
         .is("sostituisce_polizza", null);
 
-      if (filters.dateFrom) query = query.gte("data_incasso", format(filters.dateFrom, "yyyy-MM-dd"));
-      if (filters.dateTo) query = query.lte("data_incasso", format(filters.dateTo, "yyyy-MM-dd"));
-      if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
-      if (filters.produttore_id) query = query.eq("produttore_id", filters.produttore_id);
+      if (dateDa) query = query.gte("data_incasso", dateDa);
+      if (dateA) query = query.lte("data_incasso", dateA);
+      if (ufficioId) query = query.eq("ufficio_id", ufficioId);
+      if (produttoreId) query = query.eq("anagrafica_commerciale_id", produttoreId);
+      if (agenziaId) query = query.eq("compagnia_id", agenziaId);
+      if (tacito === "si") query = query.eq("tacito_rinnovo", true);
+      if (tacito === "no") query = query.eq("tacito_rinnovo", false);
+
+      const searchTrim = search.trim();
+      if (searchTrim) {
+        const { data: clientiMatch, error: cliErr } = await supabase
+          .from("clienti")
+          .select("id")
+          .or(
+            `ragione_sociale.ilike.%${searchTrim}%,cognome.ilike.%${searchTrim}%,nome.ilike.%${searchTrim}%`,
+          )
+          .limit(500);
+        if (cliErr) throw cliErr;
+        const clienteIds = (clientiMatch || []).map((c) => c.id);
+        if (clienteIds.length > 0) {
+          query = query.or(
+            `numero_titolo.ilike.%${searchTrim}%,cliente_anagrafica_id.in.(${clienteIds.join(",")})`,
+          );
+        } else {
+          query = query.ilike("numero_titolo", `%${searchTrim}%`);
+        }
+      }
 
       const { data: titoli, error } = await query;
       if (error) throw error;
 
       const grouped: Record<string, ClientePortafoglio> = {};
       for (const t of titoli || []) {
-        if (filters.compagnia_id && t.prodotti?.compagnia_id !== filters.compagnia_id) continue;
-        const cli = t.clienti as any;
+        const cli = t.clienti as {
+          id: string;
+          nome: string | null;
+          cognome: string | null;
+          ragione_sociale: string | null;
+          tipo_cliente: string | null;
+        } | null;
         if (!cli) continue;
         const key = cli.id;
         if (!grouped[key]) {
           grouped[key] = {
             cliente_id: cli.id,
             label: cli.ragione_sociale || `${cli.cognome || ""} ${cli.nome || ""}`.trim(),
-            tipo_cliente: cli.tipo_cliente,
+            tipo_cliente: cli.tipo_cliente || "",
             num_polizze: 0,
             totale_premi: 0,
             totale_incassato: 0,
@@ -94,7 +224,7 @@ const PortafoglioPerClientePage = () => {
       `${rows.length} clienti, ${totPolizze} polizze, ${fmt(totPremi)} di premi.`,
       top ? `Cliente principale: ${top.label} (${fmt(top.totale_premi)}).` : "",
     ].join("\n");
-  }, [rows, periodo, totPolizze, totPremi, fmt]);
+  }, [rows, periodo, totPolizze, totPremi]);
 
   const exportExcel = () => {
     exportEstrazioneWorkbook({
@@ -167,7 +297,7 @@ const PortafoglioPerClientePage = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Portafoglio per Cliente</h1>
-            <p className="text-sm text-muted-foreground">Estrazione portafoglio raggruppato per cliente — Excel pivot e PDF</p>
+            <p className="text-sm text-muted-foreground">Cerca cliente → apri analisi polizze, garanzie e report</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -196,7 +326,89 @@ const PortafoglioPerClientePage = () => {
         ))}
       </div>
 
-      <EstrazioniFilters filters={filters} onChange={setFilters} showUfficio showProduttore showCompagnia />
+      <Card>
+        <CardContent className="pt-4 space-y-3">
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-8 h-9"
+                placeholder="Cerca cliente o n° polizza…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Incasso dal</p>
+              <Input
+                type="date"
+                className="h-9 w-[150px]"
+                value={dateDa}
+                onChange={(e) => setDateDa(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">al</p>
+              <Input
+                type="date"
+                className="h-9 w-[150px]"
+                value={dateA}
+                onChange={(e) => setDateA(e.target.value)}
+              />
+            </div>
+            <FilterSearchableSelect
+              value={ufficioId}
+              onValueChange={setUfficioId}
+              options={ufficioOpts}
+              placeholder="Sede"
+              allLabel="Tutte le sedi"
+              className="w-[200px] h-9"
+            />
+            <FilterSearchableSelect
+              value={produttoreId}
+              onValueChange={setProduttoreId}
+              options={produttoreOpts}
+              placeholder="Produttore"
+              allLabel="Tutti i produttori"
+              className="w-[220px] h-9"
+            />
+            <FilterSearchableSelect
+              value={agenziaId}
+              onValueChange={setAgenziaId}
+              options={agenziaOpts}
+              placeholder="Agenzia"
+              allLabel="Tutte le agenzie"
+              className="w-[240px] h-9"
+            />
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Tacito rinnovo</p>
+              <ToggleGroup
+                type="single"
+                value={tacito}
+                onValueChange={(v) => {
+                  if (v) setTacito(v as TacitoFiltro);
+                }}
+                className="justify-start"
+              >
+                <ToggleGroupItem value="tutti" className="h-9 px-3 text-xs">
+                  Tutti
+                </ToggleGroupItem>
+                <ToggleGroupItem value="si" className="h-9 px-3 text-xs">
+                  Sì
+                </ToggleGroupItem>
+                <ToggleGroupItem value="no" className="h-9 px-3 text-xs">
+                  No
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" className="h-9" onClick={resetFilters}>
+                <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reset
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="border rounded-lg">
         <Table>
@@ -215,8 +427,8 @@ const PortafoglioPerClientePage = () => {
             ) : rows.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nessun dato</TableCell></TableRow>
             ) : rows.map((c) => (
-              <TableRow key={c.cliente_id} className="cursor-pointer" onClick={() => navigate(`/archivi/clienti/${c.cliente_id}`)}>
-                <TableCell className="font-medium">{c.label}</TableCell>
+              <TableRow key={c.cliente_id} className="cursor-pointer" onClick={() => navigate(`/portafoglio/estrazioni/per-cliente/${c.cliente_id}`)}>
+                <TableCell className="font-medium text-primary hover:underline">{c.label}</TableCell>
                 <TableCell>{c.tipo_cliente === "azienda" ? "Azienda" : "Privato"}</TableCell>
                 <TableCell className="text-right">{c.num_polizze}</TableCell>
                 <TableCell className="text-right">{fmt(c.totale_premi)}</TableCell>
@@ -239,9 +451,5 @@ const PortafoglioPerClientePage = () => {
     </div>
   );
 };
-
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export default PortafoglioPerClientePage;

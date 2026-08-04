@@ -5,11 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Upload, Download, Trash2, FileText, Eye, Pencil, Check, X, Mail } from "lucide-react";
+import { Upload, Download, Trash2, FileText, Eye, Pencil, Check, X, Mail, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
@@ -28,8 +27,12 @@ import {
 import { InviaDocumentoEmailDialog } from "@/components/documentale/InviaDocumentoEmailDialog";
 import type { AppendicePolizzaRow } from "@/lib/appendiciPolizza";
 import UploadDocStaffDialog from "@/components/clienti/UploadDocStaffDialog";
-import { FileDropzone } from "@/components/shared/FileDropzone";
-import { documentUploadTooLargeMessage, isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
+import {
+  MultiDocumentUploadPanel,
+  patchPendingFile,
+  type PendingDocumentFile,
+} from "@/components/shared/MultiDocumentUploadPanel";
+import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 interface DocumentiTabProps {
   entitaTipo: string;
@@ -110,8 +113,7 @@ export default function DocumentiTab({
   const qc = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [displayName, setDisplayName] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<PendingDocumentFile[]>([]);
   const [uploadError, setUploadError] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -213,51 +215,65 @@ export default function DocumentiTab({
 
 
   const resetUploadDialog = () => {
-    setPendingFile(null);
-    setDisplayName("");
+    setPendingFiles([]);
     setUploadError("");
-  };
-
-  const handleFileSelected = (file: File) => {
-    if (isDocumentUploadTooLarge(file.size)) {
-      setUploadError(documentUploadTooLargeMessage());
-      return;
-    }
-    setUploadError("");
-    setPendingFile(file);
-    setDisplayName(fileBaseNameWithoutExt(file.name));
   };
 
   const handleUpload = async () => {
-    if (!pendingFile) return;
-    const trimmed = displayName.trim();
-    if (!trimmed) {
-      setUploadError("Inserisci un nome per il documento");
+    if (pendingFiles.length === 0) return;
+    const emptyName = pendingFiles.find((p) => !p.displayName.trim());
+    if (emptyName) {
+      setUploadError("Inserisci un nome per ogni documento");
       return;
     }
-    const nomeFile = ensureFileExtension(trimmed, pendingFile.name);
+    setUploadError("");
     setUploading(true);
+    let ok = 0;
+    let fail = 0;
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const path = `${entitaTipo}/${uploadEntitaId}/${Date.now()}_${sanitizeStorageFileName(pendingFile.name)}`;
-      const { error: uploadErr } = await supabase.storage.from(bucket).upload(path, pendingFile);
-      if (uploadErr) throw uploadErr;
-      const { error: insertErr } = await supabase.from("documenti").insert({
-        nome_file: nomeFile,
-        path_storage: path,
-        bucket_name: bucket,
-        entita_tipo: entitaTipo,
-        entita_id: uploadEntitaId,
-        caricato_da: user?.id,
-      });
-      if (insertErr) throw insertErr;
-      await logAttivita({ azione: "upload_documento", entita_tipo: entitaTipo, entita_id: uploadEntitaId, dettagli_json: { nome_file: nomeFile } });
-      toast.success("Documento caricato");
+      for (const item of pendingFiles) {
+        setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "uploading", error: undefined }));
+        try {
+          const nomeFile = ensureFileExtension(item.displayName.trim(), item.file.name);
+          const path = `${entitaTipo}/${uploadEntitaId}/${Date.now()}_${sanitizeStorageFileName(item.file.name)}`;
+          const { error: uploadErr } = await supabase.storage.from(bucket).upload(path, item.file);
+          if (uploadErr) throw uploadErr;
+          const { error: insertErr } = await supabase.from("documenti").insert({
+            nome_file: nomeFile,
+            path_storage: path,
+            bucket_name: bucket,
+            entita_tipo: entitaTipo,
+            entita_id: uploadEntitaId,
+            caricato_da: user?.id,
+            visibile_al_cliente: item.visibileAlCliente,
+          });
+          if (insertErr) throw insertErr;
+          await logAttivita({
+            azione: "upload_documento",
+            entita_tipo: entitaTipo,
+            entita_id: uploadEntitaId,
+            dettagli_json: { nome_file: nomeFile, visibile_al_cliente: item.visibileAlCliente },
+          });
+          setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "done" }));
+          ok += 1;
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "Errore caricamento";
+          setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "error", error: msg }));
+          fail += 1;
+        }
+      }
       qc.invalidateQueries({ queryKey: ["documenti", entitaTipo] });
-      resetUploadDialog();
-      setUploadDialogOpen(false);
-    } catch (err: any) {
-      toast.error(err.message);
+      if (ok > 0 && fail === 0) {
+        toast.success(ok === 1 ? "Documento caricato" : `${ok} documenti caricati`);
+        resetUploadDialog();
+        setUploadDialogOpen(false);
+      } else if (ok > 0 && fail > 0) {
+        toast.warning(`${ok} caricati, ${fail} con errore`);
+        setPendingFiles((prev) => prev.filter((p) => p.status !== "done"));
+      } else {
+        toast.error("Nessun documento caricato");
+      }
     } finally {
       setUploading(false);
     }
@@ -400,40 +416,29 @@ export default function DocumentiTab({
                   setUploadDialogOpen(open);
                 }}
               >
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Carica Documento</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
-                    <FileDropzone
-                      selectedFiles={pendingFile ? [pendingFile] : undefined}
-                      onFilesSelected={(files) => {
-                        const f = files[0];
-                        if (f) handleFileSelected(f);
-                      }}
-                      hint={`Max ${MAX_DOCUMENT_UPLOAD_MB} MB`}
-                    />
-                    <div className="space-y-1.5">
-                      <Label htmlFor="nome-documento">Nome documento</Label>
-                      <Input
-                        id="nome-documento"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        placeholder="Nome del documento"
-                        disabled={!pendingFile}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        L&apos;estensione del file originale viene aggiunta automaticamente al salvataggio.
-                      </p>
-                    </div>
-                    {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
-                  </div>
+                  <MultiDocumentUploadPanel
+                    files={pendingFiles}
+                    onFilesChange={setPendingFiles}
+                    disabled={uploading}
+                    showVisibileAlCliente
+                    error={uploadError}
+                    hint={`Puoi selezionare più file — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
+                  />
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setUploadDialogOpen(false)} disabled={uploading}>
                       Annulla
                     </Button>
-                    <Button onClick={handleUpload} disabled={!pendingFile || uploading}>
-                      {uploading ? "Caricamento..." : "Carica"}
+                    <Button onClick={() => void handleUpload()} disabled={pendingFiles.length === 0 || uploading}>
+                      {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {uploading
+                        ? "Caricamento..."
+                        : pendingFiles.length > 1
+                          ? `Carica ${pendingFiles.length} documenti`
+                          : "Carica"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>

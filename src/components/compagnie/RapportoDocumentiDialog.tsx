@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,7 +12,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Upload, FileText, Download, Trash2, Pencil, Check, X, Loader2 } from "lucide-react";
-import { FileDropzone } from "@/components/shared/FileDropzone";
+import {
+  MultiDocumentUploadPanel,
+  patchPendingFile,
+  type PendingDocumentFile,
+} from "@/components/shared/MultiDocumentUploadPanel";
+import { ensureFileExtension } from "@/lib/sanitizeFileName";
+import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -34,9 +40,9 @@ const TIPI = [
 export default function RapportoDocumentiDialog({ open, onOpenChange, rapportoId, rapportoNome }: Props) {
   const { profile } = useAuth();
   const qc = useQueryClient();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [tipo, setTipo] = useState("altro");
+  const [pendingFiles, setPendingFiles] = useState<PendingDocumentFile[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deleteDoc, setDeleteDoc] = useState<any>(null);
@@ -56,32 +62,54 @@ export default function RapportoDocumentiDialog({ open, onOpenChange, rapportoId
     enabled: !!rapportoId && open,
   });
 
-  const handleUpload = async (files: File[]) => {
-    if (!rapportoId || files.length === 0) return;
+  const handleUpload = async () => {
+    if (!rapportoId || pendingFiles.length === 0) return;
+    const emptyName = pendingFiles.find((p) => !p.displayName.trim());
+    if (emptyName) {
+      toast.error("Inserisci un nome per ogni documento");
+      return;
+    }
     setUploading(true);
+    let ok = 0;
+    let fail = 0;
     try {
-      for (const file of files) {
-        const path = `compagnia_rapporti/${rapportoId}/${Date.now()}_${file.name}`;
-        const { error: upErr } = await supabase.storage.from("documenti_generali").upload(path, file);
-        if (upErr) throw upErr;
-        const { error: dbErr } = await supabase.from("compagnia_rapporto_documenti").insert({
-          rapporto_id: rapportoId,
-          nome_file: file.name,
-          file_path: path,
-          tipo_documento: tipo,
-          dimensione_bytes: file.size,
-          mime_type: file.type || null,
-          uploaded_by: profile?.id,
-        });
-        if (dbErr) throw dbErr;
+      for (const item of pendingFiles) {
+        setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "uploading", error: undefined }));
+        try {
+          const nomeFile = ensureFileExtension(item.displayName.trim(), item.file.name);
+          const path = `compagnia_rapporti/${rapportoId}/${Date.now()}_${item.file.name}`;
+          const { error: upErr } = await supabase.storage.from("documenti_generali").upload(path, item.file);
+          if (upErr) throw upErr;
+          const { error: dbErr } = await supabase.from("compagnia_rapporto_documenti").insert({
+            rapporto_id: rapportoId,
+            nome_file: nomeFile,
+            file_path: path,
+            tipo_documento: tipo,
+            dimensione_bytes: item.file.size,
+            mime_type: item.file.type || null,
+            uploaded_by: profile?.id,
+          });
+          if (dbErr) throw dbErr;
+          setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "done" }));
+          ok += 1;
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "Errore caricamento";
+          setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "error", error: msg }));
+          fail += 1;
+        }
       }
-      qc.invalidateQueries({ queryKey: ["rapporto_documenti", rapportoId] });
-      toast.success("Documento caricato");
-    } catch (err: any) {
-      toast.error(err.message);
+      if (ok > 0) qc.invalidateQueries({ queryKey: ["rapporto_documenti", rapportoId] });
+      if (ok > 0 && fail === 0) {
+        toast.success(ok === 1 ? "Documento caricato" : `${ok} documenti caricati`);
+        setPendingFiles([]);
+      } else if (ok > 0) {
+        toast.warning(`${ok} caricati, ${fail} con errore`);
+        setPendingFiles((prev) => prev.filter((p) => p.status !== "done"));
+      } else {
+        toast.error("Nessun documento caricato");
+      }
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
   };
 
@@ -120,7 +148,13 @@ export default function RapportoDocumentiDialog({ open, onOpenChange, rapportoId
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) setPendingFiles([]);
+          onOpenChange(v);
+        }}
+      >
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Documenti rapporto</DialogTitle>
@@ -134,25 +168,17 @@ export default function RapportoDocumentiDialog({ open, onOpenChange, rapportoId
                 {TIPI.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading} className="gap-1">
+            <Button size="sm" onClick={() => void handleUpload()} disabled={uploading || pendingFiles.length === 0} className="gap-1">
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              Carica documento
+              {pendingFiles.length > 1 ? `Carica ${pendingFiles.length} documenti` : "Carica documento"}
             </Button>
-            <input
-              ref={fileRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) => { if (e.target.files?.length) handleUpload(Array.from(e.target.files)); }}
-            />
           </div>
 
-          <FileDropzone
-            size="sm"
-            multiple
+          <MultiDocumentUploadPanel
+            files={pendingFiles}
+            onFilesChange={setPendingFiles}
             disabled={uploading}
-            onFilesSelected={handleUpload}
-            hint="Trascina uno o più documenti qui oppure usa il pulsante Carica documento"
+            hint={`Trascina uno o più documenti — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
           />
 
           {isLoading ? (
@@ -232,7 +258,7 @@ export default function RapportoDocumentiDialog({ open, onOpenChange, rapportoId
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminare il documento?</AlertDialogTitle>
             <AlertDialogDescription>
-              Stai per eliminare <strong>{deleteDoc?.nome_file}</strong>. L'azione è irreversibile.
+              Stai per eliminare <strong>{deleteDoc?.nome_file}</strong>. L&apos;azione è irreversibile.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

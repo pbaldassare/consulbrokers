@@ -3,6 +3,7 @@ import {
   frazionamentoMesi,
   frazionamentoToRate,
   derivaFrazionamentoDaRate,
+  importoAnnualitaDaRata,
 } from "../frazionamento";
 
 describe("frazionamentoMesi", () => {
@@ -54,5 +55,23 @@ describe("derivaFrazionamentoDaRate", () => {
   it("rate non standard defaulta ad Annuale", () => {
     expect(derivaFrazionamentoDaRate(6, 1)).toBe("Annuale");
     expect(derivaFrazionamentoDaRate(null, 1)).toBe("Annuale");
+  });
+});
+
+describe("importoAnnualitaDaRata", () => {
+  it("Semestrale → rata × 2", () => {
+    expect(importoAnnualitaDaRata(109000, "Semestrale")).toBe(218000);
+  });
+
+  it("Annuale → invariato", () => {
+    expect(importoAnnualitaDaRata(5000, "Annuale")).toBe(5000);
+  });
+
+  it("Trimestrale → rata × 4", () => {
+    expect(importoAnnualitaDaRata(1000, "Trimestrale")).toBe(4000);
+  });
+
+  it("importo nullo → 0", () => {
+    expect(importoAnnualitaDaRata(null, "Semestrale")).toBe(0);
   });
 });

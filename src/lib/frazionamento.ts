@@ -30,6 +30,19 @@ export function frazionamentoToRate(f: string, anni: number): number {
   return Math.max(1, Math.round(12 / m));
 }
 
+/**
+ * Premio (o provvigione) di annualità a partire dalla rata/firma.
+ * Es. Semestrale 109.000 → 218.000; Annuale → invariato.
+ */
+export function importoAnnualitaDaRata(
+  importoRata: number | null | undefined,
+  frazionamento: string | null | undefined,
+): number {
+  const rata = Number(importoRata) || 0;
+  if (!rata) return 0;
+  return rata * frazionamentoToRate(String(frazionamento || "Annuale"), 1);
+}
+
 /** Deriva il frazionamento testuale da rate/anni (per polizze legacy). */
 export function derivaFrazionamentoDaRate(
   rate: number | null | undefined,

@@ -287,11 +287,28 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
         }
       }
 
+      // Collega titolo se numero polizza già in portafoglio del cliente
+      let titoloId: string | null = null;
+      const numPol = (dp.numero_polizza || "").trim();
+      if (numPol) {
+        const { data: titoloMatch } = await supabase
+          .from("titoli")
+          .select("id")
+          .eq("cliente_id", clienteId)
+          .eq("numero_titolo", numPol)
+          .is("sostituisce_polizza", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        titoloId = titoloMatch?.id ?? null;
+      }
+
       // 3. Crea polizza_cga con tutti i dati personali
       const { data: pc, error: pcErr } = await supabase.from("polizza_cga").insert({
         cliente_id: clienteId,
         prodotto_id: prodottoId,
         documento_id: docRow.id,
+        titolo_id: titoloId,
         sommario_personalizzato: dp.sommario_personalizzato ?? null,
         numero_polizza: dp.numero_polizza ?? null,
         contraente_ragione_sociale: dp.contraente_ragione_sociale ?? null,
@@ -359,6 +376,8 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
     onSuccess: () => {
       toast.success("Polizza CGA salvata");
       qc.invalidateQueries({ queryKey: ["polizze-cga", clienteId] });
+      qc.invalidateQueries({ queryKey: ["analisi-cliente-cga", clienteId] });
+      qc.invalidateQueries({ queryKey: ["analisi-cliente-cga-dettaglio", clienteId] });
       setOpen(false);
       reset();
     },

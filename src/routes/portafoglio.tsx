@@ -22,6 +22,7 @@ import PortafoglioStoricoPage from "@/pages/PortafoglioStoricoPage";
 import PortafoglioDetail from "@/pages/PortafoglioDetail";
 import CompensazioniTitoloDetail from "@/pages/contabilita/CompensazioniTitoloDetail";
 import PortafoglioPerClientePage from "@/pages/estrazioni/PortafoglioPerClientePage";
+import PortafoglioClienteAnalisiPage from "@/pages/estrazioni/PortafoglioClienteAnalisiPage";
 import PortafoglioPerCompagniaPage from "@/pages/estrazioni/PortafoglioPerCompagniaPage";
 import PremiProvvigioniPage from "@/pages/estrazioni/PremiProvvigioniPage";
 import PremiScopertiGarantitiPage from "@/pages/estrazioni/PremiScopertiGarantitiPage";
@@ -54,6 +55,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/doc-precontrattuale" element={<DocPrecontrattualePage />} />
     <Route path="/portafoglio/estrazioni-stampe" element={<EstrazioniStampePage />} />
     <Route path="/portafoglio/estrazioni/per-cliente" element={<PortafoglioPerClientePage />} />
+    <Route path="/portafoglio/estrazioni/per-cliente/:clienteId" element={<PortafoglioClienteAnalisiPage />} />
     <Route path="/portafoglio/estrazioni/per-compagnia" element={<PortafoglioPerCompagniaPage />} />
     <Route path="/portafoglio/estrazioni/premi-provvigioni" element={<PremiProvvigioniPage />} />
     <Route path="/portafoglio/estrazioni/premi-scoperti-garantiti" element={<PremiScopertiGarantitiPage />} />

@@ -103,6 +103,21 @@ const NotaRestituzioneDetail = () => {
     enabled: !!id,
   });
 
+  // Stessa queryKey di DocumentiTab (badge tab aggiornato su upload/delete).
+  const { data: documentiNota = [] } = useQuery({
+    queryKey: ["documenti", "nota_restituzione", id ?? "", "", ""],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("documenti")
+        .select("*, profiles:caricato_da(nome, cognome)")
+        .eq("entita_tipo", "nota_restituzione")
+        .in("entita_id", [id!])
+        .order("created_at", { ascending: false });
+      return data ?? [];
+    },
+    enabled: !!id,
+  });
+
   const updateFlagMutation = useMutation({
     mutationFn: async (newFlags: Record<string, boolean>) => {
       const { error } = await supabase.from("note_restituzione").update({ flag_json: newFlags as any }).eq("id", id!);
@@ -290,7 +305,7 @@ const NotaRestituzioneDetail = () => {
         <TabsList>
           <TabsTrigger value="titoli"><FileText className="w-4 h-4 mr-1" />Titoli ({dettagli.length})</TabsTrigger>
           <TabsTrigger value="spedizioni"><Truck className="w-4 h-4 mr-1" />Spedizioni ({spedizioni.length})</TabsTrigger>
-          <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti</TabsTrigger>
+          <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti ({documentiNota.length})</TabsTrigger>
           <TabsTrigger value="log"><Clock className="w-4 h-4 mr-1" />Log ({logs.length})</TabsTrigger>
         </TabsList>
 

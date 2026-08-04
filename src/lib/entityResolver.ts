@@ -21,6 +21,8 @@ export function detectEntity(pathname: string): EntityMatch | null {
   if (!last || !UUID_RE.test(last)) return null;
 
   if (seg[0] === "archivi" && seg[1] === "clienti") return { kind: "cliente", id: last, path: pathname };
+  if (seg[0] === "portafoglio" && seg[1] === "estrazioni" && seg[2] === "per-cliente")
+    return { kind: "cliente", id: last, path: pathname };
   if ((seg[0] === "archivi" && seg[1] === "prospect") || seg[0] === "prospect")
     return { kind: "prospect", id: last, path: pathname };
   if (seg[0] === "titoli") return { kind: "polizza", id: last, path: pathname };
@@ -38,6 +40,7 @@ export function detectEntityFromContext(parentSegment: string | undefined, uuid:
   if (!UUID_RE.test(uuid) || !parentSegment) return null;
   switch (parentSegment) {
     case "clienti":
+    case "per-cliente":
       return { kind: "cliente", id: uuid, path };
     case "prospect":
       return { kind: "prospect", id: uuid, path };

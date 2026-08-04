@@ -46,6 +46,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "estrazioni": "Estrazioni",
   "per-cliente": "Per Cliente",
   "per-agenzia": "Per Agenzia",
+  "per-compagnia": "Per Agenzia",
   "premi-provvigioni": "Premi e Provvigioni",
   "premi-scoperti-garantiti": "Premi Scoperti e Garantiti",
   "ec-clienti": "E/C Clienti",
