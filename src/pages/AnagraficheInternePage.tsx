@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Briefcase, Users, UserCog, Building2, Trash2 } from "lucide-react";
+import { Plus, Search, Briefcase, Users, UserCog, Building2, Trash2, ShieldAlert } from "lucide-react";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { assertFiscalValid } from "@/lib/assertFiscalValid";
 import { DateInput } from "@/components/ui/date-input";
@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import SediManager from "@/components/anagrafiche/SediManager";
 import SpecialistList from "@/components/anagrafiche/SpecialistList";
+import SpecialistSinistriList from "@/components/anagrafiche/SpecialistSinistriList";
 import ProduttoreProvvigioniRamoTab from "@/components/anagrafiche/ProduttoreProvvigioniRamoTab";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { ValidatedInput } from "@/components/ui/validated-input";
@@ -41,6 +42,7 @@ const TIPI = [
 // Tab speciali (non basati su anagrafiche_professionali)
 const EXTRA_TABS = [
   { value: "specialist", label: "Specialist", icon: UserCog },
+  { value: "specialist_sinistri", label: "Specialist Sinistri", icon: ShieldAlert },
   { value: "sedi", label: "Sedi", icon: Building2 },
 ] as const;
 
@@ -924,6 +926,10 @@ const AnagraficheInternePage = () => {
               setSearchParams(sp, { replace: true });
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="specialist_sinistri" className="mt-4">
+          <SpecialistSinistriList />
         </TabsContent>
 
         <TabsContent value="sedi" className="mt-4">

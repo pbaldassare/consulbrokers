@@ -7959,6 +7959,45 @@ export type Database = {
           },
         ]
       }
+      specialist_sinistri_sedi: {
+        Row: {
+          id: string
+          profilo_id: string
+          ufficio_id: string
+          primaria: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          profilo_id: string
+          ufficio_id: string
+          primaria?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          profilo_id?: string
+          ufficio_id?: string
+          primaria?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_sinistri_sedi_profilo_id_fkey"
+            columns: ["profilo_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_sinistri_sedi_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospect: {
         Row: {
           assegnato_a: string | null

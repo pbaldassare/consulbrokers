@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,19 +10,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 import { Plus, Pencil, Trash2, Send, CheckCircle } from "lucide-react";
 import {
   type SinistroPrescrizioneRow,
-  type PrescrizioneDestinatario,
   type PrescrizioneStato,
   PRESCRIZIONE_STATO_LABEL,
   PRESCRIZIONE_STATO_CLASS,
   DESTINATARIO_LABEL,
+  PRESCRIZIONE_DESTINATARIO_AGENZIA,
+  PRESCRIZIONE_BIENNALE_OGGETTO,
+  buildPrescrizioneBiennaleAgenzia,
+  calcScadenzaPrescrizioneBiennale,
 } from "@/lib/sinistroPrescrizioniReminder";
 
 type FormState = {
-  destinatario_tipo: PrescrizioneDestinatario;
   destinatario_label: string;
   oggetto: string;
   corpo: string;
@@ -33,29 +35,50 @@ type FormState = {
   stato: PrescrizioneStato;
 };
 
-const emptyForm = (): FormState => ({
-  destinatario_tipo: "cliente",
-  destinatario_label: "",
-  oggetto: "",
-  corpo: "",
-  data_scadenza_risposta: "",
-  data_invio: "",
-  canale: "",
-  note: "",
-  stato: "bozza",
-});
+function emptyForm(dataDenuncia?: string | null, agenziaRiferimento?: string | null): FormState {
+  const auto = buildPrescrizioneBiennaleAgenzia(dataDenuncia, agenziaRiferimento);
+  return {
+    destinatario_label: (agenziaRiferimento || "").trim() || auto?.destinatario_label || "",
+    oggetto: auto?.oggetto || PRESCRIZIONE_BIENNALE_OGGETTO,
+    corpo: auto?.corpo || "",
+    data_scadenza_risposta: auto?.data_scadenza_risposta || calcScadenzaPrescrizioneBiennale(dataDenuncia),
+    data_invio: "",
+    canale: "",
+    note: "",
+    stato: "bozza",
+  };
+}
+
+function fmtDateSafe(value?: string | null): string {
+  if (!value) return "—";
+  const d = parseISO(value);
+  if (!isValid(d)) return "—";
+  return format(d, "dd/MM/yyyy");
+}
 
 interface Props {
   sinistroId: string;
+  dataDenuncia?: string | null;
+  /** Nome agenzia di riferimento della polizza (non la compagnia assicurativa). */
+  agenziaRiferimento?: string | null;
   disabled?: boolean;
 }
 
-export default function SinistroPrescrizioniPanel({ sinistroId, disabled }: Props) {
+export default function SinistroPrescrizioniPanel({
+  sinistroId,
+  dataDenuncia,
+  agenziaRiferimento,
+  disabled,
+}: Props) {
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SinistroPrescrizioneRow | null>(null);
-  const [form, setForm] = useState<FormState>(emptyForm());
+  const [form, setForm] = useState<FormState>(() => emptyForm(dataDenuncia, agenziaRiferimento));
   const [saving, setSaving] = useState(false);
+  const autoCreatedRef = useRef(false);
+  const backfillDoneRef = useRef(false);
+
+  const agenziaLabel = (agenziaRiferimento || "").trim();
 
   const { data: prescrizioni = [], isLoading } = useQuery({
     queryKey: ["sinistro-prescrizioni", sinistroId],
@@ -72,17 +95,73 @@ export default function SinistroPrescrizioniPanel({ sinistroId, disabled }: Prop
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["sinistro-prescrizioni", sinistroId] });
 
+  // Prescrizione biennale automatica verso agenzia di riferimento
+  useEffect(() => {
+    if (isLoading || disabled || autoCreatedRef.current || prescrizioni.length > 0) return;
+    const draft = buildPrescrizioneBiennaleAgenzia(dataDenuncia, agenziaLabel || null);
+    if (!draft) return;
+
+    autoCreatedRef.current = true;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { error } = await supabase.from("sinistro_prescrizioni").insert({
+          sinistro_id: sinistroId,
+          creato_da: user.id,
+          destinatario_tipo: PRESCRIZIONE_DESTINATARIO_AGENZIA,
+          destinatario_label: agenziaLabel || draft.destinatario_label || null,
+          oggetto: draft.oggetto,
+          corpo: draft.corpo || null,
+          data_scadenza_risposta: draft.data_scadenza_risposta,
+          stato: "bozza",
+        });
+        if (error) throw error;
+        invalidate();
+      } catch {
+        autoCreatedRef.current = false;
+      }
+    })();
+  }, [isLoading, prescrizioni.length, dataDenuncia, disabled, sinistroId, agenziaLabel]);
+
+  // Backfill label agenzia su bozze create senza nome (una sola volta per mount)
+  useEffect(() => {
+    if (backfillDoneRef.current || !agenziaLabel || isLoading || disabled || prescrizioni.length === 0) return;
+    const toFix = prescrizioni.filter(
+      (p) =>
+        p.destinatario_tipo === PRESCRIZIONE_DESTINATARIO_AGENZIA &&
+        !p.destinatario_label?.trim() &&
+        p.stato === "bozza",
+    );
+    if (toFix.length === 0) return;
+
+    backfillDoneRef.current = true;
+    (async () => {
+      try {
+        for (const p of toFix) {
+          const { error } = await supabase
+            .from("sinistro_prescrizioni")
+            .update({ destinatario_label: agenziaLabel })
+            .eq("id", p.id);
+          if (error) throw error;
+        }
+        invalidate();
+      } catch {
+        backfillDoneRef.current = false;
+      }
+    })();
+  }, [agenziaLabel, isLoading, disabled, prescrizioni.length, sinistroId]);
+
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm());
+    setForm(emptyForm(dataDenuncia, agenziaLabel || null));
     setDialogOpen(true);
   };
 
   const openEdit = (row: SinistroPrescrizioneRow) => {
     setEditing(row);
     setForm({
-      destinatario_tipo: row.destinatario_tipo,
-      destinatario_label: row.destinatario_label || "",
+      destinatario_label: row.destinatario_label || agenziaLabel || "",
       oggetto: row.oggetto,
       corpo: row.corpo || "",
       data_scadenza_risposta: row.data_scadenza_risposta,
@@ -106,8 +185,8 @@ export default function SinistroPrescrizioniPanel({ sinistroId, disabled }: Prop
 
       const payload = {
         sinistro_id: sinistroId,
-        destinatario_tipo: form.destinatario_tipo,
-        destinatario_label: form.destinatario_label.trim() || null,
+        destinatario_tipo: PRESCRIZIONE_DESTINATARIO_AGENZIA,
+        destinatario_label: form.destinatario_label.trim() || agenziaLabel || null,
         oggetto: form.oggetto.trim(),
         corpo: form.corpo.trim() || null,
         data_scadenza_risposta: form.data_scadenza_risposta,
@@ -179,25 +258,22 @@ export default function SinistroPrescrizioniPanel({ sinistroId, disabled }: Prop
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Destinatario</Label>
-                  <Select
-                    value={form.destinatario_tipo}
-                    onValueChange={(v) => setForm({ ...form, destinatario_tipo: v as PrescrizioneDestinatario })}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(DESTINATARIO_LABEL).map(([k, label]) => (
-                        <SelectItem key={k} value={k}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="h-10 px-3 flex items-center text-sm rounded-md border bg-muted/30">
+                    {DESTINATARIO_LABEL[PRESCRIZIONE_DESTINATARIO_AGENZIA]}
+                  </div>
                 </div>
                 <div>
-                  <Label>Label destinatario (opz.)</Label>
+                  <Label>Agenzia di riferimento</Label>
                   <Input
                     value={form.destinatario_label}
                     onChange={(e) => setForm({ ...form, destinatario_label: e.target.value })}
-                    placeholder="Es. nome perito"
+                    placeholder={agenziaLabel || "Nome agenzia di riferimento"}
                   />
+                  {agenziaLabel && form.destinatario_label === agenziaLabel && (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Compilato dalla polizza collegata
+                    </p>
+                  )}
                 </div>
               </div>
               <div>
@@ -216,6 +292,11 @@ export default function SinistroPrescrizioniPanel({ sinistroId, disabled }: Prop
                     value={form.data_scadenza_risposta}
                     onChange={(e) => setForm({ ...form, data_scadenza_risposta: e.target.value })}
                   />
+                  {dataDenuncia && (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Biennale da denuncia ({fmtDateSafe(dataDenuncia)})
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label>Data invio</Label>
@@ -272,11 +353,15 @@ export default function SinistroPrescrizioniPanel({ sinistroId, disabled }: Prop
             prescrizioni.map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="text-sm">
-                  {DESTINATARIO_LABEL[p.destinatario_tipo]}
-                  {p.destinatario_label ? <span className="text-muted-foreground block text-xs">{p.destinatario_label}</span> : null}
+                  {DESTINATARIO_LABEL[p.destinatario_tipo] || "Agenzia di riferimento"}
+                  {p.destinatario_label ? (
+                    <span className="text-muted-foreground block text-xs">{p.destinatario_label}</span>
+                  ) : agenziaLabel ? (
+                    <span className="text-muted-foreground block text-xs">{agenziaLabel}</span>
+                  ) : null}
                 </TableCell>
                 <TableCell className="max-w-xs truncate" title={p.oggetto}>{p.oggetto}</TableCell>
-                <TableCell>{format(new Date(p.data_scadenza_risposta), "dd/MM/yyyy")}</TableCell>
+                <TableCell>{fmtDateSafe(p.data_scadenza_risposta)}</TableCell>
                 <TableCell>
                   <Badge className={PRESCRIZIONE_STATO_CLASS[p.stato]}>{PRESCRIZIONE_STATO_LABEL[p.stato]}</Badge>
                 </TableCell>

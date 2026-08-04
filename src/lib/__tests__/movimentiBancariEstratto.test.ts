@@ -2,19 +2,23 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
   buildMovimentoDedupKey,
   buildMovimentoContentDedupKey,
+  buildMovimentoConstraintDedupKey,
   buildPreviewEstratto,
   detectColonneEstratto,
   excelCellValueForColumn,
   fetchExistingMovimentoDedupKeys,
   isMovimentoDedupHit,
+  isMovimentiBancariDedupViolation,
   normalizeDescrizioneDedup,
   parseDataBancaria,
   parseImportoBancario,
+  readEstrattoBancarioRows,
   resolveImportoEstratto,
   __DEDUP_FETCH_PAGE,
 } from "@/lib/movimentiBancari";
 
 const rangeMock = vi.fn();
+const inRangeMock = vi.fn(async () => ({ data: [], error: null }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: () => ({
@@ -22,6 +26,11 @@ vi.mock("@/integrations/supabase/client", () => ({
         eq: () => ({
           order: () => ({
             range: (...args: unknown[]) => rangeMock(...args),
+          }),
+        }),
+        in: () => ({
+          order: () => ({
+            range: (...args: unknown[]) => inRangeMock(...args),
           }),
         }),
       }),
@@ -50,6 +59,45 @@ describe("estratto bancario CSV/Excel", () => {
     expect(parseDataBancaria("2026-06-30")).toBe("2026-06-30");
     // Date a mezzanotte locale IT: non usare UTC (giorno -1)
     expect(parseDataBancaria(new Date(2026, 9, 7, 0, 0, 0))).toBe("2026-10-07");
+  });
+
+  it("CSV ListaMovimenti: date gg/mm/aaaa e importi IT (non mm/dd US né ×100)", async () => {
+    const csv = [
+      "DATA;VALUTA;DARE;AVERE;DIVISA;DESCRIZIONE_OPERAZIONE;CAUSALE_ABI",
+      "03/08/2026;01/08/2026;;203,49;EUR;INCASSO TRAMITE P.O.S. ACCR. TRANSATO;9",
+      "03/08/2026;03/08/2026;;160;EUR;Ordinante: TURETTA VALENTINO Causale: ORDINE CONTO;48",
+      "03/08/2026;31/07/2026;;1.141,22;EUR;Ordinante: COMUNE S.STEFANO CAD. Causale: ORDINE CONTO;48",
+      "04/08/2026;04/08/2026;;118,8;EUR;ORDINE CONTO BERNARDI CARLO;48",
+    ].join("\n");
+    // jsdom File non ha arrayBuffer: stub minimo usato da readEstrattoBancarioRows
+    const file = {
+      name: "ListaMovimenti 04 08.csv",
+      arrayBuffer: async () => new TextEncoder().encode(csv).buffer,
+    } as File;
+    const rows = await readEstrattoBancarioRows(file);
+    expect(rows).toHaveLength(4);
+    const p = buildPreviewEstratto(file.name, rows, { contoBancarioId: "conto-san-dona" });
+    expect(p.daImportare).toBe(4);
+    expect(p.preview[0]).toMatchObject({
+      data_movimento: "2026-08-01",
+      importo: 203.49,
+    });
+    expect(p.preview[1]).toMatchObject({
+      data_movimento: "2026-08-03",
+      importo: 160,
+      ordinante: "TURETTA VALENTINO",
+    });
+    expect(p.preview[2]).toMatchObject({
+      data_movimento: "2026-07-31",
+      importo: 1141.22,
+    });
+    expect(p.preview[3]).toMatchObject({
+      data_movimento: "2026-08-04",
+      importo: 118.8,
+    });
+    // Regressione: senza raw:true SheetJS avrebbe prodotto 2026-03-08 / 2026-01-08
+    expect(p.preview.some((r) => r.data_movimento?.startsWith("2026-03-"))).toBe(false);
+    expect(p.preview.some((r) => r.data_movimento?.startsWith("2026-01-"))).toBe(false);
   });
 
   it("rileva colonne DARE/AVERE tipiche CSV banca", () => {
@@ -154,6 +202,8 @@ describe("estratto bancario CSV/Excel", () => {
   describe("fetchExistingMovimentoDedupKeys paginazione", () => {
     beforeEach(() => {
       rangeMock.mockReset();
+      inRangeMock.mockReset();
+      inRangeMock.mockResolvedValue({ data: [], error: null });
     });
 
     it("richiede pagine successive finché page size piena", async () => {
@@ -194,6 +244,80 @@ describe("estratto bancario CSV/Excel", () => {
         ),
       ).toBe(true);
     });
+
+    it("include vincolo globale da altri conti sulle stesse date", async () => {
+      rangeMock.mockResolvedValueOnce({ data: [], error: null });
+      inRangeMock.mockResolvedValueOnce({
+        data: [
+          {
+            conto_bancario_id: "altro-conto",
+            data_movimento: "2026-08-03",
+            importo: 160,
+            descrizione: "Ordinante: TURETTA VALENTINO Causale: ORDINE CONTO",
+            ordinante: "TURETTA VALENTINO",
+          },
+        ],
+        error: null,
+      });
+      const keys = await fetchExistingMovimentoDedupKeys("conto-san-dona", ["2026-08-03"]);
+      expect(
+        isMovimentoDedupHit(
+          {
+            conto_bancario_id: "conto-san-dona",
+            data_movimento: "2026-08-03",
+            importo: 160,
+            descrizione: "Ordinante: TURETTA VALENTINO Causale: ORDINE CONTO",
+            ordinante: "TURETTA VALENTINO",
+          },
+          keys,
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it("constraint-key allineata al vincolo DB (ignora conto)", () => {
+    const a = buildMovimentoConstraintDedupKey({
+      data_movimento: "2026-08-03",
+      importo: 160,
+      descrizione: "Ordinante: TURETTA Causale: X",
+      ordinante: "TURETTA",
+    });
+    const b = buildMovimentoConstraintDedupKey({
+      data_movimento: "2026-08-03",
+      importo: 160,
+      descrizione: "Ordinante: TURETTA Causale: X",
+      ordinante: "TURETTA",
+    });
+    expect(a).toBe(b);
+    expect(isMovimentiBancariDedupViolation({ code: "23505", message: "uq_movimenti_bancari_dedup" })).toBe(
+      true,
+    );
+    expect(isMovimentiBancariDedupViolation({ message: "other" })).toBe(false);
+  });
+
+  it("anteprima scarta doppione già presente su altro conto (vincolo globale)", () => {
+    const rows = [
+      {
+        VALUTA: "03/08/2026",
+        AVERE: 160,
+        DESCRIZIONE: "Ordinante: TURETTA VALENTINO Causale: ORDINE CONTO",
+        ORDINANTE: "TURETTA VALENTINO",
+      },
+    ];
+    const existing = new Set([
+      buildMovimentoConstraintDedupKey({
+        data_movimento: "2026-08-03",
+        importo: 160,
+        descrizione: "Ordinante: TURETTA VALENTINO Causale: ORDINE CONTO",
+        ordinante: "TURETTA VALENTINO",
+      }),
+    ]);
+    const p = buildPreviewEstratto("ListaMovimenti 04 08.csv", rows, {
+      contoBancarioId: "conto-san-dona",
+      existingDedupKeys: existing,
+    });
+    expect(p.daImportare).toBe(0);
+    expect(p.scartiByMotivo.duplicato).toBe(1);
   });
 });
 

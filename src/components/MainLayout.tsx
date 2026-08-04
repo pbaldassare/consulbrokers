@@ -6,6 +6,7 @@ import PageBreadcrumb from "./PageBreadcrumb";
 import CommandPalette from "./CommandPalette";
 import RecentEntitiesTracker from "./RecentEntitiesTracker";
 import GlobalShortcuts from "./GlobalShortcuts";
+import SinistroReminderPopupGate from "./sinistri/SinistroReminderPopupGate";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useNavigationHistoryTracker } from "@/hooks/useNavigationHistory";
 
@@ -19,6 +20,7 @@ const MainLayout = () => {
       <CommandPalette />
       <RecentEntitiesTracker />
       <GlobalShortcuts />
+      <SinistroReminderPopupGate />
 
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       <div

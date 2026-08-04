@@ -60,6 +60,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "sinistri": "Sinistri",
   "apertura": "Apertura",
   "prescrizioni": "Termini di prescrizione",
+  "reminder": "Reminder",
   "scadenze": "Scadenze",
   "report-sir": "Report SIR",
   "contabilita": "Contabilità operativa",

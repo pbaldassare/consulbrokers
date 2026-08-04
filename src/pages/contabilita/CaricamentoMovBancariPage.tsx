@@ -34,8 +34,10 @@ import {
   buildPreviewEstratto,
   buildMovimentoDedupKey,
   buildMovimentoContentDedupKey,
+  buildMovimentoConstraintDedupKey,
   isMovimentoDedupHit,
   fetchExistingMovimentoDedupKeys,
+  insertMovimentiBancariSkippingDedup,
   detectColonneEstratto,
   labelMotivoScarto,
   countByMotivo,
@@ -340,22 +342,29 @@ const Page = () => {
         } else {
           const { _riga_excel, ...row } = r;
           toInsert.push(row);
+          existingKeys.add(buildMovimentoConstraintDedupKey(dedupPayload));
           existingKeys.add(buildMovimentoDedupKey(dedupPayload));
           const ck = buildMovimentoContentDedupKey(dedupPayload);
           if (ck) existingKeys.add(ck);
         }
       }
 
-      const duplicati = records.length - toInsert.length;
       const senzaCliente = toInsert.filter((r) => !r.cliente_id).length;
 
       const CHUNK = 200;
-      let inseriti = 0;
-      for (let i = 0; i < toInsert.length; i += CHUNK) {
-        const slice = toInsert.slice(i, i + CHUNK);
-        const { error } = await supabase.from("movimenti_bancari" as any).insert(slice as any);
-        if (error) throw error;
-        inseriti += slice.length;
+      const { inseriti, saltatiDedup } = await insertMovimentiBancariSkippingDedup(toInsert, CHUNK);
+      const duplicati = records.length - inseriti;
+      // Duplicati intercettati solo a insert-time (race / vincolo globale non in anteprima)
+      for (let s = 0; s < saltatiDedup; s++) {
+        scarti.push({
+          riga_excel: 0,
+          motivo: "duplicato",
+          data_movimento: null,
+          importo: null,
+          ordinante: null,
+          descrizione: null,
+          raw_json: { note: "saltato per vincolo uq_movimenti_bancari_dedup" },
+        });
       }
 
       if (scarti.length > 0) {
@@ -662,7 +671,7 @@ function AnteprimaImportDialog({
         )}
 
         <p className="text-xs text-muted-foreground">
-          Anteprima max 40 righe (mix OK / scarto). I duplicati rispetto all&apos;archivio (qualsiasi stato: da ricongiungere, matchato, ricongiunto, incassato, …) sono già calcolati qui: in conferma verranno importati solo i nuovi.
+          Anteprima max 40 righe (mix OK / scarto). I duplicati rispetto all&apos;archivio (qualsiasi stato e anche su altri conti, per vincolo anti-doppio globale) sono già calcolati qui: in conferma verranno importati solo i nuovi.
         </p>
 
         <div className="flex-1 min-h-0 overflow-auto border rounded-md">

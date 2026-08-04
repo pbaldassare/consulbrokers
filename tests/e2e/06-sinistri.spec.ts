@@ -22,7 +22,7 @@ test.describe('Sinistri', () => {
   });
 
   test('le sottopagine Sinistri si caricano', async ({ page }) => {
-    for (const sub of ['/sinistri/apertura', '/sinistri/prescrizioni', '/sinistri/scadenze', '/sinistri/report-sir']) {
+    for (const sub of ['/sinistri/apertura', '/sinistri/prescrizioni', '/sinistri/report-sir']) {
       await page.goto(sub);
       await expectPageHealthy(page);
       await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 15_000 });

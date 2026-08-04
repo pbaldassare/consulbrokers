@@ -204,7 +204,7 @@ export default function SinistroPraticaFormFields({
       {showAssegnazione && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Responsabile Interno <span className="text-muted-foreground text-xs">(facoltativo)</span></Label>
+            <Label>Responsabile Interno <span className="text-muted-foreground text-xs">(Specialist Sinistri)</span></Label>
             <SearchableSelect
               value={watch("responsabile_id") || ""}
               onValueChange={(val) => setValue("responsabile_id", val, { shouldValidate: true })}

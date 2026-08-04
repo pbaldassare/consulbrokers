@@ -32,8 +32,14 @@ export default function SinistriList() {
   const [filtroCompagnia, setFiltroCompagnia] = useState<string>("tutti");
   const [filtroTerzi, setFiltroTerzi] = useState<string>("tutti");
   const [search, setSearch] = useState("");
-  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato, filtroCompagnia, filtroTerzi, search]);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato, filtroCompagnia, filtroTerzi, debouncedSearch]);
   const qc = useQueryClient();
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   useEffect(() => {
     const ch = supabase
@@ -45,7 +51,7 @@ export default function SinistriList() {
   }, [qc]);
 
   const { data: sinistriResult } = useQuery({
-    queryKey: ["sinistri", filtroStato, filtroCompagnia, filtroTerzi, search, page],
+    queryKey: ["sinistri", filtroStato, filtroCompagnia, filtroTerzi, debouncedSearch, page],
     queryFn: async () => {
       let q = supabase.from("sinistri").select(
         `id, numero_sinistro, stato, descrizione, data_apertura, sinistro_terzi, titolo_id, compagnia_id,
@@ -59,7 +65,47 @@ export default function SinistriList() {
       if (filtroCompagnia !== "tutti") q = q.eq("compagnia_id", filtroCompagnia);
       if (filtroTerzi === "terzi") q = q.eq("sinistro_terzi", true);
       if (filtroTerzi === "con_polizza") q = q.eq("sinistro_terzi", false).not("titolo_id", "is", null);
-      if (search) q = q.or(`numero_sinistro.ilike.%${search}%,descrizione.ilike.%${search}%`);
+
+      const term = debouncedSearch.trim();
+      if (term) {
+        const [{ data: clientiMatch }, { data: profilesMatch }, { data: titoliMatch }] = await Promise.all([
+          supabase
+            .from("clienti")
+            .select("id")
+            .or(`cognome.ilike.%${term}%,nome.ilike.%${term}%,ragione_sociale.ilike.%${term}%`)
+            .limit(500),
+          supabase
+            .from("profiles")
+            .select("id")
+            .or(`cognome.ilike.%${term}%,nome.ilike.%${term}%`)
+            .limit(100),
+          supabase
+            .from("titoli")
+            .select("id")
+            .ilike("numero_titolo", `%${term}%`)
+            .limit(200),
+        ]);
+
+        const parts = [
+          `numero_sinistro.ilike.%${term}%`,
+          `numero_sinistro_compagnia.ilike.%${term}%`,
+          `descrizione.ilike.%${term}%`,
+        ];
+        const clienteIds = (clientiMatch || []).map((c) => c.id);
+        if (clienteIds.length > 0) {
+          parts.push(`cliente_anagrafica_id.in.(${clienteIds.join(",")})`);
+        }
+        const responsabileIds = (profilesMatch || []).map((p) => p.id);
+        if (responsabileIds.length > 0) {
+          parts.push(`responsabile_id.in.(${responsabileIds.join(",")})`);
+        }
+        const titoloIds = (titoliMatch || []).map((t) => t.id);
+        if (titoloIds.length > 0) {
+          parts.push(`titolo_id.in.(${titoloIds.join(",")})`);
+        }
+        q = q.or(parts.join(","));
+      }
+
       const { data, error, count } = await q.order("created_at", { ascending: false }).range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], count: count || 0 };
@@ -114,7 +160,12 @@ export default function SinistriList() {
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Cerca per numero, descrizione..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-9" />
+          <Input
+            placeholder="Cerca per cliente, numero, polizza, descrizione..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
         <Select value={filtroStato} onValueChange={handleFilterChange(setFiltroStato)}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>

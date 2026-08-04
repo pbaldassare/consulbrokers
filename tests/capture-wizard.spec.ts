@@ -115,22 +115,7 @@ test.describe('Cattura Screenshot Sinistri', () => {
     await page.screenshot({ path: path.join(artifactDir, 'prescrizioni.png') });
 
     // ==========================================
-    // PAGINA 3: SCADENZE (LISTA E CALENDARIO)
-    // ==========================================
-    await page.goto('/sinistri/scadenze');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-    // Screenshot lista
-    await page.screenshot({ path: path.join(artifactDir, 'scadenze_lista.png') });
-    
-    // Clicca Calendario
-    await page.click('button:has-text("Calendario")');
-    await page.waitForTimeout(2000);
-    // Screenshot calendario
-    await page.screenshot({ path: path.join(artifactDir, 'scadenze_calendario.png') });
-
-    // ==========================================
-    // PAGINA 4: REPORT SIR
+    // PAGINA 3: REPORT SIR
     // ==========================================
     await page.goto('/sinistri/report-sir');
     await page.waitForLoadState('networkidle');

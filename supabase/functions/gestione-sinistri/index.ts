@@ -53,7 +53,10 @@ const payloadSchema = z.discriminatedUnion("azione", [
     })).optional(),
     reminder_iniziali: z.array(z.object({
       testo: z.string().min(1),
+      data_scadenza: z.string().optional().nullable(),
       data_promemoria: z.string().optional().nullable(),
+      categoria: z.enum(["documenti", "follow_up", "perizia", "contatto_cliente", "altro"]).optional(),
+      assegnato_a: z.string().uuid().optional().nullable(),
     })).optional(),
   }),
   z.object({
@@ -204,12 +207,55 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Prescrizioni perentorie iniziali (opzionali)
+      // Prescrizione biennale automatica verso l'agenzia di riferimento (non la compagnia assicurativa)
+      const dataDenunciaEff = data_denuncia ?? oggi;
+      if (user_id) {
+        const scadenzaBiennale = (() => {
+          const d = new Date(dataDenunciaEff);
+          d.setFullYear(d.getFullYear() + 2);
+          return d.toISOString().split("T")[0];
+        })();
+
+        // Agenzia di riferimento = anagrafica compagnie sulla polizza (titoli.compagnia_id)
+        let agenziaLabel: string | null = null;
+        const titoloIdEff = isTerzi ? null : (titolo_id ?? null);
+        if (titoloIdEff) {
+          const { data: titoloRow } = await supabase
+            .from("titoli")
+            .select("compagnia_id, compagnie:compagnia_id(nome)")
+            .eq("id", titoloIdEff)
+            .maybeSingle();
+          const nome = (titoloRow as any)?.compagnie?.nome;
+          if (nome && String(nome).trim()) agenziaLabel = String(nome).trim();
+        }
+        if (!agenziaLabel && compagnia_id) {
+          const { data: ag } = await supabase
+            .from("compagnie")
+            .select("nome")
+            .eq("id", compagnia_id)
+            .maybeSingle();
+          if (ag?.nome?.trim()) agenziaLabel = ag.nome.trim();
+        }
+
+        const { error: autoPrescErr } = await supabase.from("sinistro_prescrizioni").insert({
+          sinistro_id: sinistro.id,
+          creato_da: user_id,
+          destinatario_tipo: "compagnia",
+          destinatario_label: agenziaLabel,
+          oggetto: "Termine di prescrizione biennale (art. 2952 c.c.)",
+          corpo: "Prescrizione biennale dalla data di denuncia del sinistro.",
+          data_scadenza_risposta: scadenzaBiennale,
+          stato: "bozza",
+        });
+        if (autoPrescErr) throw autoPrescErr;
+      }
+
+      // Prescrizioni perentorie aggiuntive (opzionali dal wizard)
       if (prescrizioni_iniziali?.length && user_id) {
         const rows = prescrizioni_iniziali.map((p) => ({
           sinistro_id: sinistro.id,
           creato_da: user_id,
-          destinatario_tipo: p.destinatario_tipo ?? "cliente",
+          destinatario_tipo: p.destinatario_tipo ?? "compagnia",
           destinatario_label: p.destinatario_label?.trim() || null,
           oggetto: p.oggetto.trim(),
           corpo: p.corpo?.trim() || null,
@@ -222,14 +268,26 @@ Deno.serve(async (req) => {
         if (prescErr) throw prescErr;
       }
 
-      // Reminder personali iniziali (opzionali, solo creatore)
+      // Reminder iniziali opzionali (assegnati al responsabile sinistro)
       if (reminder_iniziali?.length && user_id) {
-        const rows = reminder_iniziali.map((r) => ({
-          sinistro_id: sinistro.id,
-          user_id,
-          testo: r.testo.trim(),
-          data_promemoria: r.data_promemoria || null,
-        }));
+        const rows = reminder_iniziali.map((r) => {
+          const scadenza = r.data_scadenza || r.data_promemoria || null;
+          return {
+            sinistro_id: sinistro.id,
+            user_id,
+            creato_da: user_id,
+            assegnato_a: r.assegnato_a ?? responsabile_id ?? user_id,
+            titolo_id: titolo_id ?? null,
+            cliente_id: cliente_anagrafica_id ?? null,
+            testo: r.testo.trim(),
+            categoria: r.categoria ?? "altro",
+            data_scadenza: scadenza,
+            data_promemoria: scadenza,
+            stato: "attivo",
+            letto: false,
+            completato: false,
+          };
+        });
         const { error: remErr } = await supabase.from("sinistro_reminder").insert(rows);
         if (remErr) throw remErr;
       }

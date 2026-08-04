@@ -4,9 +4,8 @@ import SinistriList from "@/pages/SinistriList";
 import SinistroDetail from "@/pages/SinistroDetail";
 import SinistroAperturaWizardPage from "@/pages/SinistroAperturaWizardPage";
 import SinistroPrescrizioniPage from "@/pages/SinistroPrescrizioniPage";
-import SinistroScadenzePage from "@/pages/SinistroScadenzePage";
+import SinistroReminderPage from "@/pages/SinistroReminderPage";
 import SinistroReportSirPage from "@/pages/SinistroReportSirPage";
-import { FilePlus, Clock, CalendarCheck, FileText } from "lucide-react";
 
 export const sinistriRoutes = (
   <>
@@ -14,7 +13,7 @@ export const sinistriRoutes = (
     <Route path="/sinistri/:id" element={<SinistroDetail />} />
     <Route path="/sinistri/apertura" element={<SinistroAperturaWizardPage />} />
     <Route path="/sinistri/prescrizioni" element={<SinistroPrescrizioniPage />} />
-    <Route path="/sinistri/scadenze" element={<SinistroScadenzePage />} />
+    <Route path="/sinistri/reminder" element={<SinistroReminderPage />} />
     <Route path="/sinistri/report-sir" element={<SinistroReportSirPage />} />
   </>
 );

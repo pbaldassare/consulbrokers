@@ -176,34 +176,13 @@ test.describe('E2E Sinistri Flow Completo', () => {
     const tablePrescrizione = page.locator(`tr:has-text("${numeroSinistro}")`).first();
     await expect(tablePrescrizione).toBeVisible({ timeout: 15000 });
 
-    // TEST 5 — Scadenze /sinistri/scadenze
+    // TEST 5 — Report SIR /sinistri/report-sir
     console.log('--- TEST 5 ---');
-    // The query calculates deadline as created_at + 15 days.
-    // Insert checklist row with created_at set to today (which is the default) so it has a future deadline.
-    await userSupabase.from('sinistro_checklist').insert({
-      sinistro_id: sinistroId,
-      descrizione: 'Attività futura e2e test',
-      completato: false
-    });
-
-    await page.goto('/sinistri/scadenze');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-    const checklistRow = page.locator('text=Attività futura e2e test').first();
-    await expect(checklistRow).toBeVisible({ timeout: 15000 });
-
-    // Checkbox completato
-    const checkbox = page.locator('button[role="checkbox"]').first();
-    await checkbox.click();
-    await page.waitForTimeout(1000);
-
-    // TEST 6 — Report SIR /sinistri/report-sir
-    console.log('--- TEST 6 ---');
     await page.goto('/sinistri/report-sir');
     await page.waitForLoadState('networkidle');
 
-    // TEST 7 — Apertura da scheda cliente
-    console.log('--- TEST 7 ---');
+    // TEST 6 — Apertura da scheda cliente
+    console.log('--- TEST 6 ---');
     await page.goto(`/archivi/clienti/${clientId}`);
     await page.click('button[role="tab"]:has-text("Sinistri")');
     const apriSinistroBtn = page.locator('button:has-text("Apri Sinistro")').first();

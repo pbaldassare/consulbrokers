@@ -182,7 +182,7 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Sinistri', path: '/sinistri' },
   { label: 'Apertura Sinistro', path: '/sinistri/apertura' },
   { label: 'Prescrizioni Sinistri', path: '/sinistri/prescrizioni' },
-  { label: 'Scadenze Sinistri', path: '/sinistri/scadenze' },
+  { label: 'Reminder Sinistri', path: '/sinistri/reminder' },
   { label: 'Report Sanitario SIR', path: '/sinistri/report-sir' },
 
   // Contabilità operativa

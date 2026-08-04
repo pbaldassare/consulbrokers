@@ -4,11 +4,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Pencil, X, Save } from "lucide-react";
 import SinistroPraticaFormFields from "@/components/sinistri/SinistroPraticaFormFields";
+import SinistroAssegnazioniReminderSection from "@/components/sinistri/SinistroAssegnazioniReminderSection";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
 import {
@@ -22,6 +22,8 @@ import {
 interface SinistroRow {
   id: string;
   stato?: string;
+  titolo_id?: string | null;
+  cliente_anagrafica_id?: string | null;
   data_evento?: string | null;
   data_denuncia?: string | null;
   tipo_sinistro?: string | null;
@@ -46,6 +48,8 @@ interface SinistroRow {
   note_interne?: string | null;
   profiles?: { nome?: string; cognome?: string } | null;
   liquidatore?: { nome?: string; cognome?: string; ragione_sociale?: string } | null;
+  clienti?: { cognome?: string; nome?: string; ragione_sociale?: string; tipo_cliente?: string } | null;
+  titoli?: { numero_titolo?: string | null } | null;
 }
 
 interface Props {
@@ -58,63 +62,112 @@ const fmtDate = (d?: string | null) => (d ? format(new Date(d), "dd/MM/yyyy") : 
 const fmtEuro = (n?: number | null) =>
   n != null ? `€ ${Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—";
 
-function ReadOnlyGrid({ sinistro }: { sinistro: SinistroRow }) {
+export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow }) {
   const descrizione = sinistro.descrizione || sinistro.dinamica;
   const luogo = sinistro.indirizzo_sinistro || sinistro.luogo_sinistro;
   const luogoExtra = [sinistro.cap_sinistro, sinistro.citta_sinistro, sinistro.provincia_sinistro ? `(${sinistro.provincia_sinistro})` : null]
     .filter(Boolean)
     .join(" ");
 
+  const { data: ultimaNota } = useQuery({
+    queryKey: ["sinistro-note-interne", sinistro.id, "ultima"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sinistro_note_interne" as any)
+        .select("id, testo, created_at, created_by, profiles:created_by(nome, cognome)")
+        .eq("sinistro_id", sinistro.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as {
+        id: string;
+        testo: string;
+        created_at: string;
+        profiles?: { nome?: string | null; cognome?: string | null } | null;
+      } | null;
+    },
+  });
+
+  const ultimaNotaMeta = ultimaNota
+    ? (() => {
+        const autore = `${ultimaNota.profiles?.nome || ""} ${ultimaNota.profiles?.cognome || ""}`.trim();
+        const when = ultimaNota.created_at
+          ? format(new Date(ultimaNota.created_at), "dd/MM/yyyy HH:mm")
+          : null;
+        return [autore || null, when].filter(Boolean).join(" · ");
+      })()
+    : null;
+
   return (
-    <div className="space-y-4 text-sm">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div><span className="text-muted-foreground">Data accadimento</span><p className="font-semibold">{fmtDate(sinistro.data_evento)}</p></div>
-        <div><span className="text-muted-foreground">Data denuncia</span><p className="font-semibold">{fmtDate(sinistro.data_denuncia)}</p></div>
-        <div><span className="text-muted-foreground">Tipo sinistro</span><p className="font-semibold">{formatTipoSinistro(sinistro)}</p></div>
-        <div><span className="text-muted-foreground">N. sinistro compagnia</span><p className="font-semibold">{sinistro.numero_sinistro_compagnia || "—"}</p></div>
-        <div><span className="text-muted-foreground">Controparte</span><p className="font-semibold">{sinistro.controparte || "—"}</p></div>
-        <div><span className="text-muted-foreground">Targa veicolo</span><p className="font-semibold">{sinistro.targa_veicolo || "—"}</p></div>
-      </div>
-      {(luogo || luogoExtra) && (
-        <div>
-          <span className="text-muted-foreground">Luogo</span>
-          <p className="font-semibold">{luogo || "—"}</p>
-          {luogoExtra && <p className="text-muted-foreground">{luogoExtra}</p>}
+    <div className="space-y-5 text-sm">
+      <section className="space-y-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Identità</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div><span className="text-muted-foreground">Data accadimento</span><p className="font-semibold">{fmtDate(sinistro.data_evento)}</p></div>
+          <div><span className="text-muted-foreground">Data denuncia</span><p className="font-semibold">{fmtDate(sinistro.data_denuncia)}</p></div>
+          <div><span className="text-muted-foreground">Tipo sinistro</span><p className="font-semibold">{formatTipoSinistro(sinistro)}</p></div>
+          <div><span className="text-muted-foreground">N. sinistro compagnia</span><p className="font-semibold">{sinistro.numero_sinistro_compagnia || "—"}</p></div>
+          <div><span className="text-muted-foreground">Controparte</span><p className="font-semibold">{sinistro.controparte || "—"}</p></div>
+          <div><span className="text-muted-foreground">Targa veicolo</span><p className="font-semibold">{sinistro.targa_veicolo || "—"}</p></div>
         </div>
+      </section>
+      {(luogo || luogoExtra || descrizione) && (
+        <section className="space-y-3 border-t border-border/60 pt-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Descrizione e luogo</p>
+          {(luogo || luogoExtra) && (
+            <div>
+              <span className="text-muted-foreground">Luogo</span>
+              <p className="font-semibold">{luogo || "—"}</p>
+              {luogoExtra && <p className="text-muted-foreground">{luogoExtra}</p>}
+            </div>
+          )}
+          {descrizione && (
+            <div>
+              <span className="text-muted-foreground">Descrizione</span>
+              <p className="mt-1 whitespace-pre-wrap bg-muted/30 p-2.5 rounded border">{descrizione}</p>
+            </div>
+          )}
+        </section>
       )}
-      {descrizione && (
-        <div>
-          <span className="text-muted-foreground">Descrizione</span>
-          <p className="mt-1 whitespace-pre-wrap bg-muted/30 p-2.5 rounded border">{descrizione}</p>
+      <section className="space-y-3 border-t border-border/60 pt-4">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Importi</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div><span className="text-muted-foreground">Riserva</span><p className="font-semibold font-mono">{fmtEuro(sinistro.importo_riserva)}</p></div>
+          <div><span className="text-muted-foreground">Costo preventivato</span><p className="font-semibold font-mono">{fmtEuro(sinistro.costo_preventivato)}</p></div>
+          <div><span className="text-muted-foreground">Franchigia</span><p className="font-semibold font-mono">{fmtEuro(sinistro.franchigia)}</p></div>
+          <div><span className="text-muted-foreground">Liquidato</span><p className="font-semibold font-mono text-emerald-700">{fmtEuro(sinistro.importo_liquidato)}</p></div>
         </div>
-      )}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div><span className="text-muted-foreground">Riserva</span><p className="font-semibold font-mono">{fmtEuro(sinistro.importo_riserva)}</p></div>
-        <div><span className="text-muted-foreground">Costo preventivato</span><p className="font-semibold font-mono">{fmtEuro(sinistro.costo_preventivato)}</p></div>
-        <div><span className="text-muted-foreground">Franchigia</span><p className="font-semibold font-mono">{fmtEuro(sinistro.franchigia)}</p></div>
-        <div><span className="text-muted-foreground">Liquidato</span><p className="font-semibold font-mono text-emerald-700">{fmtEuro(sinistro.importo_liquidato)}</p></div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <span className="text-muted-foreground">Responsabile interno</span>
-          <p className="font-semibold">
-            {sinistro.profiles ? `${sinistro.profiles.nome || ""} ${sinistro.profiles.cognome || ""}`.trim() : "—"}
+      </section>
+      <section className="space-y-3 border-t border-border/60 pt-4">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Assegnazioni</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <span className="text-muted-foreground">Responsabile interno</span>
+            <p className="font-semibold">
+              {sinistro.profiles ? `${sinistro.profiles.nome || ""} ${sinistro.profiles.cognome || ""}`.trim() : "—"}
+            </p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Liquidatore esterno</span>
+            <p className="font-semibold">
+              {sinistro.liquidatore
+                ? sinistro.liquidatore.ragione_sociale || `${sinistro.liquidatore.cognome || ""} ${sinistro.liquidatore.nome || ""}`.trim()
+                : "—"}
+            </p>
+          </div>
+        </div>
+      </section>
+      {(ultimaNota?.testo || sinistro.note_interne) && (
+        <section className="border-t border-border/60 pt-4 space-y-1">
+          <span className="text-muted-foreground">Ultima nota interna</span>
+          {ultimaNotaMeta && (
+            <p className="text-[11px] text-muted-foreground">{ultimaNotaMeta}</p>
+          )}
+          <p className="mt-1 italic text-muted-foreground bg-muted/20 p-2 rounded border whitespace-pre-wrap">
+            {ultimaNota?.testo || sinistro.note_interne}
           </p>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Liquidatore esterno</span>
-          <p className="font-semibold">
-            {sinistro.liquidatore
-              ? sinistro.liquidatore.ragione_sociale || `${sinistro.liquidatore.cognome || ""} ${sinistro.liquidatore.nome || ""}`.trim()
-              : "—"}
-          </p>
-        </div>
-      </div>
-      {sinistro.note_interne && (
-        <div>
-          <span className="text-muted-foreground">Note interne</span>
-          <p className="mt-1 italic text-muted-foreground bg-muted/20 p-2 rounded border">{sinistro.note_interne}</p>
-        </div>
+        </section>
       )}
     </div>
   );
@@ -136,9 +189,20 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
   }, [sinistro, reset]);
 
   const { data: responsabiliList = [] } = useQuery({
-    queryKey: ["profiles-responsabili-sinistro"],
+    queryKey: ["profiles-responsabili-sinistro", sinistro.responsabile_id],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
+      // Preferisci Specialist Sinistri se configurati; altrimenti tutti i profili attivi.
+      // Mantieni sempre il responsabile già assegnato (anche se non più in elenco).
+      const { data: ss } = await supabase
+        .from("specialist_sinistri_sedi" as any)
+        .select("profilo_id");
+      const ids = [...new Set(((ss || []) as { profilo_id: string }[]).map((r) => r.profilo_id))];
+      if (sinistro.responsabile_id && !ids.includes(sinistro.responsabile_id)) {
+        ids.push(sinistro.responsabile_id);
+      }
+      let q = supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
+      if (ids.length > 0) q = q.in("id", ids);
+      const { data } = await q;
       return data || [];
     },
     enabled: editing,
@@ -193,9 +257,9 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
   const allowEdit = canEdit && !isChiuso;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-base">Dati Pratica</CardTitle>
+    <div className="rounded-md border border-border/70 bg-background">
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border/60">
+        <h2 className="text-sm font-semibold tracking-tight">Dati Pratica</h2>
         {allowEdit && !editing && (
           <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
             <Pencil className="h-4 w-4 mr-1" /> Modifica
@@ -219,8 +283,8 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
             </Button>
           </div>
         )}
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div className="p-4">
         {isChiuso && !editing && (
           <p className="text-xs text-muted-foreground mb-4">
             Pratica {sinistro.stato}: i dati sono in sola lettura.
@@ -236,12 +300,15 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
             liquidatoriList={liquidatoriList}
             showEconomici
             showAssegnazione
-            showNoteInterne
           />
         ) : (
-          <ReadOnlyGrid sinistro={sinistro} />
+          <SinistroPraticaReadOnly sinistro={sinistro} />
         )}
-      </CardContent>
-    </Card>
+        <SinistroAssegnazioniReminderSection
+          sinistro={sinistro}
+          disabled={isChiuso && !canEdit}
+        />
+      </div>
+    </div>
   );
 }

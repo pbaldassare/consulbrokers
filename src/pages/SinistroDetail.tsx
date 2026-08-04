@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -12,25 +11,24 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, CheckCircle, AlertTriangle, MapPin, User as UserIcon, FileText, Building2, Bell } from "lucide-react";
+import { ArrowLeft, Plus, CheckCircle, AlertTriangle, Check } from "lucide-react";
 import { useTabParam } from "@/hooks/useTabParam";
-
-const SINISTRO_TABS_BASE = ["dati", "checklist", "eventi", "prescrizioni", "documenti", "chat", "timeline"] as const;
+import { cn } from "@/lib/utils";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { logAttivita } from "@/lib/logAttivita";
+import { format, isValid, parseISO } from "date-fns";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
-import { formatPolizzaRamo, formatPolizzaScadenza } from "@/lib/titoliDisplay";
+import { labelAgenziaRiferimento } from "@/lib/compagniaDisplay";
 import SinistroDatiPraticaPanel from "@/components/sinistri/SinistroDatiPraticaPanel";
 import SinistroPrescrizioniPanel from "@/components/sinistri/SinistroPrescrizioniPanel";
-import SinistroReminderPanel from "@/components/sinistri/SinistroReminderPanel";
+import SinistroNoteInternePanel from "@/components/sinistri/SinistroNoteInternePanel";
 import { useAuth } from "@/contexts/AuthContext";
-import { Textarea } from "@/components/ui/textarea";
+
+const SINISTRO_TABS_BASE = ["dati", "checklist", "eventi", "prescrizioni", "documenti", "chat", "note_interne", "timeline"] as const;
 
 const statiSinistro = ["in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
 const statoBadge: Record<string, string> = {
@@ -46,6 +44,12 @@ const eventoStatoBadge: Record<string, string> = {
   attivo: "bg-blue-100 text-blue-800",
   completato: "bg-green-100 text-green-800",
   scaduto: "bg-red-100 text-red-800",
+};
+
+const fmtDateSafe = (value?: string | null) => {
+  if (!value) return "—";
+  const d = parseISO(value);
+  return isValid(d) ? format(d, "dd/MM/yyyy") : "—";
 };
 
 export default function SinistroDetail() {
@@ -65,22 +69,14 @@ export default function SinistroDetail() {
     queryKey: ["sinistro", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("sinistri")
-        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), liquidatore:anagrafiche_professionali!sinistri_liquidatore_id_fkey(nome, cognome, ragione_sociale), titoli(numero_titolo, stato, garanzia_a, data_scadenza, ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione))), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
+        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), liquidatore:anagrafiche_professionali!sinistri_liquidatore_id_fkey(nome, cognome, ragione_sociale), titoli(numero_titolo, stato, garanzia_a, data_scadenza, compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(gruppi_compagnia:gruppo_compagnia_id(descrizione)), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione))), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
         .eq("id", id!).single();
       if (error) throw error;
       return data;
     },
   });
 
-  const canSeeReminder = isAdmin || (!!user?.id && sinistro?.aperto_da_user_id === user.id);
-  const tabList = useMemo(() => {
-    const tabs = [...SINISTRO_TABS_BASE];
-    if (canSeeReminder) {
-      const idx = tabs.indexOf("prescrizioni");
-      tabs.splice(idx + 1, 0, "reminder" as any);
-    }
-    return tabs as readonly string[];
-  }, [canSeeReminder]);
+  const tabList = SINISTRO_TABS_BASE;
   const [activeTab, setActiveTab] = useTabParam(tabList as any, "dati");
 
   const { data: checklist } = useQuery({
@@ -116,6 +112,7 @@ export default function SinistroDetail() {
     qc.invalidateQueries({ queryKey: ["sinistro-checklist", id] });
     qc.invalidateQueries({ queryKey: ["sinistro-eventi", id] });
     qc.invalidateQueries({ queryKey: ["sinistro-prescrizioni", id] });
+    qc.invalidateQueries({ queryKey: ["sinistro-note-interne", id] });
     qc.invalidateQueries({ queryKey: ["sinistro-reminder", id] });
     qc.invalidateQueries({ queryKey: ["timeline", "sinistro", id] });
   };
@@ -185,6 +182,32 @@ export default function SinistroDetail() {
 
   const clienteNome = resolveClienteNome(sinistro.clienti);
 
+  const checklistDone = checklist?.filter((c: any) => c.completato).length ?? 0;
+  const checklistTot = checklist?.length ?? 0;
+  const eventiAttivi = eventi?.filter((e: any) => e.stato === "attivo").length ?? 0;
+
+  const stepMeta: Record<string, { label: string; badge?: string }> = {
+    dati: { label: "Dati Pratica" },
+    checklist: {
+      label: "Checklist",
+      badge: checklistTot > 0 ? `${checklistDone}/${checklistTot}` : undefined,
+    },
+    eventi: {
+      label: "Eventi",
+      badge: eventiAttivi > 0 ? String(eventiAttivi) : undefined,
+    },
+    prescrizioni: {
+      label: "Prescrizioni",
+      badge: prescrizioniAttive > 0 ? String(prescrizioniAttive) : undefined,
+    },
+    documenti: { label: "Documenti" },
+    chat: { label: "Chat" },
+    note_interne: { label: "Note interne" },
+    timeline: { label: "Log Attività" },
+  };
+
+  const safeTab = (tabList as readonly string[]).includes(activeTab) ? activeTab : "dati";
+
   // Contesto AI per gli scanner di sinistro: include CF/P.IVA del cliente
   // collegato così l'AI sa a chi appartengono perizie e referti.
   const sinistroAiContext = {
@@ -194,177 +217,186 @@ export default function SinistroDetail() {
     expectedPIVA: sinistro.clienti?.partita_iva ?? null,
   };
 
+  const responsabileNome = sinistro.profiles
+    ? `${sinistro.profiles.nome || ""} ${sinistro.profiles.cognome || ""}`.trim()
+    : "—";
+
   return (
-    <div className="space-y-6">
-      {/* Header coerente con design system */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/sinistri")}><ArrowLeft className="h-5 w-5" /></Button>
-        <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-          <AlertTriangle className="h-5 w-5 text-orange-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold truncate flex items-center gap-2 flex-wrap">
-            <span>Sinistro {sinistro.numero_sinistro || "—"}</span>
-            {sinistro.sinistro_terzi && (
-              <Badge variant="outline" className="text-xs border-amber-400 text-amber-800 bg-amber-50 font-medium">
-                Sinistro Terzi
+    <div className="space-y-4">
+      {/* Header snello sticky */}
+      <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60">
+        <div className="flex items-start gap-3">
+          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => navigate("/sinistri")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <AlertTriangle className="h-5 w-5 text-orange-600 shrink-0" />
+              <h1 className="text-xl font-bold truncate">
+                Sinistro {sinistro.numero_sinistro || "—"}
+              </h1>
+              <Badge className={`text-xs px-2.5 py-0.5 ${statoBadge[sinistro.stato] || "bg-muted text-muted-foreground"}`}>
+                {(sinistro.stato || "—").replace(/_/g, " ")}
               </Badge>
-            )}
-          </h1>
-          <p className="text-sm text-muted-foreground truncate">
-            {sinistro.sinistro_terzi ? "Sinistro Terzi — senza polizza CBnet · " : ""}
-            {formatTipoSinistro(sinistro)}
-            {sinistro.compagnie?.nome ? ` · ${sinistro.compagnie.nome}` : ""}
-          </p>
+              {sinistro.sinistro_terzi && (
+                <Badge variant="outline" className="text-xs border-amber-400 text-amber-800 bg-amber-50 font-medium">
+                  Sinistro Terzi
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span className="uppercase tracking-wide text-[10px] font-medium text-muted-foreground/80">Cliente</span>
+              {sinistro.cliente_anagrafica_id ? (
+                <button
+                  type="button"
+                  className="font-medium text-foreground hover:underline truncate max-w-[220px]"
+                  onClick={() => navigate(`/archivi/clienti/${sinistro.cliente_anagrafica_id}`)}
+                >
+                  {clienteNome}
+                </button>
+              ) : (
+                <span className="font-medium text-foreground">{clienteNome}</span>
+              )}
+              <span className="text-border">·</span>
+              <span className="uppercase tracking-wide text-[10px] font-medium text-muted-foreground/80">Polizza</span>
+              {!sinistro.sinistro_terzi && sinistro.titolo_id ? (
+                <button
+                  type="button"
+                  className="font-medium text-foreground hover:underline truncate max-w-[180px]"
+                  onClick={() => navigate(`/titoli/${sinistro.titolo_id}`)}
+                >
+                  {sinistro.titoli?.numero_titolo || "—"}
+                </button>
+              ) : (
+                <span className="font-medium text-foreground">
+                  {sinistro.sinistro_terzi ? "Terzi (senza CBnet)" : "—"}
+                </span>
+              )}
+              <span className="text-border">·</span>
+              <span>{formatTipoSinistro(sinistro)}</span>
+              {sinistro.compagnie?.nome && (
+                <>
+                  <span className="text-border">·</span>
+                  <span className="truncate max-w-[160px]">{sinistro.compagnie.nome}</span>
+                </>
+              )}
+              <span className="text-border">·</span>
+              <span>
+                Accadimento {fmtDateSafe(sinistro.data_evento)}
+              </span>
+              <span className="text-border">·</span>
+              <span className="truncate max-w-[160px]">Resp. {responsabileNome || "—"}</span>
+            </div>
+          </div>
         </div>
-        <Badge className={`text-sm px-3 py-1 ${statoBadge[sinistro.stato]}`}>{sinistro.stato.replace(/_/g, " ")}</Badge>
-      </div>
 
-      {/* Collegamenti (cliccabili) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card
-          className={sinistro.cliente_anagrafica_id ? "cursor-pointer hover:bg-accent/40 transition-colors" : ""}
-          onClick={() => sinistro.cliente_anagrafica_id && navigate(`/archivi/clienti/${sinistro.cliente_anagrafica_id}`)}
-        >
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground flex items-center gap-1"><UserIcon className="h-3 w-3" /> Cliente</p>
-            <p className="font-semibold truncate">{clienteNome}</p>
-          </CardContent>
-        </Card>
-        <Card
-          className={!sinistro.sinistro_terzi && sinistro.titolo_id ? "cursor-pointer hover:bg-accent/40 transition-colors" : ""}
-          onClick={() => !sinistro.sinistro_terzi && sinistro.titolo_id && navigate(`/titoli/${sinistro.titolo_id}`)}
-        >
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground flex items-center gap-1"><FileText className="h-3 w-3" /> Polizza</p>
-            {sinistro.sinistro_terzi || !sinistro.titolo_id ? (
-              <>
-                <p className="font-semibold truncate">—</p>
-                {sinistro.sinistro_terzi && (
-                  <p className="text-xs text-muted-foreground mt-0.5">Sinistro Terzi — senza polizza CBnet</p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="font-semibold truncate">{sinistro.titoli?.numero_titolo || "—"}</p>
-                {sinistro.titoli && (
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
-                    {formatPolizzaRamo(sinistro.titoli)} · Scadenza {formatPolizzaScadenza(sinistro.titoli)}
-                  </p>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Data Evento</p><p className="font-semibold">{sinistro.data_evento ? format(new Date(sinistro.data_evento), "dd/MM/yyyy") : "—"}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Responsabile</p><p className="font-semibold truncate">{sinistro.profiles ? `${sinistro.profiles.nome} ${sinistro.profiles.cognome}` : "—"}</p></CardContent></Card>
-      </div>
-
-      {/* Financial Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="border-l-4" style={{ borderLeftColor: "#64748b" }}><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Costo Preventivato</p><p className="font-semibold font-mono">€ {(sinistro.costo_preventivato || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
-        <Card className="border-l-4" style={{ borderLeftColor: "#64748b" }}><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Costo Effettivo</p><p className="font-semibold font-mono">€ {(sinistro.costo_effettivo || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
-        <Card className="border-l-4" style={{ borderLeftColor: "#0284c7" }}><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Franchigia</p><p className="font-semibold font-mono">€ {(sinistro.franchigia || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
-        <Card className="border-l-4" style={{ borderLeftColor: "#059669" }}><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Liquidato</p><p className="font-semibold font-mono text-emerald-700">€ {(sinistro.importo_liquidato || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
-        <Card className="border-l-4" style={{ borderLeftColor: "#ea580c" }}><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Riserva</p><p className="font-semibold font-mono text-orange-600">€ {(sinistro.importo_riserva || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
-      </div>
-
-      {/* Detail Cards — riepilogo rapido */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {(sinistro.luogo_sinistro || sinistro.indirizzo_sinistro || sinistro.citta_sinistro) && (
-          <Card>
-            <CardContent className="pt-4">
-              <p className="text-sm text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Luogo Sinistro</p>
-              <p className="font-semibold">{sinistro.indirizzo_sinistro || sinistro.luogo_sinistro || "—"}</p>
-              <p className="text-sm text-muted-foreground">{[sinistro.cap_sinistro, sinistro.citta_sinistro, sinistro.provincia_sinistro ? `(${sinistro.provincia_sinistro})` : null].filter(Boolean).join(" ")}</p>
-            </CardContent>
-          </Card>
-        )}
-        {(sinistro.controparte || sinistro.targa_veicolo) && (
-          <Card>
-            <CardContent className="pt-4">
-              {sinistro.controparte && <p className="text-sm"><span className="text-muted-foreground">Controparte:</span> <span className="font-semibold">{sinistro.controparte}</span></p>}
-              {sinistro.targa_veicolo && <p className="text-sm mt-1"><span className="text-muted-foreground">Targa:</span> <span className="font-semibold">{sinistro.targa_veicolo}</span></p>}
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Checklist + Events + Prescrizioni summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Checklist</p><p className="font-semibold">{checklist?.filter((c: any) => c.completato).length}/{checklist?.length}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Eventi Attivi</p><p className="font-semibold">{eventi?.filter((e: any) => e.stato === "attivo").length}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Prescrizioni attive</p><p className="font-semibold">{prescrizioniAttive}</p></CardContent></Card>
-      </div>
-
-      {/* Cambio stato — admin sempre; altri gestori solo se pratica non chiusa */}
-      {((canManage && !isChiuso) || isAdmin) && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Gestione Stato Pratica</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
+        {/* Cambio stato compatto */}
+        {((canManage && !isChiuso) || isAdmin) && (
+          <div className="mt-3 ml-12 flex flex-col sm:flex-row gap-2 sm:items-end">
             {isChiuso && isAdmin && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                Pratica {sinistro.stato}: la riapertura/modifica è consentita solo agli amministratori.
+              <p className="text-[11px] text-amber-700 sm:w-full basis-full">
+                Pratica chiusa: solo admin può riaprire/modificare lo stato.
               </p>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-3 items-end">
-              <div>
-                <Label className="text-xs">Nuovo stato</Label>
-                <Select value={statoTarget} onValueChange={setStatoTarget}>
-                  <SelectTrigger><SelectValue placeholder="Seleziona stato" /></SelectTrigger>
-                  <SelectContent>
-                    {statiSinistro.filter(s => s !== sinistro.stato).map(s => (
-                      <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs">Note (opzionale)</Label>
-                <Input value={statoNote} onChange={e => setStatoNote(e.target.value)} placeholder="Motivazione cambio stato…" />
-              </div>
-              <Button disabled={!statoTarget} onClick={() => cambiaStato(statoTarget, statoNote)}>Aggiorna stato</Button>
+            <div className="flex-1 min-w-[140px]">
+              <Label className="text-[10px] uppercase text-muted-foreground">Nuovo stato</Label>
+              <Select value={statoTarget} onValueChange={setStatoTarget}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleziona…" /></SelectTrigger>
+                <SelectContent>
+                  {statiSinistro.filter((s) => s !== sinistro.stato).map((s) => (
+                    <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Ogni cambio stato viene registrato nella timeline e nel log attività.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+            <div className="flex-[2]">
+              <Label className="text-[10px] uppercase text-muted-foreground">Note</Label>
+              <Input
+                className="h-8 text-xs"
+                value={statoNote}
+                onChange={(e) => setStatoNote(e.target.value)}
+                placeholder="Motivazione (opzionale)"
+              />
+            </div>
+            <Button
+              size="sm"
+              className="h-8 shrink-0"
+              disabled={!statoTarget}
+              onClick={() => cambiaStato(statoTarget, statoNote)}
+            >
+              Aggiorna stato
+            </Button>
+          </div>
+        )}
+      </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="dati">Dati Pratica</TabsTrigger>
-          <TabsTrigger value="checklist">Checklist</TabsTrigger>
-          <TabsTrigger value="eventi">Eventi</TabsTrigger>
-          <TabsTrigger value="prescrizioni">Prescrizioni</TabsTrigger>
-          {canSeeReminder && (
-            <TabsTrigger value="reminder" className="gap-1">
-              <Bell className="h-3.5 w-3.5" /> I miei reminder
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="documenti">Documenti</TabsTrigger>
-          <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="timeline">Log Attività</TabsTrigger>
-        </TabsList>
+      <Tabs value={safeTab} onValueChange={setActiveTab} className="space-y-4">
+        {/* Stepper progressivo */}
+        <div className="overflow-x-auto -mx-1 px-1 pb-1">
+          <TabsList className="h-auto w-max min-w-full justify-start gap-0 bg-transparent p-0 border-b border-border/70 rounded-none">
+            {tabList.map((tab, idx) => {
+              const meta = stepMeta[tab] || { label: tab };
+              const isActive = safeTab === tab;
+              const isPast = idx < Math.max(0, tabList.indexOf(safeTab));
+              return (
+                <TabsTrigger
+                  key={tab}
+                  value={tab}
+                  className={cn(
+                    "relative flex items-center gap-2 rounded-none border-b-2 border-transparent px-3 py-2.5 text-xs font-medium shadow-none",
+                    "data-[state=active]:shadow-none data-[state=active]:bg-transparent",
+                    isActive && "border-b-[#0B4C50] text-[#0B4C50]",
+                    !isActive && isPast && "text-foreground/80",
+                    !isActive && !isPast && "text-muted-foreground",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold border shrink-0",
+                      isActive && "bg-[#0B4C50] text-white border-[#0B4C50]",
+                      !isActive && isPast && "bg-[#0B4C50]/15 text-[#0B4C50] border-[#0B4C50]/40",
+                      !isActive && !isPast && "bg-muted text-muted-foreground border-border",
+                    )}
+                  >
+                    {isPast && !isActive ? <Check className="h-3.5 w-3.5" /> : idx + 1}
+                  </span>
+                  <span className="whitespace-nowrap">{meta.label}</span>
+                  {meta.badge && (
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 py-0 text-[10px] font-semibold tabular-nums",
+                        isActive ? "bg-[#0B4C50]/15 text-[#0B4C50]" : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {meta.badge}
+                    </span>
+                  )}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </div>
 
-        <TabsContent value="dati" className="space-y-4">
+        <TabsContent value="dati" className="space-y-4 mt-0">
           <SinistroDatiPraticaPanel
             sinistro={sinistro}
             canEdit={canManage}
             onSaved={invalidate}
           />
           {sinistro.note_perito && (
-            <Card>
-              <CardHeader><CardTitle className="text-base">Note Perito / Report SIR</CardTitle></CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap text-sm">{sinistro.note_perito.startsWith("[SIR_REPORT]") ? "Bozza report SIR salvata (apri Report SIR per modificare)" : sinistro.note_perito}</p>
-              </CardContent>
-            </Card>
+            <div className="rounded-md border border-border/70 bg-background p-4">
+              <p className="text-sm font-semibold mb-2">Note Perito / Report SIR</p>
+              <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                {sinistro.note_perito.startsWith("[SIR_REPORT]")
+                  ? "Bozza report SIR salvata (apri Report SIR per modificare)"
+                  : sinistro.note_perito}
+              </p>
+            </div>
           )}
         </TabsContent>
 
-        <TabsContent value="checklist" className="space-y-4">
+        <TabsContent value="checklist" className="space-y-4 mt-0">
+          <div className="rounded-md border border-border/70 bg-background p-4 space-y-3">
           <div className="flex justify-end">
             <Dialog open={checklistDialog} onOpenChange={setChecklistDialog}>
               <DialogTrigger asChild><Button size="sm" disabled={isChiuso}><Plus className="h-4 w-4 mr-1" /> Aggiungi</Button></DialogTrigger>
@@ -383,7 +415,7 @@ export default function SinistroDetail() {
           </div>
           <div className="space-y-2">
             {checklist?.map((item: any) => (
-              <div key={item.id} className={`flex items-center gap-3 p-3 border rounded-lg ${item.completato ? "bg-muted/50" : ""}`}>
+              <div key={item.id} className={`flex items-center gap-3 p-3 border rounded-md ${item.completato ? "bg-muted/50" : ""}`}>
                 <Checkbox checked={item.completato} onCheckedChange={() => toggleChecklist(item)} disabled={isChiuso} />
                 <span className={item.completato ? "line-through text-muted-foreground" : ""}>{item.descrizione}</span>
                 {item.obbligatorio && <Badge variant="outline" className="ml-auto text-xs">Obbligatorio</Badge>}
@@ -391,9 +423,11 @@ export default function SinistroDetail() {
             ))}
             {!checklist?.length && <p className="text-center text-muted-foreground py-4">Nessun elemento</p>}
           </div>
+          </div>
         </TabsContent>
 
-        <TabsContent value="eventi" className="space-y-4">
+        <TabsContent value="eventi" className="space-y-4 mt-0">
+          <div className="rounded-md border border-border/70 bg-background p-4 space-y-3">
           <div className="flex justify-end">
             <Dialog open={eventoDialog} onOpenChange={setEventoDialog}>
               <DialogTrigger asChild><Button size="sm" disabled={isChiuso}><Plus className="h-4 w-4 mr-1" /> Aggiungi Evento</Button></DialogTrigger>
@@ -431,8 +465,8 @@ export default function SinistroDetail() {
             <TableBody>
               {eventi?.map((e: any) => (
                 <TableRow key={e.id}>
-                  <TableCell className="capitalize">{e.tipo_evento.replace(/_/g, " ")}</TableCell>
-                  <TableCell>{format(new Date(e.data_scadenza), "dd/MM/yyyy")}</TableCell>
+                  <TableCell className="capitalize">{(e.tipo_evento || "—").replace(/_/g, " ")}</TableCell>
+                  <TableCell>{fmtDateSafe(e.data_scadenza)}</TableCell>
                   <TableCell><Badge className={eventoStatoBadge[e.stato]}>{e.stato}</Badge></TableCell>
                   <TableCell>{e.note || "—"}</TableCell>
                   <TableCell>
@@ -445,32 +479,28 @@ export default function SinistroDetail() {
               {!eventi?.length && <TableRow><TableCell colSpan={5} className="text-center py-4 text-muted-foreground">Nessun evento</TableCell></TableRow>}
             </TableBody>
           </Table>
+          </div>
         </TabsContent>
 
         <TabsContent value="prescrizioni" className="space-y-4">
-          <SinistroPrescrizioniPanel sinistroId={id!} disabled={isChiuso && !isAdmin} />
-        </TabsContent>
-
-        {canSeeReminder && user && (
-          <TabsContent value="reminder" className="space-y-4">
-            <SinistroReminderPanel
+          {safeTab === "prescrizioni" && (
+            <SinistroPrescrizioniPanel
               sinistroId={id!}
-              apertoDaUserId={sinistro.aperto_da_user_id ?? null}
-              currentUserId={user.id}
+              dataDenuncia={sinistro.data_denuncia}
+              agenziaRiferimento={
+                labelAgenziaRiferimento(sinistro.titoli as any) ||
+                null
+              }
               disabled={isChiuso && !isAdmin}
             />
-          </TabsContent>
-        )}
+          )}
+        </TabsContent>
 
-        <TabsContent value="documenti" className="space-y-4">
-          {/* AI Scanner per perizie e referti medici */}
+        <TabsContent value="documenti" className="space-y-4 mt-0">
           {!isChiuso && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Scansione AI Documenti Sinistro</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
+            <div className="rounded-md border border-border/70 p-4 space-y-2">
+              <p className="text-sm font-semibold">Scansione AI documenti</p>
+              <div className="flex flex-wrap gap-2">
                   <AiDocumentScanner
                     documentType="perizia"
                     entityContext={sinistroAiContext}
@@ -523,15 +553,22 @@ export default function SinistroDetail() {
                     }}
                     onExtracted={() => {}}
                   />
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
           <DocumentiTab entitaTipo="sinistro" entitaId={id!} bucketName="documenti_sinistri" />
         </TabsContent>
 
         <TabsContent value="chat">
           <ChatTab entitaTipo="sinistro" entitaId={id!} />
+        </TabsContent>
+
+        <TabsContent value="note_interne" className="space-y-4 mt-0">
+          <SinistroNoteInternePanel
+            sinistroId={id!}
+            currentUserId={user?.id}
+            disabled={isChiuso && !isAdmin}
+          />
         </TabsContent>
 
         <TabsContent value="timeline">

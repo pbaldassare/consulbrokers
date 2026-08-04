@@ -131,3 +131,5 @@ export function SearchableSelect({
     </Popover>
   );
 }
+
+export default SearchableSelect;

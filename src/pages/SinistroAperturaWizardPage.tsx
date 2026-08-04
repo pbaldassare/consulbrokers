@@ -31,9 +31,13 @@ import {
 } from "@/lib/sinistroPraticaSchema";
 import { applySoloMadriFilter, mergePolizze } from "@/lib/polizzeSearch";
 import type { SinistroPrescrizioneDraft, SinistroReminderDraft } from "@/lib/sinistroPrescrizioniReminder";
-import { DESTINATARIO_LABEL } from "@/lib/sinistroPrescrizioniReminder";
+import {
+  DESTINATARIO_LABEL,
+  PRESCRIZIONE_DESTINATARIO_AGENZIA,
+} from "@/lib/sinistroPrescrizioniReminder";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 import { formatPolizzaRamo, formatPolizzaScadenza } from "@/lib/titoliDisplay";
+import { labelAgenziaRiferimento } from "@/lib/compagniaDisplay";
 import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
 import {
   documentUploadTooLargeMessage,
@@ -90,11 +94,11 @@ export default function SinistroAperturaWizardPage() {
   const [prescrizioniDrafts, setPrescrizioniDrafts] = useState<SinistroPrescrizioneDraft[]>([]);
   const [reminderDrafts, setReminderDrafts] = useState<SinistroReminderDraft[]>([]);
   const [prescDraftForm, setPrescDraftForm] = useState<SinistroPrescrizioneDraft>({
-    destinatario_tipo: "cliente",
+    destinatario_tipo: PRESCRIZIONE_DESTINATARIO_AGENZIA,
     oggetto: "",
     data_scadenza_risposta: "",
   });
-  const [reminderDraftForm, setReminderDraftForm] = useState<SinistroReminderDraft>({ testo: "" });
+  const [reminderDraftForm, setReminderDraftForm] = useState<SinistroReminderDraft>({ testo: "", data_scadenza: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** File originali in memoria (submit affidabile anche se la bozza omette base64). */
   const pendingFilesRef = useRef<Map<string, File>>(new Map());
@@ -122,6 +126,7 @@ export default function SinistroAperturaWizardPage() {
     try {
       const baseTitQuery = supabase.from('titoli')
         .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, compagnia_id, sostituisce_polizza, data_competenza, data_scadenza, garanzia_a,
+          compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome),
           prodotti(nome_prodotto, compagnie(id, nome)),
           ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)),
           clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
@@ -248,7 +253,8 @@ export default function SinistroAperturaWizardPage() {
         setValue("titolo_id", "");
       } else if (d.titolo_id) {
         supabase.from("titoli").select(`
-          id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, data_scadenza, garanzia_a,
+          id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, compagnia_id, data_scadenza, garanzia_a,
+          compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome),
           prodotti(nome_prodotto, compagnie(id, nome)),
           ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)),
           clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
@@ -273,11 +279,17 @@ export default function SinistroAperturaWizardPage() {
     }
   });
 
-  // Query per lookup responsabili interni da profiles (Step 4)
+  // Query per lookup responsabili interni: Specialist Sinistri se configurati, altrimenti tutti i profili attivi
   const { data: responsabiliList = [] } = useQuery({
     queryKey: ["profiles-responsabili-wizard"],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, nome, cognome, ruolo").eq("attivo", true).order("cognome");
+      const { data: ss } = await supabase
+        .from("specialist_sinistri_sedi" as any)
+        .select("profilo_id");
+      const ids = [...new Set(((ss || []) as { profilo_id: string }[]).map((r) => r.profilo_id))];
+      let q = supabase.from("profiles").select("id, nome, cognome, ruolo").eq("attivo", true).order("cognome");
+      if (ids.length > 0) q = q.in("id", ids);
+      const { data } = await q;
       return data || [];
     }
   });
@@ -925,22 +937,17 @@ export default function SinistroAperturaWizardPage() {
                   showNoteInterne
                 />
 
-                {/* Prescrizioni perentorie opzionali */}
+                {/* Prescrizioni perentorie opzionali (oltre a quella biennale automatica verso agenzia) */}
                 <div className="border rounded-lg p-4 space-y-3">
                   <h4 className="text-sm font-semibold text-primary">Prescrizioni perentorie (opzionale)</h4>
-                  <p className="text-xs text-muted-foreground">Comunicazioni con scadenza risposta da tracciare sulla pratica.</p>
+                  <p className="text-xs text-muted-foreground">
+                    All&apos;apertura viene creata automaticamente la prescrizione biennale verso l&apos;agenzia di riferimento
+                    della polizza (scadenza = data denuncia + 2 anni). Qui puoi aggiungere altre comunicazioni con scadenza.
+                  </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <Select
-                      value={prescDraftForm.destinatario_tipo}
-                      onValueChange={(v) => setPrescDraftForm({ ...prescDraftForm, destinatario_tipo: v as SinistroPrescrizioneDraft["destinatario_tipo"] })}
-                    >
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(DESTINATARIO_LABEL).map(([k, label]) => (
-                          <SelectItem key={k} value={k}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="h-9 px-3 flex items-center text-sm rounded-md border bg-muted/30">
+                      Destinatario: {DESTINATARIO_LABEL[PRESCRIZIONE_DESTINATARIO_AGENZIA]}
+                    </div>
                     <Input
                       placeholder="Oggetto *"
                       className="h-9"
@@ -963,8 +970,23 @@ export default function SinistroAperturaWizardPage() {
                           toast.error("Oggetto e scadenza sono obbligatori");
                           return;
                         }
-                        setPrescrizioniDrafts([...prescrizioniDrafts, { ...prescDraftForm }]);
-                        setPrescDraftForm({ destinatario_tipo: "cliente", oggetto: "", data_scadenza_risposta: "" });
+                        setPrescrizioniDrafts([
+                          ...prescrizioniDrafts,
+                          {
+                            ...prescDraftForm,
+                            destinatario_tipo: PRESCRIZIONE_DESTINATARIO_AGENZIA,
+                            destinatario_label:
+                              labelAgenziaRiferimento(selectedPolizzaData) ||
+                              selectedPolizzaData?.compagnie?.nome ||
+                              selectedPolizzaData?.prodotti?.compagnie?.nome ||
+                              prescDraftForm.destinatario_label,
+                          },
+                        ]);
+                        setPrescDraftForm({
+                          destinatario_tipo: PRESCRIZIONE_DESTINATARIO_AGENZIA,
+                          oggetto: "",
+                          data_scadenza_risposta: "",
+                        });
                       }}
                     >
                       Aggiungi prescrizione
@@ -986,8 +1008,8 @@ export default function SinistroAperturaWizardPage() {
 
                 {/* Reminder personali opzionali */}
                 <div className="border rounded-lg p-4 space-y-3">
-                  <h4 className="text-sm font-semibold text-primary">I miei reminder (opzionale)</h4>
-                  <p className="text-xs text-muted-foreground">Promemoria personali visibili solo a te come creatore della pratica.</p>
+                  <h4 className="text-sm font-semibold text-primary">Reminder sinistro (opzionale)</h4>
+                  <p className="text-xs text-muted-foreground">Promemoria assegnato al responsabile sinistro con scadenza.</p>
                   <div className="flex gap-2">
                     <Input
                       placeholder="Testo reminder *"
@@ -998,8 +1020,8 @@ export default function SinistroAperturaWizardPage() {
                     <Input
                       type="date"
                       className="h-9 w-36"
-                      value={reminderDraftForm.data_promemoria || ""}
-                      onChange={(e) => setReminderDraftForm({ ...reminderDraftForm, data_promemoria: e.target.value })}
+                      value={reminderDraftForm.data_scadenza || ""}
+                      onChange={(e) => setReminderDraftForm({ ...reminderDraftForm, data_scadenza: e.target.value })}
                     />
                     <Button
                       type="button"
@@ -1011,8 +1033,12 @@ export default function SinistroAperturaWizardPage() {
                           toast.error("Inserisci il testo del reminder");
                           return;
                         }
+                        if (!reminderDraftForm.data_scadenza) {
+                          toast.error("Inserisci la scadenza del reminder");
+                          return;
+                        }
                         setReminderDrafts([...reminderDrafts, { ...reminderDraftForm }]);
-                        setReminderDraftForm({ testo: "" });
+                        setReminderDraftForm({ testo: "", data_scadenza: "" });
                       }}
                     >
                       Aggiungi
@@ -1022,7 +1048,7 @@ export default function SinistroAperturaWizardPage() {
                     <div className="space-y-1">
                       {reminderDrafts.map((r, idx) => (
                         <div key={idx} className="flex justify-between items-center text-xs border rounded px-2 py-1.5">
-                          <span>{r.testo}{r.data_promemoria ? ` (${r.data_promemoria})` : ""}</span>
+                          <span>{r.testo}{r.data_scadenza ? ` (${r.data_scadenza})` : ""}</span>
                           <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReminderDrafts(reminderDrafts.filter((_, i) => i !== idx))}>
                             <Trash2 className="h-3 w-3" />
                           </Button>

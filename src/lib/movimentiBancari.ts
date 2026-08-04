@@ -337,9 +337,13 @@ export function resolveImportoEstratto(
 /** Etichette italiane per i motivi di scarto import. */
 export const MOTIVO_SCARTO_LABEL: Record<string, string> = {
   solo_dare: "Uscita (Dare): non è un accredito — esclusa dall'import",
-  duplicato: "Già presente in archivio (stesso conto/importo/descrizione, qualsiasi stato)",
+  duplicato:
+    "Già presente in archivio (stessa data/importo/ordinante/descrizione, anche su altro conto)",
   importo_zero_o_invalido: "Importo mancante o non valido",
 };
+
+/** Sentinel per NULL SQL nella chiave vincolo (Postgres tratta i NULL come distinti). */
+const CONSTRAINT_NULL = "\0";
 
 /** Lunghezza minima descrizione normalizzata per la content-key (senza data). */
 export const MIN_DESC_LEN_CONTENT_DEDUP = 24;
@@ -359,7 +363,27 @@ export function normalizeDescrizioneDedup(desc: string | null | undefined): stri
 }
 
 /**
- * Chiave stabile anti-doppio: conto + data + importo + descrizione.
+ * Chiave allineata a `uq_movimenti_bancari_dedup`
+ * (data_movimento, importo, ordinante, md5(descrizione)) — globale, senza conto.
+ * Usa descrizione/ordinante grezzi (come in insert); `""` ≡ NULL come in import.
+ */
+export function buildMovimentoConstraintDedupKey(r: {
+  data_movimento: string;
+  importo: number | null | undefined;
+  descrizione?: string | null;
+  ordinante?: string | null;
+}): string {
+  const imp = round2(Number(r.importo) || 0);
+  const data = String(r.data_movimento || "").slice(0, 10);
+  const ordRaw = String(r.ordinante ?? "").trim();
+  const descRaw = String(r.descrizione ?? "").trim();
+  const ord = ordRaw ? ordRaw : CONSTRAINT_NULL;
+  const desc = descRaw ? descRaw : CONSTRAINT_NULL;
+  return ["c", data, String(imp), ord, desc].join("\x1f");
+}
+
+/**
+ * Chiave soft anti-doppio: conto + data + importo + descrizione normalizzata.
  * Non usa l'ordinante (può essere IBAN o nominativo a seconda del carico).
  * Copre anche movimenti già ricongiunti/incassati sullo stesso conto.
  * `data_movimento` va sempre come YYYY-MM-DD (slice 0,10).
@@ -402,7 +426,7 @@ export function buildMovimentoContentDedupKey(r: {
   return [r.conto_bancario_id || "", String(imp), fallback].join("|");
 }
 
-/** True se la riga matcha un movimento già in archivio (chiave primaria o content-key). */
+/** True se la riga matcha un movimento già in archivio (vincolo DB, soft-key o content-key). */
 export function isMovimentoDedupHit(
   r: {
     conto_bancario_id?: string | null;
@@ -413,9 +437,21 @@ export function isMovimentoDedupHit(
   },
   existingDedupKeys: Set<string>,
 ): boolean {
+  if (existingDedupKeys.has(buildMovimentoConstraintDedupKey(r))) return true;
   if (existingDedupKeys.has(buildMovimentoDedupKey(r))) return true;
   const ck = buildMovimentoContentDedupKey(r);
   return ck != null && existingDedupKeys.has(ck);
+}
+
+/** True se l'errore PostgREST/Postgres è violazione di `uq_movimenti_bancari_dedup`. */
+export function isMovimentiBancariDedupViolation(err: { message?: string; code?: string } | null | undefined): boolean {
+  if (!err) return false;
+  const msg = String(err.message || "");
+  return (
+    err.code === "23505" ||
+    msg.includes("uq_movimenti_bancari_dedup") ||
+    (msg.includes("duplicate key") && msg.includes("movimenti_bancari"))
+  );
 }
 
 export function labelMotivoScarto(motivo: string | null | undefined): string {
@@ -491,7 +527,11 @@ export function buildPreviewEstratto(
     };
     const dedupKey = buildMovimentoDedupKey(dedupPayload);
     const contentKey = buildMovimentoContentDedupKey(dedupPayload);
-    const dupInFile = seenInFile.has(dedupKey) || (contentKey != null && seenInFile.has(contentKey));
+    const constraintKey = buildMovimentoConstraintDedupKey(dedupPayload);
+    const dupInFile =
+      seenInFile.has(dedupKey) ||
+      seenInFile.has(constraintKey) ||
+      (contentKey != null && seenInFile.has(contentKey));
     const dupInArchive = existing ? isMovimentoDedupHit(dedupPayload, existing) : false;
     if (dupInArchive || dupInFile) {
       scartiByMotivo.duplicato = (scartiByMotivo.duplicato || 0) + 1;
@@ -509,6 +549,7 @@ export function buildPreviewEstratto(
       return;
     }
     seenInFile.add(dedupKey);
+    seenInFile.add(constraintKey);
     if (contentKey) seenInFile.add(contentKey);
 
     daImportare += 1;
@@ -574,20 +615,47 @@ export function sanitizeIlikeTerm(raw: string): string {
 }
 
 /**
- * Carica chiavi dedup dei movimenti già presenti sul conto (qualsiasi stato, anche collegati).
- * Paginazione PostgREST (page da 1000) su TUTTI i movimenti del conto — non solo le date del file —
- * così si intercettano anche righe con data storicamente parseata male (m/d vs d/m).
- * Il set include chiave primaria (conto|data|importo|desc) e, se desc lunga, content-key (conto|importo|desc).
- * `dates` è accettato per compatibilità chiamate ma non filtra più la query.
+ * Carica chiavi dedup dei movimenti già presenti.
+ * - Soft/content-key: tutti i movimenti del conto selezionato (qualsiasi stato).
+ * - Constraint-key (`uq_movimenti_bancari_dedup`): movimenti con le date del file su QUALSIASI conto,
+ *   perché l'indice unico DB è globale (non include conto_bancario_id).
+ * `dates` filtra solo il fetch del vincolo; se assente/vuoto, il vincolo usa le date dei movimenti del conto.
  */
 export async function fetchExistingMovimentoDedupKeys(
   contoBancarioId: string,
-  _dates?: string[],
+  dates?: string[],
 ): Promise<Set<string>> {
   const keys = new Set<string>();
   if (!contoBancarioId) return keys;
 
-  const rows = await fetchAllQueryPages<{
+  const addRowKeys = (
+    row: {
+      conto_bancario_id?: string | null;
+      data_movimento?: string | null;
+      importo?: number | null;
+      descrizione?: string | null;
+      ordinante?: string | null;
+    },
+    opts?: { soft?: boolean; constraint?: boolean },
+  ) => {
+    const payload = {
+      conto_bancario_id: row.conto_bancario_id,
+      data_movimento: String(row.data_movimento || "").slice(0, 10),
+      importo: Number(row.importo) || 0,
+      descrizione: row.descrizione,
+      ordinante: row.ordinante,
+    };
+    if (opts?.constraint !== false) {
+      keys.add(buildMovimentoConstraintDedupKey(payload));
+    }
+    if (opts?.soft !== false) {
+      keys.add(buildMovimentoDedupKey(payload));
+      const ck = buildMovimentoContentDedupKey(payload);
+      if (ck) keys.add(ck);
+    }
+  };
+
+  const contoRows = await fetchAllQueryPages<{
     conto_bancario_id?: string | null;
     data_movimento?: string | null;
     importo?: number | null;
@@ -602,19 +670,75 @@ export async function fetchExistingMovimentoDedupKeys(
       .range(from, to)) as any,
   DEDUP_FETCH_PAGE);
 
-  for (const row of rows) {
-    const payload = {
-      conto_bancario_id: row.conto_bancario_id,
-      data_movimento: String(row.data_movimento || "").slice(0, 10),
-      importo: Number(row.importo) || 0,
-      descrizione: row.descrizione,
-      ordinante: row.ordinante,
-    };
-    keys.add(buildMovimentoDedupKey(payload));
-    const ck = buildMovimentoContentDedupKey(payload);
-    if (ck) keys.add(ck);
+  for (const row of contoRows) addRowKeys(row);
+
+  const dateSet = new Set(
+    (dates && dates.length > 0
+      ? dates
+      : contoRows.map((r) => String(r.data_movimento || "").slice(0, 10))
+    ).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)),
+  );
+  const dateList = Array.from(dateSet);
+  if (dateList.length === 0) return keys;
+
+  // Vincolo globale: stesse date su altri conti (chunk per evitare URL PostgREST troppo lunghi)
+  const DATE_CHUNK = 50;
+  for (let i = 0; i < dateList.length; i += DATE_CHUNK) {
+    const chunk = dateList.slice(i, i + DATE_CHUNK);
+    const globalRows = await fetchAllQueryPages<{
+      conto_bancario_id?: string | null;
+      data_movimento?: string | null;
+      importo?: number | null;
+      descrizione?: string | null;
+      ordinante?: string | null;
+    }>(async (from, to) =>
+      (supabase
+        .from("movimenti_bancari" as any)
+        .select("conto_bancario_id, data_movimento, importo, descrizione, ordinante")
+        .in("data_movimento", chunk)
+        .order("id", { ascending: true })
+        .range(from, to)) as any,
+    DEDUP_FETCH_PAGE);
+    for (const row of globalRows) {
+      // Soft keys solo per il conto target (già caricati); qui solo constraint
+      if (row.conto_bancario_id === contoBancarioId) continue;
+      addRowKeys(row, { soft: false, constraint: true });
+    }
   }
+
   return keys;
+}
+
+/**
+ * Inserisce movimenti a chunk; se il batch viola `uq_movimenti_bancari_dedup`,
+ * riprova riga per riga e salta i duplicati invece di far fallire tutto il carico.
+ */
+export async function insertMovimentiBancariSkippingDedup(
+  rows: Record<string, unknown>[],
+  chunkSize = 200,
+): Promise<{ inseriti: number; saltatiDedup: number }> {
+  let inseriti = 0;
+  let saltatiDedup = 0;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const slice = rows.slice(i, i + chunkSize);
+    const { error } = await supabase.from("movimenti_bancari" as any).insert(slice as any);
+    if (!error) {
+      inseriti += slice.length;
+      continue;
+    }
+    if (!isMovimentiBancariDedupViolation(error)) throw error;
+    for (const row of slice) {
+      const { error: rowErr } = await supabase.from("movimenti_bancari" as any).insert(row as any);
+      if (!rowErr) {
+        inseriti += 1;
+      } else if (isMovimentiBancariDedupViolation(rowErr)) {
+        saltatiDedup += 1;
+      } else {
+        throw rowErr;
+      }
+    }
+  }
+  return { inseriti, saltatiDedup };
 }
 
 /** @internal esposto per test della paginazione */
@@ -647,8 +771,9 @@ export async function readEstrattoBancarioRows(file: File): Promise<Record<strin
     const semi = (firstLine.match(/;/g) || []).length;
     const comma = (firstLine.match(/,/g) || []).length;
     const FS = semi > comma ? ";" : ",";
-    // cellDates:false → evita interpretazione US di gg/mm; date restano stringhe o seriali Excel
-    wb = XLSX.read(text, { type: "string", FS, cellDates: false });
+    // raw:true obbligatorio sui CSV IT: senza, SheetJS interpreta gg/mm/aaaa come mm/dd
+    // (03/08/2026 → 8 marzo) e "203,49" → 20349. Le stringhe restano per parseData/Importo.
+    wb = XLSX.read(text, { type: "string", FS, cellDates: false, raw: true });
   } else {
     const buf = await file.arrayBuffer();
     wb = XLSX.read(buf, { type: "array", cellDates: false });
