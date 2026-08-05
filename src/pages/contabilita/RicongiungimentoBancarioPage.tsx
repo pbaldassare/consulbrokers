@@ -46,6 +46,7 @@ import {
 } from "@/lib/movimentiBancari";
 import { fetchTitoliClienteDaIncassare } from "@/lib/titoliDaIncassare";
 import { annullaBonificoCollegato } from "@/lib/annullaBonificoCollegato";
+import { shouldScopeClientiPerSede } from "@/lib/filterContiBancariPerSede";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TOLL = 0.01;
@@ -338,6 +339,11 @@ type PolizzaSel = {
 };
 
 const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any; onChanged: () => void }) => {
+  const { profile } = useAuth();
+  const scopeUfficioId = shouldScopeClientiPerSede(profile?.ruolo, profile?.ufficio_id)
+    ? profile!.ufficio_id!
+    : null;
+
   const [movimento, setMovimento] = useState(movimentoProp);
   useEffect(() => { setMovimento(movimentoProp); }, [movimentoProp]);
 
@@ -356,13 +362,15 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
   }, [pagatoreSearch]);
 
   const { data: clientiPagatore = [] } = useQuery({
-    queryKey: ["clienti-pagatore-mov", pagatoreDebounced],
+    queryKey: ["clienti-pagatore-mov", pagatoreDebounced, scopeUfficioId],
     enabled: open && !movimento.cliente_id && pagatoreDebounced.length >= 2,
     queryFn: async () => {
-      const { data } = await supabase.from("clienti")
+      let q = supabase.from("clienti")
         .select("id, ragione_sociale, nome, cognome, ufficio_id")
         .or(`ragione_sociale.ilike.%${pagatoreDebounced}%,cognome.ilike.%${pagatoreDebounced}%,nome.ilike.%${pagatoreDebounced}%`)
         .limit(25);
+      if (scopeUfficioId) q = q.eq("ufficio_id", scopeUfficioId);
+      const { data } = await q;
       return (data as any[]) ?? [];
     },
   });
@@ -1044,14 +1052,22 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
   const { data: movs = [], isLoading: storicoLoading } = useQuery({
     queryKey: ["mov-bancari", "storico", profileUfficio, seeAll, dal, al, ordinanteDebounced, sortDataAsc],
     queryFn: async () => {
+      const contoIds =
+        !seeAll && profileUfficio ? await fetchContoIdsForUfficio(profileUfficio) : ([] as string[]);
       const ordTerm = sanitizeIlikeTerm(ordinanteDebounced);
       return fetchAllQueryPages<any>(async (from, to) => {
         let q = supabase.from("movimenti_bancari" as any)
-          .select("id, data_movimento, importo, ordinante, descrizione, ufficio_id, cliente:clienti(id, ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio)")
+          .select("id, data_movimento, importo, ordinante, descrizione, ufficio_id, conto_bancario_id, cliente:clienti(id, ragione_sociale, nome, cognome), ufficio:uffici(nome:nome_ufficio)")
           .eq("stato", "incassato")
           .order("data_movimento", { ascending: sortDataAsc })
           .order("id", { ascending: sortDataAsc });
-        if (!seeAll && profileUfficio) q = q.eq("ufficio_id", profileUfficio);
+        if (!seeAll && profileUfficio) {
+          if (contoIds.length > 0) {
+            q = q.or(`ufficio_id.eq.${profileUfficio},conto_bancario_id.in.(${contoIds.join(",")})`);
+          } else {
+            q = q.eq("ufficio_id", profileUfficio);
+          }
+        }
         if (dal) q = q.gte("data_movimento", dal);
         if (al) q = q.lte("data_movimento", al);
         if (ordTerm) q = q.or(`ordinante.ilike.%${ordTerm}%,descrizione.ilike.%${ordTerm}%`);

@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { formatDateIT } from "@/lib/formatDate";
 import { useAuth } from "@/contexts/AuthContext";
-import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
+import { filterContiBancariPerSede, shouldScopeClientiPerSede } from "@/lib/filterContiBancariPerSede";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
 import {
   buildTrattenutaCtx,
@@ -235,6 +235,9 @@ export const MessaCassaDialog = ({
     contoEtichetta?: string | null;
   } | null>(null);
   const { profile } = useAuth();
+  const scopeUfficioId = shouldScopeClientiPerSede(profile?.ruolo, profile?.ufficio_id)
+    ? profile!.ufficio_id!
+    : null;
   const [clienteQuietanzeSearch, setClienteQuietanzeSearch] = useState("");
   // Quietanze spuntate nella checklist prima dell'aggiunta
   const [quietanzeSel, setQuietanzeSel] = useState<Record<string, boolean>>({});
@@ -295,15 +298,17 @@ export const MessaCassaDialog = ({
 
   // Ricerca clienti per selezione pagatore
   const { data: pagatoreOptions = [] } = useQuery({
-    queryKey: ["messa-cassa-clienti-search", pagatoreSearch],
+    queryKey: ["messa-cassa-clienti-search", pagatoreSearch, scopeUfficioId],
     enabled: open && pagatoreSearch.trim().length >= 2,
     queryFn: async () => {
       const q = pagatoreSearch.trim();
-      const { data } = await (supabase.from("clienti") as any)
+      let query = (supabase.from("clienti") as any)
         .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva")
         .or(`ragione_sociale.ilike.%${q}%,cognome.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
         .eq("attivo", true)
         .limit(20);
+      if (scopeUfficioId) query = query.eq("ufficio_id", scopeUfficioId);
+      const { data } = await query;
       return (data as any[]) || [];
     },
   });
@@ -311,36 +316,42 @@ export const MessaCassaDialog = ({
   // Ricerca altre quietanze da incassare (aggiungibili alla messa a cassa).
   // Cerca sia per numero titolo sia per nome/cognome/ragione sociale del cliente.
   const { data: titoliSearchResults = [] } = useQuery({
-    queryKey: ["messa-cassa-titoli-search", titoloSearch, titoli.map((t) => t.id).join(",")],
+    queryKey: ["messa-cassa-titoli-search", titoloSearch, titoli.map((t) => t.id).join(","), scopeUfficioId],
     enabled: open && titoloSearch.trim().length >= 2,
     queryFn: async () => {
       const q = titoloSearch.trim();
       const already = new Set(titoli.map((t) => t.id));
 
       // Prima cerca per numero titolo
-      const { data: byNum } = await (supabase.from("titoli") as any)
+      let byNumQ = (supabase.from("titoli") as any)
         .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)")
         .ilike("numero_titolo", `%${q}%`)
         .is("data_messa_cassa", null)
         .in("stato", ["attivo", "sospeso"])
         .limit(20);
+      if (scopeUfficioId) byNumQ = byNumQ.eq("ufficio_id", scopeUfficioId);
+      const { data: byNum } = await byNumQ;
 
       // Poi cerca per nome cliente e unisci senza duplicati
-      const { data: clientiMatch } = await (supabase.from("clienti") as any)
+      let clientiQ = (supabase.from("clienti") as any)
         .select("id")
         .or(`ragione_sociale.ilike.%${q}%,cognome.ilike.%${q}%,nome.ilike.%${q}%`)
         .eq("attivo", true)
         .limit(20);
+      if (scopeUfficioId) clientiQ = clientiQ.eq("ufficio_id", scopeUfficioId);
+      const { data: clientiMatch } = await clientiQ;
       const clienteIds = (clientiMatch as any[] || []).map((c: any) => c.id);
 
       let byCliente: any[] = [];
       if (clienteIds.length > 0) {
-        const { data } = await (supabase.from("titoli") as any)
+        let titoliCliQ = (supabase.from("titoli") as any)
           .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)")
           .in("cliente_anagrafica_id", clienteIds)
           .is("data_messa_cassa", null)
           .in("stato", ["attivo", "sospeso"])
           .limit(20);
+        if (scopeUfficioId) titoliCliQ = titoliCliQ.eq("ufficio_id", scopeUfficioId);
+        const { data } = await titoliCliQ;
         byCliente = (data as any[]) || [];
       }
 
@@ -354,15 +365,17 @@ export const MessaCassaDialog = ({
 
   // Ricerca clienti per il flusso "aggiungi quietanze di un cliente"
   const { data: clienteQuietanzeOptionsRaw = [] } = useQuery({
-    queryKey: ["messa-cassa-cliente-quietanze-search", clienteQuietanzeSearch],
+    queryKey: ["messa-cassa-cliente-quietanze-search", clienteQuietanzeSearch, scopeUfficioId],
     enabled: open && clienteQuietanzeSearch.trim().length >= 2,
     queryFn: async () => {
       const q = clienteQuietanzeSearch.trim();
-      const { data } = await (supabase.from("clienti") as any)
+      let query = (supabase.from("clienti") as any)
         .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva")
         .or(`ragione_sociale.ilike.%${q}%,cognome.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
         .eq("attivo", true)
         .limit(20);
+      if (scopeUfficioId) query = query.eq("ufficio_id", scopeUfficioId);
+      const { data } = await query;
       return (data as any[]) || [];
     },
   });

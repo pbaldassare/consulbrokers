@@ -72,7 +72,9 @@ const rowHref = (p: any): string | null => {
 const IncassiPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
+  const isCfo = profile?.ruolo === "cfo";
+  const seeAllSedi = isAdmin || isCfo;
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState("garanzia_a");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -101,8 +103,8 @@ const IncassiPage = () => {
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
   const [filtroUffici, setFiltroUffici] = useState<string[]>(() => {
     const raw = searchParams.get("sedi");
-    if (!raw) return [];
-    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+    if (raw) return raw.split(",").map((s) => s.trim()).filter(Boolean);
+    return [];
   });
   const [bonificiPanelOpen, setBonificiPanelOpen] = useState(() => searchParams.get("tab") === "bonifici");
   const [preferredBonifico, setPreferredBonifico] = useState<PreferredBonificoContext | null>(null);
@@ -113,6 +115,19 @@ const IncassiPage = () => {
     searchParams.get("vista") === "incassati" ? "incassati" : "pendenti",
   );
   const isVistaIncassati = vistaIncasso === "incassati";
+
+  // Utenti sede: forza filtro sulla propria sede (non admin/cfo)
+  useEffect(() => {
+    if (seeAllSedi || !profile?.ufficio_id) return;
+    const sedeId = profile.ufficio_id;
+    setFiltroUffici((prev) => (prev.length === 1 && prev[0] === sedeId ? prev : [sedeId]));
+    const raw = searchParams.get("sedi");
+    if (raw !== sedeId) {
+      const sp = new URLSearchParams(searchParams);
+      sp.set("sedi", sedeId);
+      setSearchParams(sp, { replace: true });
+    }
+  }, [seeAllSedi, profile?.ufficio_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasActiveFilters =
     !!dateDa ||
@@ -247,8 +262,12 @@ const IncassiPage = () => {
     return q;
   };
 
-  const applySedeFilter = (q: any) =>
-    filtroUffici.length > 0 ? q.in("ufficio_id", filtroUffici) : q;
+  const applySedeFilter = (q: any) => {
+    if (!seeAllSedi && profile?.ufficio_id) {
+      return q.eq("ufficio_id", profile.ufficio_id);
+    }
+    return filtroUffici.length > 0 ? q.in("ufficio_id", filtroUffici) : q;
+  };
 
   /**
    * Pendenti: criteri vista cliente (attivo, senza messa a cassa, soglia 60gg).
@@ -535,11 +554,13 @@ const IncassiPage = () => {
   const pendingCount = pendingRinnovi?.length || 0;
 
   const { data: bonificiAperti = [], isFetching: bonificiLoading } = useQuery({
-    queryKey: ["incassi-bonifici-aperti", filtroUffici.join(",")],
-    queryFn: () =>
-      fetchBonificiApertiPerIncassi({
-        ufficioIds: filtroUffici.length > 0 ? filtroUffici : undefined,
-      }),
+    queryKey: ["incassi-bonifici-aperti", filtroUffici.join(","), seeAllSedi, profile?.ufficio_id],
+    queryFn: () => {
+      const ufficioIds = seeAllSedi
+        ? (filtroUffici.length > 0 ? filtroUffici : undefined)
+        : (profile?.ufficio_id ? [profile.ufficio_id] : undefined);
+      return fetchBonificiApertiPerIncassi({ ufficioIds });
+    },
     staleTime: 30_000,
   });
 
@@ -998,14 +1019,16 @@ const IncassiPage = () => {
               className="pl-9"
             />
           </div>
-          <UfficiFilterMultiSelect
-            value={filtroUffici}
-            onChange={(next) => {
-              setFiltroUffici(next);
-              setPage(0);
-              updateUrl({ sedi: next });
-            }}
-          />
+          {seeAllSedi && (
+            <UfficiFilterMultiSelect
+              value={filtroUffici}
+              onChange={(next) => {
+                setFiltroUffici(next);
+                setPage(0);
+                updateUrl({ sedi: next });
+              }}
+            />
+          )}
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground" title={isVistaIncassati ? "Data messa a cassa" : "Inizio garanzia"}>
               Dal

@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { shouldScopeClientiPerSede } from "@/lib/filterContiBancariPerSede";
 
 export interface PolizzaAggiunta {
   titoloId: string;
@@ -30,6 +32,10 @@ interface Props {
 }
 
 export function AggiungiPolizzaAltroClienteDialog({ open, onOpenChange, excludeTitoloIds, onConfirm }: Props) {
+  const { profile } = useAuth();
+  const scopeUfficioId = shouldScopeClientiPerSede(profile?.ruolo, profile?.ufficio_id)
+    ? profile!.ufficio_id!
+    : null;
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [clienti, setClienti] = useState<any[]>([]);
@@ -54,15 +60,17 @@ export function AggiungiPolizzaAltroClienteDialog({ open, onOpenChange, excludeT
     let cancel = false;
     (async () => {
       const q = debounced.trim();
-      const { data } = await supabase
+      let query = supabase
         .from("clienti")
         .select("id, ragione_sociale, nome, cognome, codice_fiscale, partita_iva")
         .or(`ragione_sociale.ilike.%${q}%,cognome.ilike.%${q}%,nome.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
         .limit(25);
+      if (scopeUfficioId) query = query.eq("ufficio_id", scopeUfficioId);
+      const { data } = await query;
       if (!cancel) setClienti(data ?? []);
     })();
     return () => { cancel = true; };
-  }, [debounced, open]);
+  }, [debounced, open, scopeUfficioId]);
 
   const clienteLabel = (c: any) => c.ragione_sociale || [c.cognome, c.nome].filter(Boolean).join(" ") || "—";
 

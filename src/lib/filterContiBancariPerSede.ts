@@ -9,9 +9,9 @@ export interface FilterContiBancariContext {
   ufficioId?: string | null;
 }
 
-/** Tutti gli utenti interni (non cliente/prospect) vedono tutti i conti attivi. */
+/** Solo admin/CFO vedono tutti i conti Consulbrokers; ufficio/contabilità filtrano per sede. */
 export const bypassesSedeFilterContiBancari = (ruolo?: string | null): boolean =>
-  !!ruolo && ruolo !== "cliente" && ruolo !== "prospect";
+  ruolo === "admin" || ruolo === "cfo";
 
 export const contoBancarioVisibilePerSede = (
   conto: ContoBancarioConSedi,
@@ -27,3 +27,13 @@ export const filterContiBancariPerSede = <T extends ContoBancarioConSedi>(
   conti: T[],
   ctx: FilterContiBancariContext,
 ): T[] => conti.filter((c) => contoBancarioVisibilePerSede(c, ctx));
+
+/**
+ * Utenti sede (ufficio/contabilità/…) con un solo ufficio_id:
+ * restringe pickers clienti alla propria sede. Admin/CFO non filtrati.
+ */
+export const shouldScopeClientiPerSede = (
+  ruolo?: string | null,
+  ufficioId?: string | null,
+): ufficioId is string =>
+  !bypassesSedeFilterContiBancari(ruolo) && !!ufficioId;

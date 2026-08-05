@@ -3,6 +3,7 @@ import {
   bypassesSedeFilterContiBancari,
   contoBancarioVisibilePerSede,
   filterContiBancariPerSede,
+  shouldScopeClientiPerSede,
 } from "../filterContiBancariPerSede";
 
 const conto = (id: string, tipo: string, ufficio_ids: string[]) => ({
@@ -44,5 +45,11 @@ describe("filterContiBancariPerSede", () => {
     expect(bypassesSedeFilterContiBancari("admin")).toBe(true);
     expect(bypassesSedeFilterContiBancari("cfo")).toBe(true);
     expect(bypassesSedeFilterContiBancari("ufficio")).toBe(false);
+  });
+
+  it("shouldScopeClientiPerSede per ufficio con sede", () => {
+    expect(shouldScopeClientiPerSede("ufficio", "sede-1")).toBe(true);
+    expect(shouldScopeClientiPerSede("admin", "sede-1")).toBe(false);
+    expect(shouldScopeClientiPerSede("ufficio", null)).toBe(false);
   });
 });
