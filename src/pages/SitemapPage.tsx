@@ -241,7 +241,7 @@ const sezioni = [
       { nome: "Import Provvigioni", desc: "Importazione file provvigioni da agenzie (PDF/Excel)", ruoli: ["admin", "ufficio"] },
       { nome: "Diff. Provvigioni", desc: "Analisi differenze tra provvigioni attese e ricevute", ruoli: ["admin", "ufficio"] },
       { nome: "Report IVA", desc: "Report IVA periodico per adempimenti fiscali", ruoli: ["admin", "ufficio", "contabilita"] },
-      { nome: "Caricamento Mov. Bancari", desc: "Import estratti conto; i movimenti aperti si collegano da Incassi", ruoli: ["admin", "cfo"] },
+      { nome: "Caricamento Mov. Bancari", desc: "Import estratti conto (sede solo sui propri conti); i movimenti aperti si collegano da Incassi", ruoli: ["admin", "cfo", "ufficio", "backoffice", "contabilita"] },
       { nome: "Bonifici e Mov. Bancari", desc: "Da ricongiungere → Ricongiunti → Importazioni → Storico importazioni", ruoli: ["admin", "cfo", "ufficio", "contabilita"] },
     ],
   },

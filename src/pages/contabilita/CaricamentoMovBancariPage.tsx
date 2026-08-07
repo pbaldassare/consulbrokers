@@ -41,6 +41,7 @@ import {
   detectColonneEstratto,
   labelMotivoScarto,
   countByMotivo,
+  fetchContoIdsForUfficio,
   type PreviewEstratto,
 } from "@/lib/movimentiBancari";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -100,18 +101,30 @@ type TabValue = (typeof TAB_VALUES)[number];
 const isTabValue = (v: string | null): v is TabValue =>
   !!v && (TAB_VALUES as readonly string[]).includes(v);
 
+const SEDE_IMPORT_RUOLI = ["ufficio", "backoffice", "contabilita"] as const;
+
 const Page = () => {
   const qc = useQueryClient();
   const { profile, isAdmin } = useAuth();
   const isCfo = profile?.ruolo === "cfo";
-  const canImport = isAdmin || isCfo;
   const seeAll = isAdmin || isCfo;
+  const canImport =
+    seeAll ||
+    (!!profile?.ruolo &&
+      (SEDE_IMPORT_RUOLI as readonly string[]).includes(profile.ruolo));
+  /** Monitor globale: solo admin/CFO */
+  const canMonitor = seeAll;
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const rawTab: TabValue = isTabValue(tabParam) ? tabParam : "da-ricongiungere";
-  const importTabs: TabValue[] = ["importazione", "storico-importazioni", "monitor"];
-  const tab: TabValue =
-    !canImport && importTabs.includes(rawTab) ? "da-ricongiungere" : rawTab;
+  const resolveTab = (t: TabValue): TabValue => {
+    if (t === "monitor" && !canMonitor) return canImport ? "importazione" : "da-ricongiungere";
+    if ((t === "importazione" || t === "storico-importazioni") && !canImport) {
+      return "da-ricongiungere";
+    }
+    return t;
+  };
+  const tab: TabValue = resolveTab(rawTab);
   const setTab = (v: string) => {
     const sp = new URLSearchParams(searchParams);
     sp.set("tab", v);
@@ -119,10 +132,8 @@ const Page = () => {
   };
 
   useEffect(() => {
-    if (!canImport && importTabs.includes(rawTab)) {
-      setTab("da-ricongiungere");
-    }
-  }, [canImport, rawTab]);
+    if (rawTab !== tab) setTab(tab);
+  }, [rawTab, tab]);
 
   const [importing, setImporting] = useState(false);
   const [lastReport, setLastReport] = useState<{
@@ -181,6 +192,13 @@ const Page = () => {
       const cols = preview.colonne;
       const { data: userResp } = await supabase.auth.getUser();
       const userId = userResp.user?.id ?? null;
+      if (!seeAll && profile?.ufficio_id) {
+        const contiSede = await fetchContoIdsForUfficio(profile.ufficio_id);
+        if (!contiSede.includes(contoImportId)) {
+          toast.error("Puoi importare solo sui conti bancari della tua sede");
+          return;
+        }
+      }
       const ufficioDaConto = await resolveUfficioFromConto(contoImportId);
 
       type Scarto = {
@@ -272,7 +290,7 @@ const Page = () => {
         setPreviewOpen(false);
         setPreview(null);
         qc.invalidateQueries({ queryKey: ["mov-bancari-carichi"] });
-        setTab("storico");
+        setTab("storico-importazioni");
         return;
       }
 
@@ -402,15 +420,26 @@ const Page = () => {
       qc.invalidateQueries({ queryKey: ["mov-bancari"] });
       qc.invalidateQueries({ queryKey: ["mov-bancari-carichi"] });
       qc.invalidateQueries({ queryKey: ["ordinanti-suggeriti"] });
-      setTab("storico");
+      setTab("storico-importazioni");
     } catch (e: any) {
       toast.error(`Errore import: ${e.message ?? e}`);
     } finally {
       setImporting(false);
     }
-  }, [preview, contoImportId, qc]);
+  }, [preview, contoImportId, qc, seeAll, profile?.ufficio_id]);
 
   const handleManualInsert = async (payload: ManualInsertPayload) => {
+    if (!seeAll && profile?.ufficio_id) {
+      if (!payload.conto_bancario_id) {
+        toast.error("Seleziona un conto bancario della tua sede");
+        throw new Error("conto obbligatorio");
+      }
+      const contiSede = await fetchContoIdsForUfficio(profile.ufficio_id);
+      if (!contiSede.includes(payload.conto_bancario_id)) {
+        toast.error("Puoi inserire solo sui conti bancari della tua sede");
+        throw new Error("conto fuori sede");
+      }
+    }
     const { data: userResp } = await supabase.auth.getUser();
     const ufficioDaConto = payload.conto_bancario_id
       ? await resolveUfficioFromConto(payload.conto_bancario_id)
@@ -473,7 +502,9 @@ const Page = () => {
                 <>
                   <TabsTrigger value="importazione">Importazioni</TabsTrigger>
                   <TabsTrigger value="storico-importazioni">Storico importazioni</TabsTrigger>
-                  <TabsTrigger value="monitor">Monitor Real-time</TabsTrigger>
+                  {canMonitor && (
+                    <TabsTrigger value="monitor">Monitor Real-time</TabsTrigger>
+                  )}
                 </>
               )}
             </TabsList>
@@ -569,9 +600,11 @@ const Page = () => {
                 <StoricoCarichiMovimenti />
               </TabsContent>
 
-              <TabsContent value="monitor">
-                <MonitorTab />
-              </TabsContent>
+              {canMonitor && (
+                <TabsContent value="monitor">
+                  <MonitorTab />
+                </TabsContent>
+              )}
             </>
           )}
         </Tabs>
