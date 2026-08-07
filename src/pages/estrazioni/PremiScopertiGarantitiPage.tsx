@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -15,66 +15,142 @@ import { buildEstrazionePdf, downloadEstrazionePdf } from "@/lib/estrazioni/expo
 import { aggregatePivot } from "@/lib/estrazioni/pivot";
 import { periodoLabel } from "@/lib/estrazioni/utils";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
+import {
+  type ClassificazioneFilter,
+  type CriterioDataFilter,
+  type MoraStatusFilter,
+  type PremiScopertiRaw,
+  type PremiScopertiRow,
+  fmtDateIt,
+  inDateRange,
+  isApertoDaIncassare,
+  mapPremiScopertiRow,
+} from "@/lib/premiScopertiGarantiti";
+
+const SELECT = `
+  id, numero_titolo, stato, premio_lordo, importo_incassato, ufficio_id, compagnia_id,
+  garanzia_da, garanzia_a, limite_mora, mora_giorni, tipo_portafoglio, prodotto_nome,
+  data_messa_cassa, data_copertura, conferimento_gestito,
+  sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione,
+  clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale),
+  compagnia_diretta:compagnie!titoli_compagnia_id_fkey(
+    id, nome, codice, gruppo_compagnia, gruppo_compagnia_id,
+    gruppi_compagnia:gruppo_compagnia_id(descrizione)
+  ),
+  compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(
+    id, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione, codice)
+  ),
+  ramo:rami!titoli_ramo_id_fkey(
+    id, codice, descrizione,
+    gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)
+  ),
+  uffici(nome_ufficio)
+`;
 
 const PremiScopertiGarantitiPage = () => {
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<EstrazioniFiltersState>({ ...defaultFilters });
-  const [filtroTipo, setFiltroTipo] = useState<string>("tutti");
+  const { isAdmin, profile, loading: authLoading } = useAuth();
+  const isCfo = profile?.ruolo === "cfo";
+  const seeAllSedi = isAdmin || isCfo;
+  const lockUfficioId = !seeAllSedi && profile?.ufficio_id ? profile.ufficio_id : null;
+  const authReady = !authLoading && !!profile;
+
+  const [filters, setFilters] = useState<EstrazioniFiltersState>(() => ({
+    ...defaultFilters,
+    ufficio_id: lockUfficioId,
+  }));
+  const [filtroTipo, setFiltroTipo] = useState<ClassificazioneFilter>("tutti");
+  const [filtroMora, setFiltroMora] = useState<MoraStatusFilter>("tutti");
+  const [criterioData, setCriterioData] = useState<CriterioDataFilter>("smart");
   const [exportingPdf, setExportingPdf] = useState(false);
   const periodo = periodoLabel(filters.dateFrom, filters.dateTo);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["premi-scoperti-garantiti", filters],
+  useEffect(() => {
+    if (!lockUfficioId) return;
+    setFilters((prev) => (prev.ufficio_id === lockUfficioId ? prev : { ...prev, ufficio_id: lockUfficioId }));
+  }, [lockUfficioId]);
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: [
+      "premi-scoperti-garantiti",
+      filters.ufficio_id,
+      filters.compagnia_id,
+      filters.dateFrom?.toISOString(),
+      filters.dateTo?.toISOString(),
+      criterioData,
+      seeAllSedi,
+      lockUfficioId,
+    ],
+    enabled: authReady && (seeAllSedi || !!lockUfficioId),
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select(`
-          id, numero_titolo, stato, premio_lordo, importo_incassato, ufficio_id, data_incasso,
-          clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale),
-          prodotti!inner(nome_prodotto, compagnia_id, compagnie!inner(nome))
-        `);
+        .select(SELECT)
+        .is("data_messa_cassa", null)
+        .in("stato", ["attivo", "sospeso"])
+        .limit(5000);
 
-      if (filters.dateFrom) query = query.gte("data_incasso", format(filters.dateFrom, "yyyy-MM-dd"));
-      if (filters.dateTo) query = query.lte("data_incasso", format(filters.dateTo, "yyyy-MM-dd"));
-      if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
+      const ufficioId = lockUfficioId || filters.ufficio_id;
+      if (ufficioId) query = query.eq("ufficio_id", ufficioId);
+      if (filters.compagnia_id) query = query.eq("compagnia_id", filters.compagnia_id);
 
-      const { data: titoli, error } = await query;
+      const { data: titoli, error } = await query
+        .order("ufficio_id", { ascending: true })
+        .order("limite_mora", { ascending: true, nullsFirst: false });
       if (error) throw error;
 
-      let results = (titoli || []).map((t: any) => ({
-        ...t,
-        classificazione: t.stato === "incassato" ? "garantito" : "scoperto",
-        compagnia: t.prodotti?.compagnie?.nome || "—",
-        cliente: t.clienti?.ragione_sociale || `${t.clienti?.cognome || ""} ${t.clienti?.nome || ""}`.trim() || "—",
-      }));
-
-      if (filters.compagnia_id) {
-        results = results.filter((t: any) => t.prodotti?.compagnia_id === filters.compagnia_id);
-      }
-      return results;
+      return ((titoli || []) as PremiScopertiRaw[])
+        .filter(isApertoDaIncassare)
+        .map((t) => mapPremiScopertiRow(t, criterioData))
+        .filter((r) => inDateRange(r.dateKey, filters.dateFrom, filters.dateTo))
+        .sort((a, b) => {
+          const sedeCmp = a.sede.localeCompare(b.sede, "it");
+          if (sedeCmp !== 0) return sedeCmp;
+          const moraCmp = (a.limiteMora || "9999").localeCompare(b.limiteMora || "9999");
+          if (moraCmp !== 0) return moraCmp;
+          return a.cliente.localeCompare(b.cliente, "it");
+        });
     },
   });
 
-  const filtered = (data || []).filter((t: any) => {
-    if (filtroTipo === "scoperti") return t.classificazione === "scoperto";
-    if (filtroTipo === "garantiti") return t.classificazione === "garantito";
-    return true;
-  });
+  const filtered = useMemo(() => {
+    return rows.filter((t) => {
+      if (filtroTipo === "scoperti" && t.classificazione !== "scoperto") return false;
+      if (filtroTipo === "garantiti" && t.classificazione !== "garantito") return false;
+      if (filtroMora !== "tutti" && t.moraStatus !== filtroMora) return false;
+      return true;
+    });
+  }, [rows, filtroTipo, filtroMora]);
 
-  const garantiti = filtered.filter((t: any) => t.classificazione === "garantito");
-  const scoperti = filtered.filter((t: any) => t.classificazione === "scoperto");
-  const totGarantiti = garantiti.reduce((s: number, t: any) => s + (Number(t.importo_incassato) || 0), 0);
-  const totScoperti = scoperti.reduce((s: number, t: any) => s + (Number(t.premio_lordo) || 0), 0);
+  const garantiti = filtered.filter((t) => t.classificazione === "garantito");
+  const scoperti = filtered.filter((t) => t.classificazione === "scoperto");
+  const totGarantiti = garantiti.reduce((s, t) => s + t.premioLordo, 0);
+  const totScoperti = scoperti.reduce((s, t) => s + t.premioLordo, 0);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
-  const pivotCompagnia = useMemo(
+  const pivotSede = useMemo(
     () =>
       aggregatePivot(
         filtered,
-        (t: any) => String(t.compagnia),
-        (t: any) => ({
-          premio: Number(t.premio_lordo) || 0,
-          incassato: t.classificazione === "garantito" ? Number(t.importo_incassato) || 0 : 0,
+        (t: PremiScopertiRow) => t.sede,
+        (t: PremiScopertiRow) => ({
+          premio: t.premioLordo,
+          incassato: t.classificazione === "garantito" ? t.premioLordo : 0,
+        }),
+      ),
+    [filtered],
+  );
+
+  const pivotAgenzia = useMemo(
+    () =>
+      aggregatePivot(
+        filtered,
+        (t: PremiScopertiRow) => t.agenzia,
+        (t: PremiScopertiRow) => ({
+          premio: t.premioLordo,
+          incassato: t.classificazione === "garantito" ? t.premioLordo : 0,
         }),
       ),
     [filtered],
@@ -84,11 +160,8 @@ const PremiScopertiGarantitiPage = () => {
     () =>
       aggregatePivot(
         filtered,
-        (t: any) => (t.classificazione === "garantito" ? "Garantito" : "Scoperto"),
-        (t: any) => ({
-          premio: Number(t.premio_lordo) || 0,
-          incassato: Number(t.importo_incassato) || 0,
-        }),
+        (t: PremiScopertiRow) => (t.classificazione === "garantito" ? "Garantito" : "Scoperto"),
+        (t: PremiScopertiRow) => ({ premio: t.premioLordo, incassato: 0 }),
       ),
     [filtered],
   );
@@ -96,10 +169,11 @@ const PremiScopertiGarantitiPage = () => {
   const commentary = useMemo(() => {
     if (!filtered.length) return `Nessun dato nel periodo ${periodo}.`;
     return [
-      `Premi scoperti e garantiti — periodo ${periodo}.`,
+      `Premi scoperti e garantiti — periodo ${periodo} (criterio data: ${criterioDataLabel(criterioData)}).`,
       `${garantiti.length} garantiti (${fmt(totGarantiti)}), ${scoperti.length} scoperti (${fmt(totScoperti)}).`,
+      `Organizzati per sede (${new Set(filtered.map((r) => r.sede)).size} sedi).`,
     ].join("\n");
-  }, [filtered, periodo, garantiti.length, scoperti.length, totGarantiti, totScoperti, fmt]);
+  }, [filtered, periodo, garantiti.length, scoperti.length, totGarantiti, totScoperti, criterioData]);
 
   const exportExcel = () => {
     exportEstrazioneWorkbook({
@@ -112,20 +186,33 @@ const PremiScopertiGarantitiPage = () => {
         ["Totale garantito (€)", Number(totGarantiti.toFixed(2))],
         ["Totale scoperto (€)", Number(totScoperti.toFixed(2))],
       ],
+      filtri: {
+        Periodo: periodo,
+        "Criterio data": criterioDataLabel(criterioData),
+        Classificazione: filtroTipo === "tutti" ? "Tutti" : filtroTipo === "scoperti" ? "Solo scoperti" : "Solo garantiti",
+        "Limite mora": moraFilterLabel(filtroMora),
+        Sede: lockUfficioId ? "Sede profilo" : filters.ufficio_id || "Tutte",
+      },
       commentary,
       dettaglio: {
         name: "Dettaglio",
-        rows: filtered.map((t: any) => ({
-          "N. Polizza": t.numero_titolo,
+        rows: filtered.map((t) => ({
+          Sede: t.sede,
           Cliente: t.cliente,
-          Agenzia: t.compagnia,
-          "Premio Lordo (€)": Number(t.premio_lordo) || 0,
-          Stato: t.stato,
-          Classificazione: t.classificazione,
+          Agenzia: t.agenzia,
+          Ramo: t.ramo,
+          Garanzia: t.garanzia,
+          "N. Polizza": t.numeroTitolo,
+          "Importo (€)": Number(t.premioLordo.toFixed(2)),
+          "Scadenza garanzia": t.garanziaA || "",
+          "Limite mora": t.limiteMora || "",
+          "Tipo documento": t.tipoDocumento,
+          Classificazione: t.classificazione === "garantito" ? "Garantito" : "Scoperto",
         })),
       },
       pivots: [
-        { dimensione: "Compagnia", rows: pivotCompagnia },
+        { dimensione: "Sede", rows: pivotSede },
+        { dimensione: "Agenzia", rows: pivotAgenzia },
         { dimensione: "Classificazione", rows: pivotClassificazione },
       ],
       fileName: `premi_scoperti_garantiti_${format(new Date(), "yyyyMMdd")}.xlsx`,
@@ -147,7 +234,8 @@ const PremiScopertiGarantitiPage = () => {
         ],
         commentary,
         pivotTables: [
-          { title: "Pivot per Compagnia", rows: pivotCompagnia },
+          { title: "Pivot per Sede", rows: pivotSede },
+          { title: "Pivot per Agenzia", rows: pivotAgenzia },
           { title: "Pivot per Classificazione", rows: pivotClassificazione },
         ],
       });
@@ -179,7 +267,9 @@ const PremiScopertiGarantitiPage = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Premi Scoperti e Garantiti</h1>
-            <p className="text-sm text-muted-foreground">Analisi premi in base allo stato di incasso — Excel pivot e PDF</p>
+            <p className="text-sm text-muted-foreground">
+              Titoli aperti (non a cassa): scoperti vs copertura garantita — Excel pivot e PDF
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -208,12 +298,18 @@ const PremiScopertiGarantitiPage = () => {
         ))}
       </div>
 
-      <EstrazioniFilters filters={filters} onChange={setFilters} showUfficio showCompagnia />
+      <EstrazioniFilters
+        filters={filters}
+        onChange={setFilters}
+        showUfficio
+        showCompagnia
+        lockUfficioId={lockUfficioId}
+      />
 
-      <div className="flex items-center gap-3">
-        <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as ClassificazioneFilter)}>
           <SelectTrigger className="w-48">
-            <SelectValue />
+            <SelectValue placeholder="Classificazione" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="tutti">Tutti</SelectItem>
@@ -221,39 +317,88 @@ const PremiScopertiGarantitiPage = () => {
             <SelectItem value="garantiti">Solo garantiti</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select value={filtroMora} onValueChange={(v) => setFiltroMora(v as MoraStatusFilter)}>
+          <SelectTrigger className="w-52">
+            <SelectValue placeholder="Limite mora" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutti">Limite mora: tutti</SelectItem>
+            <SelectItem value="scaduti">Mora scaduta</SelectItem>
+            <SelectItem value="in_corso">Mora in corso</SelectItem>
+            <SelectItem value="senza_limite">Senza limite mora</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={criterioData} onValueChange={(v) => setCriterioData(v as CriterioDataFilter)}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Criterio data" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="smart">Data: limite mora (o garanzia)</SelectItem>
+            <SelectItem value="limite_mora">Data: solo limite mora</SelectItem>
+            <SelectItem value="garanzia_a">Data: fine garanzia</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="border rounded-lg">
+      <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>N. Polizza</TableHead>
+              <TableHead>Sede</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Agenzia</TableHead>
-              <TableHead className="text-right">Premio Lordo</TableHead>
-              <TableHead>Stato</TableHead>
+              <TableHead>Ramo</TableHead>
+              <TableHead>Garanzia</TableHead>
+              <TableHead>N. Polizza</TableHead>
+              <TableHead className="text-right">Importo</TableHead>
+              <TableHead>Scad. garanzia</TableHead>
+              <TableHead>Limite mora</TableHead>
+              <TableHead>Tipo doc.</TableHead>
               <TableHead>Classificazione</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nessun dato</TableCell></TableRow>
-            ) : filtered.map((t: any) => (
-              <TableRow key={t.id}>
-                <TableCell className="font-mono text-sm">{t.numero_titolo}</TableCell>
-                <TableCell>{t.cliente}</TableCell>
-                <TableCell>{t.compagnia}</TableCell>
-                <TableCell className="text-right">{fmt(Number(t.premio_lordo) || 0)}</TableCell>
-                <TableCell><Badge variant="outline">{t.stato}</Badge></TableCell>
-                <TableCell>
-                  <Badge variant={t.classificazione === "garantito" ? "default" : "destructive"}>
-                    {t.classificazione === "garantito" ? "Garantito" : "Scoperto"}
-                  </Badge>
+              <TableRow>
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  Caricamento...
                 </TableCell>
               </TableRow>
-            ))}
+            ) : filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  Nessun dato
+                </TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((t) => (
+                <TableRow key={t.id}>
+                  <TableCell className="text-sm whitespace-nowrap">{t.sede}</TableCell>
+                  <TableCell>{t.cliente}</TableCell>
+                  <TableCell>{t.agenzia}</TableCell>
+                  <TableCell className="text-sm">{t.ramo}</TableCell>
+                  <TableCell className="text-sm">{t.garanzia}</TableCell>
+                  <TableCell className="font-mono text-sm">{t.numeroTitolo}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">{fmt(t.premioLordo)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{fmtDateIt(t.garanziaA)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <span className={cn(t.moraStatus === "scaduto" && "text-destructive font-medium")}>
+                      {fmtDateIt(t.limiteMora)}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{t.tipoDocumento}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={t.classificazione === "garantito" ? "default" : "destructive"}>
+                      {t.classificazione === "garantito" ? "Garantito" : "Scoperto"}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -261,8 +406,17 @@ const PremiScopertiGarantitiPage = () => {
   );
 };
 
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
+function criterioDataLabel(c: CriterioDataFilter): string {
+  if (c === "limite_mora") return "Limite mora";
+  if (c === "garanzia_a") return "Fine garanzia";
+  return "Limite mora (fallback garanzia)";
+}
+
+function moraFilterLabel(m: MoraStatusFilter): string {
+  if (m === "scaduti") return "Mora scaduta";
+  if (m === "in_corso") return "Mora in corso";
+  if (m === "senza_limite") return "Senza limite mora";
+  return "Tutti";
 }
 
 export default PremiScopertiGarantitiPage;

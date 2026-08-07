@@ -28,6 +28,8 @@ interface EstrazioniFiltersProps {
   showProduttore?: boolean;
   showCompagnia?: boolean;
   showCliente?: boolean;
+  /** Se valorizzato, forza la sede e nasconde "Tutte le sedi" (utenti sede). */
+  lockUfficioId?: string | null;
 }
 
 export const defaultFilters: EstrazioniFiltersState = {
@@ -136,7 +138,9 @@ const EstrazioniFilters = ({
   showProduttore = false,
   showCompagnia = false,
   showCliente = false,
+  lockUfficioId = null,
 }: EstrazioniFiltersProps) => {
+  const ufficioLocked = !!lockUfficioId;
   const { data: uffici } = useQuery({
     queryKey: ["uffici-filter"],
     queryFn: async () => {
@@ -183,7 +187,23 @@ const EstrazioniFilters = ({
   };
 
   const isCustom = filters.period === "custom";
-  const hasFilters = filters.period !== "all" || filters.ufficio_id || filters.produttore_id || filters.compagnia_id || filters.cliente_id;
+  const hasFilters =
+    filters.period !== "all" ||
+    (!ufficioLocked && filters.ufficio_id) ||
+    filters.produttore_id ||
+    filters.compagnia_id ||
+    filters.cliente_id;
+
+  const handleReset = () => {
+    onChange({
+      ...defaultFilters,
+      ufficio_id: ufficioLocked ? lockUfficioId : null,
+    });
+  };
+
+  const ufficiOptions = (uffici || [])
+    .filter((u) => !ufficioLocked || u.id === lockUfficioId)
+    .map((u) => ({ value: u.id, label: u.nome_ufficio }));
 
   return (
     <div className="bg-muted/30 border rounded-lg p-4 space-y-3">
@@ -191,7 +211,7 @@ const EstrazioniFilters = ({
         <Filter className="h-4 w-4" />
         <span>Filtri</span>
         {hasFilters && (
-          <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => onChange({ ...defaultFilters })}>
+          <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={handleReset}>
             <RotateCcw className="h-3 w-3 mr-1" /> Azzera
           </Button>
         )}
@@ -243,14 +263,27 @@ const EstrazioniFilters = ({
 
         {/* Ufficio */}
         {showUfficio && (
-          <SearchableSelect
-            value={filters.ufficio_id}
-            onValueChange={(v) => onChange({ ...filters, ufficio_id: v })}
-            options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))}
-            placeholder="Sede"
-            allLabel="Tutte le sedi"
-            className="w-[200px]"
-          />
+          ufficioLocked ? (
+            <Button
+              variant="outline"
+              disabled
+              className="w-[200px] justify-between bg-background font-normal opacity-100"
+              title="Sede bloccata sul tuo profilo"
+            >
+              <span className="truncate">
+                {ufficiOptions.find((o) => o.value === lockUfficioId)?.label || "La tua sede"}
+              </span>
+            </Button>
+          ) : (
+            <SearchableSelect
+              value={filters.ufficio_id}
+              onValueChange={(v) => onChange({ ...filters, ufficio_id: v })}
+              options={ufficiOptions}
+              placeholder="Sede"
+              allLabel="Tutte le sedi"
+              className="w-[200px]"
+            />
+          )
         )}
 
         {/* Produttore */}

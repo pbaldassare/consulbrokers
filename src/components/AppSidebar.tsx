@@ -152,7 +152,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Gestione Polizze", path: "/portafoglio/gestione", icon: Wand2 },
         { label: "Rettifica Provvigioni", path: "/portafoglio/rettifica-provvigioni", icon: Percent, hideForRoles: ["manager", "produttore", "corrispondente", "backoffice", "cliente", "prospect", "executive"] },
         
-        { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer, hideForRoles: ["ufficio"] },
+        { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer },
       ],
     },
   },

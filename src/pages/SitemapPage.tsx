@@ -249,12 +249,12 @@ const sezioni = [
     area: "Estrazioni & Stampe",
     icon: Package,
     pagine: [
-      { nome: "Estrazioni e Stampe", desc: "Hub centrale per report e stampe personalizzate", ruoli: ["admin", "ufficio"] },
-      { nome: "Portafoglio per Cliente", desc: "Estrazione portafoglio raggruppato per cliente", ruoli: ["admin", "ufficio"] },
-      { nome: "Portafoglio per Agenzia", desc: "Estrazione portafoglio raggruppato per agenzia", ruoli: ["admin", "ufficio"] },
-      { nome: "Premi e Provvigioni", desc: "Report premi e provvigioni con filtri temporali e per agenzia", ruoli: ["admin", "ufficio"] },
-      { nome: "Premi Scoperti/Garantiti", desc: "Analisi premi scoperti vs garantiti per valutazione rischio", ruoli: ["admin", "ufficio"] },
-      { nome: "E/C Clienti (Estrazioni)", desc: "Estratti conto clienti in formato esportabile", ruoli: ["admin", "ufficio"] },
+      { nome: "Estrazioni e Stampe", desc: "Hub centrale per report e stampe personalizzate (visibile alle sedi; dati filtrati per sede)", ruoli: ["admin", "cfo", "ufficio"] },
+      { nome: "Portafoglio per Cliente", desc: "Estrazione portafoglio raggruppato per cliente", ruoli: ["admin", "cfo", "ufficio"] },
+      { nome: "Portafoglio per Agenzia", desc: "Estrazione portafoglio raggruppato per agenzia", ruoli: ["admin", "cfo", "ufficio"] },
+      { nome: "Premi e Provvigioni", desc: "Report premi e provvigioni con filtri temporali e per agenzia", ruoli: ["admin", "cfo", "ufficio"] },
+      { nome: "Premi Scoperti/Garantiti", desc: "Analisi premi scoperti vs garantiti (limite mora, per sede)", ruoli: ["admin", "cfo", "ufficio"] },
+      { nome: "E/C Clienti (Estrazioni)", desc: "Estratti conto clienti in formato esportabile", ruoli: ["admin", "cfo", "ufficio"] },
     ],
   },
   {

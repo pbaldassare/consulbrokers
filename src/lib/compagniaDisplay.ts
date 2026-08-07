@@ -18,15 +18,24 @@ type TitoloCompagniaLike = {
   prodotti?: { compagnie?: { nome?: string | null } | null } | null;
 };
 
+function isPlaceholderGruppo(value: string | null | undefined): boolean {
+  const v = (value || "").trim();
+  return !v || v.toLowerCase() === "da definire";
+}
+
 /** Compagnia assicurativa (gruppo): da rapporto se presente, altrimenti da agenzia. */
 export function labelCompagniaAssicurativa(t: TitoloCompagniaLike | null | undefined): string {
   if (!t) return "";
-  return (
-    t.compagnia_rapporto?.gruppi_compagnia?.descrizione ||
-    t.compagnia_diretta?.gruppi_compagnia?.descrizione ||
-    t.compagnia_diretta?.gruppo_compagnia ||
-    ""
-  ).trim();
+  const fromRapporto = (t.compagnia_rapporto?.gruppi_compagnia?.descrizione || "").trim();
+  if (!isPlaceholderGruppo(fromRapporto)) return fromRapporto;
+
+  const fromAgenziaFk = (t.compagnia_diretta?.gruppi_compagnia?.descrizione || "").trim();
+  if (!isPlaceholderGruppo(fromAgenziaFk)) return fromAgenziaFk;
+
+  const fromAgenziaText = (t.compagnia_diretta?.gruppo_compagnia || "").trim();
+  if (!isPlaceholderGruppo(fromAgenziaText)) return fromAgenziaText;
+
+  return "";
 }
 
 /** Agenzia / broker di riferimento (anagrafica compagnie). */
