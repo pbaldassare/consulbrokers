@@ -2,7 +2,7 @@
 // Usato dalla UI di Immissione Polizza per editare le rate prima del salvataggio,
 // e dai test di regressione.
 
-import { frazionamentoMesi, type Frazionamento } from "./frazionamento";
+import { frazionamentoMesi, isPremioUnicoAnticipato, type Frazionamento } from "./frazionamento";
 
 export type QuietanzaPlanRow = {
   idx: number; // 1-based: 1 = rata alla firma, 2..N = rate successive
@@ -48,6 +48,8 @@ function iso(d: Date): string {
 export function mesiRataFromFrazionamento(frazionamento: string): number {
   const f = frazionamento.toLowerCase();
   if (f === "poliennale") return 12;
+  // Non è un frazionamento a slot: non usare in rateo / piani standard.
+  if (isPremioUnicoAnticipato(f)) return 0;
   return frazionamentoMesi(f.charAt(0).toUpperCase() + f.slice(1), 1);
 }
 
@@ -143,6 +145,22 @@ export function computeQuietanzePlan(input: QuietanzaPlanInput): QuietanzaPlanRo
     const mesiRata = mesiRataFromFrazionamento(f);
     if (mesiRata <= 0 || mesiRata > 12) return [];
     return computeRateoPlan(garDa, garA, durA, mesiRata);
+  }
+
+  // Premio unico anticipato: esattamente 2 quietanze sullo stesso periodo intero (Q1 copertura + Q2 tecnica).
+  if (isPremioUnicoAnticipato(f)) {
+    const periodDa = toDate(input.durataDa) ?? garDa;
+    const periodA = toDate(input.durataA) ?? garA;
+    const competenza = toDate(input.dataCompetenza);
+    const row = {
+      garanzia_da: iso(periodDa),
+      garanzia_a: iso(periodA),
+      data_competenza: competenza ? iso(competenza) : iso(periodDa),
+    };
+    return [
+      { idx: 1, ...row },
+      { idx: 2, ...row },
+    ];
   }
 
   const anni = Math.max(1, Number(input.anniDurata) || 1);

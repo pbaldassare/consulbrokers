@@ -8,11 +8,21 @@ export const FRAZIONAMENTI = [
   { value: "Semestrale", label: "Semestrale" },
   { value: "Annuale", label: "Annuale" },
   { value: "Poliennale", label: "Poliennale" },
+  { value: "Premio unico anticipato", label: "Premio unico anticipato" },
 ] as const;
 
 export type Frazionamento = typeof FRAZIONAMENTI[number]["value"];
 
+/** True se il frazionamento è Premio unico anticipato (2 quietanze sullo stesso periodo intero). */
+export function isPremioUnicoAnticipato(f: string | null | undefined): boolean {
+  return String(f || "").trim().toLowerCase() === "premio unico anticipato";
+}
+
 export function frazionamentoMesi(f: string, anni: number): number {
+  if (isPremioUnicoAnticipato(f)) {
+    // Durata intera del contratto (come Poliennale): le quietanze coprono tutto il periodo.
+    return Math.max(1, anni) * 12;
+  }
   switch (f) {
     case "Mensile": return 1;
     case "Trimestrale": return 3;
@@ -25,6 +35,7 @@ export function frazionamentoMesi(f: string, anni: number): number {
 }
 
 export function frazionamentoToRate(f: string, anni: number): number {
+  if (isPremioUnicoAnticipato(f)) return 2; // Q1 copertura + Q2 tecnica
   if (f === "Poliennale") return 1;
   const m = frazionamentoMesi(f, anni);
   return Math.max(1, Math.round(12 / m));
@@ -33,6 +44,7 @@ export function frazionamentoToRate(f: string, anni: number): number {
 /**
  * Premio (o provvigione) di annualità a partire dalla rata/firma.
  * Es. Semestrale 109.000 → 218.000; Annuale → invariato.
+ * Premio unico anticipato: rata × 2 (due quietanze stesso importo).
  */
 export function importoAnnualitaDaRata(
   importoRata: number | null | undefined,
@@ -53,7 +65,7 @@ export function derivaFrazionamentoDaRate(
     case 12: return "Mensile";
     case 4: return "Trimestrale";
     case 3: return "Quadrimestrale";
-    case 2: return "Semestrale";
+    case 2: return "Semestrale"; // rate=2 resta Semestrale (legacy); Premio unico anticipato solo via testo
     case 1: return "Annuale";
     default: return "Annuale";
   }

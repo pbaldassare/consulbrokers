@@ -170,4 +170,49 @@ describe("computeQuietanzePlan", () => {
     });
     expect(plan).toHaveLength(1);
   });
+
+  it("Premio unico anticipato → esattamente 2 quietanze sullo stesso periodo intero", () => {
+    const plan = computeQuietanzePlan({
+      frazionamento: "Premio unico anticipato",
+      anniDurata: 2,
+      garanziaDa: "2026-03-01",
+      garanziaA: "2026-09-01",
+      durataDa: "2026-03-01",
+      durataA: "2028-03-01",
+      dataCompetenza: "2026-03-15",
+    });
+    expect(plan).toHaveLength(2);
+    expect(plan[0]).toEqual({
+      idx: 1,
+      garanzia_da: "2026-03-01",
+      garanzia_a: "2028-03-01",
+      data_competenza: "2026-03-15",
+    });
+    expect(plan[1]).toEqual({
+      idx: 2,
+      garanzia_da: "2026-03-01",
+      garanzia_a: "2028-03-01",
+      data_competenza: "2026-03-15",
+    });
+    expect(computeQuietanzeOnly({
+      frazionamento: "Premio unico anticipato",
+      garanziaDa: "2026-03-01",
+      garanziaA: "2028-03-01",
+      durataDa: "2026-03-01",
+      durataA: "2028-03-01",
+    })).toHaveLength(1);
+  });
+
+  it("Premio unico anticipato senza durata → usa garanzia_da/a", () => {
+    const plan = computeQuietanzePlan({
+      frazionamento: "Premio unico anticipato",
+      garanziaDa: "2026-01-01",
+      garanziaA: "2027-06-30",
+    });
+    expect(plan).toHaveLength(2);
+    expect(plan[0].garanzia_da).toBe("2026-01-01");
+    expect(plan[0].garanzia_a).toBe("2027-06-30");
+    expect(plan[1].garanzia_da).toBe(plan[0].garanzia_da);
+    expect(plan[1].garanzia_a).toBe(plan[0].garanzia_a);
+  });
 });

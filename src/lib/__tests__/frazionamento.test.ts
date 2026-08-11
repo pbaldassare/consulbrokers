@@ -4,7 +4,23 @@ import {
   frazionamentoToRate,
   derivaFrazionamentoDaRate,
   importoAnnualitaDaRata,
+  isPremioUnicoAnticipato,
+  FRAZIONAMENTI,
 } from "../frazionamento";
+
+describe("FRAZIONAMENTI", () => {
+  it("include Premio unico anticipato come ultima voce", () => {
+    expect(FRAZIONAMENTI[FRAZIONAMENTI.length - 1].value).toBe("Premio unico anticipato");
+  });
+});
+
+describe("isPremioUnicoAnticipato", () => {
+  it("riconosce il valore (case-insensitive)", () => {
+    expect(isPremioUnicoAnticipato("Premio unico anticipato")).toBe(true);
+    expect(isPremioUnicoAnticipato("premio unico anticipato")).toBe(true);
+    expect(isPremioUnicoAnticipato("Annuale")).toBe(false);
+  });
+});
 
 describe("frazionamentoMesi", () => {
   it("restituisce i mesi corretti per ogni frazionamento", () => {
@@ -14,6 +30,11 @@ describe("frazionamentoMesi", () => {
     expect(frazionamentoMesi("Semestrale", 1)).toBe(6);
     expect(frazionamentoMesi("Annuale", 1)).toBe(12);
     expect(frazionamentoMesi("Poliennale", 3)).toBe(36);
+  });
+
+  it("Premio unico anticipato = durata intera in mesi", () => {
+    expect(frazionamentoMesi("Premio unico anticipato", 1)).toBe(12);
+    expect(frazionamentoMesi("Premio unico anticipato", 3)).toBe(36);
   });
 
   it("Poliennale con anni < 1 usa almeno 12 mesi", () => {
@@ -36,6 +57,11 @@ describe("frazionamentoToRate", () => {
 
   it("Poliennale ha sempre 1 rata indipendentemente dagli anni", () => {
     expect(frazionamentoToRate("Poliennale", 5)).toBe(1);
+  });
+
+  it("Premio unico anticipato → 2 rate (copertura + tecnica)", () => {
+    expect(frazionamentoToRate("Premio unico anticipato", 1)).toBe(2);
+    expect(frazionamentoToRate("Premio unico anticipato", 5)).toBe(2);
   });
 });
 
@@ -69,6 +95,10 @@ describe("importoAnnualitaDaRata", () => {
 
   it("Trimestrale → rata × 4", () => {
     expect(importoAnnualitaDaRata(1000, "Trimestrale")).toBe(4000);
+  });
+
+  it("Premio unico anticipato → rata × 2", () => {
+    expect(importoAnnualitaDaRata(10000, "Premio unico anticipato")).toBe(20000);
   });
 
   it("importo nullo → 0", () => {

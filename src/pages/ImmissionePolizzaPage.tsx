@@ -66,6 +66,12 @@ import { isGeneratedCigTemporaneo, isValidCigWithFlag, normalizeCig } from "@/li
 import { FieldHint } from "@/components/ui/field-hint";
 import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPersistence";
 import { computeQuietanzePlan } from "@/lib/quietanzePlan";
+import {
+  FRAZIONAMENTI,
+  frazionamentoMesi,
+  frazionamentoToRate,
+  isPremioUnicoAnticipato,
+} from "@/lib/frazionamento";
 import { resizeRegolazioneDatePresunte } from "@/lib/regolazioneDatePresunte";
 import {
   buildRegolazioneFattoriRows,
@@ -1429,17 +1435,19 @@ const ImmissionePolizzaPage = () => {
   const totFirma = premioNettoNum + accessoriFirmaNum + tasseNum + ssnFirmaNum;
   const totQuietanza = premioNettoQNum + accessoriQuietanzaNum + tasseQNum + ssnQuietanzaNum;
 
-  const quietanzePlanPreview = polizzaRateo && !polizzaTemporanea
-    ? computeQuietanzePlan({
-        polizzaRateo: true,
-        frazionamento,
-        anniDurata: parseInt(anniDurata) || 1,
-        garanziaDa,
-        garanziaA,
-        durataA,
-        dataCompetenza,
-      })
-    : [];
+  const quietanzePlanPreview =
+    !polizzaTemporanea && (polizzaRateo || isPremioUnicoAnticipato(frazionamento))
+      ? computeQuietanzePlan({
+          polizzaRateo: polizzaRateo || undefined,
+          frazionamento,
+          anniDurata: parseInt(anniDurata) || 1,
+          garanziaDa,
+          garanziaA,
+          durataDa,
+          durataA,
+          dataCompetenza,
+        })
+      : [];
 
   const [provvMatrice, setProvvMatrice] = useState<MatriceProvvAccessori | null>(null);
   // Rapporto effettivo per matrice provvigioni: per monomandatarie deriva dalla coppia (compagnia, gruppo madre)
@@ -1676,30 +1684,7 @@ const ImmissionePolizzaPage = () => {
   }, [percentualeProvvigioneAuto, provvMatrice, premioNettoNum, accessoriFirmaNum, premioNettoQNum, accessoriQuietanzaNum, provvFirma, provvQuietanza, premiFirmaRows, premiQuietanzaRows]);
 
   // --- Frazionamento helpers + auto-calcolo Periodo ---
-  const FRAZIONAMENTO_OPTIONS = [
-    { value: "Mensile", label: "Mensile" },
-    { value: "Trimestrale", label: "Trimestrale" },
-    { value: "Quadrimestrale", label: "Quadrimestrale" },
-    { value: "Semestrale", label: "Semestrale" },
-    { value: "Annuale", label: "Annuale" },
-    { value: "Poliennale", label: "Poliennale" },
-  ];
-  const frazionamentoMesi = (f: string, anni: number): number => {
-    switch (f) {
-      case "Mensile": return 1;
-      case "Trimestrale": return 3;
-      case "Quadrimestrale": return 4;
-      case "Semestrale": return 6;
-      case "Poliennale": return Math.max(1, anni) * 12;
-      case "Annuale":
-      default: return 12;
-    }
-  };
-  const frazionamentoToRate = (f: string, anni: number): number => {
-    if (f === "Poliennale") return 1;
-    const m = frazionamentoMesi(f, anni);
-    return Math.max(1, Math.round(12 / m));
-  };
+  const FRAZIONAMENTO_OPTIONS = [...FRAZIONAMENTI];
   const addMonthsISO = (iso: string, months: number): string => {
     if (!iso) return "";
     const [y, m, d] = iso.split("-").map(Number);
@@ -1749,6 +1734,26 @@ const ImmissionePolizzaPage = () => {
     }
     if (!durataDa) return;
     const anni = Math.max(1, parseInt(anniDurata) || 1);
+
+    // Premio unico anticipato: durata libera; garanzia = intero periodo contratto.
+    if (isPremioUnicoAnticipato(frazionamento)) {
+      const defaultDurataA = addMonthsISO(durataDa, anni * 12);
+      if (!durataATouched) setDurataA(defaultDurataA);
+      const fine = durataATouched && durataA ? durataA : defaultDurataA;
+      if (!garanziaDaTouched) setGaranziaDa(durataDa);
+      if (!garanziaATouched) setGaranziaA(fine);
+      if (!dataCompetenzaTouched) setDataCompetenza(durataDa);
+      if (!limiteMoraTouched) {
+        const base = (!dataCompetenzaTouched ? durataDa : (dataCompetenza || durataDa));
+        const gg = parseInt(moraGiorni || "0") || 0;
+        if (base) {
+          const d = new Date(base); d.setDate(d.getDate() + gg);
+          setLimiteMora(d.toISOString().slice(0, 10));
+        }
+      }
+      return;
+    }
+
     const mesiGar = frazionamentoMesi(frazionamento, anni);
     if (!durataATouched) setDurataA(addMonthsISO(durataDa, anni * 12));
     if (!garanziaDaTouched) setGaranziaDa(durataDa);
@@ -3307,6 +3312,24 @@ const ImmissionePolizzaPage = () => {
                 <div key={row.idx} className="text-[11px] text-violet-800 dark:text-violet-200 font-mono">
                   Rata {row.idx}
                   {row.idx === 1 ? " (rateo — premio firma)" : " (rata annua — premio quietanza)"}
+                  {": "}
+                  {row.garanzia_da} → {row.garanzia_a}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!polizzaRateo && isPremioUnicoAnticipato(frazionamento) && quietanzePlanPreview.length > 0 && (
+          <div className="mt-3 rounded-md border border-sky-200 bg-sky-50/50 dark:bg-sky-950/20 p-3 space-y-2">
+            <p className="text-xs font-medium text-sky-900 dark:text-sky-100">
+              Anteprima quietanze ({quietanzePlanPreview.length}): premio unico anticipato
+            </p>
+            <div className="grid gap-1">
+              {quietanzePlanPreview.map((row) => (
+                <div key={row.idx} className="text-[11px] text-sky-800 dark:text-sky-200 font-mono">
+                  Quietanza {row.idx}
+                  {row.idx === 1 ? " (copertura — durata intera)" : " (tecnica — stesso periodo)"}
                   {": "}
                   {row.garanzia_da} → {row.garanzia_a}
                 </div>
