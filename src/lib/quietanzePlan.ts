@@ -117,6 +117,7 @@ function computeRateoPlan(
  * idx>=2 sono le rate successive.
  *
  * Poliennale: 1 quietanza annuale per ogni anno della durata (es. 3y -> 3 rate).
+ * Premio unico anticipato: esattamente 2 quietanze sullo stesso periodo intero (Q1 + Q2 tecnica).
  * Altri frazionamenti: (12/mesi_rata) rate per ogni anno della durata.
  *
  * Ritorna [] se mancano dati indispensabili (garanzia_da/a o frazionamento).
