@@ -16,8 +16,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import * as XLSX from "xlsx";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { endOfMonth, format } from "date-fns";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import {
+  defaultDataLimiteIncasso,
+  isDefaultDataLimiteIncasso,
+} from "@/lib/contabilita/defaultDataLimiteIncasso";
+import { defaultDataEstrattoContoFormatted } from "@/lib/contabilita/defaultDataEstrattoConto";
+import { prossimoRiferimentoEc } from "@/lib/contabilita/ecProgressivo";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -100,7 +106,7 @@ function createDefaultEcFilters(isAgenzia: boolean): Filters {
     compagnia_id: null,
     ufficio_id: null,
     periodo_dal: null,
-    periodo_al: isAgenzia ? endOfMonth(new Date()) : null,
+    periodo_al: isAgenzia ? defaultDataLimiteIncasso() : null,
     tipo_pagamento: null,
     stato_incasso: null,
   };
@@ -108,7 +114,7 @@ function createDefaultEcFilters(isAgenzia: boolean): Filters {
 
 function isDefaultPeriodoAl(d: Date | null, isAgenzia: boolean): boolean {
   if (!isAgenzia || !d) return !d;
-  return format(d, "yyyy-MM-dd") === format(endOfMonth(new Date()), "yyyy-MM-dd");
+  return isDefaultDataLimiteIncasso(d);
 }
 
 const ECCompagniaContabPage = () => {
@@ -121,7 +127,7 @@ const ECCompagniaContabPage = () => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedTitoli, setSelectedTitoli] = useState<Record<string, Set<string>>>({});
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
-  const [exportDate, setExportDate] = useState<Date | null>(() => (isAgenzia ? endOfMonth(new Date()) : null));
+  const [exportDate, setExportDate] = useState<Date | null>(() => (isAgenzia ? defaultDataLimiteIncasso() : null));
   const [bulkEcLoading, setBulkEcLoading] = useState(false);
   const [sortField, setSortField] = useState<"nome" | "data" | "daRimettere">("nome");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -755,7 +761,7 @@ Consulbrokers`;
   const exportExcel = () => {
     const src = exportRows;
     const wb = XLSX.utils.book_new();
-    const dateLimitLabel = exportDate ? ` fino al ${format(exportDate, "dd/MM/yyyy")}` : "";
+    const dateLimitLabel = exportDate ? ` data limite incasso ${format(exportDate, "dd/MM/yyyy")}` : "";
 
     // Foglio 1: riepilogo per agenzia
     const riepilogo = src.map((r) => ({
@@ -804,7 +810,7 @@ Consulbrokers`;
 
   const exportPDF = () => {
     const src = exportRows;
-    const dateLimitLabel = exportDate ? `fino al ${format(exportDate, "dd/MM/yyyy")}` : `aggiornato al ${format(new Date(), "dd/MM/yyyy")}`;
+    const dateLimitLabel = exportDate ? `data limite incasso ${format(exportDate, "dd/MM/yyyy")}` : `aggiornato al ${format(new Date(), "dd/MM/yyyy")}`;
     const totL = src.reduce((s, r) => s + r.lordo, 0);
     const totP = src.reduce((s, r) => s + r.provvigioni, 0);
     const totD = src.reduce((s, r) => s + r.lordo - r.provvigioni + r.ritenutaAcconto, 0);
@@ -917,8 +923,7 @@ Consulbrokers`;
       // 5. Merge PDF con pdf-lib
       const { PDFDocument: PDFLib } = await import("pdf-lib");
       const mergedPdf = await PDFLib.create();
-      const today = format(new Date(), "dd/MM/yyyy");
-      const todayRef = format(new Date(), "yyMMdd");
+      const dataEstrattoConto = defaultDataEstrattoContoFormatted();
       const mesiIt = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 
       for (const r of exportRows) {
@@ -970,6 +975,12 @@ Consulbrokers`;
           return sum + calcolaRitenutaAcconto(provv, raEffettiva);
         }, 0);
 
+        const codiceAgenzia = (comp as any).codice || (comp as any).nome || "AGZ";
+        const progRes = await prossimoRiferimentoEc("agenzia", r.compagnia_id, codiceAgenzia);
+        if (!progRes.ok || !progRes.riferimento) {
+          throw new Error(progRes.error || `Riferimento progressivo non disponibile per ${codiceAgenzia}`);
+        }
+
         const ecData: ECAgenziaData = {
           sedeNome: sedeNapoli?.nome_ufficio || "Sede di Napoli",
           sedeIndirizzo: sedeNapoli?.indirizzo || "",
@@ -978,8 +989,8 @@ Consulbrokers`;
           sedeProvincia: sedeNapoli?.provincia || "",
           sedeEmail: sedeNapoli?.email || "",
           sedeTelefono: sedeNapoli?.telefono || "",
-          riferimento: `${(comp as any).codice || (comp as any).nome || "AGZ"}/${todayRef}`,
-          dataDocumento: today,
+          riferimento: progRes.riferimento,
+          dataDocumento: dataEstrattoConto,
           periodoTesto,
           modalitaPagamento: "Bonifico",
           agenziaNome: (comp as any).nome || "",
@@ -1040,10 +1051,34 @@ Consulbrokers`;
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 border rounded-md px-2 py-1 bg-background">
             <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="text-xs text-muted-foreground whitespace-nowrap">Fino al</span>
-            <DatePicker value={exportDate} onChange={setExportDate} placeholder="Tutte le date" />
-            {exportDate && (
-              <button className="ml-1 text-muted-foreground hover:text-foreground" onClick={() => setExportDate(null)} title="Rimuovi limite data">✕</button>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Data limite incasso</span>
+            <DatePicker
+              value={isAgenzia ? filters.periodo_al : exportDate}
+              onChange={(d) => {
+                if (isAgenzia) {
+                  set({ periodo_al: d });
+                  setExportDate(d);
+                } else {
+                  setExportDate(d);
+                }
+              }}
+              placeholder="Data limite"
+            />
+            {(isAgenzia ? filters.periodo_al : exportDate) && (
+              <button
+                className="ml-1 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  if (isAgenzia) {
+                    set({ periodo_al: null });
+                    setExportDate(null);
+                  } else {
+                    setExportDate(null);
+                  }
+                }}
+                title="Rimuovi limite data"
+              >
+                ✕
+              </button>
             )}
           </div>
           <DropdownMenu>
@@ -1093,7 +1128,7 @@ Consulbrokers`;
               className="ml-auto h-7 text-xs"
               onClick={() => {
                 setFilters(createDefaultEcFilters(isAgenzia));
-                setExportDate(isAgenzia ? endOfMonth(new Date()) : null);
+                setExportDate(isAgenzia ? defaultDataLimiteIncasso() : null);
               }}
             >
               <RotateCcw className="h-3 w-3 mr-1" /> Azzera
@@ -1116,7 +1151,24 @@ Consulbrokers`;
           />
           <FilterSearchableSelect value={filters.ufficio_id} onValueChange={(v) => set({ ufficio_id: v })} options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))} placeholder="Sede" allLabel="Tutte le sedi" className="w-[200px]" />
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
-          <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo al</Label><DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" /></div>
+          {isAgenzia ? (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Data limite incasso</Label>
+              <DatePicker
+                value={filters.periodo_al}
+                onChange={(d) => {
+                  set({ periodo_al: d });
+                  setExportDate(d);
+                }}
+                placeholder="Data limite"
+              />
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Periodo al</Label>
+              <DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" />
+            </div>
+          )}
           <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }, { value: "costi_consulbrokers", label: "Costi Consulbrokers" }, { value: "compensazione", label: "Compensazione" }, { value: "garantito", label: "Garantito" }, { value: "pagamento_diretto_compagnia", label: "Pag. diretto compagnia" }, { value: "anticipo", label: "Acconto" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
           <FilterSearchableSelect
             value={filters.stato_incasso}

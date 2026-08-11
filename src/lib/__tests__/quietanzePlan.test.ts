@@ -171,7 +171,7 @@ describe("computeQuietanzePlan", () => {
     expect(plan).toHaveLength(1);
   });
 
-  it("Premio unico anticipato → esattamente 2 quietanze sullo stesso periodo intero", () => {
+  it("Premio unico anticipato → Q1 fino a fine-1, Q2 giorno di fine", () => {
     const plan = computeQuietanzePlan({
       frazionamento: "Premio unico anticipato",
       anniDurata: 2,
@@ -185,12 +185,12 @@ describe("computeQuietanzePlan", () => {
     expect(plan[0]).toEqual({
       idx: 1,
       garanzia_da: "2026-03-01",
-      garanzia_a: "2028-03-01",
+      garanzia_a: "2028-02-29",
       data_competenza: "2026-03-15",
     });
     expect(plan[1]).toEqual({
       idx: 2,
-      garanzia_da: "2026-03-01",
+      garanzia_da: "2028-03-01",
       garanzia_a: "2028-03-01",
       data_competenza: "2026-03-15",
     });
@@ -203,16 +203,40 @@ describe("computeQuietanzePlan", () => {
     })).toHaveLength(1);
   });
 
-  it("Premio unico anticipato senza durata → usa garanzia_da/a", () => {
+  it("Premio unico anticipato 11/08/2026–11/08/2027 → Q1 …10/08/2027, Q2 11/08/2027", () => {
+    const plan = computeQuietanzePlan({
+      frazionamento: "Premio unico anticipato",
+      garanziaDa: "2026-08-11",
+      garanziaA: "2027-08-11",
+      durataDa: "2026-08-11",
+      durataA: "2027-08-11",
+    });
+    expect(plan).toEqual([
+      { idx: 1, garanzia_da: "2026-08-11", garanzia_a: "2027-08-10", data_competenza: "2026-08-11" },
+      { idx: 2, garanzia_da: "2027-08-11", garanzia_a: "2027-08-11", data_competenza: "2026-08-11" },
+    ]);
+  });
+
+  it("Premio unico anticipato senza durata → usa garanzia_da/a con split date", () => {
     const plan = computeQuietanzePlan({
       frazionamento: "Premio unico anticipato",
       garanziaDa: "2026-01-01",
       garanziaA: "2027-06-30",
     });
     expect(plan).toHaveLength(2);
-    expect(plan[0].garanzia_da).toBe("2026-01-01");
-    expect(plan[0].garanzia_a).toBe("2027-06-30");
-    expect(plan[1].garanzia_da).toBe(plan[0].garanzia_da);
-    expect(plan[1].garanzia_a).toBe(plan[0].garanzia_a);
+    expect(plan[0]).toMatchObject({ garanzia_da: "2026-01-01", garanzia_a: "2027-06-29" });
+    expect(plan[1]).toMatchObject({ garanzia_da: "2027-06-30", garanzia_a: "2027-06-30" });
+  });
+
+  it("Premio unico anticipato periodo 1 giorno → Q1 e Q2 sullo stesso giorno (fallback)", () => {
+    const plan = computeQuietanzePlan({
+      frazionamento: "Premio unico anticipato",
+      garanziaDa: "2026-08-11",
+      garanziaA: "2026-08-11",
+    });
+    expect(plan).toEqual([
+      { idx: 1, garanzia_da: "2026-08-11", garanzia_a: "2026-08-11", data_competenza: "2026-08-11" },
+      { idx: 2, garanzia_da: "2026-08-11", garanzia_a: "2026-08-11", data_competenza: "2026-08-11" },
+    ]);
   });
 });

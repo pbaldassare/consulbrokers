@@ -3329,7 +3329,9 @@ const ImmissionePolizzaPage = () => {
               {quietanzePlanPreview.map((row) => (
                 <div key={row.idx} className="text-[11px] text-sky-800 dark:text-sky-200 font-mono">
                   Quietanza {row.idx}
-                  {row.idx === 1 ? " (copertura — durata intera)" : " (tecnica — stesso periodo)"}
+                  {row.idx === 1
+                    ? " (copertura — fino al giorno prima della fine)"
+                    : " (tecnica — giorno di fine)"}
                   {": "}
                   {row.garanzia_da} → {row.garanzia_a}
                 </div>

@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
-import { it } from "date-fns/locale";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,15 +9,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, TrendingUp, Percent, Filter, Printer, CheckCircle2, Loader2, HandCoins } from "lucide-react";
+import { Download, TrendingUp, Percent, Filter, Printer, CheckCircle2, Loader2, HandCoins, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
+import { DatePicker } from "@/components/contabilita/DatePicker";
 import { toast } from "sonner";
 import { buildECProduttorePdf, type ECProduttoreData, type ECProduttoreRow, type ECProduttoreTrattenutaRow } from "@/lib/ec-produttore-pdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
-
-type MeseFiltro = "corrente" | "scorso";
+import {
+  defaultDataLimiteIncasso,
+  EC_PRODUTTORI_PERIODO_DA,
+  isDefaultDataLimiteIncasso,
+} from "@/lib/contabilita/defaultDataLimiteIncasso";
+import { defaultDataEstrattoContoFormatted } from "@/lib/contabilita/defaultDataEstrattoConto";
+import { prossimoRiferimentoEc } from "@/lib/contabilita/ecProgressivo";
 
 type ConfermaDlg = {
   open: boolean;
@@ -28,20 +33,11 @@ type ConfermaDlg = {
   note: string;
 };
 
-const meseRange = (m: MeseFiltro) => {
-  const ref = m === "corrente" ? new Date() : subMonths(new Date(), 1);
-  return {
-    from: startOfMonth(ref),
-    to: endOfMonth(ref),
-    label: format(ref, "LLLL yyyy", { locale: it }).replace(/^./, (c) => c.toUpperCase()),
-  };
-};
-
 const ECProduttoriContabPage = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [mese, setMese] = useState<MeseFiltro>("corrente");
+  const [dataLimiteIncasso, setDataLimiteIncasso] = useState<Date>(() => defaultDataLimiteIncasso());
   const [produttoreId, setProduttoreId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confermaDlg, setConfermaDlg] = useState<ConfermaDlg>({
@@ -52,15 +48,15 @@ const ECProduttoriContabPage = () => {
     note: "",
   });
 
-  const range = useMemo(() => meseRange(mese), [mese]);
-  const fromIso = format(range.from, "yyyy-MM-dd");
-  const toIso = format(range.to, "yyyy-MM-dd");
+  const toIso = format(dataLimiteIncasso, "yyyy-MM-dd");
+  const fromIso = EC_PRODUTTORI_PERIODO_DA;
+  const periodoLabel = `Data limite incasso ${format(dataLimiteIncasso, "dd/MM/yyyy")}`;
 
   const { data: anagrafiche } = useQuery({
     queryKey: ["anagrafiche-produttori-ec"],
     queryFn: async () => {
       const { data } = await supabase.from("anagrafiche_professionali")
-        .select("id, codice, cognome, nome, ragione_sociale, citta, fax, email, indirizzo, cap, provincia, percentuale_ra, tipo")
+        .select("id, codice, cognome, nome, ragione_sociale, citta, fax, email, indirizzo, cap, provincia, percentuale_ra, tipo, codice_fiscale, partita_iva, iban, intestatario_cc")
         .in("tipo", ["account_executive", "corrispondente"])
         .eq("attivo", true).order("cognome");
       return data || [];
@@ -68,7 +64,7 @@ const ECProduttoriContabPage = () => {
   });
 
   const { data: provvAll, isLoading } = useQuery({
-    queryKey: ["ec-produttori-mese", fromIso, toIso],
+    queryKey: ["ec-produttori-mese", toIso],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("provvigioni_generate")
@@ -78,14 +74,15 @@ const ECProduttoriContabPage = () => {
         .eq("pagata", false);
       if (error) throw error;
       return (data || []).filter((p: any) => {
-        const t = p.titoli; if (!t || !t.data_messa_cassa) return false;
-        return t.data_messa_cassa >= fromIso && t.data_messa_cassa <= toIso;
+        const t = p.titoli;
+        if (!t || !t.data_messa_cassa) return false;
+        return t.data_messa_cassa <= toIso;
       });
     },
   });
 
   const { data: trattenuteAll = [] } = useQuery({
-    queryKey: ["ec-produttori-trattenute", fromIso, toIso],
+    queryKey: ["ec-produttori-trattenute", toIso],
     queryFn: async () => {
       const { data, error } = await (supabase.from("titoli_modalita_incasso") as any)
         .select(
@@ -93,7 +90,6 @@ const ECProduttoriContabPage = () => {
         )
         .eq("stato", "attiva")
         .eq("modalita", "produttore_trattiene_provv")
-        .gte("titoli.data_messa_cassa", fromIso)
         .lte("titoli.data_messa_cassa", toIso);
       if (error) throw error;
       return data || [];
@@ -128,12 +124,14 @@ const ECProduttoriContabPage = () => {
   );
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
+  const hasFiltriAttivi = produttoreId !== null || !isDefaultDataLimiteIncasso(dataLimiteIncasso);
+
   const exportCSV = () => {
     const header = "Codice,Produttore,Località,Email,Lordo,Provvigioni\n";
     const csv = aggregati.map((r) => `"${r.codice}","${r.nome}","${r.citta}","${r.email}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)}`).join("\n");
     const blob = new Blob([header + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `ec_produttori_${fromIso}_${toIso}.csv`; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = `ec_produttori_limite_${toIso}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -202,24 +200,35 @@ const ECProduttoriContabPage = () => {
     const totaleProvvigioni = righe.reduce((s, r) => s + r.provvigioni, 0);
     const totaleTrattenute = righeTrattenute.reduce((s, r) => s + r.nettoTrattenuto, 0);
     const percRA = Number(prod.percentuale_ra) || 0;
+    const codiceProd = prod.codice || prod.cognome || prod.ragione_sociale || "PROD";
+    const progRes = await prossimoRiferimentoEc("produttore", prodId, codiceProd);
+    if (!progRes.ok || progRes.numero == null) {
+      throw new Error(progRes.error || "Impossibile generare il numero rendiconto progressivo");
+    }
+    const nomeProd = prod.ragione_sociale || `${prod.cognome || ""} ${prod.nome || ""}`.trim() || "";
 
     const data: ECProduttoreData = {
       sedeNome: sede?.nome_ufficio || "",
       sedeIndirizzo: sede?.indirizzo || "", sedeCap: sede?.cap || "", sedeCitta: sede?.citta || "",
       sedeProvincia: sede?.provincia || "", sedeEmail: sede?.email || "", sedeTelefono: sede?.telefono || "",
-      numeroRendiconto: "1",
-      dataRendiconto: format(new Date(), "dd/MM/yyyy"),
-      periodoTesto: range.label,
+      numeroRendiconto: String(progRes.numero),
+      dataRendiconto: defaultDataEstrattoContoFormatted(),
+      periodoTesto: periodoLabel,
       produttoreIntestazione: "Spettabile",
-      produttoreNome: prod.ragione_sociale || `${prod.cognome || ""} ${prod.nome || ""}`.trim() || "",
+      produttoreNome: nomeProd,
       produttoreIndirizzo: prod.indirizzo || "", produttoreCap: prod.cap || "",
       produttoreCitta: prod.citta || "", produttoreProvincia: prod.provincia || "",
+      produttoreCF: prod.codice_fiscale || undefined,
+      produttorePIVA: prod.partita_iva || undefined,
+      iban: prod.iban || undefined,
+      intestatoA: prod.intestatario_cc || nomeProd || undefined,
+      modalitaPagamento: "Bonifico",
       righe, righeTrattenute, totalePremio, totaleProvvigioni, totaleTrattenute, totaleAltreOper: 0,
       ritenutaAcconto: percRA * totaleProvvigioni / 100,
     };
     const bytes = await buildECProduttorePdf(data);
     const codice = (prod.codice || prod.cognome || prod.ragione_sociale || "produttore").toString().replace(/\s+/g, "_");
-    const filename = `EC_Produttore_${codice}_${fromIso}_${toIso}.pdf`;
+    const filename = `EC_Produttore_${codice}_limite_${toIso}.pdf`;
     return { bytes, filename, prodCodice: codice };
   };
 
@@ -293,8 +302,8 @@ const ECProduttoriContabPage = () => {
         entita_tipo: "anagrafica_professionale",
         entita_id: prodId,
         dettagli_json: {
-          periodo: range.label,
-          mese,
+          periodo: periodoLabel,
+          data_limite_incasso: toIso,
           documento_id: doc.id,
           provvigioni_count: result.count,
           note: note.trim() || null,
@@ -307,6 +316,7 @@ const ECProduttoriContabPage = () => {
       toast.success(`Pagamento confermato — ${res.count} provvigioni archiviate nello storico`);
       closeConfermaDlg();
       queryClient.invalidateQueries({ queryKey: ["ec-produttori-mese"] });
+      queryClient.invalidateQueries({ queryKey: ["ec-produttori-trattenute"] });
       queryClient.invalidateQueries({ queryKey: ["ec-prod-storico"] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni-maturate"] });
       navigate("/contabilita/ec-produttore/storico");
@@ -331,7 +341,7 @@ const ECProduttoriContabPage = () => {
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Percent className="w-5 h-5 text-primary" /></div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">E/C Produttori</h1>
-            <p className="text-sm text-muted-foreground">Estratto conto produttori — solo titoli messi a cassa, provvigioni da pagare</p>
+            <p className="text-sm text-muted-foreground">Estratto conto produttori — titoli messi a cassa entro la data limite incasso</p>
           </div>
         </div>
         <Button variant="outline" onClick={exportCSV} disabled={!aggregati.length}><Download className="mr-2 h-4 w-4" /> Esporta CSV</Button>
@@ -349,19 +359,28 @@ const ECProduttoriContabPage = () => {
       <div className="bg-muted/30 border rounded-lg p-4 space-y-3">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <Filter className="h-4 w-4" /> <span>Filtri</span>
+          {hasFiltriAttivi && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-7 text-xs"
+              onClick={() => {
+                setDataLimiteIncasso(defaultDataLimiteIncasso());
+                setProduttoreId(null);
+              }}
+            >
+              <RotateCcw className="h-3 w-3 mr-1" /> Azzera
+            </Button>
+          )}
         </div>
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex gap-2">
-            {(["corrente", "scorso"] as MeseFiltro[]).map((m) => {
-              const r = meseRange(m);
-              return (
-                <Button key={m} type="button" size="sm"
-                  variant={mese === m ? "default" : "outline"}
-                  onClick={() => setMese(m)}>
-                  {m === "corrente" ? "Mese corrente" : "Mese scorso"} · {r.label}
-                </Button>
-              );
-            })}
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Data limite incasso</Label>
+            <DatePicker
+              value={dataLimiteIncasso}
+              onChange={(d) => d && setDataLimiteIncasso(d)}
+              placeholder="Data limite"
+            />
           </div>
           <FilterSearchableSelect
             value={produttoreId}
@@ -383,7 +402,7 @@ const ECProduttoriContabPage = () => {
             {isLoading ? (
               <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
             ) : aggregati.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun produttore con provvigioni da pagare nel mese selezionato</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun produttore con provvigioni da pagare entro la data limite selezionata</TableCell></TableRow>
             ) : aggregati.map((r, i) => (
               <TableRow key={r.id} className={i % 2 === 0 ? "bg-muted/20" : ""}>
                 <TableCell>{r.codice}</TableCell>
@@ -422,7 +441,7 @@ const ECProduttoriContabPage = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
-              <p><span className="text-muted-foreground">Periodo:</span> {range.label} ({fromIso} → {toIso})</p>
+              <p><span className="text-muted-foreground">Data limite incasso:</span> {format(dataLimiteIncasso, "dd/MM/yyyy")}</p>
               <p><span className="text-muted-foreground">Totale provvigioni:</span> <strong>{fmt(confermaDlg.provvigioni)}</strong></p>
             </div>
             <div className="space-y-2">

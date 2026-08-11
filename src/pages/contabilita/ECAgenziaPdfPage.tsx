@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,8 @@ import { logAttivita } from "@/lib/logAttivita";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { calcolaRitenutaAcconto, resolvePercentualeRA } from "@/lib/resolvePercentualeRA";
 import { resolveCompagniaCollegataNome, resolveMiCodiceEcAgenzia } from "@/lib/ecAgenziaDisplay";
+import { defaultDataEstrattoContoFormatted } from "@/lib/contabilita/defaultDataEstrattoConto";
+import { anteprimaRiferimentoEc, prossimoRiferimentoEc } from "@/lib/contabilita/ecProgressivo";
 
 const mesiIt = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 
@@ -29,7 +31,8 @@ const ECAgenziaPdfPage = () => {
   const titoliIds = useMemo(() => titoliIdsParam ? titoliIdsParam.split(",").filter(Boolean) : [], [titoliIdsParam]);
 
   const [riferimento, setRiferimento] = useState("");
-  const [dataDocumento, setDataDocumento] = useState(format(new Date(), "dd/MM/yyyy"));
+  const riferimentoManuale = useRef(false);
+  const [dataDocumento, setDataDocumento] = useState(defaultDataEstrattoContoFormatted);
   const [periodoTesto, setPeriodoTesto] = useState("");
   const [modalitaPagamento, setModalitaPagamento] = useState("Bonifico");
   const [noteFinali, setNoteFinali] = useState("");
@@ -165,12 +168,26 @@ const ECAgenziaPdfPage = () => {
   }, [titoli, tutteSedi]); // eslint-disable-line
 
   useEffect(() => {
-    if (compagnia?.codice && !riferimento) {
-      setRiferimento(`${compagnia.codice}/${format(new Date(), "yyMMdd")}`);
-    }
-  }, [compagnia]); // eslint-disable-line
+    if (!compagniaId || !compagnia?.codice || riferimentoManuale.current) return;
+    let cancelled = false;
+    (async () => {
+      const res = await anteprimaRiferimentoEc("agenzia", compagniaId, compagnia.codice);
+      if (!cancelled && res.ok && res.riferimento) setRiferimento(res.riferimento);
+    })();
+    return () => { cancelled = true; };
+  }, [compagniaId, compagnia?.codice]); // eslint-disable-line
 
-  const buildData = (): ECAgenziaData => {
+  const allocaRiferimento = async (): Promise<string> => {
+    if (riferimentoManuale.current) return riferimento;
+    if (!compagniaId) return riferimento;
+    const codice = compagnia?.codice || "REF";
+    const res = await prossimoRiferimentoEc("agenzia", compagniaId, codice);
+    if (!res.ok || !res.riferimento) throw new Error(res.error || "Impossibile generare il riferimento progressivo");
+    setRiferimento(res.riferimento);
+    return res.riferimento;
+  };
+
+  const buildData = (rifOverride?: string): ECAgenziaData => {
     const rows: ECAgenziaTitolo[] = (titoli || []).map((t: any) => {
       const cli = t.clienti_anagrafica;
       const cliente = cli?.ragione_sociale || `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() || "—";
@@ -219,7 +236,7 @@ const ECAgenziaPdfPage = () => {
       sedeProvincia,
       sedeEmail,
       sedeTelefono,
-      riferimento,
+      riferimento: rifOverride ?? riferimento,
       dataDocumento,
       periodoTesto,
       modalitaPagamento,
@@ -249,7 +266,8 @@ const ECAgenziaPdfPage = () => {
   const handleStampa = async () => {
     try {
       setBusy(true);
-      const bytes = await buildECAgenziaPdf(buildData());
+      const rif = await allocaRiferimento();
+      const bytes = await buildECAgenziaPdf(buildData(rif));
       const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const w = window.open(url, "_blank");
@@ -262,7 +280,8 @@ const ECAgenziaPdfPage = () => {
   const handleSalva = async () => {
     try {
       setBusy(true);
-      const bytes = await buildECAgenziaPdf(buildData());
+      const rif = await allocaRiferimento();
+      const bytes = await buildECAgenziaPdf(buildData(rif));
       const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       const name = fileName();
 
@@ -297,7 +316,7 @@ const ECAgenziaPdfPage = () => {
           azione: "stampa_ec_agenzia",
           entita_tipo: "agenzia",
           entita_id: compagniaId,
-          dettagli_json: { titoli: titoli?.length || 0, riferimento, periodo: periodoTesto },
+          dettagli_json: { titoli: titoli?.length || 0, riferimento: rif, periodo: periodoTesto },
         });
         toast.success("E/C salvato e archiviato");
       } else {
@@ -330,10 +349,17 @@ const ECAgenziaPdfPage = () => {
           </div>
           <div className="space-y-1.5">
             <Label>Riferimento</Label>
-            <Input value={riferimento} onChange={(e) => setRiferimento(e.target.value)} placeholder="Es: BENAQ0/250338" />
+            <Input
+              value={riferimento}
+              onChange={(e) => {
+                riferimentoManuale.current = true;
+                setRiferimento(e.target.value);
+              }}
+              placeholder="Es: BENAQ0/250801"
+            />
           </div>
           <div className="space-y-1.5">
-            <Label>Data documento</Label>
+            <Label>Data estratto conto</Label>
             <Input value={dataDocumento} onChange={(e) => setDataDocumento(e.target.value)} placeholder="gg/mm/aaaa" />
           </div>
           <div className="space-y-1.5">

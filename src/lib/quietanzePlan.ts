@@ -61,6 +61,15 @@ function addMonthsISO(iso: string, months: number): string {
   return dt.toISOString().slice(0, 10);
 }
 
+/** Somma/sottrae giorni su data ISO yyyy-mm-dd (UTC calendar, no timezone drift). */
+function addDaysISO(isoStr: string, days: number): string {
+  if (!isoStr) return "";
+  const [y, m, d] = isoStr.split("-").map(Number);
+  if (!y || !m || !d) return "";
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
 /** Fine contratto rateo: max(durata_da + anni, garanzia_a + 1 rata frazionamento). */
 export function computeRateoDurataA({
   durataDa,
@@ -117,7 +126,9 @@ function computeRateoPlan(
  * idx>=2 sono le rate successive.
  *
  * Poliennale: 1 quietanza annuale per ogni anno della durata (es. 3y -> 3 rate).
- * Premio unico anticipato: esattamente 2 quietanze sullo stesso periodo intero (Q1 + Q2 tecnica).
+ * Premio unico anticipato: 2 quietanze con decorrenze distinte —
+ *   Q1 = start → end-1 giorno; Q2 = end → end (giorno di fine).
+ *   Edge: se il periodo è di 1 solo giorno, Q1 e Q2 restano sullo stesso giorno.
  * Altri frazionamenti: (12/mesi_rata) rate per ogni anno della durata.
  *
  * Ritorna [] se mancano dati indispensabili (garanzia_da/a o frazionamento).
@@ -148,19 +159,19 @@ export function computeQuietanzePlan(input: QuietanzaPlanInput): QuietanzaPlanRo
     return computeRateoPlan(garDa, garA, durA, mesiRata);
   }
 
-  // Premio unico anticipato: esattamente 2 quietanze sullo stesso periodo intero (Q1 copertura + Q2 tecnica).
+  // Premio unico anticipato: Q1 copertura (start → end-1), Q2 tecnica (end → end).
+  // Edge (periodo 1 giorno): day-before non valido → entrambe sullo stesso giorno.
   if (isPremioUnicoAnticipato(f)) {
     const periodDa = toDate(input.durataDa) ?? garDa;
     const periodA = toDate(input.durataA) ?? garA;
     const competenza = toDate(input.dataCompetenza);
-    const row = {
-      garanzia_da: iso(periodDa),
-      garanzia_a: iso(periodA),
-      data_competenza: competenza ? iso(competenza) : iso(periodDa),
-    };
+    const daIso = iso(periodDa);
+    const aIso = iso(periodA);
+    const q1EndIso = daIso === aIso ? aIso : addDaysISO(aIso, -1);
+    const comp = competenza ? iso(competenza) : daIso;
     return [
-      { idx: 1, ...row },
-      { idx: 2, ...row },
+      { idx: 1, garanzia_da: daIso, garanzia_a: q1EndIso, data_competenza: comp },
+      { idx: 2, garanzia_da: aIso, garanzia_a: aIso, data_competenza: comp },
     ];
   }
 

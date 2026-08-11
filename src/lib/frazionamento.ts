@@ -13,7 +13,7 @@ export const FRAZIONAMENTI = [
 
 export type Frazionamento = typeof FRAZIONAMENTI[number]["value"];
 
-/** True se il frazionamento è Premio unico anticipato (2 quietanze sullo stesso periodo intero). */
+/** True se il frazionamento è Premio unico anticipato (2 quietanze: Q1 fino a fine-1, Q2 giorno di fine). */
 export function isPremioUnicoAnticipato(f: string | null | undefined): boolean {
   return String(f || "").trim().toLowerCase() === "premio unico anticipato";
 }

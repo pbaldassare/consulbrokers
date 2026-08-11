@@ -42,6 +42,11 @@ export interface ECProduttoreData {
   produttoreCap: string;
   produttoreCitta: string;
   produttoreProvincia: string;
+  produttoreCF?: string;
+  produttorePIVA?: string;
+  iban?: string;
+  intestatoA?: string;
+  modalitaPagamento?: string;
   // Tabella
   righe: ECProduttoreRow[];
   /** Dettaglio provvigioni trattenute in incasso (escluse dal totale da liquidare). */
@@ -146,6 +151,8 @@ function drawDestinatario(ctx: Ctx, d: ECProduttoreData) {
     d.produttoreIndirizzo || "",
     [d.produttoreCap, d.produttoreCitta, d.produttoreProvincia].filter(Boolean).join(" "),
   ];
+  if (d.produttoreCF) lines.push(`Codice fiscale: ${d.produttoreCF}`);
+  if (d.produttorePIVA && d.produttorePIVA !== d.produttoreCF) lines.push(`P. IVA: ${d.produttorePIVA}`);
   let ly = ctx.y;
   for (const ln of lines) {
     const isFirst = ln === d.produttoreIntestazione;
@@ -158,6 +165,10 @@ function drawDestinatario(ctx: Ctx, d: ECProduttoreData) {
 function drawIntro(ctx: Ctx, d: ECProduttoreData) {
   spacer(ctx, 6);
   drawText(ctx, `Di seguito il dettaglio delle intermediazioni maturate nel periodo: ${d.periodoTesto || ""}.`, { size: 9.5 });
+  spacer(ctx, 6);
+  drawText(ctx, `Pagamento a mezzo ${d.modalitaPagamento || "Bonifico"}`, { size: 9, bold: true });
+  if (d.iban) drawText(ctx, `c/c: ${d.iban}`, { size: 9 });
+  if (d.intestatoA) drawText(ctx, `intestato a ${d.intestatoA}`, { size: 9 });
   spacer(ctx, 6);
 }
 
