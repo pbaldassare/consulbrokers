@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
-import { buildGarantitoPayload, buildIncassoDateFields, isInCoperturaGarantita } from "@/lib/garantitoTitolo";
+import { buildGarantitoPayload, buildIncassoDateFields, isInCoperturaGarantita, isGarantitoAperto } from "@/lib/garantitoTitolo";
 import { annullaPolizza } from "@/lib/annullaPolizza";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
@@ -1802,6 +1802,7 @@ const TitoloDetail = () => {
           {
             conferimento_gestito: titolo?.conferimento_gestito,
             data_copertura: titolo?.data_copertura,
+            data_messa_cassa: titolo?.data_messa_cassa,
           },
           cassaData.dataMessaCassa,
         );
@@ -1811,6 +1812,9 @@ const TitoloDetail = () => {
         updatePayload.data_decorrenza_rinnovo = cassaData.dataDecorrenza;
         updatePayload.data_pagamento = cassaData.dataPagamento || null;
         updatePayload.tipo_pagamento = cassaData.tipoPagamento || null;
+        if (titolo?.conferimento_gestito) {
+          updatePayload.fondi_ricevuti = true;
+        }
         if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
           const { data: conto } = await (supabase.from("conti_bancari") as any)
             .select("etichetta, banca").eq("id", cassaData.banca).maybeSingle();
@@ -1994,9 +1998,10 @@ const TitoloDetail = () => {
     const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
     return months > 13;
   })();
-  // Mostra "Messa a Cassa" solo se mai incassata, oppure se poliennale attiva (rate residue)
-  const showMessaACassa = !t.data_messa_cassa || (isPoliennale && t.stato === "attivo");
+  // Mostra "Messa a Cassa" se mai messa a cassa, se garantito aperto, o se poliennale attiva
   const inCopertura = isInCoperturaGarantita(t);
+  const garantitoAperto = isGarantitoAperto(t);
+  const showMessaACassa = !t.data_messa_cassa || garantitoAperto || (isPoliennale && t.stato === "attivo");
 
   // Lock generale: una polizza messa a cassa o stornata non è più una "bozza"
   // di creazione e non si può modificare inline. Operazioni dedicate
@@ -2325,7 +2330,7 @@ const TitoloDetail = () => {
                 title="Riporta la quietanza a 'da incassare' ed elimina provvigioni/movimenti collegati"
               >
                 <XCircle className="w-4 h-4 mr-1" />
-                {t.stato === "incassato" ? "Annulla incasso" : t.data_messa_cassa ? "Annulla messa a cassa" : "Annulla copertura garantita"}
+                {t.stato === "incassato" ? "Annulla incasso" : inCopertura || garantitoAperto ? "Annulla copertura garantita" : t.data_messa_cassa ? "Annulla messa a cassa" : "Annulla copertura garantita"}
               </Button>
             )}
             {!isQuietanzaCorrente && (
@@ -2444,8 +2449,8 @@ const TitoloDetail = () => {
                   </h4>
                   <div className="flex items-center gap-2">
                     {isPoliennale && <Badge variant="outline" className="text-xs">Poliennale</Badge>}
-                    <Badge variant={t.stato === "incassato" ? "default" : inCopertura ? "default" : "secondary"} className={t.stato === "incassato" ? "bg-amber-500 hover:bg-amber-600" : inCopertura ? "bg-orange-500 hover:bg-orange-600" : ""}>
-                      {t.stato === "incassato" ? "Incassato" : inCopertura ? "In Copertura" : "Da incassare"}
+                    <Badge variant={t.stato === "incassato" ? "default" : inCopertura || garantitoAperto ? "default" : "secondary"} className={t.stato === "incassato" ? "bg-amber-500 hover:bg-amber-600" : inCopertura || garantitoAperto ? "bg-orange-500 hover:bg-orange-600" : ""}>
+                      {t.stato === "incassato" ? "Incassato" : inCopertura || garantitoAperto ? "In Copertura" : "Da incassare"}
                     </Badge>
                   </div>
                 </div>
@@ -2470,7 +2475,7 @@ const TitoloDetail = () => {
                         </div>
                       ))}
                     </>
-                  ) : inCopertura ? (
+                  ) : inCopertura || garantitoAperto ? (
                     <>
                       <div className="rounded-md border border-orange-200 bg-orange-50/50 px-3 py-2">
                         <label className="text-[10px] font-semibold uppercase tracking-wider text-orange-700">Data Copertura</label>
@@ -2481,9 +2486,14 @@ const TitoloDetail = () => {
                           onChange={(e) => updateDateMutation.mutate({ field: "data_copertura", value: e.target.value })}
                         />
                       </div>
-                      <div className="rounded-md border border-dashed bg-muted/20 px-3 py-2">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Data Messa a Cassa</div>
-                        <div className="mt-1 h-9 flex items-center text-sm text-muted-foreground tabular-nums">—</div>
+                      <div className="rounded-md border border-orange-200 bg-orange-50/50 px-3 py-2">
+                        <label className="text-[10px] font-semibold uppercase tracking-wider text-orange-700">Data Messa a Cassa</label>
+                        <Input
+                          type="date"
+                          className="mt-1 h-9 text-sm font-medium tabular-nums"
+                          value={t.data_messa_cassa || ""}
+                          onChange={(e) => updateDateMutation.mutate({ field: "data_messa_cassa", value: e.target.value })}
+                        />
                       </div>
                       <div className="rounded-md border bg-card/40 px-3 py-2">
                         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Data Decorrenza Rinnovo</label>
@@ -2524,7 +2534,7 @@ const TitoloDetail = () => {
                 )}
 
                 {/* Badges Garantito / Fondi */}
-                {(inCopertura || (t.stato === "incassato" && t.conferimento_gestito)) && (
+                {(inCopertura || garantitoAperto || (t.stato === "incassato" && t.conferimento_gestito)) && (
                   <div className="mt-3 flex items-center gap-2 flex-wrap">
                     <Badge className="bg-orange-500 text-white hover:bg-orange-600">Garantito</Badge>
                     {!t.fondi_ricevuti ? (
@@ -2573,8 +2583,8 @@ const TitoloDetail = () => {
                   </div>
                 )}
 
-                {/* Banner anti-doppio-incasso — cliccabile per dettagli */}
-                {t.data_messa_cassa && !isPoliennale && (
+                {/* Banner anti-doppio-incasso — non per garantito ancora da convertire in incasso pieno */}
+                {t.data_messa_cassa && !isPoliennale && !garantitoAperto && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <button
@@ -2624,16 +2634,16 @@ const TitoloDetail = () => {
 
                 {/* Azioni */}
                 <div className="mt-3 flex gap-2 flex-wrap">
-                  {t.stato === "attivo" && (!t.data_messa_cassa || isPoliennale) && (
+                  {t.stato === "attivo" && (!t.data_messa_cassa || isPoliennale || garantitoAperto) && (
                     <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
                       const today = new Date().toISOString().slice(0, 10);
                       setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "", banca: "" });
                       setCassaDialogOpen(true);
                     }} disabled={changeStatoMutation.isPending}>
-                      <CheckSquare className="w-4 h-4 mr-1" /> {inCopertura ? "Incassa (fondi ricevuti)" : "Incassa"}
+                      <CheckSquare className="w-4 h-4 mr-1" /> {garantitoAperto ? "Incassa (fondi ricevuti)" : "Incassa"}
                     </Button>
                   )}
-                  {t.stato === "attivo" && !t.data_messa_cassa && !inCopertura && (
+                  {t.stato === "attivo" && !t.data_messa_cassa && !garantitoAperto && (
                     <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => {
                       const today = new Date().toISOString().slice(0, 10);
                       setConferimentoForm({ dataCopertura: today, dataDecorrenza: today });
@@ -2688,7 +2698,7 @@ const TitoloDetail = () => {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Garantito</DialogTitle>
-            <DialogDescription>Polizza {t.numero_titolo || t.id.slice(0, 8)} — Copertura senza incasso</DialogDescription>
+            <DialogDescription>Polizza {t.numero_titolo || t.id.slice(0, 8)} — Messa a cassa garantita (senza fondi)</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md border border-orange-400 bg-orange-50 p-3 text-sm text-orange-800 space-y-2">
@@ -2717,7 +2727,7 @@ const TitoloDetail = () => {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              La messa a cassa e il tipo/data pagamento verranno compilati successivamente, al momento dell'incasso effettivo dei fondi.
+              Vengono impostate data copertura e data messa a cassa. I fondi restano in attesa; tipo/data pagamento e importo si compilano all&apos;incasso effettivo.
             </p>
           </div>
           <DialogFooter>
@@ -2736,7 +2746,7 @@ const TitoloDetail = () => {
       <Dialog open={annullaDialogOpen} onOpenChange={setAnnullaDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t?.stato === "incassato" ? "Conferma annullamento incasso" : "Conferma annullamento messa a cassa"}</DialogTitle>
+            <DialogTitle>{t?.stato === "incassato" ? "Conferma annullamento incasso" : inCopertura || garantitoAperto ? "Conferma annullamento copertura garantita" : "Conferma annullamento messa a cassa"}</DialogTitle>
             <DialogDescription>Verifica la tua identità per procedere. La polizza madre non verrà modificata.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -2775,7 +2785,7 @@ const TitoloDetail = () => {
                   return;
                 }
                 toast.success(
-                  `${t?.stato === "incassato" ? "Incasso annullato" : "Messa a cassa annullata"} (${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov.${(res.bonificiRiaperti ?? 0) > 0 ? `, ${res.bonificiRiaperti} bonifici riaperti` : ""}${res.rataSuccessivaEliminata ? ", rata successiva rimossa" : ""})`
+                  `${t?.stato === "incassato" ? "Incasso annullato" : inCopertura || garantitoAperto ? "Copertura garantita annullata" : "Messa a cassa annullata"} (${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov.${(res.bonificiRiaperti ?? 0) > 0 ? `, ${res.bonificiRiaperti} bonifici riaperti` : ""}${res.rataSuccessivaEliminata ? ", rata successiva rimossa" : ""})`
                 );
                 queryClient.invalidateQueries({ queryKey: ["titolo", id] });
                 queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });

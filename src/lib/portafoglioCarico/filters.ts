@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
 import { quietanzaSogliaGaranziaDa } from "@/lib/quietanzeClienteView";
 
 export type Periodo = "mese_corrente" | "tutte";
@@ -44,8 +45,8 @@ export const applySedeFilter = (q: any, filtroUffici: string[]) =>
   filtroUffici.length > 0 ? q.in("ufficio_id", filtroUffici) : q;
 
 /**
- * Pendenti: attivo, senza messa a cassa; default/mese usano soglia 60gg.
- * Con Dal/Al espliciti: solo range su garanzia_da (niente soglia né null).
+ * Pendenti: attivo + (senza messa a cassa OR garantito aperto in attesa fondi/incasso).
+ * Default/mese usano soglia 60gg. Con Dal/Al espliciti: solo range su garanzia_da.
  * Incassati: stato=incassato; Dal/Al e "mese corrente" su data_messa_cassa.
  */
 export const applyPeriodoFilter = (
@@ -70,7 +71,7 @@ export const applyPeriodoFilter = (
     return q;
   }
 
-  q = q.eq("stato", "attivo").is("data_messa_cassa", null);
+  q = q.eq("stato", "attivo").or(PENDENTI_OR_GARANTITO_APERTO_FILTER);
 
   // Range esplicito Dal/Al: solo garanzia_da (senza soglia 60gg né null)
   if (dateDa || dateA) {

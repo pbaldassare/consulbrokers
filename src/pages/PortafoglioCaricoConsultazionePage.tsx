@@ -847,10 +847,10 @@ const PortafoglioCaricoConsultazionePage = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-center text-xs">
-                        {inCopertura ? fmtDate(p.data_copertura) : "—"}
+                        {inCopertura || p.data_copertura ? fmtDate(p.data_copertura) : "—"}
                       </TableCell>
                       <TableCell className="text-center text-xs">
-                        {isIncassato ? fmtDate(p.data_messa_cassa) : "—"}
+                        {p.data_messa_cassa ? fmtDate(p.data_messa_cassa) : "—"}
                       </TableCell>
                     </TableRow>
                   );

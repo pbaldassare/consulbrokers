@@ -1,4 +1,5 @@
 import { format, parseISO } from "date-fns";
+import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 import type { TitoloDaIncassareRow } from "./columns";
 
 export type TitoloDaIncassareRaw = {
@@ -26,6 +27,13 @@ export type TitoloDaIncassareRaw = {
   data_incasso?: string | null;
   data_messa_cassa?: string | null;
   conferimento_gestito?: boolean | null;
+  fondi_ricevuti?: boolean | null;
+  tipo_pagamento?: string | null;
+  stato?: string | null;
+  sostituisce_polizza?: string | null;
+  is_appendice_modifica?: boolean | null;
+  is_proroga?: boolean | null;
+  is_regolazione?: boolean | null;
   disdetta_giorni?: number | null;
   filiale?: string | null;
   tipo_portafoglio?: string | null;
@@ -44,7 +52,6 @@ export type TitoloDaIncassareRaw = {
   gruppo_finanziario_nome?: string | null;
   indotto?: string | null;
   targa_telaio?: string | null;
-  sostituisce_polizza?: string | null;
 };
 
 function fmtDate(v: string | null | undefined): string {
@@ -77,8 +84,7 @@ export function mapTitoloDaIncassareRow(t: TitoloDaIncassareRaw): TitoloDaIncass
     .filter(Boolean)
     .join(" — ") || "";
 
-  const garantito =
-    t.conferimento_gestito && t.data_copertura && !t.data_messa_cassa ? "G" : "";
+  const garantito = isInCoperturaGarantita(t) ? "G" : "";
 
   return {
     cliente: t.cliente_nome_display || "",

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
 
 /** Stessa logica di Incassi (view v_portafoglio_quietanze). */
 export const applyExcludeMadreConRate = (q: any) =>
@@ -55,11 +56,11 @@ export async function fetchTitoliClienteDaIncassare(
   let q = supabase
     .from("titoli")
     .select(
-      "id, numero_titolo, premio_lordo, stato, data_messa_cassa, data_scadenza, sostituisce_polizza, ramo:rami(descrizione), compagnia:compagnie(nome)" as any,
+      "id, numero_titolo, premio_lordo, stato, data_messa_cassa, data_scadenza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, data_copertura, ramo:rami(descrizione), compagnia:compagnie(nome)" as any,
     )
     .eq("cliente_anagrafica_id", clienteAnagraficaId)
-    .is("data_messa_cassa", null)
-    .neq("stato", "annullato");
+    .neq("stato", "annullato")
+    .or(PENDENTI_OR_GARANTITO_APERTO_FILTER);
   q = applyExcludeMadreConRateTitoli(q);
   const { data, error } = await q
     .order("data_scadenza", { ascending: true, nullsFirst: false })

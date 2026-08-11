@@ -50,7 +50,7 @@ import {
   fetchAppendiciPolizzaForTitoli,
 } from "@/lib/appendiciPolizza";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
-import { isInCoperturaGarantita, isGarantitoDaIncassare } from "@/lib/garantitoTitolo";
+import { isInCoperturaGarantita, isGarantitoDaIncassare, isDaChiudereIncasso, isGarantitoAperto } from "@/lib/garantitoTitolo";
 import { countQuietanzeDaIncassare, countQuietanzeRateDaIncassare, isQuietanzaDaMostrare } from "@/lib/quietanzeClienteView";
 import { ultimaQuietanzaCatena } from "@/lib/ultimaQuietanzaCatena";
 import { isTipoPagamentoAliasBonificoEsterno } from "@/lib/incassoTipoPagamento";
@@ -1418,7 +1418,7 @@ function PolizzeClienteTable({
   }, [filteredCatene, filtroTipo, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
 
   const isTitoloIncassabile = (t: any) =>
-    t.stato === "attivo" && !t.data_messa_cassa && (!!t.sostituisce_polizza || isAppendice(t));
+    isDaChiudereIncasso(t) && (!!t.sostituisce_polizza || isAppendice(t));
 
   const quietanzeIncassabili = useMemo(
     () => flatQuietanze.map((x) => x.rata).filter(isTitoloIncassabile),
@@ -1430,7 +1430,7 @@ function PolizzeClienteTable({
     [flatQuietanze, selectedIds],
   );
   const selectedGarantibile = useMemo(
-    () => selectedAttive.filter((r) => !isInCoperturaGarantita(r)),
+    () => selectedAttive.filter((r) => !isGarantitoAperto(r)),
     [selectedAttive],
   );
 

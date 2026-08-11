@@ -29,7 +29,7 @@ import {
   MODALITA_INCASSO_OPTIONS,
   type ModalitaIncasso,
 } from "@/lib/modalitaIncasso";
-import { buildIncassoDateFields } from "@/lib/garantitoTitolo";
+import { buildIncassoDateFields, PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
 import { canHaveDataCopertura } from "@/lib/quietanze";
 import {
   isPagamentoDirettoCompagnia,
@@ -326,7 +326,7 @@ export const MessaCassaDialog = ({
       let byNumQ = (supabase.from("titoli") as any)
         .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)")
         .ilike("numero_titolo", `%${q}%`)
-        .is("data_messa_cassa", null)
+        .or(PENDENTI_OR_GARANTITO_APERTO_FILTER)
         .in("stato", ["attivo", "sospeso"])
         .limit(20);
       if (scopeUfficioId) byNumQ = byNumQ.eq("ufficio_id", scopeUfficioId);
@@ -347,7 +347,7 @@ export const MessaCassaDialog = ({
         let titoliCliQ = (supabase.from("titoli") as any)
           .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)")
           .in("cliente_anagrafica_id", clienteIds)
-          .is("data_messa_cassa", null)
+          .or(PENDENTI_OR_GARANTITO_APERTO_FILTER)
           .in("stato", ["attivo", "sospeso"])
           .limit(20);
         if (scopeUfficioId) titoliCliQ = titoliCliQ.eq("ufficio_id", scopeUfficioId);
@@ -394,7 +394,7 @@ export const MessaCassaDialog = ({
       const { data } = await (supabase.from("v_portafoglio_quietanze") as any)
         .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, data_scadenza, sostituisce_polizza")
         .eq("cliente_anagrafica_id", clienteQuietanze!.id)
-        .is("data_messa_cassa", null)
+        .or(PENDENTI_OR_GARANTITO_APERTO_FILTER)
         .in("stato", ["attivo", "sospeso"])
         .order("data_scadenza", { ascending: true })
         .limit(200);
@@ -1223,7 +1223,7 @@ export const MessaCassaDialog = ({
 
       const { data: titoloRow } = await supabase
         .from("titoli")
-        .select("conferimento_gestito, data_copertura, importo_incassato")
+        .select("conferimento_gestito, data_copertura, data_messa_cassa, importo_incassato")
         .eq("id", t.id)
         .maybeSingle();
 
@@ -1329,6 +1329,7 @@ export const MessaCassaDialog = ({
           {
             conferimento_gestito: titoloRow?.conferimento_gestito,
             data_copertura: titoloRow?.data_copertura,
+            data_messa_cassa: titoloRow?.data_messa_cassa,
           },
           d.mc,
         );
@@ -1338,6 +1339,9 @@ export const MessaCassaDialog = ({
         payload.data_decorrenza_rinnovo = d.mc;
         payload.data_incasso = dateFields.data_incasso;
         payload.data_copertura = dateFields.data_copertura;
+        if (titoloRow?.conferimento_gestito) {
+          payload.fondi_ricevuti = true;
+        }
       }
       if (bancaLabel) payload.banca_pagamento = bancaLabel;
       // Pagamento diretto compagnia: premio pagato dal cliente in compagnia →

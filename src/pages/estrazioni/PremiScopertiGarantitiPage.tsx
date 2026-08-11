@@ -28,11 +28,12 @@ import {
   isApertoDaIncassare,
   mapPremiScopertiRow,
 } from "@/lib/premiScopertiGarantiti";
+import { PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
 
 const SELECT = `
   id, numero_titolo, stato, premio_lordo, importo_incassato, ufficio_id, compagnia_id,
   garanzia_da, garanzia_a, limite_mora, mora_giorni, tipo_portafoglio, prodotto_nome,
-  data_messa_cassa, data_copertura, conferimento_gestito,
+  data_messa_cassa, data_copertura, conferimento_gestito, fondi_ricevuti, tipo_pagamento,
   sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione,
   clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale),
   compagnia_diretta:compagnie!titoli_compagnia_id_fkey(
@@ -88,7 +89,7 @@ const PremiScopertiGarantitiPage = () => {
       let query = supabase
         .from("titoli")
         .select(SELECT)
-        .is("data_messa_cassa", null)
+        .or(PENDENTI_OR_GARANTITO_APERTO_FILTER)
         .in("stato", ["attivo", "sospeso"])
         .limit(5000);
 

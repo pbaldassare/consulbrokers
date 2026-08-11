@@ -32,7 +32,7 @@ import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { rowBorderClass, isQuietanzaRow, displayStatoPolizza, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
-import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
+import { isInCoperturaGarantita, isDaChiudereIncasso, isGarantitoAperto, PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
 import { canHaveDataCopertura } from "@/lib/quietanze";
 import { quietanzaSogliaGaranziaDa } from "@/lib/quietanzeClienteView";
 import { UfficiFilterMultiSelect } from "@/components/portafoglio/UfficiFilterMultiSelect";
@@ -270,7 +270,7 @@ const IncassiPage = () => {
   };
 
   /**
-   * Pendenti: criteri vista cliente (attivo, senza messa a cassa, soglia 60gg).
+   * Pendenti: attivo + (senza messa a cassa OR garantito aperto).
    * Incassati: stato=incassato; Dal/Al e "mese corrente" su data_messa_cassa.
    */
   const applyPeriodoFilter = (q: any) => {
@@ -285,8 +285,8 @@ const IncassiPage = () => {
       return q;
     }
 
-    // Pendenti: quietanze e appendici insieme (nessun filtro tipo).
-    q = q.eq("stato", "attivo").is("data_messa_cassa", null);
+    // Pendenti: quietanze e appendici (include garantito con data_messa_cassa valorizzata)
+    q = q.eq("stato", "attivo").or(PENDENTI_OR_GARANTITO_APERTO_FILTER);
 
     // Range esplicito Dal/Al: solo garanzia_da (senza soglia 60gg né null)
     if (dateDa || dateA) {
@@ -601,7 +601,7 @@ const IncassiPage = () => {
   const suggerimentiByTitoloId = useMemo(() => {
     const map = new Map<string, ReturnType<typeof suggestBonificiPerCliente>>();
     for (const p of polizze) {
-      if (p.stato !== "attivo" || p.data_messa_cassa) continue;
+      if (!isDaChiudereIncasso(p)) continue;
       const sug = suggestBonificiPerCliente(bonificiAperti, {
         clienteId: (p as any).cliente_anagrafica_id,
         clienteNome: p.cliente_nome_display,
@@ -659,9 +659,9 @@ const IncassiPage = () => {
     [openIncassa],
   );
 
-  // Solo polizze attive E mai messe a cassa sono incassabili (evita doppio incasso)
+  // Attive da chiudere: senza messa a cassa, oppure garantito ancora da convertire in incasso pieno
   const selectedAttive = useMemo(
-    () => polizze.filter(p => selectedIds.has(p.id) && p.stato === "attivo" && !p.data_messa_cassa),
+    () => polizze.filter(p => selectedIds.has(p.id) && isDaChiudereIncasso(p)),
     [polizze, selectedIds]
   );
 
@@ -692,7 +692,7 @@ const IncassiPage = () => {
     [selectedAttive, openIncassa],
   );
   const selectedGarantibile = useMemo(
-    () => selectedAttive.filter((p) => canHaveDataCopertura(p as any) && !isInCoperturaGarantita(p)),
+    () => selectedAttive.filter((p) => canHaveDataCopertura(p as any) && !isGarantitoAperto(p)),
     [selectedAttive]
   );
   const selectedIncassate = useMemo(() => polizze.filter(p => selectedIds.has(p.id) && p.stato === "incassato"), [polizze, selectedIds]);
@@ -1312,7 +1312,7 @@ const IncassiPage = () => {
                           <span>{p.cliente_nome_display || "—"}</span>
                           {(() => {
                             const sug = suggerimentiByTitoloId.get(p.id);
-                            if (!sug?.length || p.stato !== "attivo" || p.data_messa_cassa) return null;
+                            if (!sug?.length || !isDaChiudereIncasso(p)) return null;
                             return (
                               <BonificoMatchBadge
                                 suggerimenti={sug}
@@ -1355,10 +1355,10 @@ const IncassiPage = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-center text-xs">
-                        {inCopertura ? fmtDate(p.data_copertura) : "—"}
+                        {inCopertura || p.data_copertura ? fmtDate(p.data_copertura) : "—"}
                       </TableCell>
                       <TableCell className="text-center text-xs">
-                        {isIncassato ? fmtDate(p.data_messa_cassa) : "—"}
+                        {p.data_messa_cassa ? fmtDate(p.data_messa_cassa) : "—"}
                       </TableCell>
                     </TableRow>
                   );

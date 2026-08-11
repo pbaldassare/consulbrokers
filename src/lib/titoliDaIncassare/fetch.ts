@@ -1,6 +1,7 @@
 import { format, endOfMonth, startOfMonth } from "date-fns";
 import { it } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
+import { PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
 import { mapTitoloDaIncassareRow, type TitoloDaIncassareRaw } from "./mapRow";
 import type { TitoloDaIncassareRow } from "./columns";
 
@@ -13,7 +14,7 @@ export interface FetchTitoliDaIncassareFilters {
 }
 
 const VIEW_SELECT =
-  "id, numero_titolo, appendice_corrente, descrizione_polizza, cig_rif, data_competenza, durata_da, durata_a, garanzia_da, garanzia_a, data_scadenza, premio_lordo, provvigioni_quietanza, produttore_nome, produttori_display, data_copertura, data_incasso, data_messa_cassa, conferimento_gestito, tipo_portafoglio, tacito_rinnovo, rate, numero_rata, numero_rate_totali, cliente_nome_display, ae_nome, specialist, compagnia_nome, compagnia_id, ramo_nome, ufficio_id, produttore_id, targa_telaio, sostituisce_polizza, stato";
+  "id, numero_titolo, appendice_corrente, descrizione_polizza, cig_rif, data_competenza, durata_da, durata_a, garanzia_da, garanzia_a, data_scadenza, premio_lordo, provvigioni_quietanza, produttore_nome, produttori_display, data_copertura, data_incasso, data_messa_cassa, conferimento_gestito, fondi_ricevuti, tipo_pagamento, tipo_portafoglio, tacito_rinnovo, rate, numero_rata, numero_rate_totali, cliente_nome_display, ae_nome, specialist, compagnia_nome, compagnia_id, ramo_nome, ufficio_id, produttore_id, targa_telaio, sostituisce_polizza, stato";
 
 /** Titoli attivi non incassati con competenza nel mese selezionato. */
 export async function fetchTitoliDaIncassare(
@@ -26,7 +27,7 @@ export async function fetchTitoliDaIncassare(
     .from("v_portafoglio_quietanze")
     .select(VIEW_SELECT)
     .eq("stato", "attivo")
-    .is("data_messa_cassa", null)
+    .or(PENDENTI_OR_GARANTITO_APERTO_FILTER)
     .gte("data_competenza", dal)
     .lte("data_competenza", al);
 

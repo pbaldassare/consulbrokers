@@ -40,7 +40,7 @@ async function syncQuietanzaCopertura(titoloId: string, dataCopertura: string) {
 }
 
 /**
- * Dialog "Garantito" — fase 1 copertura (data_copertura), senza messa a cassa.
+ * Dialog "Garantito" — messa a cassa + copertura senza fondi ricevuti.
  */
 export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props) {
   const queryClient = useQueryClient();
@@ -144,7 +144,7 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
           <DialogDescription>
             {isMulti
               ? `Copertura garantita di ${titoli.length} polizze · Totale ${fmtEuro(totale)}`
-              : `Polizza ${titoli[0]?.numero_titolo || titoli[0]?.id?.slice(0, 8) || ""} — Copertura senza incasso`}
+              : `Polizza ${titoli[0]?.numero_titolo || titoli[0]?.id?.slice(0, 8) || ""} — Messa a cassa garantita (senza fondi)`}
           </DialogDescription>
         </DialogHeader>
 
@@ -183,7 +183,9 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
           </div>
 
           <p className="text-xs text-muted-foreground">
-            La messa a cassa e il tipo/data pagamento verranno compilati successivamente, al momento dell'incasso effettivo dei fondi.
+            Vengono impostate data copertura e data messa a cassa. I fondi restano in attesa
+            (<em>fondi_ricevuti = false</em>); tipo/data pagamento e importo incassato si compilano
+            all&apos;incasso effettivo.
           </p>
         </div>
 

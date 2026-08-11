@@ -22,6 +22,8 @@ export type PremiScopertiRaw = TitoloLike & {
   data_messa_cassa?: string | null;
   data_copertura?: string | null;
   conferimento_gestito?: boolean | null;
+  fondi_ricevuti?: boolean | null;
+  tipo_pagamento?: string | null;
   prodotto_nome?: string | null;
   compagnia_id?: string | null;
   clienti?: {
@@ -66,12 +68,13 @@ export type PremiScopertiRow = {
   dateKey: string | null;
 };
 
-/** Titolo ancora da incassare (quietanza/appendice), non messo a cassa. */
+/** Titolo ancora da chiudere (quietanza/appendice): senza messa a cassa, oppure garantito in attesa fondi. */
 export function isApertoDaIncassare(t: PremiScopertiRaw): boolean {
   if (!canHaveDataCopertura(t)) return false;
-  if (t.data_messa_cassa) return false;
   if (t.stato === "incassato" || t.stato === "annullato") return false;
-  return t.stato === "attivo" || t.stato === "sospeso" || !t.stato;
+  if (!(t.stato === "attivo" || t.stato === "sospeso" || !t.stato)) return false;
+  if (!t.data_messa_cassa) return true;
+  return isGarantitoDaIncassare(t);
 }
 
 export function classifyPremio(t: PremiScopertiRaw): "garantito" | "scoperto" {

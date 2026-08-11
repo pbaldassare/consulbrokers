@@ -2,20 +2,23 @@ import { describe, expect, it } from "vitest";
 import {
   classifyPremio,
   inDateRange,
+  isApertoDaIncassare,
   labelTipoDocumento,
   moraStatusOf,
   mapPremiScopertiRow,
 } from "@/lib/premiScopertiGarantiti";
 
 describe("premiScopertiGarantiti", () => {
-  it("classifica garantito da copertura senza messa a cassa", () => {
+  it("classifica garantito da copertura con fondi in attesa (anche con messa a cassa)", () => {
     expect(
       classifyPremio({
         id: "1",
         sostituisce_polizza: "madre",
         conferimento_gestito: true,
+        tipo_pagamento: "garantito",
         data_copertura: "2026-01-10",
-        data_messa_cassa: null,
+        data_messa_cassa: "2026-01-10",
+        fondi_ricevuti: false,
         stato: "attivo",
       }),
     ).toBe("garantito");
@@ -32,6 +35,30 @@ describe("premiScopertiGarantiti", () => {
         stato: "attivo",
       }),
     ).toBe("scoperto");
+  });
+
+  it("isApertoDaIncassare include garantito con data_messa_cassa", () => {
+    expect(
+      isApertoDaIncassare({
+        id: "g",
+        sostituisce_polizza: "madre",
+        conferimento_gestito: true,
+        tipo_pagamento: "garantito",
+        data_copertura: "2026-01-10",
+        data_messa_cassa: "2026-01-10",
+        fondi_ricevuti: false,
+        stato: "attivo",
+      }),
+    ).toBe(true);
+    expect(
+      isApertoDaIncassare({
+        id: "paid",
+        sostituisce_polizza: "madre",
+        data_messa_cassa: "2026-01-10",
+        conferimento_gestito: false,
+        stato: "attivo",
+      }),
+    ).toBe(false);
   });
 
   it("labelTipoDocumento da flag appendice/quietanza", () => {
