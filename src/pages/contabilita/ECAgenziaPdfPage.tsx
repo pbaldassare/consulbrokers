@@ -16,6 +16,7 @@ import { calcolaRitenutaAcconto, resolvePercentualeRA } from "@/lib/resolvePerce
 import { resolveCompagniaCollegataNome, resolveMiCodiceEcAgenzia } from "@/lib/ecAgenziaDisplay";
 import { defaultDataEstrattoContoFormatted } from "@/lib/contabilita/defaultDataEstrattoConto";
 import { anteprimaRiferimentoEc, prossimoRiferimentoEc } from "@/lib/contabilita/ecProgressivo";
+import { archiviaEcAgenziaPdf, righeFromEcAgenziaTitoli } from "@/lib/contabilita/ecAgenziaArchivio";
 
 const mesiIt = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 
@@ -281,7 +282,8 @@ const ECAgenziaPdfPage = () => {
     try {
       setBusy(true);
       const rif = await allocaRiferimento();
-      const bytes = await buildECAgenziaPdf(buildData(rif));
+      const ecData = buildData(rif);
+      const bytes = await buildECAgenziaPdf(ecData);
       const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       const name = fileName();
 
@@ -294,23 +296,17 @@ const ECAgenziaPdfPage = () => {
 
       // Salva in Archivio (entità: agenzia / compagnia)
       if (compagniaId) {
-        const path = `${compagniaId}/ec_agenzia/${Date.now()}_${name}`;
-        const { error: upErr } = await supabase.storage
-          .from("documenti_generali")
-          .upload(path, blob, { contentType: "application/pdf", upsert: false });
-        if (upErr) throw upErr;
         const { data: u } = await supabase.auth.getUser();
-        const { error: dbErr } = await supabase.from("documenti").insert({
-          nome_file: name,
-          path_storage: path,
-          bucket_name: "documenti_generali",
-          entita_tipo: "agenzia",
-          entita_id: compagniaId,
-          categoria: "EC Agenzia",
-          visibile_al_cliente: false,
-          caricato_da: u?.user?.id ?? null,
-        } as any);
-        if (dbErr) throw dbErr;
+        await archiviaEcAgenziaPdf({
+          compagniaId,
+          riferimento: rif,
+          periodoTesto,
+          dataDocumento,
+          righe: righeFromEcAgenziaTitoli(ecData.titoli),
+          pdfBlob: blob,
+          nomeFile: name,
+          userId: u?.user?.id ?? null,
+        });
 
         await logAttivita({
           azione: "stampa_ec_agenzia",

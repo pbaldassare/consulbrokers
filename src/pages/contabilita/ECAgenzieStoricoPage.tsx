@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,16 +11,25 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
+import {
+  cercaEcAgenziaStorico,
+  formatClientiAnteprima,
+  type EcAgenziaStoricoRow,
+} from "@/lib/contabilita/ecAgenziaArchivio";
+
 const ECAgenzieStoricoPage = () => {
   const [q, setQ] = useState("");
+  const [riferimento, setRiferimento] = useState("");
+  const [cliente, setCliente] = useState("");
+  const [polizza, setPolizza] = useState("");
   const [agenziaId, setAgenziaId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const { page, setPage, pageSize, range } = useServerPagination(25, [q, agenziaId, dateFrom, dateTo]);
+  const filterKey = [q, riferimento, cliente, polizza, agenziaId, dateFrom, dateTo];
+  const { page, setPage, pageSize, range } = useServerPagination(25, filterKey);
 
-  useEffect(() => { setPage(0); }, [q, agenziaId, dateFrom, dateTo]);
+  useEffect(() => { setPage(0); }, filterKey); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Agencies dropdown
   const { data: agenzieOpts = [] } = useQuery({
     queryKey: ["ec-agenzie-storico-agenzie"],
     queryFn: async () => {
@@ -30,33 +39,30 @@ const ECAgenzieStoricoPage = () => {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["ec-agenzie-storico", q, agenziaId, dateFrom, dateTo, page],
+    queryKey: ["ec-agenzie-storico", ...filterKey, page],
     queryFn: async () => {
-      let query = supabase
-        .from("documenti")
-        .select("id, nome_file, path_storage, bucket_name, entita_id, created_at, caricato_da, categoria", { count: "exact" })
-        .eq("categoria", "EC Agenzia")
-        .order("created_at", { ascending: false });
+      const result = await cercaEcAgenziaStorico({
+        compagniaId: agenziaId,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        q,
+        riferimento,
+        cliente,
+        polizza,
+        limit: range.to - range.from + 1,
+        offset: range.from,
+      });
 
-      if (agenziaId) query = query.eq("entita_id", agenziaId);
-      if (q.trim()) query = query.ilike("nome_file", `%${q.trim()}%`);
-      if (dateFrom) query = query.gte("created_at", `${dateFrom}T00:00:00`);
-      if (dateTo) query = query.lte("created_at", `${dateTo}T23:59:59`);
-
-      const from = range.from;
-      const to = range.to;
-      const { data: docs, count, error } = await query.range(from, to);
-      if (error) throw error;
-
-      const compIds = Array.from(new Set((docs || []).map((d: any) => d.entita_id).filter(Boolean)));
+      const compIds = Array.from(new Set(result.rows.map((d) => d.compagnia_id).filter(Boolean)));
       const compMap: Record<string, string> = {};
       if (compIds.length) {
         const { data: comps } = await supabase.from("compagnie").select("id, nome").in("id", compIds);
         (comps || []).forEach((c: any) => { compMap[c.id] = c.nome; });
       }
+
       return {
-        rows: (docs || []).map((d: any) => ({ ...d, agenzia_nome: compMap[d.entita_id] || "—" })),
-        total: count || 0,
+        rows: result.rows.map((d) => ({ ...d, agenzia_nome: compMap[d.compagnia_id] || "—" })),
+        total: result.total,
       };
     },
   });
@@ -64,7 +70,7 @@ const ECAgenzieStoricoPage = () => {
   const rows = data?.rows || [];
   const total = data?.total || 0;
 
-  const handleDownload = async (row: any) => {
+  const handleDownload = async (row: EcAgenziaStoricoRow & { agenzia_nome?: string }) => {
     try {
       const { data: blob, error } = await supabase.storage
         .from(row.bucket_name || "documenti_generali")
@@ -88,16 +94,40 @@ const ECAgenzieStoricoPage = () => {
         </div>
         <div>
           <h1 className="text-2xl font-bold">Storico E/C Agenzie</h1>
-          <p className="text-sm text-muted-foreground">PDF "Estratto Conto Agenzia" archiviati</p>
+          <p className="text-sm text-muted-foreground">
+            PDF archiviati — cerca per riferimento progressivo, cliente, polizza o pagamento (MI)
+          </p>
         </div>
       </div>
 
       <Card>
         <CardContent className="p-4 grid gap-3 md:grid-cols-4">
-          <div className="relative">
+          <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca nome file..." className="pl-9" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Ricerca libera (riferimento, cliente, polizza…)"
+              className="pl-9"
+            />
           </div>
+          <Input
+            value={riferimento}
+            onChange={(e) => setRiferimento(e.target.value)}
+            placeholder="Riferimento E/C (es. SAR106/250801)"
+            className="font-mono text-sm"
+          />
+          <Input
+            value={cliente}
+            onChange={(e) => setCliente(e.target.value)}
+            placeholder="Nome cliente"
+          />
+          <Input
+            value={polizza}
+            onChange={(e) => setPolizza(e.target.value)}
+            placeholder="N. polizza / titolo"
+            className="font-mono text-sm"
+          />
           <FilterSearchableSelect
             value={agenziaId}
             onValueChange={setAgenziaId}
@@ -122,20 +152,26 @@ const ECAgenzieStoricoPage = () => {
             <TableRow>
               <TableHead>Data</TableHead>
               <TableHead>Agenzia</TableHead>
-              <TableHead>Nome File / Riferimento</TableHead>
+              <TableHead>Riferimento</TableHead>
+              <TableHead>Periodo</TableHead>
+              <TableHead>Clienti (anteprima)</TableHead>
               <TableHead className="w-[120px] text-right">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
             ) : rows.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nessun E/C archiviato</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nessun E/C trovato</TableCell></TableRow>
             ) : rows.map((d: any, i: number) => (
-              <TableRow key={d.id} className={i % 2 === 0 ? "bg-muted/20" : ""}>
+              <TableRow key={d.documento_id} className={i % 2 === 0 ? "bg-muted/20" : ""}>
                 <TableCell className="text-sm">{d.created_at ? format(new Date(d.created_at), "dd/MM/yyyy HH:mm") : "—"}</TableCell>
                 <TableCell className="font-medium">{d.agenzia_nome}</TableCell>
-                <TableCell className="text-sm font-mono">{d.nome_file}</TableCell>
+                <TableCell className="text-sm font-mono">{d.riferimento || "—"}</TableCell>
+                <TableCell className="text-sm">{d.periodo_testo || "—"}</TableCell>
+                <TableCell className="text-sm max-w-[240px] truncate" title={formatClientiAnteprima(d.righe, 5)}>
+                  {formatClientiAnteprima(d.righe)}
+                </TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="outline" onClick={() => handleDownload(d)}>
                     <Download className="h-3.5 w-3.5 mr-1" /> Scarica

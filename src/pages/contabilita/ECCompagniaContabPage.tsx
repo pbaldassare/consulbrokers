@@ -24,6 +24,7 @@ import {
 } from "@/lib/contabilita/defaultDataLimiteIncasso";
 import { defaultDataEstrattoContoFormatted } from "@/lib/contabilita/defaultDataEstrattoConto";
 import { prossimoRiferimentoEc } from "@/lib/contabilita/ecProgressivo";
+import { archiviaEcAgenziaPdf, righeFromEcAgenziaTitoli } from "@/lib/contabilita/ecAgenziaArchivio";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -960,6 +961,8 @@ Consulbrokers`;
       const mergedPdf = await PDFLib.create();
       const dataEstrattoConto = defaultDataEstrattoContoFormatted();
       const mesiIt = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+      const { data: authUser } = await supabase.auth.getUser();
+      const bulkUserId = authUser?.user?.id ?? null;
 
       for (const r of exportRows) {
         const comp = (compagnieFull || []).find((c: any) => c.id === r.compagnia_id);
@@ -1046,6 +1049,19 @@ Consulbrokers`;
         };
 
         const pdfBytes = await buildECAgenziaPdf(ecData);
+        const agCodice = (comp as any).codice || (comp as any).nome || "agenzia";
+        const singleName = `EC_Agenzia_${String(agCodice).replace(/\s+/g, "_")}_${format(new Date(), "yyyy-MM-dd")}_${progRes.riferimento?.replace(/\//g, "-") || "ref"}.pdf`;
+        await archiviaEcAgenziaPdf({
+          compagniaId: r.compagnia_id,
+          riferimento: progRes.riferimento!,
+          periodoTesto,
+          dataDocumento: dataEstrattoConto,
+          righe: righeFromEcAgenziaTitoli(ecData.titoli),
+          pdfBlob: new Blob([pdfBytes as BlobPart], { type: "application/pdf" }),
+          nomeFile: singleName,
+          userId: bulkUserId,
+        });
+
         const singlePdf = await PDFLib.load(pdfBytes);
         const copiedPages = await mergedPdf.copyPages(singlePdf, singlePdf.getPageIndices());
         copiedPages.forEach((page) => mergedPdf.addPage(page));
