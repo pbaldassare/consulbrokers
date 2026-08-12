@@ -30,7 +30,12 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildRimessaPdf, type RimessaPdfData } from "@/lib/rimessa-pdf";
-import { buildECAgenziaPdf, type ECAgenziaData, type ECAgenziaTitolo } from "@/lib/ec-agenzia-pdf";
+import {
+  buildECAgenziaPdf,
+  type ECAgenziaData,
+  type ECAgenziaTitolo,
+  type ECRiepilogoIncasso,
+} from "@/lib/ec-agenzia-pdf";
 import { validateIban } from "@/lib/validateIban";
 import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
@@ -885,6 +890,34 @@ Consulbrokers`;
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  const computeRiepilogoIncassoBulk = (
+    titoli: TitoloDetail[],
+    titoliFullById: Map<string, any>,
+    compagniaPercentualeRa: number | null,
+  ): ECRiepilogoIncasso => {
+    const incassati = { premio: 0, daRimettere: 0 };
+    const nonIncassati = { premio: 0, daRimettere: 0 };
+    for (const t of titoli) {
+      const full = titoliFullById.get(t.id);
+      const provv = full ? getProvvigioneEC(full) : 0;
+      const ra = full
+        ? calcolaRitenutaAcconto(
+            provv,
+            resolvePercentualeRA({
+              rapporto_percentuale_ra: full.compagnia_rapporti?.percentuale_ra,
+              compagnia_percentuale_ra: compagniaPercentualeRa,
+            }),
+          )
+        : 0;
+      const premio = t.premio_lordo;
+      const daRimettere = premio - provv + ra;
+      const bucket = isInCoperturaGarantita(t) ? nonIncassati : incassati;
+      bucket.premio += premio;
+      bucket.daRimettere += daRimettere;
+    }
+    return { incassati, nonIncassati };
+  };
+
   const exportBulkEC = async () => {
     if (!exportRows.length) return;
     setBulkEcLoading(true);
@@ -914,7 +947,9 @@ Consulbrokers`;
 
       // 4. Raggruppa titoli per compagnia_id
       const titoliByCompagnia = new Map<string, any[]>();
+      const titoliFullById = new Map<string, any>();
       for (const t of titoliFull || []) {
+        titoliFullById.set(t.id, t);
         const arr = titoliByCompagnia.get(t.compagnia_id) || [];
         arr.push(t);
         titoliByCompagnia.set(t.compagnia_id, arr);
@@ -1007,6 +1042,7 @@ Consulbrokers`;
           totalePremio,
           totaleProvvigioni,
           ritenutaAcconto,
+          riepilogoIncasso: computeRiepilogoIncassoBulk(r.titoli, titoliFullById, compagniaRA),
         };
 
         const pdfBytes = await buildECAgenziaPdf(ecData);

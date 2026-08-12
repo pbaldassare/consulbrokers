@@ -42,8 +42,20 @@ export interface ECAgenziaData {
   totalePremio: number;
   totaleProvvigioni: number;
   ritenutaAcconto: number;        // somma RA (può essere 0)
+  /** Solo export bulk PDF E/C completi: split incassati vs copertura garantita. */
+  riepilogoIncasso?: ECRiepilogoIncasso;
   // Footer
   noteFinali?: string;
+}
+
+export interface ECRiepilogoIncassoVoce {
+  premio: number;
+  daRimettere: number;
+}
+
+export interface ECRiepilogoIncasso {
+  incassati: ECRiepilogoIncassoVoce;
+  nonIncassati: ECRiepilogoIncassoVoce;
 }
 
 const A4 = { w: 595.28, h: 841.89 };
@@ -295,6 +307,14 @@ function drawTotali(ctx: Ctx, d: ECAgenziaData) {
   ctx.page.drawLine({ start: { x: rightX, y: ctx.y - 1 }, end: { x: MARGIN.left + CONTENT_W, y: ctx.y - 1 }, thickness: 0.6, color: COLOR.line });
   ctx.y -= 4;
   drawLine("A Vostro Credito", aVostroCredito, true);
+
+  if (d.riepilogoIncasso) {
+    spacer(ctx, 10);
+    drawText(ctx, "Riepilogo per stato incasso", { size: 9, bold: true });
+    spacer(ctx, 4);
+    drawLine("Totale incassati", d.riepilogoIncasso.incassati.daRimettere);
+    drawLine("Totale non incassati", d.riepilogoIncasso.nonIncassati.daRimettere);
+  }
 }
 
 // ------- Note legali -------
