@@ -8,6 +8,7 @@ export const FRAZIONAMENTI = [
   { value: "Semestrale", label: "Semestrale" },
   { value: "Annuale", label: "Annuale" },
   { value: "Poliennale", label: "Poliennale" },
+  { value: "Rata unica", label: "Rata unica" },
   { value: "Premio unico anticipato", label: "Premio unico anticipato" },
 ] as const;
 
@@ -18,9 +19,14 @@ export function isPremioUnicoAnticipato(f: string | null | undefined): boolean {
   return String(f || "").trim().toLowerCase() === "premio unico anticipato";
 }
 
+/** True se pagamento unico alla firma (1 quietanza sull'intero periodo). Accetta legacy "Unica". */
+export function isRataUnica(f: string | null | undefined): boolean {
+  const v = String(f || "").trim().toLowerCase();
+  return v === "rata unica" || v === "unica";
+}
+
 export function frazionamentoMesi(f: string, anni: number): number {
-  if (isPremioUnicoAnticipato(f)) {
-    // Durata intera del contratto (come Poliennale): le quietanze coprono tutto il periodo.
+  if (isPremioUnicoAnticipato(f) || isRataUnica(f)) {
     return Math.max(1, anni) * 12;
   }
   switch (f) {
@@ -28,14 +34,15 @@ export function frazionamentoMesi(f: string, anni: number): number {
     case "Trimestrale": return 3;
     case "Quadrimestrale": return 4;
     case "Semestrale": return 6;
-    case "Poliennale": return Math.max(1, anni) * 12;
+    case "Poliennale":
     case "Annuale":
     default: return 12;
   }
 }
 
 export function frazionamentoToRate(f: string, anni: number): number {
-  if (isPremioUnicoAnticipato(f)) return 2; // Q1 copertura + Q2 tecnica
+  if (isPremioUnicoAnticipato(f)) return 2;
+  if (isRataUnica(f)) return 1;
   if (f === "Poliennale") return 1;
   const m = frazionamentoMesi(f, anni);
   return Math.max(1, Math.round(12 / m));
@@ -45,6 +52,7 @@ export function frazionamentoToRate(f: string, anni: number): number {
  * Premio (o provvigione) di annualità a partire dalla rata/firma.
  * Es. Semestrale 109.000 → 218.000; Annuale → invariato.
  * Premio unico anticipato: rata × 2 (due quietanze stesso importo).
+ * Rata unica: importo intero contratto (invariato).
  */
 export function importoAnnualitaDaRata(
   importoRata: number | null | undefined,
@@ -52,6 +60,7 @@ export function importoAnnualitaDaRata(
 ): number {
   const rata = Number(importoRata) || 0;
   if (!rata) return 0;
+  if (isRataUnica(frazionamento)) return rata;
   return rata * frazionamentoToRate(String(frazionamento || "Annuale"), 1);
 }
 
@@ -60,12 +69,12 @@ export function derivaFrazionamentoDaRate(
   rate: number | null | undefined,
   anniDurata?: number | null,
 ): Frazionamento {
-  if ((anniDurata || 0) > 1 && (rate || 1) === 1) return "Poliennale";
+  if ((rate || 1) === 1 && (anniDurata || 0) > 1) return "Rata unica";
   switch (Number(rate)) {
     case 12: return "Mensile";
     case 4: return "Trimestrale";
     case 3: return "Quadrimestrale";
-    case 2: return "Semestrale"; // rate=2 resta Semestrale (legacy); Premio unico anticipato solo via testo
+    case 2: return "Semestrale";
     case 1: return "Annuale";
     default: return "Annuale";
   }

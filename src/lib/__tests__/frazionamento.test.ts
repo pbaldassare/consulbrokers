@@ -5,12 +5,23 @@ import {
   derivaFrazionamentoDaRate,
   importoAnnualitaDaRata,
   isPremioUnicoAnticipato,
+  isRataUnica,
   FRAZIONAMENTI,
 } from "../frazionamento";
 
 describe("FRAZIONAMENTI", () => {
-  it("include Premio unico anticipato come ultima voce", () => {
-    expect(FRAZIONAMENTI[FRAZIONAMENTI.length - 1].value).toBe("Premio unico anticipato");
+  it("include Rata unica e Premio unico anticipato", () => {
+    const values = FRAZIONAMENTI.map((f) => f.value);
+    expect(values).toContain("Rata unica");
+    expect(values).toContain("Premio unico anticipato");
+  });
+});
+
+describe("isRataUnica", () => {
+  it("riconosce Rata unica e legacy Unica", () => {
+    expect(isRataUnica("Rata unica")).toBe(true);
+    expect(isRataUnica("Unica")).toBe(true);
+    expect(isRataUnica("Annuale")).toBe(false);
   });
 });
 
@@ -29,7 +40,11 @@ describe("frazionamentoMesi", () => {
     expect(frazionamentoMesi("Quadrimestrale", 1)).toBe(4);
     expect(frazionamentoMesi("Semestrale", 1)).toBe(6);
     expect(frazionamentoMesi("Annuale", 1)).toBe(12);
-    expect(frazionamentoMesi("Poliennale", 3)).toBe(36);
+    expect(frazionamentoMesi("Poliennale", 3)).toBe(12);
+  });
+
+  it("Rata unica = durata intera in mesi", () => {
+    expect(frazionamentoMesi("Rata unica", 2)).toBe(24);
   });
 
   it("Premio unico anticipato = durata intera in mesi", () => {
@@ -55,8 +70,12 @@ describe("frazionamentoToRate", () => {
     expect(frazionamentoToRate("Annuale", 1)).toBe(1);
   });
 
-  it("Poliennale ha sempre 1 rata indipendentemente dagli anni", () => {
+  it("Poliennale = 1 rata annua (rate/anno)", () => {
     expect(frazionamentoToRate("Poliennale", 5)).toBe(1);
+  });
+
+  it("Rata unica → 1 rata totale", () => {
+    expect(frazionamentoToRate("Rata unica", 5)).toBe(1);
   });
 
   it("Premio unico anticipato → 2 rate (copertura + tecnica)", () => {
@@ -74,8 +93,8 @@ describe("derivaFrazionamentoDaRate", () => {
     expect(derivaFrazionamentoDaRate(1, 1)).toBe("Annuale");
   });
 
-  it("polizza multi-anno con 1 rata → Poliennale", () => {
-    expect(derivaFrazionamentoDaRate(1, 3)).toBe("Poliennale");
+  it("polizza multi-anno con 1 rata → Rata unica", () => {
+    expect(derivaFrazionamentoDaRate(1, 3)).toBe("Rata unica");
   });
 
   it("rate non standard defaulta ad Annuale", () => {
@@ -99,6 +118,10 @@ describe("importoAnnualitaDaRata", () => {
 
   it("Premio unico anticipato → rata × 2", () => {
     expect(importoAnnualitaDaRata(10000, "Premio unico anticipato")).toBe(20000);
+  });
+
+  it("Rata unica → importo invariato", () => {
+    expect(importoAnnualitaDaRata(18337.5, "Rata unica")).toBe(18337.5);
   });
 
   it("importo nullo → 0", () => {

@@ -71,6 +71,7 @@ import {
   frazionamentoMesi,
   frazionamentoToRate,
   isPremioUnicoAnticipato,
+  isRataUnica,
 } from "@/lib/frazionamento";
 import { resizeRegolazioneDatePresunte } from "@/lib/regolazioneDatePresunte";
 import {
@@ -199,6 +200,7 @@ const ImmissionePolizzaPage = () => {
       const map: Record<string, string> = {
         annuale: "Annuale", semestrale: "Semestrale", quadrimestrale: "Quadrimestrale",
         trimestrale: "Trimestrale", mensile: "Mensile", poliennale: "Poliennale",
+        "rata unica": "Rata unica", unica: "Rata unica",
       };
       if (map[fraz]) setFrazionamento(map[fraz]);
     }
@@ -1436,7 +1438,7 @@ const ImmissionePolizzaPage = () => {
   const totQuietanza = premioNettoQNum + accessoriQuietanzaNum + tasseQNum + ssnQuietanzaNum;
 
   const quietanzePlanPreview =
-    !polizzaTemporanea && (polizzaRateo || isPremioUnicoAnticipato(frazionamento))
+    !polizzaTemporanea && (polizzaRateo || isPremioUnicoAnticipato(frazionamento) || isRataUnica(frazionamento))
       ? computeQuietanzePlan({
           polizzaRateo: polizzaRateo || undefined,
           frazionamento,
@@ -1735,8 +1737,8 @@ const ImmissionePolizzaPage = () => {
     if (!durataDa) return;
     const anni = Math.max(1, parseInt(anniDurata) || 1);
 
-    // Premio unico anticipato: durata libera; garanzia = intero periodo contratto.
-    if (isPremioUnicoAnticipato(frazionamento)) {
+    // Premio unico anticipato / Rata unica: durata libera; garanzia = intero periodo contratto.
+    if (isPremioUnicoAnticipato(frazionamento) || isRataUnica(frazionamento)) {
       const defaultDurataA = addMonthsISO(durataDa, anni * 12);
       if (!durataATouched) setDurataA(defaultDurataA);
       const fine = durataATouched && durataA ? durataA : defaultDurataA;
@@ -3314,6 +3316,21 @@ const ImmissionePolizzaPage = () => {
                   {row.idx === 1 ? " (rateo — premio firma)" : " (rata annua — premio quietanza)"}
                   {": "}
                   {row.garanzia_da} → {row.garanzia_a}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!polizzaRateo && isRataUnica(frazionamento) && quietanzePlanPreview.length > 0 && (
+          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 space-y-2">
+            <p className="text-xs font-medium text-emerald-900 dark:text-emerald-100">
+              Anteprima quietanze ({quietanzePlanPreview.length}): rata unica alla firma
+            </p>
+            <div className="grid gap-1">
+              {quietanzePlanPreview.map((row) => (
+                <div key={row.idx} className="text-[11px] text-emerald-800 dark:text-emerald-200 font-mono">
+                  Quietanza {row.idx} (intero periodo): {row.garanzia_da} → {row.garanzia_a}
                 </div>
               ))}
             </div>

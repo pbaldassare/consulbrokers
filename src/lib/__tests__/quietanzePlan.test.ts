@@ -63,6 +63,23 @@ describe("computeQuietanzePlan", () => {
     expect(plan[2].garanzia_da).toBe("2026-09-01");
   });
 
+  it("Rata unica biennale → 1 quietanza sull'intero periodo", () => {
+    const plan = computeQuietanzePlan({
+      frazionamento: "Rata unica",
+      anniDurata: 2,
+      garanziaDa: "2026-09-01",
+      garanziaA: "2028-09-01",
+      durataDa: "2026-09-01",
+      durataA: "2028-09-01",
+    });
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toMatchObject({
+      idx: 1,
+      garanzia_da: "2026-09-01",
+      garanzia_a: "2028-09-01",
+    });
+  });
+
   it("Poliennale 3 anni → 3 quietanze annuali", () => {
     const plan = computeQuietanzePlan({ ...base, frazionamento: "Poliennale", anniDurata: 3 });
     expect(plan).toHaveLength(3);

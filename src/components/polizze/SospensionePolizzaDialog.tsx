@@ -248,7 +248,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
           garanzia_a: dataSospensione,
           data_decorrenza: dataSospensione,
           data_scadenza: dataSospensione,
-          frazionamento: "Unica",
+          frazionamento: "Rata unica",
           premio_lordo: oneriNum,
           premio_netto: oneriNum,
           riga: rigaSosp,

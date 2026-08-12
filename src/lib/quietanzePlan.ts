@@ -2,7 +2,7 @@
 // Usato dalla UI di Immissione Polizza per editare le rate prima del salvataggio,
 // e dai test di regressione.
 
-import { frazionamentoMesi, isPremioUnicoAnticipato, type Frazionamento } from "./frazionamento";
+import { frazionamentoMesi, isPremioUnicoAnticipato, isRataUnica, type Frazionamento } from "./frazionamento";
 
 export type QuietanzaPlanRow = {
   idx: number; // 1-based: 1 = rata alla firma, 2..N = rate successive
@@ -150,6 +150,18 @@ export function computeQuietanzePlan(input: QuietanzaPlanInput): QuietanzaPlanRo
 
   const f = String(input.frazionamento || "").toLowerCase();
   if (!f) return [];
+
+  if (isRataUnica(f)) {
+    const periodDa = toDate(input.durataDa) ?? garDa;
+    const periodA = toDate(input.durataA) ?? garA;
+    const competenza = toDate(input.dataCompetenza);
+    return [{
+      idx: 1,
+      garanzia_da: iso(periodDa),
+      garanzia_a: iso(periodA),
+      data_competenza: competenza ? iso(competenza) : iso(periodDa),
+    }];
+  }
 
   if (input.polizzaRateo) {
     const durA = toDate(input.durataA);
