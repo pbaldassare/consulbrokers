@@ -178,7 +178,7 @@ export default function SinistroReminderPage() {
         .order("data_scadenza", { ascending: true, nullsFirst: false })
         .range(range.from, range.to);
       if (error) throw error;
-      return { data: (data || []) as SinistroReminderRow[], count: count || 0 };
+      return { data: (data || []) as unknown as SinistroReminderRow[], count: count || 0 };
     },
   });
 
@@ -328,7 +328,7 @@ export default function SinistroReminderPage() {
         q = applyFilters(q);
         const { data, error } = await q.order("data_scadenza", { ascending: true });
         if (error) throw error;
-        rows = (data || []) as SinistroReminderRow[];
+        rows = (data || []) as unknown as SinistroReminderRow[];
       }
       const ws = XLSX.utils.json_to_sheet(rows.map(mapExportRow));
       const wb = XLSX.utils.book_new();
@@ -504,7 +504,11 @@ export default function SinistroReminderPage() {
         </CardContent>
       </Card>
 
-      <SinistroRiepilogoDialog sinistroId={previewSinistroId} onClose={() => setPreviewSinistroId(null)} />
+      <SinistroRiepilogoDialog
+        sinistroId={previewSinistroId}
+        open={!!previewSinistroId}
+        onOpenChange={(o) => { if (!o) setPreviewSinistroId(null); }}
+      />
 
       <Dialog open={!!editRow} onOpenChange={(o) => { if (!o) setEditRow(null); }}>
         <DialogContent>
