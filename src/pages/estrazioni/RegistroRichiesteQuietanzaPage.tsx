@@ -117,7 +117,7 @@ const RegistroRichiesteQuietanzaPage = () => {
         if (tacitoErr) throw tacitoErr;
         richiestaIdsFilter = [
           ...new Set(
-            ((righeTacito || []) as { richiesta_id: string }[]).map((r) => r.richiesta_id).filter(Boolean),
+            ((righeTacito || []) as unknown as { richiesta_id: string }[]).map((r) => r.richiesta_id).filter(Boolean),
           ),
         ];
         if (richiestaIdsFilter.length === 0) {
@@ -147,7 +147,7 @@ const RegistroRichiesteQuietanzaPage = () => {
         .order("inviato_at", { ascending: false })
         .range(range.from, range.to);
       if (error) throw error;
-      return { rows: (rows || []) as RichiestaRow[], count: count || 0 };
+      return { rows: (rows || []) as unknown as RichiestaRow[], count: count || 0 };
     },
   });
 
@@ -168,7 +168,7 @@ const RegistroRichiesteQuietanzaPage = () => {
         .in("richiesta_id", expandedIds);
       if (error) throw error;
       const map: Record<string, RigaRow[]> = {};
-      for (const r of (righe || []) as RigaRow[]) {
+      for (const r of (righe || []) as unknown as RigaRow[]) {
         (map[r.richiesta_id] ||= []).push(r);
       }
       return map;

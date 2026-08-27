@@ -996,7 +996,7 @@ export async function buildPdfElaboratoCliente(opts: {
 }
 
 export function downloadPdfBytes(bytes: Uint8Array, fileName: string) {
-  const blob = new Blob([bytes], { type: "application/pdf" });
+  const blob = new Blob([bytes as unknown as BlobPart], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
