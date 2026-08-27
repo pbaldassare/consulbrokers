@@ -95,6 +95,7 @@ export type SinistroReminderRow = {
     ufficio_id: string | null;
     compagnia_id: string | null;
     clienti?: { cognome?: string; nome?: string; ragione_sociale?: string; tipo_cliente?: string } | null;
+    compagnie?: { nome?: string } | null;
     titoli?: { numero_titolo?: string | null; ramo_id?: string | null; rami?: { descrizione?: string } | null } | null;
     profiles?: { nome?: string; cognome?: string } | null;
   } | null;

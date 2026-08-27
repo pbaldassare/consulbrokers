@@ -71,7 +71,7 @@ export default function SinistroAssegnazioniReminderSection({ sinistro, disabled
         .neq("stato", "annullato")
         .order("data_scadenza", { ascending: true });
       if (error) throw error;
-      return (data || []) as SinistroReminderRow[];
+      return (data || []) as unknown as SinistroReminderRow[];
     },
   });
 
@@ -79,7 +79,7 @@ export default function SinistroAssegnazioniReminderSection({ sinistro, disabled
     queryKey: ["profiles-responsabili-reminder", sinistro.responsabile_id],
     queryFn: async () => {
       const { data: ss } = await supabase.from("specialist_sinistri_sedi" as any).select("profilo_id");
-      const ids = [...new Set(((ss || []) as { profilo_id: string }[]).map((r) => r.profilo_id))];
+      const ids = [...new Set(((ss || []) as unknown as { profilo_id: string }[]).map((r) => r.profilo_id))];
       if (sinistro.responsabile_id && !ids.includes(sinistro.responsabile_id)) {
         ids.push(sinistro.responsabile_id);
       }

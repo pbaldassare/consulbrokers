@@ -106,7 +106,7 @@ export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow })
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data as {
+      return data as unknown as {
         id: string;
         testo: string;
         created_at: string;
@@ -243,7 +243,7 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
       const { data: ss } = await supabase
         .from("specialist_sinistri_sedi" as any)
         .select("profilo_id");
-      const ids = [...new Set(((ss || []) as { profilo_id: string }[]).map((r) => r.profilo_id))];
+      const ids = [...new Set(((ss || []) as unknown as { profilo_id: string }[]).map((r) => r.profilo_id))];
       if (sinistro.responsabile_id && !ids.includes(sinistro.responsabile_id)) {
         ids.push(sinistro.responsabile_id);
       }

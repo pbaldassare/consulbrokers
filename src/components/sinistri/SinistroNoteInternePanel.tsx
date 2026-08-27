@@ -74,7 +74,7 @@ export default function SinistroNoteInternePanel({ sinistroId, currentUserId, di
         .eq("sinistro_id", sinistroId)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return (data || []) as SinistroNotaInternaRow[];
+      return (data || []) as unknown as SinistroNotaInternaRow[];
     },
   });
 

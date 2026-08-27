@@ -243,11 +243,17 @@ export default function SinistroAperturaWizardPage() {
 
     const { data: docs } = await supabase
       .from("documenti")
-      .select("id, nome_file, path_storage, categoria, descrizione")
+      .select("id, nome_file, path_storage, categoria")
       .eq("entita_tipo", "sinistro")
       .eq("entita_id", id);
 
-    const hydrated = hydrateWizardFromSinistroBozza(row, docs || []);
+    const hydrated = hydrateWizardFromSinistroBozza(
+      row,
+      ((docs || []) as Array<{ id: string; nome_file: string; path_storage: string; categoria: string | null }>).map((d) => ({
+        ...d,
+        descrizione: null,
+      })),
+    );
     reset(hydrated.formValues);
     setCurrentStep(hydrated.ui.currentStep);
     setSoloMadri(hydrated.ui.soloMadri);
@@ -339,7 +345,7 @@ export default function SinistroAperturaWizardPage() {
       const { data: ss } = await supabase
         .from("specialist_sinistri_sedi" as any)
         .select("profilo_id");
-      const ids = [...new Set(((ss || []) as { profilo_id: string }[]).map((r) => r.profilo_id))];
+      const ids = [...new Set(((ss || []) as unknown as { profilo_id: string }[]).map((r) => r.profilo_id))];
       let q = supabase.from("profiles").select("id, nome, cognome, ruolo").eq("attivo", true).order("cognome");
       if (ids.length > 0) q = q.in("id", ids);
       const { data } = await q;
@@ -547,7 +553,6 @@ export default function SinistroAperturaWizardPage() {
         entita_id: sinistroId,
         caricato_da: userId,
         categoria: doc.categoria,
-        descrizione: doc.descrizione || null,
       });
       if (docDbErr) throw docDbErr;
 
@@ -618,7 +623,7 @@ export default function SinistroAperturaWizardPage() {
         setSearchParams({ bozza_id: created.id }, { replace: true });
       }
 
-      await uploadPendingDocuments(sinistroId!, values.documenti, user.id);
+      await uploadPendingDocuments(sinistroId!, values.documenti as WizardDocumentEntry[] | undefined, user.id);
       qc.invalidateQueries({ queryKey: ["sinistri"] });
       toast.success(dbBozzaId ? "Bozza aggiornata" : "Bozza salvata — puoi riprenderla dalla lista sinistri");
     } catch (err: unknown) {
@@ -705,7 +710,7 @@ export default function SinistroAperturaWizardPage() {
         newSinistro = invokeRes.sinistro as { id: string; numero_sinistro: string };
       }
 
-      await uploadPendingDocuments(newSinistro.id, values.documenti, user.id, { requireCategory: true });
+      await uploadPendingDocuments(newSinistro.id, values.documenti as WizardDocumentEntry[] | undefined, user.id, { requireCategory: true });
 
       clearDraft(LEGACY_LOCAL_DRAFT_KEY);
       qc.invalidateQueries({ queryKey: ["sinistri"] });

@@ -25,12 +25,12 @@ vi.mock("@/integrations/supabase/client", () => ({
       select: () => ({
         eq: () => ({
           order: () => ({
-            range: (...args: unknown[]) => rangeMock(...args),
+            range: (...args: unknown[]) => (rangeMock as (...a: unknown[]) => unknown)(...args),
           }),
         }),
         in: () => ({
           order: () => ({
-            range: (...args: unknown[]) => inRangeMock(...args),
+            range: (...args: unknown[]) => (inRangeMock as (...a: unknown[]) => unknown)(...args),
           }),
         }),
       }),

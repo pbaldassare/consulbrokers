@@ -42,10 +42,11 @@ export async function fetchTitoliDaIncassare(
   const { data, error } = await q.order("data_competenza", { ascending: true }).limit(5000);
   if (error) throw error;
 
-  const ids = (data || []).map((r) => r.id).filter(Boolean) as string[];
+  const rowsRaw = (data || []) as unknown as Record<string, any>[];
+  const ids = rowsRaw.map((r) => r.id).filter(Boolean) as string[];
   const enrich = await enrichTitoli(ids);
 
-  return (data || []).map((row) => {
+  return rowsRaw.map((row) => {
     const extra = enrich.get(row.id!) || {};
     return mapTitoloDaIncassareRow({ ...row, ...extra } as TitoloDaIncassareRaw);
   });

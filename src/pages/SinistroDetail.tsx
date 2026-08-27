@@ -215,7 +215,7 @@ export default function SinistroDetail() {
     timeline: { label: "Log Attività" },
   };
 
-  const safeTab = (tabList as readonly string[]).includes(activeTab) ? activeTab : "dati";
+  const safeTab: string = (tabList as readonly string[]).includes(activeTab) ? activeTab : "dati";
 
   // Contesto AI per gli scanner di sinistro: include CF/P.IVA del cliente
   // collegato così l'AI sa a chi appartengono perizie e referti.
@@ -387,7 +387,7 @@ export default function SinistroDetail() {
             {tabList.map((tab, idx) => {
               const meta = stepMeta[tab] || { label: tab };
               const isActive = safeTab === tab;
-              const isPast = idx < Math.max(0, tabList.indexOf(safeTab));
+              const isPast = idx < Math.max(0, tabList.indexOf(safeTab as any));
               return (
                 <TabsTrigger
                   key={tab}

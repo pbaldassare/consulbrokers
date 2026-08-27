@@ -132,11 +132,11 @@ export default function SinistroPrescrizioniPage() {
         .order("data_denuncia", { ascending: true, nullsFirst: false })
         .range(range.from, range.to);
       if (error) throw error;
-      return { data: data || [], count: count || 0 };
+      return { data: (data || []) as unknown as any[], count: count || 0 };
     },
   });
 
-  const sinistri = result?.data || [];
+  const sinistri: any[] = result?.data || [];
   const totalCount = result?.count || 0;
 
   const getPrescrizioneInfo = (
@@ -240,7 +240,7 @@ export default function SinistroPrescrizioniPage() {
         q = applyFilters(q);
         const { data, error } = await q.order("data_denuncia", { ascending: true });
         if (error) throw error;
-        exportData = data || [];
+        exportData = (data || []) as unknown as any[];
       }
 
       const rows = exportData.map(mapSinistroToExportRow);

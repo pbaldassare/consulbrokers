@@ -76,7 +76,7 @@ const SpecialistSinistriList = () => {
         .from("specialist_sinistri_sedi" as any)
         .select("profilo_id, ufficio_id, primaria");
       if (error) throw error;
-      return (data || []) as { profilo_id: string; ufficio_id: string; primaria: boolean }[];
+      return (data || []) as unknown as { profilo_id: string; ufficio_id: string; primaria: boolean }[];
     },
   });
 

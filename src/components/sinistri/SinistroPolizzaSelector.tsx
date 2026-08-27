@@ -139,8 +139,8 @@ export default function SinistroPolizzaSelector({
           options={polizzeList.map((p) => ({
             value: p.id,
             label: `${p.numero_titolo}${p.sostituisce_polizza ? " (quietanza)" : ""}`,
-            description: formatPolizzaOptionDescription(p),
-            searchText: `${p.numero_titolo} ${formatPolizzaProdotto(p)} ${(p as TitoloRow & { stato?: string }).stato || ""}`,
+            description: formatPolizzaOptionDescription(p as Record<string, any>),
+            searchText: `${p.numero_titolo} ${formatPolizzaProdotto(p as Record<string, any>)} ${(p as TitoloRow & { stato?: string }).stato || ""}`,
           }))}
           value={effectiveValue}
           onValueChange={handleChange}

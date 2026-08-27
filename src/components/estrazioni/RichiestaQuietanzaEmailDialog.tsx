@@ -104,7 +104,7 @@ export function RichiestaQuietanzaEmailDialog({ open, onOpenChange, righe, onSen
 
       if (headerErr) throw headerErr;
 
-      const richiestaId = (header as { id: string })?.id;
+      const richiestaId = (header as unknown as { id: string })?.id;
       if (richiestaId) {
         const { error: righeErr } = await supabase.from("richieste_quietanza_righe" as any).insert(
           righe.map((r) => ({

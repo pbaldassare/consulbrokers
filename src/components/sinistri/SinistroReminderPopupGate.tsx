@@ -57,7 +57,7 @@ export default function SinistroReminderPopupGate() {
         .is("popup_mostrato_at", null)
         .order("data_scadenza", { ascending: true });
       if (error) throw error;
-      return (data || []) as SinistroReminderRow[];
+      return (data || []) as unknown as SinistroReminderRow[];
     },
     staleTime: 60_000,
   });

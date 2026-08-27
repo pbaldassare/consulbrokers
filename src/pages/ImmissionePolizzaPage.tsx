@@ -2173,7 +2173,7 @@ const ImmissionePolizzaPage = () => {
                     targa: (m.targa as string) || null,
                     note: m.n_progressivo != null ? `N° ${m.n_progressivo}` : null,
                   };
-                  const ops = [
+                  const ops: Array<{ tipo: any; mezzo_id: string; targa: string | null; note: string | null; data_evento: string }> = [
                     {
                       tipo: "creazione" as const,
                       ...base,
