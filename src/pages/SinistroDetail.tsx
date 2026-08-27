@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, CheckCircle, AlertTriangle, Check } from "lucide-react";
+import { ArrowLeft, Plus, CheckCircle, AlertTriangle, Check, Pencil } from "lucide-react";
 import { useTabParam } from "@/hooks/useTabParam";
 import { cn } from "@/lib/utils";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
@@ -26,12 +26,14 @@ import { labelAgenziaRiferimento } from "@/lib/compagniaDisplay";
 import SinistroDatiPraticaPanel from "@/components/sinistri/SinistroDatiPraticaPanel";
 import SinistroPrescrizioniPanel from "@/components/sinistri/SinistroPrescrizioniPanel";
 import SinistroNoteInternePanel from "@/components/sinistri/SinistroNoteInternePanel";
+import SinistroPolizzaSelector from "@/components/sinistri/SinistroPolizzaSelector";
 import { useAuth } from "@/contexts/AuthContext";
 
 const SINISTRO_TABS_BASE = ["dati", "checklist", "eventi", "prescrizioni", "documenti", "chat", "note_interne", "timeline"] as const;
 
-const statiSinistro = ["in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
+const statiSinistro = ["bozza", "in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
 const statoBadge: Record<string, string> = {
+  bozza: "bg-slate-100 text-slate-700",
   in_valutazione: "bg-amber-100 text-amber-800",
   aperto: "bg-blue-100 text-blue-800",
   in_lavorazione: "bg-yellow-100 text-yellow-800",
@@ -64,17 +66,24 @@ export default function SinistroDetail() {
   const [newEvento, setNewEvento] = useState({ tipo_evento: "", data_scadenza: "", note: "" });
   const [statoTarget, setStatoTarget] = useState<string>("");
   const [statoNote, setStatoNote] = useState<string>("");
+  const [polizzaDialogOpen, setPolizzaDialogOpen] = useState(false);
 
   const { data: sinistro } = useQuery({
     queryKey: ["sinistro", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("sinistri")
-        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), liquidatore:anagrafiche_professionali!sinistri_liquidatore_id_fkey(nome, cognome, ragione_sociale), titoli(numero_titolo, stato, garanzia_a, data_scadenza, compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(gruppi_compagnia:gruppo_compagnia_id(descrizione)), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione))), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
+        .select("*, compagnie(nome, telefono, cellulare, mail, mail_ec, pec), profiles!sinistri_responsabile_id_fkey(nome, cognome), liquidatore:anagrafiche_professionali!sinistri_liquidatore_id_fkey(nome, cognome, ragione_sociale), titoli(numero_titolo, stato, garanzia_a, data_scadenza, compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, telefono, cellulare, mail, mail_ec, pec, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(gruppi_compagnia:gruppo_compagnia_id(descrizione)), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione))), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
         .eq("id", id!).single();
       if (error) throw error;
       return data;
     },
   });
+
+  useEffect(() => {
+    if (sinistro?.stato === "bozza" && id) {
+      navigate(`/sinistri/apertura?bozza_id=${id}`, { replace: true });
+    }
+  }, [sinistro?.stato, id, navigate]);
 
   const tabList = SINISTRO_TABS_BASE;
   const [activeTab, setActiveTab] = useTabParam(tabList as any, "dati");
@@ -260,13 +269,36 @@ export default function SinistroDetail() {
               <span className="text-border">·</span>
               <span className="uppercase tracking-wide text-[10px] font-medium text-muted-foreground/80">Polizza</span>
               {!sinistro.sinistro_terzi && sinistro.titolo_id ? (
-                <button
+                <span className="inline-flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="font-medium text-foreground hover:underline truncate max-w-[180px]"
+                    onClick={() => navigate(`/titoli/${sinistro.titolo_id}`)}
+                  >
+                    {sinistro.titoli?.numero_titolo || "—"}
+                  </button>
+                  {canManage && !isChiuso && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0"
+                      title="Modifica polizza collegata"
+                      onClick={() => setPolizzaDialogOpen(true)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  )}
+                </span>
+              ) : !sinistro.sinistro_terzi && canManage && !isChiuso && sinistro.cliente_anagrafica_id ? (
+                <Button
                   type="button"
-                  className="font-medium text-foreground hover:underline truncate max-w-[180px]"
-                  onClick={() => navigate(`/titoli/${sinistro.titolo_id}`)}
+                  variant="link"
+                  className="h-auto p-0 text-xs font-medium"
+                  onClick={() => setPolizzaDialogOpen(true)}
                 >
-                  {sinistro.titoli?.numero_titolo || "—"}
-                </button>
+                  Collega polizza
+                </Button>
               ) : (
                 <span className="font-medium text-foreground">
                   {sinistro.sinistro_terzi ? "Terzi (senza CBnet)" : "—"}
@@ -329,6 +361,24 @@ export default function SinistroDetail() {
           </div>
         )}
       </div>
+
+      <Dialog open={polizzaDialogOpen} onOpenChange={setPolizzaDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Modifica polizza collegata</DialogTitle>
+          </DialogHeader>
+          <SinistroPolizzaSelector
+            sinistroId={id!}
+            clienteId={sinistro.cliente_anagrafica_id}
+            currentTitoloId={sinistro.titolo_id}
+            autoSave
+            onSaved={() => {
+              setPolizzaDialogOpen(false);
+              invalidate();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Tabs value={safeTab} onValueChange={setActiveTab} className="space-y-4">
         {/* Stepper progressivo */}

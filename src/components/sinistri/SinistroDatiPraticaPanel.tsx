@@ -9,6 +9,8 @@ import { format } from "date-fns";
 import { Pencil, X, Save } from "lucide-react";
 import SinistroPraticaFormFields from "@/components/sinistri/SinistroPraticaFormFields";
 import SinistroAssegnazioniReminderSection from "@/components/sinistri/SinistroAssegnazioniReminderSection";
+import SinistroPolizzaSelector from "@/components/sinistri/SinistroPolizzaSelector";
+import AgenziaContattoInline from "@/components/sinistri/AgenziaContattoInline";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
 import {
@@ -22,14 +24,17 @@ import {
 interface SinistroRow {
   id: string;
   stato?: string;
+  sinistro_terzi?: boolean;
   titolo_id?: string | null;
   cliente_anagrafica_id?: string | null;
+  compagnia_id?: string | null;
   data_evento?: string | null;
   data_denuncia?: string | null;
   tipo_sinistro?: string | null;
   tipo_sinistro_personalizzato?: string | null;
   numero_sinistro_compagnia?: string | null;
   descrizione?: string | null;
+  note_importanti?: string | null;
   dinamica?: string | null;
   luogo_sinistro?: string | null;
   indirizzo_sinistro?: string | null;
@@ -49,7 +54,23 @@ interface SinistroRow {
   profiles?: { nome?: string; cognome?: string } | null;
   liquidatore?: { nome?: string; cognome?: string; ragione_sociale?: string } | null;
   clienti?: { cognome?: string; nome?: string; ragione_sociale?: string; tipo_cliente?: string } | null;
-  titoli?: { numero_titolo?: string | null } | null;
+  titoli?: {
+    numero_titolo?: string | null;
+    compagnia_diretta?: {
+      telefono?: string | null;
+      cellulare?: string | null;
+      mail?: string | null;
+      mail_ec?: string | null;
+      pec?: string | null;
+    } | null;
+  } | null;
+  compagnie?: {
+    telefono?: string | null;
+    cellulare?: string | null;
+    mail?: string | null;
+    mail_ec?: string | null;
+    pec?: string | null;
+  } | null;
 }
 
 interface Props {
@@ -62,8 +83,13 @@ const fmtDate = (d?: string | null) => (d ? format(new Date(d), "dd/MM/yyyy") : 
 const fmtEuro = (n?: number | null) =>
   n != null ? `€ ${Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—";
 
+function resolveAgenziaForSinistro(sinistro: SinistroRow) {
+  return sinistro.titoli?.compagnia_diretta ?? sinistro.compagnie ?? null;
+}
+
 export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow }) {
   const descrizione = sinistro.descrizione || sinistro.dinamica;
+  const noteImportanti = sinistro.note_importanti;
   const luogo = sinistro.indirizzo_sinistro || sinistro.luogo_sinistro;
   const luogoExtra = [sinistro.cap_sinistro, sinistro.citta_sinistro, sinistro.provincia_sinistro ? `(${sinistro.provincia_sinistro})` : null]
     .filter(Boolean)
@@ -104,7 +130,16 @@ export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow })
       <section className="space-y-3">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Identità</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div><span className="text-muted-foreground">Data accadimento</span><p className="font-semibold">{fmtDate(sinistro.data_evento)}</p></div>
+          <div className="space-y-1">
+            <span className="text-muted-foreground">Data accadimento</span>
+            <p className="font-semibold">{fmtDate(sinistro.data_evento)}</p>
+            {!sinistro.sinistro_terzi && (
+              <div className="pt-1">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80">Agenzia riferimento</span>
+                <AgenziaContattoInline agenzia={resolveAgenziaForSinistro(sinistro)} className="mt-0.5" />
+              </div>
+            )}
+          </div>
           <div><span className="text-muted-foreground">Data denuncia</span><p className="font-semibold">{fmtDate(sinistro.data_denuncia)}</p></div>
           <div><span className="text-muted-foreground">Tipo sinistro</span><p className="font-semibold">{formatTipoSinistro(sinistro)}</p></div>
           <div><span className="text-muted-foreground">N. sinistro compagnia</span><p className="font-semibold">{sinistro.numero_sinistro_compagnia || "—"}</p></div>
@@ -112,7 +147,7 @@ export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow })
           <div><span className="text-muted-foreground">Targa veicolo</span><p className="font-semibold">{sinistro.targa_veicolo || "—"}</p></div>
         </div>
       </section>
-      {(luogo || luogoExtra || descrizione) && (
+      {(luogo || luogoExtra || descrizione || noteImportanti) && (
         <section className="space-y-3 border-t border-border/60 pt-4">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Descrizione e luogo</p>
           {(luogo || luogoExtra) && (
@@ -122,12 +157,35 @@ export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow })
               {luogoExtra && <p className="text-muted-foreground">{luogoExtra}</p>}
             </div>
           )}
-          {descrizione && (
-            <div>
-              <span className="text-muted-foreground">Descrizione</span>
-              <p className="mt-1 whitespace-pre-wrap bg-muted/30 p-2.5 rounded border">{descrizione}</p>
+          {(descrizione || noteImportanti) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {descrizione && (
+                <div>
+                  <span className="text-muted-foreground">Descrizione</span>
+                  <p className="mt-1 whitespace-pre-wrap bg-muted/30 p-2.5 rounded border">{descrizione}</p>
+                </div>
+              )}
+              {noteImportanti && (
+                <div>
+                  <span className="text-muted-foreground">Note importanti</span>
+                  <p className="mt-1 whitespace-pre-wrap bg-amber-50/80 dark:bg-amber-950/20 p-2.5 rounded border border-amber-200/60 dark:border-amber-900/40">
+                    {noteImportanti}
+                  </p>
+                </div>
+              )}
             </div>
           )}
+        </section>
+      )}
+      {(ultimaNota?.testo || sinistro.note_interne) && (
+        <section className="border-t border-border/60 pt-4 space-y-1">
+          <span className="text-muted-foreground">Ultima nota interna</span>
+          {ultimaNotaMeta && (
+            <p className="text-[11px] text-muted-foreground">{ultimaNotaMeta}</p>
+          )}
+          <p className="mt-1 italic text-muted-foreground bg-muted/20 p-2 rounded border whitespace-pre-wrap">
+            {ultimaNota?.testo || sinistro.note_interne}
+          </p>
         </section>
       )}
       <section className="space-y-3 border-t border-border/60 pt-4">
@@ -158,17 +216,6 @@ export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow })
           </div>
         </div>
       </section>
-      {(ultimaNota?.testo || sinistro.note_interne) && (
-        <section className="border-t border-border/60 pt-4 space-y-1">
-          <span className="text-muted-foreground">Ultima nota interna</span>
-          {ultimaNotaMeta && (
-            <p className="text-[11px] text-muted-foreground">{ultimaNotaMeta}</p>
-          )}
-          <p className="mt-1 italic text-muted-foreground bg-muted/20 p-2 rounded border whitespace-pre-wrap">
-            {ultimaNota?.testo || sinistro.note_interne}
-          </p>
-        </section>
-      )}
     </div>
   );
 }
@@ -237,7 +284,7 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
           azione: "aggiorna",
           sinistro_id: sinistro.id,
           user_id: user?.id,
-          ...praticaValuesToDbPayload(values),
+          ...praticaValuesToDbPayload(values, { persistNoteImportanti: true }),
         },
       });
       if (error || !data?.success) {
@@ -291,16 +338,33 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
           </p>
         )}
         {editing ? (
-          <SinistroPraticaFormFields
-            register={register}
-            setValue={setValue}
-            watch={watch}
-            errors={errors}
-            responsabiliList={responsabiliList}
-            liquidatoriList={liquidatoriList}
-            showEconomici
-            showAssegnazione
-          />
+          <div className="space-y-4">
+            {!sinistro.sinistro_terzi && sinistro.cliente_anagrafica_id && (
+              <div className="rounded-md border border-border/60 bg-muted/20 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Polizza collegata
+                </p>
+                <SinistroPolizzaSelector
+                  sinistroId={sinistro.id}
+                  clienteId={sinistro.cliente_anagrafica_id}
+                  currentTitoloId={sinistro.titolo_id}
+                  autoSave
+                  onSaved={onSaved}
+                />
+              </div>
+            )}
+            <SinistroPraticaFormFields
+              register={register}
+              setValue={setValue}
+              watch={watch}
+              errors={errors}
+              responsabiliList={responsabiliList}
+              liquidatoriList={liquidatoriList}
+              showEconomici
+              showAssegnazione
+              showNoteImportanti
+            />
+          </div>
         ) : (
           <SinistroPraticaReadOnly sinistro={sinistro} />
         )}

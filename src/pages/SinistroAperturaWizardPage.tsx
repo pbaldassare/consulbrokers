@@ -1,12 +1,19 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useQuery, useQueryClient } from "@tanstack/react-query";import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPersistence";
-import { Button } from "@/components/ui/button";
+import { clearDraft } from "@/hooks/useDraftPersistence";
+import {
+  LEGACY_LOCAL_DRAFT_KEY,
+  createWizardFormDefaults,
+  hydrateWizardFromSinistroBozza,
+  serializeBozzaWizardJson,
+  shouldStartCleanWizard,
+  type WizardDocumentEntry,
+  type WizardStep,
+} from "@/lib/sinistroAperturaDraft";import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,25 +25,28 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { FilePlus, Search, ArrowLeft, ArrowRight, Trash2, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
-import { format } from "date-fns";
+import { FilePlus, Search, ArrowLeft, ArrowRight, Trash2, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, Save } from "lucide-react";import { format } from "date-fns";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { Checkbox } from "@/components/ui/checkbox";
 import SinistroPraticaFormFields from "@/components/sinistri/SinistroPraticaFormFields";
 import {
   sinistroPraticaSchema,
-  sinistroPraticaDefaultValues,
   praticaValuesToDbPayload,
   validateTipoSinistro,
 } from "@/lib/sinistroPraticaSchema";
-import { applySoloMadriFilter, mergePolizze } from "@/lib/polizzeSearch";
+import { fetchPolizzeForCliente } from "@/lib/polizzeSearch";
 import type { SinistroPrescrizioneDraft, SinistroReminderDraft } from "@/lib/sinistroPrescrizioniReminder";
 import {
   DESTINATARIO_LABEL,
   PRESCRIZIONE_DESTINATARIO_AGENZIA,
 } from "@/lib/sinistroPrescrizioniReminder";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
-import { formatPolizzaRamo, formatPolizzaScadenza } from "@/lib/titoliDisplay";
+import {
+  formatPolizzaOptionDescription,
+  formatPolizzaProdotto,
+  formatPolizzaRamo,
+  formatPolizzaScadenza,
+} from "@/lib/titoliDisplay";
 import { labelAgenziaRiferimento } from "@/lib/compagniaDisplay";
 import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
 import {
@@ -45,34 +55,38 @@ import {
   MAX_DOCUMENT_UPLOAD_MB,
 } from "@/lib/uploadLimits";
 
-const DRAFT_KEY = "sinistri:apertura:bozza";
-
-// Tipi sinistro centralizzati in src/lib/tipiSinistro.ts
-
-// Schema di validazione Zod (campi pratica condivisi + step wizard)
 const wizardSchema = sinistroPraticaSchema.extend({
   titolo_id: z.string().optional(),
   sinistro_terzi: z.boolean().optional(),
   documenti: z.array(
     z.object({
       nome_file: z.string(),
-      path_temp: z.string(),
-      categoria: z.string().min(1, "La categoria è obbligatoria"),
+      path_temp: z.string().optional(),
+      categoria: z.string(),
       descrizione: z.string().optional(),
       file_base64: z.string().optional(),
+      saved: z.boolean().optional(),
+      doc_id: z.string().optional(),
+      path_storage: z.string().optional(),
     })
   ).optional(),
 });
-
 type WizardFormValues = z.infer<typeof wizardSchema>;
 
 export default function SinistroAperturaWizardPage() {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const qc = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const bozzaIdParam = searchParams.get("bozza_id");
+  const preselectedClienteId = searchParams.get("cliente_id");
+
+  const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [wizardReady, setWizardReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  
+  const [savingBozza, setSavingBozza] = useState(false);
+  const [dbBozzaId, setDbBozzaId] = useState<string | null>(bozzaIdParam);
+  const [dbBozzaNumero, setDbBozzaNumero] = useState<string | null>(null);  
   // Polizza selezionata (visualizzazione)
   const [selectedPolizzaData, setSelectedPolizzaData] = useState<any>(null);
   const [preselectedCliente, setPreselectedCliente] = useState<any>(null);
@@ -104,47 +118,44 @@ export default function SinistroAperturaWizardPage() {
   const pendingFilesRef = useRef<Map<string, File>>(new Map());
   const [dragOver, setDragOver] = useState(false);
 
-  // Inizializzazione React Hook Form
-  const { register, control, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<WizardFormValues>({
+  const { register, control, handleSubmit, setValue, getValues, watch, trigger, reset, formState: { errors } } = useForm<WizardFormValues>({
     resolver: zodResolver(wizardSchema),
-    defaultValues: {
-      ...sinistroPraticaDefaultValues,
-      titolo_id: "",
-      sinistro_terzi: false,
-      documenti: [],
-    }
+    defaultValues: createWizardFormDefaults(),
   });
 
-  // URL param for cliente preselection
-  const [searchParams] = useSearchParams();
-  const preselectedClienteId = searchParams.get('cliente_id');
-
+  const resetWizardState = useCallback(() => {
+    reset(createWizardFormDefaults());
+    setCurrentStep(1);
+    setSelectedPolizzaData(null);
+    setPreselectedCliente(null);
+    setSelectedClienteId(null);
+    setSelectedClienteData(null);
+    setPolizzaSearchText("");
+    setPolizzeList([]);
+    setPolizzeLoading(false);
+    setSoloMadri(true);
+    setClientiSearchText("");
+    setClientiList([]);
+    setClientiLoading(false);
+    setPrescrizioniDrafts([]);
+    setReminderDrafts([]);
+    setPrescDraftForm({
+      destinatario_tipo: PRESCRIZIONE_DESTINATARIO_AGENZIA,
+      oggetto: "",
+      data_scadenza_risposta: "",
+    });
+    setReminderDraftForm({ testo: "", data_scadenza: "" });
+    pendingFilesRef.current.forEach((_, pathTemp) => URL.revokeObjectURL(pathTemp));
+    pendingFilesRef.current.clear();
+    setDbBozzaId(null);
+    setDbBozzaNumero(null);
+  }, [reset]);
   // Carica polizze (titoli + CGA) per un cliente
   const loadPolizzeForCliente = async (clienteId: string, opts?: { soloMadri?: boolean }) => {
     const onlyMothers = opts?.soloMadri ?? soloMadri;
     setPolizzeLoading(true);
     try {
-      const baseTitQuery = supabase.from('titoli')
-        .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, compagnia_id, sostituisce_polizza, data_competenza, data_scadenza, garanzia_a,
-          compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome),
-          prodotti(nome_prodotto, compagnie(id, nome)),
-          ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)),
-          clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
-        .eq('cliente_anagrafica_id', clienteId)
-        .order('created_at', { ascending: false })
-        .limit(200);
-      const titQuery = applySoloMadriFilter(baseTitQuery as any, onlyMothers);
-
-      const [titRes, cgaRes] = await Promise.all([
-        titQuery,
-        supabase.from('polizza_cga')
-          .select(`id, numero_polizza, data_decorrenza, premio_lordo_totale, cliente_id, prodotti_cga(nome_prodotto, compagnia, ramo)`)
-          .eq('stato', 'approvato')
-          .eq('cliente_id', clienteId)
-          .limit(200),
-      ]);
-      // Nessuna deduplica: mostriamo tutte le occorrenze (polizze madri + quietanze se "Tutte")
-      const merged = mergePolizze((titRes.data ?? []) as any, (cgaRes.data ?? []) as any);
+      const merged = await fetchPolizzeForCliente(clienteId, { soloMadri: onlyMothers });
       setPolizzeList(merged);
     } finally {
       setPolizzeLoading(false);
@@ -152,8 +163,8 @@ export default function SinistroAperturaWizardPage() {
   };
 
   useEffect(() => {
-    if (preselectedClienteId) {
-      supabase.from('clienti')
+    if (!preselectedClienteId || bozzaIdParam) return;
+    supabase.from('clienti')
         .select('id, cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva')
         .eq('id', preselectedClienteId)
         .maybeSingle()
@@ -165,8 +176,7 @@ export default function SinistroAperturaWizardPage() {
           }
         });
       loadPolizzeForCliente(preselectedClienteId);
-    }
-  }, [preselectedClienteId]);
+  }, [preselectedClienteId, bozzaIdParam]);
 
   // Ricerca clienti (debounced) — Step 1
   useEffect(() => {
@@ -217,11 +227,92 @@ export default function SinistroAperturaWizardPage() {
     name: "documenti"
   });
 
-  // Watch dei valori critici
   const watchTitoloId = watch("titolo_id");
   const watchSinistroTerzi = watch("sinistro_terzi");
   const watchDocumenti = watch("documenti");
-  const watchValues = watch();
+
+  const loadDbBozza = useCallback(async (id: string) => {
+    const { data: row, error } = await supabase
+      .from("sinistri")
+      .select("*")
+      .eq("id", id)
+      .eq("stato", "bozza")
+      .maybeSingle();
+    if (error) throw error;
+    if (!row) throw new Error("Bozza non trovata o già finalizzata");
+
+    const { data: docs } = await supabase
+      .from("documenti")
+      .select("id, nome_file, path_storage, categoria, descrizione")
+      .eq("entita_tipo", "sinistro")
+      .eq("entita_id", id);
+
+    const hydrated = hydrateWizardFromSinistroBozza(row, docs || []);
+    reset(hydrated.formValues);
+    setCurrentStep(hydrated.ui.currentStep);
+    setSoloMadri(hydrated.ui.soloMadri);
+    setPrescrizioniDrafts(hydrated.ui.prescrizioniDrafts);
+    setReminderDrafts(hydrated.ui.reminderDrafts);
+    setDbBozzaId(row.id);
+    setDbBozzaNumero(row.numero_sinistro);
+
+    if (hydrated.ui.selectedClienteId) {
+      const { data: cliente } = await supabase
+        .from("clienti")
+        .select("id, cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva")
+        .eq("id", hydrated.ui.selectedClienteId)
+        .maybeSingle();
+      if (cliente) {
+        setSelectedClienteId(cliente.id);
+        setSelectedClienteData(cliente);
+        await loadPolizzeForCliente(cliente.id, { soloMadri: hydrated.ui.soloMadri });
+      }
+    }
+
+    if (!row.sinistro_terzi && row.titolo_id) {
+      const { data: polizza } = await supabase.from("titoli").select(`
+          id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, compagnia_id, prodotto_nome, data_competenza, data_scadenza, garanzia_da, garanzia_a,
+          compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome),
+          prodotti(nome_prodotto, compagnie(id, nome)),
+          ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)),
+          clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
+        `).eq("id", row.titolo_id).maybeSingle();
+      if (polizza) setSelectedPolizzaData(polizza);
+    }
+  }, [reset, soloMadri]);
+
+  // Inizializzazione wizard: bozza DB esplicita, cliente preselezionato, oppure reset pulito
+  useEffect(() => {
+    let cancelled = false;
+
+    const init = async () => {
+      clearDraft(LEGACY_LOCAL_DRAFT_KEY);
+
+      if (bozzaIdParam) {
+        try {
+          await loadDbBozza(bozzaIdParam);
+          if (!cancelled) toast.success("Bozza caricata — Riprendi bozza");
+        } catch (err: unknown) {
+          if (!cancelled) {
+            toast.error(err instanceof Error ? err.message : "Impossibile caricare la bozza");
+            resetWizardState();
+          }
+        } finally {
+          if (!cancelled) setWizardReady(true);
+        }
+        return;
+      }
+
+      if (shouldStartCleanWizard({ bozzaId: null, clienteId: preselectedClienteId })) {
+        resetWizardState();
+      }
+
+      setWizardReady(true);
+    };
+
+    init();
+    return () => { cancelled = true; };
+  }, [bozzaIdParam, preselectedClienteId, loadDbBozza, resetWizardState]);
 
   const setSinistroTerzi = (attivo: boolean) => {
     setValue("sinistro_terzi", attivo);
@@ -231,44 +322,6 @@ export default function SinistroAperturaWizardPage() {
       setPolizzaSearchText("");
     }
   };
-
-  const draftSnapshot = useMemo(
-    () => ({
-      ...watchValues,
-      documenti: (watchValues.documenti ?? []).map(({ file_base64: _b, path_temp: _p, ...rest }) => rest),
-    }),
-    [watchValues],
-  );
-
-  // 1. Carica bozza se esistente
-  useEffect(() => {
-    const draft = loadDraft<WizardFormValues>(DRAFT_KEY);
-    if (draft?.data) {
-      const d = draft.data;
-      Object.keys(d).forEach((key) => {
-        setValue(key as keyof WizardFormValues, d[key]);
-      });
-      // Se c'è una polizza già selezionata nella bozza (e non è Sinistro Terzi), carichiamo le sue info
-      if (d.sinistro_terzi) {
-        setValue("titolo_id", "");
-      } else if (d.titolo_id) {
-        supabase.from("titoli").select(`
-          id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id, compagnia_id, data_scadenza, garanzia_a,
-          compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome),
-          prodotti(nome_prodotto, compagnie(id, nome)),
-          ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)),
-          clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
-        `).eq("id", d.titolo_id).maybeSingle().then(({ data }) => {
-          if (data) setSelectedPolizzaData(data);
-        });
-      }
-      toast.success("Bozza caricata localmente");
-    }
-    setDraftLoaded(true);
-  }, [setValue]);
-
-  // 2. Abilita salvataggio automatico bozza
-  useDraftPersistence(DRAFT_KEY, draftSnapshot, { enabled: draftLoaded });
 
   // Query per lookup tipo documento (Step 3)
   const { data: lookupTipiDoc = [] } = useQuery({
@@ -357,8 +410,15 @@ export default function SinistroAperturaWizardPage() {
     e.target.value = "";
   };
 
-  const handleRemoveDocumento = (idx: number) => {
-    const pathTemp = getValues(`documenti.${idx}.path_temp`);
+  const handleRemoveDocumento = async (idx: number) => {
+    const doc = getValues(`documenti.${idx}`) as WizardDocumentEntry | undefined;
+    if (doc?.saved && doc.doc_id) {
+      if (doc.path_storage) {
+        await supabase.storage.from("documenti_sinistri").remove([doc.path_storage]);
+      }
+      await supabase.from("documenti").delete().eq("id", doc.doc_id);
+    }
+    const pathTemp = doc?.path_temp;
     if (pathTemp) {
       URL.revokeObjectURL(pathTemp);
       pendingFilesRef.current.delete(pathTemp);
@@ -427,10 +487,155 @@ export default function SinistroAperturaWizardPage() {
     setCurrentStep((prev) => (prev - 1) as any);
   };
 
-  // Reset del wizard e cancellazione bozza
-  const handleAnnulla = () => {
-    clearDraft(DRAFT_KEY);
-    toast.info("Apertura sinistro annullata e bozza cancellata");
+  const buildSinistroContext = (values: WizardFormValues) => {
+    const isTerzi = !!values.sinistro_terzi;
+    const compagniaId = isTerzi
+      ? null
+      : (selectedPolizzaData?.compagnia_id ||
+        selectedPolizzaData?.prodotti?.compagnie?.id ||
+        null);
+    const clienteAnagraficaId = selectedClienteId || selectedPolizzaData?.cliente_anagrafica_id || null;
+    const ufficioId = isTerzi ? null : (selectedPolizzaData?.ufficio_id || null);
+    const titoloId =
+      !isTerzi && values.titolo_id && !values.titolo_id.startsWith("cga:")
+        ? values.titolo_id
+        : null;
+    return { isTerzi, compagniaId, clienteAnagraficaId, ufficioId, titoloId };
+  };
+
+  const buildBozzaWizardJsonPayload = (values: WizardFormValues) =>
+    serializeBozzaWizardJson({
+      currentStep,
+      sinistro_terzi: !!values.sinistro_terzi,
+      soloMadri,
+      prescrizioniDrafts,
+      reminderDrafts,
+    });
+
+  const uploadPendingDocuments = async (
+    sinistroId: string,
+    documenti: WizardDocumentEntry[] | undefined,
+    userId: string,
+    opts?: { requireCategory?: boolean },
+  ) => {
+    for (const doc of documenti ?? []) {
+      if (doc.saved) continue;
+      if (opts?.requireCategory && !doc.categoria?.trim()) {
+        throw new Error(`Seleziona il tipo documento per "${doc.nome_file}"`);
+      }
+      if (!doc.categoria?.trim()) continue;
+
+      const pendingFile = doc.path_temp ? pendingFilesRef.current.get(doc.path_temp) : undefined;
+      const blob = pendingFile ?? (doc.file_base64 ? base64ToBlob(doc.file_base64, doc.nome_file) : null);
+      if (!blob) {
+        throw new Error(`File "${doc.nome_file}" non disponibile: ricaricalo nello step Documenti`);
+      }
+
+      const storagePath = `sinistro/${sinistroId}/${Date.now()}_${doc.nome_file}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("documenti_sinistri")
+        .upload(storagePath, blob, {
+          contentType: pendingFile?.type || blob.type || "application/octet-stream",
+        });
+      if (uploadErr) throw uploadErr;
+
+      const { error: docDbErr } = await supabase.from("documenti").insert({
+        nome_file: doc.nome_file,
+        path_storage: storagePath,
+        bucket_name: "documenti_sinistri",
+        entita_tipo: "sinistro",
+        entita_id: sinistroId,
+        caricato_da: userId,
+        categoria: doc.categoria,
+        descrizione: doc.descrizione || null,
+      });
+      if (docDbErr) throw docDbErr;
+
+      if (doc.path_temp) {
+        URL.revokeObjectURL(doc.path_temp);
+        pendingFilesRef.current.delete(doc.path_temp);
+      }
+    }
+  };
+
+  const handleSalvaBozza = async () => {
+    await commitFocusedField();
+    const values = getValues();
+    const { isTerzi, compagniaId, clienteAnagraficaId, ufficioId, titoloId } = buildSinistroContext(values);
+
+    if (!clienteAnagraficaId) {
+      toast.error("Seleziona un cliente prima di salvare la bozza");
+      setCurrentStep(1);
+      return;
+    }
+
+    setSavingBozza(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Utente non autenticato");
+
+      const praticaPayload = praticaValuesToDbPayload(values, { persistNoteImportanti: false });
+      const bozzaWizardJson = buildBozzaWizardJsonPayload(values);
+      let sinistroId = dbBozzaId;
+
+      if (sinistroId) {
+        const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
+          body: {
+            azione: "aggiorna",
+            sinistro_id: sinistroId,
+            user_id: user.id,
+            sinistro_terzi: isTerzi,
+            titolo_id: titoloId,
+            ...praticaPayload,
+            bozza_wizard_json: bozzaWizardJson,
+          },
+        });
+        if (invokeErr || !invokeRes?.success) {
+          throw new Error(formatEdgeFunctionError(invokeErr, invokeRes));
+        }
+      } else {
+        const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
+          body: {
+            azione: "crea",
+            sinistro_terzi: isTerzi,
+            titolo_id: titoloId,
+            cliente_anagrafica_id: clienteAnagraficaId,
+            ...(compagniaId ? { compagnia_id: compagniaId } : {}),
+            ...(ufficioId ? { ufficio_id: ufficioId } : {}),
+            ...praticaPayload,
+            user_id: user.id,
+            stato_iniziale: "bozza",
+            bozza_wizard_json: bozzaWizardJson,
+          },
+        });
+        if (invokeErr || !invokeRes?.success) {
+          throw new Error(formatEdgeFunctionError(invokeErr, invokeRes));
+        }
+        const created = invokeRes.sinistro as { id: string; numero_sinistro: string };
+        sinistroId = created.id;
+        setDbBozzaId(created.id);
+        setDbBozzaNumero(created.numero_sinistro);
+        setSearchParams({ bozza_id: created.id }, { replace: true });
+      }
+
+      await uploadPendingDocuments(sinistroId!, values.documenti, user.id);
+      qc.invalidateQueries({ queryKey: ["sinistri"] });
+      toast.success(dbBozzaId ? "Bozza aggiornata" : "Bozza salvata — puoi riprenderla dalla lista sinistri");
+    } catch (err: unknown) {
+      toast.error("Errore salvataggio bozza: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setSavingBozza(false);
+    }
+  };
+
+  const handleAnnulla = async () => {
+    clearDraft(LEGACY_LOCAL_DRAFT_KEY);
+    if (dbBozzaId) {
+      await supabase.from("sinistri").delete().eq("id", dbBozzaId).eq("stato", "bozza");
+      qc.invalidateQueries({ queryKey: ["sinistri"] });
+    }
+    resetWizardState();
+    toast.info(dbBozzaId ? "Bozza eliminata" : "Apertura sinistro annullata");
     navigate("/sinistri");
   };
 
@@ -441,21 +646,13 @@ export default function SinistroAperturaWizardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Utente non autenticato");
 
-      // Recuperiamo la polizza e il cliente associato
-      const isTerzi = !!values.sinistro_terzi;
-      const compagniaId = isTerzi
-        ? null
-        : (selectedPolizzaData?.compagnia_id ||
-          selectedPolizzaData?.prodotti?.compagnie?.id ||
-          null);
-      const clienteAnagraficaId = selectedClienteId || selectedPolizzaData?.cliente_anagrafica_id || null;
-      const ufficioId = isTerzi ? null : (selectedPolizzaData?.ufficio_id || null);
+      const { isTerzi, compagniaId, clienteAnagraficaId, ufficioId, titoloId } = buildSinistroContext(values);
 
       if (!clienteAnagraficaId) {
         throw new Error("Cliente non selezionato");
       }
 
-      const docsConCategoriaMancante = (values.documenti ?? []).filter((d) => !d.categoria?.trim());
+      const docsConCategoriaMancante = (values.documenti ?? []).filter((d) => !d.saved && !d.categoria?.trim());
       if (docsConCategoriaMancante.length > 0) {
         toast.error("Seleziona il tipo documento per ogni file caricato prima di confermare");
         setCurrentStep(3);
@@ -463,84 +660,59 @@ export default function SinistroAperturaWizardPage() {
         return;
       }
 
-      // 1. Creazione del sinistro tramite edge function unificata
-      //    (checklist di default + log_attivita + evento timeline generati lato server)
       const praticaPayload = praticaValuesToDbPayload(values);
-      const titoloId =
-        !isTerzi && values.titolo_id && !values.titolo_id.startsWith("cga:")
-          ? values.titolo_id
-          : null;
+      let newSinistro: { id: string; numero_sinistro: string };
 
-      const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
-        body: {
-          azione: "crea",
-          sinistro_terzi: isTerzi,
-          titolo_id: titoloId,
-          cliente_anagrafica_id: clienteAnagraficaId,
-          ...(compagniaId ? { compagnia_id: compagniaId } : {}),
-          ...(ufficioId ? { ufficio_id: ufficioId } : {}),
-          ...praticaPayload,
-          user_id: user.id,
-          stato_iniziale: "aperto",
-          ...(prescrizioniDrafts.length > 0 ? { prescrizioni_iniziali: prescrizioniDrafts } : {}),
-          ...(reminderDrafts.length > 0 ? { reminder_iniziali: reminderDrafts } : {}),
-        },
-      });
-      if (invokeErr || !invokeRes?.success) {
-        throw new Error(formatEdgeFunctionError(invokeErr, invokeRes));
-      }
-      const newSinistro = invokeRes.sinistro as { id: string; numero_sinistro: string };
-
-
-      // 3. Upload documenti se presenti
-      if (values.documenti && values.documenti.length > 0) {
-        for (const doc of values.documenti) {
-          const pendingFile = doc.path_temp ? pendingFilesRef.current.get(doc.path_temp) : undefined;
-          const blob = pendingFile ?? (doc.file_base64 ? base64ToBlob(doc.file_base64, doc.nome_file) : null);
-          if (!blob) {
-            toast.error(`File "${doc.nome_file}" non disponibile: ricaricalo nello step Documenti`);
-            continue;
-          }
-
-          const storagePath = `sinistro/${newSinistro.id}/${Date.now()}_${doc.nome_file}`;
-
-          // Upload su Supabase Storage bucket documenti_sinistri
-          const { error: uploadErr } = await supabase.storage
-            .from("documenti_sinistri")
-            .upload(storagePath, blob, {
-              contentType: pendingFile?.type || blob.type || "application/octet-stream",
-            });
-
-          if (uploadErr) throw uploadErr;
-
-          // Inserimento metadati del documento nel DB
-          const { error: docDbErr } = await supabase.from("documenti").insert({
-            nome_file: doc.nome_file,
-            path_storage: storagePath,
-            bucket_name: "documenti_sinistri",
-            entita_tipo: "sinistro",
-            entita_id: newSinistro.id,
-            caricato_da: user.id,
-            categoria: doc.categoria,
-            descrizione: doc.descrizione || null,
-          });
-
-          if (docDbErr) throw docDbErr;
-
-          if (doc.path_temp) {
-            URL.revokeObjectURL(doc.path_temp);
-            pendingFilesRef.current.delete(doc.path_temp);
-          }
+      if (dbBozzaId) {
+        const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
+          body: {
+            azione: "finalizza_bozza",
+            sinistro_id: dbBozzaId,
+            user_id: user.id,
+            sinistro_terzi: isTerzi,
+            titolo_id: titoloId,
+            cliente_anagrafica_id: clienteAnagraficaId,
+            ...(compagniaId ? { compagnia_id: compagniaId } : {}),
+            ...(ufficioId ? { ufficio_id: ufficioId } : {}),
+            ...praticaPayload,
+            ...(prescrizioniDrafts.length > 0 ? { prescrizioni_iniziali: prescrizioniDrafts } : {}),
+            ...(reminderDrafts.length > 0 ? { reminder_iniziali: reminderDrafts } : {}),
+          },
+        });
+        if (invokeErr || !invokeRes?.success) {
+          throw new Error(formatEdgeFunctionError(invokeErr, invokeRes));
         }
+        newSinistro = invokeRes.sinistro as { id: string; numero_sinistro: string };
+      } else {
+        const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
+          body: {
+            azione: "crea",
+            sinistro_terzi: isTerzi,
+            titolo_id: titoloId,
+            cliente_anagrafica_id: clienteAnagraficaId,
+            ...(compagniaId ? { compagnia_id: compagniaId } : {}),
+            ...(ufficioId ? { ufficio_id: ufficioId } : {}),
+            ...praticaPayload,
+            user_id: user.id,
+            stato_iniziale: "aperto",
+            ...(prescrizioniDrafts.length > 0 ? { prescrizioni_iniziali: prescrizioniDrafts } : {}),
+            ...(reminderDrafts.length > 0 ? { reminder_iniziali: reminderDrafts } : {}),
+          },
+        });
+        if (invokeErr || !invokeRes?.success) {
+          throw new Error(formatEdgeFunctionError(invokeErr, invokeRes));
+        }
+        newSinistro = invokeRes.sinistro as { id: string; numero_sinistro: string };
       }
 
-      // 4. Rimozione bozza da localStorage
-      clearDraft(DRAFT_KEY);
+      await uploadPendingDocuments(newSinistro.id, values.documenti, user.id, { requireCategory: true });
 
+      clearDraft(LEGACY_LOCAL_DRAFT_KEY);
+      qc.invalidateQueries({ queryKey: ["sinistri"] });
       toast.success(`Sinistro ${newSinistro.numero_sinistro} aperto con successo!`);
       navigate(`/sinistri/${newSinistro.id}`);
-    } catch (err: any) {
-      toast.error("Errore durante l'apertura del sinistro: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Errore durante l'apertura del sinistro: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setSubmitting(false);
     }
@@ -548,6 +720,10 @@ export default function SinistroAperturaWizardPage() {
 
   return (
     <div className="space-y-6">
+      {!wizardReady ? (
+        <div className="py-16 text-center text-muted-foreground">Caricamento wizard...</div>
+      ) : (
+      <>
       {/* Header coerente con design system (icona arancio rotonda) */}
       <div className="flex items-center justify-between pb-4 border-b gap-3 flex-wrap">
         <div className="flex items-center gap-3">
@@ -555,8 +731,13 @@ export default function SinistroAperturaWizardPage() {
             <AlertTriangle className="h-5 w-5 text-orange-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">
+            <h1 className="text-xl font-bold flex items-center gap-2 flex-wrap">
               {watchSinistroTerzi ? "Apertura Sinistro Terzi" : "Apertura Nuovo Sinistro"}
+              {dbBozzaId && (
+                <Badge variant="outline" className="border-slate-400 text-slate-700 bg-slate-50 font-normal">
+                  Bozza{dbBozzaNumero ? ` · ${dbBozzaNumero}` : ""}
+                </Badge>
+              )}
             </h1>
             <p className="text-sm text-muted-foreground">
               {watchSinistroTerzi
@@ -727,8 +908,8 @@ export default function SinistroAperturaWizardPage() {
                         options={polizzeList.map((p: any) => ({
                           value: p.id,
                           label: `${p.numero_titolo}${p.sostituisce_polizza ? " (quietanza)" : ""}`,
-                          description: `${p.prodotti?.nome_prodotto || "—"}${p.prodotti?.compagnie?.nome ? " · " + p.prodotti.compagnie.nome : ""}${p.stato ? " · " + p.stato : ""}${p.data_competenza ? " · dec. " + p.data_competenza : ""}`,
-                          searchText: `${p.numero_titolo} ${p.prodotti?.nome_prodotto || ""} ${p.stato || ""}`,
+                          description: formatPolizzaOptionDescription(p),
+                          searchText: `${p.numero_titolo} ${formatPolizzaProdotto(p)} ${p.stato || ""}`,
                         }))}
                         value={watchTitoloId ?? ""}
                         onValueChange={(val) => {
@@ -879,6 +1060,9 @@ export default function SinistroAperturaWizardPage() {
                           <div className="flex items-center gap-2 flex-1 min-w-0">
                             <FileText className="h-5 w-5 text-primary shrink-0" />
                             <span className="text-xs font-semibold truncate" title={field.nome_file}>{field.nome_file}</span>
+                            {watch(`documenti.${idx}.saved`) && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0">Salvato</Badge>
+                            )}
                           </div>
                           <div className="w-full md:w-48 shrink-0">
                             <Select 
@@ -1259,21 +1443,32 @@ export default function SinistroAperturaWizardPage() {
             )}
 
           </CardContent>
-          <CardFooter className="flex justify-between border-t py-4 bg-muted/10">
+          <CardFooter className="flex justify-between border-t py-4 bg-muted/10 gap-2 flex-wrap">
+            <div className="flex gap-2">
             {currentStep > 1 ? (
-              <Button type="button" variant="outline" onClick={handlePrevStep} disabled={submitting}>
+              <Button type="button" variant="outline" onClick={handlePrevStep} disabled={submitting || savingBozza}>
                 <ArrowLeft className="h-4 w-4 mr-2" /> Indietro
               </Button>
             ) : (
-              <div /> // Spazio per layout
+              <div />
             )}
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleSalvaBozza}
+              disabled={submitting || savingBozza || !selectedClienteId}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {savingBozza ? "Salvataggio..." : "Salva bozza"}
+            </Button>
+            </div>
 
             {currentStep < 5 ? (
-              <Button type="button" onClick={handleNextStep}>
+              <Button type="button" onClick={handleNextStep} disabled={submitting || savingBozza}>
                 Avanti <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
-              <Button type="submit" className="btn-primary-gradient" disabled={submitting}>
+              <Button type="submit" className="btn-primary-gradient" disabled={submitting || savingBozza}>
                 {submitting ? "Creazione in corso..." : "Conferma e Apri Sinistro"}
               </Button>
             )}
@@ -1287,7 +1482,9 @@ export default function SinistroAperturaWizardPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Sei sicuro di voler annullare?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tutti i dati non salvati andranno persi. La bozza locale del sinistro verrà definitivamente cancellata.
+              {dbBozzaId
+                ? "La bozza verrà eliminata definitivamente dal database."
+                : "Tutti i dati non salvati andranno persi."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1298,6 +1495,8 @@ export default function SinistroAperturaWizardPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </>
+      )}
     </div>
   );
 }

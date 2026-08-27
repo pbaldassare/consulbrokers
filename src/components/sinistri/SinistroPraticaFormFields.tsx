@@ -32,6 +32,8 @@ interface Props {
   showAssegnazione?: boolean;
   /** Mostra note interne */
   showNoteInterne?: boolean;
+  /** Mostra note importanti accanto a descrizione (solo dettaglio pratica) */
+  showNoteImportanti?: boolean;
 }
 
 export default function SinistroPraticaFormFields({
@@ -46,6 +48,7 @@ export default function SinistroPraticaFormFields({
   showDataEvento = true,
   showAssegnazione = false,
   showNoteInterne = false,
+  showNoteImportanti = false,
 }: Props) {
   const tipoStd = watch("tipo_sinistro");
   const tipoCustom = watch("tipo_sinistro_personalizzato");
@@ -161,19 +164,46 @@ export default function SinistroPraticaFormFields({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="descrizione">Descrizione Accadimento (min 20 caratteri) *</Label>
-        <Textarea
-          id="descrizione"
-          placeholder="Descrivi dettagliatamente come e cosa è accaduto..."
-          rows={4}
-          {...register("descrizione")}
-        />
-        <p className="text-[10px] text-muted-foreground text-right">
-          {(watch("descrizione") || "").length}/20 caratteri minimi
-        </p>
-        {errors.descrizione && <p className="text-xs text-destructive">{errors.descrizione.message}</p>}
-      </div>
+      {showNoteImportanti ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="descrizione">Descrizione Accadimento (min 20 caratteri) *</Label>
+            <Textarea
+              id="descrizione"
+              placeholder="Descrivi dettagliatamente come e cosa è accaduto..."
+              rows={4}
+              {...register("descrizione")}
+            />
+            <p className="text-[10px] text-muted-foreground text-right">
+              {(watch("descrizione") || "").length}/20 caratteri minimi
+            </p>
+            {errors.descrizione && <p className="text-xs text-destructive">{errors.descrizione.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="note_importanti">Note importanti</Label>
+            <Textarea
+              id="note_importanti"
+              placeholder="Punti critici, urgenze o informazioni da evidenziare..."
+              rows={4}
+              {...register("note_importanti")}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="descrizione">Descrizione Accadimento (min 20 caratteri) *</Label>
+          <Textarea
+            id="descrizione"
+            placeholder="Descrivi dettagliatamente come e cosa è accaduto..."
+            rows={4}
+            {...register("descrizione")}
+          />
+          <p className="text-[10px] text-muted-foreground text-right">
+            {(watch("descrizione") || "").length}/20 caratteri minimi
+          </p>
+          {errors.descrizione && <p className="text-xs text-destructive">{errors.descrizione.message}</p>}
+        </div>
+      )}
         </>
       )}
 

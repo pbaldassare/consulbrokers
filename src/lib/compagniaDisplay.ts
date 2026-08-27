@@ -53,3 +53,18 @@ export function labelCompagniaEAgenzia(t: TitoloCompagniaLike | null | undefined
   if (comp && ag && comp.toLowerCase() !== ag.toLowerCase()) return `${comp} · ${ag}`;
   return comp || ag || "";
 }
+
+type CompagniaContattoLike = {
+  telefono?: string | null;
+  cellulare?: string | null;
+  mail?: string | null;
+  mail_ec?: string | null;
+  pec?: string | null;
+} | null | undefined;
+
+/** Telefono ed email agenzia di riferimento (da anagrafica compagnie). */
+export function resolveAgenziaContatto(agenzia: CompagniaContattoLike) {
+  const telefono = (agenzia?.telefono || agenzia?.cellulare || "").trim() || null;
+  const email = (agenzia?.mail || agenzia?.mail_ec || agenzia?.pec || "").trim() || null;
+  return { telefono, email };
+}

@@ -7,16 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, AlertTriangle, Search } from "lucide-react";
+import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 
-const statiSinistro = ["in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
+const statiSinistro = ["bozza", "in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
 
 const statoBadge: Record<string, string> = {
+  bozza: "bg-slate-100 text-slate-700 border border-slate-300",
   in_valutazione: "bg-amber-100 text-amber-800",
   aperto: "bg-blue-100 text-blue-800",
   in_lavorazione: "bg-yellow-100 text-yellow-800",
@@ -26,6 +27,16 @@ const statoBadge: Record<string, string> = {
   respinto: "bg-red-100 text-red-800",
 };
 
+type SortField =
+  | "numero_sinistro"
+  | "tipo_sinistro"
+  | "stato"
+  | "compagnia_id"
+  | "data_apertura"
+  | "data_denuncia"
+  | "controparte"
+  | "created_at";
+
 export default function SinistriList() {
   const navigate = useNavigate();
   const [filtroStato, setFiltroStato] = useState<string>("tutti");
@@ -33,7 +44,16 @@ export default function SinistriList() {
   const [filtroTerzi, setFiltroTerzi] = useState<string>("tutti");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato, filtroCompagnia, filtroTerzi, debouncedSearch]);
+  const [sortField, setSortField] = useState<SortField>("created_at");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const { page, setPage, pageSize, range } = useServerPagination(25, [
+    filtroStato,
+    filtroCompagnia,
+    filtroTerzi,
+    debouncedSearch,
+    sortField,
+    sortDirection,
+  ]);
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -51,10 +71,10 @@ export default function SinistriList() {
   }, [qc]);
 
   const { data: sinistriResult } = useQuery({
-    queryKey: ["sinistri", filtroStato, filtroCompagnia, filtroTerzi, debouncedSearch, page],
+    queryKey: ["sinistri", filtroStato, filtroCompagnia, filtroTerzi, debouncedSearch, page, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("sinistri").select(
-        `id, numero_sinistro, stato, descrizione, data_apertura, sinistro_terzi, titolo_id, compagnia_id,
+        `id, numero_sinistro, stato, descrizione, data_apertura, data_denuncia, controparte, sinistro_terzi, titolo_id, compagnia_id,
          tipo_sinistro, tipo_sinistro_personalizzato,
          compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome),
          clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente),
@@ -106,7 +126,9 @@ export default function SinistriList() {
         q = q.or(parts.join(","));
       }
 
-      const { data, error, count } = await q.order("created_at", { ascending: false }).range(range.from, range.to);
+      const { data, error, count } = await q
+        .order(sortField, { ascending: sortDirection === "asc" })
+        .range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], count: count || 0 };
     },
@@ -134,6 +156,39 @@ export default function SinistriList() {
   const handleFilterChange = (setter: (v: string) => void) => (v: string) => {
     setter(v);
     setPage(0);
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+    setPage(0);
+  };
+
+  const SortableHeader = ({
+    field,
+    children,
+    className,
+  }: {
+    field: SortField;
+    children: React.ReactNode;
+    className?: string;
+  }) => {
+    const Icon = sortField === field ? (sortDirection === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+    return (
+      <TableHead
+        className={`cursor-pointer select-none bg-background ${className || ""}`}
+        onClick={() => handleSort(field)}
+      >
+        <div className="flex items-center gap-1">
+          {children}
+          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+        </div>
+      </TableHead>
+    );
   };
 
   return (
@@ -171,7 +226,9 @@ export default function SinistriList() {
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="tutti">Tutti gli stati</SelectItem>
-            {statiSinistro.map(s => <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>)}
+            {statiSinistro.map(s => (
+              <SelectItem key={s} value={s}>{s === "bozza" ? "Bozza" : s.replace(/_/g, " ")}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={filtroCompagnia} onValueChange={handleFilterChange(setFiltroCompagnia)}>
@@ -195,22 +252,39 @@ export default function SinistriList() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>N° Sinistro</TableHead>
+              <SortableHeader field="numero_sinistro">N° Sinistro</SortableHeader>
               <TableHead>Cliente</TableHead>
               <TableHead>Polizza</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Stato</TableHead>
-              <TableHead>Compagnia</TableHead>
-              <TableHead>Data Apertura</TableHead>
+              <SortableHeader field="controparte">Controparte</SortableHeader>
+              <SortableHeader field="tipo_sinistro">Tipo</SortableHeader>
+              <SortableHeader field="stato">Stato</SortableHeader>
+              <SortableHeader field="compagnia_id">Compagnia</SortableHeader>
+              <SortableHeader field="data_apertura">Data Apertura</SortableHeader>
+              <SortableHeader field="data_denuncia">Data Denuncia</SortableHeader>
               <TableHead>Descrizione</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sinistri.map((s: any) => (
-              <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/sinistri/${s.id}`)}>
+              <TableRow
+                key={s.id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => {
+                  if (s.stato === "bozza") {
+                    navigate(`/sinistri/apertura?bozza_id=${s.id}`);
+                  } else {
+                    navigate(`/sinistri/${s.id}`);
+                  }
+                }}
+              >
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span>{s.numero_sinistro || "—"}</span>
+                    {s.stato === "bozza" && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-slate-400 text-slate-700 bg-slate-50">
+                        Bozza
+                      </Badge>
+                    )}
                     {s.sinistro_terzi && (
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-800 bg-amber-50">
                         Sinistro Terzi
@@ -220,17 +294,23 @@ export default function SinistriList() {
                 </TableCell>
                 <TableCell>{resolveClienteNome(s.clienti)}</TableCell>
                 <TableCell>{s.sinistro_terzi ? "—" : (s.titoli?.numero_titolo || "—")}</TableCell>
+                <TableCell className="max-w-[10rem] truncate">{s.controparte || "—"}</TableCell>
                 <TableCell>{formatTipoSinistro(s)}</TableCell>
                 <TableCell>
-                  <Badge className={statoBadge[s.stato]}>{s.stato.replace(/_/g, " ")}</Badge>
+                  <Badge className={statoBadge[s.stato] || "bg-muted"}>
+                    {s.stato === "bozza" ? "Bozza" : s.stato.replace(/_/g, " ")}
+                  </Badge>
                 </TableCell>
                 <TableCell>{s.compagnie?.nome || "—"}</TableCell>
                 <TableCell>{s.data_apertura ? format(new Date(s.data_apertura), "dd/MM/yyyy") : "—"}</TableCell>
-                <TableCell className="max-w-xs truncate">{s.descrizione || "—"}</TableCell>
+                <TableCell>{s.data_denuncia ? format(new Date(s.data_denuncia), "dd/MM/yyyy") : "—"}</TableCell>
+                <TableCell className="max-w-xs">
+                  <span className="line-clamp-2 whitespace-normal break-words">{s.descrizione || "—"}</span>
+                </TableCell>
               </TableRow>
             ))}
             {!sinistri.length && (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessun sinistro trovato</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nessun sinistro trovato</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

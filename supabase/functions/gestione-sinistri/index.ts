@@ -39,7 +39,8 @@ const payloadSchema = z.discriminatedUnion("azione", [
     costo_effettivo: z.number().nullable().optional(),
     franchigia: z.number().nullable().optional(),
     importo_liquidato: z.number().nullable().optional(),
-    stato_iniziale: z.enum(['in_valutazione','aperto']).optional(),
+    stato_iniziale: z.enum(['bozza','in_valutazione','aperto']).optional(),
+    bozza_wizard_json: z.record(z.unknown()).optional().nullable(),
     priorita: z.string().optional(),
     note_interne: z.string().optional().nullable(),
     prescrizioni_iniziali: z.array(z.object({
@@ -87,6 +88,57 @@ const payloadSchema = z.discriminatedUnion("azione", [
     responsabile_id: z.string().uuid().nullable().optional(),
     liquidatore_id: z.string().uuid().nullable().optional(),
     note_interne: z.string().optional().nullable(),
+    note_importanti: z.string().optional().nullable(),
+    bozza_wizard_json: z.record(z.unknown()).optional().nullable(),
+  }),
+  z.object({
+    azione: z.literal("finalizza_bozza"),
+    sinistro_id: z.string().uuid(),
+    user_id: z.string().uuid().optional(),
+    sinistro_terzi: z.boolean().optional(),
+    titolo_id: z.string().uuid().nullable().optional(),
+    cliente_anagrafica_id: z.string().uuid().nullable().optional(),
+    compagnia_id: z.string().uuid().nullable().optional(),
+    ufficio_id: z.string().uuid().nullable().optional(),
+    descrizione: z.string().optional().nullable(),
+    tipo_sinistro: z.string().optional().nullable(),
+    tipo_sinistro_personalizzato: z.string().max(500).optional().nullable(),
+    luogo_sinistro: z.string().optional().nullable(),
+    data_evento: z.string().optional(),
+    data_denuncia: z.string().optional(),
+    numero_sinistro_compagnia: z.string().optional().nullable(),
+    importo_riserva: z.number().nullable().optional(),
+    controparte: z.string().optional().nullable(),
+    targa_veicolo: z.string().optional().nullable(),
+    dinamica: z.string().optional().nullable(),
+    indirizzo_sinistro: z.string().optional().nullable(),
+    citta_sinistro: z.string().optional().nullable(),
+    cap_sinistro: z.string().optional().nullable(),
+    provincia_sinistro: z.string().optional().nullable(),
+    costo_preventivato: z.number().nullable().optional(),
+    costo_effettivo: z.number().nullable().optional(),
+    franchigia: z.number().nullable().optional(),
+    importo_liquidato: z.number().nullable().optional(),
+    responsabile_id: z.string().uuid().nullable().optional(),
+    liquidatore_id: z.string().uuid().nullable().optional(),
+    note_interne: z.string().optional().nullable(),
+    priorita: z.string().optional(),
+    prescrizioni_iniziali: z.array(z.object({
+      destinatario_tipo: z.enum(['cliente', 'compagnia', 'perito', 'controparte', 'altro']).optional(),
+      destinatario_label: z.string().optional().nullable(),
+      oggetto: z.string().min(1),
+      corpo: z.string().optional().nullable(),
+      data_scadenza_risposta: z.string(),
+      canale: z.string().optional().nullable(),
+      note: z.string().optional().nullable(),
+    })).optional(),
+    reminder_iniziali: z.array(z.object({
+      testo: z.string().min(1),
+      data_scadenza: z.string().optional().nullable(),
+      data_promemoria: z.string().optional().nullable(),
+      categoria: z.enum(["documenti", "follow_up", "perizia", "contatto_cliente", "altro"]).optional(),
+      assegnato_a: z.string().uuid().optional().nullable(),
+    })).optional(),
   }),
   z.object({
     azione: z.literal("cambia_stato"),
@@ -139,12 +191,15 @@ Deno.serve(async (req) => {
         data_denuncia, data_apertura, numero_sinistro_compagnia, importo_riserva,
         controparte, targa_veicolo, dinamica, indirizzo_sinistro, citta_sinistro, cap_sinistro, provincia_sinistro,
         costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
-        stato_iniziale, priorita, note_interne,
+        stato_iniziale, priorita, note_interne, bozza_wizard_json,
         prescrizioni_iniziali, reminder_iniziali,
       } = parsed.data;
 
+      const isBozza = stato_iniziale === "bozza";
       const numero = numero_sinistro
-        ?? `SIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        ?? (isBozza
+          ? `BOZZA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
+          : `SIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
       const stato = stato_iniziale ?? "aperto";
       const oggi = new Date().toISOString().split("T")[0];
       const descrizioneTesto = descrizione ?? dinamica ?? null;
@@ -172,8 +227,8 @@ Deno.serve(async (req) => {
         controparte: controparte?.trim() || null,
         targa_veicolo: targa_veicolo?.trim() || null,
         data_evento: data_evento ?? null,
-        data_denuncia: data_denuncia ?? oggi,
-        data_apertura: data_apertura ?? oggi,
+        data_denuncia: isBozza ? (data_denuncia ?? null) : (data_denuncia ?? oggi),
+        data_apertura: isBozza ? null : (data_apertura ?? oggi),
         numero_sinistro_compagnia: numero_sinistro_compagnia ?? null,
         importo_riserva: importo_riserva ?? null,
         costo_preventivato: costo_preventivato ?? null,
@@ -181,12 +236,25 @@ Deno.serve(async (req) => {
         franchigia: franchigia ?? null,
         importo_liquidato: importo_liquidato ?? null,
         note_interne: note_interne?.trim() || null,
+        bozza_wizard_json: isBozza ? (bozza_wizard_json ?? null) : null,
         stato,
         aperto_da_cliente: stato === "in_valutazione",
         aperto_da_user_id: user_id ?? null,
       }).select().single();
 
       if (error) throw error;
+
+      if (isBozza) {
+        if (user_id) {
+          await supabase.from("log_attivita").insert({
+            user_id, azione: "creazione_bozza_sinistro", entita_tipo: "sinistro", entita_id: sinistro.id,
+            ufficio_id: sinistro.ufficio_id ?? null,
+            dettagli_json: { numero, stato: "bozza" },
+            severity: "info",
+          });
+        }
+        return new Response(JSON.stringify({ success: true, sinistro }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       // Evento timeline apertura
       await supabase.from("sinistro_eventi").insert({
@@ -301,7 +369,7 @@ Deno.serve(async (req) => {
         numero_sinistro_compagnia, descrizione, dinamica, luogo_sinistro, indirizzo_sinistro,
         citta_sinistro, cap_sinistro, provincia_sinistro, controparte, targa_veicolo,
         importo_riserva, costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
-        responsabile_id, liquidatore_id, note_interne,
+        responsabile_id, liquidatore_id, note_interne, note_importanti, bozza_wizard_json,
       } = parsed.data;
 
       const { data: prev, error: prevErr } = await supabase
@@ -347,6 +415,8 @@ Deno.serve(async (req) => {
       if (responsabile_id !== undefined) updateData.responsabile_id = responsabile_id;
       if (liquidatore_id !== undefined) updateData.liquidatore_id = liquidatore_id;
       if (note_interne !== undefined) updateData.note_interne = note_interne?.trim() || null;
+      if (note_importanti !== undefined) updateData.note_importanti = note_importanti?.trim() || null;
+      if (bozza_wizard_json !== undefined) updateData.bozza_wizard_json = bozza_wizard_json;
       if (sinistro_terzi !== undefined) {
         updateData.sinistro_terzi = sinistro_terzi;
         if (sinistro_terzi === true) updateData.titolo_id = null;
@@ -354,6 +424,16 @@ Deno.serve(async (req) => {
       if (titolo_id !== undefined && sinistro_terzi !== true) {
         updateData.titolo_id = titolo_id;
         if (titolo_id) updateData.sinistro_terzi = false;
+        // Allinea compagnia/ufficio alla polizza collegata
+        if (titolo_id) {
+          const { data: titoloRow } = await supabase
+            .from("titoli")
+            .select("compagnia_id, ufficio_id")
+            .eq("id", titolo_id)
+            .maybeSingle();
+          if (titoloRow?.compagnia_id) updateData.compagnia_id = titoloRow.compagnia_id;
+          if (titoloRow?.ufficio_id) updateData.ufficio_id = titoloRow.ufficio_id;
+        }
       }
 
       const { data: sinistro, error } = await supabase
@@ -364,21 +444,223 @@ Deno.serve(async (req) => {
         .single();
       if (error) throw error;
 
-      await supabase.from("sinistro_eventi").insert({
-        sinistro_id,
-        tipo_evento: "modifica_dati",
-        stato: "completato",
-        note: `Aggiornamento dati pratica${prev.numero_sinistro ? ` — ${prev.numero_sinistro}` : ""}`,
-      });
+      if (prev.stato !== "bozza") {
+        await supabase.from("sinistro_eventi").insert({
+          sinistro_id,
+          tipo_evento: "modifica_dati",
+          stato: "completato",
+          note: `Aggiornamento dati pratica${prev.numero_sinistro ? ` — ${prev.numero_sinistro}` : ""}`,
+        });
+      }
 
       if (user_id) {
         await supabase.from("log_attivita").insert({
           user_id,
-          azione: "modifica_sinistro",
+          azione: prev.stato === "bozza" ? "aggiornamento_bozza_sinistro" : "modifica_sinistro",
           entita_tipo: "sinistro",
           entita_id: sinistro_id,
           ufficio_id: prev.ufficio_id ?? null,
           dettagli_json: { campi_aggiornati: Object.keys(updateData).filter((k) => k !== "updated_at") },
+          severity: "info",
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, sinistro }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (azione === "finalizza_bozza") {
+      const {
+        sinistro_id, user_id, sinistro_terzi, titolo_id, cliente_anagrafica_id, compagnia_id, ufficio_id,
+        descrizione, tipo_sinistro, tipo_sinistro_personalizzato, luogo_sinistro, data_evento, data_denuncia,
+        numero_sinistro_compagnia, importo_riserva, controparte, targa_veicolo, dinamica,
+        indirizzo_sinistro, citta_sinistro, cap_sinistro, provincia_sinistro,
+        costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
+        responsabile_id, liquidatore_id, note_interne, priorita,
+        prescrizioni_iniziali, reminder_iniziali,
+      } = parsed.data;
+
+      const { data: prev, error: prevErr } = await supabase
+        .from("sinistri")
+        .select("stato, ufficio_id, numero_sinistro, titolo_id, compagnia_id")
+        .eq("id", sinistro_id)
+        .maybeSingle();
+      if (prevErr) throw prevErr;
+      if (!prev) {
+        return new Response(JSON.stringify({ success: false, error: "Sinistro non trovato" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (prev.stato !== "bozza") {
+        return new Response(JSON.stringify({ success: false, error: "La pratica non è in stato bozza" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const oggi = new Date().toISOString().split("T")[0];
+      const isTerzi = sinistro_terzi === true;
+      const descrizioneTesto = descrizione ?? dinamica ?? null;
+      const numeroFinale = prev.numero_sinistro?.startsWith("BOZZA-")
+        ? `SIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
+        : (prev.numero_sinistro ?? `SIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+
+      const updateData: Record<string, unknown> = {
+        numero_sinistro: numeroFinale,
+        stato: "aperto",
+        data_apertura: oggi,
+        data_denuncia: data_denuncia ?? oggi,
+        bozza_wizard_json: null,
+        updated_at: new Date().toISOString(),
+        sinistro_terzi: isTerzi,
+        titolo_id: isTerzi ? null : (titolo_id ?? null),
+        cliente_anagrafica_id: cliente_anagrafica_id ?? null,
+        compagnia_id: compagnia_id ?? null,
+        ufficio_id: ufficio_id ?? null,
+        responsabile_id: responsabile_id ?? null,
+        liquidatore_id: liquidatore_id ?? null,
+        descrizione: descrizioneTesto,
+        dinamica: dinamica ?? descrizioneTesto,
+        tipo_sinistro: tipo_sinistro ?? null,
+        tipo_sinistro_personalizzato: tipo_sinistro_personalizzato?.trim() || null,
+        luogo_sinistro: luogo_sinistro ?? null,
+        indirizzo_sinistro: indirizzo_sinistro ?? null,
+        citta_sinistro: citta_sinistro ?? null,
+        cap_sinistro: cap_sinistro ?? null,
+        provincia_sinistro: provincia_sinistro ?? null,
+        controparte: controparte?.trim() || null,
+        targa_veicolo: targa_veicolo?.trim() || null,
+        data_evento: data_evento ?? null,
+        numero_sinistro_compagnia: numero_sinistro_compagnia ?? null,
+        importo_riserva: importo_riserva ?? null,
+        costo_preventivato: costo_preventivato ?? null,
+        costo_effettivo: costo_effettivo ?? null,
+        franchigia: franchigia ?? null,
+        importo_liquidato: importo_liquidato ?? null,
+        note_interne: note_interne?.trim() || null,
+      };
+
+      const { data: sinistro, error } = await supabase
+        .from("sinistri")
+        .update(updateData)
+        .eq("id", sinistro_id)
+        .select()
+        .single();
+      if (error) throw error;
+
+      // Checklist default (trigger AFTER INSERT non scatta su UPDATE)
+      const { data: existingChecklist } = await supabase
+        .from("sinistro_checklist")
+        .select("id")
+        .eq("sinistro_id", sinistro_id)
+        .limit(1);
+      if (!existingChecklist?.length) {
+        await supabase.from("sinistro_checklist").insert([
+          { sinistro_id, descrizione: "Denuncia sinistro compilata", obbligatorio: true },
+          { sinistro_id, descrizione: "Documentazione fotografica", obbligatorio: true },
+          { sinistro_id, descrizione: "Copia polizza allegata", obbligatorio: true },
+          { sinistro_id, descrizione: "Modulo CID/CAI compilato", obbligatorio: false },
+        ]);
+      }
+
+      await supabase.from("sinistro_eventi").insert({
+        sinistro_id,
+        tipo_evento: "apertura",
+        data_scadenza: oggi,
+        stato: "completato",
+        note: `Apertura sinistro ${numeroFinale}${priorita ? ` · Priorità: ${priorita}` : ""}${note_interne ? ` · ${note_interne}` : ""}`,
+      });
+
+      const dataDenunciaEff = data_denuncia ?? oggi;
+      const titoloIdEff = isTerzi ? null : (titolo_id ?? null);
+      if (user_id) {
+        const scadenzaBiennale = (() => {
+          const d = new Date(dataDenunciaEff);
+          d.setFullYear(d.getFullYear() + 2);
+          return d.toISOString().split("T")[0];
+        })();
+
+        let agenziaLabel: string | null = null;
+        if (titoloIdEff) {
+          const { data: titoloRow } = await supabase
+            .from("titoli")
+            .select("compagnia_id, compagnie:compagnia_id(nome)")
+            .eq("id", titoloIdEff)
+            .maybeSingle();
+          const nome = (titoloRow as any)?.compagnie?.nome;
+          if (nome && String(nome).trim()) agenziaLabel = String(nome).trim();
+        }
+        if (!agenziaLabel && compagnia_id) {
+          const { data: ag } = await supabase
+            .from("compagnie")
+            .select("nome")
+            .eq("id", compagnia_id)
+            .maybeSingle();
+          if (ag?.nome?.trim()) agenziaLabel = ag.nome.trim();
+        }
+
+        await supabase.from("sinistro_prescrizioni").insert({
+          sinistro_id,
+          creato_da: user_id,
+          destinatario_tipo: "compagnia",
+          destinatario_label: agenziaLabel,
+          oggetto: "Termine di prescrizione biennale (art. 2952 c.c.)",
+          corpo: "Prescrizione biennale dalla data di denuncia del sinistro.",
+          data_scadenza_risposta: scadenzaBiennale,
+          stato: "bozza",
+        });
+      }
+
+      if (prescrizioni_iniziali?.length && user_id) {
+        const rows = prescrizioni_iniziali.map((p) => ({
+          sinistro_id,
+          creato_da: user_id,
+          destinatario_tipo: p.destinatario_tipo ?? "compagnia",
+          destinatario_label: p.destinatario_label?.trim() || null,
+          oggetto: p.oggetto.trim(),
+          corpo: p.corpo?.trim() || null,
+          data_scadenza_risposta: p.data_scadenza_risposta,
+          canale: p.canale?.trim() || null,
+          note: p.note?.trim() || null,
+          stato: "bozza",
+        }));
+        const { error: prescErr } = await supabase.from("sinistro_prescrizioni").insert(rows);
+        if (prescErr) throw prescErr;
+      }
+
+      if (reminder_iniziali?.length && user_id) {
+        const rows = reminder_iniziali.map((r) => {
+          const scadenza = r.data_scadenza || r.data_promemoria || null;
+          return {
+            sinistro_id,
+            user_id,
+            creato_da: user_id,
+            assegnato_a: r.assegnato_a ?? responsabile_id ?? user_id,
+            titolo_id: titoloIdEff,
+            cliente_id: cliente_anagrafica_id ?? null,
+            testo: r.testo.trim(),
+            categoria: r.categoria ?? "altro",
+            data_scadenza: scadenza,
+            data_promemoria: scadenza,
+            stato: "attivo",
+            letto: false,
+            completato: false,
+          };
+        });
+        const { error: remErr } = await supabase.from("sinistro_reminder").insert(rows);
+        if (remErr) throw remErr;
+      }
+
+      if (user_id) {
+        await supabase.from("log_attivita").insert({
+          user_id,
+          azione: "finalizzazione_bozza_sinistro",
+          entita_tipo: "sinistro",
+          entita_id: sinistro_id,
+          ufficio_id: sinistro.ufficio_id ?? null,
+          dettagli_json: { numero: numeroFinale, stato: "aperto" },
           severity: "info",
         });
       }

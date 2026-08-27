@@ -1,5 +1,9 @@
 import * as z from "zod";
+import { format } from "date-fns";
 import { TIPI_SINISTRO } from "@/lib/tipiSinistro";
+
+/** Data odierna in formato ISO locale (yyyy-MM-dd), per input type="date". */
+export const todayDateISO = () => format(new Date(), "yyyy-MM-dd");
 
 const optionalNumber = z.preprocess(
   (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
@@ -14,6 +18,7 @@ export const sinistroPraticaSchema = z.object({
   tipo_sinistro_personalizzato: z.string().optional(),
   numero_sinistro_compagnia: z.string().optional(),
   descrizione: z.string().min(20, "La descrizione deve contenere almeno 20 caratteri"),
+  note_importanti: z.string().optional(),
   luogo_sinistro: z.string().optional(),
   indirizzo_sinistro: z.string().optional(),
   citta_sinistro: z.string().optional(),
@@ -35,11 +40,12 @@ export type SinistroPraticaValues = z.infer<typeof sinistroPraticaSchema>;
 
 export const sinistroPraticaDefaultValues: SinistroPraticaValues = {
   data_evento: "",
-  data_denuncia: new Date().toISOString().slice(0, 10),
+  data_denuncia: "",
   tipo_sinistro: "",
   tipo_sinistro_personalizzato: "",
   numero_sinistro_compagnia: "",
   descrizione: "",
+  note_importanti: "",
   luogo_sinistro: "",
   indirizzo_sinistro: "",
   citta_sinistro: "",
@@ -106,6 +112,7 @@ export const sinistroRowToPraticaValues = (s: Record<string, unknown>): Sinistro
   tipo_sinistro_personalizzato: (s.tipo_sinistro_personalizzato as string) || "",
   numero_sinistro_compagnia: (s.numero_sinistro_compagnia as string) || "",
   descrizione: (s.descrizione as string) || (s.dinamica as string) || "",
+  note_importanti: (s.note_importanti as string) || "",
   luogo_sinistro: (s.luogo_sinistro as string) || "",
   indirizzo_sinistro: (s.indirizzo_sinistro as string) || "",
   citta_sinistro: (s.citta_sinistro as string) || "",
@@ -123,7 +130,10 @@ export const sinistroRowToPraticaValues = (s: Record<string, unknown>): Sinistro
   importo_liquidato: s.importo_liquidato != null ? Number(s.importo_liquidato) : undefined,
 });
 
-export const praticaValuesToDbPayload = (values: SinistroPraticaValues) => {
+export const praticaValuesToDbPayload = (
+  values: SinistroPraticaValues,
+  options?: { persistNoteImportanti?: boolean }
+) => {
   const tipo = resolveTipoSinistroPayload(values);
   const descrizione = values.descrizione.trim();
   const showTarga = isTipoSinistroVeicolo(values.tipo_sinistro, values.tipo_sinistro_personalizzato);
@@ -140,6 +150,11 @@ export const praticaValuesToDbPayload = (values: SinistroPraticaValues) => {
       : {}),
     descrizione: descrizione || undefined,
     dinamica: descrizione || undefined,
+    ...(options?.persistNoteImportanti
+      ? { note_importanti: values.note_importanti?.trim() || null }
+      : values.note_importanti?.trim()
+        ? { note_importanti: values.note_importanti.trim() }
+        : {}),
     ...(luogo ? { luogo_sinistro: luogo } : {}),
     ...(values.indirizzo_sinistro?.trim()
       ? { indirizzo_sinistro: values.indirizzo_sinistro.trim() }
