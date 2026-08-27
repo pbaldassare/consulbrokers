@@ -387,7 +387,7 @@ export default function SinistroDetail() {
             {tabList.map((tab, idx) => {
               const meta = stepMeta[tab] || { label: tab };
               const isActive = safeTab === tab;
-              const isPast = idx < Math.max(0, tabList.indexOf(safeTab));
+              const isPast = idx < Math.max(0, tabList.indexOf(safeTab as any));
               return (
                 <TabsTrigger
                   key={tab}
