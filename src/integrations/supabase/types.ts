@@ -9193,6 +9193,7 @@ export type Database = {
         Row: {
           aperto_da_cliente: boolean
           aperto_da_user_id: string | null
+          bozza_wizard_json: Json | null
           cap_sinistro: string | null
           citta_sinistro: string | null
           cliente_anagrafica_id: string | null
@@ -9202,7 +9203,7 @@ export type Database = {
           costo_effettivo: number | null
           costo_preventivato: number | null
           created_at: string | null
-          data_apertura: string
+          data_apertura: string | null
           data_chiusura: string | null
           data_denuncia: string | null
           data_evento: string | null
@@ -9240,6 +9241,7 @@ export type Database = {
         Insert: {
           aperto_da_cliente?: boolean
           aperto_da_user_id?: string | null
+          bozza_wizard_json?: Json | null
           cap_sinistro?: string | null
           citta_sinistro?: string | null
           cliente_anagrafica_id?: string | null
@@ -9249,7 +9251,7 @@ export type Database = {
           costo_effettivo?: number | null
           costo_preventivato?: number | null
           created_at?: string | null
-          data_apertura?: string
+          data_apertura?: string | null
           data_chiusura?: string | null
           data_denuncia?: string | null
           data_evento?: string | null
@@ -9287,6 +9289,7 @@ export type Database = {
         Update: {
           aperto_da_cliente?: boolean
           aperto_da_user_id?: string | null
+          bozza_wizard_json?: Json | null
           cap_sinistro?: string | null
           citta_sinistro?: string | null
           cliente_anagrafica_id?: string | null
@@ -9296,7 +9299,7 @@ export type Database = {
           costo_effettivo?: number | null
           costo_preventivato?: number | null
           created_at?: string | null
-          data_apertura?: string
+          data_apertura?: string | null
           data_chiusura?: string | null
           data_denuncia?: string | null
           data_evento?: string | null
