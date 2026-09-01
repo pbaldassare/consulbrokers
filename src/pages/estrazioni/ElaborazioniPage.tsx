@@ -340,8 +340,23 @@ const ElaborazioniPage = () => {
           })),
         },
       });
-      if (error) throw error;
+      if (error) {
+        // FunctionsHttpError espone il body reale in error.context
+        let dettaglio = error.message;
+        const ctx = (error as unknown as { context?: Response }).context;
+        if (ctx && typeof ctx.text === "function") {
+          try {
+            const txt = await ctx.text();
+            const parsed = JSON.parse(txt) as { error?: string };
+            dettaglio = parsed?.error || txt || dettaglio;
+          } catch {
+            /* body non leggibile */
+          }
+        }
+        throw new Error(dettaglio);
+      }
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+
 
       const estratti = ((data as { campi?: ValoriCampi })?.campi ?? {}) as ValoriCampi;
       setValori(estratti);
