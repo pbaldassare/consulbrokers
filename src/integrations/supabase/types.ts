@@ -4046,6 +4046,168 @@ export type Database = {
           },
         ]
       }
+      elaborazioni: {
+        Row: {
+          campi_estratti: Json
+          cliente_id: string | null
+          contenuto: string | null
+          created_at: string
+          created_by: string | null
+          documento_id: string | null
+          gruppo_ramo_id: string | null
+          id: string
+          stato: string
+          template_id: string | null
+          titolo: string | null
+          titolo_id: string | null
+          ufficio_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          campi_estratti?: Json
+          cliente_id?: string | null
+          contenuto?: string | null
+          created_at?: string
+          created_by?: string | null
+          documento_id?: string | null
+          gruppo_ramo_id?: string | null
+          id?: string
+          stato?: string
+          template_id?: string | null
+          titolo?: string | null
+          titolo_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          campi_estratti?: Json
+          cliente_id?: string | null
+          contenuto?: string | null
+          created_at?: string
+          created_by?: string | null
+          documento_id?: string | null
+          gruppo_ramo_id?: string | null
+          id?: string
+          stato?: string
+          template_id?: string | null
+          titolo?: string | null
+          titolo_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elaborazioni_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elaborazioni_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documenti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elaborazioni_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_ramo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elaborazioni_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["gruppo_ramo_id"]
+          },
+          {
+            foreignKeyName: "elaborazioni_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "elaborazioni_template"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elaborazioni_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elaborazioni_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elaborazioni_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elaborazioni_campi_catalogo: {
+        Row: {
+          attivo: boolean
+          chiave: string
+          created_at: string
+          descrizione_ai: string | null
+          etichetta: string
+          gruppo_ramo_id: string | null
+          id: string
+          ordine: number
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          attivo?: boolean
+          chiave: string
+          created_at?: string
+          descrizione_ai?: string | null
+          etichetta: string
+          gruppo_ramo_id?: string | null
+          id?: string
+          ordine?: number
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          attivo?: boolean
+          chiave?: string
+          created_at?: string
+          descrizione_ai?: string | null
+          etichetta?: string
+          gruppo_ramo_id?: string | null
+          id?: string
+          ordine?: number
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elaborazioni_campi_catalogo_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_ramo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elaborazioni_campi_catalogo_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["gruppo_ramo_id"]
+          },
+        ]
+      }
       elaborazioni_periodiche: {
         Row: {
           created_at: string | null
@@ -4090,6 +4252,70 @@ export type Database = {
           },
           {
             foreignKeyName: "elaborazioni_periodiche_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elaborazioni_template: {
+        Row: {
+          attivo: boolean
+          campi: Json
+          corpo: string
+          created_at: string
+          created_by: string | null
+          descrizione: string | null
+          gruppo_ramo_id: string | null
+          id: string
+          nome: string
+          ufficio_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attivo?: boolean
+          campi?: Json
+          corpo?: string
+          created_at?: string
+          created_by?: string | null
+          descrizione?: string | null
+          gruppo_ramo_id?: string | null
+          id?: string
+          nome: string
+          ufficio_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attivo?: boolean
+          campi?: Json
+          corpo?: string
+          created_at?: string
+          created_by?: string | null
+          descrizione?: string | null
+          gruppo_ramo_id?: string | null
+          id?: string
+          nome?: string
+          ufficio_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elaborazioni_template_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_ramo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elaborazioni_template_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["gruppo_ramo_id"]
+          },
+          {
+            foreignKeyName: "elaborazioni_template_ufficio_id_fkey"
             columns: ["ufficio_id"]
             isOneToOne: false
             referencedRelation: "uffici"

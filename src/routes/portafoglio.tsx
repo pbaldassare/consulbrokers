@@ -30,6 +30,7 @@ import ECClientiPage from "@/pages/estrazioni/ECClientiPage";
 import TitoliDaIncassarePage from "@/pages/estrazioni/TitoliDaIncassarePage";
 import RichiestaQuietanzaPage from "@/pages/estrazioni/RichiestaQuietanzaPage";
 import RegistroRichiesteQuietanzaPage from "@/pages/estrazioni/RegistroRichiesteQuietanzaPage";
+import ElaborazioniPage from "@/pages/estrazioni/ElaborazioniPage";
 import PortafoglioRettificaProvvigioniPage from "@/pages/PortafoglioRettificaProvvigioniPage";
 
 export const portafoglioRoutes = (
@@ -63,6 +64,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/estrazioni/titoli-da-incassare" element={<TitoliDaIncassarePage />} />
     <Route path="/portafoglio/estrazioni/richiesta-quietanza" element={<RichiestaQuietanzaPage />} />
     <Route path="/portafoglio/estrazioni/richiesta-quietanza/registro" element={<RegistroRichiesteQuietanzaPage />} />
+    <Route path="/portafoglio/estrazioni/elaborazioni" element={<ElaborazioniPage />} />
     <Route path="/portafoglio/collettive" element={<Navigate to="/portafoglio/attive" replace />} />
     <Route path="/portafoglio/documentale" element={<DocumentalePage />} />
     <Route path="/provvigioni-maturate" element={<ProvvigioniMaturatePage />} />

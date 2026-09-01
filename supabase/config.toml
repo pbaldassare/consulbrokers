@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.chiedi-mercato-assicurativo]
 verify_jwt = false
+
+[functions.elabora-documento-polizza]
+verify_jwt = false
