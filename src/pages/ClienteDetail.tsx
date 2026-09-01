@@ -3219,7 +3219,10 @@ export default function ClienteDetail() {
             showPreview={false}
             titoloIdsForExtraDocs={titoloIdsMadri}
             extraTitoloCategorie={["notifica_messa_cassa"]}
+            aggregateSources={documentiSources}
+            origineLabel="Anagrafica cliente"
           />
+
         </TabsContent>
 
         <TabsContent value="chat"><ChatTab entitaTipo="cliente" entitaId={id!} /></TabsContent>
