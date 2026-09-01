@@ -296,18 +296,30 @@ const ElaborazioniPage = () => {
       const { data: file, error: dlErr } = await supabase.storage
         .from(doc.bucket_name)
         .download(doc.path_storage);
-      if (dlErr || !file) throw new Error(dlErr?.message || "Documento non scaricabile");
+      if (dlErr || !file) {
+        throw new Error(
+          `Documento non scaricabile dall'archivio (${doc.bucket_name}): ${dlErr?.message ?? "file assente"}`,
+        );
+      }
 
       const buf = new Uint8Array(await file.arrayBuffer());
+      if (buf.length === 0) throw new Error("Il documento risulta vuoto");
+      if (buf.length > 18 * 1024 * 1024) {
+        throw new Error("Documento troppo grande (max 18 MB): comprimilo o caricane una versione più leggera");
+      }
       let binary = "";
       const chunk = 0x8000;
       for (let i = 0; i < buf.length; i += chunk) {
         binary += String.fromCharCode(...buf.subarray(i, i + chunk));
       }
       const fileBase64 = btoa(binary);
-      const mimeType = file.type || (doc.nome_file.toLowerCase().endsWith(".pdf")
-        ? "application/pdf"
-        : "application/octet-stream");
+      const nome = doc.nome_file.toLowerCase();
+      const mimeType =
+        nome.endsWith(".pdf") ? "application/pdf"
+        : nome.endsWith(".png") ? "image/png"
+        : nome.endsWith(".jpg") || nome.endsWith(".jpeg") ? "image/jpeg"
+        : file.type || "application/pdf";
+
 
       const contesto = [
         clienteSel ? `Contraente atteso: ${nomeCliente(clienteSel)}` : null,
@@ -328,8 +340,23 @@ const ElaborazioniPage = () => {
           })),
         },
       });
-      if (error) throw error;
+      if (error) {
+        // FunctionsHttpError espone il body reale in error.context
+        let dettaglio = error.message;
+        const ctx = (error as unknown as { context?: Response }).context;
+        if (ctx && typeof ctx.text === "function") {
+          try {
+            const txt = await ctx.text();
+            const parsed = JSON.parse(txt) as { error?: string };
+            dettaglio = parsed?.error || txt || dettaglio;
+          } catch {
+            /* body non leggibile */
+          }
+        }
+        throw new Error(dettaglio);
+      }
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+
 
       const estratti = ((data as { campi?: ValoriCampi })?.campi ?? {}) as ValoriCampi;
       setValori(estratti);
