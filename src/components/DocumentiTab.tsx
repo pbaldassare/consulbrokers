@@ -790,7 +790,7 @@ export default function DocumentiTab({
               </TableCell>
             </TableRow>
           ))}
-          {appendiceRows.map((a) => (
+          {showAppendici && appendiceRows.map((a) => (
             <TableRow key={`appendice-${a.id}`}>
               <TableCell>
                 <DocumentThumbnail
