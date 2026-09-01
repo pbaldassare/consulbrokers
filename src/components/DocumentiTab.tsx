@@ -526,11 +526,62 @@ export default function DocumentiTab({
           )}
         </div>
       )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={ricerca}
+          onChange={(e) => setRicerca(e.target.value)}
+          placeholder="Cerca per nome file..."
+          className="h-9 w-full sm:w-56"
+        />
+        {showOrigine && (
+          <Select value={filtroOrigine} onValueChange={setFiltroOrigine}>
+            <SelectTrigger className="h-9 w-full sm:w-48"><SelectValue placeholder="Origine" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tutte le sezioni</SelectItem>
+              {origini.map((o) => (
+                <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {tipologieDisponibili.length > 0 && (
+          <Select value={filtroTipologia} onValueChange={setFiltroTipologia}>
+            <SelectTrigger className="h-9 w-full sm:w-56"><SelectValue placeholder="Tipologia" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tutte le tipologie</SelectItem>
+              {tipologieDisponibili.map((c) => (
+                <SelectItem key={c} value={c}>{labelTipoDocumento(c)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <Select value={filtroVisibile} onValueChange={setFiltroVisibile}>
+          <SelectTrigger className="h-9 w-full sm:w-44"><SelectValue placeholder="Visibilità" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tutti i documenti</SelectItem>
+            <SelectItem value="si">Visibili al cliente</SelectItem>
+            <SelectItem value="no">Non visibili</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">
+          {documentiFiltrati.length} di {documenti?.length ?? 0} documenti
+        </span>
+        {filtriAttivi && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setFiltroOrigine("all"); setFiltroTipologia("all"); setFiltroVisibile("all"); setRicerca(""); }}
+          >
+            <X className="h-3.5 w-3.5 mr-1" /> Azzera filtri
+          </Button>
+        )}
+      </div>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-16"></TableHead>
             <TableHead>Nome File</TableHead>
+            {showOrigine && <TableHead>Origine</TableHead>}
             {showTipologia && <TableHead>Tipologia</TableHead>}
             {showInvioEmail && <TableHead>Invio email</TableHead>}
             <TableHead>Caricato da</TableHead>
@@ -540,7 +591,8 @@ export default function DocumentiTab({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {documenti?.map((doc: any) => (
+          {documentiFiltrati.map((doc: any) => (
+
             <TableRow key={doc.id}>
               <TableCell>
                 <DocumentThumbnail
