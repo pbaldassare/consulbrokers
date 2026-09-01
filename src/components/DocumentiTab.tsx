@@ -830,7 +830,14 @@ export default function DocumentiTab({
               </TableCell>
             </TableRow>
           ))}
-          {!hasRows && <TableRow><TableCell colSpan={colSpan} className="text-center py-6 text-muted-foreground">Nessun documento</TableCell></TableRow>}
+          {!hasRows && (
+            <TableRow>
+              <TableCell colSpan={colSpan} className="text-center py-6 text-muted-foreground">
+                {filtriAttivi ? "Nessun documento corrisponde ai filtri" : "Nessun documento"}
+              </TableCell>
+            </TableRow>
+          )}
+
         </TableBody>
       </Table>
 
