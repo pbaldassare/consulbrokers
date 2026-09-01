@@ -2691,6 +2691,19 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
+  // Sorgenti documenti aggregate mostrate nel tab Documenti del cliente
+  const documentiSources = useMemo<DocumentiAggregateSource[]>(() => {
+    const madri = polizze.filter((p: any) => !p.sostituisce_polizza).map((p: any) => p.id as string);
+    const quietanzeIds = polizze.filter((p: any) => p.sostituisce_polizza).map((p: any) => p.id as string);
+    return [
+      { key: "polizze", label: "Polizze", entitaTipo: "titolo", ids: madri },
+      { key: "quietanze", label: "Quietanze", entitaTipo: "titolo", ids: quietanzeIds },
+      { key: "sinistri", label: "Sinistri", entitaTipo: "sinistro", ids: relatedIds?.sinistri ?? [] },
+      { key: "trattative", label: "Trattative", entitaTipo: "trattativa", ids: relatedIds?.trattative ?? [] },
+    ];
+  }, [polizze, relatedIds]);
+
+
   // Realtime: badge "Sinistri" aggiornato in tempo reale anche se il tab non è montato
   useEffect(() => {
     if (!id) return;
