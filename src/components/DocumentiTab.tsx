@@ -216,6 +216,33 @@ export default function DocumentiTab({
     },
   });
 
+  const tipologieDisponibili = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of documenti ?? []) if (d.categoria) set.add(d.categoria as string);
+    return [...set].sort((a, b) => labelTipoDocumento(a).localeCompare(labelTipoDocumento(b)));
+  }, [documenti]);
+
+  const origini = useMemo(() => {
+    const list: { key: string; label: string }[] = [{ key: "self", label: origineBase }];
+    for (const s of sources) list.push({ key: s.key, label: s.label });
+    return list.filter((o) => (documenti ?? []).some((d: any) => d._origineKey === o.key));
+  }, [documenti, sources, origineBase]);
+
+  const documentiFiltrati = useMemo(() => {
+    const q = ricerca.trim().toLowerCase();
+    return (documenti ?? []).filter((d: any) => {
+      if (filtroOrigine !== "all" && d._origineKey !== filtroOrigine) return false;
+      if (filtroTipologia !== "all" && (d.categoria || "__none__") !== filtroTipologia) return false;
+      if (filtroVisibile === "si" && !d.visibile_al_cliente) return false;
+      if (filtroVisibile === "no" && d.visibile_al_cliente) return false;
+      if (q && !String(d.nome_file || "").toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [documenti, filtroOrigine, filtroTipologia, filtroVisibile, ricerca]);
+
+  const filtriAttivi =
+    filtroOrigine !== "all" || filtroTipologia !== "all" || filtroVisibile !== "all" || ricerca.trim() !== "";
+
 
   const avvisoIds = useMemo(
     () => (documenti ?? []).filter((d: any) => d.categoria === "notifica_messa_cassa").map((d: any) => d.id as string),
