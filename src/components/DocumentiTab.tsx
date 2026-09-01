@@ -34,6 +34,17 @@ import {
 } from "@/components/shared/MultiDocumentUploadPanel";
 import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
+export interface DocumentiAggregateSource {
+  /** chiave stabile per il filtro */
+  key: string;
+  /** etichetta mostrata nella colonna Origine e nel filtro */
+  label: string;
+  entitaTipo: string;
+  ids: string[];
+  /** se valorizzato limita alle categorie indicate */
+  categorie?: string[];
+}
+
 interface DocumentiTabProps {
   entitaTipo: string;
   entitaId: string;
@@ -43,6 +54,10 @@ interface DocumentiTabProps {
   titoloIdsForExtraDocs?: string[];
   /** Categorie titolo da includere insieme ai documenti dell'entità principale. */
   extraTitoloCategorie?: string[];
+  /** Sorgenti aggiuntive (polizze, quietanze, sinistri, trattative...) mostrate nella stessa tabella con filtro Origine. */
+  aggregateSources?: DocumentiAggregateSource[];
+  /** Etichetta origine per i documenti dell'entità principale. */
+  origineLabel?: string;
   /** Allegati appendici (storage appendici_polizza) mostrati nella vista polizza madre. */
   appendiciAllegati?: AppendicePolizzaRow[];
   bucketName?: string;
@@ -54,6 +69,7 @@ interface DocumentiTabProps {
   /** Se false, nasconde anteprima (icona occhio e click su miniatura/nome). */
   showPreview?: boolean;
 }
+
 
 
 const BUCKET_MAP: Record<string, string> = {
