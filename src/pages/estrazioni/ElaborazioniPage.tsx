@@ -52,7 +52,7 @@ interface ClienteRow {
 
 interface TitoloRow {
   id: string;
-  numero_polizza: string | null;
+  numero_titolo: string | null;
   prodotto_nome: string | null;
   ramo_id: string | null;
   garanzia_da: string | null;
@@ -75,7 +75,7 @@ const nomeCliente = (c: ClienteRow) =>
 const CORPO_DEFAULT = `RIEPILOGO POLIZZA
 
 Contraente: {{contraente}}
-Numero polizza: {{numero_polizza}}
+Numero polizza: {{numero_titolo}}
 Compagnia: {{compagnia}}
 Decorrenza: {{data_effetto}}   Scadenza: {{data_scadenza}}
 
@@ -139,7 +139,7 @@ const ElaborazioniPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_polizza, prodotto_nome, ramo_id, garanzia_da, garanzia_a")
+        .select("id, numero_titolo, prodotto_nome, ramo_id, garanzia_da, garanzia_a")
         .or(`cliente_id.eq.${clienteId},cliente_anagrafica_id.eq.${clienteId}`)
         .order("garanzia_a", { ascending: false, nullsFirst: false })
         .limit(200);
@@ -311,7 +311,7 @@ const ElaborazioniPage = () => {
 
       const contesto = [
         clienteSel ? `Contraente atteso: ${nomeCliente(clienteSel)}` : null,
-        titoloSel?.numero_polizza ? `Numero polizza atteso: ${titoloSel.numero_polizza}` : null,
+        titoloSel?.numero_titolo ? `Numero polizza atteso: ${titoloSel.numero_titolo}` : null,
         titoloSel?.prodotto_nome ? `Prodotto: ${titoloSel.prodotto_nome}` : null,
       ].filter(Boolean).join("\n");
 
@@ -385,7 +385,7 @@ const ElaborazioniPage = () => {
 
   const salvaElaborazione = async () => {
     if (!clienteId) return;
-    const titolo = `${nomeTemplate.trim() || "Elaborazione"}${titoloSel?.numero_polizza ? ` — ${titoloSel.numero_polizza}` : ""}`;
+    const titolo = `${nomeTemplate.trim() || "Elaborazione"}${titoloSel?.numero_titolo ? ` — ${titoloSel.numero_titolo}` : ""}`;
     const { error } = await supabase.from("elaborazioni").insert({
       cliente_id: clienteId,
       titolo_id: titoloId || null,
@@ -412,9 +412,9 @@ const ElaborazioniPage = () => {
       const bytes = await buildElaborazionePdf(anteprima, {
         titolo: nomeTemplate.trim() || "Elaborazione polizza",
         cliente: clienteSel ? nomeCliente(clienteSel) : null,
-        polizza: titoloSel?.numero_polizza ?? null,
+        polizza: titoloSel?.numero_titolo ?? null,
       });
-      downloadPdf(bytes, `elaborazione-${titoloSel?.numero_polizza ?? "polizza"}.pdf`);
+      downloadPdf(bytes, `elaborazione-${titoloSel?.numero_titolo ?? "polizza"}.pdf`);
       await salvaElaborazione();
     } catch (e) {
       toast.error((e as Error).message || "Errore generazione PDF");
@@ -472,7 +472,7 @@ const ElaborazioniPage = () => {
                 <SearchableSelect
                   options={titoliConDocumenti.map((t) => ({
                     value: t.id,
-                    label: `${t.numero_polizza ?? "—"}${t.prodotto_nome ? ` · ${t.prodotto_nome}` : ""}`,
+                    label: `${t.numero_titolo ?? "—"}${t.prodotto_nome ? ` · ${t.prodotto_nome}` : ""}`,
                     description: `${documenti.filter((d) => d.entita_id === t.id).length} documenti`,
                   }))}
                   value={titoloId}
