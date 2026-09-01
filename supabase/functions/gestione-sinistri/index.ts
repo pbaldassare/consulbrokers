@@ -6,6 +6,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/** Normalizza payload client (RHF invia spesso "" su campi number/uuid opzionali). */
+function sanitizeEdgePayload(body: unknown): unknown {
+  if (!body || typeof body !== "object") return body;
+  const o = { ...(body as Record<string, unknown>) };
+  const uuidKeys = [
+    "titolo_id", "cliente_id", "compagnia_id", "responsabile_id", "liquidatore_id",
+    "ufficio_id", "user_id", "cliente_anagrafica_id", "sinistro_id", "assegnato_a",
+  ];
+  const numberKeys = [
+    "importo_riserva", "costo_preventivato", "costo_effettivo", "franchigia", "importo_liquidato",
+  ];
+  for (const k of uuidKeys) {
+    if (o[k] === "") o[k] = undefined;
+  }
+  for (const k of numberKeys) {
+    if (o[k] === "") o[k] = undefined;
+  }
+  return o;
+}
+
 const payloadSchema = z.discriminatedUnion("azione", [
   z.object({
     azione: z.literal("crea"),
@@ -164,7 +184,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const parsed = payloadSchema.safeParse(body);
+    const parsed = payloadSchema.safeParse(sanitizeEdgePayload(body));
     if (!parsed.success) {
       return new Response(JSON.stringify({
         success: false,

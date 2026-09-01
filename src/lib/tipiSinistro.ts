@@ -54,3 +54,74 @@ export const formatTipoSinistro = (
   }
   return getTipoSinistroLabel(s.tipo_sinistro);
 };
+
+function normalizeTipoHaystack(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Testo ramo/prodotto da cui inferire un tipo sinistro catalogo. */
+export type TitoloTipoCoperturaLike = {
+  ramo?: {
+    descrizione?: string | null;
+    gruppo_ramo?: { descrizione?: string | null } | null;
+  } | null;
+  prodotto_nome?: string | null;
+  prodotti?: { nome_prodotto?: string | null } | null;
+} | null | undefined;
+
+/**
+ * Suggerisce un `tipo_sinistro` dal ramo/prodotto della polizza.
+ * Prefill modificabile: se non c'è un match univoco/chiaro ritorna null.
+ */
+export function suggestTipoSinistroFromTitolo(titolo: TitoloTipoCoperturaLike): string | null {
+  if (!titolo) return null;
+  const hay = normalizeTipoHaystack(
+    [
+      titolo.ramo?.descrizione,
+      titolo.ramo?.gruppo_ramo?.descrizione,
+      titolo.prodotto_nome,
+      titolo.prodotti?.nome_prodotto,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  if (!hay) return null;
+
+  const byLabel = [...TIPI_SINISTRO]
+    .map((t) => ({ value: t.value, needle: normalizeTipoHaystack(t.label) }))
+    .filter((t) => t.needle.length >= 4)
+    .sort((a, b) => b.needle.length - a.needle.length);
+  for (const t of byLabel) {
+    if (hay.includes(t.needle)) return t.value;
+  }
+
+  const aliases: { needle: string; value: string }[] = [
+    { needle: "cristall", value: "cristalli" },
+    { needle: "kasko", value: "auto_guasti_kasko" },
+    { needle: "casco", value: "auto_guasti_kasko" },
+    { needle: "fenomeno elettrico", value: "fenomeno_elettrico" },
+    { needle: "danno acqua", value: "danno_acqua" },
+    { needle: "danni d acqua", value: "danno_acqua" },
+    { needle: "difesa legale", value: "difesa_legale" },
+    { needle: "rc professionale", value: "rc_professionale" },
+    { needle: "rc sanitaria", value: "rc_sanitaria" },
+    { needle: "rc patrimoniale", value: "rc_patrimoniale" },
+    { needle: "infortunio", value: "infortunio_non_mortale" },
+    { needle: "malattia", value: "malattia" },
+    { needle: "grandine", value: "grandine" },
+    { needle: "incendio", value: "incendio" },
+    { needle: "furto", value: "furto" },
+    { needle: "vandalic", value: "atti_vandalici" },
+    { needle: "evento naturale", value: "evento_naturale" },
+    { needle: "montaggio", value: "rischio_montaggio" },
+  ];
+  for (const a of aliases.sort((x, y) => y.needle.length - x.needle.length)) {
+    if (hay.includes(a.needle)) return a.value;
+  }
+  return null;
+}

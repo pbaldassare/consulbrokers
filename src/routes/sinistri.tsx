@@ -11,9 +11,9 @@ export const sinistriRoutes = (
   <>
     <Route path="/sinistri" element={<SinistriList />} />
     <Route path="/sinistri/apertura" element={<SinistroAperturaWizardPage />} />
-    <Route path="/sinistri/:id" element={<SinistroDetail />} />
     <Route path="/sinistri/prescrizioni" element={<SinistroPrescrizioniPage />} />
     <Route path="/sinistri/reminder" element={<SinistroReminderPage />} />
     <Route path="/sinistri/report-sir" element={<SinistroReportSirPage />} />
+    <Route path="/sinistri/:id" element={<SinistroDetail />} />
   </>
 );

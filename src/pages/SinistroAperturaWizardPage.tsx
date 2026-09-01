@@ -42,8 +42,7 @@ import {
 } from "@/lib/sinistroPrescrizioniReminder";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 import {
-  formatPolizzaOptionDescription,
-  formatPolizzaProdotto,
+  buildPolizzaSelectOption,
   formatPolizzaRamo,
   formatPolizzaScadenza,
 } from "@/lib/titoliDisplay";
@@ -116,6 +115,8 @@ export default function SinistroAperturaWizardPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** File originali in memoria (submit affidabile anche se la bozza omette base64). */
   const pendingFilesRef = useRef<Map<string, File>>(new Map());
+  /** Evita reload DB subito dopo salvataggio bozza (setSearchParams → useEffect). */
+  const skipBozzaHydrateRef = useRef<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
   const { register, control, handleSubmit, setValue, getValues, watch, trigger, reset, formState: { errors } } = useForm<WizardFormValues>({
@@ -295,6 +296,11 @@ export default function SinistroAperturaWizardPage() {
       clearDraft(LEGACY_LOCAL_DRAFT_KEY);
 
       if (bozzaIdParam) {
+        if (skipBozzaHydrateRef.current === bozzaIdParam) {
+          skipBozzaHydrateRef.current = null;
+          if (!cancelled) setWizardReady(true);
+          return;
+        }
         try {
           await loadDbBozza(bozzaIdParam);
           if (!cancelled) toast.success("Bozza caricata — Riprendi bozza");
@@ -582,6 +588,7 @@ export default function SinistroAperturaWizardPage() {
       const praticaPayload = praticaValuesToDbPayload(values, { persistNoteImportanti: false });
       const bozzaWizardJson = buildBozzaWizardJsonPayload(values);
       let sinistroId = dbBozzaId;
+      const isUpdate = !!sinistroId;
 
       if (sinistroId) {
         const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
@@ -620,12 +627,13 @@ export default function SinistroAperturaWizardPage() {
         sinistroId = created.id;
         setDbBozzaId(created.id);
         setDbBozzaNumero(created.numero_sinistro);
+        skipBozzaHydrateRef.current = created.id;
         setSearchParams({ bozza_id: created.id }, { replace: true });
       }
 
       await uploadPendingDocuments(sinistroId!, values.documenti as WizardDocumentEntry[] | undefined, user.id);
       qc.invalidateQueries({ queryKey: ["sinistri"] });
-      toast.success(dbBozzaId ? "Bozza aggiornata" : "Bozza salvata — puoi riprenderla dalla lista sinistri");
+      toast.success(isUpdate ? "Bozza aggiornata" : "Bozza salvata — puoi riprenderla dalla lista sinistri");
     } catch (err: unknown) {
       toast.error("Errore salvataggio bozza: " + (err instanceof Error ? err.message : String(err)));
     } finally {
@@ -910,12 +918,7 @@ export default function SinistroAperturaWizardPage() {
                       </p>
                     ) : (
                       <SearchableSelect
-                        options={polizzeList.map((p: any) => ({
-                          value: p.id,
-                          label: `${p.numero_titolo}${p.sostituisce_polizza ? " (quietanza)" : ""}`,
-                          description: formatPolizzaOptionDescription(p),
-                          searchText: `${p.numero_titolo} ${formatPolizzaProdotto(p)} ${p.stato || ""}`,
-                        }))}
+                        options={polizzeList.map((p: any) => buildPolizzaSelectOption(p))}
                         value={watchTitoloId ?? ""}
                         onValueChange={(val) => {
                           if (!val) {
@@ -935,6 +938,7 @@ export default function SinistroAperturaWizardPage() {
                         clearable={true}
                         clearLabel="— Nessuna Polizza —"
                         className="w-full"
+                        showSelectedDescription
                       />
                     )}
                   </div>

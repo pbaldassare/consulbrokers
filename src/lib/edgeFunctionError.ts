@@ -12,8 +12,6 @@ export function formatEdgeFunctionError(
   error: { message?: string } | null | undefined,
   data: EdgeErrorBody | null | undefined,
 ): string {
-  if (data?.error) return data.error;
-
   const fieldErrors = data?.details?.fieldErrors;
   if (fieldErrors && typeof fieldErrors === "object") {
     for (const [field, messages] of Object.entries(fieldErrors)) {
@@ -28,6 +26,7 @@ export function formatEdgeFunctionError(
     return formErrors[0];
   }
 
+  if (data?.error && data.error !== "Payload non valido") return data.error;
   if (data?.details) return "Payload non valido per il server";
 
   const generic = error?.message || "";

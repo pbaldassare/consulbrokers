@@ -105,6 +105,19 @@ export const resolveTipoSinistroPayload = (values: Pick<SinistroPraticaValues, "
 };
 
 /** Mappa riga sinistri → valori form (unifica descrizione/dinamica) */
+/** UUID opzionale: omette stringhe vuote (input RHF / SearchableSelect). */
+export const asOptionalUuid = (val?: string | null): string | undefined => {
+  const trimmed = (val ?? "").trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+/** Numero opzionale: omette "", null e NaN (input type="number" vuoto). */
+export const asOptionalNumber = (val?: number | string | null): number | undefined => {
+  if (val === "" || val === undefined || val === null) return undefined;
+  const n = typeof val === "number" ? val : Number(val);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 export const sinistroRowToPraticaValues = (s: Record<string, unknown>): SinistroPraticaValues => ({
   data_evento: (s.data_evento as string) || "",
   data_denuncia: (s.data_denuncia as string) || "",
@@ -168,13 +181,27 @@ export const praticaValuesToDbPayload = (
     ...(showTarga && values.targa_veicolo?.trim()
       ? { targa_veicolo: values.targa_veicolo.trim() }
       : {}),
-    ...(values.importo_riserva != null ? { importo_riserva: values.importo_riserva } : {}),
-    ...(values.responsabile_id ? { responsabile_id: values.responsabile_id } : {}),
-    ...(values.liquidatore_id ? { liquidatore_id: values.liquidatore_id } : {}),
+    ...(asOptionalNumber(values.importo_riserva) != null
+      ? { importo_riserva: asOptionalNumber(values.importo_riserva) }
+      : {}),
+    ...(asOptionalUuid(values.responsabile_id)
+      ? { responsabile_id: asOptionalUuid(values.responsabile_id) }
+      : {}),
+    ...(asOptionalUuid(values.liquidatore_id)
+      ? { liquidatore_id: asOptionalUuid(values.liquidatore_id) }
+      : {}),
     ...(values.note_interne?.trim() ? { note_interne: values.note_interne.trim() } : {}),
-    ...(values.costo_preventivato != null ? { costo_preventivato: values.costo_preventivato } : {}),
-    ...(values.costo_effettivo != null ? { costo_effettivo: values.costo_effettivo } : {}),
-    ...(values.franchigia != null ? { franchigia: values.franchigia } : {}),
-    ...(values.importo_liquidato != null ? { importo_liquidato: values.importo_liquidato } : {}),
+    ...(asOptionalNumber(values.costo_preventivato) != null
+      ? { costo_preventivato: asOptionalNumber(values.costo_preventivato) }
+      : {}),
+    ...(asOptionalNumber(values.costo_effettivo) != null
+      ? { costo_effettivo: asOptionalNumber(values.costo_effettivo) }
+      : {}),
+    ...(asOptionalNumber(values.franchigia) != null
+      ? { franchigia: asOptionalNumber(values.franchigia) }
+      : {}),
+    ...(asOptionalNumber(values.importo_liquidato) != null
+      ? { importo_liquidato: asOptionalNumber(values.importo_liquidato) }
+      : {}),
   };
 };

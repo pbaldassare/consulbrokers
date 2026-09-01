@@ -45,10 +45,25 @@ export function formatPolizzaProdotto(titolo: {
   return titolo?.prodotto_nome?.trim() || titolo?.prodotti?.nome_prodotto?.trim() || "—";
 }
 
-/** Sottotitolo SearchableSelect polizze: prodotto · decorrenza → scadenza */
+export function formatPolizzaCompagnia(titolo: {
+  compagnia_diretta?: { nome?: string | null } | null;
+  prodotti?: { compagnie?: { nome?: string | null } | null } | null;
+} | null | undefined): string {
+  return (
+    titolo?.compagnia_diretta?.nome?.trim() ||
+    titolo?.prodotti?.compagnie?.nome?.trim() ||
+    "—"
+  );
+}
+
+/** Sottotitolo SearchableSelect polizze: compagnia · decorrenza → scadenza */
 export function formatPolizzaOptionDescription(titolo: {
+  compagnia_diretta?: { nome?: string | null } | null;
+  prodotti?: {
+    nome_prodotto?: string | null;
+    compagnie?: { nome?: string | null } | null;
+  } | null;
   prodotto_nome?: string | null;
-  prodotti?: { nome_prodotto?: string | null } | null;
   garanzia_da?: string | null;
   durata_da?: string | null;
   data_decorrenza?: string | null;
@@ -56,9 +71,42 @@ export function formatPolizzaOptionDescription(titolo: {
   garanzia_a?: string | null;
   data_scadenza?: string | null;
 } | null | undefined): string {
-  const prodotto = formatPolizzaProdotto(titolo);
+  const compagnia = formatPolizzaCompagnia(titolo);
   const decorrenza = formatPolizzaDecorrenza(titolo);
   const scadenza = formatPolizzaScadenza(titolo);
-  if (decorrenza === "—" && scadenza === "—") return prodotto;
-  return `${prodotto} · ${decorrenza} → ${scadenza}`;
+  return `${compagnia} · ${decorrenza} → ${scadenza}`;
+}
+
+/** Opzione SearchableSelect per polizze (wizard sinistro, dettaglio pratica). */
+export function buildPolizzaSelectOption(p: {
+  id: string;
+  numero_titolo?: string | null;
+  sostituisce_polizza?: string | null;
+  stato?: string | null;
+  compagnia_diretta?: { nome?: string | null } | null;
+  prodotti?: {
+    nome_prodotto?: string | null;
+    compagnie?: { nome?: string | null } | null;
+  } | null;
+  prodotto_nome?: string | null;
+  garanzia_da?: string | null;
+  durata_da?: string | null;
+  data_decorrenza?: string | null;
+  data_competenza?: string | null;
+  garanzia_a?: string | null;
+  data_scadenza?: string | null;
+}) {
+  return {
+    value: p.id,
+    label: `${p.numero_titolo ?? ""}${p.sostituisce_polizza ? " (quietanza)" : ""}`,
+    description: formatPolizzaOptionDescription(p),
+    searchText: [
+      p.numero_titolo,
+      formatPolizzaCompagnia(p),
+      formatPolizzaProdotto(p),
+      p.stato || "",
+    ]
+      .filter(Boolean)
+      .join(" "),
+  };
 }

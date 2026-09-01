@@ -133,6 +133,14 @@ export const REMINDER_STATO_CLASS: Record<SinistroReminderStato, string> = {
   annullato: "bg-muted text-muted-foreground",
 };
 
+/** Elenco globale: come scheda pratica (attivi + completati, senza annullati). */
+export const REMINDER_LIST_DEFAULT_STATI: SinistroReminderStato[] = ["attivo", "completato"];
+
+/** Admin e CFO vedono i reminder di tutte le sedi. Gli altri sono limitati alla propria sede. */
+export function reminderListSeesAllSedi(ruolo: string | null | undefined): boolean {
+  return ruolo === "admin" || ruolo === "cfo";
+}
+
 export const PRESCRIZIONE_STATO_LABEL: Record<PrescrizioneStato, string> = {
   bozza: "Bozza",
   inviata: "Inviata",

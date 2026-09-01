@@ -54,17 +54,99 @@ export function labelCompagniaEAgenzia(t: TitoloCompagniaLike | null | undefined
   return comp || ag || "";
 }
 
-type CompagniaContattoLike = {
+export type CompagniaContattoLike = {
+  id?: string | null;
   telefono?: string | null;
   cellulare?: string | null;
   mail?: string | null;
   mail_ec?: string | null;
   pec?: string | null;
+  tipo?: string | null;
 } | null | undefined;
 
-/** Telefono ed email agenzia di riferimento (da anagrafica compagnie). */
-export function resolveAgenziaContatto(agenzia: CompagniaContattoLike) {
+export type CompagniaContattoResolved = {
+  telefono: string | null;
+  email: string | null;
+  pec: string | null;
+};
+
+/** Telefono, email e PEC da anagrafica compagnie (email ≠ PEC). */
+export function resolveCompagniaContatto(agenzia: CompagniaContattoLike): CompagniaContattoResolved {
   const telefono = (agenzia?.telefono || agenzia?.cellulare || "").trim() || null;
-  const email = (agenzia?.mail || agenzia?.mail_ec || agenzia?.pec || "").trim() || null;
-  return { telefono, email };
+  const email = (agenzia?.mail || agenzia?.mail_ec || "").trim() || null;
+  const pec = (agenzia?.pec || "").trim() || null;
+  return { telefono, email, pec };
+}
+
+/** @deprecated Usare resolveCompagniaContatto */
+export function resolveAgenziaContatto(agenzia: CompagniaContattoLike) {
+  return resolveCompagniaContatto(agenzia);
+}
+
+const TIPI_COMPAGNIA_ASSICURATIVA = ["direzione", "agenzia", "mandataria"] as const;
+
+/** Compagnia mandante/assicuratrice collegata al gruppo (esclude broker/plurimandataria). */
+export function pickCompagniaAssicurativaDaGruppo(
+  compagnie: CompagniaContattoLike[] | null | undefined,
+): CompagniaContattoLike {
+  if (!compagnie?.length) return null;
+  for (const tipo of TIPI_COMPAGNIA_ASSICURATIVA) {
+    const found = compagnie.find((c) => (c?.tipo || "").toLowerCase() === tipo);
+    if (found) return found;
+  }
+  const nonBroker = compagnie.find(
+    (c) => !["broker", "plurimandataria"].includes((c?.tipo || "").toLowerCase()),
+  );
+  return nonBroker ?? compagnie[0] ?? null;
+}
+
+type SinistroContattiLike = {
+  compagnie?: CompagniaContattoLike;
+  titoli?: {
+    compagnia_diretta?: CompagniaContattoLike;
+    compagnia_rapporto?: {
+      gruppi_compagnia?: {
+        compagnie?: CompagniaContattoLike[] | null;
+      } | null;
+    } | null;
+  } | null;
+};
+
+export type SinistroContattiPraticaResolved = {
+  agenzia: CompagniaContattoResolved;
+  compagnia: CompagniaContattoResolved | null;
+  sameEntity: boolean;
+};
+
+/** Contatti compagnia assicurativa + agenzia riferimento per scheda sinistro. */
+export function resolveSinistroContattiPratica(sinistro: SinistroContattiLike): SinistroContattiPraticaResolved {
+  const agenziaEntity =
+    sinistro.titoli?.compagnia_diretta ?? sinistro.compagnie ?? null;
+  const compagniaGruppo = pickCompagniaAssicurativaDaGruppo(
+    sinistro.titoli?.compagnia_rapporto?.gruppi_compagnia?.compagnie,
+  );
+  const sinistroCompagnia = sinistro.compagnie ?? null;
+
+  let compagniaEntity: CompagniaContattoLike = compagniaGruppo;
+  if (
+    !compagniaEntity &&
+    sinistroCompagnia?.id &&
+    agenziaEntity?.id &&
+    sinistroCompagnia.id !== agenziaEntity.id
+  ) {
+    compagniaEntity = sinistroCompagnia;
+  }
+
+  const sameEntity =
+    !compagniaEntity ||
+    !agenziaEntity ||
+    (compagniaEntity.id != null &&
+      agenziaEntity.id != null &&
+      compagniaEntity.id === agenziaEntity.id);
+
+  return {
+    agenzia: resolveCompagniaContatto(agenziaEntity),
+    compagnia: sameEntity ? null : resolveCompagniaContatto(compagniaEntity),
+    sameEntity,
+  };
 }

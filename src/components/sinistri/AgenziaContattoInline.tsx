@@ -1,18 +1,21 @@
 import { Button } from "@/components/ui/button";
 import { ClipboardCopy } from "lucide-react";
 import { toast } from "sonner";
-import { resolveAgenziaContatto } from "@/lib/compagniaDisplay";
+import {
+  resolveCompagniaContatto,
+  resolveSinistroContattiPratica,
+  type CompagniaContattoLike,
+  type CompagniaContattoResolved,
+  type SinistroContattiPraticaResolved,
+} from "@/lib/compagniaDisplay";
 
-type AgenziaLike = {
-  telefono?: string | null;
-  cellulare?: string | null;
-  mail?: string | null;
-  mail_ec?: string | null;
-  pec?: string | null;
-} | null | undefined;
+type SinistroContattiLike = Parameters<typeof resolveSinistroContattiPratica>[0];
 
 interface Props {
-  agenzia?: AgenziaLike;
+  /** Preferire `sinistro` per risolvere compagnia + agenzia con deduplica. */
+  sinistro?: SinistroContattiLike;
+  /** Legacy: solo agenzia (senza compagnia assicurativa). */
+  agenzia?: CompagniaContattoLike;
   className?: string;
 }
 
@@ -40,18 +43,92 @@ function ContactItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Contatti agenzia di riferimento (telefono + email) con copy-to-clipboard. */
-export default function AgenziaContattoInline({ agenzia, className }: Props) {
-  const { telefono, email } = resolveAgenziaContatto(agenzia);
-
-  if (!telefono && !email) {
+function ContattiRow({
+  contatto,
+  pecLabel = "PEC",
+}: {
+  contatto: CompagniaContattoResolved;
+  pecLabel?: string;
+}) {
+  const { telefono, email, pec } = contatto;
+  if (!telefono && !email && !pec) {
     return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {telefono ? <ContactItem label="Tel." value={telefono} /> : null}
+      {email ? <ContactItem label="Email" value={email} /> : null}
+      {pec ? <ContactItem label={pecLabel} value={pec} /> : null}
+    </div>
+  );
+}
+
+function ContattiGroup({
+  title,
+  contatto,
+  pecLabel,
+  className,
+}: {
+  title: string;
+  contatto: CompagniaContattoResolved;
+  pecLabel?: string;
+  className?: string;
+}) {
+  return (
+    <div className={`space-y-0.5 ${className ?? ""}`}>
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80">{title}</span>
+      <ContattiRow contatto={contatto} pecLabel={pecLabel} />
+    </div>
+  );
+}
+
+function renderContatti(resolved: SinistroContattiPraticaResolved, className?: string) {
+  const { agenzia, compagnia, sameEntity } = resolved;
+
+  if (sameEntity) {
+    const hasAny = agenzia.telefono || agenzia.email || agenzia.pec;
+    if (!hasAny) {
+      return <span className={`text-xs text-muted-foreground ${className ?? ""}`}>—</span>;
+    }
+    return (
+      <ContattiGroup
+        title="Agenzia riferimento"
+        contatto={agenzia}
+        pecLabel="PEC"
+        className={className}
+      />
+    );
   }
 
   return (
-    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${className ?? ""}`}>
-      {telefono ? <ContactItem label="Tel." value={telefono} /> : null}
-      {email ? <ContactItem label="Email" value={email} /> : null}
+    <div className={`space-y-2 ${className ?? ""}`}>
+      {compagnia && (compagnia.telefono || compagnia.email || compagnia.pec) ? (
+        <ContattiGroup title="Compagnia" contatto={compagnia} pecLabel="PEC compagnia" />
+      ) : null}
+      {agenzia.telefono || agenzia.email || agenzia.pec ? (
+        <ContattiGroup title="Agenzia riferimento" contatto={agenzia} pecLabel="PEC agenzia" />
+      ) : null}
+      {!compagnia?.telefono &&
+      !compagnia?.email &&
+      !compagnia?.pec &&
+      !agenzia.telefono &&
+      !agenzia.email &&
+      !agenzia.pec ? (
+        <span className="text-xs text-muted-foreground">—</span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Contatti compagnia/agenzia (tel, email, PEC) con copy-to-clipboard. */
+export default function AgenziaContattoInline({ sinistro, agenzia, className }: Props) {
+  if (sinistro) {
+    return renderContatti(resolveSinistroContattiPratica(sinistro), className);
+  }
+
+  return (
+    <div className={className}>
+      <ContattiRow contatto={resolveCompagniaContatto(agenzia)} pecLabel="PEC" />
     </div>
   );
 }

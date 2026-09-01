@@ -6,6 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -54,6 +64,10 @@ export default function SinistroAssegnazioniReminderSection({ sinistro, disabled
   const [categoria, setCategoria] = useState<SinistroReminderCategoria>("altro");
   const [assegnatoA, setAssegnatoA] = useState(sinistro.responsabile_id || "");
   const [saving, setSaving] = useState(false);
+  const [completingReminder, setCompletingReminder] = useState<SinistroReminderRow | null>(null);
+  const [annullingReminder, setAnnullingReminder] = useState<SinistroReminderRow | null>(null);
+  const [completing, setCompleting] = useState(false);
+  const [annulling, setAnnulling] = useState(false);
 
   const clienteNome = resolveClienteNome(sinistro.clienti);
   const polizzaNumero = sinistro.titoli?.numero_titolo || "—";
@@ -184,30 +198,40 @@ export default function SinistroAssegnazioniReminderSection({ sinistro, disabled
     }
   };
 
-  const annullaReminder = async (row: SinistroReminderRow) => {
+  const handleAnnullaReminder = async () => {
+    if (!annullingReminder) return;
+    setAnnulling(true);
     try {
       const { error } = await supabase
         .from("sinistro_reminder" as any)
         .update({ stato: "annullato", completato: true })
-        .eq("id", row.id);
+        .eq("id", annullingReminder.id);
       if (error) throw error;
       toast.success("Reminder annullato");
+      setAnnullingReminder(null);
       invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Errore");
+    } finally {
+      setAnnulling(false);
     }
   };
 
-  const completaReminder = async (row: SinistroReminderRow) => {
+  const handleCompletaReminder = async () => {
+    if (!completingReminder) return;
+    setCompleting(true);
     try {
       const { error } = await supabase
         .from("sinistro_reminder" as any)
         .update({ stato: "completato", completato: true, letto: true })
-        .eq("id", row.id);
+        .eq("id", completingReminder.id);
       if (error) throw error;
+      setCompletingReminder(null);
       invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Errore");
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -305,10 +329,10 @@ export default function SinistroAssegnazioniReminderSection({ sinistro, disabled
                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(r)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => completaReminder(r)}>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCompletingReminder(r)}>
                     ✓
                   </Button>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => annullaReminder(r)}>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setAnnullingReminder(r)}>
                     <Ban className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -317,6 +341,46 @@ export default function SinistroAssegnazioniReminderSection({ sinistro, disabled
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!completingReminder} onOpenChange={(open) => !open && !completing && setCompletingReminder(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Segnare come completato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Il reminder verrà contrassegnato come completato. Non riceverai più notifiche per questa scadenza,
+              ma resterà visibile nello storico della pratica con testo barrato.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={completing}>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCompletaReminder} disabled={completing}>
+              Conferma
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!annullingReminder} onOpenChange={(open) => !open && !annulling && setAnnullingReminder(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annullare questo reminder?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Il reminder verrà disattivato e rimosso dall&apos;elenco dei promemoria attivi.
+              L&apos;operazione non può essere annullata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={annulling}>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleAnnullaReminder}
+              disabled={annulling}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Conferma annullamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

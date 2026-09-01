@@ -11,7 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ServerPagination from "@/components/ServerPagination";
@@ -19,7 +29,7 @@ import { FilterMultiSelect } from "@/components/shared/FilterMultiSelect";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
 import { format, isValid, parseISO } from "date-fns";
-import { Bell, FileSpreadsheet, ArrowLeft, Search, RefreshCw, X, Pencil, Ban, Check } from "lucide-react";
+import { Bell, FileSpreadsheet, ArrowLeft, Search, RefreshCw, X } from "lucide-react";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 import {
   type SinistroReminderRow,
@@ -27,8 +37,10 @@ import {
   type SinistroReminderStato,
   REMINDER_CATEGORIA_LABEL,
   REMINDER_CATEGORIA_OPTIONS,
+  REMINDER_LIST_DEFAULT_STATI,
   REMINDER_STATO_CLASS,
   REMINDER_STATO_LABEL,
+  reminderListSeesAllSedi,
 } from "@/lib/sinistroPrescrizioniReminder";
 import SinistroRiepilogoDialog from "@/components/sinistri/SinistroRiepilogoDialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,14 +57,15 @@ const fmtDate = (d?: string | null) => {
 export default function SinistroReminderPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { isAdmin, user } = useAuth();
+  const { profile } = useAuth();
+  const seeAllSedi = reminderListSeesAllSedi(profile?.ruolo);
 
   const [filtroUffici, setFiltroUffici] = useState<string[]>([]);
   const [filtroCompagnie, setFiltroCompagnie] = useState<string[]>([]);
   const [filtroRami, setFiltroRami] = useState<string[]>([]);
   const [filtroStatiSinistro, setFiltroStatiSinistro] = useState<string[]>([]);
   const [filtroCategorie, setFiltroCategorie] = useState<string[]>([]);
-  const [filtroStatiReminder, setFiltroStatiReminder] = useState<string[]>(["attivo"]);
+  const [filtroStatiReminder, setFiltroStatiReminder] = useState<string[]>([...REMINDER_LIST_DEFAULT_STATI]);
   const [filtroResponsabili, setFiltroResponsabili] = useState<string[]>([]);
   const [dataScadenzaDal, setDataScadenzaDal] = useState("");
   const [dataScadenzaAl, setDataScadenzaAl] = useState("");
@@ -65,6 +78,10 @@ export default function SinistroReminderPage() {
   const [editCategoria, setEditCategoria] = useState<SinistroReminderCategoria>("altro");
   const [editAssegnato, setEditAssegnato] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+  const [deletingRow, setDeletingRow] = useState<SinistroReminderRow | null>(null);
+  const [completingRow, setCompletingRow] = useState<SinistroReminderRow | null>(null);
+  const [acting, setActing] = useState(false);
 
   const { page, setPage, pageSize, range } = useServerPagination(25, [
     filtroUffici.join(","),
@@ -131,15 +148,16 @@ export default function SinistroReminderPage() {
   `;
 
   const applyFilters = (q: any) => {
-    if (!isAdmin && user?.id) {
-      q = q.eq("assegnato_a", user.id);
-    }
     if (filtroStatiReminder.length > 0) q = q.in("stato", filtroStatiReminder);
     if (filtroCategorie.length > 0) q = q.in("categoria", filtroCategorie);
     if (filtroResponsabili.length > 0) q = q.in("assegnato_a", filtroResponsabili);
     if (dataScadenzaDal) q = q.gte("data_scadenza", dataScadenzaDal);
     if (dataScadenzaAl) q = q.lte("data_scadenza", dataScadenzaAl);
-    if (filtroUffici.length > 0) q = q.in("sinistri.ufficio_id", filtroUffici);
+    if (!seeAllSedi && profile?.ufficio_id) {
+      q = q.eq("sinistri.ufficio_id", profile.ufficio_id);
+    } else if (filtroUffici.length > 0) {
+      q = q.in("sinistri.ufficio_id", filtroUffici);
+    }
     if (filtroCompagnie.length > 0) q = q.in("sinistri.compagnia_id", filtroCompagnie);
     if (filtroStatiSinistro.length > 0) q = q.in("sinistri.stato", filtroStatiSinistro);
     if (filtroRami.length > 0) q = q.in("sinistri.titoli.ramo_id", filtroRami);
@@ -163,9 +181,10 @@ export default function SinistroReminderPage() {
       dataScadenzaDal,
       dataScadenzaAl,
       search,
-      isAdmin,
-      user?.id,
+      seeAllSedi,
+      profile?.ufficio_id,
     ],
+    enabled: !!profile,
     queryFn: async () => {
       let q = supabase
         .from("sinistro_reminder" as any)
@@ -241,6 +260,23 @@ export default function SinistroReminderPage() {
     setEditAssegnato(row.assegnato_a || "");
   };
 
+  const requestSaveEdit = () => {
+    if (!editRow) return;
+    if (!editTesto.trim()) {
+      toast.error("Inserisci il testo del reminder");
+      return;
+    }
+    if (!editScadenza) {
+      toast.error("Inserisci la data di scadenza");
+      return;
+    }
+    if (!editAssegnato) {
+      toast.error("Seleziona il responsabile assegnato");
+      return;
+    }
+    setConfirmSaveOpen(true);
+  };
+
   const saveEdit = async () => {
     if (!editRow) return;
     setSaving(true);
@@ -254,11 +290,43 @@ export default function SinistroReminderPage() {
         popup_mostrato_at: null,
       });
       toast.success("Reminder aggiornato");
+      setConfirmSaveOpen(false);
       setEditRow(null);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Errore");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const isCompletato = (row: SinistroReminderRow) =>
+    row.stato === "completato" || row.stato === "annullato" || row.completato === true;
+
+  const handleElimina = async () => {
+    if (!deletingRow) return;
+    setActing(true);
+    try {
+      await updateReminder(deletingRow.id, { stato: "annullato", completato: true });
+      toast.success("Reminder eliminato");
+      setDeletingRow(null);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const handleCompleto = async () => {
+    if (!completingRow) return;
+    setActing(true);
+    try {
+      await updateReminder(completingRow.id, { stato: "completato", completato: true, letto: true });
+      toast.success("Reminder completato");
+      setCompletingRow(null);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    } finally {
+      setActing(false);
     }
   };
 
@@ -268,7 +336,7 @@ export default function SinistroReminderPage() {
     setFiltroRami([]);
     setFiltroStatiSinistro([]);
     setFiltroCategorie([]);
-    setFiltroStatiReminder(["attivo"]);
+    setFiltroStatiReminder([...REMINDER_LIST_DEFAULT_STATI]);
     setFiltroResponsabili([]);
     setDataScadenzaDal("");
     setDataScadenzaAl("");
@@ -282,7 +350,7 @@ export default function SinistroReminderPage() {
     filtroRami.length > 0 ||
     filtroStatiSinistro.length > 0 ||
     filtroCategorie.length > 0 ||
-    filtroStatiReminder.join(",") !== "attivo" ||
+    filtroStatiReminder.join(",") !== REMINDER_LIST_DEFAULT_STATI.join(",") ||
     filtroResponsabili.length > 0 ||
     dataScadenzaDal !== "" ||
     dataScadenzaAl !== "" ||
@@ -382,10 +450,12 @@ export default function SinistroReminderPage() {
       <Card>
         <CardContent className="p-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {seeAllSedi && (
             <div className="space-y-1">
               <Label className="text-xs">Ufficio</Label>
               <FilterMultiSelect value={filtroUffici} onChange={(v) => { setFiltroUffici(v); setPage(0); }} options={uffici.map((u: any) => ({ value: u.id, label: u.nome_ufficio }))} placeholder="Tutti" allLabel="Tutti gli uffici" searchPlaceholder="Cerca ufficio…" />
             </div>
+            )}
             <div className="space-y-1">
               <Label className="text-xs">Ramo</Label>
               <FilterMultiSelect value={filtroRami} onChange={(v) => { setFiltroRami(v); setPage(0); }} options={ramiOptions} placeholder="Tutti" allLabel="Tutti i rami" searchPlaceholder="Cerca ramo…" />
@@ -423,12 +493,10 @@ export default function SinistroReminderPage() {
               <Label className="text-xs">Stato reminder</Label>
               <FilterMultiSelect value={filtroStatiReminder} onChange={(v) => { setFiltroStatiReminder(v); setPage(0); }} options={statiReminder.map((s) => ({ value: s, label: REMINDER_STATO_LABEL[s] }))} placeholder="Tutti" allLabel="Tutti" searchPlaceholder="Cerca…" />
             </div>
-            {isAdmin && (
-              <div className="space-y-1 w-48">
-                <Label className="text-xs">Responsabile</Label>
-                <FilterMultiSelect value={filtroResponsabili} onChange={(v) => { setFiltroResponsabili(v); setPage(0); }} options={responsabili} placeholder="Tutti" allLabel="Tutti" searchPlaceholder="Cerca…" />
-              </div>
-            )}
+            <div className="space-y-1 w-48">
+              <Label className="text-xs">Assegnato a</Label>
+              <FilterMultiSelect value={filtroResponsabili} onChange={(v) => { setFiltroResponsabili(v); setPage(0); }} options={responsabili} placeholder="Tutti" allLabel="Tutti" searchPlaceholder="Cerca…" />
+            </div>
             {hasFiltriAttivi && (
               <Button variant="ghost" size="sm" onClick={resetFiltri} className="h-9 text-xs">
                 <X className="h-3.5 w-3.5 mr-1" /> Reset filtri
@@ -442,7 +510,9 @@ export default function SinistroReminderPage() {
         <CardHeader className="py-4">
           <CardTitle className="text-base">Elenco reminder ({totalCount})</CardTitle>
           <CardDescription>
-            {isAdmin ? "Tutti i reminder sinistri" : "Reminder assegnati a te"}
+            {seeAllSedi
+              ? "Tutti i reminder collegati alle pratiche sinistro"
+              : "Reminder delle pratiche della tua sede (attivi e completati)"}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -456,10 +526,10 @@ export default function SinistroReminderPage() {
                   <TableHead>N° Sinistro</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Polizza</TableHead>
-                  <TableHead>Responsabile</TableHead>
+                  <TableHead>Assegnato a</TableHead>
                   <TableHead>Scadenza</TableHead>
                   <TableHead>Stato</TableHead>
-                  <TableHead className="w-28">Azioni</TableHead>
+                  <TableHead className="w-[220px]">Azioni</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -484,14 +554,22 @@ export default function SinistroReminderPage() {
                       <TableCell>{fmtDate(r.data_scadenza || r.data_promemoria)}</TableCell>
                       <TableCell><Badge className={`text-[10px] ${REMINDER_STATO_CLASS[r.stato]}`}>{REMINDER_STATO_LABEL[r.stato]}</Badge></TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
-                          {r.stato === "attivo" && (
-                            <>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateReminder(r.id, { letto: true }).then(() => toast.success("Segnato come letto"))}><Check className="h-3.5 w-3.5" /></Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => updateReminder(r.id, { stato: "annullato", completato: true }).then(() => toast.success("Annullato"))}><Ban className="h-3.5 w-3.5" /></Button>
-                            </>
-                          )}
+                        <div className="flex flex-wrap gap-1">
+                          <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => openEdit(r)}>
+                            Modifica
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => setDeletingRow(r)}>
+                            Elimina
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            disabled={isCompletato(r)}
+                            onClick={() => setCompletingRow(r)}
+                          >
+                            Completo
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -510,7 +588,7 @@ export default function SinistroReminderPage() {
         onOpenChange={(o) => { if (!o) setPreviewSinistroId(null); }}
       />
 
-      <Dialog open={!!editRow} onOpenChange={(o) => { if (!o) setEditRow(null); }}>
+      <Dialog open={!!editRow} onOpenChange={(o) => { if (!o) { setEditRow(null); setConfirmSaveOpen(false); } }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Modifica reminder</DialogTitle></DialogHeader>
           <div className="space-y-3">
@@ -537,10 +615,68 @@ export default function SinistroReminderPage() {
               <Label>Scadenza</Label>
               <Input type="date" value={editScadenza} onChange={(e) => setEditScadenza(e.target.value)} />
             </div>
-            <Button className="w-full" disabled={saving} onClick={saveEdit}>Salva</Button>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRow(null)}>Annulla</Button>
+            <Button disabled={saving} onClick={requestSaveEdit}>Salva</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmSaveOpen} onOpenChange={(o) => !saving && setConfirmSaveOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confermare le modifiche?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Il reminder verrà aggiornato con testo, scadenza, assegnatario e categoria indicati.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); void saveEdit(); }} disabled={saving}>
+              Conferma salvataggio
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deletingRow} onOpenChange={(o) => { if (!o && !acting) setDeletingRow(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare questo reminder?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Il reminder verrà annullato e rimosso dai promemoria attivi. L&apos;operazione non può essere annullata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={acting}>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void handleElimina(); }}
+              disabled={acting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Conferma elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!completingRow} onOpenChange={(o) => { if (!o && !acting) setCompletingRow(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Segnare come completato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Il reminder verrà contrassegnato come completato. Non riceverai più notifiche per questa scadenza.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={acting}>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); void handleCompleto(); }} disabled={acting}>
+              Conferma
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

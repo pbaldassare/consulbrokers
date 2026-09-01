@@ -57,19 +57,36 @@ interface SinistroRow {
   titoli?: {
     numero_titolo?: string | null;
     compagnia_diretta?: {
+      id?: string | null;
       telefono?: string | null;
       cellulare?: string | null;
       mail?: string | null;
       mail_ec?: string | null;
       pec?: string | null;
+      tipo?: string | null;
+    } | null;
+    compagnia_rapporto?: {
+      gruppi_compagnia?: {
+        compagnie?: Array<{
+          id?: string | null;
+          telefono?: string | null;
+          cellulare?: string | null;
+          mail?: string | null;
+          mail_ec?: string | null;
+          pec?: string | null;
+          tipo?: string | null;
+        }> | null;
+      } | null;
     } | null;
   } | null;
   compagnie?: {
+    id?: string | null;
     telefono?: string | null;
     cellulare?: string | null;
     mail?: string | null;
     mail_ec?: string | null;
     pec?: string | null;
+    tipo?: string | null;
   } | null;
 }
 
@@ -83,9 +100,6 @@ const fmtDate = (d?: string | null) => (d ? format(new Date(d), "dd/MM/yyyy") : 
 const fmtEuro = (n?: number | null) =>
   n != null ? `€ ${Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—";
 
-function resolveAgenziaForSinistro(sinistro: SinistroRow) {
-  return sinistro.titoli?.compagnia_diretta ?? sinistro.compagnie ?? null;
-}
 
 export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow }) {
   const descrizione = sinistro.descrizione || sinistro.dinamica;
@@ -134,9 +148,8 @@ export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow })
             <span className="text-muted-foreground">Data accadimento</span>
             <p className="font-semibold">{fmtDate(sinistro.data_evento)}</p>
             {!sinistro.sinistro_terzi && (
-              <div className="pt-1">
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80">Agenzia riferimento</span>
-                <AgenziaContattoInline agenzia={resolveAgenziaForSinistro(sinistro)} className="mt-0.5" />
+              <div className="pt-1 md:col-span-2">
+                <AgenziaContattoInline sinistro={sinistro} className="mt-0.5" />
               </div>
             )}
           </div>

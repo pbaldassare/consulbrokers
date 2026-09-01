@@ -11,6 +11,7 @@ import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown } from "lu
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 
@@ -42,6 +43,7 @@ export default function SinistriList() {
   const [filtroStato, setFiltroStato] = useState<string>("tutti");
   const [filtroCompagnia, setFiltroCompagnia] = useState<string>("tutti");
   const [filtroTerzi, setFiltroTerzi] = useState<string>("tutti");
+  const [filtroResponsabile, setFiltroResponsabile] = useState<string>("tutti");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("created_at");
@@ -50,6 +52,7 @@ export default function SinistriList() {
     filtroStato,
     filtroCompagnia,
     filtroTerzi,
+    filtroResponsabile,
     debouncedSearch,
     sortField,
     sortDirection,
@@ -71,7 +74,7 @@ export default function SinistriList() {
   }, [qc]);
 
   const { data: sinistriResult } = useQuery({
-    queryKey: ["sinistri", filtroStato, filtroCompagnia, filtroTerzi, debouncedSearch, page, sortField, sortDirection],
+    queryKey: ["sinistri", filtroStato, filtroCompagnia, filtroTerzi, filtroResponsabile, debouncedSearch, page, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("sinistri").select(
         `id, numero_sinistro, stato, descrizione, data_apertura, data_denuncia, controparte, sinistro_terzi, titolo_id, compagnia_id,
@@ -85,6 +88,7 @@ export default function SinistriList() {
       if (filtroCompagnia !== "tutti") q = q.eq("compagnia_id", filtroCompagnia);
       if (filtroTerzi === "terzi") q = q.eq("sinistro_terzi", true);
       if (filtroTerzi === "con_polizza") q = q.eq("sinistro_terzi", false).not("titolo_id", "is", null);
+      if (filtroResponsabile !== "tutti") q = q.eq("responsabile_id", filtroResponsabile);
 
       const term = debouncedSearch.trim();
       if (term) {
@@ -141,6 +145,20 @@ export default function SinistriList() {
     queryKey: ["agenzie"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      return data || [];
+    },
+  });
+
+  const { data: responsabili = [] } = useQuery({
+    queryKey: ["profiles-responsabili-list"],
+    queryFn: async () => {
+      const { data: ss } = await supabase
+        .from("specialist_sinistri_sedi" as any)
+        .select("profilo_id");
+      const ids = [...new Set(((ss || []) as { profilo_id: string }[]).map((r) => r.profilo_id))];
+      let q = supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
+      if (ids.length > 0) q = q.in("id", ids);
+      const { data } = await q;
       return data || [];
     },
   });
@@ -246,6 +264,18 @@ export default function SinistriList() {
             <SelectItem value="terzi">Sinistro Terzi</SelectItem>
           </SelectContent>
         </Select>
+        <SearchableSelect
+          value={filtroResponsabile === "tutti" ? "" : filtroResponsabile}
+          onValueChange={(v) => handleFilterChange(setFiltroResponsabile)(v || "tutti")}
+          placeholder="Responsabile interno"
+          clearable
+          clearLabel="Tutti"
+          className="w-52"
+          options={responsabili.map((r) => ({
+            value: r.id,
+            label: `${r.cognome || ""} ${r.nome || ""}`.trim(),
+          }))}
+        />
       </div>
 
       <div className="border rounded-lg">
@@ -261,7 +291,7 @@ export default function SinistriList() {
               <SortableHeader field="compagnia_id">Compagnia</SortableHeader>
               <SortableHeader field="data_apertura">Data Apertura</SortableHeader>
               <SortableHeader field="data_denuncia">Data Denuncia</SortableHeader>
-              <TableHead>Descrizione</TableHead>
+              <TableHead className="min-w-[20rem] max-w-[40rem]">Descrizione</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -304,8 +334,8 @@ export default function SinistriList() {
                 <TableCell>{s.compagnie?.nome || "—"}</TableCell>
                 <TableCell>{s.data_apertura ? format(new Date(s.data_apertura), "dd/MM/yyyy") : "—"}</TableCell>
                 <TableCell>{s.data_denuncia ? format(new Date(s.data_denuncia), "dd/MM/yyyy") : "—"}</TableCell>
-                <TableCell className="max-w-xs">
-                  <span className="line-clamp-2 whitespace-normal break-words">{s.descrizione || "—"}</span>
+                <TableCell className="min-w-[20rem] max-w-[40rem]">
+                  <span className="line-clamp-4 whitespace-normal break-words">{s.descrizione || "—"}</span>
                 </TableCell>
               </TableRow>
             ))}

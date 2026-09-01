@@ -31,11 +31,17 @@ interface SearchableSelectProps {
   serverSideSearch?: boolean;
   /** Boundary opzionale per collision detection Radix (default: viewport Radix). */
   popoverCollisionBoundary?: Element | Element[];
+  /** Mostra la description anche nel trigger quando un valore è selezionato. */
+  showSelectedDescription?: boolean;
 }
 
 /** Larghezza popover allineata al trigger (Radix CSS var). */
 export const popoverMatchTriggerWidthClass =
   "w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0";
+
+/** Evidenziazione tenue per voci selezionate/hover nel dropdown (override del verde accent). */
+export const searchableSelectItemClass =
+  "data-[selected=true]:bg-kpi-teal-bg data-[selected=true]:text-foreground";
 
 export function SearchableSelect({
   options,
@@ -52,10 +58,13 @@ export function SearchableSelect({
   clearLabel = "— Nessuno —",
   serverSideSearch = false,
   popoverCollisionBoundary,
+  showSelectedDescription = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
 
-  const selectedLabel = options.find((o) => o.value === value)?.label;
+  const selectedOption = options.find((o) => o.value === value);
+  const selectedLabel = selectedOption?.label;
+  const showTriggerDescription = showSelectedDescription && !!selectedOption?.description;
   const trimmedSearch = (searchValue ?? "").trim();
   const serverEmptyMessage = trimmedSearch.length === 0
     ? "Digita per cercare…"
@@ -70,9 +79,21 @@ export function SearchableSelect({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn("w-full justify-between font-normal", !selectedLabel && "text-muted-foreground", className)}
+          className={cn(
+            "w-full justify-between font-normal",
+            !selectedLabel && "text-muted-foreground",
+            showTriggerDescription && "h-auto py-2",
+            className,
+          )}
         >
-          <span className="truncate">{selectedLabel || placeholder}</span>
+          {showTriggerDescription ? (
+            <span className="flex flex-col items-start min-w-0 text-left">
+              <span className="truncate w-full">{selectedLabel}</span>
+              <span className="text-[10px] text-muted-foreground truncate w-full">{selectedOption?.description}</span>
+            </span>
+          ) : (
+            <span className="truncate">{selectedLabel || placeholder}</span>
+          )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -97,6 +118,7 @@ export function SearchableSelect({
                 <CommandItem
                   key="__clear__"
                   value={clearLabel}
+                  className={searchableSelectItemClass}
                   onSelect={() => {
                     onValueChange("");
                     setOpen(false);
@@ -110,6 +132,7 @@ export function SearchableSelect({
                 <CommandItem
                   key={option.value}
                   value={`${option.label} ${option.description ?? ""} ${option.searchText ?? ""}`.trim()}
+                  className={searchableSelectItemClass}
                   onSelect={() => {
                     onValueChange(option.value === value ? "" : option.value);
                     setOpen(false);

@@ -72,7 +72,7 @@ export default function SinistroDetail() {
     queryKey: ["sinistro", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("sinistri")
-        .select("*, compagnie(nome, telefono, cellulare, mail, mail_ec, pec), profiles!sinistri_responsabile_id_fkey(nome, cognome), liquidatore:anagrafiche_professionali!sinistri_liquidatore_id_fkey(nome, cognome, ragione_sociale), titoli(numero_titolo, stato, garanzia_a, data_scadenza, compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, telefono, cellulare, mail, mail_ec, pec, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(gruppi_compagnia:gruppo_compagnia_id(descrizione)), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione))), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
+        .select("*, compagnie(id, nome, telefono, cellulare, mail, mail_ec, pec, tipo), profiles!sinistri_responsabile_id_fkey(nome, cognome), liquidatore:anagrafiche_professionali!sinistri_liquidatore_id_fkey(nome, cognome, ragione_sociale), titoli(numero_titolo, stato, garanzia_a, data_scadenza, compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, telefono, cellulare, mail, mail_ec, pec, tipo, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(gruppi_compagnia:gruppo_compagnia_id(descrizione, compagnie:compagnie(id, nome, telefono, cellulare, mail, mail_ec, pec, tipo))), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione))), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
         .eq("id", id!).single();
       if (error) throw error;
       return data;
@@ -283,7 +283,7 @@ export default function SinistroDetail() {
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6 shrink-0"
-                      title="Modifica polizza collegata"
+                      title="Modifica polizza e tipo di copertura"
                       onClick={() => setPolizzaDialogOpen(true)}
                     >
                       <Pencil className="h-3 w-3" />
@@ -365,13 +365,15 @@ export default function SinistroDetail() {
       <Dialog open={polizzaDialogOpen} onOpenChange={setPolizzaDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Modifica polizza collegata</DialogTitle>
+            <DialogTitle>Modifica polizza e tipo di copertura</DialogTitle>
           </DialogHeader>
           <SinistroPolizzaSelector
             sinistroId={id!}
             clienteId={sinistro.cliente_anagrafica_id}
             currentTitoloId={sinistro.titolo_id}
-            autoSave
+            showTipoCopertura
+            currentTipoSinistro={sinistro.tipo_sinistro}
+            currentTipoPersonalizzato={sinistro.tipo_sinistro_personalizzato}
             onSaved={() => {
               setPolizzaDialogOpen(false);
               invalidate();
