@@ -58,7 +58,7 @@ import { importoAnnualitaDaRata } from "@/lib/frazionamento";
 import { ModificaVeicoloDialog } from "@/components/polizze/ModificaVeicoloDialog";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
-import DocumentiTab from "@/components/DocumentiTab";
+import DocumentiTab, { type DocumentiAggregateSource } from "@/components/DocumentiTab";
 import { DeleteWithImpactDialog } from "@/components/common/DeleteWithImpactDialog";
 import { pushAiEntityContext, buildClienteScopeHint } from "@/lib/ai/context";
 import SinistriClienteTab from "@/components/SinistriClienteTab";
