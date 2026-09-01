@@ -119,6 +119,8 @@ export default function DocumentiTab({
   entitaIds,
   titoloIdsForExtraDocs,
   extraTitoloCategorie,
+  aggregateSources,
+  origineLabel,
   bucketName,
   readOnly = false,
   typedUpload = false,
@@ -138,6 +140,10 @@ export default function DocumentiTab({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewPdfData, setPreviewPdfData] = useState<Uint8Array | null>(null);
   const [invioDoc, setInvioDoc] = useState<any>(null);
+  const [filtroOrigine, setFiltroOrigine] = useState("all");
+  const [filtroTipologia, setFiltroTipologia] = useState("all");
+  const [filtroVisibile, setFiltroVisibile] = useState("all");
+  const [ricerca, setRicerca] = useState("");
   const bucket = bucketName || BUCKET_MAP[entitaTipo] || "documenti_generali";
   const canInviaEmail = !readOnly && ["titolo", "cliente", "sinistro"].includes(entitaTipo);
 
@@ -148,9 +154,17 @@ export default function DocumentiTab({
   const idsKey = [...idsForRead].sort().join(",");
   const extraTitoloKey = (titoloIdsForExtraDocs ?? []).slice().sort().join(",");
   const extraCatKey = (extraTitoloCategorie ?? []).slice().sort().join(",");
+  const sources = useMemo(
+    () => (aggregateSources ?? []).filter((s) => s.ids.length > 0),
+    [aggregateSources],
+  );
+  const sourcesKey = sources
+    .map((s) => `${s.key}:${[...s.ids].sort().join("|")}:${(s.categorie ?? []).join("|")}`)
+    .join(";");
+  const origineBase = origineLabel ?? "Scheda";
 
   const { data: documenti } = useQuery({
-    queryKey: ["documenti", entitaTipo, idsKey, extraTitoloKey, extraCatKey],
+    queryKey: ["documenti", entitaTipo, idsKey, extraTitoloKey, extraCatKey, sourcesKey],
     queryFn: async () => {
       const { data: main } = await supabase
         .from("documenti")
@@ -171,9 +185,27 @@ export default function DocumentiTab({
         extra = titoloDocs ?? [];
       }
 
+      // Sorgenti aggregate (polizze, quietanze, sinistri, trattative...)
+      const aggregated = await Promise.all(
+        sources.map(async (s) => {
+          let q = supabase
+            .from("documenti")
+            .select("*, profiles:caricato_da(nome, cognome)")
+            .eq("entita_tipo", s.entitaTipo)
+            .in("entita_id", s.ids);
+          if (s.categorie?.length) q = q.in("categoria", s.categorie);
+          const { data } = await q.order("created_at", { ascending: false });
+          return (data ?? []).map((d: any) => ({ ...d, _origineKey: s.key, _origineLabel: s.label }));
+        }),
+      );
+
       const seen = new Set<string>();
       const merged: any[] = [];
-      for (const doc of [...(main ?? []), ...extra]) {
+      for (const doc of [
+        ...(main ?? []).map((d: any) => ({ ...d, _origineKey: "self", _origineLabel: origineBase })),
+        ...extra.map((d: any) => ({ ...d, _origineKey: "self", _origineLabel: origineBase })),
+        ...aggregated.flat(),
+      ]) {
         const key = doc.path_storage || doc.id;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -183,6 +215,7 @@ export default function DocumentiTab({
       return merged;
     },
   });
+
 
   const avvisoIds = useMemo(
     () => (documenti ?? []).filter((d: any) => d.categoria === "notifica_messa_cassa").map((d: any) => d.id as string),
