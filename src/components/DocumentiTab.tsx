@@ -630,7 +630,13 @@ export default function DocumentiTab({
                   doc.nome_file
                 )}
               </TableCell>
+              {showOrigine && (
+                <TableCell>
+                  <Badge variant="outline" className="font-normal">{doc._origineLabel || origineBase}</Badge>
+                </TableCell>
+              )}
               {showTipologia && (
+
                 <TableCell>
                   {doc.categoria ? (
                     <Badge variant="secondary" className="font-normal">{labelTipoDocumento(doc.categoria)}</Badge>
