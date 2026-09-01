@@ -58,7 +58,7 @@ import { importoAnnualitaDaRata } from "@/lib/frazionamento";
 import { ModificaVeicoloDialog } from "@/components/polizze/ModificaVeicoloDialog";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
-import DocumentiTab from "@/components/DocumentiTab";
+import DocumentiTab, { type DocumentiAggregateSource } from "@/components/DocumentiTab";
 import { DeleteWithImpactDialog } from "@/components/common/DeleteWithImpactDialog";
 import { pushAiEntityContext, buildClienteScopeHint } from "@/lib/ai/context";
 import SinistriClienteTab from "@/components/SinistriClienteTab";
@@ -2691,6 +2691,19 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
+  // Sorgenti documenti aggregate mostrate nel tab Documenti del cliente
+  const documentiSources = useMemo<DocumentiAggregateSource[]>(() => {
+    const madri = polizze.filter((p: any) => !p.sostituisce_polizza).map((p: any) => p.id as string);
+    const quietanzeIds = polizze.filter((p: any) => p.sostituisce_polizza).map((p: any) => p.id as string);
+    return [
+      { key: "polizze", label: "Polizze", entitaTipo: "titolo", ids: madri },
+      { key: "quietanze", label: "Quietanze", entitaTipo: "titolo", ids: quietanzeIds },
+      { key: "sinistri", label: "Sinistri", entitaTipo: "sinistro", ids: relatedIds?.sinistri ?? [] },
+      { key: "trattative", label: "Trattative", entitaTipo: "trattativa", ids: relatedIds?.trattative ?? [] },
+    ];
+  }, [polizze, relatedIds]);
+
+
   // Realtime: badge "Sinistri" aggiornato in tempo reale anche se il tab non è montato
   useEffect(() => {
     if (!id) return;
@@ -3206,7 +3219,10 @@ export default function ClienteDetail() {
             showPreview={false}
             titoloIdsForExtraDocs={titoloIdsMadri}
             extraTitoloCategorie={["notifica_messa_cassa"]}
+            aggregateSources={documentiSources}
+            origineLabel="Anagrafica cliente"
           />
+
         </TabsContent>
 
         <TabsContent value="chat"><ChatTab entitaTipo="cliente" entitaId={id!} /></TabsContent>

@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Upload, Download, Trash2, FileText, Eye, Pencil, Check, X, Mail, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -34,6 +36,17 @@ import {
 } from "@/components/shared/MultiDocumentUploadPanel";
 import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
+export interface DocumentiAggregateSource {
+  /** chiave stabile per il filtro */
+  key: string;
+  /** etichetta mostrata nella colonna Origine e nel filtro */
+  label: string;
+  entitaTipo: string;
+  ids: string[];
+  /** se valorizzato limita alle categorie indicate */
+  categorie?: string[];
+}
+
 interface DocumentiTabProps {
   entitaTipo: string;
   entitaId: string;
@@ -43,6 +56,10 @@ interface DocumentiTabProps {
   titoloIdsForExtraDocs?: string[];
   /** Categorie titolo da includere insieme ai documenti dell'entità principale. */
   extraTitoloCategorie?: string[];
+  /** Sorgenti aggiuntive (polizze, quietanze, sinistri, trattative...) mostrate nella stessa tabella con filtro Origine. */
+  aggregateSources?: DocumentiAggregateSource[];
+  /** Etichetta origine per i documenti dell'entità principale. */
+  origineLabel?: string;
   /** Allegati appendici (storage appendici_polizza) mostrati nella vista polizza madre. */
   appendiciAllegati?: AppendicePolizzaRow[];
   bucketName?: string;
@@ -54,6 +71,7 @@ interface DocumentiTabProps {
   /** Se false, nasconde anteprima (icona occhio e click su miniatura/nome). */
   showPreview?: boolean;
 }
+
 
 
 const BUCKET_MAP: Record<string, string> = {
@@ -103,6 +121,8 @@ export default function DocumentiTab({
   entitaIds,
   titoloIdsForExtraDocs,
   extraTitoloCategorie,
+  aggregateSources,
+  origineLabel,
   bucketName,
   readOnly = false,
   typedUpload = false,
@@ -122,6 +142,10 @@ export default function DocumentiTab({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewPdfData, setPreviewPdfData] = useState<Uint8Array | null>(null);
   const [invioDoc, setInvioDoc] = useState<any>(null);
+  const [filtroOrigine, setFiltroOrigine] = useState("all");
+  const [filtroTipologia, setFiltroTipologia] = useState("all");
+  const [filtroVisibile, setFiltroVisibile] = useState("all");
+  const [ricerca, setRicerca] = useState("");
   const bucket = bucketName || BUCKET_MAP[entitaTipo] || "documenti_generali";
   const canInviaEmail = !readOnly && ["titolo", "cliente", "sinistro"].includes(entitaTipo);
 
@@ -132,9 +156,17 @@ export default function DocumentiTab({
   const idsKey = [...idsForRead].sort().join(",");
   const extraTitoloKey = (titoloIdsForExtraDocs ?? []).slice().sort().join(",");
   const extraCatKey = (extraTitoloCategorie ?? []).slice().sort().join(",");
+  const sources = useMemo(
+    () => (aggregateSources ?? []).filter((s) => s.ids.length > 0),
+    [aggregateSources],
+  );
+  const sourcesKey = sources
+    .map((s) => `${s.key}:${[...s.ids].sort().join("|")}:${(s.categorie ?? []).join("|")}`)
+    .join(";");
+  const origineBase = origineLabel ?? "Scheda";
 
   const { data: documenti } = useQuery({
-    queryKey: ["documenti", entitaTipo, idsKey, extraTitoloKey, extraCatKey],
+    queryKey: ["documenti", entitaTipo, idsKey, extraTitoloKey, extraCatKey, sourcesKey],
     queryFn: async () => {
       const { data: main } = await supabase
         .from("documenti")
@@ -155,9 +187,27 @@ export default function DocumentiTab({
         extra = titoloDocs ?? [];
       }
 
+      // Sorgenti aggregate (polizze, quietanze, sinistri, trattative...)
+      const aggregated = await Promise.all(
+        sources.map(async (s) => {
+          let q = supabase
+            .from("documenti")
+            .select("*, profiles:caricato_da(nome, cognome)")
+            .eq("entita_tipo", s.entitaTipo)
+            .in("entita_id", s.ids);
+          if (s.categorie?.length) q = q.in("categoria", s.categorie);
+          const { data } = await q.order("created_at", { ascending: false });
+          return (data ?? []).map((d: any) => ({ ...d, _origineKey: s.key, _origineLabel: s.label }));
+        }),
+      );
+
       const seen = new Set<string>();
       const merged: any[] = [];
-      for (const doc of [...(main ?? []), ...extra]) {
+      for (const doc of [
+        ...(main ?? []).map((d: any) => ({ ...d, _origineKey: "self", _origineLabel: origineBase })),
+        ...extra.map((d: any) => ({ ...d, _origineKey: "self", _origineLabel: origineBase })),
+        ...aggregated.flat(),
+      ]) {
         const key = doc.path_storage || doc.id;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -167,6 +217,34 @@ export default function DocumentiTab({
       return merged;
     },
   });
+
+  const tipologieDisponibili = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of documenti ?? []) if (d.categoria) set.add(d.categoria as string);
+    return [...set].sort((a, b) => labelTipoDocumento(a).localeCompare(labelTipoDocumento(b)));
+  }, [documenti]);
+
+  const origini = useMemo(() => {
+    const list: { key: string; label: string }[] = [{ key: "self", label: origineBase }];
+    for (const s of sources) list.push({ key: s.key, label: s.label });
+    return list.filter((o) => (documenti ?? []).some((d: any) => d._origineKey === o.key));
+  }, [documenti, sources, origineBase]);
+
+  const documentiFiltrati = useMemo(() => {
+    const q = ricerca.trim().toLowerCase();
+    return (documenti ?? []).filter((d: any) => {
+      if (filtroOrigine !== "all" && d._origineKey !== filtroOrigine) return false;
+      if (filtroTipologia !== "all" && (d.categoria || "__none__") !== filtroTipologia) return false;
+      if (filtroVisibile === "si" && !d.visibile_al_cliente) return false;
+      if (filtroVisibile === "no" && d.visibile_al_cliente) return false;
+      if (q && !String(d.nome_file || "").toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [documenti, filtroOrigine, filtroTipologia, filtroVisibile, ricerca]);
+
+  const filtriAttivi =
+    filtroOrigine !== "all" || filtroTipologia !== "all" || filtroVisibile !== "all" || ricerca.trim() !== "";
+
 
   const avvisoIds = useMemo(
     () => (documenti ?? []).filter((d: any) => d.categoria === "notifica_messa_cassa").map((d: any) => d.id as string),
@@ -371,10 +449,12 @@ export default function DocumentiTab({
   };
 
   const appendiceRows = appendiciAllegati ?? [];
-  const hasRows = (documenti?.length ?? 0) > 0 || appendiceRows.length > 0;
+  const showAppendici = appendiceRows.length > 0 && filtroOrigine === "all" && filtroTipologia === "all";
+  const hasRows = documentiFiltrati.length > 0 || (showAppendici && appendiceRows.length > 0);
   const previewExt = previewDoc?.nome_file?.split(".")?.pop()?.toLowerCase() || "";
   const previewIsImage = IMAGE_EXTENSIONS.includes(previewExt);
 
+  const showOrigine = origini.length > 1;
   const showTipologia = typedUpload || documenti?.some((d: any) => d.categoria) || (appendiciAllegati?.length ?? 0) > 0;
   const showInvioEmail =
     canInviaEmail ||
@@ -384,7 +464,8 @@ export default function DocumentiTab({
         d.categoria === "ec_cliente_email" ||
         d.categoria === DOC_CATEGORIA_INVIATO_EMAIL,
     );
-  const colSpan = (showTipologia ? 1 : 0) + (showInvioEmail ? 1 : 0) + 6;
+  const colSpan = (showOrigine ? 1 : 0) + (showTipologia ? 1 : 0) + (showInvioEmail ? 1 : 0) + 6;
+
 
   return (
     <div className="space-y-4">
@@ -447,11 +528,62 @@ export default function DocumentiTab({
           )}
         </div>
       )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={ricerca}
+          onChange={(e) => setRicerca(e.target.value)}
+          placeholder="Cerca per nome file..."
+          className="h-9 w-full sm:w-56"
+        />
+        {showOrigine && (
+          <Select value={filtroOrigine} onValueChange={setFiltroOrigine}>
+            <SelectTrigger className="h-9 w-full sm:w-48"><SelectValue placeholder="Origine" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tutte le sezioni</SelectItem>
+              {origini.map((o) => (
+                <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {tipologieDisponibili.length > 0 && (
+          <Select value={filtroTipologia} onValueChange={setFiltroTipologia}>
+            <SelectTrigger className="h-9 w-full sm:w-56"><SelectValue placeholder="Tipologia" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tutte le tipologie</SelectItem>
+              {tipologieDisponibili.map((c) => (
+                <SelectItem key={c} value={c}>{labelTipoDocumento(c)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <Select value={filtroVisibile} onValueChange={setFiltroVisibile}>
+          <SelectTrigger className="h-9 w-full sm:w-44"><SelectValue placeholder="Visibilità" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tutti i documenti</SelectItem>
+            <SelectItem value="si">Visibili al cliente</SelectItem>
+            <SelectItem value="no">Non visibili</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">
+          {documentiFiltrati.length} di {documenti?.length ?? 0} documenti
+        </span>
+        {filtriAttivi && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setFiltroOrigine("all"); setFiltroTipologia("all"); setFiltroVisibile("all"); setRicerca(""); }}
+          >
+            <X className="h-3.5 w-3.5 mr-1" /> Azzera filtri
+          </Button>
+        )}
+      </div>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-16"></TableHead>
             <TableHead>Nome File</TableHead>
+            {showOrigine && <TableHead>Origine</TableHead>}
             {showTipologia && <TableHead>Tipologia</TableHead>}
             {showInvioEmail && <TableHead>Invio email</TableHead>}
             <TableHead>Caricato da</TableHead>
@@ -461,7 +593,8 @@ export default function DocumentiTab({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {documenti?.map((doc: any) => (
+          {documentiFiltrati.map((doc: any) => (
+
             <TableRow key={doc.id}>
               <TableCell>
                 <DocumentThumbnail
@@ -499,7 +632,13 @@ export default function DocumentiTab({
                   doc.nome_file
                 )}
               </TableCell>
+              {showOrigine && (
+                <TableCell>
+                  <Badge variant="outline" className="font-normal">{doc._origineLabel || origineBase}</Badge>
+                </TableCell>
+              )}
               {showTipologia && (
+
                 <TableCell>
                   {doc.categoria ? (
                     <Badge variant="secondary" className="font-normal">{labelTipoDocumento(doc.categoria)}</Badge>
@@ -653,7 +792,7 @@ export default function DocumentiTab({
               </TableCell>
             </TableRow>
           ))}
-          {appendiceRows.map((a) => (
+          {showAppendici && appendiceRows.map((a) => (
             <TableRow key={`appendice-${a.id}`}>
               <TableCell>
                 <DocumentThumbnail
@@ -670,7 +809,11 @@ export default function DocumentiTab({
               >
                 {a.nome_file}
               </TableCell>
+              {showOrigine && (
+                <TableCell><Badge variant="outline" className="font-normal">Appendici</Badge></TableCell>
+              )}
               {showTipologia && (
+
                 <TableCell>
                   <Badge variant="secondary" className="font-normal">
                     Appendice {a.numero_appendice}{a.tipo ? ` (${String(a.tipo).toUpperCase()})` : ""}
@@ -689,7 +832,14 @@ export default function DocumentiTab({
               </TableCell>
             </TableRow>
           ))}
-          {!hasRows && <TableRow><TableCell colSpan={colSpan} className="text-center py-6 text-muted-foreground">Nessun documento</TableCell></TableRow>}
+          {!hasRows && (
+            <TableRow>
+              <TableCell colSpan={colSpan} className="text-center py-6 text-muted-foreground">
+                {filtriAttivi ? "Nessun documento corrisponde ai filtri" : "Nessun documento"}
+              </TableCell>
+            </TableRow>
+          )}
+
         </TableBody>
       </Table>
 
