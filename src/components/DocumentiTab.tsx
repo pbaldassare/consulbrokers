@@ -447,10 +447,12 @@ export default function DocumentiTab({
   };
 
   const appendiceRows = appendiciAllegati ?? [];
-  const hasRows = (documenti?.length ?? 0) > 0 || appendiceRows.length > 0;
+  const showAppendici = appendiceRows.length > 0 && filtroOrigine === "all" && filtroTipologia === "all";
+  const hasRows = documentiFiltrati.length > 0 || (showAppendici && appendiceRows.length > 0);
   const previewExt = previewDoc?.nome_file?.split(".")?.pop()?.toLowerCase() || "";
   const previewIsImage = IMAGE_EXTENSIONS.includes(previewExt);
 
+  const showOrigine = origini.length > 1;
   const showTipologia = typedUpload || documenti?.some((d: any) => d.categoria) || (appendiciAllegati?.length ?? 0) > 0;
   const showInvioEmail =
     canInviaEmail ||
@@ -460,7 +462,8 @@ export default function DocumentiTab({
         d.categoria === "ec_cliente_email" ||
         d.categoria === DOC_CATEGORIA_INVIATO_EMAIL,
     );
-  const colSpan = (showTipologia ? 1 : 0) + (showInvioEmail ? 1 : 0) + 6;
+  const colSpan = (showOrigine ? 1 : 0) + (showTipologia ? 1 : 0) + (showInvioEmail ? 1 : 0) + 6;
+
 
   return (
     <div className="space-y-4">
