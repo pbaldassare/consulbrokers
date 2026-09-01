@@ -807,7 +807,11 @@ export default function DocumentiTab({
               >
                 {a.nome_file}
               </TableCell>
+              {showOrigine && (
+                <TableCell><Badge variant="outline" className="font-normal">Appendici</Badge></TableCell>
+              )}
               {showTipologia && (
+
                 <TableCell>
                   <Badge variant="secondary" className="font-normal">
                     Appendice {a.numero_appendice}{a.tipo ? ` (${String(a.tipo).toUpperCase()})` : ""}
