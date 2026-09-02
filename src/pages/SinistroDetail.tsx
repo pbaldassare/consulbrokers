@@ -431,7 +431,7 @@ export default function SinistroDetail() {
 
         <TabsContent value="dati" className="space-y-4 mt-0">
           <SinistroDatiPraticaPanel
-            sinistro={sinistro as unknown as never}
+            sinistro={sinistro as unknown as React.ComponentProps<typeof SinistroDatiPraticaPanel>["sinistro"]}
             canEdit={canManage}
             onSaved={invalidate}
           />
