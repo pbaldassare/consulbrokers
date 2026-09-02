@@ -2,6 +2,7 @@
 // Combina logica di match-bank-rows (fuzzy + AI assist) per assegnare cliente_id
 // e ufficio_id ai movimenti con stato='importato'.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChatCompletions, hasAiCredentials } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,14 +51,10 @@ async function aiPickBest(
   movimento: { ordinante: string; descrizione: string; importo: number; data_movimento: string },
   candidates: Array<{ id: string; label: string; ufficio_id: string | null }>,
 ): Promise<{ cliente_id: string; ufficio_id: string | null; score: number; motivazione: string } | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY || candidates.length === 0) return null;
+  if (!hasAiCredentials() || candidates.length === 0) return null;
 
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const res = await aiChatCompletions({
         model: "google/gemini-2.5-flash",
         messages: [
           {
@@ -96,7 +93,6 @@ async function aiPickBest(
           },
         }],
         tool_choice: { type: "function", function: { name: "best_match" } },
-      }),
     });
     if (!res.ok) return null;
     const json = await res.json();

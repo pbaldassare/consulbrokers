@@ -97,6 +97,36 @@ function ramoLabel(t: TitoloRow): string {
   return `${ramo.descrizione || ""}${ramo.codice ? ` (${ramo.codice})` : ""}`.trim() || "—";
 }
 
+function agenziaGroupKey(t: TitoloRow): string {
+  const rapId = t.compagnia_rapporto_id ? String(t.compagnia_rapporto_id) : "";
+  if (rapId) return `rapporto:${rapId}`;
+  const compId = t.compagnia_id ? String(t.compagnia_id) : "";
+  if (compId) return `compagnia:${compId}`;
+  return `titolo:${t.id}`;
+}
+
+function agenziaNome(t: TitoloRow): string {
+  const rapporto = t.compagnia_rapporti as Record<string, unknown> | null;
+  const compagnia = t.compagnie as Record<string, unknown> | null;
+  return (
+    (rapporto?.nome_rapporto && String(rapporto.nome_rapporto).trim()) ||
+    (rapporto?.sede_denominazione && String(rapporto.sede_denominazione).trim()) ||
+    (compagnia?.nome && String(compagnia.nome).trim()) ||
+    "Agenzia"
+  );
+}
+
+function groupTitoliPerAgenzia(titoli: TitoloRow[]): TitoloRow[][] {
+  const map = new Map<string, TitoloRow[]>();
+  for (const t of titoli) {
+    const key = agenziaGroupKey(t);
+    const list = map.get(key);
+    if (list) list.push(t);
+    else map.set(key, [t]);
+  }
+  return [...map.values()];
+}
+
 function resolveRecipient(t: TitoloRow): string {
   const rapporto = t.compagnia_rapporti as Record<string, unknown> | null;
   const compagnia = t.compagnie as Record<string, unknown> | null;
@@ -130,13 +160,14 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
   const isBulk = titoli.length > 1;
   const primary = titoli[0];
   const recipient = resolveRecipient(primary);
+  const nomeAgenzia = agenziaNome(primary);
 
   const clientiUnici = [...new Set(titoli.map(clienteNome))];
   const clienteLabel = clientiUnici.length === 1 ? clientiUnici[0] : `${clientiUnici.length} clienti`;
 
   const subject = isBulk
-    ? `Comunicazione messa a cassa — ${titoli.length} polizze — ${clienteLabel}`
-    : `Comunicazione messa a cassa — Polizza ${primary.numero_titolo || "—"} — ${clienteNome(primary)}`;
+    ? `Comunicazione messa a cassa — ${nomeAgenzia} — ${titoli.length} polizze — ${clienteLabel}`
+    : `Comunicazione messa a cassa — ${nomeAgenzia} — Polizza ${primary.numero_titolo || "—"} — ${clienteNome(primary)}`;
 
   const introBody = `<p style="margin:0 0 14px;">In data odierna abbiamo incassato per Vostro conto${isBulk ? " i seguenti premi" : " il seguente premio"}, come da accordi${isBulk ? "" : ` a mezzo <strong>${escapeHtml(modalitaLabel(primary))}</strong>`}:</p>`;
 
@@ -211,7 +242,7 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
           Consulbrokers — Avviso incasso
         </td></tr>
         <tr><td style="padding:24px;font-size:14px;line-height:1.55;">
-          <p style="margin:0 0 14px;">Spettabile Compagnia,</p>
+          <p style="margin:0 0 14px;">Spettabile ${escapeHtml(agenziaNome(primary))},</p>
           ${introBody}
           ${tabellaSingola}
           <p style="margin:0;">È gradita l'occasione per porgere cordiali saluti.</p>
@@ -464,9 +495,6 @@ serve(async (req) => {
       titoloIds = pendingIds;
     }
 
-    const isBulk = titoloIds.length > 1;
-    const bulkKey = titoloIds.join(",");
-
     const { data: titoliRaw, error: tErr } = await supabase
       .from("titoli")
       .select(TITOLI_SELECT)
@@ -482,107 +510,142 @@ serve(async (req) => {
       });
     }
 
+    const gruppi = groupTitoliPerAgenzia(titoli);
     const sentAt = new Date();
-    const auditGarantito = titoli.some(isGarantitoTitolo);
-    const { subject, html, recipient } = buildEmailContent(titoli, sentAt);
+    const invii: Array<Record<string, unknown>> = [];
+    let documentiArchiviati = 0;
+    let inviiOk = 0;
+    let inviiKo = 0;
+    const archiveErrors: string[] = [];
+    const recipients: string[] = [];
 
-    const { data: sendRes, error: sendErr } = await supabase.functions.invoke("send-email", {
-      body: {
-        to: recipient,
-        subject,
-        html,
-        from: FROM_EMAIL,
-        apply_branding: true,
-      },
-    });
+    for (const gruppo of gruppi) {
+      const ids = gruppo.map((t) => t.id as string);
+      const isBulk = gruppo.length > 1;
+      const bulkKey = ids.join(",");
+      const auditGarantito = gruppo.some(isGarantitoTitolo);
+      const { subject, html, recipient } = buildEmailContent(gruppo, sentAt);
 
-    const sendId = (sendRes as { id?: string })?.id ?? null;
+      const { data: sendRes, error: sendErr } = await supabase.functions.invoke("send-email", {
+        body: {
+          to: recipient,
+          subject,
+          html,
+          from: FROM_EMAIL,
+          apply_branding: true,
+        },
+      });
 
-    if (sendErr) {
-      console.error("send-email failed:", sendErr);
-      for (const tid of titoloIds) {
+      const sendId = (sendRes as { id?: string })?.id ?? null;
+
+      if (sendErr) {
+        console.error("send-email failed:", sendErr);
+        inviiKo++;
+        for (const tid of ids) {
+          await supabase.from("log_attivita").insert({
+            azione: "notifica_messa_cassa_errore",
+            entita_tipo: "titolo",
+            entita_id: tid,
+            severity: "warning",
+            user_id: userId,
+            dettagli_json: {
+              destinatario: recipient,
+              oggetto: subject,
+              errore: (sendErr as { message?: string })?.message ?? String(sendErr),
+              garantito: auditGarantito,
+              bulk: isBulk,
+              bulk_key: isBulk ? bulkKey : undefined,
+              agenzia: agenziaNome(gruppo[0]),
+            },
+          });
+        }
+        invii.push({
+          ok: false,
+          recipient,
+          agenzia: agenziaNome(gruppo[0]),
+          titolo_ids: ids,
+          error: (sendErr as { message?: string })?.message ?? "send-email failed",
+        });
+        continue;
+      }
+
+      inviiOk++;
+      recipients.push(recipient);
+      const ts = sentAt.toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const slug = (agenziaNome(gruppo[0]) || "agenzia").replace(/[^a-zA-Z0-9]+/g, "_").slice(0, 40);
+      const fileName = `Avviso_incasso_${slug}_${ts}.pdf`;
+      let archiveResult: { path: string; documentiIds: string[] } | null = null;
+      let archiveError: string | null = null;
+
+      try {
+        const pdfBytes = await buildArchivePdf({
+          subject,
+          recipient,
+          sentAt,
+          sendId,
+          titoli: gruppo,
+        });
+        archiveResult = await archivePdfToTitoli(supabase, ids, pdfBytes, fileName, userId);
+        documentiArchiviati += archiveResult.documentiIds.length;
+      } catch (archErr) {
+        archiveError = (archErr as Error)?.message ?? String(archErr);
+        archiveErrors.push(archiveError);
+        console.error("archive PDF failed:", archErr);
+      }
+
+      const logPayload = {
+        destinatario: recipient,
+        oggetto: subject,
+        send_id: sendId,
+        garantito: auditGarantito,
+        force,
+        bulk: isBulk,
+        bulk_key: isBulk ? bulkKey : undefined,
+        titolo_ids: ids,
+        agenzia: agenziaNome(gruppo[0]),
+        path_storage: archiveResult?.path ?? null,
+        documenti_ids: archiveResult?.documentiIds ?? [],
+        archive_error: archiveError,
+        inviato_il: sentAt.toISOString(),
+      };
+
+      for (const tid of ids) {
         await supabase.from("log_attivita").insert({
-          azione: "notifica_messa_cassa_errore",
+          azione: "notifica_messa_cassa_inviata",
           entita_tipo: "titolo",
           entita_id: tid,
-          severity: "warning",
+          severity: archiveError ? "warning" : "info",
           user_id: userId,
-          dettagli_json: {
-            destinatario: recipient,
-            oggetto: subject,
-            errore: (sendErr as { message?: string })?.message ?? String(sendErr),
-            garantito: auditGarantito,
-            bulk: isBulk,
-            bulk_key: isBulk ? bulkKey : undefined,
-          },
+          dettagli_json: logPayload,
         });
       }
-      return new Response(
-        JSON.stringify({
-          ok: false,
-          fallback: true,
-          recipient,
-          error: (sendErr as { message?: string })?.message ?? "send-email failed",
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
 
-    const ts = sentAt.toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const fileName = `Avviso_incasso_agenzia_${ts}.pdf`;
-    let archiveResult: { path: string; documentiIds: string[] } | null = null;
-    let archiveError: string | null = null;
-
-    try {
-      const pdfBytes = await buildArchivePdf({
-        subject,
+      invii.push({
+        ok: true,
         recipient,
-        sentAt,
-        sendId,
-        titoli,
-      });
-      archiveResult = await archivePdfToTitoli(supabase, titoloIds, pdfBytes, fileName, userId);
-    } catch (archErr) {
-      archiveError = (archErr as Error)?.message ?? String(archErr);
-      console.error("archive PDF failed:", archErr);
-    }
-
-    const logPayload = {
-      destinatario: recipient,
-      oggetto: subject,
-      send_id: sendId,
-      garantito: auditGarantito,
-      force,
-      bulk: isBulk,
-      bulk_key: isBulk ? bulkKey : undefined,
-      titolo_ids: titoloIds,
-      path_storage: archiveResult?.path ?? null,
-      documenti_ids: archiveResult?.documentiIds ?? [],
-      archive_error: archiveError,
-      inviato_il: sentAt.toISOString(),
-    };
-
-    for (const tid of titoloIds) {
-      await supabase.from("log_attivita").insert({
-        azione: "notifica_messa_cassa_inviata",
-        entita_tipo: "titolo",
-        entita_id: tid,
-        severity: archiveError ? "warning" : "info",
-        user_id: userId,
-        dettagli_json: logPayload,
+        agenzia: agenziaNome(gruppo[0]),
+        send_id: sendId,
+        titolo_ids: ids,
+        documenti_archiviati: archiveResult?.documentiIds.length ?? 0,
+        path_storage: archiveResult?.path ?? null,
+        archive_error: archiveError,
       });
     }
 
     return new Response(
       JSON.stringify({
-        ok: true,
-        recipient,
-        send_id: sendId,
-        garantito: auditGarantito,
-        bulk: isBulk,
-        documenti_archiviati: archiveResult?.documentiIds.length ?? 0,
-        path_storage: archiveResult?.path ?? null,
-        archive_error: archiveError,
+        ok: inviiOk > 0,
+        recipient: recipients[0] ?? null,
+        recipients,
+        invii: inviiOk,
+        invii_ok: inviiOk,
+        invii_ko: inviiKo,
+        agenzie: gruppi.length,
+        garantito: titoli.some(isGarantitoTitolo),
+        bulk: titoli.length > 1,
+        documenti_archiviati: documentiArchiviati,
+        archive_error: archiveErrors[0] ?? null,
+        dettaglio_invii: invii,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

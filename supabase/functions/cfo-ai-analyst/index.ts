@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireAi, aiChatCompletions } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -79,10 +80,7 @@ Deno.serve(async (req) => {
     }
 
     const { messages, filters } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY mancante" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    requireAi();
 
     const filterCtx = filters
       ? `\n\nFiltri attivi nella UI (usali se appropriati): ${JSON.stringify(filters)}`
@@ -112,15 +110,11 @@ Deno.serve(async (req) => {
 
     // Loop tool-calling (max 5 iterazioni)
     for (let iter = 0; iter < 5; iter++) {
-      const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const aiResp = await aiChatCompletions({
           model: "google/gemini-2.5-flash",
           messages: conversation,
           tools,
           tool_choice: "auto",
-        }),
       });
 
       if (!aiResp.ok) {

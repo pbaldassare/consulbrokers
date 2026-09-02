@@ -20,11 +20,13 @@ import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
 import { TipoFilterSegmented, type FiltroTipo } from "@/components/polizze/TipoFilterSegmented";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
+import { SortableTableHead, nextSort } from "@/components/shared/SortableTableHead";
+import { datePeriodoPolizzaGaranzia } from "@/lib/datePolizzaGaranzia";
 import { rowBorderClass, isQuietanzaRow, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
 import { cn } from "@/lib/utils";
 
 const ROW_SELECT =
-  "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza, is_regolazione, regolazione_quietanza_id, numero_rata, numero_rate_totali";
+  "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, durata_da, durata_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza, is_regolazione, regolazione_quietanza_id, numero_rata, numero_rate_totali";
 
 type PortafoglioRow = Record<string, any>;
 
@@ -55,6 +57,8 @@ const PortafoglioAttivePage = () => {
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>("quietanze");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [sortField, setSortField] = useState("garanzia_a");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const today = format(new Date(), "yyyy-MM-dd");
   const inizioMese = format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -68,6 +72,8 @@ const PortafoglioAttivePage = () => {
     filtroRamo,
     escludiMeseCorrente,
     filtroTipo,
+    sortField,
+    sortDirection,
   ]);
 
   const applyTipoFilter = (q: any, tipo: FiltroTipo) => {
@@ -113,14 +119,19 @@ const PortafoglioAttivePage = () => {
   });
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente, filtroTipo],
+    queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente, filtroTipo, sortField, sortDirection],
     queryFn: async () => {
+      const orderCol =
+        sortField === "inizioPolizza" ? "durata_da"
+        : sortField === "finePolizza" ? "durata_a"
+        : sortField === "inizioGaranzia" ? "garanzia_da"
+        : "garanzia_a";
       let q = applyBaseFilters(
         supabase.from("v_portafoglio_quietanze").select(ROW_SELECT, { count: "exact" }),
       );
       q = applyTipoFilter(q, filtroTipo);
       const { data, count, error } = await q
-        .order("garanzia_a", { ascending: true })
+            .order(orderCol, { ascending: sortDirection === "asc" })
         .range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], count: count || 0 };
@@ -199,6 +210,13 @@ const PortafoglioAttivePage = () => {
     setExpanded((prev) => ({ ...prev, [polizzaId]: !prev[polizzaId] }));
   };
 
+  const handleSort = (field: string) => {
+    const next = nextSort(sortField, sortDirection, field);
+    setSortField(next.field);
+    setSortDirection(next.direction);
+    setPage(0);
+  };
+
   const renderTipoCell = (p: PortafoglioRow) => {
     const isQ = isQuietanzaRow(p);
     return (
@@ -229,13 +247,17 @@ const PortafoglioAttivePage = () => {
     );
   };
 
-  const renderDataCells = (p: PortafoglioRow) => (
+  const renderDataCells = (p: PortafoglioRow, dates?: ReturnType<typeof datePeriodoPolizzaGaranzia>) => {
+    const d = dates || datePeriodoPolizzaGaranzia(p);
+    return (
     <>
       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
       <TableCell>{p.compagnia_nome || "—"}</TableCell>
       <TableCell>{p.ramo_nome || "—"}</TableCell>
-      <TableCell>{fmtDate(p.garanzia_da)}</TableCell>
-      <TableCell>{fmtDate(p.garanzia_a)}</TableCell>
+      <TableCell>{fmtDate(d.inizioPolizza)}</TableCell>
+      <TableCell>{fmtDate(d.finePolizza)}</TableCell>
+      <TableCell>{fmtDate(d.inizioGaranzia)}</TableCell>
+      <TableCell>{fmtDate(d.fineGaranzia)}</TableCell>
       <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
       <TableCell>{frazLabel(p.rate)}</TableCell>
       <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
@@ -245,10 +267,14 @@ const PortafoglioAttivePage = () => {
       <TableCell className="text-sm">{p.specialist || "—"}</TableCell>
       <TableCell className="text-sm max-w-[200px] truncate" title={p.produttori_display || p.produttore_nome || undefined}>{p.produttori_display || p.produttore_nome || "—"}</TableCell>
     </>
-  );
+    );
+  };
 
-  const renderQuietanzaRow = (p: PortafoglioRow, opts?: { child?: boolean }) => {
+  const renderQuietanzaRow = (p: PortafoglioRow, opts?: { child?: boolean; chainDates?: ReturnType<typeof datePeriodoPolizzaGaranzia> }) => {
     const child = !!opts?.child;
+    const dates = opts?.chainDates
+      ? { ...opts.chainDates, inizioGaranzia: p.garanzia_da ?? null, fineGaranzia: p.garanzia_a ?? null }
+      : datePeriodoPolizzaGaranzia(p);
     return (
       <TableRow
         key={p.id}
@@ -290,7 +316,7 @@ const PortafoglioAttivePage = () => {
             )}
           </TableCell>
         )}
-        {renderDataCells(p)}
+        {renderDataCells(p, dates)}
       </TableRow>
     );
   };
@@ -298,6 +324,7 @@ const PortafoglioAttivePage = () => {
   const renderPolizzaMadreRow = (p: PortafoglioRow) => {
     const polizzaId = String(p.polizza_id);
     const rate = rateByPolizza[polizzaId] || [];
+    const dates = datePeriodoPolizzaGaranzia(p, rate);
     const isOpen = !!expanded[polizzaId];
     const hasRate = rate.length > 0;
 
@@ -326,9 +353,9 @@ const PortafoglioAttivePage = () => {
           </TableCell>
           <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
           {renderTipoCell(p)}
-          {renderDataCells(p)}
+          {renderDataCells(p, dates)}
         </TableRow>
-        {isOpen && rate.map((r) => renderQuietanzaRow(r, { child: true }))}
+        {isOpen && rate.map((r) => renderQuietanzaRow(r, { child: true, chainDates: dates }))}
       </Fragment>
     );
   };
@@ -427,8 +454,10 @@ const PortafoglioAttivePage = () => {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Agenzia</TableHead>
                   <TableHead>Garanzia</TableHead>
-                  <TableHead>Inizio Garanzia</TableHead>
-                  <TableHead>Fine Garanzia</TableHead>
+                  <SortableTableHead field="inizioPolizza" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Inizio durata complessiva del contratto">Inizio Polizza</SortableTableHead>
+                  <SortableTableHead field="finePolizza" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Fine durata complessiva del contratto">Fine Polizza</SortableTableHead>
+                  <SortableTableHead field="inizioGaranzia" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Inizio del periodo di garanzia più recente">Inizio Garanzia</SortableTableHead>
+                  <SortableTableHead field="fineGaranzia" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Fine del periodo di garanzia più recente">Fine Garanzia</SortableTableHead>
                   <TableHead>Targa</TableHead>
                   <TableHead>Fraz</TableHead>
                   <TableHead className="text-right">Lordo</TableHead>

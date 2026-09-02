@@ -3,6 +3,8 @@
 // PRODOTTO (condivisi tra clienti) e i DATI PERSONALI (override per cliente).
 // Usa Lovable AI Gateway (Gemini) con tool calling per output strutturato.
 
+import { requireAi, aiChatCompletions, buildDocumentUserContent, getAiModelChain } from "../_shared/aiProvider.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -208,8 +210,7 @@ const TOOL = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
+    requireAi();
 
     const { fileBase64, mimeType } = await req.json();
     if (!fileBase64 || !mimeType) {
@@ -219,46 +220,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    const dataUrl = `data:${mimeType};base64,${fileBase64}`;
-
+    const userContent = await buildDocumentUserContent({
+      mimeType,
+      fileBase64,
+      instruction: "Analizza queste CGA ed estrai i dati strutturati richiesti.",
+      filename: "cga.pdf",
+    });
     const messages = [
       {
         role: "system",
         content:
           "Sei un esperto di Condizioni Generali Assicurazione italiane. Estrai i dati di PRODOTTO (uguali per tutti i clienti con quel prodotto) e i DATI PERSONALI (override negoziati). Non inventare valori: se mancano, ometti il campo.",
       },
-      {
-        role: "user",
-        content: mimeType === "application/pdf"
-          ? [
-              { type: "text", text: "Analizza queste CGA ed estrai i dati strutturati richiesti." },
-              { type: "file", file: { filename: "cga.pdf", file_data: dataUrl } },
-            ]
-          : [
-              { type: "text", text: "Analizza queste CGA ed estrai i dati strutturati richiesti." },
-              { type: "image_url", image_url: { url: dataUrl } },
-            ],
-      },
+      { role: "user", content: userContent },
     ];
 
     const callGateway = async (model: string, msgs: unknown[]) => {
-      return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      return await aiChatCompletions({
           model,
           messages: msgs,
           tools: [{ type: "function", function: TOOL }],
           tool_choice: { type: "function", function: { name: TOOL.name } },
-        }),
       });
     };
 
-    // Tier 1+2: PDF nativo con modello veloce, poi fallback. Retry brevi per stare entro 150s.
-    const modelChain = ["google/gemini-3-flash-preview", "google/gemini-2.5-flash"];
+    const modelChain = getAiModelChain(["google/gemini-3-flash-preview", "google/gemini-2.5-flash"]);
     let resp: Response | null = null;
     let lastErrText = "";
     let lastStatus = 0;
@@ -298,7 +284,7 @@ Deno.serve(async (req) => {
             content: `Analizza il testo seguente di Condizioni Generali Assicurazione (CGA) ed estrai i dati strutturati richiesti.\n\n--- INIZIO CGA ---\n${trimmed}\n--- FINE CGA ---`,
           },
         ];
-        const textModels = ["google/gemini-3-flash-preview", "google/gemini-2.5-flash"];
+        const textModels = getAiModelChain(["google/gemini-3-flash-preview", "google/gemini-2.5-flash"]);
         for (const model of textModels) {
           resp = await callGateway(model, textMessages);
           if (resp.ok) break;

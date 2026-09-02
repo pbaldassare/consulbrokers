@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChatCompletions, hasAiCredentials, buildDocumentUserContent } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -78,14 +79,8 @@ function parseData(raw: string): string {
   return new Date().toISOString().split("T")[0];
 }
 
-async function parseWithAI(text: string, apiKey: string): Promise<Array<{ data_operazione: string; descrizione: string; importo: number; saldo: number | null }>> {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+async function parseWithAI(text: string): Promise<Array<{ data_operazione: string; descrizione: string; importo: number; saldo: number | null }>> {
+  const response = await aiChatCompletions({
       model: "google/gemini-2.5-flash",
       messages: [
         {
@@ -129,7 +124,6 @@ Return [] if no transactions found.`,
         },
       }],
       tool_choice: { type: "function", function: { name: "extract_transactions" } },
-    }),
   });
 
   if (!response.ok) {
@@ -199,22 +193,25 @@ Deno.serve(async (req) => {
       rows = parseCSV(text);
     } else {
       // For PDF/images, use AI to extract text and parse
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY non configurata");
+      if (!hasAiCredentials()) throw new Error("API IA non configurata");
 
-      // Convert to base64 for AI
       const arrayBuffer = await fileData.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      const base64 = btoa(binary);
       const mimeType = doc.tipo_documento === "pdf" ? "application/pdf" : `image/${doc.tipo_documento === "jpg" ? "jpeg" : doc.tipo_documento}`;
+      const userContent = await buildDocumentUserContent({
+        mimeType,
+        fileBase64: base64,
+        instruction: "Estrai tutti i movimenti bancari da questo documento. Restituisci solo il JSON array.",
+        filename: doc.tipo_documento === "pdf" ? "estratto.pdf" : "estratto.jpg",
+      });
 
-      // Use multimodal AI for OCR
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const response = await aiChatCompletions({
           model: "google/gemini-2.5-flash",
           messages: [
             {
@@ -224,13 +221,7 @@ Each object must have: data_operazione (YYYY-MM-DD), descrizione (string), impor
 Parse European number formats (comma=decimal, dot=thousands).
 Return [] if no transactions found.`,
             },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: "Estrai tutti i movimenti bancari da questo documento. Restituisci solo il JSON array." },
-                { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
-              ],
-            },
+            { role: "user", content: userContent },
           ],
           tools: [{
             type: "function",
@@ -261,7 +252,6 @@ Return [] if no transactions found.`,
             },
           }],
           tool_choice: { type: "function", function: { name: "extract_transactions" } },
-        }),
       });
 
       if (!response.ok) {

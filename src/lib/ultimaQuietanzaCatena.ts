@@ -15,6 +15,7 @@ export type QuietanzaCatenaLike = {
   data_incasso?: string | null;
   data_pagamento?: string | null;
   data_messa_cassa?: string | null;
+  garanzia_da?: string | null;
   garanzia_a?: string | null;
   created_at?: string | null;
   premio_lordo?: number | null;
@@ -31,6 +32,24 @@ export function dataIncassoQuietanza(r: QuietanzaCatenaLike | null | undefined):
 
 function sortKeyOrdineCatena(r: QuietanzaCatenaLike): string {
   return r.garanzia_a || r.created_at || "";
+}
+
+/**
+ * Quietanza da cui leggere premio/provvigioni sulla riga polizza:
+ * stessa decorrenza della madre, altrimenti unica rata, altrimenti ultima in catena.
+ */
+export function quietanzaRiferimentoPremio<T extends QuietanzaCatenaLike>(
+  head: { garanzia_da?: string | null } | null | undefined,
+  rate: T[],
+  appendici: T[] = [],
+): T | null {
+  const da = head?.garanzia_da;
+  if (da) {
+    const stessoPeriodo = rate.find((r) => r.garanzia_da === da);
+    if (stessoPeriodo) return stessoPeriodo;
+  }
+  if (rate.length === 1) return rate[0];
+  return ultimaQuietanzaCatena(rate, appendici);
 }
 
 export function ultimaQuietanzaCatena<T extends QuietanzaCatenaLike>(

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiChatCompletions, hasAiCredentials } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,8 +30,7 @@ async function aiAssistMatch(
   candidatesMov: any[],
   candidatesTitoli: any[],
 ): Promise<{ kind: "movimento" | "titolo"; id: string; score: number; motivazione: string } | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return null;
+  if (!hasAiCredentials()) return null;
   if (candidatesMov.length === 0 && candidatesTitoli.length === 0) return null;
 
   const compact = (m: any) => ({
@@ -51,13 +51,7 @@ async function aiAssistMatch(
   };
 
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const res = await aiChatCompletions({
         model: "google/gemini-2.5-flash",
         messages: [
           {
@@ -88,7 +82,6 @@ async function aiAssistMatch(
           },
         ],
         tool_choice: { type: "function", function: { name: "best_match" } },
-      }),
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -101,6 +94,7 @@ async function aiAssistMatch(
     console.error("aiAssistMatch error:", e);
     return null;
   }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {

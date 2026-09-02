@@ -3,6 +3,8 @@
 // catalogo campi per Ramo. Usa Lovable AI Gateway (Gemini) con tool calling
 // per ottenere un output strutturato chiave -> valore.
 
+import { requireAi, aiChatCompletions, buildDocumentUserContent, getAiModelChain } from "../_shared/aiProvider.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -63,8 +65,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY mancante");
+    requireAi();
 
     const body = await req.json();
     const fileBase64: string | undefined = body?.fileBase64;
@@ -80,48 +81,34 @@ Deno.serve(async (req) => {
     }
 
     const TOOL = buildTool(campi);
-    const dataUrl = `data:${mimeType};base64,${fileBase64}`;
     const istruzione =
       "Analizza questo documento di polizza ed estrai i campi richiesti." +
       (contesto ? `\n\nContesto noto (usalo solo come riferimento, non sovrascrivere il documento):\n${contesto}` : "");
 
+    const userContent = await buildDocumentUserContent({
+      mimeType,
+      fileBase64,
+      instruction: istruzione,
+      filename: "polizza.pdf",
+    });
     const messages: unknown[] = [
       {
         role: "system",
         content:
           "Sei un esperto di polizze assicurative italiane. Estrai con precisione i campi richiesti dal documento. Se un dato non è presente, ometti la chiave: non inventare mai valori. Importi come numeri puri, date in formato ISO yyyy-mm-dd.",
       },
-      {
-        role: "user",
-        content:
-          mimeType === "application/pdf"
-            ? [
-                { type: "text", text: istruzione },
-                { type: "file", file: { filename: "polizza.pdf", file_data: dataUrl } },
-              ]
-            : [
-                { type: "text", text: istruzione },
-                { type: "image_url", image_url: { url: dataUrl } },
-              ],
-      },
+      { role: "user", content: userContent },
     ];
 
     const callGateway = (model: string, msgs: unknown[]) =>
-      fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      aiChatCompletions({
           model,
           messages: msgs,
           tools: [{ type: "function", function: TOOL }],
           tool_choice: { type: "function", function: { name: TOOL.name } },
-        }),
       });
 
-    const modelChain = ["google/gemini-3-flash-preview", "google/gemini-2.5-flash"];
+    const modelChain = getAiModelChain(["google/gemini-3-flash-preview", "google/gemini-2.5-flash"]);
     let resp: Response | null = null;
     let lastStatus = 0;
     let lastErr = "";

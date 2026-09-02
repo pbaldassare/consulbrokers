@@ -109,9 +109,16 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
     if (notificaTitoloIds.length > 0) {
       invokeNotificaMessaCassa(notificaTitoloIds)
         .then(({ data, error }) => {
-          if (error) toast.warning("Notifica agenzia non inviata");
-          else if (data?.archive_error) toast.warning(`Email inviata ma archivio PDF fallito: ${data.archive_error}`);
-          else if (data?.documenti_archiviati) {
+          if (error || (data && data.ok === false && !data.skipped && !(data.invii_ok))) {
+            toast.warning("Notifica agenzia non inviata");
+          } else if (data?.invii_ko) {
+            toast.warning(`Notifiche: ${data.invii_ok} agenzie ok, ${data.invii_ko} con errore`);
+          } else if ((data?.agenzie ?? 0) > 1) {
+            toast.success(`Notifiche inviate a ${data.agenzie} agenzie (ognuna solo le proprie polizze)`);
+          } else if (data?.archive_error) {
+            toast.warning(`Email inviata ma archivio PDF fallito: ${data.archive_error}`);
+          }
+          if (data?.documenti_archiviati) {
             queryClient.invalidateQueries({ queryKey: ["documenti", "titolo"] });
           }
         })

@@ -1,3 +1,5 @@
+import { requireAi, aiChatCompletions, buildDocumentUserContent } from "../_shared/aiProvider.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -50,8 +52,7 @@ const TOOL = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
+    requireAi();
 
     const { fileBase64, mimeType } = await req.json();
     if (!fileBase64 || !mimeType) {
@@ -61,35 +62,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    const dataUrl = `data:${mimeType};base64,${fileBase64}`;
-
+    const userContent = await buildDocumentUserContent({
+      mimeType,
+      fileBase64,
+      instruction: "Analizza questa polizza ed estrai i dati richiesti.",
+      filename: mimeType.includes("pdf") ? "polizza.pdf" : "polizza.jpg",
+    });
     const messages = [
       {
         role: "system",
         content:
           "Sei un esperto di polizze assicurative italiane Auto/RCA. Estrai TUTTE le voci di premio per garanzia con descrizione testuale originale e premio netto. Se sul documento è presente un codice/sigla per la garanzia includilo. Importi numerici (es. 1234.56). Date in formato YYYY-MM-DD.",
       },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: "Analizza questa polizza ed estrai i dati richiesti." },
-          { type: "image_url", image_url: { url: dataUrl } },
-        ],
-      },
+      { role: "user", content: userContent },
     ];
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const resp = await aiChatCompletions({
         model: "google/gemini-2.5-flash",
         messages,
         tools: [{ type: "function", function: TOOL }],
         tool_choice: { type: "function", function: { name: TOOL.name } },
-      }),
     });
 
     if (!resp.ok) {

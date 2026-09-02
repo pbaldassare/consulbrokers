@@ -1,6 +1,8 @@
 // Edge function: chiedi-mercato-assicurativo (Assistente Web)
 // Chat web stile ChatGPT — NON accede a DB/polizze/portafoglio CBnet.
 
+import { requireAi, aiChatCompletions } from "../_shared/aiProvider.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -37,17 +39,9 @@ function isEmailAllowed(email: string | null | undefined): boolean {
 }
 
 async function callGemini(
-  apiKey: string,
   messages: { role: string; content: string }[],
 ): Promise<string> {
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ model: "google/gemini-2.5-flash", messages }),
-  });
+  const resp = await aiChatCompletions({ model: "google/gemini-2.5-flash", messages });
   if (!resp.ok) {
     const t = await resp.text();
     throw new Error(`AI gateway ${resp.status}: ${t.slice(0, 200)}`);
@@ -127,8 +121,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
+    requireAi();
 
     const body = await req.json();
     const domanda = String(body?.domanda ?? "").trim();
@@ -154,7 +147,7 @@ Deno.serve(async (req) => {
     // Ottimizza query di ricerca (opzionale)
     let searchQuery = domanda;
     try {
-      const q = await callGemini(LOVABLE_API_KEY, [
+      const q = await callGemini([
         {
           role: "system",
           content:
@@ -207,7 +200,7 @@ Deno.serve(async (req) => {
 
     let risposta: string;
     try {
-      risposta = await callGemini(LOVABLE_API_KEY, messages);
+      risposta = await callGemini(messages);
     } catch (e) {
       if (e instanceof Error && e.message.includes("429")) {
         return new Response(JSON.stringify({ error: "Rate limit AI superato." }), {

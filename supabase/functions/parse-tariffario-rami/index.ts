@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { requireAi, aiChatCompletions, buildDocumentUserContent } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,8 +25,7 @@ serve(async (req) => {
     const cleanBase64 = (pdf_base64 || "").replace(/\s/g, "");
     if (!cleanBase64) return json({ righe: [], warning: "Allegato vuoto: seleziona un PDF o un'immagine valida." });
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return json({ error: "LOVABLE_API_KEY non configurata" }, 500);
+    requireAi();
 
     const mt = mime_type || "application/pdf";
     const estimatedBytes = Math.floor((cleanBase64.length * 3) / 4);
@@ -39,11 +39,13 @@ serve(async (req) => {
 
     let aiResponse: Response;
     try {
-      aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
+      const userContent = await buildDocumentUserContent({
+        mimeType: mt,
+        fileBase64: cleanBase64,
+        instruction: "Estrai tutte le righe del tariffario provvigioni.",
+        filename: mt.includes("pdf") ? "tariffario.pdf" : "tariffario.jpg",
+      });
+      aiResponse = await aiChatCompletions({
           model: "google/gemini-2.5-flash",
           messages: [
             {
@@ -55,13 +57,7 @@ Per ogni voce restituisci:
 - "percentuale": numero decimale (converti virgole in punti, es "12,5%" -> 12.5).
 Estrai TUTTE le righe leggibili, anche se la prima colonna si chiama "Sezione" o "Categoria". Ignora righe di intestazione/totale documento.`,
             },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: "Estrai tutte le righe del tariffario provvigioni." },
-                { type: "image_url", image_url: { url: `data:${mt};base64,${cleanBase64}` } },
-              ],
-            },
+            { role: "user", content: userContent },
           ],
           tools: [
             {
@@ -92,8 +88,7 @@ Estrai TUTTE le righe leggibili, anche se la prima colonna si chiama "Sezione" o
             },
           ],
           tool_choice: { type: "function", function: { name: "extract_tariffario" } },
-        }),
-      });
+      }, { signal: controller.signal });
     } catch (netErr) {
       clearTimeout(timeout);
       console.error("[parse-tariffario-rami] network/timeout", netErr);

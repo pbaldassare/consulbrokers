@@ -199,7 +199,7 @@ function TitoloImportiPremiBlock({
       const { data } = await supabase
         .from("titoli")
         .select(
-          "compagnia_rapporto_id, ramo_id, premio_netto, premio_netto_quietanza, tasse, tasse_quietanza, ssn_firma, ssn_quietanza, addizionali, addizionali_quietanza, provvigioni_firma, provvigioni_quietanza, premio_lordo, sostituisce_polizza, polizza_rateo",
+          "compagnia_rapporto_id, ramo_id, premio_netto, premio_netto_quietanza, tasse, tasse_quietanza, ssn_firma, ssn_quietanza, addizionali, addizionali_quietanza, provvigioni_firma, provvigioni_quietanza, premio_lordo, sostituisce_polizza, polizza_rateo, numero_titolo",
         )
         .eq("id", titoloId)
         .maybeSingle();
@@ -620,15 +620,30 @@ function TitoloImportiPremiBlock({
       return s + (parseFloat(r.netto || "0") || 0);
     }, 0);
 
-  /** Dopo save su titoli: allinea quietanze (+ madre se quietanza-as-titolo). */
+  /** Dopo save su titoli: allinea quietanze (+ madre se quietanza-as-titolo, anche il premio). */
   const syncProvvigioniQuietanzeAfterSave = async (updates: Record<string, number>) => {
     const pf = updates.provvigioni_firma;
     const pq = updates.provvigioni_quietanza;
-    if (pf == null && pq == null) return;
+    const premioKeys = [
+      "premio_lordo",
+      "premio_netto",
+      "addizionali",
+      "tasse",
+      "ssn_firma",
+      "premio_netto_quietanza",
+      "addizionali_quietanza",
+      "tasse_quietanza",
+      "ssn_quietanza",
+    ] as const;
+    const hasPremio = premioKeys.some((k) => updates[k] != null);
+    if (pf == null && pq == null && !hasPremio) return;
 
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (pf != null) patch.provvigioni_firma = pf;
     if (pq != null) patch.provvigioni_quietanza = pq;
+    for (const k of premioKeys) {
+      if (updates[k] != null) patch[k] = updates[k];
+    }
 
     const { error: qErr } = await (supabase.from("quietanze") as any)
       .update(patch)
@@ -640,10 +655,11 @@ function TitoloImportiPremiBlock({
     const sost = titoloMeta?.sostituisce_polizza;
     if (!sost) return;
 
+    const madreNumero = String(titoloMeta?.numero_titolo || sost).trim();
     const { data: madre, error: madreErr } = await supabase
       .from("titoli")
       .select("id")
-      .eq("numero_titolo", String(sost).trim())
+      .eq("numero_titolo", madreNumero)
       .is("sostituisce_polizza", null)
       .maybeSingle();
     if (madreErr || !madre?.id) {
@@ -660,6 +676,8 @@ function TitoloImportiPremiBlock({
     if (qmErr) console.warn("[syncProvvigioniQuietanze] quietanze madre:", qmErr.message);
 
     await qc.invalidateQueries({ queryKey: ["titolo", madre.id] });
+    await qc.invalidateQueries({ queryKey: ["titolo-meta-premi", madre.id] });
+    await qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
     await qc.invalidateQueries({ queryKey: ["portafoglio-carico"] });
   };
 

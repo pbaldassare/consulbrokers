@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { requireAi, aiChatCompletions, buildDocumentUserContent } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,17 +54,16 @@ serve(async (req) => {
 
     if (!pdf_base64) throw new Error("pdf_base64 è obbligatorio");
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY non configurata");
+    requireAi();
 
-    // Call AI to extract commissions from PDF
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const userContent = await buildDocumentUserContent({
+      mimeType: "application/pdf",
+      fileBase64: pdf_base64,
+      instruction:
+        "Estrai tutte le righe di provvigioni da questo documento PDF. Per ogni riga estrai il nome della categoria/ramo e la percentuale di provvigione.",
+      filename: "provvigioni.pdf",
+    });
+    const aiResponse = await aiChatCompletions({
         model: "google/gemini-2.5-flash",
         messages: [
           {
@@ -72,19 +72,7 @@ serve(async (req) => {
 Devi estrarre ogni riga che contiene un ramo/categoria di prodotto assicurativo e la relativa percentuale di provvigione.
 Restituisci i dati usando la funzione extract_provvigioni.`
           },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Estrai tutte le righe di provvigioni da questo documento PDF. Per ogni riga estrai il nome della categoria/ramo e la percentuale di provvigione."
-              },
-              {
-                type: "image_url",
-                image_url: { url: `data:application/pdf;base64,${pdf_base64}` }
-              }
-            ]
-          }
+          { role: "user", content: userContent },
         ],
         tools: [
           {
@@ -115,7 +103,6 @@ Restituisci i dati usando la funzione extract_provvigioni.`
           }
         ],
         tool_choice: { type: "function", function: { name: "extract_provvigioni" } }
-      })
     });
 
     if (!aiResponse.ok) {

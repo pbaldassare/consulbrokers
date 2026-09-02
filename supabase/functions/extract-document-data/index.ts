@@ -1,3 +1,5 @@
+import { requireAi, aiChatCompletions, buildDocumentUserContent } from "../_shared/aiProvider.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -173,32 +175,23 @@ Deno.serve(async (req) => {
       throw new Error(`tipo_documento non valido: ${tipo_documento}. Valori ammessi: ${Object.keys(TOOL_SCHEMAS).join(", ")}`);
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY non configurata");
-
+    requireAi();
     const contentMime = mime_type || "image/jpeg";
+    const userContent = await buildDocumentUserContent({
+      mimeType: contentMime,
+      fileBase64: file_base64,
+      instruction: "Analizza questo documento e estrai tutti i dati richiesti.",
+      filename: contentMime.includes("pdf") ? "documento.pdf" : "documento.jpg",
+    });
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const response = await aiChatCompletions({
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: SYSTEM_PROMPTS[tipo_documento] + entityContextBlock },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Analizza questo documento e estrai tutti i dati richiesti." },
-              { type: "image_url", image_url: { url: `data:${contentMime};base64,${file_base64}` } },
-            ],
-          },
+          { role: "user", content: userContent },
         ],
         tools: [{ type: "function", function: schema }],
         tool_choice: { type: "function", function: { name: schema.name } },
-      }),
     });
 
     if (!response.ok) {

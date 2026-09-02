@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { displayStatoPolizza, isQuietanzaRow } from "@/lib/polizzeDisplay";
-import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
+import { datePeriodoPolizzaGaranzia } from "@/lib/datePolizzaGaranzia";
 import type { CaricoExportRow } from "./columns";
 
 export type CaricoRawRow = {
@@ -12,6 +12,8 @@ export type CaricoRawRow = {
   ramo_nome?: string | null;
   garanzia_da?: string | null;
   garanzia_a?: string | null;
+  durata_da?: string | null;
+  durata_a?: string | null;
   targa_telaio?: string | null;
   rate?: number | null;
   numero_rata?: number | null;
@@ -70,6 +72,7 @@ export function mapCaricoExportRow(
   const polizza = p.titolo_derivato_numero || p.numero_titolo || "";
   const sede = (p.ufficio_id && ufficiById?.get(p.ufficio_id)) || "";
 
+  const dates = datePeriodoPolizzaGaranzia(p);
   return {
     polizza,
     tipo: tipoLabel(p),
@@ -77,8 +80,10 @@ export function mapCaricoExportRow(
     agenzia: p.compagnia_nome || "",
     sede,
     garanzia: p.ramo_nome || "",
-    inizioGaranzia: fmtDate(p.garanzia_da),
-    fineGaranzia: fmtDate(p.garanzia_a),
+    inizioPolizza: fmtDate(dates.inizioPolizza),
+    finePolizza: fmtDate(dates.finePolizza),
+    inizioGaranzia: fmtDate(dates.inizioGaranzia),
+    fineGaranzia: fmtDate(dates.fineGaranzia),
     targa: p.targa_telaio || "",
     frazionamento: frazLabel(p.rate),
     premio: Number(p.premio_lordo) || 0,

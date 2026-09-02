@@ -1,6 +1,6 @@
 // Carico — consultazione ed estrazione (senza operatività incassi)
 import { useServerPagination } from "@/hooks/useServerPagination";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,9 +14,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Clock,
   Search,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   RotateCcw,
   FileSpreadsheet,
   FileText,
@@ -28,7 +25,8 @@ import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
-import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
+import { SortableTableHead, nextSort } from "@/components/shared/SortableTableHead";
+import { datePeriodoPolizzaGaranzia } from "@/lib/datePolizzaGaranzia";
 import {
   rowBorderClass,
   isQuietanzaRow,
@@ -175,12 +173,9 @@ const PortafoglioCaricoConsultazionePage = () => {
   };
 
   const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
+    const next = nextSort(sortField, sortDirection, field);
+    setSortField(next.field);
+    setSortDirection(next.direction);
     setPage(0);
   };
 
@@ -188,24 +183,24 @@ const PortafoglioCaricoConsultazionePage = () => {
     field,
     children,
     className,
+    title,
   }: {
     field: string;
-    children: React.ReactNode;
+    children: ReactNode;
     className?: string;
-  }) => {
-    const Icon = sortField === field ? (sortDirection === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
-    return (
-      <TableHead
-        className={`cursor-pointer select-none bg-background ${className || ""}`}
-        onClick={() => handleSort(field)}
-      >
-        <div className="flex items-center gap-1">
-          {children}
-          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-        </div>
-      </TableHead>
-    );
-  };
+    title?: string;
+  }) => (
+    <SortableTableHead
+      field={field}
+      sortField={sortField}
+      sortDirection={sortDirection}
+      onSort={handleSort}
+      className={className}
+      title={title}
+    >
+      {children}
+    </SortableTableHead>
+  );
 
   const { page, setPage, pageSize, range } = useServerPagination(25, [
     search,
@@ -245,8 +240,15 @@ const PortafoglioCaricoConsultazionePage = () => {
       q = applySearch(q, search);
       q = applySedeFilter(q, filtroUffici);
 
+      const orderCol =
+        sortField === "inizioPolizza" ? "durata_da"
+        : sortField === "finePolizza" ? "durata_a"
+        : sortField === "inizioGaranzia" ? "garanzia_da"
+        : sortField === "fineGaranzia" ? "garanzia_a"
+        : sortField;
+
       const { data, count, error } = await q
-        .order(sortField, { ascending: sortDirection === "asc" })
+        .order(orderCol, { ascending: sortDirection === "asc" })
         .range(range.from, range.to);
       if (error) {
         console.error("[Carico] query v_portafoglio_quietanze:", error);
@@ -727,8 +729,18 @@ const PortafoglioCaricoConsultazionePage = () => {
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
                   <SortableHeader field="compagnia_nome">Agenzia</SortableHeader>
                   <SortableHeader field="ramo_nome">Garanzia</SortableHeader>
-                  <SortableHeader field="garanzia_da">Inizio Garanzia</SortableHeader>
-                  <SortableHeader field="garanzia_a">Fine Garanzia</SortableHeader>
+                  <SortableHeader field="inizioPolizza" title="Inizio durata complessiva del contratto">
+                    Inizio Polizza
+                  </SortableHeader>
+                  <SortableHeader field="finePolizza" title="Fine durata complessiva del contratto">
+                    Fine Polizza
+                  </SortableHeader>
+                  <SortableHeader field="inizioGaranzia" title="Inizio del periodo di garanzia più recente">
+                    Inizio Garanzia
+                  </SortableHeader>
+                  <SortableHeader field="fineGaranzia" title="Fine del periodo di garanzia più recente">
+                    Fine Garanzia
+                  </SortableHeader>
                   <SortableHeader field="targa_telaio">Targa</SortableHeader>
                   <SortableHeader field="rate">Fraz</SortableHeader>
                   <SortableHeader field="premio_lordo" className="text-right">
@@ -818,8 +830,17 @@ const PortafoglioCaricoConsultazionePage = () => {
                       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
                       <TableCell>{p.ramo_nome || "—"}</TableCell>
-                      <TableCell>{fmtDate(p.garanzia_da)}</TableCell>
-                      <TableCell>{fmtDate(p.garanzia_a)}</TableCell>
+                      {(() => {
+                        const d = datePeriodoPolizzaGaranzia(p);
+                        return (
+                          <>
+                            <TableCell>{fmtDate(d.inizioPolizza)}</TableCell>
+                            <TableCell>{fmtDate(d.finePolizza)}</TableCell>
+                            <TableCell>{fmtDate(d.inizioGaranzia)}</TableCell>
+                            <TableCell>{fmtDate(d.fineGaranzia)}</TableCell>
+                          </>
+                        );
+                      })()}
                       <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
                       <TableCell>{frazLabel(p.rate)}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>

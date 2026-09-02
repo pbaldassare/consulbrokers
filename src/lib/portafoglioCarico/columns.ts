@@ -6,6 +6,8 @@ export const CARICO_EXPORT_COLUMNS = [
   { key: "agenzia", header: "Agenzia" },
   { key: "sede", header: "Sede" },
   { key: "garanzia", header: "Garanzia" },
+  { key: "inizioPolizza", header: "Inizio Polizza" },
+  { key: "finePolizza", header: "Fine Polizza" },
   { key: "inizioGaranzia", header: "Inizio Garanzia" },
   { key: "fineGaranzia", header: "Fine Garanzia" },
   { key: "targa", header: "Targa" },

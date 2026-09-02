@@ -46,9 +46,12 @@ type DocumentalePageProps = {
 };
 
 export default function DocumentalePage({ consultazioneMode = false }: DocumentalePageProps) {
-  const { isAdmin: isAdminAuth, user } = useAuth();
+  const { isAdmin, profile, user } = useAuth();
   const { logRicerca } = useConsultazione();
-  const isAdmin = consultazioneMode ? false : isAdminAuth;
+  const canManage =
+    !consultazioneMode &&
+    (isAdmin ||
+      ["ufficio", "backoffice", "contabilita", "cfo"].includes(profile?.ruolo || ""));
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [breadcrumb, setBreadcrumb] = useState<{ id: string | null; name: string }[]>([{ id: null, name: "Home" }]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -254,7 +257,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
             </>
           )}
         </div>
-        {isAdmin && (
+        {canManage && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowCreateFolder(true)}>
               <FolderPlus className="mr-2 h-4 w-4" /> Nuova Cartella
@@ -344,7 +347,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
                         folderType={folder.folder_type}
                         documentCount={folder.doc_count ?? 0}
                         onClick={() => navigateToFolder(folder.id, folder.name)}
-                        isAdmin={isAdmin}
+                        isAdmin={canManage}
                         onEdit={() => {}}
                         onDelete={() => handleDeleteFolder(folder.id)}
                       />
@@ -368,7 +371,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
                         description={doc.description}
                         tags={doc.tags || []}
                         uploadedAt={doc.uploaded_at}
-                        isAdmin={isAdmin}
+                        isAdmin={canManage}
                         onDownload={() => handleDownload(doc)}
                         onDelete={() => handleDeleteDoc(doc.id)}
                       />
@@ -383,7 +386,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
                   <p className="text-muted-foreground">
                     {search ? "Nessun risultato trovato" : currentFolderId ? "Cartella vuota" : "Nessuna cartella disponibile"}
                   </p>
-                  {isAdmin && currentFolderId && !search && (
+                  {canManage && currentFolderId && !search && (
                     <Button variant="outline" className="mt-4" onClick={() => setShowUpload(true)}>
                       <Upload className="mr-2 h-4 w-4" /> Carica il primo documento
                     </Button>

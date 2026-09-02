@@ -3,6 +3,8 @@
 // Per RCA Auto estrae anche dati veicolo + conducente.
 // Include matching fuzzy lato server per i sottorami (synonyms + token-overlap).
 
+import { requireAi, aiChatCompletions, buildDocumentUserContent } from "../_shared/aiProvider.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -199,8 +201,7 @@ function fuzzyMatchSottoramo(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
+    requireAi();
 
     const { fileBase64, mimeType, gruppo_ramo, sottorami_ammessi, forza_veicolo } = await req.json();
     if (!fileBase64 || !mimeType) {
@@ -210,7 +211,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const dataUrl = `data:${mimeType};base64,${fileBase64}`;
     const gr = (gruppo_ramo as any) || {};
     const isZQ = String(gr?.codice || "").toUpperCase() === "ZQ";
     const shouldExtractVeicolo = isZQ || forza_veicolo === true;
@@ -279,6 +279,12 @@ Deno.serve(async (req) => {
     }
 
 
+    const userContent = await buildDocumentUserContent({
+      mimeType,
+      fileBase64,
+      instruction: "Analizza questa scheda di polizza ed estrai i dati richiesti." + ramoContext,
+      filename: mimeType.includes("pdf") ? "polizza.pdf" : "polizza.jpg",
+    });
     const messages = [
       {
         role: "system",
@@ -289,27 +295,14 @@ Deno.serve(async (req) => {
           "Codice fiscale e partita IVA in maiuscolo. Provincia in 2 lettere maiuscole. Targa e telaio in maiuscolo senza spazi. " +
           "Se un campo non è chiaramente presente, ometterlo (non inventare).",
       },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: "Analizza questa scheda di polizza ed estrai i dati richiesti." + ramoContext },
-          { type: "image_url", image_url: { url: dataUrl } },
-        ],
-      },
+      { role: "user", content: userContent },
     ];
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const resp = await aiChatCompletions({
         model: "google/gemini-2.5-flash",
         messages,
         tools: [{ type: "function", function: TOOL }],
         tool_choice: { type: "function", function: { name: TOOL.name } },
-      }),
     });
 
     if (!resp.ok) {

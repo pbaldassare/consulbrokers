@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
 import { SCHEMA_CONTEXT } from "./schema-context.ts";
+import { aiChatCompletions } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,7 +10,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 const MAX_ITERATIONS = 10;
 const MAX_ROWS = 100;
@@ -190,18 +190,11 @@ const tools = [
 ];
 
 async function callGemini(messages: any[]) {
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const resp = await aiChatCompletions({
       model: "google/gemini-3-flash-preview",
       messages,
       tools,
       tool_choice: "auto",
-    }),
   });
   if (!resp.ok) {
     const text = await resp.text();

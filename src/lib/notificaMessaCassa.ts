@@ -4,6 +4,11 @@ export type NotificaMessaCassaInvokeResult = {
   ok?: boolean;
   skipped?: boolean;
   recipient?: string;
+  recipients?: string[];
+  invii?: number;
+  invii_ok?: number;
+  invii_ko?: number;
+  agenzie?: number;
   send_id?: string | null;
   documenti_archiviati?: number;
   path_storage?: string;
@@ -11,7 +16,7 @@ export type NotificaMessaCassaInvokeResult = {
   archive_error?: string;
 };
 
-/** Invoca notifica agenzia + archivio PDF su uno o più titoli (bulk = 1 mail + 1 PDF condiviso). */
+/** Invoca notifica agenzia. Più titoli di agenzie diverse → un invio (mail+PDF) per agenzia. */
 export async function invokeNotificaMessaCassa(
   titoloIds: string[],
   opts?: { force?: boolean },

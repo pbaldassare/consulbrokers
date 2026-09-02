@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { requireAi, aiChatCompletions, buildDocumentUserContent } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,34 +53,23 @@ const TOOL_SCHEMA = {
 
 async function analyzeFile(
   file: { base64: string; mime_type: string; nome_file: string },
-  apiKey: string
 ): Promise<{ nome_file: string; risultato?: Record<string, unknown>; errore?: string }> {
   const systemPrompt = `Sei un esperto analizzatore di documenti assicurativi RCA auto italiani. Analizza il documento fornito ed estrai tutti i dati strutturati: dati del contraente, premi lordi per ogni garanzia, totale, e l'elenco completo delle garanzie con massimali e franchigie. Se un campo non è presente nel documento, omettilo. I premi devono essere numeri (senza simboli valuta).`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const userContent = await buildDocumentUserContent({
+    mimeType: file.mime_type,
+    fileBase64: file.base64,
+    instruction: "Analizza questo documento assicurativo RCA e estrai tutti i dati.",
+    filename: file.nome_file || "documento.pdf",
+  });
+  const response = await aiChatCompletions({
       model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: `Analizza questo documento assicurativo RCA e estrai tutti i dati.` },
-            {
-              type: "image_url",
-              image_url: { url: `data:${file.mime_type};base64,${file.base64}` },
-            },
-          ],
-        },
+        { role: "user", content: userContent },
       ],
       tools: [TOOL_SCHEMA],
       tool_choice: { type: "function", function: { name: "estrai_preventivo_rca" } },
-    }),
   });
 
   if (!response.ok) {
@@ -125,10 +115,9 @@ serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("LOVABLE_API_KEY non configurata");
+    requireAi();
 
-    const results = await Promise.all(files.map((f: any) => analyzeFile(f, apiKey)));
+    const results = await Promise.all(files.map((f: any) => analyzeFile(f)));
 
     return new Response(JSON.stringify({ risultati: results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
