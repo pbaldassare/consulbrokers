@@ -13135,6 +13135,7 @@ export type Database = {
         Args: { p_email: string }
         Returns: boolean
       }
+      is_documentale_staff: { Args: never; Returns: boolean }
       is_global_viewer: { Args: never; Returns: boolean }
       log_consultazione_accesso: {
         Args: {
