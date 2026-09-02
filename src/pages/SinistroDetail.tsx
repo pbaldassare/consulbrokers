@@ -431,7 +431,7 @@ export default function SinistroDetail() {
 
         <TabsContent value="dati" className="space-y-4 mt-0">
           <SinistroDatiPraticaPanel
-            sinistro={sinistro}
+            sinistro={sinistro as unknown as never}
             canEdit={canManage}
             onSaved={invalidate}
           />

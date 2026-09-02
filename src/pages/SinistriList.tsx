@@ -155,7 +155,7 @@ export default function SinistriList() {
       const { data: ss } = await supabase
         .from("specialist_sinistri_sedi" as any)
         .select("profilo_id");
-      const ids = [...new Set(((ss || []) as { profilo_id: string }[]).map((r) => r.profilo_id))];
+      const ids = [...new Set(((ss || []) as unknown as { profilo_id: string }[]).map((r) => r.profilo_id))];
       let q = supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
       if (ids.length > 0) q = q.in("id", ids);
       const { data } = await q;

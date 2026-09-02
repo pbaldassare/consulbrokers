@@ -139,7 +139,7 @@ export default function SinistroPolizzaSelector({
   const applySuggestedTipo = (titoloId: string) => {
     if (!showTipoCopertura || !titoloId) return;
     const selected = polizzeList.find((p) => p.id === titoloId);
-    const suggested = suggestTipoSinistroFromTitolo(selected);
+    const suggested = suggestTipoSinistroFromTitolo(selected as unknown as Parameters<typeof suggestTipoSinistroFromTitolo>[0]);
     if (suggested) {
       setTipoStd(suggested);
       setTipoCustom("");
@@ -210,7 +210,7 @@ export default function SinistroPolizzaSelector({
         )}
         {selectedPolizza && (
           <p className="text-xs text-muted-foreground">
-            Ramo collegato: <span className="font-medium text-foreground">{formatPolizzaRamo(selectedPolizza)}</span>
+            Ramo collegato: <span className="font-medium text-foreground">{formatPolizzaRamo(selectedPolizza as unknown as Parameters<typeof formatPolizzaRamo>[0])}</span>
           </p>
         )}
       </div>
