@@ -240,8 +240,8 @@ const PortafoglioStoricoPage = () => {
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>
                     <TableCell>{p.ramo_nome || "—"}</TableCell>
-                    <TableCell>{fmtDate(p.garanzia_da)}</TableCell>
-                    <TableCell>{fmtDate(p.garanzia_a)}</TableCell>
+                    <TableCell>{isQ ? fmtDate(p.garanzia_da) : "—"}</TableCell>
+                    <TableCell>{isQ ? fmtDate(p.garanzia_a) : "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
                     <TableCell>{frazLabel(p.rate)}</TableCell>
                     <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>

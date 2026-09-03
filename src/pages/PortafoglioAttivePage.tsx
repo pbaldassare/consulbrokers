@@ -57,7 +57,7 @@ const PortafoglioAttivePage = () => {
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>("quietanze");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [sortField, setSortField] = useState("garanzia_a");
+  const [sortField, setSortField] = useState("fineGaranzia");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const today = format(new Date(), "yyyy-MM-dd");
@@ -122,7 +122,8 @@ const PortafoglioAttivePage = () => {
     queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente, filtroTipo, sortField, sortDirection],
     queryFn: async () => {
       const orderCol =
-        sortField === "inizioPolizza" ? "durata_da"
+        sortField === "ramo_nome" ? "ramo_nome"
+        : sortField === "inizioPolizza" ? "durata_da"
         : sortField === "finePolizza" ? "durata_a"
         : sortField === "inizioGaranzia" ? "garanzia_da"
         : "garanzia_a";
@@ -256,8 +257,8 @@ const PortafoglioAttivePage = () => {
       <TableCell>{p.ramo_nome || "—"}</TableCell>
       <TableCell>{fmtDate(d.inizioPolizza)}</TableCell>
       <TableCell>{fmtDate(d.finePolizza)}</TableCell>
-      <TableCell>{fmtDate(d.inizioGaranzia)}</TableCell>
-      <TableCell>{fmtDate(d.fineGaranzia)}</TableCell>
+      <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_da ?? d.inizioGaranzia) : "—"}</TableCell>
+      <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_a ?? d.fineGaranzia) : "—"}</TableCell>
       <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
       <TableCell>{frazLabel(p.rate)}</TableCell>
       <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
@@ -453,11 +454,11 @@ const PortafoglioAttivePage = () => {
                   {showPolizzaMadreCol && <TableHead>Polizza madre</TableHead>}
                   <TableHead>Cliente</TableHead>
                   <TableHead>Agenzia</TableHead>
-                  <TableHead>Garanzia</TableHead>
+                  <SortableTableHead field="ramo_nome" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Ordina per garanzia">Garanzia</SortableTableHead>
                   <SortableTableHead field="inizioPolizza" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Inizio durata complessiva del contratto">Inizio Polizza</SortableTableHead>
                   <SortableTableHead field="finePolizza" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Fine durata complessiva del contratto">Fine Polizza</SortableTableHead>
-                  <SortableTableHead field="inizioGaranzia" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Inizio del periodo di garanzia più recente">Inizio Garanzia</SortableTableHead>
-                  <SortableTableHead field="fineGaranzia" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Fine del periodo di garanzia più recente">Fine Garanzia</SortableTableHead>
+                  <SortableTableHead field="inizioGaranzia" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Periodo di garanzia della quietanza">Inizio Garanzia</SortableTableHead>
+                  <SortableTableHead field="fineGaranzia" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Periodo di garanzia della quietanza">Fine Garanzia</SortableTableHead>
                   <TableHead>Targa</TableHead>
                   <TableHead>Fraz</TableHead>
                   <TableHead className="text-right">Lordo</TableHead>

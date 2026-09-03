@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { datePeriodoPolizzaGaranzia, extremaDate } from "../datePolizzaGaranzia";
+import { datePeriodoPolizzaGaranzia, extremaDate, compareText } from "../datePolizzaGaranzia";
 
 describe("datePeriodoPolizzaGaranzia", () => {
   it("fine polizza usa la quietanza più lunga anche se durata_a è ferma al primo anno", () => {
@@ -29,6 +29,13 @@ describe("datePeriodoPolizzaGaranzia", () => {
     expect(d.fineGaranzia).toBe("2027-01-01");
     expect(d.inizioPolizza).toBe("2026-01-01");
     expect(d.finePolizza).toBe("2027-01-01");
+  });
+});
+
+describe("compareText", () => {
+  it("ordina in italiano e inverte con desc", () => {
+    expect(compareText("RCA", "Furto", "asc")).toBeGreaterThan(0);
+    expect(compareText("RCA", "Furto", "desc")).toBeLessThan(0);
   });
 });
 

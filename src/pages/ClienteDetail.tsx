@@ -53,7 +53,7 @@ import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { isInCoperturaGarantita, isGarantitoDaIncassare, isDaChiudereIncasso, isGarantitoAperto } from "@/lib/garantitoTitolo";
 import { countQuietanzeDaIncassare, countQuietanzeRateDaIncassare, isQuietanzaDaMostrare } from "@/lib/quietanzeClienteView";
 import { quietanzaRiferimentoPremio, ultimaQuietanzaCatena } from "@/lib/ultimaQuietanzaCatena";
-import { datePeriodoPolizzaGaranzia, compareDateStr } from "@/lib/datePolizzaGaranzia";
+import { datePeriodoPolizzaGaranzia, compareDateStr, compareText } from "@/lib/datePolizzaGaranzia";
 import { SortableTableHead, nextSort } from "@/components/shared/SortableTableHead";
 import { isTipoPagamentoAliasBonificoEsterno } from "@/lib/incassoTipoPagamento";
 import { importoAnnualitaDaRata } from "@/lib/frazionamento";
@@ -1357,6 +1357,11 @@ function PolizzeClienteTable({
   const sortedCatene = useMemo(() => {
     const dir = sortDirection;
     return [...filteredCatene].sort((a: any, b: any) => {
+      if (sortField === "garanzia") {
+        const ha = a.madre || a.all[0];
+        const hb = b.madre || b.all[0];
+        return compareText(ha?.ramo?.descrizione, hb?.ramo?.descrizione, dir);
+      }
       const da = datesForCatena(a);
       const db = datesForCatena(b);
       const key = sortField as keyof typeof da;
@@ -1454,6 +1459,7 @@ function PolizzeClienteTable({
   const sortedFlatQuietanze = useMemo(() => {
     const dir = sortDirection;
     return [...flatQuietanze].sort((a, b) => {
+      if (sortField === "garanzia") return compareText(a.rata.ramo?.descrizione, b.rata.ramo?.descrizione, dir);
       if (sortField === "inizioPolizza") return compareDateStr(a.datePolizza.inizioPolizza, b.datePolizza.inizioPolizza, dir);
       if (sortField === "finePolizza") return compareDateStr(a.datePolizza.finePolizza, b.datePolizza.finePolizza, dir);
       if (sortField === "inizioGaranzia") return compareDateStr(a.rata.garanzia_da, b.rata.garanzia_da, dir);
@@ -1464,6 +1470,7 @@ function PolizzeClienteTable({
   const sortedAllGarant = useMemo(() => {
     const dir = sortDirection;
     return [...allGarant].sort((a, b) => {
+      if (sortField === "garanzia") return compareText(a.ramo?.descrizione, b.ramo?.descrizione, dir);
       const da = datePeriodoPolizzaGaranzia(a);
       const db = datePeriodoPolizzaGaranzia(b);
       if (sortField === "inizioPolizza") return compareDateStr(da.inizioPolizza, db.inizioPolizza, dir);
@@ -1821,7 +1828,15 @@ function PolizzeClienteTable({
             {isCateneView && <TableHead className="bg-background">Targa</TableHead>}
             <TableHead className="bg-background">Tipo</TableHead>
             <TableHead className="bg-background">Gruppo Ramo</TableHead>
-            <TableHead className="bg-background">Garanzia</TableHead>
+            <SortableTableHead
+              field="garanzia"
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSort={handleSortDate}
+              title="Ordina per garanzia"
+            >
+              Garanzia
+            </SortableTableHead>
             <SortableTableHead
               field="inizioPolizza"
               sortField={sortField}
@@ -1845,7 +1860,7 @@ function PolizzeClienteTable({
               sortField={sortField}
               sortDirection={sortDirection}
               onSort={handleSortDate}
-              title="Inizio del periodo di garanzia più recente"
+              title="Periodo di garanzia della quietanza"
             >
               Inizio Garanzia
             </SortableTableHead>
@@ -1854,7 +1869,7 @@ function PolizzeClienteTable({
               sortField={sortField}
               sortDirection={sortDirection}
               onSort={handleSortDate}
-              title="Fine del periodo di garanzia più recente"
+              title="Periodo di garanzia della quietanza"
             >
               Fine Garanzia
             </SortableTableHead>
@@ -1921,8 +1936,12 @@ function PolizzeClienteTable({
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                   <TableCell className="text-xs">{fmtDate(d.inizioPolizza)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(d.finePolizza)}</TableCell>
-                  <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
-                  <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
+                  <TableCell className="text-xs">
+                    {r.sostituisce_polizza && !isAppendice(r) ? fmtDate(r.garanzia_da) : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {r.sostituisce_polizza && !isAppendice(r) ? fmtDate(r.garanzia_a) : "—"}
+                  </TableCell>
                   <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
                   <TableCell className="font-mono">
                     {r.sostituisce_polizza || isAppendice(r) ? fmtNum(r.premio_lordo) : "—"}
@@ -1978,8 +1997,8 @@ function PolizzeClienteTable({
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                   <TableCell className="text-xs">{fmtDate(datePolizza.inizioPolizza)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(datePolizza.finePolizza)}</TableCell>
-                  <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
-                  <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
+                  <TableCell className="text-xs">{isAppendice(r) ? "—" : fmtDate(r.garanzia_da)}</TableCell>
+                  <TableCell className="text-xs">{isAppendice(r) ? "—" : fmtDate(r.garanzia_a)}</TableCell>
                   <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
                   <TableCell className="font-mono">
                     <div className="flex flex-col items-start gap-0.5">
@@ -2105,8 +2124,8 @@ function PolizzeClienteTable({
                     <TableCell>{ramo}</TableCell>
                     <TableCell className="text-xs">{fmtDate(dateCatena.inizioPolizza)}</TableCell>
                     <TableCell className="text-xs">{fmtDate(dateCatena.finePolizza)}</TableCell>
-                    <TableCell className="text-xs">{fmtDate(dateCatena.inizioGaranzia)}</TableCell>
-                    <TableCell className="text-xs">{fmtDate(dateCatena.fineGaranzia)}</TableCell>
+                    <TableCell className="text-xs">—</TableCell>
+                    <TableCell className="text-xs">—</TableCell>
                     <TableCell>{agenzia}</TableCell>
                     <TableCell className="font-mono" title={isPolizzaMadre(head) ? tooltipPremioAnnualita : undefined}>
                       {isAppendice(head)
@@ -2276,8 +2295,8 @@ function PolizzeClienteTable({
                       <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                       <TableCell className="text-xs">{fmtDate(dateCatena.inizioPolizza)}</TableCell>
                       <TableCell className="text-xs">{fmtDate(dateCatena.finePolizza)}</TableCell>
-                      <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
-                      <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
+                      <TableCell className="text-xs">—</TableCell>
+                      <TableCell className="text-xs">—</TableCell>
                       <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
                       <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                       <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>

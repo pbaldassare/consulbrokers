@@ -58,3 +58,8 @@ export function compareDateStr(a: string | null | undefined, b: string | null | 
   const cmp = av.localeCompare(bv);
   return dir === "asc" ? cmp : -cmp;
 }
+
+export function compareText(a: string | null | undefined, b: string | null | undefined, dir: "asc" | "desc"): number {
+  const cmp = String(a || "").localeCompare(String(b || ""), "it", { sensitivity: "base" });
+  return dir === "asc" ? cmp : -cmp;
+}

@@ -735,10 +735,10 @@ const PortafoglioCaricoConsultazionePage = () => {
                   <SortableHeader field="finePolizza" title="Fine durata complessiva del contratto">
                     Fine Polizza
                   </SortableHeader>
-                  <SortableHeader field="inizioGaranzia" title="Inizio del periodo di garanzia più recente">
+                  <SortableHeader field="inizioGaranzia" title="Periodo di garanzia della quietanza">
                     Inizio Garanzia
                   </SortableHeader>
-                  <SortableHeader field="fineGaranzia" title="Fine del periodo di garanzia più recente">
+                  <SortableHeader field="fineGaranzia" title="Periodo di garanzia della quietanza">
                     Fine Garanzia
                   </SortableHeader>
                   <SortableHeader field="targa_telaio">Targa</SortableHeader>
@@ -836,8 +836,8 @@ const PortafoglioCaricoConsultazionePage = () => {
                           <>
                             <TableCell>{fmtDate(d.inizioPolizza)}</TableCell>
                             <TableCell>{fmtDate(d.finePolizza)}</TableCell>
-                            <TableCell>{fmtDate(d.inizioGaranzia)}</TableCell>
-                            <TableCell>{fmtDate(d.fineGaranzia)}</TableCell>
+                            <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_da ?? d.inizioGaranzia) : "—"}</TableCell>
+                            <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_a ?? d.fineGaranzia) : "—"}</TableCell>
                           </>
                         );
                       })()}
