@@ -1,6 +1,7 @@
 import { format, parseISO } from "date-fns";
 import { displayStatoPolizza, isQuietanzaRow } from "@/lib/polizzeDisplay";
 import { datePeriodoPolizzaGaranzia } from "@/lib/datePolizzaGaranzia";
+import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import type { CaricoExportRow } from "./columns";
 
 export type CaricoRawRow = {

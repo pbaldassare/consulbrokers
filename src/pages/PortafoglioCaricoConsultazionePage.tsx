@@ -37,6 +37,7 @@ import {
 import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 import { UfficiFilterMultiSelect } from "@/components/portafoglio/UfficiFilterMultiSelect";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
+import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { mapCaricoExportRows } from "@/lib/portafoglioCarico/mapRow";
 import { exportCaricoXlsx } from "@/lib/portafoglioCarico/exportXlsx";
 import { buildCaricoPdf, downloadCaricoPdf } from "@/lib/portafoglioCarico/exportPdf";
