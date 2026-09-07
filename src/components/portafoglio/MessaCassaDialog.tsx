@@ -19,6 +19,9 @@ import { formatDateIT } from "@/lib/formatDate";
 import { useAuth } from "@/contexts/AuthContext";
 import { filterContiBancariPerSede, shouldScopeClientiPerSede } from "@/lib/filterContiBancariPerSede";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
+import CigRifField from "@/components/shared/CigRifField";
+import { formatCigBadge, isCigFormatoInvalido, isClienteEnte } from "@/lib/cigEnte";
+import { normalizeCig } from "@/lib/validateCig";
 import {
   buildTrattenutaCtx,
   calcIncassoConTrattenutaProvvigioni,
@@ -131,6 +134,8 @@ interface TitoloMin {
   cliente_anagrafica_id?: string | null;
   /** Nome display (da Incassi) — evita race sul fetch anagrafica per il match bonifico. */
   cliente_nome_display?: string | null;
+  /** Prefill ente (dettaglio titolo) se il fetch CIG non è ancora arrivato. */
+  is_ente?: boolean;
   ufficio_id?: string | null;
   importo_incassato?: number | null;
   stato?: string | null;
@@ -172,6 +177,13 @@ interface CompensazioneRow {
   note: string;
   effetto: EffettoContabile;
 }
+
+type CigDraft = {
+  cig: string;
+  temporaneo: boolean;
+  isEnte: boolean;
+  original: string;
+};
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -243,6 +255,8 @@ export const MessaCassaDialog = ({
   const [quietanzeSel, setQuietanzeSel] = useState<Record<string, boolean>>({});
   /** Modalità incasso/provvigioni per titolo (scelta esplicita, default da anagrafica produttore). */
   const [modalitaByTitolo, setModalitaByTitolo] = useState<Record<string, ModalitaIncasso>>({});
+  const [cigById, setCigById] = useState<Record<string, CigDraft>>({});
+  const [updateMadreCig, setUpdateMadreCig] = useState(true);
 
   const isMulti = titoli.length > 1;
   const totaleLordo = titoli.reduce((s, t) => s + (Number(t.premio_lordo) || 0), 0);
@@ -571,6 +585,8 @@ export const MessaCassaDialog = ({
       setEstrattoSearch("");
       setSoloMatchNome(true);
       setSuggerimentoAltroConto(null);
+      setCigById({});
+      setUpdateMadreCig(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bankIncasso?.movimentoId, preferredBonifico?.movimentoId, preferredPagatoreId]);
@@ -611,6 +627,99 @@ export const MessaCassaDialog = ({
     setDatesByTitolo((prev) => {
       const { [id]: _, ...rest } = prev;
       return rest;
+    });
+    setCigById((prev) => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  const titoloIdsKey = titoli.map((t) => t.id).join(",");
+
+  useEffect(() => {
+    if (!open) return;
+    const ids = titoli.map((t) => t.id);
+    if (ids.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase.from("titoli") as any)
+        .select("id, cig_rif, cig_temporaneo, cliente_anagrafica_id")
+        .in("id", ids);
+      if (error || cancelled) return;
+      const cliIds = Array.from(
+        new Set(((data as any[]) || []).map((r) => r.cliente_anagrafica_id).filter(Boolean)),
+      );
+      const enteByCli = new Map<string, boolean>();
+      if (cliIds.length > 0) {
+        let clis: any[] | null = null;
+        const q1 = await (supabase.from("clienti") as any)
+          .select("id, tipo_cliente, gruppi_finanziari(tipo_soggetto)")
+          .in("id", cliIds);
+        if (!q1.error) clis = q1.data;
+        else {
+          const q2 = await (supabase.from("clienti") as any)
+            .select("id, tipo_cliente")
+            .in("id", cliIds);
+          if (!q2.error) clis = q2.data;
+        }
+        for (const c of clis || []) {
+          enteByCli.set(c.id, isClienteEnte(c));
+        }
+      }
+      if (cancelled) return;
+      const seedById = new Map(titoli.map((t) => [t.id, t]));
+      setCigById((prev) => {
+        const next = { ...prev };
+        for (const row of (data as any[]) || []) {
+          const seed = seedById.get(row.id);
+          const ente =
+            (row.cliente_anagrafica_id ? enteByCli.get(row.cliente_anagrafica_id) : undefined) ??
+            !!seed?.is_ente;
+          const existing = next[row.id];
+          const dirty = !!existing && existing.cig !== existing.original;
+          next[row.id] = {
+            cig: dirty ? existing.cig : row.cig_rif || "",
+            temporaneo: dirty ? existing.temporaneo : !!row.cig_temporaneo,
+            isEnte: ente,
+            original: row.cig_rif || "",
+          };
+        }
+        for (const k of Object.keys(next)) {
+          if (!ids.includes(k)) delete next[k];
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, titoloIdsKey]);
+
+  const enteCigDrafts = useMemo(
+    () =>
+      titoli
+        .map((t) => cigById[t.id])
+        .filter((d): d is CigDraft => !!d?.isEnte),
+    [titoli, cigById],
+  );
+  const hasEnteCig = enteCigDrafts.length > 0;
+  const cigCondiviso =
+    hasEnteCig &&
+    enteCigDrafts.every(
+      (d) =>
+        normalizeCig(d.cig) === normalizeCig(enteCigDrafts[0].cig) &&
+        d.temporaneo === enteCigDrafts[0].temporaneo,
+    );
+
+  const patchCigEnte = (patch: Partial<CigDraft>, onlyId?: string) => {
+    setCigById((prev) => {
+      const next = { ...prev };
+      const ids = onlyId ? [onlyId] : titoli.filter((t) => prev[t.id]?.isEnte).map((t) => t.id);
+      for (const id of ids) {
+        if (!next[id]?.isEnte) continue;
+        next[id] = { ...next[id], ...patch };
+      }
+      return next;
     });
   };
 
@@ -1126,6 +1235,10 @@ export const MessaCassaDialog = ({
       toast.error("Seleziona il conto Consulbrokers per il bonifico");
       return;
     }
+    if (titoli.some((t) => cigById[t.id]?.isEnte && isCigFormatoInvalido(cigById[t.id].cig, cigById[t.id].temporaneo))) {
+      toast.error("CIG definitivo non valido: 10 caratteri alfanumerici, oppure spunta Temporaneo");
+      return;
+    }
     if (
       needsBonificoLink &&
       bonificiCandidati.length > 0 &&
@@ -1350,6 +1463,11 @@ export const MessaCassaDialog = ({
         payload.pag_diretto_compagnia = true;
         payload.tipo_pagamento = TIPO_PAGAMENTO_DIREITO_COMPAGNIA;
       }
+      const cigDraft = cigById[t.id];
+      if (cigDraft?.isEnte) {
+        payload.cig_rif = normalizeCig(cigDraft.cig) || null;
+        payload.cig_temporaneo = !!cigDraft.temporaneo;
+      }
 
       const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
       if (error) { ko++; continue; }
@@ -1534,6 +1652,28 @@ export const MessaCassaDialog = ({
       }
       if (isFullIncasso) {
         notificaTitoloIds.push(t.id);
+      }
+    }
+
+    if (ok > 0 && updateMadreCig && cigCondiviso && hasEnteCig) {
+      const cigVal = normalizeCig(enteCigDrafts[0].cig) || null;
+      const tempVal = !!enteCigDrafts[0].temporaneo;
+      const seenMadre = new Set<string>();
+      for (const t of titoli) {
+        if (!cigById[t.id]?.isEnte) continue;
+        const madreId = await resolveTitoloMadreId(supabase, t.id);
+        if (!madreId || madreId === t.id || seenMadre.has(madreId)) continue;
+        seenMadre.add(madreId);
+        const { error: errMadre } = await (supabase.from("titoli") as any)
+          .update({
+            cig_rif: cigVal,
+            cig_temporaneo: tempVal,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", madreId);
+        if (errMadre) {
+          toast.warning(`CIG aggiornato sulla quietanza ma non sulla madre: ${errMadre.message}`);
+        }
       }
     }
 
@@ -2028,6 +2168,7 @@ export const MessaCassaDialog = ({
                   <span className="font-mono font-medium">{t.numero_titolo || t.id.slice(0, 8)}</span>
                   <span className="text-muted-foreground truncate flex-1">
                     {t.cliente_anagrafica_id ? clienteNomeById.get(t.cliente_anagrafica_id) || "…" : "—"}
+                    {cigById[t.id]?.isEnte ? ` · ${formatCigBadge(cigById[t.id].cig, cigById[t.id].temporaneo)}` : ""}
                   </span>
                   <span className="font-mono">{fmtEuro(Number(t.premio_lordo) || 0)}</span>
                   <Button
@@ -2043,6 +2184,55 @@ export const MessaCassaDialog = ({
                 </div>
               ))}
             </div>
+            {hasEnteCig && (
+              <div className="rounded-md border border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2">
+                {cigCondiviso ? (
+                  <CigRifField
+                    idPrefix="mc-cig"
+                    cig={enteCigDrafts[0].cig}
+                    temporaneo={enteCigDrafts[0].temporaneo}
+                    warningEmpty
+                    onCigChange={(cig) => patchCigEnte({ cig })}
+                    onTemporaneoChange={(temporaneo, cig) =>
+                      patchCigEnte(cig !== undefined ? { temporaneo, cig } : { temporaneo })
+                    }
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-[11px] text-muted-foreground">
+                      I CIG delle quietanze ente non coincidono: modifica per riga.
+                    </p>
+                    {titoli.filter((t) => cigById[t.id]?.isEnte).map((t) => (
+                      <div key={t.id} className="space-y-1">
+                        <p className="text-[11px] font-mono font-medium">{t.numero_titolo || t.id.slice(0, 8)}</p>
+                        <CigRifField
+                          idPrefix={`mc-cig-${t.id}`}
+                          cig={cigById[t.id].cig}
+                          temporaneo={cigById[t.id].temporaneo}
+                          warningEmpty
+                          onCigChange={(cig) => patchCigEnte({ cig }, t.id)}
+                          onTemporaneoChange={(temporaneo, cig) =>
+                            patchCigEnte(cig !== undefined ? { temporaneo, cig } : { temporaneo }, t.id)
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {cigCondiviso && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <Checkbox
+                      id="mc-cig-madre"
+                      checked={updateMadreCig}
+                      onCheckedChange={(v) => setUpdateMadreCig(v === true)}
+                    />
+                    <Label htmlFor="mc-cig-madre" className="text-[11px] cursor-pointer">
+                      Aggiorna anche la polizza madre
+                    </Label>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Banner giroconto inter-cliente */}

@@ -42,6 +42,9 @@ import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
 import { isGeneratedCigTemporaneo, normalizeCig } from "@/lib/validateCig";
+import CigRifField from "@/components/shared/CigRifField";
+import { isCigFormatoInvalido, isClienteEnte } from "@/lib/cigEnte";
+import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
@@ -186,7 +189,13 @@ const TitoloDetail = () => {
   // --- Conferimento Gestito dialog state ---
   const [conferimentoDialogOpen, setConferimentoDialogOpen] = useState(false);
   const [conferimentoAccettato, setConferimentoAccettato] = useState(false);
-  const [conferimentoForm, setConferimentoForm] = useState({ dataCopertura: "", dataDecorrenza: "" });
+  const [conferimentoForm, setConferimentoForm] = useState({
+    dataCopertura: "",
+    dataDecorrenza: "",
+    cig_rif: "",
+    cig_temporaneo: false,
+    updateMadre: true,
+  });
 
   // --- Emittenda: modifica N° polizza anche se locked ---
   const [editNumeroEmittendaOpen, setEditNumeroEmittendaOpen] = useState(false);
@@ -1899,13 +1908,41 @@ const TitoloDetail = () => {
   });
 
   const conferimentoGestitoMutation = useMutation({
-    mutationFn: async (form: { dataCopertura: string; dataDecorrenza: string }) => {
+    mutationFn: async (form: {
+      dataCopertura: string;
+      dataDecorrenza: string;
+      cig_rif: string;
+      cig_temporaneo: boolean;
+      updateMadre: boolean;
+    }) => {
       if (!canHaveDataCopertura(titolo as any)) {
         throw new Error("La polizza madre non può avere copertura — apri la quietanza");
       }
+      const ente = isClienteEnte((titolo as any)?.cliente_anagrafica);
+      if (ente && isCigFormatoInvalido(form.cig_rif, form.cig_temporaneo)) {
+        throw new Error("CIG definitivo non valido: 10 caratteri alfanumerici, oppure spunta Temporaneo");
+      }
       const payload = buildGarantitoPayload(form);
+      if (ente) {
+        payload.cig_rif = normalizeCig(form.cig_rif) || null;
+        payload.cig_temporaneo = !!form.cig_temporaneo;
+      }
       const { error } = await supabase.from("titoli").update(payload).eq("id", id!);
       if (error) throw error;
+      if (ente && form.updateMadre) {
+        const madreId = await resolveTitoloMadreId(supabase, id!);
+        if (madreId && madreId !== id) {
+          const { error: errMadre } = await supabase
+            .from("titoli")
+            .update({
+              cig_rif: normalizeCig(form.cig_rif) || null,
+              cig_temporaneo: !!form.cig_temporaneo,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", madreId);
+          if (errMadre) throw new Error(`Garantito ok ma CIG madre non aggiornato: ${errMadre.message}`);
+        }
+      }
       await (supabase.from("quietanze") as any)
         .update({ data_copertura: form.dataCopertura, updated_at: new Date().toISOString() })
         .eq("titolo_id", id!);
@@ -1914,7 +1951,11 @@ const TitoloDetail = () => {
           azione: "conferimento_gestito",
           entita_tipo: "titolo",
           entita_id: id!,
-          dettagli_json: { data_copertura: form.dataCopertura, data_decorrenza_rinnovo: form.dataDecorrenza },
+          dettagli_json: {
+            data_copertura: form.dataCopertura,
+            data_decorrenza_rinnovo: form.dataDecorrenza,
+            cig_rif: ente ? normalizeCig(form.cig_rif) || null : undefined,
+          },
         });
       }
       const res = await invokeNotificaMessaCassa([id!]);
@@ -2646,7 +2687,13 @@ const TitoloDetail = () => {
                   {t.stato === "attivo" && !t.data_messa_cassa && !garantitoAperto && (
                     <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => {
                       const today = new Date().toISOString().slice(0, 10);
-                      setConferimentoForm({ dataCopertura: today, dataDecorrenza: today });
+                      setConferimentoForm({
+                        dataCopertura: today,
+                        dataDecorrenza: today,
+                        cig_rif: (t as any).cig_rif || "",
+                        cig_temporaneo: !!(t as any).cig_temporaneo,
+                        updateMadre: true,
+                      });
                       setConferimentoAccettato(false);
                       setConferimentoDialogOpen(true);
                     }} disabled={conferimentoGestitoMutation.isPending}>
@@ -2680,6 +2727,7 @@ const TitoloDetail = () => {
               : t.cliente_anagrafica.ragione_sociale || null)
             : null,
           ufficio_id: t.ufficio_id,
+          is_ente: isClienteEnte(t.cliente_anagrafica),
         }]}
         preferredPagatoreId={t.cliente_anagrafica_id || null}
         onSuccess={() => {
@@ -2726,6 +2774,34 @@ const TitoloDetail = () => {
                 <Input type="date" value={conferimentoForm.dataDecorrenza} onChange={(e) => setConferimentoForm(f => ({ ...f, dataDecorrenza: e.target.value }))} className="mt-1" />
               </div>
             </div>
+            {isClienteEnte(t.cliente_anagrafica) && (
+              <div className="rounded-md border border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2">
+                <CigRifField
+                  idPrefix="gar-cig"
+                  cig={conferimentoForm.cig_rif}
+                  temporaneo={conferimentoForm.cig_temporaneo}
+                  warningEmpty
+                  onCigChange={(cig) => setConferimentoForm((f) => ({ ...f, cig_rif: cig }))}
+                  onTemporaneoChange={(temporaneo, cig) =>
+                    setConferimentoForm((f) => ({
+                      ...f,
+                      cig_temporaneo: temporaneo,
+                      ...(cig !== undefined ? { cig_rif: cig } : {}),
+                    }))
+                  }
+                />
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="gar-cig-madre"
+                    checked={conferimentoForm.updateMadre}
+                    onCheckedChange={(v) => setConferimentoForm((f) => ({ ...f, updateMadre: v === true }))}
+                  />
+                  <Label htmlFor="gar-cig-madre" className="text-[11px] cursor-pointer">
+                    Aggiorna anche la polizza madre
+                  </Label>
+                </div>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
               Vengono impostate data copertura e data messa a cassa. I fondi restano in attesa; tipo/data pagamento e importo si compilano all&apos;incasso effettivo.
             </p>
