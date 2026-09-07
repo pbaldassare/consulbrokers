@@ -58,6 +58,7 @@ import {
   Pencil,
   Wallet,
   Wand2,
+  Target,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
@@ -137,6 +138,7 @@ const sidebarEntries: SidebarEntry[] = [
     },
   },
   { type: "single", item: { label: "Bandi Pubblici", path: "/bandi-pubblici", icon: Landmark, permissionKey: "trattative" } },
+  { type: "single", item: { label: "Opportunity", path: "/opportunity", icon: Target, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Chat", path: "/chat", icon: MessageSquare, permissionKey: "dashboard", hasBadge: true } },
   {
     type: "group",

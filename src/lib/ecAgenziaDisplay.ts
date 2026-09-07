@@ -23,6 +23,97 @@ export function formatClienteEc(
   return cli.ragione_sociale || `${cli.cognome || ""} ${cli.nome || ""}`.trim() || "—";
 }
 
+export function uniqueCigsEc(titoli: { cig_rif?: string | null }[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of titoli) {
+    const c = (t.cig_rif || "").trim();
+    if (!c) continue;
+    const key = c.toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(c);
+  }
+  return out;
+}
+
+/** Causale bonifico / oggetto mail: CIG distinti dei titoli. */
+export function formatCigCausale(titoli: { cig_rif?: string | null }[], maxLen = 120): string {
+  const cigs = uniqueCigsEc(titoli);
+  if (cigs.length === 0) return "";
+  const joined = cigs.join(", ");
+  if (joined.length <= maxLen) return joined;
+  return `${cigs.slice(0, 2).join(", ")} +${cigs.length - 2}`;
+}
+
+export function titoloMatchesEcSearch(
+  t: {
+    id?: string | null;
+    numero_titolo?: string | null;
+    cliente?: string | null;
+    cig_rif?: string | null;
+    codice_cliente?: string | null;
+  },
+  q: string,
+): boolean {
+  const n = q.trim().toLowerCase();
+  if (!n) return true;
+  return [t.cig_rif, t.numero_titolo, t.id, t.cliente, t.codice_cliente].some((v) =>
+    (v || "").toLowerCase().includes(n),
+  );
+}
+
+export function agenziaMatchesEcSearch(
+  r: { nome?: string | null; codice?: string | null; compagniaCollegata?: string | null },
+  q: string,
+): boolean {
+  const n = q.trim().toLowerCase();
+  if (!n) return true;
+  return `${r.nome || ""} ${r.codice || ""} ${r.compagniaCollegata || ""}`.toLowerCase().includes(n);
+}
+
+type EcGroupForSearch<TTitolo extends { premio_lordo: number }> = {
+  nome: string;
+  codice: string;
+  compagniaCollegata?: string;
+  lordo: number;
+  provvigioni: number;
+  ritenutaAcconto: number;
+  titoli: TTitolo[];
+};
+
+/** Se matcha l'agenzia (nome/codice) mostra tutti i titoli; altrimenti solo i titoli che matchano. */
+export function filterEcAgenziaGroups<TTitolo extends {
+  id?: string | null;
+  numero_titolo?: string | null;
+  cliente?: string | null;
+  cig_rif?: string | null;
+  codice_cliente?: string | null;
+  premio_lordo: number;
+}, TGroup extends EcGroupForSearch<TTitolo>>(rows: TGroup[], query: string): TGroup[] {
+  const q = query.trim();
+  if (!q) return rows;
+  const out: TGroup[] = [];
+  for (const r of rows) {
+    if (agenziaMatchesEcSearch(r, q)) {
+      out.push(r);
+      continue;
+    }
+    const titoli = r.titoli.filter((t) => titoloMatchesEcSearch(t, q));
+    if (!titoli.length) continue;
+    const lordo = titoli.reduce((s, t) => s + t.premio_lordo, 0);
+    const factor = r.lordo > 0 ? lordo / r.lordo : 0;
+    out.push({
+      ...r,
+      titoli,
+      lordo,
+      provvigioni: r.provvigioni * factor,
+      ritenutaAcconto: r.ritenutaAcconto * factor,
+    });
+  }
+  return out;
+}
+
 type TitoloImportoEc = {
   stato?: string | null;
   premio_lordo?: number | null;

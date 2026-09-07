@@ -24,6 +24,7 @@ import { sistemaRoutes } from "./routes/sistema";
 import { clienteRoutes } from "./routes/cliente";
 import { prospectRoutes } from "./routes/prospect";
 import { consultazioneRoutes } from "./routes/consultazione";
+import { opportunityRoutes } from "./routes/opportunity";
 import { installSwCleanupListener } from "./lib/swCleanupListener";
 
 installSwCleanupListener();
@@ -50,6 +51,9 @@ const App = () => (
                   
                   <Route element={<AppErrorBoundary section="Archivi"><Outlet /></AppErrorBoundary>}>
                     {archiviRoutes}
+                  </Route>
+                  <Route element={<AppErrorBoundary section="Opportunity"><Outlet /></AppErrorBoundary>}>
+                    {opportunityRoutes}
                   </Route>
                   <Route element={<AppErrorBoundary section="Portafoglio"><Outlet /></AppErrorBoundary>}>
                     {portafoglioRoutes}

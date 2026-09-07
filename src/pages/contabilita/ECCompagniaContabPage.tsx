@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, ChevronRight, ChevronDown, CreditCard, FileText, AlertCircle, Loader2, Landmark, Euro, Mail, FileSpreadsheet, Printer, CalendarDays, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, ChevronRight, ChevronDown, CreditCard, FileText, AlertCircle, Loader2, Landmark, Euro, Mail, FileSpreadsheet, Printer, CalendarDays, ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import * as XLSX from "xlsx";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -44,6 +44,8 @@ import { calcolaRitenutaAcconto, resolvePercentualeRA } from "@/lib/resolvePerce
 import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 import {
   formatClienteEc,
+  formatCigCausale,
+  filterEcAgenziaGroups,
   resolveImportoVersatoAgenzia,
   resolveCompagniaCollegataNome,
   resolveTipoPagamentoBadgeVariant,
@@ -67,6 +69,8 @@ interface TitoloDetail {
   id: string;
   numero_titolo: string | null;
   cliente: string;
+  cig_rif: string | null;
+  codice_cliente: string | null;
   stato: string | null;
   data_messa_cassa: string | null;
   data_copertura: string | null;
@@ -137,10 +141,17 @@ const ECCompagniaContabPage = () => {
   const [bulkEcLoading, setBulkEcLoading] = useState(false);
   const [sortField, setSortField] = useState<"nome" | "data" | "daRimettere">("nome");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [pagaDialog, setPagaDialog] = useState<PagaRimessaState>({
     open: false, compagniaId: "", compagniaNome: "", iban: "", contoMittenteId: null, ibanMittente: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0, titoli: [],
   });
   const set = (partial: Partial<Filters>) => setFilters((f) => ({ ...f, ...partial }));
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setSearch(searchInput.trim()), 350);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
 
   // Conti correnti Consulbrokers (tipo 'generico') — sorgente del bonifico verso l'agenzia
   const { data: contiMittenteRaw = [] } = useQuery({
@@ -200,12 +211,15 @@ const ECCompagniaContabPage = () => {
         filters.periodo_dal && filters.periodo_al
           ? `per il periodo ${format(filters.periodo_dal, "dd/MM/yyyy")} - ${format(filters.periodo_al, "dd/MM/yyyy")}`
           : `aggiornato al ${oggi}`;
+      const cigCausale = formatCigCausale(r.titoli);
 
-      const subject = `Estratto Conto Agenzia — ${ragSoc} — ${oggi}`;
+      const subject = cigCausale
+        ? `Estratto Conto Agenzia — ${ragSoc} — CIG ${cigCausale}`
+        : `Estratto Conto Agenzia — ${ragSoc} — ${oggi}`;
       const body = `Spett.le ${ragSoc},
 
 trasmettiamo l'estratto conto relativo ai titoli in attesa di rimessa ${periodoTxt}.
-
+${cigCausale ? `\nCausale: ${cigCausale}\n` : ""}
 Numero titoli: ${r.titoli.length}
 Totale lordo: ${fmtEuro(r.lordo)}
 Totale provvigioni: ${fmtEuro(r.provvigioni)}
@@ -231,6 +245,7 @@ Consulbrokers`;
           entita_id: r.compagnia_id,
           dettagli_json: {
             destinatario: to,
+            causale_cig: cigCausale || null,
             num_titoli: r.titoli.length,
             totale_lordo: r.lordo,
             totale_provvigioni: r.provvigioni,
@@ -301,7 +316,7 @@ Consulbrokers`;
 
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, stato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale), compagnie(nome, codice, mail, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione)), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, stato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, cig_rif, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale, codice_cliente), compagnie(nome, codice, mail, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione)), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
         .not("compagnia_id", "is", null);
 
       const incassateBase = ["stato.eq.incassato"];
@@ -382,10 +397,14 @@ Consulbrokers`;
         grouped[cId].lordo += lordoShare;
         grouped[cId].provvigioni += provvShare;
         grouped[cId].ritenutaAcconto += raShare;
+        const cliRaw = t.clienti_anagrafica;
+        const cli = Array.isArray(cliRaw) ? cliRaw[0] : cliRaw;
         grouped[cId].titoli.push({
           id: t.id,
           numero_titolo: t.numero_titolo,
-          cliente: formatClienteEc(t.clienti_anagrafica),
+          cliente: formatClienteEc(cli),
+          cig_rif: t.cig_rif || null,
+          codice_cliente: cli?.codice_cliente || null,
           stato: t.stato || null,
           data_messa_cassa: t.data_messa_cassa,
           data_copertura: t.data_copertura,
@@ -644,6 +663,9 @@ Consulbrokers`;
     const count = titoliIds ? titoliIds.length : titoli.length;
     const comp = compagnie?.find((c) => c.id === compagniaId);
 
+    const titoliForCausale = titoliIds ? titoli.filter((t) => titoliIds.includes(t.id)) : titoli;
+    const cigCausale = formatCigCausale(titoliForCausale);
+
     setPagaDialog({
       open: true,
       compagniaId,
@@ -653,7 +675,7 @@ Consulbrokers`;
       ibanMittente: contoMittenteDefault?.iban || "",
       importoTotale: daRimettere,
       importoPagato: daRimettere.toFixed(2),
-      note: "",
+      note: cigCausale,
       titoliIds,
       titoliCount: count,
       titoli,
@@ -689,7 +711,7 @@ Consulbrokers`;
     });
   };
 
-  const rows = data || [];
+  const rows = useMemo(() => filterEcAgenziaGroups(data || [], search), [data, search]);
 
   const toggleSort = (field: "nome" | "data" | "daRimettere") => {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -724,7 +746,8 @@ Consulbrokers`;
       filters.periodo_dal ||
       (filters.periodo_al && !isDefaultPeriodoAl(filters.periodo_al, isAgenzia)) ||
       filters.tipo_pagamento ||
-      filters.stato_incasso,
+      filters.stato_incasso ||
+      searchInput.trim(),
   );
 
   const formatDateRange = (min: string | null, max: string | null) => {
@@ -793,6 +816,7 @@ Consulbrokers`;
         Codice: r.codice,
         "N. Titolo": t.numero_titolo || "",
         Cliente: t.cliente || "",
+        CIG: t.cig_rif || "",
         "Data Messa a Cassa": t.data_messa_cassa ? format(new Date(t.data_messa_cassa), "dd/MM/yyyy") : (t.data_copertura ? format(new Date(t.data_copertura), "dd/MM/yyyy") : ""),
         "Premio Lordo (€)": Number(t.premio_lordo.toFixed(2)),
         "Importo Incassato (€)": Number(t.importo_versato_agenzia.toFixed(2)),
@@ -801,7 +825,7 @@ Consulbrokers`;
       }))
     );
     const wsDettaglio = XLSX.utils.json_to_sheet(dettaglio);
-    wsDettaglio["!cols"] = [{ wch: 30 }, { wch: 22 }, { wch: 10 }, { wch: 16 }, { wch: 28 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 18 }, { wch: 20 }];
+    wsDettaglio["!cols"] = [{ wch: 30 }, { wch: 22 }, { wch: 10 }, { wch: 16 }, { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 18 }, { wch: 20 }];
     XLSX.utils.book_append_sheet(wb, wsDettaglio, "Dettaglio Titoli");
 
     const fileName = `ec_agenzie${dateLimitLabel.replace(/ /g, "_").replace(/\//g, "-")}_${format(new Date(), "yyyyMMdd")}.xlsx`;
@@ -826,8 +850,8 @@ Consulbrokers`;
       const titoli_html = r.titoli.map((t) => {
         const d = t.data_messa_cassa || t.data_copertura;
         return `<tr class="detail">
-          <td></td><td>${t.numero_titolo || "—"}</td>
-          <td>${t.cliente || "—"}</td>
+          <td></td>          <td>${t.numero_titolo || "—"}</td>
+          <td>${t.cliente || "—"}${t.cig_rif ? `<br><span style="color:#666;font-size:9px">CIG ${t.cig_rif}</span>` : ""}</td>
           <td>${d ? format(new Date(d), "dd/MM/yyyy") : "—"}</td>
           <td class="num">${fmt(t.premio_lordo)}</td>
           <td class="num">${fmt(t.importo_versato_agenzia)}</td>
@@ -1181,6 +1205,8 @@ Consulbrokers`;
               onClick={() => {
                 setFilters(createDefaultEcFilters(isAgenzia));
                 setExportDate(isAgenzia ? defaultDataLimiteIncasso() : null);
+                setSearchInput("");
+                setSearch("");
               }}
             >
               <RotateCcw className="h-3 w-3 mr-1" /> Azzera
@@ -1188,6 +1214,18 @@ Consulbrokers`;
           )}
         </div>
         <div className="flex flex-wrap gap-3 items-end">
+          <div className="space-y-1 min-w-[260px] flex-1">
+            <Label className="text-xs text-muted-foreground">Cerca</Label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="CIG, n. polizza, cliente, codice agenzia…"
+                className="pl-8 h-9"
+              />
+            </div>
+          </div>
           <FilterSearchableSelect
             value={filters.compagnia_id}
             onValueChange={(v) => set({ compagnia_id: v })}
@@ -1392,7 +1430,14 @@ Consulbrokers`;
                                     />
                                   </TableCell>
                                   <TableCell className="py-1 text-sm font-mono">{t.numero_titolo || "—"}</TableCell>
-                                  <TableCell className="py-1 text-sm max-w-[200px] truncate" title={t.cliente}>{t.cliente}</TableCell>
+                                  <TableCell className="py-1 text-sm max-w-[220px]">
+                                    <div className="truncate" title={t.cliente}>{t.cliente}</div>
+                                    {t.cig_rif ? (
+                                      <div className="text-[10px] text-muted-foreground font-mono truncate" title={t.cig_rif}>
+                                        CIG {t.cig_rif}
+                                      </div>
+                                    ) : null}
+                                  </TableCell>
                                   {!isAgenzia && (
                                     <TableCell className="py-1 text-sm">{dataEff ? format(new Date(dataEff), "dd/MM/yyyy") : "—"}</TableCell>
                                   )}
@@ -1610,11 +1655,11 @@ Consulbrokers`;
             )}
 
             <div className="space-y-2">
-              <Label>Note (opzionale)</Label>
+              <Label>Causale / Note</Label>
               <Textarea
                 value={pagaDialog.note}
                 onChange={(e) => setPagaDialog((prev) => ({ ...prev, note: e.target.value }))}
-                placeholder="Es. Bonifico mensile periodo..."
+                placeholder="CIG (causale) o note sul pagamento"
                 rows={3}
                 className="resize-none"
               />
