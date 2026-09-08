@@ -184,6 +184,7 @@ export function useGaranzieChat({
     if (isThinking) return;
 
     onBeforeSend?.(text);
+    setIsThinking(true);
 
     let convId = activeId;
     let isFirst = false;
@@ -217,6 +218,7 @@ export function useGaranzieChat({
         qc.invalidateQueries({ queryKey: [...queryKeyBase, "mie"] });
       } catch {
         toast.error("Impossibile creare la conversazione");
+        setIsThinking(false);
         return;
       }
     }
@@ -237,6 +239,7 @@ export function useGaranzieChat({
         qc.invalidateQueries({ queryKey: [...queryKeyBase, "messages", convId] });
       } catch {
         toast.error("Impossibile salvare il messaggio");
+        setIsThinking(false);
         return;
       }
     } else {
@@ -245,11 +248,17 @@ export function useGaranzieChat({
 
     const storico = messages.concat(userMsg).map((m) => ({ role: m.role, content: m.content }));
 
-    setIsThinking(true);
     try {
-      const { data, error } = await supabase.functions.invoke(edgeFunction, {
+      const invokePromise = supabase.functions.invoke(edgeFunction, {
         body: { domanda: text, storico: storico.slice(0, -1), ...(extraBody?.() ?? {}) },
       });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error("Timeout: l'assistente web ha impiegato troppo. Riprova tra poco.")),
+          75_000,
+        );
+      });
+      const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 

@@ -38,27 +38,44 @@ function isEmailAllowed(email: string | null | undefined): boolean {
   return !!domain && ALLOWED_EMAIL_DOMAINS.includes(domain);
 }
 
+function extractAiText(json: unknown): string {
+  const msg = (json as { choices?: Array<{ message?: { content?: unknown; reasoning_content?: string } }> })
+    ?.choices?.[0]?.message;
+  if (!msg) return "";
+  const c = msg.content;
+  if (typeof c === "string" && c.trim()) return c;
+  if (Array.isArray(c)) {
+    return c.map((p) => (typeof p === "string" ? p : String((p as { text?: string }).text ?? ""))).join("");
+  }
+  return (msg.reasoning_content || "").trim();
+}
+
 async function callGemini(
   messages: { role: string; content: string }[],
+  timeoutMs = 35_000,
 ): Promise<string> {
-  const resp = await aiChatCompletions({ model: "google/gemini-2.5-flash", messages });
+  const resp = await aiChatCompletions(
+    { model: "google/gemini-2.5-flash", messages, thinking: { type: "disabled" } },
+    { signal: AbortSignal.timeout(timeoutMs) },
+  );
   if (!resp.ok) {
     const t = await resp.text();
     throw new Error(`AI gateway ${resp.status}: ${t.slice(0, 200)}`);
   }
   const json = await resp.json();
-  return json?.choices?.[0]?.message?.content ?? "";
+  return extractAiText(json);
 }
 
 async function searchTavily(apiKey: string, query: string): Promise<SearchHit[]> {
   const resp = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(12_000),
     body: JSON.stringify({
       api_key: apiKey,
       query,
       search_depth: "basic",
-      max_results: 10,
+      max_results: 8,
       include_answer: false,
     }),
   });
@@ -81,7 +98,8 @@ async function searchSerper(apiKey: string, query: string): Promise<SearchHit[]>
       "X-API-KEY": apiKey,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ q: query, gl: "it", hl: "it", num: 10 }),
+    signal: AbortSignal.timeout(12_000),
+    body: JSON.stringify({ q: query, gl: "it", hl: "it", num: 8 }),
   });
   if (!resp.ok) {
     const t = await resp.text();
@@ -144,26 +162,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Ottimizza query di ricerca (opzionale)
-    let searchQuery = domanda;
+    // Una sola chiamata IA (niente rewrite): due round Kimi+thinking sforavano il timeout Edge.
+    const searchQuery = domanda.slice(0, 220);
+    let hits: SearchHit[] = [];
+    let searchNote: string | null = null;
     try {
-      const q = await callGemini([
-        {
-          role: "system",
-          content:
-            "Genera UNA query Google concisa in italiano (max 15 parole) per trovare informazioni utili alla domanda. Rispondi SOLO con la query, senza virgolette.",
-        },
-        {
-          role: "user",
-          content: `Domanda: ${domanda}`,
-        },
-      ]);
-      if (q.trim().length > 3 && q.trim().length < 150) searchQuery = q.trim();
-    } catch {
-      // usa domanda originale
+      hits = await webSearch(searchQuery);
+    } catch (e) {
+      searchNote = e instanceof Error ? e.message : "Ricerca web non disponibile";
+      console.warn("webSearch skip", searchNote);
     }
-
-    const hits = await webSearch(searchQuery);
     const fonti = hits.map((h) => ({
       title: h.title,
       url: h.url,
@@ -184,8 +192,11 @@ Deno.serve(async (req) => {
       "• Breve disclaimer finale: orientamento professionale, non consulenza legale/fiscale vincolante.";
 
     const userContent =
-      "RISULTATI RICERCA WEB (JSON):\n" +
-      JSON.stringify({ query: searchQuery, risultati: fonti }, null, 2) +
+      (hits.length > 0
+        ? "RISULTATI RICERCA WEB (JSON):\n" +
+          JSON.stringify({ query: searchQuery, risultati: fonti }, null, 2)
+        : "NESSUN RISULTATO WEB (ricerca non configurata o timeout). Rispondi con conoscenza aggiornata e indica che non hai potuto verificare sul web." +
+          (searchNote ? `\nDettaglio: ${searchNote}` : "")) +
       "\n\nDOMANDA UTENTE: " +
       domanda;
 
@@ -209,6 +220,10 @@ Deno.serve(async (req) => {
         });
       }
       throw e;
+    }
+
+    if (!risposta.trim()) {
+      throw new Error("Risposta IA vuota. Riprova.");
     }
 
     return new Response(

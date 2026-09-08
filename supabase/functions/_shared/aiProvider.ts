@@ -185,9 +185,13 @@ export async function aiChatCompletions(
   const cfg = getAiConfig();
   const requested = typeof body.model === "string" ? body.model : undefined;
   const payload: Record<string, unknown> = { ...body, model: mapAiModel(requested) };
-  // Kimi K2.6: thinking è on di default e rifiuta tool_choice forzato (400).
-  if (cfg.provider === "moonshot" && Array.isArray(payload.tools) && payload.tools.length > 0) {
-    payload.thinking = { type: "disabled" };
+  // Kimi K2.6: thinking on di default → timeout Edge (150s) e chat “vuota”.
+  // Disabilitato salvo override esplicito; con tool è obbligatorio off.
+  if (cfg.provider === "moonshot") {
+    const hasTools = Array.isArray(payload.tools) && payload.tools.length > 0;
+    if (hasTools || payload.thinking == null) {
+      payload.thinking = { type: "disabled" };
+    }
   }
   return fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
