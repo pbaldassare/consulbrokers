@@ -59,6 +59,7 @@ import {
   Wallet,
   Wand2,
   Target,
+  Bot,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
@@ -114,6 +115,16 @@ export const isLegacyLabel = (label?: string) => !!label && LEGACY_LABEL_RE.test
 const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Assistente IA", path: "/ai-assistant", icon: Sparkles, permissionKey: "dashboard" } },
+  {
+    type: "single",
+    item: {
+      label: "Cb Bot",
+      path: "/cb-bot",
+      icon: Bot,
+      permissionKey: "dashboard",
+      showForRoles: ["admin"],
+    },
+  },
   { type: "single", item: { label: "Guida Operativa", path: "/guida-operativa", icon: BookOpen, permissionKey: "dashboard" } },
   {
     type: "single",

@@ -72,8 +72,8 @@ export default defineConfig(({ mode }) => {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(APP_VERSION),
   },
   server: {
-    // 127.0.0.1 evita problemi del Simple Browser / localhost su Windows con host "::"
-    host: "127.0.0.1",
+    // "::" = dual stack: http://localhost:5175 (IPv6) e 127.0.0.1 (IPv4)
+    host: "::",
     port: devPort,
     strictPort: true,
     headers: {
