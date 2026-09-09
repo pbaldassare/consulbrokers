@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 
 interface BandoResult {
   id: string;
@@ -289,7 +290,7 @@ export default function BandiPubbliciPage() {
     setRisultatiLive([]);
     setElapsedSeconds(0);
     setSearchError(null);
-    setProgressMsg("Avvio ricerca...");
+    setProgressMsg("Kimi sta cercando e analizzando i bandi...");
     setSessionsStatus({ done: 0, total: 0 });
     setApiCallCount(prev => prev + 1);
 
@@ -318,7 +319,10 @@ export default function BandiPubbliciPage() {
           body: { action: "start", ...requestBody },
         });
         if (!searchActiveRef.current) return;
-        if (error) throw error;
+        const startErr = edgeFunctionErrorMessage(data, error);
+        if (startErr && !data?.retryable && !data?.sessionIds?.length && !data?.bandi) {
+          throw new Error(startErr);
+        }
         if (data?.retryable && (!data?.sessionIds || data.sessionIds.length === 0)) {
           const retryAfterSeconds = Math.max(5, Number(data?.retryAfterSeconds) || START_RETRY_FALLBACK_SECONDS);
           const secondsRemaining = Math.max(0, Math.ceil((startDeadline - Date.now()) / 1000));
@@ -332,6 +336,36 @@ export default function BandiPubbliciPage() {
 
       if (!searchActiveRef.current) return;
       if (!startData) throw new Error("Browser Use è temporaneamente occupato. Riprova tra poco.");
+
+      if (startData?.status === "completed" || (Array.isArray(startData?.bandi) && startData.done)) {
+        const bandi: BandoResult[] = startData.bandi || [];
+        setLoading(false);
+        setProgressMsg("");
+        setRisultatiLive(bandi);
+        if (bandi.length > 0) {
+          try {
+            await upsertBandiToDB(bandi, KEYWORD_FISSA);
+            const prospectCount = await autoCreateProspects(
+              bandi.filter((b) => b.ente && !b.ente.startsWith("Fonte web")),
+              profile?.ufficio_id,
+            );
+            await refetchBandi();
+            toast.success(
+              startData.engine === "kimi"
+                ? `${bandi.length} bando/i analizzati con Kimi e salvati.`
+                : `${bandi.length} bando/i trovati e salvati.`,
+            );
+            if (prospectCount > 0) toast.info(`${prospectCount} nuovi prospect creati.`);
+          } catch {
+            toast.warning("Risultati trovati ma errore nel salvataggio");
+          }
+        } else {
+          toast.info("Nessun bando trovato con i criteri specificati");
+        }
+        await logRicerca(regioniSelezionate, bandi.length, profile?.id);
+        queryClient.invalidateQueries({ queryKey: ["ricerche_bandi_recenti"] });
+        return;
+      }
 
       const sessionIds: string[] = startData?.sessionIds || [];
       const totalBatches = startData?.totalBatches || sessionIds.length;
@@ -730,9 +764,9 @@ export default function BandiPubbliciPage() {
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
             <div>
-              <h3 className="text-lg font-medium">Il browser AI sta cercando su MondoAppalti.it...</h3>
+              <h3 className="text-lg font-medium">Kimi sta cercando e analizzando i bandi...</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                {progressMsg || "Login, navigazione e analisi dei risultati in corso."}
+                {progressMsg || "Ricerca sui portali gare e analisi con Moonshot."}
               </p>
               {sessionsStatus.total > 0 && (
                 <div className="mt-2">
@@ -890,12 +924,22 @@ export default function BandiPubbliciPage() {
         </div>
       )}
 
+      {!loading && !searchError && displayBandi.length === 0 && hasSearched && (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Search className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-medium text-muted-foreground">Nessun bando trovato</h3>
+            <p className="text-sm text-muted-foreground/70 mt-2">Prova ad allargare i filtri o un&apos;altra regione.</p>
+          </CardContent>
+        </Card>
+      )}
+
       {!loading && !searchError && displayBandi.length === 0 && !hasSearched && (
         <Card>
           <CardContent className="py-16 text-center">
             <Landmark className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium text-muted-foreground">Nessun bando in archivio</h3>
-            <p className="text-sm text-muted-foreground/70 mt-2">Clicca "Cerca Bandi" per avviare una ricerca su MondoAppalti.it</p>
+            <p className="text-sm text-muted-foreground/70 mt-2">Clicca &quot;Cerca Bandi&quot;: Kimi cerca sui portali gare e analizza i risultati.</p>
           </CardContent>
         </Card>
       )}
