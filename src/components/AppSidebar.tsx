@@ -164,7 +164,7 @@ const sidebarEntries: SidebarEntry[] = [
   },
   {
     type: "single",
-    item: { label: "CBBot", path: "/portafoglio/documentale?tab=cb-bot", icon: Bot, permissionKey: "portafoglio" },
+    item: { label: "CB Bot", path: "/portafoglio/documentale?tab=cb-bot", icon: Bot, permissionKey: "portafoglio" },
   },
   {
     type: "group",
