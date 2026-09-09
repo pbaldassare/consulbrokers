@@ -58,8 +58,10 @@ import {
   Pencil,
   Wallet,
   Wand2,
+  Bot,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { isSidebarToActive } from "@/lib/sidebarToActive";
 import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
 
 
@@ -159,6 +161,10 @@ const sidebarEntries: SidebarEntry[] = [
   {
     type: "single",
     item: { label: "Archivio Documentale", path: "/portafoglio/documentale", icon: HardDrive, permissionKey: "portafoglio" },
+  },
+  {
+    type: "single",
+    item: { label: "CB Bot", path: "/portafoglio/documentale?tab=cb-bot", icon: Bot, permissionKey: "portafoglio" },
   },
   {
     type: "group",
@@ -355,13 +361,14 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
                 key={item.path}
                 to={item.path}
                 end={item.path === "/"}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 mb-0.5 ${
+                className={() => {
+                  const isActive = isSidebarToActive(location, item.path, item.path === "/");
+                  return `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 mb-0.5 ${
                     isActive
                       ? "bg-white/15 text-white shadow-sm backdrop-blur-sm"
                       : "text-white/70 hover:bg-white/8 hover:text-white/90"
-                  } ${collapsed ? "justify-center" : ""}`
-                }
+                  } ${collapsed ? "justify-center" : ""}`;
+                }}
               >
                 <item.icon className="w-[18px] h-[18px] shrink-0" />
                 {!collapsed && (

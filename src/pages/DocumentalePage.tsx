@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConsultazione } from "@/contexts/ConsultazioneContext";
@@ -16,6 +17,7 @@ import UploadDocumentDialog from "@/components/documentale/UploadDocumentDialog"
 import LibreriaCgaSection from "@/components/documentale/LibreriaCgaSection";
 import AssistenteGaranzieSection from "@/components/documentale/AssistenteGaranzieSection";
 import CbBotLogo from "@/components/shared/CbBotLogo";
+import { documentaleTabToQuery, parseDocumentaleTab, type DocumentaleTab } from "@/lib/documentaleTab";
 
 interface Folder {
   id: string;
@@ -48,6 +50,16 @@ type DocumentalePageProps = {
 export default function DocumentalePage({ consultazioneMode = false }: DocumentalePageProps) {
   const { isAdmin, profile, user } = useAuth();
   const { logRicerca } = useConsultazione();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = parseDocumentaleTab(searchParams.get("tab"), consultazioneMode);
+  const setTab = (v: string) => {
+    const next = v as DocumentaleTab;
+    const sp = new URLSearchParams(searchParams);
+    const q = documentaleTabToQuery(next, consultazioneMode);
+    if (q) sp.set("tab", q);
+    else sp.delete("tab");
+    setSearchParams(sp, { replace: true });
+  };
   const canManage =
     !consultazioneMode &&
     (isAdmin ||
@@ -234,8 +246,6 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
     ? docs.filter((d) => d.file_name.toLowerCase().includes(search.toLowerCase()) || d.tags?.some((t) => t.toLowerCase().includes(search.toLowerCase())))
     : docs;
 
-  const defaultTab = consultazioneMode ? "assistente-garanzie" : "archivio";
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -271,7 +281,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
         )}
       </div>
 
-      <Tabs defaultValue={defaultTab} className="w-full">
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList>
           {consultazioneMode ? (
             <>
