@@ -1,7 +1,41 @@
 // Edge function: chiedi-mercato-assicurativo (Assistente Web)
-// Chat web stile ChatGPT — NON accede a DB/polizze/portafoglio CBnet.
+// Chat web — interroga SOLO i siti in cb_bot_siti_autorizzati. Non accede a polizze CBnet.
 
-import { requireAi, aiChatCompletions } from "../_shared/aiProvider.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const MOONSHOT_BASE = "https://api.moonshot.ai/v1";
+const LOVABLE_BASE = "https://ai.gateway.lovable.dev/v1";
+
+function moonshotKey(): string | undefined {
+  return Deno.env.get("MOONSHOT_API_KEY") || Deno.env.get("MOONSHINE_API_KEY") || undefined;
+}
+
+function requireAi() {
+  const moon = moonshotKey();
+  const lovable = Deno.env.get("LOVABLE_API_KEY");
+  if (!moon && !lovable) {
+    throw new Error("API IA non configurata: imposta MOONSHOT_API_KEY (Kimi) nei secret Supabase.");
+  }
+}
+
+async function aiChatCompletions(body: Record<string, unknown>): Promise<Response> {
+  const moon = moonshotKey();
+  const baseUrl = moon
+    ? (Deno.env.get("MOONSHOT_BASE_URL") || MOONSHOT_BASE).replace(/\/$/, "")
+    : LOVABLE_BASE;
+  const apiKey = moon || Deno.env.get("LOVABLE_API_KEY")!;
+  const model = moon
+    ? (Deno.env.get("MOONSHOT_MODEL") || "kimi-k2.6")
+    : "google/gemini-2.5-flash";
+  return fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ...body, model }),
+  });
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +45,36 @@ const corsHeaders = {
 
 type StoricoMsg = { role: string; content: string };
 type SearchHit = { title: string; url: string; snippet: string };
+type SitoAutorizzato = { nome: string; url: string; dominio: string };
+
+function isHostAllowed(url: string, domains: string[]): boolean {
+  if (!url || domains.length === 0) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    return domains.some((d) => {
+      const dom = d.toLowerCase().replace(/^www\./, "");
+      return host === dom || host.endsWith(`.${dom}`);
+    });
+  } catch {
+    return false;
+  }
+}
+
+async function loadSitiAutorizzati(): Promise<SitoAutorizzato[]> {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return [];
+  const admin = createClient(url, key);
+  const { data, error } = await admin
+    .from("cb_bot_siti_autorizzati")
+    .select("nome, url, dominio")
+    .eq("attivo", true);
+  if (error) {
+    console.warn("cb_bot_siti_autorizzati", error.message);
+    return [];
+  }
+  return (data ?? []) as SitoAutorizzato[];
+}
 
 const ALLOWED_EMAIL_DOMAINS = [
   "consulbrokers.it",
@@ -50,7 +114,7 @@ async function callGemini(
   return json?.choices?.[0]?.message?.content ?? "";
 }
 
-async function searchTavily(apiKey: string, query: string): Promise<SearchHit[]> {
+async function searchTavily(apiKey: string, query: string, domains: string[]): Promise<SearchHit[]> {
   const resp = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -60,6 +124,7 @@ async function searchTavily(apiKey: string, query: string): Promise<SearchHit[]>
       search_depth: "basic",
       max_results: 10,
       include_answer: false,
+      include_domains: domains.slice(0, 50),
     }),
   });
   if (!resp.ok) {
@@ -74,14 +139,16 @@ async function searchTavily(apiKey: string, query: string): Promise<SearchHit[]>
   }));
 }
 
-async function searchSerper(apiKey: string, query: string): Promise<SearchHit[]> {
+async function searchSerper(apiKey: string, query: string, domains: string[]): Promise<SearchHit[]> {
+  const siteFilter = domains.map((d) => `site:${d}`).join(" OR ");
+  const q = siteFilter ? `${query} (${siteFilter})` : query;
   const resp = await fetch("https://google.serper.dev/search", {
     method: "POST",
     headers: {
       "X-API-KEY": apiKey,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ q: query, gl: "it", hl: "it", num: 10 }),
+    body: JSON.stringify({ q, gl: "it", hl: "it", num: 10 }),
   });
   if (!resp.ok) {
     const t = await resp.text();
@@ -95,26 +162,30 @@ async function searchSerper(apiKey: string, query: string): Promise<SearchHit[]>
   }));
 }
 
-async function webSearch(query: string): Promise<SearchHit[]> {
+async function webSearch(query: string, domains: string[]): Promise<SearchHit[]> {
   const tavilyKey = Deno.env.get("TAVILY_API_KEY");
   const serperKey = Deno.env.get("SERPER_API_KEY");
 
+  let hits: SearchHit[] = [];
   if (tavilyKey) {
     try {
-      const hits = await searchTavily(tavilyKey, query);
-      if (hits.length > 0) return hits;
+      hits = await searchTavily(tavilyKey, query, domains);
     } catch (e) {
       console.warn("Tavily fallito, provo Serper", e);
     }
   }
 
-  if (serperKey) {
-    return searchSerper(serperKey, query);
+  if (hits.length === 0 && serperKey) {
+    hits = await searchSerper(serperKey, query, domains);
   }
 
-  throw new Error(
-    "Ricerca web non configurata. Impostare TAVILY_API_KEY o SERPER_API_KEY nei secrets Supabase.",
-  );
+  if (!tavilyKey && !serperKey) {
+    throw new Error(
+      "Ricerca web non configurata. Impostare TAVILY_API_KEY o SERPER_API_KEY nei secrets Supabase.",
+    );
+  }
+
+  return hits.filter((h) => isHostAllowed(h.url, domains));
 }
 
 Deno.serve(async (req) => {
@@ -144,6 +215,23 @@ Deno.serve(async (req) => {
       );
     }
 
+    const siti = await loadSitiAutorizzati();
+    const domains = [...new Set(siti.map((s) => s.dominio).filter(Boolean))];
+
+    if (domains.length === 0) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          risposta:
+            "Non ci sono siti autorizzati attivi. Un amministratore deve aggiungerli in **Cb Bot → Siti autorizzati**. " +
+            "Per clausole e garanzie di prodotto usa la tab **Libreria CGA**.",
+          fonti: [],
+          query: null,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Ottimizza query di ricerca (opzionale)
     let searchQuery = domanda;
     try {
@@ -163,29 +251,32 @@ Deno.serve(async (req) => {
       // usa domanda originale
     }
 
-    const hits = await webSearch(searchQuery);
+    const hits = await webSearch(searchQuery, domains);
     const fonti = hits.map((h) => ({
       title: h.title,
       url: h.url,
       snippet: h.snippet.slice(0, 320),
     }));
 
+    const elencoSiti = siti.map((s) => `${s.nome} (${s.dominio})`).join(", ");
+
     const systemPrompt =
-      "Sei **Assistente Web**, un assistente conversazionale per professionisti del brokeraggio assicurativo italiano. " +
-      "Comportati come ChatGPT con accesso al web: tono naturale, chiaro, professionale ma non rigido. " +
+      "Sei **Assistente Web**, un assistente per professionisti del brokeraggio assicurativo italiano. " +
+      "Puoi usare SOLO i risultati web provenienti dai siti autorizzati dall'amministratore. " +
       "REGOLE FERREE:\n" +
       "• NON hai accesso a polizze, clienti, portafoglio, titoli, quietanze o dati interni CBnet/Consulbrokers.\n" +
       "• Se l'utente chiede 'le mie polizze', dati cliente o estrazioni dal gestionale → spiega che Assistente Web non può accedervi; indirizza al gestionale CBnet.\n" +
       "• Se chiede clausole/garanzie di un prodotto assicurativo specifico → suggerisci la tab **Libreria CGA** nel Documentale.\n" +
-      "• Usa i risultati web forniti nel JSON; integra con conoscenza generale quando utile.\n" +
-      "• Cita le fonti con link markdown [titolo](url) quando possibile.\n" +
-      "• Preferisci fonti ufficiali (IVASS, ANIA, normattiva) per normativa e mercato assicurativo.\n" +
+      "• Usa ESCLUSIVAMENTE i risultati web forniti nel JSON. Non inventare fonti.\n" +
+      "• Se i risultati sono vuoti o insufficienti, dillo chiaramente: non hai trovato nulla sui siti autorizzati.\n" +
+      "• Cita le fonti con link markdown [titolo](url).\n" +
       "• Rispondi in italiano. Struttura con elenchi quando aiuta la lettura.\n" +
-      "• Breve disclaimer finale: orientamento professionale, non consulenza legale/fiscale vincolante.";
+      "• Breve disclaimer finale: orientamento professionale, non consulenza legale/fiscale vincolante.\n" +
+      `Siti autorizzati: ${elencoSiti}.`;
 
     const userContent =
-      "RISULTATI RICERCA WEB (JSON):\n" +
-      JSON.stringify({ query: searchQuery, risultati: fonti }, null, 2) +
+      "RISULTATI RICERCA WEB SUI SITI AUTORIZZATI (JSON):\n" +
+      JSON.stringify({ query: searchQuery, siti_autorizzati: elencoSiti, risultati: fonti }, null, 2) +
       "\n\nDOMANDA UTENTE: " +
       domanda;
 

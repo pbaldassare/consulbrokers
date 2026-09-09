@@ -686,6 +686,42 @@ export type Database = {
         }
         Relationships: []
       }
+      cb_bot_siti_autorizzati: {
+        Row: {
+          attivo: boolean
+          created_at: string
+          created_by: string | null
+          dominio: string
+          id: string
+          nome: string
+          note: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          attivo?: boolean
+          created_at?: string
+          created_by?: string | null
+          dominio: string
+          id?: string
+          nome: string
+          note?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          attivo?: boolean
+          created_at?: string
+          created_by?: string | null
+          dominio?: string
+          id?: string
+          nome?: string
+          note?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       ai_chat_conversazioni: {
         Row: {
           created_at: string
