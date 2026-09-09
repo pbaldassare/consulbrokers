@@ -7,6 +7,7 @@ describe("isSidebarToActive", () => {
 
   it("accende CB Bot solo con tab cb-bot", () => {
     expect(isSidebarToActive({ pathname: "/portafoglio/documentale", search: "?tab=cb-bot" }, cbbot)).toBe(true);
+    expect(isSidebarToActive({ pathname: "/portafoglio/documentale", search: "?tab=assistente-garanzie" }, cbbot)).toBe(true);
     expect(isSidebarToActive({ pathname: "/portafoglio/documentale", search: "" }, cbbot)).toBe(false);
     expect(isSidebarToActive({ pathname: "/portafoglio/documentale", search: "?tab=cb-bot" }, archivio)).toBe(false);
   });

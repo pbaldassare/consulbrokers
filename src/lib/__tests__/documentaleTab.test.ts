@@ -22,4 +22,9 @@ describe("documentaleTabToQuery", () => {
     expect(documentaleTabToQuery("archivio", false)).toBeNull();
     expect(documentaleTabToQuery("archivio", true)).toBe("archivio");
   });
+
+  it("mantiene libreria-cga nella query", () => {
+    expect(parseDocumentaleTab("libreria-cga", false)).toBe("libreria-cga");
+    expect(documentaleTabToQuery("libreria-cga", false)).toBe("libreria-cga");
+  });
 });
