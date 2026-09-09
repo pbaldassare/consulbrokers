@@ -46,6 +46,7 @@ const corsHeaders = {
 type StoricoMsg = { role: string; content: string };
 type SearchHit = { title: string; url: string; snippet: string };
 type SitoAutorizzato = { nome: string; url: string; dominio: string };
+type FonteSalvata = { titolo: string; url: string; snippet: string | null; dominio: string };
 
 function isHostAllowed(url: string, domains: string[]): boolean {
   if (!url || domains.length === 0) return false;
@@ -74,6 +75,49 @@ async function loadSitiAutorizzati(): Promise<SitoAutorizzato[]> {
     return [];
   }
   return (data ?? []) as SitoAutorizzato[];
+}
+
+async function loadFontiSalvate(): Promise<FonteSalvata[]> {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return [];
+  const admin = createClient(url, key);
+  const { data, error } = await admin
+    .from("cb_bot_fonti")
+    .select("titolo, url, snippet, dominio")
+    .eq("attiva", true)
+    .order("updated_at", { ascending: false })
+    .limit(80);
+  if (error) {
+    console.warn("cb_bot_fonti", error.message);
+    return [];
+  }
+  return (data ?? []) as FonteSalvata[];
+}
+
+function tokenizeQuery(q: string): string[] {
+  return q
+    .toLowerCase()
+    .split(/[^a-z0-9àèéìòù]+/i)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 3);
+}
+
+function pickFontiForQuery(fonti: FonteSalvata[], query: string, limit = 8): FonteSalvata[] {
+  if (fonti.length === 0) return [];
+  if (fonti.length <= 5) return fonti.slice(0, limit);
+  const tokens = tokenizeQuery(query);
+  if (tokens.length === 0) return fonti.slice(0, limit);
+  return fonti
+    .map((f) => {
+      const hay = `${f.titolo} ${f.snippet ?? ""} ${f.url}`.toLowerCase();
+      const s = tokens.reduce((n, t) => n + (hay.includes(t) ? 1 : 0), 0);
+      return { f, s };
+    })
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, limit)
+    .map((x) => x.f);
 }
 
 const ALLOWED_EMAIL_DOMAINS = [
@@ -248,6 +292,8 @@ Deno.serve(async (req) => {
 
     const siti = await loadSitiAutorizzati();
     const domains = [...new Set(siti.map((s) => s.dominio).filter(Boolean))];
+    const fontiInterneAll = await loadFontiSalvate();
+    const fontiInterne = pickFontiForQuery(fontiInterneAll, domanda);
 
     if (domains.length === 0) {
       return new Response(
@@ -290,15 +336,22 @@ Deno.serve(async (req) => {
     }));
 
     const elencoSiti = siti.map((s) => `${s.nome} (${s.dominio})`).join(", ");
+    const fontiSalvateOut = fontiInterne.map((f) => ({
+      title: f.titolo,
+      url: f.url,
+      snippet: (f.snippet ?? "").slice(0, 320),
+      salvata: true,
+    }));
 
     const systemPrompt =
       "Sei **Assistente Web**, un assistente per professionisti del brokeraggio assicurativo italiano. " +
-      "Puoi usare SOLO i risultati web provenienti dai siti autorizzati dall'amministratore. " +
+      "Puoi usare SOLO i risultati web provenienti dai siti autorizzati e le fonti interne salvate dallo staff. " +
       "REGOLE FERREE:\n" +
       "• NON hai accesso a polizze, clienti, portafoglio, titoli, quietanze o dati interni CBnet/Consulbrokers.\n" +
       "• Se l'utente chiede 'le mie polizze', dati cliente o estrazioni dal gestionale → spiega che Assistente Web non può accedervi; indirizza al gestionale CBnet.\n" +
       "• Se chiede clausole/garanzie di un prodotto assicurativo specifico → suggerisci la tab **Libreria CGA** nel Documentale.\n" +
-      "• Usa ESCLUSIVAMENTE i risultati web forniti nel JSON. Non inventare fonti.\n" +
+      "• Preferisci le FONTI INTERNE CB BOT quando sono pertinenti; poi i risultati web.\n" +
+      "• Usa ESCLUSIVAMENTE i JSON forniti. Non inventare fonti.\n" +
       "• Se i risultati sono vuoti o insufficienti, dillo chiaramente: non hai trovato nulla sui siti autorizzati.\n" +
       "• Cita le fonti con link markdown [titolo](url).\n" +
       "• Rispondi in italiano. Struttura con elenchi quando aiuta la lettura.\n" +
@@ -306,7 +359,9 @@ Deno.serve(async (req) => {
       `Siti autorizzati: ${elencoSiti}.`;
 
     const userContent =
-      "RISULTATI RICERCA WEB SUI SITI AUTORIZZATI (JSON):\n" +
+      "FONTI INTERNE CB BOT (pagine salvate dallo staff):\n" +
+      JSON.stringify(fontiSalvateOut, null, 2) +
+      "\n\nRISULTATI RICERCA WEB SUI SITI AUTORIZZATI (JSON):\n" +
       JSON.stringify({ query: searchQuery, siti_autorizzati: elencoSiti, risultati: fonti }, null, 2) +
       "\n\nDOMANDA UTENTE: " +
       domanda;
@@ -334,7 +389,13 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ ok: true, risposta, fonti, query: searchQuery }),
+      JSON.stringify({
+        ok: true,
+        risposta,
+        fonti,
+        fonti_salvate: fontiSalvateOut,
+        query: searchQuery,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {

@@ -3,9 +3,13 @@ import CbBotLogo from "@/components/shared/CbBotLogo";
 import { useConsultazione } from "@/contexts/ConsultazioneContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGaranzieChat } from "@/hooks/useGaranzieChat";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { insertCbBotFonte } from "@/lib/cbBotFontiDb";
+import { normalizeFonteUrl } from "@/lib/cbBotFonti";
+import { CB_BOT_FONTI_QUERY_KEY } from "@/components/documentale/CbBotFontiSalvatePanel";
+import { toast } from "sonner";
 
 const SUGGERIMENTI = [
   "Ultimi provvedimenti IVASS su distribuzione assicurativa",
@@ -23,6 +27,7 @@ type Props = {
 export default function AssistenteWebChatPanel({ consultazioneMode = false }: Props) {
   const { email: consultazioneEmail, logRicerca } = useConsultazione();
   const { user, profile } = useAuth();
+  const qc = useQueryClient();
 
   const callerEmail = consultazioneMode
     ? consultazioneEmail
@@ -37,6 +42,33 @@ export default function AssistenteWebChatPanel({ consultazioneMode = false }: Pr
     onBeforeSend: consultazioneMode
       ? (text) => logRicerca(text, "Assistente Web")
       : undefined,
+  });
+
+  const { data: fontiSalvate = [] } = useQuery({
+    queryKey: [...CB_BOT_FONTI_QUERY_KEY, "urls"],
+    enabled: !consultazioneMode,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("cb_bot_fonti").select("url").eq("attiva", true);
+      if (error) throw error;
+      return (data ?? []).map((r) => r.url);
+    },
+  });
+
+  const saveFonteMutation = useMutation({
+    mutationFn: async (hit: { title?: string; url: string; snippet?: string }) => {
+      const res = await insertCbBotFonte({
+        hit,
+        userId: user?.id ?? null,
+        origine: "ricerca",
+        conversazioneId: chat.activeId,
+      });
+      if (res === "duplicata") throw new Error("Fonte già in libreria");
+    },
+    onSuccess: () => {
+      toast.success("Fonte salvata: il bot la riuserà nelle prossime ricerche");
+      qc.invalidateQueries({ queryKey: CB_BOT_FONTI_QUERY_KEY });
+    },
+    onError: (e: Error) => toast.error(e.message || "Impossibile salvare la fonte"),
   });
 
   const { data: sitiAttivi = [] } = useQuery({
@@ -95,6 +127,9 @@ export default function AssistenteWebChatPanel({ consultazioneMode = false }: Pr
       emptyDescription="Cerca solo sui siti autorizzati dall'admin. Non accede a polizze, clienti né al portafoglio CBnet. Per le CGA usa la tab Libreria CGA."
       thinkingLabel="Assistente Web sta cercando sui siti autorizzati…"
       formatConvDate={chat.formatConvDate}
+      evidenzaMutation={consultazioneMode ? undefined : chat.evidenzaMutation}
+      onSaveFonte={consultazioneMode ? undefined : (f) => saveFonteMutation.mutate(f)}
+      savedFonteUrls={fontiSalvate.map((u) => normalizeFonteUrl(u) ?? u)}
     />
     </div>
   );

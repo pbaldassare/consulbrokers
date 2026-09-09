@@ -1,8 +1,9 @@
-import { Globe, BookOpen, ShieldCheck } from "lucide-react";
+import { Globe, BookOpen, ShieldCheck, Bookmark } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AssistenteWebChatPanel from "@/components/documentale/AssistenteWebChatPanel";
 import LibreriaCgaChatPanel from "@/components/documentale/LibreriaCgaChatPanel";
 import CbBotSitiAutorizzatiPanel from "@/components/documentale/CbBotSitiAutorizzatiPanel";
+import CbBotFontiSalvatePanel from "@/components/documentale/CbBotFontiSalvatePanel";
 import CbBotLogo from "@/components/shared/CbBotLogo";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -13,6 +14,7 @@ type Props = {
 export default function AssistenteGaranzieSection({ consultazioneMode = false }: Props) {
   const { isAdmin } = useAuth();
   const showSitiTab = !consultazioneMode && isAdmin;
+  const showFontiTab = !consultazioneMode;
 
   return (
     <div className="space-y-4">
@@ -30,9 +32,15 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
                 <strong>Siti autorizzati</strong> — elenco dei portali che il bot può interrogare.
               </>
             )}
+            {showFontiTab && (
+              <>
+                {" "}
+                <strong>Fonti salvate</strong> — pagine pinate che il bot riusa come fonti interne.
+              </>
+            )}
             {consultazioneMode
               ? " Salva le tue ricerche e condividile con il team."
-              : " Salva le ricerche utili e condividile con il team."}
+              : " Metti in evidenza le ricerche utili: le fonti diventano libreria."}
           </p>
         </div>
       </div>
@@ -50,6 +58,11 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
               <ShieldCheck className="h-3.5 w-3.5" /> Siti autorizzati
             </TabsTrigger>
           )}
+          {showFontiTab && (
+            <TabsTrigger value="fonti-salvate" className="gap-1.5">
+              <Bookmark className="h-3.5 w-3.5" /> Fonti salvate
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="assistente-web" className="mt-4">
@@ -63,6 +76,11 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
         {showSitiTab && (
           <TabsContent value="siti-autorizzati" className="mt-4">
             <CbBotSitiAutorizzatiPanel />
+          </TabsContent>
+        )}
+        {showFontiTab && (
+          <TabsContent value="fonti-salvate" className="mt-4">
+            <CbBotFontiSalvatePanel />
           </TabsContent>
         )}
       </Tabs>

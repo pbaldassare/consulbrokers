@@ -722,6 +722,57 @@ export type Database = {
         }
         Relationships: []
       }
+      cb_bot_fonti: {
+        Row: {
+          attiva: boolean
+          conversazione_id: string | null
+          created_at: string
+          dominio: string
+          id: string
+          messaggio_id: string | null
+          note: string | null
+          origine: string
+          salvata_da: string | null
+          snippet: string | null
+          tags: string[]
+          titolo: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          attiva?: boolean
+          conversazione_id?: string | null
+          created_at?: string
+          dominio: string
+          id?: string
+          messaggio_id?: string | null
+          note?: string | null
+          origine?: string
+          salvata_da?: string | null
+          snippet?: string | null
+          tags?: string[]
+          titolo: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          attiva?: boolean
+          conversazione_id?: string | null
+          created_at?: string
+          dominio?: string
+          id?: string
+          messaggio_id?: string | null
+          note?: string | null
+          origine?: string
+          salvata_da?: string | null
+          snippet?: string | null
+          tags?: string[]
+          titolo?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       ai_chat_conversazioni: {
         Row: {
           created_at: string
@@ -4659,6 +4710,8 @@ export type Database = {
           condivisa_at: string | null
           created_at: string
           id: string
+          in_evidenza: boolean
+          in_evidenza_at: string | null
           prodotto_cga_id: string | null
           ramo: string | null
           tags: string[] | null
@@ -4674,6 +4727,8 @@ export type Database = {
           condivisa_at?: string | null
           created_at?: string
           id?: string
+          in_evidenza?: boolean
+          in_evidenza_at?: string | null
           prodotto_cga_id?: string | null
           ramo?: string | null
           tags?: string[] | null
@@ -4689,6 +4744,8 @@ export type Database = {
           condivisa_at?: string | null
           created_at?: string
           id?: string
+          in_evidenza?: boolean
+          in_evidenza_at?: string | null
           prodotto_cga_id?: string | null
           ramo?: string | null
           tags?: string[] | null

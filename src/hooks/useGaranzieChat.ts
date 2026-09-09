@@ -29,6 +29,8 @@ export type GaranzieConv = {
   tipo: string;
   updated_at: string;
   autore_email: string | null;
+  in_evidenza?: boolean;
+  in_evidenza_at?: string | null;
 };
 
 export type GaranzieMsg = {
@@ -83,7 +85,7 @@ export function useGaranzieChat({
       }
       const { data, error } = await supabase
         .from("garanzie_chat_conversazioni")
-        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email")
+        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email, in_evidenza, in_evidenza_at")
         .eq("user_id", user!.id)
         .eq("tipo", tipo)
         .order("updated_at", { ascending: false });
@@ -97,7 +99,7 @@ export function useGaranzieChat({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("garanzie_chat_conversazioni")
-        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email")
+        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email, in_evidenza, in_evidenza_at")
         .eq("condivisa", true)
         .eq("tipo", tipo)
         .order("condivisa_at", { ascending: false, nullsFirst: false });
@@ -164,6 +166,35 @@ export function useGaranzieChat({
       qc.invalidateQueries({ queryKey: queryKeyBase });
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  const evidenzaMutation = useMutation({
+    mutationFn: async ({ id, inEvidenza }: { id: string; inEvidenza: boolean }) => {
+      const { error } = await supabase
+        .from("garanzie_chat_conversazioni")
+        .update({
+          in_evidenza: inEvidenza,
+          in_evidenza_at: inEvidenza ? new Date().toISOString() : null,
+        })
+        .eq("id", id);
+      if (error) throw error;
+      if (inEvidenza) {
+        const { promoteFontiFromConversazione } = await import("@/lib/cbBotFontiDb");
+        const n = await promoteFontiFromConversazione(id, user?.id ?? null);
+        toast.success(
+          n > 0
+            ? `Ricerca in evidenza · ${n} nuov${n === 1 ? "a fonte" : "e fonti"} in libreria`
+            : "Ricerca in evidenza",
+        );
+      } else {
+        toast.success("Rimossa dall'evidenza (le fonti salvate restano)");
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeyBase });
+      qc.invalidateQueries({ queryKey: ["cb-bot-fonti"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Impossibile aggiornare l'evidenza"),
   });
 
   const deleteMutation = useMutation({
@@ -255,7 +286,14 @@ export function useGaranzieChat({
       if (fnError) throw new Error(fnError);
 
       const assistantContent = data?.risposta ?? "";
-      const fonti = data?.fonti ?? [];
+      const webFonti = Array.isArray(data?.fonti) ? data.fonti : [];
+      const savedFonti = Array.isArray(data?.fonti_salvate)
+        ? data.fonti_salvate.map((f: { title?: string; url?: string; snippet?: string }) => ({
+            ...f,
+            salvata: true,
+          }))
+        : [];
+      const fonti = [...savedFonti, ...webFonti];
 
       if (convId) {
         if (isConsultazionePersist) {
@@ -331,6 +369,7 @@ export function useGaranzieChat({
     resetChat,
     shareMutation,
     deleteMutation,
+    evidenzaMutation,
     sendMessage,
     isSharedReadOnly,
     formatConvDate,
