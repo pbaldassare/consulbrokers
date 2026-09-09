@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import type { AiMessage } from "@/components/ai/AiChatMessage";
+import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 
 export type ChatTipo = "web" | "cga";
 
@@ -250,8 +251,8 @@ export function useGaranzieChat({
       const { data, error } = await supabase.functions.invoke(edgeFunction, {
         body: { domanda: text, storico: storico.slice(0, -1), ...(extraBody?.() ?? {}) },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const fnError = edgeFunctionErrorMessage(data, error);
+      if (fnError) throw new Error(fnError);
 
       const assistantContent = data?.risposta ?? "";
       const fonti = data?.fonti ?? [];
@@ -282,8 +283,28 @@ export function useGaranzieChat({
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Errore IA";
       toast.error(msg);
-      if (!convId) {
-        setEphemeralMessages((prev) => prev.filter((m) => m !== userMsg));
+      const assistantError =
+        "Non sono riuscito a completare la ricerca.\n\n" + msg;
+      if (convId) {
+        try {
+          if (isConsultazionePersist) {
+            await insertMsgConsultazione(consultazioneEmail!, convId, "assistant", assistantError);
+          } else {
+            await supabase.from("garanzie_chat_messaggi").insert({
+              conversazione_id: convId,
+              role: "assistant",
+              content: assistantError,
+            });
+          }
+          qc.invalidateQueries({ queryKey: [...queryKeyBase, "messages", convId] });
+        } catch {
+          // il toast resta l'unico feedback
+        }
+      } else {
+        setEphemeralMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: assistantError },
+        ]);
       }
     } finally {
       setIsThinking(false);

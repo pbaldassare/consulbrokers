@@ -102,6 +102,34 @@ function isEmailAllowed(email: string | null | undefined): boolean {
   return !!domain && ALLOWED_EMAIL_DOMAINS.includes(domain);
 }
 
+const PORTAL_ROLES = new Set(["cliente", "prospect"]);
+
+/** Utente CBnet loggato (JWT valido, profilo attivo, non portale cliente/prospect). */
+async function isAuthenticatedStaff(req: Request): Promise<boolean> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.toLowerCase().startsWith("bearer ")) return false;
+  const token = authHeader.slice(authHeader.indexOf(" ") + 1).trim();
+  if (!token) return false;
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return false;
+  try {
+    const admin = createClient(url, key);
+    const { data: userData, error } = await admin.auth.getUser(token);
+    if (error || !userData?.user) return false;
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("ruolo, attivo")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    if (!profile || profile.attivo === false) return false;
+    const ruolo = String(profile.ruolo ?? "");
+    return !PORTAL_ROLES.has(ruolo);
+  } catch {
+    return false;
+  }
+}
+
 async function callGemini(
   messages: { role: string; content: string }[],
 ): Promise<string> {
@@ -206,7 +234,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!isEmailAllowed(email)) {
+    // Staff CBnet autenticato (es. admin@consul.it) passa col JWT.
+    // Area consultazione esterna resta sulla allowlist dei domini partner.
+    const staffOk = await isAuthenticatedStaff(req);
+    if (!staffOk && !isEmailAllowed(email)) {
       return new Response(
         JSON.stringify({
           error: "Accesso non autorizzato. Usa un'email aziendale del partner abilitato.",

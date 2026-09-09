@@ -109,11 +109,15 @@ export function GaranzieChatLayout({
                   className="flex-1 text-left min-w-0"
                   onClick={() => onSelectConv(c.id)}
                 >
-                  <div className="truncate font-medium text-xs">{c.titolo}</div>
-                  <div className="text-[10px] text-muted-foreground truncate">
-                    {convSubtitle ? convSubtitle(c) : "—"}
-                    {formatConvDate(c) && ` · ${formatConvDate(c)}`}
+                  <div className="truncate font-medium text-xs" title={c.titolo}>
+                    {c.titolo}
                   </div>
+                  {(convSubtitle || formatConvDate(c)) && (
+                    <div className="text-[10px] text-muted-foreground truncate">
+                      {convSubtitle ? convSubtitle(c) : null}
+                      {formatConvDate(c) && `${convSubtitle ? " · " : ""}${formatConvDate(c)}`}
+                    </div>
+                  )}
                 </button>
                 {canPersist && sidebarTab === "mie" && !c.condivisa && (
                   <div className="flex shrink-0 opacity-0 group-hover:opacity-100">
