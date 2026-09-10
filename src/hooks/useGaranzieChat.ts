@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import type { AiMessage } from "@/components/ai/AiChatMessage";
+import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 
 export type ChatTipo = "web" | "cga";
 
@@ -28,6 +29,8 @@ export type GaranzieConv = {
   tipo: string;
   updated_at: string;
   autore_email: string | null;
+  in_evidenza?: boolean;
+  in_evidenza_at?: string | null;
 };
 
 export type GaranzieMsg = {
@@ -45,6 +48,7 @@ type UseGaranzieChatOptions = {
   edgeFunction: "chiedi-mercato-assicurativo" | "chiedi-libreria-cga";
   consultazioneMode?: boolean;
   consultazioneEmail?: string | null;
+  hideTeam?: boolean;
   extraBody?: () => Record<string, unknown>;
   convExtraFields?: () => Record<string, unknown>;
   onBeforeSend?: (text: string) => void;
@@ -55,6 +59,7 @@ export function useGaranzieChat({
   edgeFunction,
   consultazioneMode = false,
   consultazioneEmail = null,
+  hideTeam = false,
   extraBody,
   convExtraFields,
   onBeforeSend,
@@ -82,7 +87,7 @@ export function useGaranzieChat({
       }
       const { data, error } = await supabase
         .from("garanzie_chat_conversazioni")
-        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email")
+        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email, in_evidenza, in_evidenza_at")
         .eq("user_id", user!.id)
         .eq("tipo", tipo)
         .order("updated_at", { ascending: false });
@@ -93,10 +98,11 @@ export function useGaranzieChat({
 
   const { data: condivise = [] } = useQuery({
     queryKey: [...queryKeyBase, "condivise"],
+    enabled: !hideTeam,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("garanzie_chat_conversazioni")
-        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email")
+        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email, in_evidenza, in_evidenza_at")
         .eq("condivisa", true)
         .eq("tipo", tipo)
         .order("condivisa_at", { ascending: false, nullsFirst: false });
@@ -105,7 +111,7 @@ export function useGaranzieChat({
     },
   });
 
-  const sidebarList = sidebarTab === "mie" ? mieConversazioni : condivise;
+  const sidebarList = hideTeam || sidebarTab === "mie" ? mieConversazioni : condivise;
 
   const { data: dbMessages = [] } = useQuery({
     queryKey: [...queryKeyBase, "messages", activeId, sidebarTab],
@@ -163,6 +169,51 @@ export function useGaranzieChat({
       qc.invalidateQueries({ queryKey: queryKeyBase });
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  const evidenzaMutation = useMutation({
+    mutationFn: async ({ id, inEvidenza }: { id: string; inEvidenza: boolean }) => {
+      if (isConsultazionePersist) {
+        if (!inEvidenza) return;
+        const { promoteKnowHowConsultazione } = await import("@/lib/cbBotKnowHowDb");
+        const n = await promoteKnowHowConsultazione(consultazioneEmail!, id, tipo);
+        toast.success(
+          n > 0
+            ? `Know-how salvato (${n} rispost${n === 1 ? "a" : "e"}). Le prossime domande uguali non bruciano IA.`
+            : "Nessuna risposta da salvare come know-how",
+        );
+        return;
+      }
+      const { error } = await supabase
+        .from("garanzie_chat_conversazioni")
+        .update({
+          in_evidenza: inEvidenza,
+          in_evidenza_at: inEvidenza ? new Date().toISOString() : null,
+        })
+        .eq("id", id);
+      if (error) throw error;
+      if (inEvidenza) {
+        const { promoteFontiFromConversazione } = await import("@/lib/cbBotFontiDb");
+        const { promoteKnowHowFromConversazione } = await import("@/lib/cbBotKnowHowDb");
+        const nFonti = await promoteFontiFromConversazione(id, user?.id ?? null);
+        const nKh = await promoteKnowHowFromConversazione(id, tipo, user?.id ?? null);
+        toast.success(
+          nKh > 0
+            ? `Know-how salvato (${nKh}) · ${nFonti} fonti in libreria`
+            : nFonti > 0
+              ? `Ricerca in evidenza · ${nFonti} fonti in libreria`
+              : "Ricerca in evidenza",
+        );
+      } else {
+        toast.success("Rimossa dall'evidenza (know-how e fonti restano)");
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeyBase });
+      qc.invalidateQueries({ queryKey: ["cb-bot-fonti"] });
+      qc.invalidateQueries({ queryKey: ["cb-bot-know-how"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Impossibile aggiornare l'evidenza"),
   });
 
   const deleteMutation = useMutation({
@@ -259,11 +310,18 @@ export function useGaranzieChat({
         );
       });
       const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const fnError = edgeFunctionErrorMessage(data, error);
+      if (fnError) throw new Error(fnError);
 
       const assistantContent = data?.risposta ?? "";
-      const fonti = data?.fonti ?? [];
+      const webFonti = Array.isArray(data?.fonti) ? data.fonti : [];
+      const savedFonti = Array.isArray(data?.fonti_salvate)
+        ? data.fonti_salvate.map((f: { title?: string; url?: string; snippet?: string }) => ({
+            ...f,
+            salvata: true,
+          }))
+        : [];
+      const fonti = [...savedFonti, ...webFonti];
 
       if (convId) {
         if (isConsultazionePersist) {
@@ -291,21 +349,42 @@ export function useGaranzieChat({
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Errore IA";
       toast.error(msg);
-      if (!convId) {
-        setEphemeralMessages((prev) => prev.filter((m) => m !== userMsg));
+      const assistantError =
+        "Non sono riuscito a completare la ricerca.\n\n" + msg;
+      if (convId) {
+        try {
+          if (isConsultazionePersist) {
+            await insertMsgConsultazione(consultazioneEmail!, convId, "assistant", assistantError);
+          } else {
+            await supabase.from("garanzie_chat_messaggi").insert({
+              conversazione_id: convId,
+              role: "assistant",
+              content: assistantError,
+            });
+          }
+          qc.invalidateQueries({ queryKey: [...queryKeyBase, "messages", convId] });
+        } catch {
+          // il toast resta l'unico feedback
+        }
+      } else {
+        setEphemeralMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: assistantError },
+        ]);
       }
     } finally {
       setIsThinking(false);
     }
   };
 
-  const isSharedReadOnly = !!activeId && sidebarTab === "condivise";
+  const isSharedReadOnly = !hideTeam && !!activeId && sidebarTab === "condivise";
 
   const formatConvDate = (c: GaranzieConv) =>
     c.condivisa_at ? format(new Date(c.condivisa_at), "dd/MM/yy", { locale: it }) : null;
 
   return {
     canPersist,
+    hideTeam,
     sidebarTab,
     setSidebarTab,
     activeId,
@@ -319,6 +398,7 @@ export function useGaranzieChat({
     resetChat,
     shareMutation,
     deleteMutation,
+    evidenzaMutation,
     sendMessage,
     isSharedReadOnly,
     formatConvDate,

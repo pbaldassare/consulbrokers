@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 
 interface BandoResult {
   id: string;
@@ -71,10 +72,6 @@ const regioniItaliane = [
 ];
 
 const KEYWORD_FISSA = "Brokeraggio assicurativo";
-const POLL_INTERVAL_MS = 30000;
-const MAX_POLL_TIME_MS = 10 * 60 * 1000;
-const START_RETRY_FALLBACK_SECONDS = 15;
-const MAX_START_WAIT_MS = 2 * 60 * 1000;
 
 const statoBadgeVariant = (stato: string) => {
   switch (stato) {
@@ -155,7 +152,7 @@ async function autoCreateProspects(bandi: BandoResult[], ufficio_id: string | un
     const { error } = await supabase.from("prospect").insert({
       ragione_sociale: ente,
       tipo_cliente: "ente",
-      fonte: "API Mondoappalti",
+      fonte: "Portali gare",
       stato: "nuovo",
       ufficio_id: ufficio_id || null,
     });
@@ -187,11 +184,10 @@ export default function BandiPubbliciPage() {
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [fonte, setFonte] = useState("mondoappalti");
+  const [fonte, setFonte] = useState("ted");
   const [regioniOpen, setRegioniOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [progressMsg, setProgressMsg] = useState("");
-  const [sessionsStatus, setSessionsStatus] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [showStoria, setShowStoria] = useState(false);
   const [apiCallCount, setApiCallCount] = useState(0);
 
@@ -205,9 +201,7 @@ export default function BandiPubbliciPage() {
   const [trattativaPremio, setTrattativaPremio] = useState("");
   const [trattativaScadenza, setTrattativaScadenza] = useState("");
   const [existingTrattative, setExistingTrattative] = useState<any[]>([]);
-  const pollingRef = useRef(false);
   const searchActiveRef = useRef(false);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load bandi from DB
@@ -264,33 +258,22 @@ export default function BandiPubbliciPage() {
     setRegioniSelezionate((prev) => prev.filter((r) => r !== regione));
   };
 
-  const stopPolling = useCallback(() => {
-    pollingRef.current = false;
+  const stopSearch = useCallback(() => {
     searchActiveRef.current = false;
-    if (pollTimerRef.current) { clearInterval(pollTimerRef.current); pollTimerRef.current = null; }
     if (elapsedTimerRef.current) { clearInterval(elapsedTimerRef.current); elapsedTimerRef.current = null; }
   }, []);
 
-  useEffect(() => { return () => stopPolling(); }, [stopPolling]);
-
-  const waitForRetrySlot = useCallback(async (ms: number) => {
-    const end = Date.now() + ms;
-    while (searchActiveRef.current && Date.now() < end) {
-      const remaining = end - Date.now();
-      await new Promise((resolve) => setTimeout(resolve, Math.min(500, Math.max(50, remaining))));
-    }
-  }, []);
+  useEffect(() => { return () => stopSearch(); }, [stopSearch]);
 
   const cercaBandi = async () => {
-    stopPolling();
+    stopSearch();
     searchActiveRef.current = true;
     setLoading(true);
     setHasSearched(true);
     setRisultatiLive([]);
     setElapsedSeconds(0);
     setSearchError(null);
-    setProgressMsg("Avvio ricerca...");
-    setSessionsStatus({ done: 0, total: 0 });
+    setProgressMsg("Ricerca sui portali gare in corso...");
     setApiCallCount(prev => prev + 1);
 
     elapsedTimerRef.current = setInterval(() => {
@@ -308,111 +291,46 @@ export default function BandiPubbliciPage() {
         fonte,
       };
 
-      const startDeadline = Date.now() + MAX_START_WAIT_MS;
-      let startData: any = null;
-      let attempt = 0;
+      const { data, error } = await supabase.functions.invoke("cerca-bandi", {
+        body: { action: "start", ...requestBody },
+      });
+      if (!searchActiveRef.current) return;
+      const startErr = edgeFunctionErrorMessage(data, error);
+      if (startErr && !data?.bandi) throw new Error(startErr);
+      const startData = data;
+      if (!startData) throw new Error("Ricerca non avviata. Riprova tra poco.");
 
-      while (searchActiveRef.current && Date.now() < startDeadline) {
-        attempt += 1;
-        const { data, error } = await supabase.functions.invoke("cerca-bandi", {
-          body: { action: "start", ...requestBody },
-        });
-        if (!searchActiveRef.current) return;
-        if (error) throw error;
-        if (data?.retryable && (!data?.sessionIds || data.sessionIds.length === 0)) {
-          const retryAfterSeconds = Math.max(5, Number(data?.retryAfterSeconds) || START_RETRY_FALLBACK_SECONDS);
-          const secondsRemaining = Math.max(0, Math.ceil((startDeadline - Date.now()) / 1000));
-          setProgressMsg(`Browser Use occupato, riprovo tra ${retryAfterSeconds}s (tentativo ${attempt}, ${secondsRemaining}s residui)`);
-          await waitForRetrySlot(Math.min(retryAfterSeconds * 1000, Math.max(0, startDeadline - Date.now())));
-          continue;
+      if (startData?.status === "completed" || (Array.isArray(startData?.bandi) && startData.done)) {
+        const bandi: BandoResult[] = startData.bandi || [];
+        stopSearch();
+        setLoading(false);
+        setProgressMsg("");
+        setRisultatiLive(bandi);
+        if (bandi.length > 0) {
+          try {
+            await upsertBandiToDB(bandi, KEYWORD_FISSA);
+            const prospectCount = await autoCreateProspects(
+              bandi.filter((b) => b.ente && !b.ente.startsWith("Fonte web")),
+              profile?.ufficio_id,
+            );
+            await refetchBandi();
+            toast.success(`${bandi.length} bando/i trovati e salvati.`);
+            if (prospectCount > 0) toast.info(`${prospectCount} nuovi prospect creati.`);
+          } catch {
+            toast.warning("Risultati trovati ma errore nel salvataggio");
+          }
+        } else {
+          toast.info("Nessun bando trovato con i criteri specificati");
         }
-        startData = data;
-        break;
+        await logRicerca(regioniSelezionate, bandi.length, profile?.id);
+        queryClient.invalidateQueries({ queryKey: ["ricerche_bandi_recenti"] });
+        return;
       }
 
-      if (!searchActiveRef.current) return;
-      if (!startData) throw new Error("Browser Use è temporaneamente occupato. Riprova tra poco.");
-
-      const sessionIds: string[] = startData?.sessionIds || [];
-      const totalBatches = startData?.totalBatches || sessionIds.length;
-      if (sessionIds.length === 0) throw new Error("Nessuna sessione avviata");
-
-      setSessionsStatus({ done: 0, total: totalBatches });
-      setProgressMsg(`Ricerca avviata: ${totalBatches} sessione/i`);
-
-      pollingRef.current = true;
-      const pollStart = Date.now();
-
-      const poll = async () => {
-        if (!pollingRef.current || !searchActiveRef.current) return;
-        if (Date.now() - pollStart > MAX_POLL_TIME_MS) {
-          stopPolling();
-          setLoading(false);
-          setSearchError("La ricerca ha superato il tempo massimo. Riprova tra poco o con meno filtri.");
-          return;
-        }
-
-        try {
-          const { data: statusData, error: statusError } = await supabase.functions.invoke("cerca-bandi", {
-            body: { action: "status", sessionIds },
-          });
-          if (!searchActiveRef.current) return;
-          if (statusError) { console.error("Poll error:", statusError); return; }
-
-          const sessions = statusData?.sessions || [];
-          const doneCount = sessions.filter((s: any) => ["idle", "stopped", "error", "timed_out"].includes(s.status)).length;
-          const bandi = statusData?.bandi || [];
-
-          setSessionsStatus({ done: doneCount, total: totalBatches });
-          if (doneCount < totalBatches) {
-            setProgressMsg(`Ricerca in corso: ${doneCount}/${totalBatches} sessioni completate`);
-          }
-          if (bandi.length > 0) setRisultatiLive(bandi);
-
-          if (statusData?.done) {
-            stopPolling();
-            setLoading(false);
-            setRisultatiLive(bandi);
-            setProgressMsg("");
-
-            // Persist to DB with keyword
-            if (bandi.length > 0) {
-              try {
-                await upsertBandiToDB(bandi, KEYWORD_FISSA);
-                // Auto-create prospects from enti
-                const prospectCount = await autoCreateProspects(bandi, profile?.ufficio_id);
-                await refetchBandi();
-                toast.success(`${bandi.length} bando/i trovati e salvati. ${prospectCount > 0 ? `${prospectCount} nuovi prospect creati.` : ""}`);
-              } catch {
-                toast.warning("Bandi trovati ma errore nel salvataggio");
-              }
-            } else {
-              const hasErrors = sessions.some((s: any) => s.status === "error" || s.status === "timed_out");
-              if (hasErrors) {
-                setSearchError("Alcune sessioni hanno avuto errori. Riprova tra poco.");
-                toast.error("Ricerca completata con errori");
-              } else {
-                toast.info("Nessun bando trovato con i criteri specificati");
-              }
-            }
-
-            await logRicerca(regioniSelezionate, bandi.length, profile?.id);
-            queryClient.invalidateQueries({ queryKey: ["ricerche_bandi_recenti"] });
-          }
-        } catch (err) {
-          console.error("Poll exception:", err);
-        }
-      };
-
-      setTimeout(() => {
-        if (pollingRef.current && searchActiveRef.current) {
-          void poll();
-          pollTimerRef.current = setInterval(() => { void poll(); }, POLL_INTERVAL_MS);
-        }
-      }, 30000);
+      throw new Error("Risposta incompleta. Riprova tra poco.");
     } catch (err: any) {
       console.error("Errore avvio ricerca bandi:", err);
-      stopPolling();
+      stopSearch();
       setLoading(false);
       setSearchError(err.message || "Errore durante l'avvio della ricerca");
       toast.error(err.message || "Errore durante la ricerca dei bandi");
@@ -420,7 +338,7 @@ export default function BandiPubbliciPage() {
   };
 
   const resetFiltri = () => {
-    stopPolling();
+    stopSearch();
     setRegioniSelezionate([]);
     setImportoMin("");
     setImportoMax("");
@@ -486,7 +404,7 @@ export default function BandiPubbliciPage() {
         const { data: newProspect, error: pErr } = await supabase.from("prospect").insert({
           ragione_sociale: selectedBando.ente,
           tipo_cliente: "ente",
-          fonte: "API Mondoappalti",
+          fonte: "TED Europa",
           stato: "nuovo",
           ufficio_id: profile?.ufficio_id || null,
         }).select("id").single();
@@ -502,7 +420,7 @@ export default function BandiPubbliciPage() {
         data_scadenza: trattativaScadenza || null,
         note: trattativaNote || null,
         stato: "aperta",
-        fonte: "API Mondoappalti",
+        fonte: "TED Europa",
         ufficio_id: profile?.ufficio_id || null,
         created_by: profile?.id || null,
         data_apertura: new Date().toISOString().split("T")[0],
@@ -595,7 +513,7 @@ export default function BandiPubbliciPage() {
               <Select value={fonte} onValueChange={setFonte}>
                 <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mondoappalti">MondoAppalti.it</SelectItem>
+                  <SelectItem value="ted">TED Europa</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -614,7 +532,7 @@ export default function BandiPubbliciPage() {
               {loading ? "Ricerca..." : "Cerca Bandi"}
             </Button>
             {loading && (
-              <Button variant="outline" onClick={() => { stopPolling(); setLoading(false); setProgressMsg(""); }} className="gap-2">
+              <Button variant="outline" onClick={() => { stopSearch(); setLoading(false); setProgressMsg(""); }} className="gap-2">
                 <X className="h-4 w-4" /> Annulla
               </Button>
             )}
@@ -730,18 +648,10 @@ export default function BandiPubbliciPage() {
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
             <div>
-              <h3 className="text-lg font-medium">Il browser AI sta cercando su MondoAppalti.it...</h3>
+              <h3 className="text-lg font-medium">Ricerca in corso...</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                {progressMsg || "Login, navigazione e analisi dei risultati in corso."}
+                {progressMsg || "Ricerca sui portali gare."}
               </p>
-              {sessionsStatus.total > 0 && (
-                <div className="mt-2">
-                  <div className="w-64 mx-auto bg-muted rounded-full h-2">
-                    <div className="bg-primary h-2 rounded-full transition-all duration-500" style={{ width: `${Math.max(5, (sessionsStatus.done / sessionsStatus.total) * 100)}%` }} />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">Sessioni: {sessionsStatus.done}/{sessionsStatus.total} completate</p>
-                </div>
-              )}
               <p className="text-xs text-muted-foreground mt-2">
                 Tempo trascorso: {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, '0')}
               </p>
@@ -890,12 +800,22 @@ export default function BandiPubbliciPage() {
         </div>
       )}
 
+      {!loading && !searchError && displayBandi.length === 0 && hasSearched && (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Search className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-medium text-muted-foreground">Nessun bando trovato</h3>
+            <p className="text-sm text-muted-foreground/70 mt-2">Prova ad allargare i filtri o un&apos;altra regione.</p>
+          </CardContent>
+        </Card>
+      )}
+
       {!loading && !searchError && displayBandi.length === 0 && !hasSearched && (
         <Card>
           <CardContent className="py-16 text-center">
             <Landmark className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium text-muted-foreground">Nessun bando in archivio</h3>
-            <p className="text-sm text-muted-foreground/70 mt-2">Clicca "Cerca Bandi" per avviare una ricerca su MondoAppalti.it</p>
+            <p className="text-sm text-muted-foreground/70 mt-2">Clicca &quot;Cerca Bandi&quot; per cercare sui portali gare.</p>
           </CardContent>
         </Card>
       )}
@@ -922,7 +842,7 @@ export default function BandiPubbliciPage() {
                     <Tag className="h-3 w-3" />
                     {selectedBando.keyword || KEYWORD_FISSA}
                   </Badge>
-                  <Badge variant="outline" className="text-xs">Fonte: API Mondoappalti</Badge>
+                  <Badge variant="outline" className="text-xs">Fonte: TED Europa</Badge>
                 </div>
               </div>
 
@@ -1005,7 +925,7 @@ export default function BandiPubbliciPage() {
               <div>
                 <p>
                   Stai per creare una nuova trattativa per <strong>{selectedBando?.ente}</strong> con
-                  prodotto "{trattativaProdotto}" e fonte "API Mondoappalti".
+                  prodotto "{trattativaProdotto}" e fonte "TED Europa".
                   {trattativaPremio && <> Premio previsto: €{Number(trattativaPremio).toLocaleString("it-IT")}.</>}
                 </p>
                 {existingTrattative.length > 0 && (

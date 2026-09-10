@@ -1,27 +1,48 @@
-import { Globe, BookOpen } from "lucide-react";
+import { Globe, BookOpen, ShieldCheck, Bookmark, Lightbulb } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AssistenteWebChatPanel from "@/components/documentale/AssistenteWebChatPanel";
 import LibreriaCgaChatPanel from "@/components/documentale/LibreriaCgaChatPanel";
+import CbBotSitiAutorizzatiPanel from "@/components/documentale/CbBotSitiAutorizzatiPanel";
+import CbBotFontiSalvatePanel from "@/components/documentale/CbBotFontiSalvatePanel";
+import CbBotKnowHowPanel from "@/components/documentale/CbBotKnowHowPanel";
 import CbBotLogo from "@/components/shared/CbBotLogo";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Props = {
   consultazioneMode?: boolean;
 };
 
 export default function AssistenteGaranzieSection({ consultazioneMode = false }: Props) {
+  const { isAdmin } = useAuth();
+  const showSitiTab = !consultazioneMode && isAdmin;
+  const showFontiTab = !consultazioneMode;
+  const showKnowHowTab = !consultazioneMode;
+
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-3">
         <CbBotLogo className="h-10 w-auto shrink-0" />
         <div>
-          <h2 className="text-lg font-semibold sr-only">Cb Bot</h2>
+          <h2 className="text-lg font-semibold sr-only">CB Bot</h2>
           <p className="text-xs text-muted-foreground max-w-2xl">
-            <strong>Assistente Web</strong> — chat sul web stile ChatGPT, senza accesso a polizze o dati interni.
+            <strong>Assistente Web</strong> — cerca solo sui siti autorizzati dall&apos;admin.
             {" "}
             <strong>Libreria CGA</strong> — garanzie, massimali ed esclusioni dal catalogo CBnet.
+            {showSitiTab && (
+              <>
+                {" "}
+                <strong>Siti autorizzati</strong> — elenco dei portali che il bot può interrogare.
+              </>
+            )}
+            {showFontiTab && (
+              <>
+                {" "}
+                <strong>Fonti salvate</strong> — pagine pinate che il bot riusa come fonti interne.
+              </>
+            )}
             {consultazioneMode
-              ? " Salva le tue ricerche e condividile con il team."
-              : " Salva le ricerche utili e condividile con il team."}
+              ? " Salva le ricerche pertinenti come know-how: non si richiama l'IA sulla stessa domanda."
+              : " La stella salva la risposta in know-how (niente nuova chiamata IA) e le fonti in libreria."}
           </p>
         </div>
       </div>
@@ -34,6 +55,21 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
           <TabsTrigger value="libreria-cga" className="gap-1.5">
             <BookOpen className="h-3.5 w-3.5" /> Libreria CGA
           </TabsTrigger>
+          {showSitiTab && (
+            <TabsTrigger value="siti-autorizzati" className="gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5" /> Siti autorizzati
+            </TabsTrigger>
+          )}
+          {showFontiTab && (
+            <TabsTrigger value="fonti-salvate" className="gap-1.5">
+              <Bookmark className="h-3.5 w-3.5" /> Fonti salvate
+            </TabsTrigger>
+          )}
+          {showKnowHowTab && (
+            <TabsTrigger value="know-how" className="gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5" /> Know-how
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="assistente-web" className="mt-4">
@@ -43,6 +79,22 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
         <TabsContent value="libreria-cga" className="mt-4">
           <LibreriaCgaChatPanel consultazioneMode={consultazioneMode} />
         </TabsContent>
+
+        {showSitiTab && (
+          <TabsContent value="siti-autorizzati" className="mt-4">
+            <CbBotSitiAutorizzatiPanel />
+          </TabsContent>
+        )}
+        {showFontiTab && (
+          <TabsContent value="fonti-salvate" className="mt-4">
+            <CbBotFontiSalvatePanel />
+          </TabsContent>
+        )}
+        {showKnowHowTab && (
+          <TabsContent value="know-how" className="mt-4">
+            <CbBotKnowHowPanel />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

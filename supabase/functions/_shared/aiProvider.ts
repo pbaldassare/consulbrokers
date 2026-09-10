@@ -185,13 +185,10 @@ export async function aiChatCompletions(
   const cfg = getAiConfig();
   const requested = typeof body.model === "string" ? body.model : undefined;
   const payload: Record<string, unknown> = { ...body, model: mapAiModel(requested) };
-  // Kimi K2.6: thinking on di default → timeout Edge (150s) e chat “vuota”.
-  // Disabilitato salvo override esplicito; con tool è obbligatorio off.
   if (cfg.provider === "moonshot") {
-    const hasTools = Array.isArray(payload.tools) && payload.tools.length > 0;
-    if (hasTools || payload.thinking == null) {
-      payload.thinking = { type: "disabled" };
-    }
+    // Kimi accetta solo temperature 0.6; thinking on brucia token e timeout Edge.
+    if (payload.temperature === undefined) payload.temperature = 0.6;
+    payload.thinking = { type: "disabled" };
   }
   return fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
@@ -202,4 +199,21 @@ export async function aiChatCompletions(
     body: JSON.stringify(payload),
     signal: init?.signal,
   });
+}
+
+/** Chat testuale via Kimi (Moonshot). Nessun modello Gemini. */
+export async function callKimiText(
+  messages: { role: string; content: string }[],
+): Promise<string> {
+  const cfg = getAiConfig();
+  if (cfg.provider !== "moonshot") {
+    throw new Error("CB Bot richiede MOONSHOT_API_KEY (Kimi). Gemini non è più usato qui.");
+  }
+  const resp = await aiChatCompletions({ messages }, { signal: AbortSignal.timeout(35_000) });
+  if (!resp.ok) {
+    const t = await resp.text();
+    throw new Error(`Kimi ${resp.status}: ${t.slice(0, 240)}`);
+  }
+  const json = await resp.json();
+  return json?.choices?.[0]?.message?.content ?? "";
 }

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AiChatInput } from "@/components/ai/AiChatInput";
 import { AiChatMessage } from "@/components/ai/AiChatMessage";
-import { Loader2, Plus, Share2, Trash2, Users, User } from "lucide-react";
+import { Loader2, Plus, Share2, Star, Trash2, Users, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AiMessage } from "@/components/ai/AiChatMessage";
 import type { GaranzieConv } from "@/hooks/useGaranzieChat";
@@ -31,6 +31,10 @@ type Props = {
   thinkingLabel: string;
   convSubtitle?: (c: GaranzieConv) => string;
   formatConvDate: (c: GaranzieConv) => string | null;
+  evidenzaMutation?: UseMutationResult<void, Error, { id: string; inEvidenza: boolean }>;
+  onSaveFonte?: (fonte: { title?: string; url: string; snippet?: string }) => void;
+  savedFonteUrls?: string[];
+  hideTeam?: boolean;
 };
 
 export function GaranzieChatLayout({
@@ -55,11 +59,15 @@ export function GaranzieChatLayout({
   thinkingLabel,
   convSubtitle,
   formatConvDate,
+  evidenzaMutation,
+  onSaveFonte,
+  savedFonteUrls,
+  hideTeam = false,
 }: Props) {
   return (
     <div className="flex flex-col lg:flex-row gap-4 min-h-[520px] border rounded-lg overflow-hidden bg-card">
       <aside className="lg:w-64 shrink-0 border-b lg:border-b-0 lg:border-r flex flex-col">
-        {canPersist && (
+        {canPersist && !hideTeam && (
           <div className="p-2 border-b flex gap-1">
             <Button
               variant={sidebarTab === "mie" ? "secondary" : "ghost"}
@@ -77,6 +85,11 @@ export function GaranzieChatLayout({
             >
               <Users className="h-3 w-3" /> Team
             </Button>
+          </div>
+        )}
+        {canPersist && hideTeam && (
+          <div className="p-2 border-b text-xs font-medium text-muted-foreground px-3">
+            Le tue ricerche
           </div>
         )}
         {!canPersist && (
@@ -109,22 +122,43 @@ export function GaranzieChatLayout({
                   className="flex-1 text-left min-w-0"
                   onClick={() => onSelectConv(c.id)}
                 >
-                  <div className="truncate font-medium text-xs">{c.titolo}</div>
-                  <div className="text-[10px] text-muted-foreground truncate">
-                    {convSubtitle ? convSubtitle(c) : "—"}
-                    {formatConvDate(c) && ` · ${formatConvDate(c)}`}
+                  <div className="truncate font-medium text-xs" title={c.titolo}>
+                    {c.titolo}
                   </div>
+                  {(convSubtitle || formatConvDate(c)) && (
+                    <div className="text-[10px] text-muted-foreground truncate">
+                      {convSubtitle ? convSubtitle(c) : null}
+                      {formatConvDate(c) && `${convSubtitle ? " · " : ""}${formatConvDate(c)}`}
+                    </div>
+                  )}
                 </button>
-                {canPersist && sidebarTab === "mie" && !c.condivisa && (
+                {canPersist && (hideTeam || sidebarTab === "mie") && evidenzaMutation && (
+                  <button
+                    type="button"
+                    title={c.in_evidenza ? "Già in know-how" : "Salva come know-how: le prossime domande uguali non bruciano IA"}
+                    className={cn(
+                      "shrink-0 p-1",
+                      c.in_evidenza
+                        ? "text-amber-500"
+                        : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-amber-500",
+                    )}
+                    onClick={() => evidenzaMutation.mutate({ id: c.id, inEvidenza: !c.in_evidenza })}
+                  >
+                    <Star className={cn("h-3 w-3", c.in_evidenza && "fill-current")} />
+                  </button>
+                )}
+                {canPersist && (hideTeam || sidebarTab === "mie") && !c.condivisa && (
                   <div className="flex shrink-0 opacity-0 group-hover:opacity-100">
-                    <button
-                      type="button"
-                      title="Condividi con il team"
-                      className="p-1 hover:text-primary"
-                      onClick={() => shareMutation.mutate(c.id)}
-                    >
-                      <Share2 className="h-3 w-3" />
-                    </button>
+                    {!hideTeam && (
+                      <button
+                        type="button"
+                        title="Condividi con il team"
+                        className="p-1 hover:text-primary"
+                        onClick={() => shareMutation.mutate(c.id)}
+                      >
+                        <Share2 className="h-3 w-3" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       title="Elimina"
@@ -137,7 +171,10 @@ export function GaranzieChatLayout({
                     </button>
                   </div>
                 )}
-                {c.condivisa && <Badge variant="outline" className="text-[9px] shrink-0">Team</Badge>}
+                {!hideTeam && c.condivisa && <Badge variant="outline" className="text-[9px] shrink-0">Team</Badge>}
+                {c.in_evidenza && (
+                  <Badge variant="secondary" className="text-[9px] shrink-0">Know-how</Badge>
+                )}
               </div>
             ))}
           </div>
@@ -156,7 +193,12 @@ export function GaranzieChatLayout({
             )}
             <div className="space-y-4 max-w-3xl mx-auto">
               {messages.map((m, i) => (
-                <AiChatMessage key={m.id ?? i} message={m} />
+                <AiChatMessage
+                  key={m.id ?? i}
+                  message={m}
+                  onSaveFonte={onSaveFonte}
+                  savedFonteUrls={savedFonteUrls}
+                />
               ))}
               {isThinking && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">

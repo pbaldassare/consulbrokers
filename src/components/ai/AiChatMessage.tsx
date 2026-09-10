@@ -1,12 +1,13 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, User, Database, ExternalLink } from "lucide-react";
+import { Bot, User, Database, ExternalLink, Bookmark, BookmarkCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { normalizeFonteUrl } from "@/lib/cbBotFonti";
 
 export interface AiToolCall {
   tool?: string;
@@ -20,7 +21,8 @@ export interface AiToolCall {
 }
 
 export type AiMessageFonte =
-  | { title?: string; url?: string; snippet?: string }
+  | { kind?: "know-how"; id?: string }
+  | { title?: string; url?: string; snippet?: string; salvata?: boolean }
   | { prodotto_id?: string; nome_prodotto?: string; compagnia?: string | null; ramo?: string | null };
 
 export interface AiMessage {
@@ -165,13 +167,17 @@ const InternalLink = ({ href, children }: { href?: string; children: any }) => {
 
 interface Props {
   message: AiMessage;
+  onSaveFonte?: (fonte: { title?: string; url: string; snippet?: string }) => void;
+  savedFonteUrls?: string[];
 }
 
-export const AiChatMessage = ({ message }: Props) => {
+export const AiChatMessage = ({ message, onSaveFonte, savedFonteUrls }: Props) => {
   const isUser = message.role === "user";
   const tcs = message.tool_calls ?? [];
   const renderBlocks = tcs.filter((tc) => tc.block && (tc.tool ?? "").startsWith("render_"));
   const queryBlocks = tcs.filter((tc) => !tc.block);
+  const fromKnowHow = (message.fonti ?? []).some((f) => (f as { kind?: string }).kind === "know-how");
+  const fontiVisibili = (message.fonti ?? []).filter((f) => (f as { kind?: string }).kind !== "know-how");
 
   return (
     <div className={cn("flex gap-3 py-4", isUser && "flex-row-reverse")}>
@@ -205,22 +211,55 @@ export const AiChatMessage = ({ message }: Props) => {
           <RenderBlock key={`block-${i}`} block={tc.block} kind={tc.tool ?? ""} />
         ))}
 
-        {!isUser && message.fonti && message.fonti.length > 0 && (
+        {!isUser && fromKnowHow && (
+          <div className="text-[11px] text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-2 py-1">
+            Risposta da know-how — nessuna nuova chiamata IA
+          </div>
+        )}
+
+        {!isUser && fontiVisibili.length > 0 && (
           <div className="text-xs text-muted-foreground space-y-1">
             <div className="font-medium text-foreground flex items-center gap-1">
-              <ExternalLink className="h-3 w-3" /> Fonti ({message.fonti.length})
+              <ExternalLink className="h-3 w-3" /> Fonti ({fontiVisibili.length})
             </div>
             <ul className="space-y-0.5 border-l-2 border-border pl-3">
-              {message.fonti.map((f, i) => {
-                const web = f as { title?: string; url?: string; snippet?: string };
+              {fontiVisibili.map((f, i) => {
+                const web = f as { title?: string; url?: string; snippet?: string; salvata?: boolean };
                 const cga = f as { nome_prodotto?: string; compagnia?: string | null; ramo?: string | null };
                 if (web.url) {
+                  const canonical = normalizeFonteUrl(web.url) ?? web.url;
+                  const already = web.salvata || savedFonteUrls?.includes(canonical);
                   return (
-                    <li key={i}>
-                      <a href={web.url} target="_blank" rel="noreferrer" className="text-primary underline">
-                        {web.title || web.url}
-                      </a>
-                      {web.snippet && <span className="block text-[10px] opacity-80">{web.snippet}</span>}
+                    <li key={i} className="flex items-start gap-1">
+                      <div className="min-w-0 flex-1">
+                        <a href={web.url} target="_blank" rel="noreferrer" className="text-primary underline">
+                          {web.title || web.url}
+                        </a>
+                        {web.salvata && (
+                          <span className="ml-1 text-[9px] uppercase text-muted-foreground">libreria</span>
+                        )}
+                        {web.snippet && <span className="block text-[10px] opacity-80">{web.snippet}</span>}
+                      </div>
+                      {onSaveFonte && (
+                        <button
+                          type="button"
+                          title={already ? "Già in fonti salvate" : "Salva tra le fonti CB Bot"}
+                          className={cn(
+                            "shrink-0 p-0.5 rounded hover:bg-muted",
+                            already ? "text-primary" : "text-muted-foreground hover:text-primary",
+                          )}
+                          onClick={() => {
+                            if (already) return;
+                            onSaveFonte({ title: web.title, url: web.url, snippet: web.snippet });
+                          }}
+                        >
+                          {already ? (
+                            <BookmarkCheck className="h-3.5 w-3.5" />
+                          ) : (
+                            <Bookmark className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
                     </li>
                   );
                 }

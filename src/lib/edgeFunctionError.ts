@@ -36,3 +36,16 @@ export function formatEdgeFunctionError(
 
   return generic || "Errore sconosciuto";
 }
+
+/** Estrae il messaggio utile da supabase.functions.invoke (body JSON o FunctionsHttpError). */
+export function edgeFunctionErrorMessage(
+  data: unknown,
+  error: { message?: string } | null | undefined,
+): string | null {
+  if (data && typeof data === "object" && "error" in data) {
+    const raw = (data as { error: unknown }).error;
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
+  }
+  const msg = error?.message?.trim();
+  return msg || null;
+}

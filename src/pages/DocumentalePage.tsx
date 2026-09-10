@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConsultazione } from "@/contexts/ConsultazioneContext";
@@ -16,6 +17,15 @@ import UploadDocumentDialog from "@/components/documentale/UploadDocumentDialog"
 import LibreriaCgaSection from "@/components/documentale/LibreriaCgaSection";
 import AssistenteGaranzieSection from "@/components/documentale/AssistenteGaranzieSection";
 import CbBotLogo from "@/components/shared/CbBotLogo";
+import {
+  CB_BOT_LABEL,
+  documentalePageSubtitle,
+  documentaleRouteLabel,
+  documentaleTabToQuery,
+  isCbBotChromeTab,
+  parseDocumentaleTab,
+  type DocumentaleTab,
+} from "@/lib/documentaleTab";
 
 interface Folder {
   id: string;
@@ -48,6 +58,16 @@ type DocumentalePageProps = {
 export default function DocumentalePage({ consultazioneMode = false }: DocumentalePageProps) {
   const { isAdmin, profile, user } = useAuth();
   const { logRicerca } = useConsultazione();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = parseDocumentaleTab(searchParams.get("tab"), consultazioneMode);
+  const setTab = (v: string) => {
+    const next = v as DocumentaleTab;
+    const sp = new URLSearchParams(searchParams);
+    const q = documentaleTabToQuery(next, consultazioneMode);
+    if (q) sp.set("tab", q);
+    else sp.delete("tab");
+    setSearchParams(sp, { replace: true });
+  };
   const canManage =
     !consultazioneMode &&
     (isAdmin ||
@@ -234,30 +254,33 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
     ? docs.filter((d) => d.file_name.toLowerCase().includes(search.toLowerCase()) || d.tags?.some((t) => t.toLowerCase().includes(search.toLowerCase())))
     : docs;
 
-  const defaultTab = consultazioneMode ? "assistente-garanzie" : "archivio";
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          {consultazioneMode ? (
+          {isCbBotChromeTab(tab) || consultazioneMode ? (
             <>
-              <CbBotLogo className="h-10 w-auto" />
+              <div className="flex items-center gap-3">
+                <CbBotLogo className="h-10 w-auto" />
+                <h1 className="text-2xl font-bold">{CB_BOT_LABEL}</h1>
+              </div>
               <p className="text-sm text-muted-foreground mt-2">
-                Assistente Web e Libreria CGA — salva e condividi le ricerche con il team
+                {consultazioneMode && isCbBotChromeTab(tab)
+                  ? "Salva le ricerche pertinenti come know-how: le prossime domande uguali non bruciano IA."
+                  : documentalePageSubtitle(tab)}
               </p>
             </>
           ) : (
             <>
-              <h1 className="text-2xl font-bold">Archivio Documentale</h1>
+              <h1 className="text-2xl font-bold">{documentaleRouteLabel(tab)}</h1>
               <p className="text-sm text-muted-foreground">
-                CGA, Condizioni di Polizza, Fascicoli Informativi e Modulistica
+                {documentalePageSubtitle(tab)}
               </p>
             </>
           )}
         </div>
-        {canManage && (
+        {canManage && tab === "archivio" && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowCreateFolder(true)}>
               <FolderPlus className="mr-2 h-4 w-4" /> Nuova Cartella
@@ -271,11 +294,11 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
         )}
       </div>
 
-      <Tabs defaultValue={defaultTab} className="w-full">
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList>
           {consultazioneMode ? (
             <>
-              <TabsTrigger value="assistente-garanzie">Cb Bot</TabsTrigger>
+              <TabsTrigger value="assistente-garanzie">{CB_BOT_LABEL}</TabsTrigger>
               <TabsTrigger value="libreria-cga">Libreria CGA</TabsTrigger>
               <TabsTrigger value="archivio">Archivio</TabsTrigger>
             </>
@@ -283,7 +306,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
             <>
               <TabsTrigger value="archivio">Archivio</TabsTrigger>
               <TabsTrigger value="libreria-cga">Libreria CGA</TabsTrigger>
-              <TabsTrigger value="assistente-garanzie">Cb Bot</TabsTrigger>
+              <TabsTrigger value="assistente-garanzie">{CB_BOT_LABEL}</TabsTrigger>
             </>
           )}
         </TabsList>

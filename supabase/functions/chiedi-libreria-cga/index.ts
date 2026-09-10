@@ -2,7 +2,8 @@
 // Risposte su garanzie/condizioni dalla Libreria CGA condivisa (prodotti_cga).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { requireAi, aiChatCompletions } from "../_shared/aiProvider.ts";
+import { requireAi, callKimiText } from "../_shared/aiProvider.ts";
+import { bumpKnowHowHit, findKnowHowHit, knowHowFonti } from "../_shared/cbBotKnowHowDb.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,8 +21,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    requireAi();
-
     const body = await req.json();
     const domanda = String(body?.domanda ?? "").trim();
     const storico: StoricoMsg[] = Array.isArray(body?.storico) ? body.storico.slice(-8) : [];
@@ -34,6 +33,21 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    const knowHow = await findKnowHowHit("cga", domanda);
+    if (knowHow) {
+      await bumpKnowHowHit(knowHow.id);
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          risposta: knowHow.risposta,
+          fonti: knowHowFonti(knowHow),
+          via: "know-how",
+          know_how_id: knowHow.id,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const supabase = createClient(
@@ -170,25 +184,25 @@ Deno.serve(async (req) => {
       { role: "user", content: userContent },
     ];
 
-    const resp = await aiChatCompletions({ model: "google/gemini-2.5-flash", messages });
+    requireAi();
 
-    if (!resp.ok) {
-      const t = await resp.text();
-      console.error("AI gateway error", resp.status, t);
-      if (resp.status === 429) {
+    let risposta: string;
+    try {
+      risposta = await callKimiText(messages);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Errore Kimi";
+      console.error("Kimi error", msg);
+      if (msg.includes("429")) {
         return new Response(JSON.stringify({ error: "Rate limit AI superato." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "Errore AI gateway" }), {
+      return new Response(JSON.stringify({ error: msg }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const json = await resp.json();
-    const risposta = json?.choices?.[0]?.message?.content ?? "";
 
     return new Response(
       JSON.stringify({
@@ -196,6 +210,7 @@ Deno.serve(async (req) => {
         risposta,
         fonti,
         prodotti_trovati: prodotti.length,
+        via: "kimi",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

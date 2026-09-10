@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
+import { documentaleRouteLabel, documentaleTabFromLocation } from "@/lib/documentaleTab";
 
 const KEY = "nav-history-v1";
 const MAX = 12;
@@ -28,18 +29,22 @@ const ROUTE_LABELS: Record<string, string> = {
   "/comunicazioni": "Comunicazioni",
   "/notifiche": "Notifiche",
   "/dashboard": "Dashboard",
-  "/documentale": "Documentale",
+  "/documentale": "Archivio Documentale",
   "/bandi": "Bandi Pubblici",
 };
 
-function labelFor(path: string): string {
-  if (ROUTE_LABELS[path]) return ROUTE_LABELS[path];
+function labelFor(fullPath: string): string {
+  const [pathname, search = ""] = fullPath.split("?");
+  if (pathname.includes("/documentale") || pathname.startsWith("/consultazione")) {
+    return documentaleRouteLabel(documentaleTabFromLocation(pathname, search));
+  }
+  if (ROUTE_LABELS[pathname]) return ROUTE_LABELS[pathname];
   // longest prefix match
   let best = "";
   for (const k of Object.keys(ROUTE_LABELS)) {
-    if (path.startsWith(k) && k.length > best.length) best = k;
+    if (pathname.startsWith(k) && k.length > best.length) best = k;
   }
-  return best ? ROUTE_LABELS[best] : path;
+  return best ? ROUTE_LABELS[best] : pathname;
 }
 
 function read(): NavEntry[] {
@@ -71,7 +76,7 @@ export function useNavigationHistoryTracker() {
     last.current = full;
     const list = read();
     if (list.length && list[list.length - 1].path === full) return;
-    list.push({ path: full, label: labelFor(pathname), at: Date.now() });
+    list.push({ path: full, label: labelFor(full), at: Date.now() });
     write(list);
   }, [pathname, search]);
 }
