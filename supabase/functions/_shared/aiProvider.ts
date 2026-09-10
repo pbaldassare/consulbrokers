@@ -72,7 +72,7 @@ export function aiHttpErrorMessage(status: number): string {
   if (status === 402) {
     return getAiConfig().provider === "lovable"
       ? "Crediti AI esauriti. Aggiungi crediti in Settings > Workspace > Usage."
-      : "Crediti Moonshot/Kimi esauriti o piano insufficiente.";
+      : "Servizio temporaneamente non disponibile. Riprovare più tardi.";
   }
   return `Errore AI (${status}).`;
 }
@@ -207,12 +207,12 @@ export async function callKimiText(
 ): Promise<string> {
   const cfg = getAiConfig();
   if (cfg.provider !== "moonshot") {
-    throw new Error("CB Bot richiede MOONSHOT_API_KEY (Kimi). Gemini non è più usato qui.");
+    throw new Error("Servizio di ricerca non configurato.");
   }
   const resp = await aiChatCompletions({ messages }, { signal: AbortSignal.timeout(35_000) });
   if (!resp.ok) {
     const t = await resp.text();
-    throw new Error(`Kimi ${resp.status}: ${t.slice(0, 240)}`);
+    throw new Error(`Ricerca non disponibile (${resp.status}).`);
   }
   const json = await resp.json();
   return json?.choices?.[0]?.message?.content ?? "";
