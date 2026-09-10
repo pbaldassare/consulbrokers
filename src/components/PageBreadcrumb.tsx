@@ -18,6 +18,7 @@ import {
   resolveEntityLabel,
   type EntityInfo,
 } from "@/lib/entityResolver";
+import { documentaleRouteLabel, documentaleTabFromLocation } from "@/lib/documentaleTab";
 
 const ROUTE_LABELS: Record<string, string> = {
   "": "Home",
@@ -53,7 +54,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "richiesta-quietanza": "Richiesta Quietanza",
   "registro": "Registro",
   "regolazioni": "Regolazioni",
-  "documentale": "Documentale",
+  "documentale": "Archivio Documentale",
   "rientro-documenti": "Rientro Documenti",
   "import-titoli": "Import Titoli",
   "titoli": "Titoli",
@@ -159,16 +160,23 @@ const PageBreadcrumb = () => {
 
   const segments = location.pathname.split("/").filter(Boolean);
 
-  const crumbs = segments.map((seg, i) => ({
-    raw: seg,
-    isUuid: isUuid(seg),
-    label: isUuid(seg)
+  const crumbs = segments.map((seg, i) => {
+    const isLast = i === segments.length - 1;
+    let label = isUuid(seg)
       ? "Dettaglio"
-      : ROUTE_LABELS[seg] || seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-    path: "/" + segments.slice(0, i + 1).join("/"),
-    parent: i > 0 ? segments[i - 1] : undefined,
-    isLast: i === segments.length - 1,
-  }));
+      : ROUTE_LABELS[seg] || seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    if ((seg === "documentale" || (seg === "consultazione" && isLast)) && isLast) {
+      label = documentaleRouteLabel(documentaleTabFromLocation(location.pathname, location.search));
+    }
+    return {
+      raw: seg,
+      isUuid: isUuid(seg),
+      label,
+      path: "/" + segments.slice(0, i + 1).join("/"),
+      parent: i > 0 ? segments[i - 1] : undefined,
+      isLast,
+    };
+  });
 
   const prev = getPreviousListRoute(location.pathname + location.search);
 

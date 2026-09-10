@@ -17,7 +17,15 @@ import UploadDocumentDialog from "@/components/documentale/UploadDocumentDialog"
 import LibreriaCgaSection from "@/components/documentale/LibreriaCgaSection";
 import AssistenteGaranzieSection from "@/components/documentale/AssistenteGaranzieSection";
 import CbBotLogo from "@/components/shared/CbBotLogo";
-import { documentaleTabToQuery, parseDocumentaleTab, type DocumentaleTab } from "@/lib/documentaleTab";
+import {
+  CB_BOT_LABEL,
+  documentalePageSubtitle,
+  documentaleRouteLabel,
+  documentaleTabToQuery,
+  isCbBotChromeTab,
+  parseDocumentaleTab,
+  type DocumentaleTab,
+} from "@/lib/documentaleTab";
 
 interface Folder {
   id: string;
@@ -251,23 +259,28 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          {consultazioneMode ? (
+          {isCbBotChromeTab(tab) || consultazioneMode ? (
             <>
-              <CbBotLogo className="h-10 w-auto" />
+              <div className="flex items-center gap-3">
+                <CbBotLogo className="h-10 w-auto" />
+                <h1 className="text-2xl font-bold">{CB_BOT_LABEL}</h1>
+              </div>
               <p className="text-sm text-muted-foreground mt-2">
-                Assistente Web e Libreria CGA — salva e condividi le ricerche con il team
+                {consultazioneMode && isCbBotChromeTab(tab)
+                  ? "Assistente Web e Libreria CGA — salva e condividi le ricerche con il team"
+                  : documentalePageSubtitle(tab)}
               </p>
             </>
           ) : (
             <>
-              <h1 className="text-2xl font-bold">Archivio Documentale</h1>
+              <h1 className="text-2xl font-bold">{documentaleRouteLabel(tab)}</h1>
               <p className="text-sm text-muted-foreground">
-                CGA, Condizioni di Polizza, Fascicoli Informativi e Modulistica
+                {documentalePageSubtitle(tab)}
               </p>
             </>
           )}
         </div>
-        {canManage && (
+        {canManage && tab === "archivio" && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowCreateFolder(true)}>
               <FolderPlus className="mr-2 h-4 w-4" /> Nuova Cartella
@@ -285,7 +298,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
         <TabsList>
           {consultazioneMode ? (
             <>
-              <TabsTrigger value="assistente-garanzie">Cb Bot</TabsTrigger>
+              <TabsTrigger value="assistente-garanzie">{CB_BOT_LABEL}</TabsTrigger>
               <TabsTrigger value="libreria-cga">Libreria CGA</TabsTrigger>
               <TabsTrigger value="archivio">Archivio</TabsTrigger>
             </>
@@ -293,7 +306,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
             <>
               <TabsTrigger value="archivio">Archivio</TabsTrigger>
               <TabsTrigger value="libreria-cga">Libreria CGA</TabsTrigger>
-              <TabsTrigger value="assistente-garanzie">Cb Bot</TabsTrigger>
+              <TabsTrigger value="assistente-garanzie">{CB_BOT_LABEL}</TabsTrigger>
             </>
           )}
         </TabsList>

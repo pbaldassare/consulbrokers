@@ -300,7 +300,7 @@ Deno.serve(async (req) => {
         JSON.stringify({
           ok: true,
           risposta:
-            "Non ci sono siti autorizzati attivi. Un amministratore deve aggiungerli in **Cb Bot → Siti autorizzati**. " +
+            "Non ci sono siti autorizzati attivi. Un amministratore deve aggiungerli in **CB Bot → Siti autorizzati**. " +
             "Per clausole e garanzie di prodotto usa la tab **Libreria CGA**.",
           fonti: [],
           query: null,
