@@ -338,7 +338,7 @@ export function useGaranzieChat({
         ]);
       }
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Errore IA";
+      const msg = e instanceof Error ? e.message : "Ricerca non riuscita";
       toast.error(msg);
       const assistantError =
         "Non sono riuscito a completare la ricerca.\n\n" + msg;

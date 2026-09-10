@@ -461,7 +461,7 @@ export function ImportNuovaPolizzaAIDialog({
       const b64 = btoa(bin);
       // Conserva il PDF originale: verrà archiviato fra i documenti della polizza al salvataggio.
       setSourcePdf({ name: file.name, base64: b64, mimeType: file.type || "application/pdf" });
-      setPhase(40, "Invio a Gemini per analisi (con catalogo sottorami)…");
+      setPhase(40, "Analisi del documento in corso (con catalogo sottorami)…");
       const isZQ = String(gruppoRamoCtx?.codice || "").toUpperCase() === "ZQ";
       const wantsVeicolo = forzaPolizzaAuto || isZQ;
       if (wantsVeicolo) log("info", `Polizza Auto attiva — l'AI estrarrà i dati veicolo/conducente se presenti.`);

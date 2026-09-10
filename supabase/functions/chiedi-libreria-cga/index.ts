@@ -190,8 +190,8 @@ Deno.serve(async (req) => {
     try {
       risposta = await callKimiText(messages);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Errore Kimi";
-      console.error("Kimi error", msg);
+      const msg = e instanceof Error ? e.message : "Errore di ricerca";
+      console.error("CB Bot search error", msg);
       if (msg.includes("429")) {
         return new Response(JSON.stringify({ error: "Rate limit AI superato." }), {
           status: 429,

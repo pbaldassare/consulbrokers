@@ -62,7 +62,7 @@ export default function CbBotKnowHowPanel() {
           <h3 className="text-sm font-semibold">Know-how</h3>
           <p className="text-xs text-muted-foreground max-w-2xl">
             Risposte salvate dalla stella sulle ricerche. Se la domanda torna, CB Bot
-            risponde da qui senza Kimi né ricerca web.
+            risponde da qui senza una nuova ricerca.
           </p>
         </div>
       </div>
