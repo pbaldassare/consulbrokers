@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isCbBotUrlAllowed, parseCbBotSitoInput } from "@/lib/cbBotSiti";
+import { CB_BOT_SITI_CATALOGO, missingCatalogoSiti } from "@/lib/cbBotSitiCatalogo";
 
 describe("parseCbBotSitoInput", () => {
   it("accetta dominio nudo e URL completi", () => {
@@ -35,5 +36,14 @@ describe("isCbBotUrlAllowed", () => {
 
   it("senza domini non autorizza nulla", () => {
     expect(isCbBotUrlAllowed("https://ivass.it", [])).toBe(false);
+  });
+});
+
+describe("CB_BOT_SITI_CATALOGO", () => {
+  it("ha domini univoci e manca solo ciò che non è già in elenco", () => {
+    const domains = CB_BOT_SITI_CATALOGO.map((s) => s.dominio);
+    expect(new Set(domains).size).toBe(domains.length);
+    expect(missingCatalogoSiti(["ania.it", "generali.it"]).every((s) => s.dominio !== "ania.it")).toBe(true);
+    expect(missingCatalogoSiti([]).length).toBe(CB_BOT_SITI_CATALOGO.length);
   });
 });

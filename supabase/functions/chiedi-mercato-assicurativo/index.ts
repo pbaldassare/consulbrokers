@@ -154,7 +154,7 @@ async function searchTavily(apiKey: string, query: string, domains: string[]): P
       search_depth: "basic",
       max_results: 8,
       include_answer: false,
-      include_domains: domains.slice(0, 50),
+      include_domains: domains.slice(0, 80),
     }),
   });
   if (!resp.ok) {
