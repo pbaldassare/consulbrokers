@@ -1,4 +1,5 @@
-// Cerca bandi su fonti ufficiali (TED API). Nessuna IA.
+// Cerca bandi: TED API (ufficiale) o Mondo Appalti (ricerca sul sito).
+// I nomi dei motori IA non vanno esposti al client.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -214,6 +215,214 @@ function mapNotice(n: Record<string, unknown>): Bando | null {
   };
 }
 
+type WebHit = { title: string; url: string; snippet: string };
+
+function isMondoUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    return host === "mondoappalti.it" || host.endsWith(".mondoappalti.it");
+  } catch {
+    return false;
+  }
+}
+
+function schedaIdFromUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const digits = u.pathname.match(/(\d{5,})/);
+    if (digits) return digits[1];
+    return `${u.hostname}${u.pathname}`.replace(/\/+$/, "").slice(0, 180);
+  } catch {
+    return url.slice(0, 180);
+  }
+}
+
+function filterMondoHits(hits: WebHit[]): WebHit[] {
+  const skip = /\/(login|account|register|privacy|cookie|servizi|cart|checkout)(\/|$)/i;
+  const seen = new Set<string>();
+  return hits.filter((h) => {
+    if (!h.url || !isMondoUrl(h.url)) return false;
+    try {
+      if (skip.test(new URL(h.url).pathname)) return false;
+    } catch {
+      return false;
+    }
+    const key = schedaIdFromUrl(h.url);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function regioneFromText(text: string, regioni: string[]): string | null {
+  const hay = text.toLowerCase();
+  for (const r of regioni) {
+    if (hay.includes(r.toLowerCase())) return r;
+  }
+  return null;
+}
+
+function hitToBando(hit: WebHit, i: number, regioni: string[]): Bando {
+  const id = schedaIdFromUrl(hit.url) || `mondo-${i}`;
+  return {
+    id,
+    titolo: (hit.title || "Titolo non disponibile").slice(0, 300),
+    ente: "Scheda Mondo Appalti",
+    ente_tipo: null,
+    importo: null,
+    scadenza: null,
+    stato: "aperto",
+    dataPublicazione: "",
+    link: hit.url,
+    categoria: "Brokeraggio assicurativo",
+    scheda_id: id,
+    cig: null,
+    localita: null,
+    regione: regioneFromText(`${hit.title} ${hit.snippet}`, regioni),
+    pdf_url: null,
+  };
+}
+
+async function searchTavilyMondo(query: string): Promise<WebHit[]> {
+  const key = Deno.env.get("TAVILY_API_KEY");
+  if (!key) return [];
+  const resp = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: key,
+      query,
+      search_depth: "advanced",
+      max_results: 20,
+      include_answer: false,
+      include_domains: ["mondoappalti.it"],
+    }),
+  });
+  if (!resp.ok) {
+    console.warn("tavily mondo", resp.status, await resp.text());
+    return [];
+  }
+  const json = await resp.json();
+  return (json?.results ?? []).map((r: { title?: string; url?: string; content?: string }) => ({
+    title: r.title ?? "",
+    url: r.url ?? "",
+    snippet: r.content ?? "",
+  }));
+}
+
+async function searchSerperMondo(query: string): Promise<WebHit[]> {
+  const key = Deno.env.get("SERPER_API_KEY");
+  if (!key) return [];
+  const resp = await fetch("https://google.serper.dev/search", {
+    method: "POST",
+    headers: { "X-API-KEY": key, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      q: `${query} site:mondoappalti.it`,
+      gl: "it",
+      hl: "it",
+      num: 20,
+    }),
+  });
+  if (!resp.ok) {
+    console.warn("serper mondo", resp.status, await resp.text());
+    return [];
+  }
+  const json = await resp.json();
+  return (json?.organic ?? []).map((r: { title?: string; link?: string; snippet?: string }) => ({
+    title: r.title ?? "",
+    url: r.link ?? "",
+    snippet: r.snippet ?? "",
+  }));
+}
+
+function parseBandiJson(output: string | null): Record<string, unknown>[] {
+  if (!output) return [];
+  let cleaned = output.trim();
+  const md = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (md) cleaned = md[1].trim();
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed?.bandi)) return parsed.bandi;
+    return [];
+  } catch {
+    const match = cleaned.match(/\[[\s\S]*\]/);
+    if (!match) return [];
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return [];
+    }
+  }
+}
+
+async function extractMondoBandi(hits: WebHit[], filtri: Filtri): Promise<Bando[] | null> {
+  const { hasAiCredentials, aiChatCompletions } = await import("../_shared/aiProvider.ts");
+  if (!hasAiCredentials()) return null;
+  const system =
+    "Sei un analista di gare d'appalto italiane per un broker. " +
+    "Estrai SOLO bandi reali da Mondo Appalti. Non inventare CIG, importi, enti. " +
+    "Rispondi SOLO con un JSON array: scheda_id, oggetto, stazione_appaltante, localita, regione, importo, scadenza (dd/MM/yyyy), cig, link, pdf_url.";
+  const user =
+    `Keyword: brokeraggio assicurativo` +
+    (filtri.regioni.length ? `; regioni: ${filtri.regioni.join(", ")}` : "") +
+    `.\n\nRISULTATI:\n${JSON.stringify(hits.slice(0, 20), null, 2)}`;
+  const resp = await aiChatCompletions({
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+  });
+  if (!resp.ok) return null;
+  const json = await resp.json();
+  const raw = parseBandiJson(json?.choices?.[0]?.message?.content ?? "");
+  if (raw.length === 0) return null;
+  return raw.map((b, i) => {
+    const link = String(b.link || hits[i]?.url || "");
+    const id = String(b.scheda_id || schedaIdFromUrl(link) || `mondo-${i}`);
+    return {
+      id,
+      titolo: String(b.oggetto || b.titolo || hits[i]?.title || "Titolo non disponibile").slice(0, 300),
+      ente: String(b.stazione_appaltante || b.ente || "Scheda Mondo Appalti"),
+      ente_tipo: null,
+      importo: parseNumber(b.importo),
+      scadenza: typeof b.scadenza === "string" ? b.scadenza : null,
+      stato: "aperto",
+      dataPublicazione: "",
+      link: link || null,
+      categoria: "Brokeraggio assicurativo",
+      scheda_id: id,
+      cig: typeof b.cig === "string" ? b.cig : null,
+      localita: typeof b.localita === "string" ? b.localita : null,
+      regione: typeof b.regione === "string" ? b.regione : regioneFromText(`${b.oggetto ?? ""} ${b.stazione_appaltante ?? ""}`, filtri.regioni.length ? filtri.regioni : []),
+      pdf_url: typeof b.pdf_url === "string" ? b.pdf_url : null,
+    } satisfies Bando;
+  });
+}
+
+async function searchMondoAppalti(filtri: Filtri): Promise<Bando[]> {
+  if (!Deno.env.get("TAVILY_API_KEY") && !Deno.env.get("SERPER_API_KEY")) {
+    console.error("mondoappalti: manca TAVILY_API_KEY / SERPER_API_KEY");
+    throw new Error("Ricerca su Mondo Appalti non disponibile. Riprova più tardi.");
+  }
+  const q = [
+    "brokeraggio assicurativo bando gara",
+    filtri.regioni.length ? filtri.regioni.join(" ") : "Italia",
+  ].join(" ");
+  let hits = filterMondoHits(await searchTavilyMondo(q));
+  if (hits.length === 0) hits = filterMondoHits(await searchSerperMondo(q));
+  if (hits.length === 0) return [];
+
+  const extracted = await extractMondoBandi(hits, filtri).catch((e) => {
+    console.warn("mondo extract", e);
+    return null;
+  });
+  const mapped = extracted && extracted.length > 0
+    ? extracted
+    : hits.map((h, i) => hitToBando(h, i, filtri.regioni));
+  return applyFiltri(mapped, filtri).slice(0, 30);
+}
+
 function applyFiltri(bandi: Bando[], filtri: Filtri): Bando[] {
   const min = filtri.importoMin ? parseFloat(filtri.importoMin) : null;
   const max = filtri.importoMax ? parseFloat(filtri.importoMax) : null;
@@ -250,6 +459,25 @@ Deno.serve(async (req) => {
       dataA: body.dataA,
       statoBando: body.statoBando,
     };
+    const fonte = body.fonte === "mondoappalti" ? "mondoappalti" : "ted";
+
+    if (fonte === "mondoappalti") {
+      console.log("cerca-bandi mondoappalti", filtri);
+      const bandi = await searchMondoAppalti(filtri);
+      return new Response(
+        JSON.stringify({
+          status: "completed",
+          engine: "mondoappalti",
+          via: "mondoappalti",
+          done: true,
+          sessionIds: [],
+          totalBatches: 0,
+          bandi,
+          message: `Trovati ${bandi.length} bando/i su Mondo Appalti`,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const da = tedDate(filtri.dataDa || "2025-01-01");
     const aClause = filtri.dataA ? ` AND publication-date<=${tedDate(filtri.dataA)}` : "";
@@ -290,7 +518,10 @@ Deno.serve(async (req) => {
     );
   } catch (error: unknown) {
     console.error("cerca-bandi", error);
-    const message = error instanceof Error ? error.message : "Errore durante la ricerca";
+    const raw = error instanceof Error ? error.message : "Errore durante la ricerca";
+    const message = /kimi|gemini|moonshot|moonshine|lovable|openai|tavily|serper/i.test(raw)
+      ? "Ricerca non disponibile. Riprova tra poco."
+      : raw;
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

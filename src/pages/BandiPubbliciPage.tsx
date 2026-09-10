@@ -42,6 +42,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import { FONTI_BANDI, labelFonteBando } from "@/lib/bandiFonti";
 
 interface BandoResult {
   id: string;
@@ -273,7 +274,11 @@ export default function BandiPubbliciPage() {
     setRisultatiLive([]);
     setElapsedSeconds(0);
     setSearchError(null);
-    setProgressMsg("Ricerca sui portali gare in corso...");
+        setProgressMsg(
+          fonte === "mondoappalti"
+            ? "Ricerca su Mondo Appalti in corso…"
+            : "Ricerca su TED Europa in corso…",
+        );
     setApiCallCount(prev => prev + 1);
 
     elapsedTimerRef.current = setInterval(() => {
@@ -404,7 +409,7 @@ export default function BandiPubbliciPage() {
         const { data: newProspect, error: pErr } = await supabase.from("prospect").insert({
           ragione_sociale: selectedBando.ente,
           tipo_cliente: "ente",
-          fonte: "TED Europa",
+          fonte: labelFonteBando(fonte),
           stato: "nuovo",
           ufficio_id: profile?.ufficio_id || null,
         }).select("id").single();
@@ -420,7 +425,7 @@ export default function BandiPubbliciPage() {
         data_scadenza: trattativaScadenza || null,
         note: trattativaNote || null,
         stato: "aperta",
-        fonte: "TED Europa",
+        fonte: labelFonteBando(fonte),
         ufficio_id: profile?.ufficio_id || null,
         created_by: profile?.id || null,
         data_apertura: new Date().toISOString().split("T")[0],
@@ -513,7 +518,9 @@ export default function BandiPubbliciPage() {
               <Select value={fonte} onValueChange={setFonte}>
                 <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ted">TED Europa</SelectItem>
+                  {FONTI_BANDI.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -842,7 +849,7 @@ export default function BandiPubbliciPage() {
                     <Tag className="h-3 w-3" />
                     {selectedBando.keyword || KEYWORD_FISSA}
                   </Badge>
-                  <Badge variant="outline" className="text-xs">Fonte: TED Europa</Badge>
+                  <Badge variant="outline" className="text-xs">Fonte: {labelFonteBando(fonte)}</Badge>
                 </div>
               </div>
 
@@ -925,7 +932,7 @@ export default function BandiPubbliciPage() {
               <div>
                 <p>
                   Stai per creare una nuova trattativa per <strong>{selectedBando?.ente}</strong> con
-                  prodotto "{trattativaProdotto}" e fonte "TED Europa".
+                  prodotto "{trattativaProdotto}" e fonte "{labelFonteBando(fonte)}".
                   {trattativaPremio && <> Premio previsto: €{Number(trattativaPremio).toLocaleString("it-IT")}.</>}
                 </p>
                 {existingTrattative.length > 0 && (
