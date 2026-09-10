@@ -152,7 +152,7 @@ async function autoCreateProspects(bandi: BandoResult[], ufficio_id: string | un
     const { error } = await supabase.from("prospect").insert({
       ragione_sociale: ente,
       tipo_cliente: "ente",
-      fonte: "Kimi / portali gare",
+      fonte: "Portali gare",
       stato: "nuovo",
       ufficio_id: ufficio_id || null,
     });
@@ -273,7 +273,7 @@ export default function BandiPubbliciPage() {
     setRisultatiLive([]);
     setElapsedSeconds(0);
     setSearchError(null);
-    setProgressMsg("Kimi sta cercando e analizzando i bandi...");
+    setProgressMsg("Ricerca sui portali gare in corso...");
     setApiCallCount(prev => prev + 1);
 
     elapsedTimerRef.current = setInterval(() => {
@@ -298,7 +298,7 @@ export default function BandiPubbliciPage() {
       const startErr = edgeFunctionErrorMessage(data, error);
       if (startErr && !data?.bandi) throw new Error(startErr);
       const startData = data;
-      if (!startData) throw new Error("Ricerca Kimi non avviata. Riprova tra poco.");
+      if (!startData) throw new Error("Ricerca non avviata. Riprova tra poco.");
 
       if (startData?.status === "completed" || (Array.isArray(startData?.bandi) && startData.done)) {
         const bandi: BandoResult[] = startData.bandi || [];
@@ -314,7 +314,7 @@ export default function BandiPubbliciPage() {
               profile?.ufficio_id,
             );
             await refetchBandi();
-            toast.success(`${bandi.length} bando/i analizzati con Kimi e salvati.`);
+            toast.success(`${bandi.length} bando/i trovati e salvati.`);
             if (prospectCount > 0) toast.info(`${prospectCount} nuovi prospect creati.`);
           } catch {
             toast.warning("Risultati trovati ma errore nel salvataggio");
@@ -327,7 +327,7 @@ export default function BandiPubbliciPage() {
         return;
       }
 
-      throw new Error("Risposta Kimi incompleta. Riprova tra poco.");
+      throw new Error("Risposta incompleta. Riprova tra poco.");
     } catch (err: any) {
       console.error("Errore avvio ricerca bandi:", err);
       stopSearch();
@@ -648,9 +648,9 @@ export default function BandiPubbliciPage() {
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
             <div>
-              <h3 className="text-lg font-medium">Kimi sta cercando e analizzando i bandi...</h3>
+              <h3 className="text-lg font-medium">Ricerca in corso...</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                {progressMsg || "Ricerca sui portali gare e analisi con Moonshot."}
+                {progressMsg || "Ricerca sui portali gare."}
               </p>
               <p className="text-xs text-muted-foreground mt-2">
                 Tempo trascorso: {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, '0')}
@@ -815,7 +815,7 @@ export default function BandiPubbliciPage() {
           <CardContent className="py-16 text-center">
             <Landmark className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium text-muted-foreground">Nessun bando in archivio</h3>
-            <p className="text-sm text-muted-foreground/70 mt-2">Clicca &quot;Cerca Bandi&quot;: Kimi cerca sui portali gare e analizza i risultati.</p>
+            <p className="text-sm text-muted-foreground/70 mt-2">Clicca &quot;Cerca Bandi&quot; per cercare sui portali gare.</p>
           </CardContent>
         </Card>
       )}
