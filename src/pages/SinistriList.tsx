@@ -224,6 +224,9 @@ export default function SinistriList() {
               ⚠ {eventiScaduti} eventi scaduti
             </Badge>
           )}
+          <Button variant="outline" onClick={() => navigate("/sinistri/caricamento")}>
+            Caricamento massivo
+          </Button>
           <Button onClick={() => navigate("/sinistri/apertura")}>
             <Plus className="h-4 w-4 mr-1" /> Nuovo Sinistro
           </Button>
