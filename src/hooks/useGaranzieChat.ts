@@ -3,14 +3,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
+  azzeraCronologiaConsultazione,
   createConsultazione,
   deleteConsultazione,
   insertMsgConsultazione,
   listMessagesConsultazione,
   listMieConsultazione,
+  salvaConsultazione,
   shareConsultazione,
   touchConsultazione,
 } from "@/lib/garanzieChatConsultazione";
+import { countCronologiaDaAzzerare, filterRicerche, type FiltroRicerche } from "@/lib/cbBotRicerche";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -31,6 +34,8 @@ export type GaranzieConv = {
   autore_email: string | null;
   in_evidenza?: boolean;
   in_evidenza_at?: string | null;
+  salvata?: boolean;
+  salvata_at?: string | null;
 };
 
 export type GaranzieMsg = {
@@ -71,6 +76,7 @@ export function useGaranzieChat({
   const canPersist = (!!user && !consultazioneMode) || isConsultazionePersist;
 
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("mie");
+  const [filtroRicerche, setFiltroRicerche] = useState<FiltroRicerche>("tutte");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [ephemeralMessages, setEphemeralMessages] = useState<AiMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
@@ -87,7 +93,7 @@ export function useGaranzieChat({
       }
       const { data, error } = await supabase
         .from("garanzie_chat_conversazioni")
-        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email, in_evidenza, in_evidenza_at")
+        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email, in_evidenza, in_evidenza_at, salvata, salvata_at" as never)
         .eq("user_id", user!.id)
         .eq("tipo", tipo)
         .order("updated_at", { ascending: false });
@@ -102,7 +108,7 @@ export function useGaranzieChat({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("garanzie_chat_conversazioni")
-        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email, in_evidenza, in_evidenza_at")
+        .select("id, titolo, condivisa, condivisa_at, compagnia, ramo, tipo, updated_at, autore_email, in_evidenza, in_evidenza_at, salvata, salvata_at" as never)
         .eq("condivisa", true)
         .eq("tipo", tipo)
         .order("condivisa_at", { ascending: false, nullsFirst: false });
@@ -111,7 +117,8 @@ export function useGaranzieChat({
     },
   });
 
-  const sidebarList = hideTeam || sidebarTab === "mie" ? mieConversazioni : condivise;
+  const sidebarSource = hideTeam || sidebarTab === "mie" ? mieConversazioni : condivise;
+  const sidebarList = filterRicerche(sidebarSource, sidebarTab === "mie" || hideTeam ? filtroRicerche : "tutte");
 
   const { data: dbMessages = [] } = useQuery({
     queryKey: [...queryKeyBase, "messages", activeId, sidebarTab],
@@ -214,6 +221,56 @@ export function useGaranzieChat({
       qc.invalidateQueries({ queryKey: ["cb-bot-know-how"] });
     },
     onError: (e: Error) => toast.error(e.message || "Impossibile aggiornare l'evidenza"),
+  });
+
+  const salvaMutation = useMutation({
+    mutationFn: async ({ id, salvata }: { id: string; salvata: boolean }) => {
+      if (isConsultazionePersist) {
+        await salvaConsultazione(consultazioneEmail!, id, salvata);
+        return;
+      }
+      const { error } = await supabase
+        .from("garanzie_chat_conversazioni")
+        .update({
+          salvata,
+          salvata_at: salvata ? new Date().toISOString() : null,
+        } as never)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_, { salvata }) => {
+      toast.success(salvata ? "Ricerca salvata in archivio" : "Ricerca tolta dai salvati");
+      qc.invalidateQueries({ queryKey: queryKeyBase });
+    },
+    onError: (e: Error) => toast.error(e.message || "Impossibile salvare la ricerca"),
+  });
+
+  const clearHistoryMutation = useMutation({
+    mutationFn: async () => {
+      if (isConsultazionePersist) {
+        return azzeraCronologiaConsultazione(consultazioneEmail!, tipo);
+      }
+      const daAzzerare = countCronologiaDaAzzerare(mieConversazioni);
+      if (daAzzerare === 0) return 0;
+      const { error } = await (supabase.from("garanzie_chat_conversazioni") as any)
+        .delete()
+        .eq("user_id", user!.id)
+        .eq("tipo", tipo)
+        .eq("salvata", false);
+      if (error) throw error;
+      return daAzzerare;
+    },
+    onSuccess: (n) => {
+      if (n === 0) {
+        toast.success("Nessuna ricerca da azzerare (le salvate restano)");
+      } else {
+        toast.success(`Cronologia azzerata (${n} ricerc${n === 1 ? "a" : "he"}). Le salvate restano.`);
+      }
+      const attiva = mieConversazioni.find((c) => c.id === activeId);
+      if (attiva && !attiva.salvata) resetChat();
+      qc.invalidateQueries({ queryKey: queryKeyBase });
+    },
+    onError: (e: Error) => toast.error(e.message || "Impossibile azzerare la cronologia"),
   });
 
   const deleteMutation = useMutation({
@@ -382,11 +439,18 @@ export function useGaranzieChat({
   const formatConvDate = (c: GaranzieConv) =>
     c.condivisa_at ? format(new Date(c.condivisa_at), "dd/MM/yy", { locale: it }) : null;
 
+  const cronologiaDaAzzerare = countCronologiaDaAzzerare(mieConversazioni);
+  const activeConv = sidebarSource.find((c) => c.id === activeId) ?? mieConversazioni.find((c) => c.id === activeId);
+
   return {
     canPersist,
     hideTeam,
     sidebarTab,
     setSidebarTab,
+    filtroRicerche,
+    setFiltroRicerche,
+    cronologiaDaAzzerare,
+    activeConv,
     activeId,
     setActiveId,
     ephemeralMessages,
@@ -399,6 +463,8 @@ export function useGaranzieChat({
     shareMutation,
     deleteMutation,
     evidenzaMutation,
+    salvaMutation,
+    clearHistoryMutation,
     sendMessage,
     isSharedReadOnly,
     formatConvDate,

@@ -1,10 +1,11 @@
-import { Globe, BookOpen, ShieldCheck, Bookmark, Lightbulb } from "lucide-react";
+import { Globe, BookOpen, ShieldCheck, Bookmark, Lightbulb, Files } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AssistenteWebChatPanel from "@/components/documentale/AssistenteWebChatPanel";
 import LibreriaCgaChatPanel from "@/components/documentale/LibreriaCgaChatPanel";
 import CbBotSitiAutorizzatiPanel from "@/components/documentale/CbBotSitiAutorizzatiPanel";
 import CbBotFontiSalvatePanel from "@/components/documentale/CbBotFontiSalvatePanel";
 import CbBotKnowHowPanel from "@/components/documentale/CbBotKnowHowPanel";
+import CbBotDocumentiPanel from "@/components/documentale/CbBotDocumentiPanel";
 import CbBotLogo from "@/components/shared/CbBotLogo";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -17,6 +18,7 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
   const showSitiTab = !consultazioneMode && isAdmin;
   const showFontiTab = !consultazioneMode;
   const showKnowHowTab = !consultazioneMode;
+  const showDocumentiTab = !consultazioneMode;
 
   return (
     <div className="space-y-4">
@@ -40,15 +42,21 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
                 <strong>Fonti salvate</strong> — pagine pinate che il bot riusa come fonti interne.
               </>
             )}
+            {showDocumentiTab && (
+              <>
+                {" "}
+                <strong>Documenti</strong> — carica, analizza, salva in libreria e confronta più file.
+              </>
+            )}
             {consultazioneMode
-              ? " Salva le ricerche pertinenti come know-how: non si richiama l'IA sulla stessa domanda."
-              : " La stella salva la risposta in know-how (niente nuova chiamata IA) e le fonti in libreria."}
+              ? " Salva le ricerche per non perderle; azzera la cronologia quando vuoi."
+              : " Il segnalibro salva la ricerca; la stella la promuove in know-how."}
           </p>
         </div>
       </div>
 
       <Tabs defaultValue="assistente-web" className="w-full">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="assistente-web" className="gap-1.5">
             <Globe className="h-3.5 w-3.5" /> Assistente Web
           </TabsTrigger>
@@ -68,6 +76,11 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
           {showKnowHowTab && (
             <TabsTrigger value="know-how" className="gap-1.5">
               <Lightbulb className="h-3.5 w-3.5" /> Know-how
+            </TabsTrigger>
+          )}
+          {showDocumentiTab && (
+            <TabsTrigger value="documenti" className="gap-1.5">
+              <Files className="h-3.5 w-3.5" /> Documenti
             </TabsTrigger>
           )}
         </TabsList>
@@ -93,6 +106,11 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
         {showKnowHowTab && (
           <TabsContent value="know-how" className="mt-4">
             <CbBotKnowHowPanel />
+          </TabsContent>
+        )}
+        {showDocumentiTab && (
+          <TabsContent value="documenti" className="mt-4">
+            <CbBotDocumentiPanel />
           </TabsContent>
         )}
       </Tabs>

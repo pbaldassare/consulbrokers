@@ -130,6 +130,12 @@ export default function AssistenteWebChatPanel({ consultazioneMode = false }: Pr
       formatConvDate={chat.formatConvDate}
       hideTeam={consultazioneMode}
       evidenzaMutation={chat.evidenzaMutation}
+      salvaMutation={chat.salvaMutation}
+      clearHistoryMutation={chat.clearHistoryMutation}
+      filtroRicerche={chat.filtroRicerche}
+      setFiltroRicerche={chat.setFiltroRicerche}
+      cronologiaDaAzzerare={chat.cronologiaDaAzzerare}
+      activeSalvata={chat.activeConv?.salvata === true}
       onSaveFonte={consultazioneMode ? undefined : (f) => saveFonteMutation.mutate(f)}
       savedFonteUrls={fontiSalvate.map((u) => normalizeFonteUrl(u) ?? u)}
     />

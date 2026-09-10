@@ -1,12 +1,24 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AiChatInput } from "@/components/ai/AiChatInput";
 import { AiChatMessage } from "@/components/ai/AiChatMessage";
-import { Loader2, Plus, Share2, Star, Trash2, Users, User } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Bookmark, Eraser, Loader2, Plus, Share2, Star, Trash2, Users, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AiMessage } from "@/components/ai/AiChatMessage";
 import type { GaranzieConv } from "@/hooks/useGaranzieChat";
+import type { FiltroRicerche } from "@/lib/cbBotRicerche";
 import type { UseMutationResult } from "@tanstack/react-query";
 
 type Props = {
@@ -32,6 +44,12 @@ type Props = {
   convSubtitle?: (c: GaranzieConv) => string;
   formatConvDate: (c: GaranzieConv) => string | null;
   evidenzaMutation?: UseMutationResult<void, Error, { id: string; inEvidenza: boolean }>;
+  salvaMutation?: UseMutationResult<void, Error, { id: string; salvata: boolean }>;
+  clearHistoryMutation?: UseMutationResult<number, Error, void>;
+  filtroRicerche?: FiltroRicerche;
+  setFiltroRicerche?: (f: FiltroRicerche) => void;
+  cronologiaDaAzzerare?: number;
+  activeSalvata?: boolean;
   onSaveFonte?: (fonte: { title?: string; url: string; snippet?: string }) => void;
   savedFonteUrls?: string[];
   hideTeam?: boolean;
@@ -60,10 +78,20 @@ export function GaranzieChatLayout({
   convSubtitle,
   formatConvDate,
   evidenzaMutation,
+  salvaMutation,
+  clearHistoryMutation,
+  filtroRicerche = "tutte",
+  setFiltroRicerche,
+  cronologiaDaAzzerare = 0,
+  activeSalvata = false,
   onSaveFonte,
   savedFonteUrls,
   hideTeam = false,
 }: Props) {
+  const [confirmAzzera, setConfirmAzzera] = useState(false);
+  const canSaveActive = canPersist && !!activeId && (hideTeam || sidebarTab === "mie");
+  const isActiveSalvata = activeSalvata || sidebarList.find((c) => c.id === activeId)?.salvata === true;
+
   return (
     <div className="flex flex-col lg:flex-row gap-4 min-h-[520px] border rounded-lg overflow-hidden bg-card">
       <aside className="lg:w-64 shrink-0 border-b lg:border-b-0 lg:border-r flex flex-col">
@@ -97,10 +125,41 @@ export function GaranzieChatLayout({
             <Users className="h-3 w-3" /> Ricerche condivise
           </div>
         )}
-        <div className="p-2 border-b">
+        <div className="p-2 border-b space-y-2">
           <Button variant="outline" size="sm" className="w-full gap-1" onClick={resetChat}>
             <Plus className="h-3 w-3" /> Nuova ricerca
           </Button>
+          {canPersist && (hideTeam || sidebarTab === "mie") && setFiltroRicerche && (
+            <div className="flex gap-1">
+              <Button
+                variant={filtroRicerche === "tutte" ? "secondary" : "ghost"}
+                size="sm"
+                className="flex-1 text-[10px] h-7"
+                onClick={() => setFiltroRicerche("tutte")}
+              >
+                Tutte
+              </Button>
+              <Button
+                variant={filtroRicerche === "salvate" ? "secondary" : "ghost"}
+                size="sm"
+                className="flex-1 text-[10px] h-7"
+                onClick={() => setFiltroRicerche("salvate")}
+              >
+                Salvate
+              </Button>
+            </div>
+          )}
+          {canPersist && (hideTeam || sidebarTab === "mie") && clearHistoryMutation && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full gap-1 text-[10px] h-7 text-muted-foreground hover:text-destructive"
+              disabled={cronologiaDaAzzerare === 0 || clearHistoryMutation.isPending}
+              onClick={() => setConfirmAzzera(true)}
+            >
+              <Eraser className="h-3 w-3" /> Azzera cronologia
+            </Button>
+          )}
         </div>
         <ScrollArea className="flex-1 max-h-64 lg:max-h-none">
           <div className="p-2 space-y-1">
@@ -132,6 +191,21 @@ export function GaranzieChatLayout({
                     </div>
                   )}
                 </button>
+                {canPersist && (hideTeam || sidebarTab === "mie") && salvaMutation && (
+                  <button
+                    type="button"
+                    title={c.salvata ? "Togli dai salvati" : "Salva ricerca"}
+                    className={cn(
+                      "shrink-0 p-1",
+                      c.salvata
+                        ? "text-primary"
+                        : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary",
+                    )}
+                    onClick={() => salvaMutation.mutate({ id: c.id, salvata: !c.salvata })}
+                  >
+                    <Bookmark className={cn("h-3 w-3", c.salvata && "fill-current")} />
+                  </button>
+                )}
                 {canPersist && (hideTeam || sidebarTab === "mie") && evidenzaMutation && (
                   <button
                     type="button"
@@ -172,6 +246,9 @@ export function GaranzieChatLayout({
                   </div>
                 )}
                 {!hideTeam && c.condivisa && <Badge variant="outline" className="text-[9px] shrink-0">Team</Badge>}
+                {c.salvata && (
+                  <Badge variant="outline" className="text-[9px] shrink-0">Salvata</Badge>
+                )}
                 {c.in_evidenza && (
                   <Badge variant="secondary" className="text-[9px] shrink-0">Know-how</Badge>
                 )}
@@ -182,6 +259,19 @@ export function GaranzieChatLayout({
       </aside>
 
       <div className="flex-1 flex flex-col min-h-[400px]">
+        {canSaveActive && salvaMutation && messages.length > 0 && (
+          <div className="flex justify-end px-4 pt-3">
+            <Button
+              variant={isActiveSalvata ? "secondary" : "outline"}
+              size="sm"
+              className="gap-1.5"
+              onClick={() => salvaMutation.mutate({ id: activeId!, salvata: !isActiveSalvata })}
+            >
+              <Bookmark className={cn("h-3.5 w-3.5", isActiveSalvata && "fill-current")} />
+              {isActiveSalvata ? "Salvata" : "Salva ricerca"}
+            </Button>
+          </div>
+        )}
         <ScrollArea className="flex-1 p-4">
           <div ref={scrollRef}>
             {messages.length === 0 && !isThinking && (
@@ -223,6 +313,27 @@ export function GaranzieChatLayout({
           </div>
         )}
       </div>
+
+      <AlertDialog open={confirmAzzera} onOpenChange={setConfirmAzzera}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Azzerare la cronologia?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Elimina {cronologiaDaAzzerare} ricerc{cronologiaDaAzzerare === 1 ? "a" : "he"} non
+              salvate. Le ricerche salvate restano in archivio.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => clearHistoryMutation?.mutate()}
+            >
+              Azzera
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
