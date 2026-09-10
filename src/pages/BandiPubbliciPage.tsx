@@ -184,7 +184,7 @@ export default function BandiPubbliciPage() {
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [fonte, setFonte] = useState("mondoappalti");
+  const [fonte, setFonte] = useState("ted");
   const [regioniOpen, setRegioniOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [progressMsg, setProgressMsg] = useState("");
@@ -404,7 +404,7 @@ export default function BandiPubbliciPage() {
         const { data: newProspect, error: pErr } = await supabase.from("prospect").insert({
           ragione_sociale: selectedBando.ente,
           tipo_cliente: "ente",
-          fonte: "API Mondoappalti",
+          fonte: "TED Europa",
           stato: "nuovo",
           ufficio_id: profile?.ufficio_id || null,
         }).select("id").single();
@@ -420,7 +420,7 @@ export default function BandiPubbliciPage() {
         data_scadenza: trattativaScadenza || null,
         note: trattativaNote || null,
         stato: "aperta",
-        fonte: "API Mondoappalti",
+        fonte: "TED Europa",
         ufficio_id: profile?.ufficio_id || null,
         created_by: profile?.id || null,
         data_apertura: new Date().toISOString().split("T")[0],
@@ -513,7 +513,7 @@ export default function BandiPubbliciPage() {
               <Select value={fonte} onValueChange={setFonte}>
                 <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mondoappalti">MondoAppalti.it</SelectItem>
+                  <SelectItem value="ted">TED Europa</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -842,7 +842,7 @@ export default function BandiPubbliciPage() {
                     <Tag className="h-3 w-3" />
                     {selectedBando.keyword || KEYWORD_FISSA}
                   </Badge>
-                  <Badge variant="outline" className="text-xs">Fonte: API Mondoappalti</Badge>
+                  <Badge variant="outline" className="text-xs">Fonte: TED Europa</Badge>
                 </div>
               </div>
 
@@ -925,7 +925,7 @@ export default function BandiPubbliciPage() {
               <div>
                 <p>
                   Stai per creare una nuova trattativa per <strong>{selectedBando?.ente}</strong> con
-                  prodotto "{trattativaProdotto}" e fonte "API Mondoappalti".
+                  prodotto "{trattativaProdotto}" e fonte "TED Europa".
                   {trattativaPremio && <> Premio previsto: €{Number(trattativaPremio).toLocaleString("it-IT")}.</>}
                 </p>
                 {existingTrattative.length > 0 && (
