@@ -34,6 +34,7 @@ type Props = {
   evidenzaMutation?: UseMutationResult<void, Error, { id: string; inEvidenza: boolean }>;
   onSaveFonte?: (fonte: { title?: string; url: string; snippet?: string }) => void;
   savedFonteUrls?: string[];
+  hideTeam?: boolean;
 };
 
 export function GaranzieChatLayout({
@@ -61,11 +62,12 @@ export function GaranzieChatLayout({
   evidenzaMutation,
   onSaveFonte,
   savedFonteUrls,
+  hideTeam = false,
 }: Props) {
   return (
     <div className="flex flex-col lg:flex-row gap-4 min-h-[520px] border rounded-lg overflow-hidden bg-card">
       <aside className="lg:w-64 shrink-0 border-b lg:border-b-0 lg:border-r flex flex-col">
-        {canPersist && (
+        {canPersist && !hideTeam && (
           <div className="p-2 border-b flex gap-1">
             <Button
               variant={sidebarTab === "mie" ? "secondary" : "ghost"}
@@ -83,6 +85,11 @@ export function GaranzieChatLayout({
             >
               <Users className="h-3 w-3" /> Team
             </Button>
+          </div>
+        )}
+        {canPersist && hideTeam && (
+          <div className="p-2 border-b text-xs font-medium text-muted-foreground px-3">
+            Le tue ricerche
           </div>
         )}
         {!canPersist && (
@@ -125,10 +132,10 @@ export function GaranzieChatLayout({
                     </div>
                   )}
                 </button>
-                {canPersist && sidebarTab === "mie" && evidenzaMutation && (
+                {canPersist && (hideTeam || sidebarTab === "mie") && evidenzaMutation && (
                   <button
                     type="button"
-                    title={c.in_evidenza ? "Togli dall'evidenza" : "In evidenza: salva anche le fonti"}
+                    title={c.in_evidenza ? "Già in know-how" : "Salva come know-how: le prossime domande uguali non bruciano IA"}
                     className={cn(
                       "shrink-0 p-1",
                       c.in_evidenza
@@ -140,16 +147,18 @@ export function GaranzieChatLayout({
                     <Star className={cn("h-3 w-3", c.in_evidenza && "fill-current")} />
                   </button>
                 )}
-                {canPersist && sidebarTab === "mie" && !c.condivisa && (
+                {canPersist && (hideTeam || sidebarTab === "mie") && !c.condivisa && (
                   <div className="flex shrink-0 opacity-0 group-hover:opacity-100">
-                    <button
-                      type="button"
-                      title="Condividi con il team"
-                      className="p-1 hover:text-primary"
-                      onClick={() => shareMutation.mutate(c.id)}
-                    >
-                      <Share2 className="h-3 w-3" />
-                    </button>
+                    {!hideTeam && (
+                      <button
+                        type="button"
+                        title="Condividi con il team"
+                        className="p-1 hover:text-primary"
+                        onClick={() => shareMutation.mutate(c.id)}
+                      >
+                        <Share2 className="h-3 w-3" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       title="Elimina"
@@ -162,9 +171,9 @@ export function GaranzieChatLayout({
                     </button>
                   </div>
                 )}
-                {c.condivisa && <Badge variant="outline" className="text-[9px] shrink-0">Team</Badge>}
+                {!hideTeam && c.condivisa && <Badge variant="outline" className="text-[9px] shrink-0">Team</Badge>}
                 {c.in_evidenza && (
-                  <Badge variant="secondary" className="text-[9px] shrink-0">Evidenza</Badge>
+                  <Badge variant="secondary" className="text-[9px] shrink-0">Know-how</Badge>
                 )}
               </div>
             ))}

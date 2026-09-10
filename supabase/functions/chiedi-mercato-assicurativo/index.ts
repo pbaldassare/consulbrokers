@@ -1,41 +1,10 @@
 // Edge function: chiedi-mercato-assicurativo (Assistente Web)
 // Chat web — interroga SOLO i siti in cb_bot_siti_autorizzati. Non accede a polizze CBnet.
+// IA: Kimi (Moonshot). Know-how curato: se la domanda matcha, nessuna chiamata IA.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const MOONSHOT_BASE = "https://api.moonshot.ai/v1";
-const LOVABLE_BASE = "https://ai.gateway.lovable.dev/v1";
-
-function moonshotKey(): string | undefined {
-  return Deno.env.get("MOONSHOT_API_KEY") || Deno.env.get("MOONSHINE_API_KEY") || undefined;
-}
-
-function requireAi() {
-  const moon = moonshotKey();
-  const lovable = Deno.env.get("LOVABLE_API_KEY");
-  if (!moon && !lovable) {
-    throw new Error("API IA non configurata: imposta MOONSHOT_API_KEY (Kimi) nei secret Supabase.");
-  }
-}
-
-async function aiChatCompletions(body: Record<string, unknown>): Promise<Response> {
-  const moon = moonshotKey();
-  const baseUrl = moon
-    ? (Deno.env.get("MOONSHOT_BASE_URL") || MOONSHOT_BASE).replace(/\/$/, "")
-    : LOVABLE_BASE;
-  const apiKey = moon || Deno.env.get("LOVABLE_API_KEY")!;
-  const model = moon
-    ? (Deno.env.get("MOONSHOT_MODEL") || "kimi-k2.6")
-    : "google/gemini-2.5-flash";
-  return fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ ...body, model }),
-  });
-}
+import { requireAi, callKimiText } from "../_shared/aiProvider.ts";
+import { bumpKnowHowHit, findKnowHowHit, knowHowFonti } from "../_shared/cbBotKnowHowDb.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -174,18 +143,6 @@ async function isAuthenticatedStaff(req: Request): Promise<boolean> {
   }
 }
 
-async function callGemini(
-  messages: { role: string; content: string }[],
-): Promise<string> {
-  const resp = await aiChatCompletions({ model: "google/gemini-2.5-flash", messages });
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`AI gateway ${resp.status}: ${t.slice(0, 200)}`);
-  }
-  const json = await resp.json();
-  return json?.choices?.[0]?.message?.content ?? "";
-}
-
 async function searchTavily(apiKey: string, query: string, domains: string[]): Promise<SearchHit[]> {
   const resp = await fetch("https://api.tavily.com/search", {
     method: "POST",
@@ -264,8 +221,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    requireAi();
-
     const body = await req.json();
     const domanda = String(body?.domanda ?? "").trim();
     const storico: StoricoMsg[] = Array.isArray(body?.storico) ? body.storico.slice(-10) : [];
@@ -290,6 +245,23 @@ Deno.serve(async (req) => {
       );
     }
 
+    const knowHow = await findKnowHowHit("web", domanda);
+    if (knowHow) {
+      await bumpKnowHowHit(knowHow.id);
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          risposta: knowHow.risposta,
+          fonti: knowHowFonti(knowHow),
+          fonti_salvate: [],
+          query: null,
+          via: "know-how",
+          know_how_id: knowHow.id,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const siti = await loadSitiAutorizzati();
     const domains = [...new Set(siti.map((s) => s.dominio).filter(Boolean))];
     const fontiInterneAll = await loadFontiSalvate();
@@ -309,25 +281,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Ottimizza query di ricerca (opzionale)
-    let searchQuery = domanda;
-    try {
-      const q = await callGemini([
-        {
-          role: "system",
-          content:
-            "Genera UNA query Google concisa in italiano (max 15 parole) per trovare informazioni utili alla domanda. Rispondi SOLO con la query, senza virgolette.",
-        },
-        {
-          role: "user",
-          content: `Domanda: ${domanda}`,
-        },
-      ]);
-      if (q.trim().length > 3 && q.trim().length < 150) searchQuery = q.trim();
-    } catch {
-      // usa domanda originale
-    }
+    requireAi();
 
+    const searchQuery = domanda;
     const hits = await webSearch(searchQuery, domains);
     const fonti = hits.map((h) => ({
       title: h.title,
@@ -377,7 +333,7 @@ Deno.serve(async (req) => {
 
     let risposta: string;
     try {
-      risposta = await callGemini(messages);
+      risposta = await callKimiText(messages);
     } catch (e) {
       if (e instanceof Error && e.message.includes("429")) {
         return new Response(JSON.stringify({ error: "Rate limit AI superato." }), {
@@ -395,6 +351,7 @@ Deno.serve(async (req) => {
         fonti,
         fonti_salvate: fontiSalvateOut,
         query: searchQuery,
+        via: "kimi",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

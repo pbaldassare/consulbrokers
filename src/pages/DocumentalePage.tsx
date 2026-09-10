@@ -267,7 +267,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
               </div>
               <p className="text-sm text-muted-foreground mt-2">
                 {consultazioneMode && isCbBotChromeTab(tab)
-                  ? "Assistente Web e Libreria CGA — salva e condividi le ricerche con il team"
+                  ? "Salva le ricerche pertinenti come know-how: le prossime domande uguali non bruciano IA."
                   : documentalePageSubtitle(tab)}
               </p>
             </>

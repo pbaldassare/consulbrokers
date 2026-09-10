@@ -39,6 +39,7 @@ export default function AssistenteWebChatPanel({ consultazioneMode = false }: Pr
     consultazioneMode,
     consultazioneEmail: consultazioneEmail,
     extraBody: () => ({ email: callerEmail }),
+    hideTeam: consultazioneMode,
     onBeforeSend: consultazioneMode
       ? (text) => logRicerca(text, "Assistente Web")
       : undefined,
@@ -125,9 +126,10 @@ export default function AssistenteWebChatPanel({ consultazioneMode = false }: Pr
       emptyIcon={<CbBotLogo className="h-14 w-auto mb-3 opacity-90" />}
       emptyTitle="Assistente Web"
       emptyDescription="Cerca solo sui siti autorizzati dall'admin. Non accede a polizze, clienti né al portafoglio CBnet. Per le CGA usa la tab Libreria CGA."
-      thinkingLabel="Assistente Web sta cercando sui siti autorizzati…"
+      thinkingLabel="CB Bot sta cercando sui siti autorizzati (Kimi)…"
       formatConvDate={chat.formatConvDate}
-      evidenzaMutation={consultazioneMode ? undefined : chat.evidenzaMutation}
+      hideTeam={consultazioneMode}
+      evidenzaMutation={chat.evidenzaMutation}
       onSaveFonte={consultazioneMode ? undefined : (f) => saveFonteMutation.mutate(f)}
       savedFonteUrls={fontiSalvate.map((u) => normalizeFonteUrl(u) ?? u)}
     />

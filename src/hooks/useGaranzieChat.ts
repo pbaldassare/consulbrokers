@@ -48,6 +48,7 @@ type UseGaranzieChatOptions = {
   edgeFunction: "chiedi-mercato-assicurativo" | "chiedi-libreria-cga";
   consultazioneMode?: boolean;
   consultazioneEmail?: string | null;
+  hideTeam?: boolean;
   extraBody?: () => Record<string, unknown>;
   convExtraFields?: () => Record<string, unknown>;
   onBeforeSend?: (text: string) => void;
@@ -58,6 +59,7 @@ export function useGaranzieChat({
   edgeFunction,
   consultazioneMode = false,
   consultazioneEmail = null,
+  hideTeam = false,
   extraBody,
   convExtraFields,
   onBeforeSend,
@@ -96,6 +98,7 @@ export function useGaranzieChat({
 
   const { data: condivise = [] } = useQuery({
     queryKey: [...queryKeyBase, "condivise"],
+    enabled: !hideTeam,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("garanzie_chat_conversazioni")
@@ -108,7 +111,7 @@ export function useGaranzieChat({
     },
   });
 
-  const sidebarList = sidebarTab === "mie" ? mieConversazioni : condivise;
+  const sidebarList = hideTeam || sidebarTab === "mie" ? mieConversazioni : condivise;
 
   const { data: dbMessages = [] } = useQuery({
     queryKey: [...queryKeyBase, "messages", activeId, sidebarTab],
@@ -170,6 +173,17 @@ export function useGaranzieChat({
 
   const evidenzaMutation = useMutation({
     mutationFn: async ({ id, inEvidenza }: { id: string; inEvidenza: boolean }) => {
+      if (isConsultazionePersist) {
+        if (!inEvidenza) return;
+        const { promoteKnowHowConsultazione } = await import("@/lib/cbBotKnowHowDb");
+        const n = await promoteKnowHowConsultazione(consultazioneEmail!, id, tipo);
+        toast.success(
+          n > 0
+            ? `Know-how salvato (${n} rispost${n === 1 ? "a" : "e"}). Le prossime domande uguali non bruciano IA.`
+            : "Nessuna risposta da salvare come know-how",
+        );
+        return;
+      }
       const { error } = await supabase
         .from("garanzie_chat_conversazioni")
         .update({
@@ -180,19 +194,24 @@ export function useGaranzieChat({
       if (error) throw error;
       if (inEvidenza) {
         const { promoteFontiFromConversazione } = await import("@/lib/cbBotFontiDb");
-        const n = await promoteFontiFromConversazione(id, user?.id ?? null);
+        const { promoteKnowHowFromConversazione } = await import("@/lib/cbBotKnowHowDb");
+        const nFonti = await promoteFontiFromConversazione(id, user?.id ?? null);
+        const nKh = await promoteKnowHowFromConversazione(id, tipo, user?.id ?? null);
         toast.success(
-          n > 0
-            ? `Ricerca in evidenza · ${n} nuov${n === 1 ? "a fonte" : "e fonti"} in libreria`
-            : "Ricerca in evidenza",
+          nKh > 0
+            ? `Know-how salvato (${nKh}) · ${nFonti} fonti in libreria`
+            : nFonti > 0
+              ? `Ricerca in evidenza · ${nFonti} fonti in libreria`
+              : "Ricerca in evidenza",
         );
       } else {
-        toast.success("Rimossa dall'evidenza (le fonti salvate restano)");
+        toast.success("Rimossa dall'evidenza (know-how e fonti restano)");
       }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeyBase });
       qc.invalidateQueries({ queryKey: ["cb-bot-fonti"] });
+      qc.invalidateQueries({ queryKey: ["cb-bot-know-how"] });
     },
     onError: (e: Error) => toast.error(e.message || "Impossibile aggiornare l'evidenza"),
   });
@@ -349,13 +368,14 @@ export function useGaranzieChat({
     }
   };
 
-  const isSharedReadOnly = !!activeId && sidebarTab === "condivise";
+  const isSharedReadOnly = !hideTeam && !!activeId && sidebarTab === "condivise";
 
   const formatConvDate = (c: GaranzieConv) =>
     c.condivisa_at ? format(new Date(c.condivisa_at), "dd/MM/yy", { locale: it }) : null;
 
   return {
     canPersist,
+    hideTeam,
     sidebarTab,
     setSidebarTab,
     activeId,

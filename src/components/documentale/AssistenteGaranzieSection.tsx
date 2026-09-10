@@ -1,9 +1,10 @@
-import { Globe, BookOpen, ShieldCheck, Bookmark } from "lucide-react";
+import { Globe, BookOpen, ShieldCheck, Bookmark, Lightbulb } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AssistenteWebChatPanel from "@/components/documentale/AssistenteWebChatPanel";
 import LibreriaCgaChatPanel from "@/components/documentale/LibreriaCgaChatPanel";
 import CbBotSitiAutorizzatiPanel from "@/components/documentale/CbBotSitiAutorizzatiPanel";
 import CbBotFontiSalvatePanel from "@/components/documentale/CbBotFontiSalvatePanel";
+import CbBotKnowHowPanel from "@/components/documentale/CbBotKnowHowPanel";
 import CbBotLogo from "@/components/shared/CbBotLogo";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -15,6 +16,7 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
   const { isAdmin } = useAuth();
   const showSitiTab = !consultazioneMode && isAdmin;
   const showFontiTab = !consultazioneMode;
+  const showKnowHowTab = !consultazioneMode;
 
   return (
     <div className="space-y-4">
@@ -39,8 +41,8 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
               </>
             )}
             {consultazioneMode
-              ? " Salva le tue ricerche e condividile con il team."
-              : " Metti in evidenza le ricerche utili: le fonti diventano libreria."}
+              ? " Salva le ricerche pertinenti come know-how: non si richiama l'IA sulla stessa domanda."
+              : " La stella salva la risposta in know-how (niente nuova chiamata IA) e le fonti in libreria."}
           </p>
         </div>
       </div>
@@ -63,6 +65,11 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
               <Bookmark className="h-3.5 w-3.5" /> Fonti salvate
             </TabsTrigger>
           )}
+          {showKnowHowTab && (
+            <TabsTrigger value="know-how" className="gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5" /> Know-how
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="assistente-web" className="mt-4">
@@ -81,6 +88,11 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
         {showFontiTab && (
           <TabsContent value="fonti-salvate" className="mt-4">
             <CbBotFontiSalvatePanel />
+          </TabsContent>
+        )}
+        {showKnowHowTab && (
+          <TabsContent value="know-how" className="mt-4">
+            <CbBotKnowHowPanel />
           </TabsContent>
         )}
       </Tabs>

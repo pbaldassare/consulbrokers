@@ -21,6 +21,7 @@ export interface AiToolCall {
 }
 
 export type AiMessageFonte =
+  | { kind?: "know-how"; id?: string }
   | { title?: string; url?: string; snippet?: string; salvata?: boolean }
   | { prodotto_id?: string; nome_prodotto?: string; compagnia?: string | null; ramo?: string | null };
 
@@ -175,6 +176,8 @@ export const AiChatMessage = ({ message, onSaveFonte, savedFonteUrls }: Props) =
   const tcs = message.tool_calls ?? [];
   const renderBlocks = tcs.filter((tc) => tc.block && (tc.tool ?? "").startsWith("render_"));
   const queryBlocks = tcs.filter((tc) => !tc.block);
+  const fromKnowHow = (message.fonti ?? []).some((f) => (f as { kind?: string }).kind === "know-how");
+  const fontiVisibili = (message.fonti ?? []).filter((f) => (f as { kind?: string }).kind !== "know-how");
 
   return (
     <div className={cn("flex gap-3 py-4", isUser && "flex-row-reverse")}>
@@ -208,13 +211,19 @@ export const AiChatMessage = ({ message, onSaveFonte, savedFonteUrls }: Props) =
           <RenderBlock key={`block-${i}`} block={tc.block} kind={tc.tool ?? ""} />
         ))}
 
-        {!isUser && message.fonti && message.fonti.length > 0 && (
+        {!isUser && fromKnowHow && (
+          <div className="text-[11px] text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-2 py-1">
+            Risposta da know-how — nessuna nuova chiamata IA
+          </div>
+        )}
+
+        {!isUser && fontiVisibili.length > 0 && (
           <div className="text-xs text-muted-foreground space-y-1">
             <div className="font-medium text-foreground flex items-center gap-1">
-              <ExternalLink className="h-3 w-3" /> Fonti ({message.fonti.length})
+              <ExternalLink className="h-3 w-3" /> Fonti ({fontiVisibili.length})
             </div>
             <ul className="space-y-0.5 border-l-2 border-border pl-3">
-              {message.fonti.map((f, i) => {
+              {fontiVisibili.map((f, i) => {
                 const web = f as { title?: string; url?: string; snippet?: string; salvata?: boolean };
                 const cga = f as { nome_prodotto?: string; compagnia?: string | null; ramo?: string | null };
                 if (web.url) {

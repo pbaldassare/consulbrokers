@@ -57,6 +57,7 @@ export default function LibreriaCgaChatPanel({ consultazioneMode = false }: Prop
     edgeFunction: "chiedi-libreria-cga",
     consultazioneMode,
     consultazioneEmail,
+    hideTeam: consultazioneMode,
     extraBody: () => filtriBody,
     convExtraFields: () => ({
       compagnia: filtriBody.compagnia ?? null,
@@ -127,9 +128,11 @@ export default function LibreriaCgaChatPanel({ consultazioneMode = false }: Prop
         emptyIcon={<BookOpen className="h-10 w-10 mb-3 opacity-40" />}
         emptyTitle="Chiedi su garanzie e condizioni assicurative"
         emptyDescription="Le risposte usano solo i dati estratti dalla Libreria CGA, con citazione compagnia e prodotto."
-        thinkingLabel="Consul Assicurativo sta analizzando la Libreria CGA…"
+        thinkingLabel="CB Bot sta analizzando la Libreria CGA (Kimi)…"
         convSubtitle={(c) => c.compagnia || "—"}
         formatConvDate={chat.formatConvDate}
+        hideTeam={consultazioneMode}
+        evidenzaMutation={chat.evidenzaMutation}
       />
     </div>
   );
