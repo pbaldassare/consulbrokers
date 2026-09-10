@@ -349,7 +349,9 @@ LOVABLE_API_KEY=<Gemini gateway>
 RESEND_API_KEY=<key>
 RESEND_FROM_EMAIL=noreply@cbnet.it  # ADD THIS
 RESEND_FROM_NAME=CBnet              # ADD THIS
-BROWSER_USE_API_KEY=<key>
+MOONSHOT_API_KEY=<key>          # Kimi (alias MOONSHINE_API_KEY)
+TAVILY_API_KEY=<key>            # fallback ricerca bandi
+SERPER_API_KEY=<key>            # fallback ricerca bandi
 ```
 
 ---

@@ -1,5 +1,5 @@
-// Cerca / analizza bandi con Moonshot (Kimi) + ricerca web.
-// Non usa Browser Use (crediti esauriti).
+// Cerca / analizza bandi con Moonshot (Kimi): web-search + fetch schede.
+// Browser Use non è più usato.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,9 +9,17 @@ const corsHeaders = {
 
 const MOONSHOT_BASE = "https://api.moonshot.ai/v1";
 const LOVABLE_BASE = "https://ai.gateway.lovable.dev/v1";
+const SEARCH_FORMULA = "moonshot/web-search:latest";
+const FETCH_FORMULA = "moonshot/fetch:latest";
+const MAX_TOOL_ROUNDS = 8;
+const TOOLS_BUDGET_MS = 95_000;
 
 function moonshotKey(): string | undefined {
   return Deno.env.get("MOONSHOT_API_KEY") || Deno.env.get("MOONSHINE_API_KEY") || undefined;
+}
+
+function moonshotBase(): string {
+  return (Deno.env.get("MOONSHOT_BASE_URL") || MOONSHOT_BASE).replace(/\/$/, "");
 }
 
 function requireAi() {
@@ -22,9 +30,7 @@ function requireAi() {
 
 async function aiChatCompletions(body: Record<string, unknown>): Promise<Response> {
   const moon = moonshotKey();
-  const baseUrl = moon
-    ? (Deno.env.get("MOONSHOT_BASE_URL") || MOONSHOT_BASE).replace(/\/$/, "")
-    : LOVABLE_BASE;
+  const baseUrl = moon ? moonshotBase() : LOVABLE_BASE;
   const apiKey = moon || Deno.env.get("LOVABLE_API_KEY")!;
   const model = moon
     ? (Deno.env.get("MOONSHOT_MODEL") || "kimi-k2.6")
@@ -35,7 +41,11 @@ async function aiChatCompletions(body: Record<string, unknown>): Promise<Respons
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ ...body, model }),
+    body: JSON.stringify({
+      ...body,
+      model,
+      ...(moon ? { thinking: { type: "disabled" } } : {}),
+    }),
   });
 }
 
@@ -52,7 +62,7 @@ function normalizeRegione(uiName: string): string {
 
 function parseImportoItaliano(val: unknown): number | null {
   if (val == null) return null;
-  if (typeof val === "number") return val;
+  if (typeof val === "number") return Number.isFinite(val) ? val : null;
   const s = String(val).replace(/[€\s]/g, "").trim();
   if (!s || s === "N/A" || s === "-") return null;
   const cleaned = s.replace(/\./g, "").replace(",", ".");
@@ -105,10 +115,158 @@ function mapBando(b: Record<string, unknown>, i: number) {
 function schedaIdFromUrl(url: string): string {
   try {
     const u = new URL(url);
-    return (u.hostname + u.pathname).replace(/\/+$/, "").slice(0, 180) || url.slice(0, 180);
+    const m = u.pathname.match(/scheda\/(\d+)/);
+    if (m) return m[1];
+    return (u.hostname + u.pathname).replace(/\/+$/, "").slice(0, 180);
   } catch {
     return url.slice(0, 180);
   }
+}
+
+function formulaUriForTool(name: string): string {
+  const n = String(name || "").replace(/^\$/, "").toLowerCase().replace(/_/g, "-");
+  if (n === "fetch" || n === "web-fetch") return FETCH_FORMULA;
+  return SEARCH_FORMULA;
+}
+
+async function loadFormulaTools(): Promise<{ tools: unknown[]; ok: boolean }> {
+  const key = moonshotKey();
+  if (!key) return { tools: [], ok: false };
+  const base = moonshotBase();
+  try {
+    const [search, fetchTool] = await Promise.all([
+      fetch(`${base}/formulas/${SEARCH_FORMULA}/tools`, {
+        headers: { Authorization: `Bearer ${key}` },
+      }),
+      fetch(`${base}/formulas/${FETCH_FORMULA}/tools`, {
+        headers: { Authorization: `Bearer ${key}` },
+      }),
+    ]);
+    const tools: unknown[] = [];
+    if (search.ok) {
+      const j = await search.json();
+      if (Array.isArray(j.tools)) tools.push(...j.tools);
+    } else {
+      console.warn("formula web-search tools", search.status, await search.text());
+    }
+    if (fetchTool.ok) {
+      const j = await fetchTool.json();
+      if (Array.isArray(j.tools)) tools.push(...j.tools);
+    } else {
+      console.warn("formula fetch tools", fetchTool.status, await fetchTool.text());
+    }
+    return { tools, ok: tools.length > 0 };
+  } catch (e) {
+    console.warn("loadFormulaTools", e);
+    return { tools: [], ok: false };
+  }
+}
+
+async function runFiber(name: string, args: string): Promise<string> {
+  const key = moonshotKey()!;
+  const uri = formulaUriForTool(name);
+  const resp = await fetch(`${moonshotBase()}/formulas/${uri}/fibers`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, arguments: args }),
+  });
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok || json?.status && json.status !== "succeeded") {
+    console.warn("fiber", name, resp.status, JSON.stringify(json).slice(0, 400));
+    return JSON.stringify({ error: json?.error || `fiber ${resp.status}` });
+  }
+  const ctx = json?.context ?? {};
+  const out = ctx.output || ctx.encrypted_output || "";
+  return typeof out === "string" ? out : JSON.stringify(out);
+}
+
+type Filtri = {
+  regioni: string[];
+  importoMin?: string;
+  importoMax?: string;
+  dataDa?: string;
+  dataA?: string;
+};
+
+function buildUserTask(filtri: Filtri): string {
+  const parti = [
+    'Cerca gare/bandi pubblici italiani di "brokeraggio assicurativo" (anche "broker assicurativo", "intermediazione assicurativa").',
+    "Usa web_search sui portali: mondoappalti.it, ted.europa.eu, serviziocontrattipubblici.it.",
+    "Poi usa fetch sulle schede più pertinenti (max 8) per leggere ente, CIG, importo, scadenza, località, PDF.",
+    "NON inventare dati. Se un campo non c'è, null.",
+    "Restituisci SOLO un JSON array (max 20) con: scheda_id, tipologia, oggetto, stazione_appaltante, ente_tipo, localita, regione, importo (numero), scadenza (dd/MM/yyyy), cig, link, pdf_url.",
+  ];
+  if (filtri.regioni.length) parti.push(`Filtra regioni: ${filtri.regioni.join(", ")}.`);
+  if (filtri.importoMin) parti.push(`Importo minimo circa €${filtri.importoMin}.`);
+  if (filtri.importoMax) parti.push(`Importo massimo circa €${filtri.importoMax}.`);
+  if (filtri.dataDa) parti.push(`Pubblicati dal ${filtri.dataDa}.`);
+  if (filtri.dataA) parti.push(`Pubblicati fino al ${filtri.dataA}.`);
+  return parti.join(" ");
+}
+
+async function analizzaConKimiTools(filtri: Filtri): Promise<ReturnType<typeof mapBando>[] | null> {
+  const { tools, ok } = await loadFormulaTools();
+  if (!ok) return null;
+
+  const messages: Record<string, unknown>[] = [
+    {
+      role: "system",
+      content:
+        "Sei un analista di gare d'appalto per un broker italiano. " +
+        "Cerca e apri le schede come farebbe un operatore su MondoAppalti. " +
+        "Quando hai abbastanza dati, rispondi SOLO con il JSON array dei bandi, senza testo intorno.",
+    },
+    { role: "user", content: buildUserTask(filtri) },
+  ];
+
+  const started = Date.now();
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    if (Date.now() - started > TOOLS_BUDGET_MS) {
+      console.warn("kimi tools budget esaurito al round", round);
+      break;
+    }
+    const resp = await aiChatCompletions({
+      messages,
+      tools,
+      tool_choice: "auto",
+      temperature: 0.1,
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      console.warn("kimi tools chat", resp.status, t.slice(0, 300));
+      return null;
+    }
+    const json = await resp.json();
+    const message = json?.choices?.[0]?.message ?? {};
+    const toolCalls = message.tool_calls ?? [];
+    if (!toolCalls.length) {
+      const raw = parseOutput(String(message.content ?? ""));
+      return raw.map((b, i) => finalizeBando(mapBando((b || {}) as Record<string, unknown>, i)));
+    }
+
+    messages.push({
+      role: "assistant",
+      content: message.content ?? null,
+      tool_calls: toolCalls,
+      ...(message.reasoning_content ? { reasoning_content: message.reasoning_content } : {}),
+    });
+
+    for (const tc of toolCalls) {
+      const fn = tc.function ?? {};
+      const name = String(fn.name ?? "web_search");
+      const args = typeof fn.arguments === "string" ? fn.arguments : JSON.stringify(fn.arguments ?? {});
+      const result = await runFiber(name, args);
+      messages.push({
+        role: "tool",
+        tool_call_id: tc.id,
+        content: result || "(vuoto)",
+      });
+    }
+  }
+  return [];
 }
 
 type WebHit = { title: string; url: string; snippet: string };
@@ -123,21 +281,34 @@ async function searchTavily(query: string): Promise<WebHit[]> {
       api_key: key,
       query,
       search_depth: "advanced",
-      max_results: 12,
+      max_results: 20,
       include_answer: false,
       include_domains: ["mondoappalti.it", "ted.europa.eu", "serviziocontrattipubblici.it"],
     }),
   });
-  if (!resp.ok) {
-    console.warn("Tavily", resp.status, await resp.text());
-    return [];
-  }
+  if (!resp.ok) return [];
   const json = await resp.json();
   return (json?.results ?? []).map((r: { title?: string; url?: string; content?: string }) => ({
     title: r.title ?? "",
     url: r.url ?? "",
     snippet: r.content ?? "",
   }));
+}
+
+async function extractTavily(urls: string[]): Promise<string> {
+  const key = Deno.env.get("TAVILY_API_KEY");
+  if (!key || urls.length === 0) return "";
+  const resp = await fetch("https://api.tavily.com/extract", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: key, urls: urls.slice(0, 8) }),
+  });
+  if (!resp.ok) return "";
+  const json = await resp.json();
+  const pages = (json?.results ?? []) as { url?: string; raw_content?: string }[];
+  return pages
+    .map((p) => `URL: ${p.url}\n${String(p.raw_content ?? "").slice(0, 4000)}`)
+    .join("\n\n---\n\n");
 }
 
 async function searchSerper(query: string): Promise<WebHit[]> {
@@ -147,12 +318,9 @@ async function searchSerper(query: string): Promise<WebHit[]> {
   const resp = await fetch("https://google.serper.dev/search", {
     method: "POST",
     headers: { "X-API-KEY": key, "Content-Type": "application/json" },
-    body: JSON.stringify({ q, gl: "it", hl: "it", num: 12 }),
+    body: JSON.stringify({ q, gl: "it", hl: "it", num: 20 }),
   });
-  if (!resp.ok) {
-    console.warn("Serper", resp.status, await resp.text());
-    return [];
-  }
+  if (!resp.ok) return [];
   const json = await resp.json();
   return (json?.organic ?? []).map((r: { title?: string; link?: string; snippet?: string }) => ({
     title: r.title ?? "",
@@ -161,30 +329,17 @@ async function searchSerper(query: string): Promise<WebHit[]> {
   }));
 }
 
-async function webSearch(query: string): Promise<WebHit[]> {
-  let hits = await searchTavily(query);
-  if (hits.length === 0) hits = await searchSerper(query);
-  return hits.filter((h) => !!h.url);
-}
-
-async function analizzaConKimi(
-  hits: WebHit[],
-  filtri: { regioni: string[]; importoMin?: string; importoMax?: string; dataDa?: string; dataA?: string },
-): Promise<ReturnType<typeof mapBando>[]> {
+async function analizzaConKimiHits(hits: WebHit[], filtri: Filtri, pages: string): Promise<ReturnType<typeof mapBando>[]> {
   const system =
-    "Sei un analista di gare d'appalto italiane per un broker assicurativo. " +
-    "Estrai SOLO bandi/gare reali dai risultati web forniti. Non inventare schede, CIG, importi o enti. " +
-    "Rispondi SOLO con un JSON array. Ogni oggetto ha: scheda_id, tipologia, oggetto, stazione_appaltante, ente_tipo, localita, regione, importo (numero o null), scadenza (dd/MM/yyyy o null), cig, link, pdf_url. " +
-    "Se un campo non è nel testo, usa null. Se i risultati non sono bandi, restituisci [].";
+    "Sei un analista di gare d'appalto italiane per un broker. " +
+    "Estrai SOLO bandi reali. Non inventare CIG, importi, enti. " +
+    "Rispondi SOLO con un JSON array: scheda_id, tipologia, oggetto, stazione_appaltante, ente_tipo, localita, regione, importo, scadenza (dd/MM/yyyy), cig, link, pdf_url.";
 
   const user =
-    `Filtri richiesti: keyword "brokeraggio assicurativo"` +
-    (filtri.regioni.length ? `; regioni: ${filtri.regioni.join(", ")}` : "") +
-    (filtri.importoMin ? `; importo min €${filtri.importoMin}` : "") +
-    (filtri.importoMax ? `; importo max €${filtri.importoMax}` : "") +
-    (filtri.dataDa ? `; dal ${filtri.dataDa}` : "") +
-    (filtri.dataA ? `; fino al ${filtri.dataA}` : "") +
-    `.\n\nRISULTATI WEB:\n${JSON.stringify(hits, null, 2)}`;
+    buildUserTask(filtri) +
+    "\n\nRISULTATI SEARCH:\n" +
+    JSON.stringify(hits.slice(0, 20), null, 2) +
+    (pages ? `\n\nTESTO SCHEDE:\n${pages.slice(0, 24000)}` : "");
 
   const resp = await aiChatCompletions({
     messages: [
@@ -198,17 +353,34 @@ async function analizzaConKimi(
     throw new Error(`AI ${resp.status}: ${t.slice(0, 200)}`);
   }
   const json = await resp.json();
-  const text = json?.choices?.[0]?.message?.content ?? "";
-  const raw = parseOutput(text);
-  const mapped = raw.map((b, i) => mapBando((b || {}) as Record<string, unknown>, i));
+  const raw = parseOutput(json?.choices?.[0]?.message?.content ?? "");
+  return raw.map((b, i) => {
+    const mapped = mapBando((b || {}) as Record<string, unknown>, i);
+    const hit = hits.find((h) => h.url === mapped.link) || hits[i];
+    if (!mapped.link && hit?.url) mapped.link = hit.url;
+    if (!mapped.titolo && hit?.title) mapped.titolo = hit.title;
+    return finalizeBando(mapped);
+  });
+}
 
-  return mapped.map((b, i) => {
-    const hit = hits.find((h) => h.url === b.link) || hits[i];
-    if (!b.link && hit?.url) b.link = hit.url;
-    if (!b.scheda_id && b.link) b.scheda_id = schedaIdFromUrl(b.link);
-    if (!b.titolo && hit?.title) b.titolo = hit.title;
-    return b;
-  }).filter((b) => b.link || b.titolo);
+function finalizeBando(b: ReturnType<typeof mapBando>) {
+  if (b.link && (!b.scheda_id || b.scheda_id.includes("/"))) {
+    const fromUrl = schedaIdFromUrl(b.link);
+    if (/^\d+$/.test(fromUrl)) b.scheda_id = fromUrl;
+    else if (!b.scheda_id) b.scheda_id = fromUrl;
+  }
+  if (b.ente === "Stazione Appaltante") b.ente = "Ente non specificato";
+  return b;
+}
+
+function dedupBandi(bandi: ReturnType<typeof mapBando>[]) {
+  const seen = new Set<string>();
+  return bandi.filter((b) => {
+    const key = b.scheda_id || b.link || b.id;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return Boolean(b.link || b.titolo);
+  }).slice(0, 20);
 }
 
 Deno.serve(async (req) => {
@@ -217,62 +389,54 @@ Deno.serve(async (req) => {
   try {
     requireAi();
     const body = await req.json();
-    const action = body.action || "start";
-
-    if (action === "status") {
+    if ((body.action || "start") === "status") {
       return new Response(
         JSON.stringify({ done: true, sessions: [], bandi: [] }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const regioni = ((body.regioni as string[]) || []).map(normalizeRegione);
-    const dove = regioni.length > 0 ? regioni.join(" ") : "Italia";
-    const query = [
-      "bandi gare appalto brokeraggio assicurativo",
-      dove,
-      body.dataDa ? `dal ${body.dataDa}` : "",
-      body.dataA ? `fino ${body.dataA}` : "",
-    ].filter(Boolean).join(" ");
-
-    console.log("cerca-bandi kimi", query);
-
-    const hits = await webSearch(query);
-    if (hits.length === 0) {
-      return new Response(
-        JSON.stringify({
-          status: "completed",
-          engine: "kimi",
-          done: true,
-          sessionIds: [],
-          totalBatches: 0,
-          bandi: [],
-          message: "Nessun risultato web sui portali gare.",
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const bandi = await analizzaConKimi(hits, {
-      regioni,
+    const filtri: Filtri = {
+      regioni: ((body.regioni as string[]) || []).map(normalizeRegione),
       importoMin: body.importoMin,
       importoMax: body.importoMax,
       dataDa: body.dataDa,
       dataA: body.dataA,
-    });
+    };
 
-    const seen = new Set<string>();
-    const dedup = bandi.filter((b) => {
-      const key = b.scheda_id || b.link || b.id;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    console.log("cerca-bandi kimi", filtri);
+
+    let via = "kimi-tools";
+    let bandi = (await analizzaConKimiTools(filtri)) ?? [];
+
+    if (bandi.length === 0) {
+      via = "tavily-fallback";
+      const dove = filtri.regioni.length ? filtri.regioni.join(" ") : "Italia";
+      const queries = [
+        `bandi gare appalto brokeraggio assicurativo ${dove}`,
+        `bandi broker assicurativo ${dove} mondoappalti`,
+        `intermediazione assicurativa gara d'appalto ${dove}`,
+      ];
+      let hits: WebHit[] = [];
+      for (const q of queries) {
+        hits = await searchTavily(q);
+        if (hits.length === 0) hits = await searchSerper(q);
+        if (hits.length > 0) break;
+      }
+      const pages = await extractTavily(hits.map((h) => h.url).filter(Boolean));
+      if (hits.length > 0) {
+        bandi = await analizzaConKimiHits(hits, filtri, pages);
+      }
+    }
+
+    const dedup = dedupBandi(bandi);
+    console.log("cerca-bandi kimi done", { via, count: dedup.length });
 
     return new Response(
       JSON.stringify({
         status: "completed",
         engine: "kimi",
+        via,
         done: true,
         sessionIds: [],
         totalBatches: 0,

@@ -429,7 +429,7 @@ Lo schema/RLS usa la tabella `user_roles` + funzione `public.has_role()` (SECURI
 
 **`trattative`** (24 colonne) — pipeline commerciale.
 **`trattativa_eventi`** / **`trattativa_scadenze`** / **`trattativa_documenti`**.
-**`bandi_pubblici`** (19 colonne) — bandi pubblici raccolti via Browser Use API.
+**`bandi_pubblici`** (19 colonne) — bandi pubblici raccolti via Kimi (Moonshot) + ricerca/fetch schede.
 **`bandi_trattative`** / **`ricerche_bandi`** / **`storico_gare`** (29 colonne).
 
 ### Documentale / template / comunicazione
@@ -543,7 +543,7 @@ Le edge functions sono in `supabase/functions/`. Configurate in `supabase/config
 | `analisi-documenti-multipli` | Analisi batch di documenti con AI |
 | `bootstrap-admin` | Crea il primo utente admin |
 | `calcola-provvigioni` | Calcolo provvigioni su titoli |
-| `cerca-bandi` | Ricerca bandi pubblici (Browser Use API) |
+| `cerca-bandi` | Ricerca bandi pubblici (Kimi / Moonshot, non Browser Use) |
 | `cfo-ai-analyst` | Analisi dati CFO tramite AI |
 | `check-resend-domain` | Verifica dominio Resend configurato |
 | `chiedi-mie-polizze` | Query natural language polizze cliente |
@@ -686,7 +686,7 @@ Questa sezione elenca funzionalità parzialmente implementate, placeholder o are
 
 ### AI
 - **AI Assistant:** miglioramento continuativo del contesto entità (vedi `src/lib/ai/context.ts`).
-- **Ricerca bandi pubblici:** scraping, deduplicazione, linking a trattative in miglioramento.
+- **Ricerca bandi pubblici:** ora su Kimi (Moonshot Formula: web-search + fetch schede), non più Browser Use. Deduplicazione e linking a trattative in miglioramento.
 
 ### UX / Performance
 - **PWA:** `service-worker.js` e `manifest.json` potrebbero richiedere aggiornamenti per nuove cache.
