@@ -12,7 +12,7 @@ const LOVABLE_BASE = "https://ai.gateway.lovable.dev/v1";
 const SEARCH_FORMULA = "moonshot/web-search:latest";
 const FETCH_FORMULA = "moonshot/fetch:latest";
 const MAX_TOOL_ROUNDS = 8;
-const TOOLS_BUDGET_MS = 95_000;
+const TOOLS_BUDGET_MS = 50_000;
 
 function moonshotKey(): string | undefined {
   return Deno.env.get("MOONSHOT_API_KEY") || Deno.env.get("MOONSHINE_API_KEY") || undefined;
@@ -35,6 +35,13 @@ async function aiChatCompletions(body: Record<string, unknown>): Promise<Respons
   const model = moon
     ? (Deno.env.get("MOONSHOT_MODEL") || "kimi-k2.6")
     : "google/gemini-2.5-flash";
+  const extra: Record<string, unknown> = {};
+  if (moon) {
+    extra.temperature = 0.6;
+    if (!String(model).startsWith("kimi-k3")) {
+      extra.thinking = { type: "disabled" };
+    }
+  }
   return fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
@@ -44,7 +51,7 @@ async function aiChatCompletions(body: Record<string, unknown>): Promise<Respons
     body: JSON.stringify({
       ...body,
       model,
-      ...(moon ? { thinking: { type: "disabled" } } : {}),
+      ...extra,
     }),
   });
 }
@@ -196,7 +203,7 @@ function buildUserTask(filtri: Filtri): string {
     'Cerca gare/bandi pubblici italiani di "brokeraggio assicurativo" (anche "broker assicurativo", "intermediazione assicurativa").',
     "Usa web_search sui portali: mondoappalti.it, ted.europa.eu, serviziocontrattipubblici.it.",
     "Poi usa fetch sulle schede più pertinenti (max 8) per leggere ente, CIG, importo, scadenza, località, PDF.",
-    "NON inventare dati. Se un campo non c'è, null.",
+    "NON inventare dati. Se un campo non c'è, null. Escludi gare già scadute da oltre un anno.",
     "Restituisci SOLO un JSON array (max 20) con: scheda_id, tipologia, oggetto, stazione_appaltante, ente_tipo, localita, regione, importo (numero), scadenza (dd/MM/yyyy), cig, link, pdf_url.",
   ];
   if (filtri.regioni.length) parti.push(`Filtra regioni: ${filtri.regioni.join(", ")}.`);
@@ -232,7 +239,6 @@ async function analizzaConKimiTools(filtri: Filtri): Promise<ReturnType<typeof m
       messages,
       tools,
       tool_choice: "auto",
-      temperature: 0.1,
     });
     if (!resp.ok) {
       const t = await resp.text();
@@ -244,7 +250,10 @@ async function analizzaConKimiTools(filtri: Filtri): Promise<ReturnType<typeof m
     const toolCalls = message.tool_calls ?? [];
     if (!toolCalls.length) {
       const raw = parseOutput(String(message.content ?? ""));
-      return raw.map((b, i) => finalizeBando(mapBando((b || {}) as Record<string, unknown>, i)));
+      if (raw.length) {
+        return raw.map((b, i) => finalizeBando(mapBando((b || {}) as Record<string, unknown>, i)));
+      }
+      break;
     }
 
     messages.push({
@@ -266,12 +275,31 @@ async function analizzaConKimiTools(filtri: Filtri): Promise<ReturnType<typeof m
       });
     }
   }
+  if (messages.length > 2) {
+    messages.push({
+      role: "user",
+      content:
+        "Non chiamare altri tool. Restituisci ORA SOLO il JSON array dei bandi già trovati (max 20). " +
+        "Campi: scheda_id, tipologia, oggetto, stazione_appaltante, ente_tipo, localita, regione, importo, scadenza, cig, link, pdf_url. " +
+        "Preferisci schede mondoappalti.it. Non inventare CIG/enti.",
+    });
+    const last = await aiChatCompletions({ messages });
+    if (last.ok) {
+      const json = await last.json();
+      const raw = parseOutput(String(json?.choices?.[0]?.message?.content ?? ""));
+      if (raw.length) {
+        return raw.map((b, i) => finalizeBando(mapBando((b || {}) as Record<string, unknown>, i)));
+      }
+    } else {
+      console.warn("kimi tools finalize", last.status, (await last.text()).slice(0, 200));
+    }
+  }
   return [];
 }
 
 type WebHit = { title: string; url: string; snippet: string };
 
-async function searchTavily(query: string): Promise<WebHit[]> {
+async function searchTavily(query: string, domains?: string[]): Promise<WebHit[]> {
   const key = Deno.env.get("TAVILY_API_KEY");
   if (!key) return [];
   const resp = await fetch("https://api.tavily.com/search", {
@@ -283,7 +311,7 @@ async function searchTavily(query: string): Promise<WebHit[]> {
       search_depth: "advanced",
       max_results: 20,
       include_answer: false,
-      include_domains: ["mondoappalti.it", "ted.europa.eu", "serviziocontrattipubblici.it"],
+      ...(domains?.length ? { include_domains: domains } : {}),
     }),
   });
   if (!resp.ok) return [];
@@ -314,7 +342,7 @@ async function extractTavily(urls: string[]): Promise<string> {
 async function searchSerper(query: string): Promise<WebHit[]> {
   const key = Deno.env.get("SERPER_API_KEY");
   if (!key) return [];
-  const q = `${query} (site:mondoappalti.it OR site:ted.europa.eu)`;
+  const q = query.includes("site:") ? query : `${query} (site:mondoappalti.it OR site:ted.europa.eu)`;
   const resp = await fetch("https://google.serper.dev/search", {
     method: "POST",
     headers: { "X-API-KEY": key, "Content-Type": "application/json" },
@@ -346,7 +374,6 @@ async function analizzaConKimiHits(hits: WebHit[], filtri: Filtri, pages: string
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    temperature: 0.1,
   });
   if (!resp.ok) {
     const t = await resp.text();
@@ -406,26 +433,61 @@ Deno.serve(async (req) => {
 
     console.log("cerca-bandi kimi", filtri);
 
-    let via = "kimi-tools";
-    let bandi = (await analizzaConKimiTools(filtri)) ?? [];
-
-    if (bandi.length === 0) {
-      via = "tavily-fallback";
+    let via = "search-extract";
+    let bandi: ReturnType<typeof mapBando>[] = [];
+    try {
       const dove = filtri.regioni.length ? filtri.regioni.join(" ") : "Italia";
       const queries = [
-        `bandi gare appalto brokeraggio assicurativo ${dove}`,
-        `bandi broker assicurativo ${dove} mondoappalti`,
+        "site:mondoappalti.it/bancadati/scheda brokeraggio assicurativo",
+        "site:mondoappalti.it brokeraggio assicurativo gara d'appalto",
+        `bandi gare brokeraggio assicurativo ${dove} mondoappalti`,
         `intermediazione assicurativa gara d'appalto ${dove}`,
       ];
-      let hits: WebHit[] = [];
-      for (const q of queries) {
-        hits = await searchTavily(q);
-        if (hits.length === 0) hits = await searchSerper(q);
-        if (hits.length > 0) break;
+      const gathered = await Promise.all(queries.flatMap((q) => [
+        searchTavily(q, ["mondoappalti.it"]),
+        searchSerper(q),
+      ]));
+      const seen = new Set<string>();
+      const hits: WebHit[] = [];
+      for (const batch of gathered) {
+        for (const h of batch) {
+          if (!h.url || seen.has(h.url)) continue;
+          seen.add(h.url);
+          hits.push(h);
+        }
       }
-      const pages = await extractTavily(hits.map((h) => h.url).filter(Boolean));
+      hits.sort((a, b) => {
+        const score = (u: string) =>
+          /mondoappalti\.it.*scheda/i.test(u) ? 0 : /mondoappalti\.it/i.test(u) ? 1 : 2;
+        return score(a.url) - score(b.url);
+      });
+      const extractUrls = hits
+        .filter((h) => /mondoappalti\.it.*scheda/i.test(h.url))
+        .concat(hits.filter((h) => !/mondoappalti\.it.*scheda/i.test(h.url)))
+        .map((h) => h.url)
+        .filter(Boolean);
+      const pages = await extractTavily(extractUrls);
       if (hits.length > 0) {
         bandi = await analizzaConKimiHits(hits, filtri, pages);
+      }
+    } catch (e) {
+      console.warn("cerca-bandi search-extract", e);
+    }
+
+    const qualityOk = bandi.filter((b) =>
+      b.ente && b.ente !== "Ente non specificato" && (b.cig || b.link),
+    ).length;
+
+    if (qualityOk < 3) {
+      via = "kimi-tools";
+      const fromTools = await analizzaConKimiTools(filtri);
+      if (fromTools && fromTools.length > bandi.length) {
+        bandi = fromTools;
+      } else if (fromTools && fromTools.length) {
+        bandi = dedupBandi([...bandi, ...fromTools]);
+        via = "search-extract+kimi-tools";
+      } else if (bandi.length) {
+        via = "search-extract";
       }
     }
 
