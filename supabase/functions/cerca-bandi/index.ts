@@ -17,9 +17,9 @@ const NUTS_REGION: [string, string][] = [
   ["ITC4", "Lombardia"],
   ["ITH1", "Trentino-Alto Adige"],
   ["ITH2", "Trentino-Alto Adige"],
-  ["ITH3", "Trentino-Alto Adige"],
-  ["ITH4", "Veneto"],
-  ["ITH5", "Friuli Venezia Giulia"],
+  ["ITH3", "Veneto"],
+  ["ITH4", "Friuli Venezia Giulia"],
+  ["ITH5", "Emilia-Romagna"],
   ["ITI1", "Toscana"],
   ["ITI2", "Umbria"],
   ["ITI3", "Marche"],
@@ -120,7 +120,9 @@ function uniqueCpvs(cpv: unknown): string[] {
 function regioneFromNuts(nuts: unknown): { regione: string | null; localita: string | null } {
   const codes = (Array.isArray(nuts) ? nuts : []).map(String).filter((c) => c && c !== "ITA" && c !== "00");
   for (const code of codes) {
-    const hit = NUTS_REGION.find(([prefix]) => code.startsWith(prefix));
+    const hit = NUTS_REGION
+      .filter(([prefix]) => code.startsWith(prefix))
+      .sort((a, b) => b[0].length - a[0].length)[0];
     if (hit) return { regione: hit[1], localita: code };
   }
   return { regione: null, localita: codes[0] || null };
