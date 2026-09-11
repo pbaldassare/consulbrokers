@@ -18,29 +18,36 @@ import {
 } from "@/lib/bandiFonti";
 
 describe("labelFonteBando", () => {
-  it("etichetta TED e Mondo Appalti", () => {
+  it("etichetta TED, Mondo Appalti e Infordat", () => {
     expect(labelFonteBando("ted")).toBe("TED Europa");
     expect(labelFonteBando("mondoappalti")).toBe("Mondo Appalti");
-    expect(labelFonteRicerca("entrambe")).toBe("Entrambe");
+    expect(labelFonteBando("infordat")).toBe("Infordat");
+    expect(labelFonteRicerca("tutte")).toBe("Tutte le fonti");
+    expect(labelFonteRicerca("entrambe")).toBe("Tutte le fonti");
     expect(isFonteBando("mondoappalti")).toBe(true);
+    expect(isFonteBando("infordat")).toBe(true);
     expect(isFonteBando("entrambe")).toBe(false);
     expect(isFonteRicerca("entrambe")).toBe(true);
+    expect(isFonteRicerca("tutte")).toBe(true);
     expect(isFonteBando("altro")).toBe(false);
   });
 });
 
 describe("fontiDaRicerca", () => {
-  it("interroga entrambe se non specificato o se scelto Entrambe", () => {
-    expect(fontiDaRicerca("entrambe")).toEqual(["ted", "mondoappalti"]);
-    expect(fontiDaRicerca(undefined)).toEqual(["ted", "mondoappalti"]);
+  it("interroga tutte le fonti se non specificato", () => {
+    expect(fontiDaRicerca("tutte")).toEqual(["ted", "mondoappalti", "infordat"]);
+    expect(fontiDaRicerca("entrambe")).toEqual(["ted", "mondoappalti", "infordat"]);
+    expect(fontiDaRicerca(undefined)).toEqual(["ted", "mondoappalti", "infordat"]);
     expect(fontiDaRicerca("ted")).toEqual(["ted"]);
     expect(fontiDaRicerca("mondoappalti")).toEqual(["mondoappalti"]);
+    expect(fontiDaRicerca("infordat")).toEqual(["infordat"]);
   });
 });
 
 describe("inferenza e filtro fonte", () => {
   it("riconosce la fonte dal link se manca il campo", () => {
     expect(inferFonteFromLink("https://www.mondoappalti.it/Scheda/128903")).toBe("mondoappalti");
+    expect(inferFonteFromLink("https://infordat.it/account/listaemail")).toBe("infordat");
     expect(inferFonteFromLink("https://ted.europa.eu/it/notice/-/detail/397990-2026")).toBe("ted");
     expect(resolveFonteBando(null, "https://mondoappalti.it/Scheda/1")).toBe("mondoappalti");
     expect(resolveFonteBando("ted", "https://mondoappalti.it/Scheda/1")).toBe("ted");
@@ -54,9 +61,10 @@ describe("inferenza e filtro fonte", () => {
   });
 
   it("messaggio avanzamento senza nomi vendor", () => {
-    expect(progressMsgRicerca("entrambe")).toContain("TED");
-    expect(progressMsgRicerca("entrambe")).toContain("Mondo Appalti");
-    expect(progressMsgRicerca("entrambe")).not.toMatch(/kimi|gemini|tavily|serper/i);
+    expect(progressMsgRicerca("tutte")).toContain("TED");
+    expect(progressMsgRicerca("tutte")).toContain("Mondo Appalti");
+    expect(progressMsgRicerca("tutte")).toContain("Infordat");
+    expect(progressMsgRicerca("tutte")).not.toMatch(/kimi|gemini|tavily|serper/i);
   });
 });
 
@@ -97,6 +105,7 @@ describe("regioneFromText", () => {
 describe("isEnteBandoGenerico", () => {
   it("non crea prospect da etichette placeholder", () => {
     expect(isEnteBandoGenerico("Scheda Mondo Appalti")).toBe(true);
+    expect(isEnteBandoGenerico("Scheda Infordat")).toBe(true);
     expect(isEnteBandoGenerico("Fonte web")).toBe(true);
     expect(isEnteBandoGenerico("Comune di Bari")).toBe(false);
   });
