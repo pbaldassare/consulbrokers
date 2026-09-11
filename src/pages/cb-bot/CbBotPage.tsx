@@ -68,8 +68,8 @@ const cards: FeedCard[] = [
   },
   {
     label: "Ricerche salvate",
-    feed: "Archivio ricerche Mie / Team dell’area consultazione.",
-    stato: "prossimamente",
+    feed: "Archivio delle ricerche pinate da Assistente Web e Libreria CGA.",
+    stato: "archivio",
     icon: History,
     path: "/cb-bot/ricerche",
   },
@@ -77,6 +77,17 @@ const cards: FeedCard[] = [
 
 const CbBotPage = () => {
   const navigate = useNavigate();
+
+  const { data: ricercheCount } = useQuery({
+    queryKey: ["cb-bot", "ricerche-salvate-count"],
+    queryFn: async () => {
+      const { count, error } = await (supabase.from("garanzie_chat_conversazioni") as any)
+        .select("id", { count: "exact", head: true })
+        .eq("salvata", true);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
 
   const { data: cgaCount } = useQuery({
     queryKey: ["cb-bot", "prodotti-cga-count"],
@@ -113,6 +124,8 @@ const CbBotPage = () => {
               <Badge variant="secondary" className="text-[10px] font-normal">
                 {card.label === "Libreria CGA" && cgaCount != null
                   ? `${cgaCount} prodotti`
+                  : card.label === "Ricerche salvate" && ricercheCount != null
+                    ? `${ricercheCount} salvate`
                   : card.label === "Fonti siti"
                     ? `${seedFontiUfficialiSeVuoto().length} siti`
                     : card.stato}

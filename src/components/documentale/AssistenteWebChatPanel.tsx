@@ -5,7 +5,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGaranzieChat } from "@/hooks/useGaranzieChat";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
 import { insertCbBotFonte } from "@/lib/cbBotFontiDb";
 import { normalizeFonteUrl } from "@/lib/cbBotFonti";
 import { CB_BOT_FONTI_QUERY_KEY } from "@/components/documentale/CbBotFontiSalvatePanel";
@@ -72,38 +71,7 @@ export default function AssistenteWebChatPanel({ consultazioneMode = false }: Pr
     onError: (e: Error) => toast.error(e.message || "Impossibile salvare la fonte"),
   });
 
-  const { data: sitiAttivi = [] } = useQuery({
-    queryKey: ["cb-bot-siti-autorizzati", "attivi"],
-    enabled: !consultazioneMode,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cb_bot_siti_autorizzati")
-        .select("id, nome, dominio")
-        .eq("attivo", true)
-        .order("nome");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
   return (
-    <div className="space-y-3">
-      {!consultazioneMode && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] text-muted-foreground mr-1">Interroga:</span>
-          {sitiAttivi.length === 0 ? (
-            <span className="text-[11px] text-amber-700">
-              nessun sito attivo — aggiungili dal tab Siti autorizzati
-            </span>
-          ) : (
-            sitiAttivi.map((s) => (
-              <Badge key={s.id} variant="secondary" className="text-[10px] font-normal">
-                {s.nome}
-              </Badge>
-            ))
-          )}
-        </div>
-      )}
     <GaranzieChatLayout
       canPersist={chat.canPersist}
       sidebarTab={chat.sidebarTab}
@@ -130,9 +98,14 @@ export default function AssistenteWebChatPanel({ consultazioneMode = false }: Pr
       formatConvDate={chat.formatConvDate}
       hideTeam={consultazioneMode}
       evidenzaMutation={chat.evidenzaMutation}
+      salvaMutation={chat.salvaMutation}
+      clearHistoryMutation={chat.clearHistoryMutation}
+      filtroRicerche={chat.filtroRicerche}
+      setFiltroRicerche={chat.setFiltroRicerche}
+      cronologiaDaAzzerare={chat.cronologiaDaAzzerare}
+      activeSalvata={chat.activeConv?.salvata === true}
       onSaveFonte={consultazioneMode ? undefined : (f) => saveFonteMutation.mutate(f)}
       savedFonteUrls={fontiSalvate.map((u) => normalizeFonteUrl(u) ?? u)}
     />
-    </div>
   );
 }

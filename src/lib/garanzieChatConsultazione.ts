@@ -91,3 +91,25 @@ export async function listMessagesConsultazione(
   if (error) throw error;
   return (data ?? []) as GaranzieMsg[];
 }
+
+export async function salvaConsultazione(
+  email: string,
+  conversazioneId: string,
+  salvata: boolean,
+): Promise<void> {
+  const { error } = await (supabase as any).rpc("garanzie_chat_salva_consultazione", {
+    p_email: email,
+    p_conversazione_id: conversazioneId,
+    p_salvata: salvata,
+  });
+  if (error) throw error;
+}
+
+export async function azzeraCronologiaConsultazione(email: string, tipo: string): Promise<number> {
+  const { data, error } = await (supabase as any).rpc("garanzie_chat_azzera_cronologia_consultazione", {
+    p_email: email,
+    p_tipo: tipo,
+  });
+  if (error) throw error;
+  return typeof data === "number" ? data : 0;
+}

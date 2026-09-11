@@ -23,7 +23,7 @@ export function documentaleRouteLabel(tab: DocumentaleTab): string {
 
 export function documentalePageSubtitle(tab: DocumentaleTab): string {
   if (tab === "assistente-garanzie") {
-    return "Assistente Web e Libreria CGA — siti autorizzati e know-how riutilizzabile";
+    return "Assistente Web, documenti e Libreria CGA — siti autorizzati, ricerche e confronti";
   }
   if (tab === "libreria-cga") {
     return "Libreria CGA — garanzie, massimali ed esclusioni dal catalogo CBnet";

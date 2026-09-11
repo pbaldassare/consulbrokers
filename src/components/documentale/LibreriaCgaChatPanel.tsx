@@ -133,6 +133,12 @@ export default function LibreriaCgaChatPanel({ consultazioneMode = false }: Prop
         formatConvDate={chat.formatConvDate}
         hideTeam={consultazioneMode}
         evidenzaMutation={chat.evidenzaMutation}
+        salvaMutation={chat.salvaMutation}
+        clearHistoryMutation={chat.clearHistoryMutation}
+        filtroRicerche={chat.filtroRicerche}
+        setFiltroRicerche={chat.setFiltroRicerche}
+        cronologiaDaAzzerare={chat.cronologiaDaAzzerare}
+        activeSalvata={chat.activeConv?.salvata === true}
       />
     </div>
   );

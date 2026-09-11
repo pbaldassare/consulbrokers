@@ -1,9 +1,10 @@
 import { Route } from "react-router-dom";
-import { Globe, BookOpen, Mail, ScrollText, History } from "lucide-react";
+import { Globe, BookOpen, Mail, ScrollText } from "lucide-react";
 import RoleGuard from "@/components/RoleGuard";
 import CbBotPage from "@/pages/cb-bot/CbBotPage";
 import CbBotSectionPage from "@/pages/cb-bot/CbBotSectionPage";
 import CbBotFontiSitiPage from "@/pages/cb-bot/CbBotFontiSitiPage";
+import CbBotRicerchePage from "@/pages/cb-bot/CbBotRicerchePage";
 import { CONSULTAZIONE_ALLOWED_EMAIL_DOMAINS } from "@/lib/consultazioneSession";
 
 export const cbBotRoutes = (
@@ -85,11 +86,7 @@ export const cbBotRoutes = (
       path="/cb-bot/ricerche"
       element={
         <RoleGuard allowedRoles={["admin"]}>
-          <CbBotSectionPage
-            title="Ricerche salvate"
-            description="Archivio ricerche Mie / Team dell’area consultazione."
-            icon={History}
-          />
+          <CbBotRicerchePage />
         </RoleGuard>
       }
     />
