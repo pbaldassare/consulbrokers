@@ -44,6 +44,8 @@ type Filtri = {
   statoBando?: string;
 };
 
+type FonteBando = "ted" | "mondoappalti";
+
 type Bando = {
   id: string;
   titolo: string;
@@ -60,7 +62,21 @@ type Bando = {
   localita: string | null;
   regione: string | null;
   pdf_url: string | null;
+  fonte: FonteBando;
 };
+
+function fontiRichieste(raw: unknown): FonteBando[] {
+  const v = String(raw || "entrambe").toLowerCase();
+  if (v === "ted") return ["ted"];
+  if (v === "mondoappalti") return ["mondoappalti"];
+  return ["ted", "mondoappalti"];
+}
+
+function publicErrorMessage(raw: string): string {
+  return /kimi|gemini|moonshot|moonshine|lovable|openai|tavily|serper/i.test(raw)
+    ? "Ricerca non disponibile. Riprova tra poco."
+    : raw;
+}
 
 function pickLang(value: unknown, langs = ["ita", "eng"]): string | null {
   if (value == null) return null;
@@ -212,6 +228,7 @@ function mapNotice(n: Record<string, unknown>): Bando | null {
     localita,
     regione,
     pdf_url: pdf,
+    fonte: "ted",
   };
 }
 
@@ -280,6 +297,7 @@ function hitToBando(hit: WebHit, i: number, regioni: string[]): Bando {
     localita: null,
     regione: regioneFromText(`${hit.title} ${hit.snippet}`, regioni),
     pdf_url: null,
+    fonte: "mondoappalti",
   };
 }
 
@@ -396,6 +414,7 @@ async function extractMondoBandi(hits: WebHit[], filtri: Filtri): Promise<Bando[
       localita: typeof b.localita === "string" ? b.localita : null,
       regione: typeof b.regione === "string" ? b.regione : regioneFromText(`${b.oggetto ?? ""} ${b.stazione_appaltante ?? ""}`, filtri.regioni.length ? filtri.regioni : []),
       pdf_url: typeof b.pdf_url === "string" ? b.pdf_url : null,
+      fonte: "mondoappalti",
     } satisfies Bando;
   });
 }
@@ -421,6 +440,33 @@ async function searchMondoAppalti(filtri: Filtri): Promise<Bando[]> {
     ? extracted
     : hits.map((h, i) => hitToBando(h, i, filtri.regioni));
   return applyFiltri(mapped, filtri).slice(0, 30);
+}
+
+async function searchTed(filtri: Filtri): Promise<Bando[]> {
+  const da = tedDate(filtri.dataDa || "2025-01-01");
+  const aClause = filtri.dataA ? ` AND publication-date<=${tedDate(filtri.dataA)}` : "";
+  const queries = [
+    `(FT~"brokeraggio assicurativo" OR FT~"broker assicurativo" OR FT~"intermediazione assicurativa") AND buyer-country=ITA AND publication-date>=${da}${aClause} SORT BY publication-date DESC`,
+    `classification-cpv=${CPV_BROKER} AND buyer-country=ITA AND publication-date>=${da}${aClause} SORT BY publication-date DESC`,
+  ];
+
+  console.log("cerca-bandi ted", filtri);
+
+  const batches = await Promise.all(queries.map((q) => tedSearch(q)));
+  const seen = new Set<string>();
+  const mapped: Bando[] = [];
+  for (const batch of batches) {
+    for (const notice of batch) {
+      const bando = mapNotice(notice);
+      if (!bando || seen.has(bando.id)) continue;
+      seen.add(bando.id);
+      mapped.push(bando);
+    }
+  }
+
+  const bandi = applyFiltri(mapped, filtri).slice(0, 30);
+  console.log("cerca-bandi ted done", { raw: mapped.length, count: bandi.length });
+  return bandi;
 }
 
 function applyFiltri(bandi: Bando[], filtri: Filtri): Bando[] {
@@ -459,70 +505,71 @@ Deno.serve(async (req) => {
       dataA: body.dataA,
       statoBando: body.statoBando,
     };
-    const fonte = body.fonte === "mondoappalti" ? "mondoappalti" : "ted";
+    const fonti = fontiRichieste(body.fonte);
+    const jobs = fonti.map(async (fonte) => {
+      try {
+        const bandi = fonte === "mondoappalti"
+          ? await searchMondoAppalti(filtri)
+          : await searchTed(filtri);
+        return { fonte, bandi, error: null as string | null };
+      } catch (error: unknown) {
+        const raw = error instanceof Error ? error.message : "Errore durante la ricerca";
+        console.error(`cerca-bandi ${fonte}`, error);
+        return { fonte, bandi: [] as Bando[], error: publicErrorMessage(raw) };
+      }
+    });
 
-    if (fonte === "mondoappalti") {
-      console.log("cerca-bandi mondoappalti", filtri);
-      const bandi = await searchMondoAppalti(filtri);
-      return new Response(
-        JSON.stringify({
-          status: "completed",
-          engine: "mondoappalti",
-          via: "mondoappalti",
-          done: true,
-          sessionIds: [],
-          totalBatches: 0,
-          bandi,
-          message: `Trovati ${bandi.length} bando/i su Mondo Appalti`,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    const settled = await Promise.all(jobs);
+    const ok = settled.filter((s) => !s.error);
+    const failed = settled.filter((s) => s.error);
+
+    if (ok.length === 0) {
+      throw new Error(failed[0]?.error || "Errore durante la ricerca");
     }
 
-    const da = tedDate(filtri.dataDa || "2025-01-01");
-    const aClause = filtri.dataA ? ` AND publication-date<=${tedDate(filtri.dataA)}` : "";
-    const queries = [
-      `(FT~"brokeraggio assicurativo" OR FT~"broker assicurativo" OR FT~"intermediazione assicurativa") AND buyer-country=ITA AND publication-date>=${da}${aClause} SORT BY publication-date DESC`,
-      `classification-cpv=${CPV_BROKER} AND buyer-country=ITA AND publication-date>=${da}${aClause} SORT BY publication-date DESC`,
-    ];
-
-    console.log("cerca-bandi ted", filtri);
-
-    const batches = await Promise.all(queries.map((q) => tedSearch(q)));
+    const bandi: Bando[] = [];
     const seen = new Set<string>();
-    const mapped: Bando[] = [];
-    for (const batch of batches) {
-      for (const notice of batch) {
-        const bando = mapNotice(notice);
-        if (!bando || seen.has(bando.id)) continue;
-        seen.add(bando.id);
-        mapped.push(bando);
+    for (const part of ok) {
+      for (const bando of part.bandi) {
+        const key = `${bando.fonte}:${bando.scheda_id || bando.id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        bandi.push(bando);
       }
     }
 
-    const bandi = applyFiltri(mapped, filtri).slice(0, 30);
-    console.log("cerca-bandi ted done", { raw: mapped.length, count: bandi.length });
+    const counts = Object.fromEntries(
+      fonti.map((f) => [f, bandi.filter((b) => b.fonte === f).length]),
+    ) as Record<FonteBando, number>;
+    const parts: string[] = [];
+    if (fonti.includes("ted")) parts.push(`TED ${counts.ted ?? 0}`);
+    if (fonti.includes("mondoappalti")) parts.push(`Mondo Appalti ${counts.mondoappalti ?? 0}`);
+    const warning = failed.length
+      ? failed.map((f) =>
+        f.fonte === "mondoappalti"
+          ? "Mondo Appalti non disponibile in questa ricerca."
+          : "TED non disponibile in questa ricerca.",
+      ).join(" ")
+      : undefined;
 
     return new Response(
       JSON.stringify({
         status: "completed",
-        engine: "ted",
-        via: "ted-api",
+        engine: fonti.length > 1 ? "entrambe" : fonti[0],
+        via: fonti.length > 1 ? "ted+mondoappalti" : fonti[0] === "ted" ? "ted-api" : "mondoappalti",
         done: true,
         sessionIds: [],
         totalBatches: 0,
         bandi,
-        message: `Trovati ${bandi.length} bando/i su TED`,
+        warning,
+        message: `Trovati ${bandi.length} bando/i (${parts.join(", ")})`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: unknown) {
     console.error("cerca-bandi", error);
     const raw = error instanceof Error ? error.message : "Errore durante la ricerca";
-    const message = /kimi|gemini|moonshot|moonshine|lovable|openai|tavily|serper/i.test(raw)
-      ? "Ricerca non disponibile. Riprova tra poco."
-      : raw;
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ error: publicErrorMessage(raw) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
