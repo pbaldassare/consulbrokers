@@ -205,7 +205,7 @@ export default function BandiPubbliciPage() {
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [fonte, setFonte] = useState<FonteRicerca>("entrambe");
+  const [fonte, setFonte] = useState<FonteRicerca>("tutte");
   const [filtroFonte, setFiltroFonte] = useState<FiltroFonteLista>("tutte");
   const [regioniOpen, setRegioniOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -541,7 +541,7 @@ export default function BandiPubbliciPage() {
             <div className="flex items-center gap-2">
               <Label className="whitespace-nowrap">Fonte:</Label>
               <Select value={fonte} onValueChange={(v) => setFonte(v as FonteRicerca)}>
-                <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {FONTI_RICERCA.map((f) => (
                     <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
@@ -872,7 +872,7 @@ export default function BandiPubbliciPage() {
           <CardContent className="py-16 text-center">
             <Landmark className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium text-muted-foreground">Nessun bando in archivio</h3>
-            <p className="text-sm text-muted-foreground/70 mt-2">Clicca &quot;Cerca Bandi&quot; per cercare su TED Europa e Mondo Appalti.</p>
+            <p className="text-sm text-muted-foreground/70 mt-2">Clicca &quot;Cerca Bandi&quot; per cercare su TED Europa, Mondo Appalti e Infordat.</p>
           </CardContent>
         </Card>
       )}

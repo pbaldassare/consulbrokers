@@ -1,11 +1,14 @@
+import { isInfordatUrl } from "@/lib/infordatBandi";
+
 export const FONTI_BANDI = [
   { value: "ted", label: "TED Europa" },
   { value: "mondoappalti", label: "Mondo Appalti" },
+  { value: "infordat", label: "Infordat" },
 ] as const;
 
 export const FONTI_RICERCA = [
   ...FONTI_BANDI,
-  { value: "entrambe", label: "Entrambe" },
+  { value: "tutte", label: "Tutte le fonti" },
 ] as const;
 
 export const FILTRI_FONTE_LISTA = [
@@ -21,8 +24,8 @@ export function isFonteBando(value: string): value is FonteBando {
   return FONTI_BANDI.some((f) => f.value === value);
 }
 
-export function isFonteRicerca(value: string): value is FonteRicerca {
-  return FONTI_RICERCA.some((f) => f.value === value);
+export function isFonteRicerca(value: string): boolean {
+  return FONTI_RICERCA.some((f) => f.value === value) || value === "entrambe";
 }
 
 export function labelFonteBando(fonte: string | null | undefined): string {
@@ -30,23 +33,29 @@ export function labelFonteBando(fonte: string | null | undefined): string {
 }
 
 export function labelFonteRicerca(fonte: string | null | undefined): string {
+  if (fonte === "entrambe") return "Tutte le fonti";
   return FONTI_RICERCA.find((f) => f.value === fonte)?.label ?? "TED Europa";
 }
 
 export function progressMsgRicerca(fonte: string | null | undefined): string {
   if (fonte === "mondoappalti") return "Ricerca su Mondo Appalti in corso…";
-  if (fonte === "entrambe") return "Ricerca su TED Europa e Mondo Appalti in corso…";
+  if (fonte === "infordat") return "Ricerca su Infordat in corso…";
+  if (fonte === "tutte" || fonte === "entrambe") {
+    return "Ricerca su TED Europa, Mondo Appalti e Infordat in corso…";
+  }
   return "Ricerca su TED Europa in corso…";
 }
 
-/** Quali fonti interrogare per una ricerca. Default: entrambe. */
+/** Quali fonti interrogare per una ricerca. Default: tutte. */
 export function fontiDaRicerca(fonte: string | null | undefined): FonteBando[] {
   if (fonte === "ted") return ["ted"];
   if (fonte === "mondoappalti") return ["mondoappalti"];
-  return ["ted", "mondoappalti"];
+  if (fonte === "infordat") return ["infordat"];
+  return ["ted", "mondoappalti", "infordat"];
 }
 
 export function inferFonteFromLink(link: string | null | undefined): FonteBando {
+  if (link && isInfordatUrl(link)) return "infordat";
   if (link && isMondoAppaltiUrl(link)) return "mondoappalti";
   return "ted";
 }
@@ -70,7 +79,7 @@ export function matchesFiltroFonte(
 
 export function isEnteBandoGenerico(ente: string | null | undefined): boolean {
   if (!ente) return true;
-  return /^(fonte web|scheda mondo appalti)$/i.test(ente.trim());
+  return /^(fonte web|scheda mondo appalti|scheda infordat)$/i.test(ente.trim());
 }
 
 export type MondoWebHit = { title: string; url: string; snippet: string };

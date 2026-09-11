@@ -33,7 +33,7 @@ interface Ufficio {
   nome_ufficio: string;
 }
 
-const PARAM_CONFIG: Record<string, { label: string; type: "string" | "number"; min?: number; max?: number; description?: string }> = {
+const PARAM_CONFIG: Record<string, { label: string; type: "string" | "number" | "password"; min?: number; max?: number; description?: string }> = {
   password_default: {
     label: "Password iniziale nuovi utenti",
     type: "string",
@@ -73,6 +73,16 @@ const PARAM_CONFIG: Record<string, { label: string; type: "string" | "number"; m
     min: 1,
     max: 90,
     description: "Numero di giorni di anticipo per generare gli alert su scadenze e follow-up dei sinistri.",
+  },
+  infordat_username: {
+    label: "Infordat — username",
+    type: "string",
+    description: "Account banca dati Infordat usato dalla ricerca bandi.",
+  },
+  infordat_password: {
+    label: "Infordat — password",
+    type: "password",
+    description: "Password banca dati Infordat. Non viene mostrata in chiaro dopo il salvataggio se lasci il campo vuoto.",
   },
 };
 
@@ -185,7 +195,7 @@ const ImpostazioniPage = () => {
       <div key={chiave} className="flex flex-col gap-1.5">
         <Label className="text-sm font-medium">{label}</Label>
         <Input
-          type={type === "number" ? "number" : "text"}
+          type={type === "number" ? "number" : type === "password" ? "password" : "text"}
           value={typeof value === "string" ? value : String(value ?? "")}
           min={config?.min}
           max={config?.max}

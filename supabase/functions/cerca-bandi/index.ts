@@ -1,4 +1,4 @@
-// Cerca bandi: TED API (ufficiale) o Mondo Appalti (ricerca sul sito).
+// Cerca bandi: TED, Mondo Appalti, Infordat.
 // I nomi dei motori IA non vanno esposti al client.
 
 const corsHeaders = {
@@ -44,7 +44,7 @@ type Filtri = {
   statoBando?: string;
 };
 
-type FonteBando = "ted" | "mondoappalti";
+type FonteBando = "ted" | "mondoappalti" | "infordat";
 
 type Bando = {
   id: string;
@@ -66,10 +66,11 @@ type Bando = {
 };
 
 function fontiRichieste(raw: unknown): FonteBando[] {
-  const v = String(raw || "entrambe").toLowerCase();
+  const v = String(raw || "tutte").toLowerCase();
   if (v === "ted") return ["ted"];
   if (v === "mondoappalti") return ["mondoappalti"];
-  return ["ted", "mondoappalti"];
+  if (v === "infordat") return ["infordat"];
+  return ["ted", "mondoappalti", "infordat"];
 }
 
 function publicErrorMessage(raw: string): string {
@@ -442,6 +443,12 @@ async function searchMondoAppalti(filtri: Filtri): Promise<Bando[]> {
   return applyFiltri(mapped, filtri).slice(0, 30);
 }
 
+async function searchInfordatFonte(filtri: Filtri): Promise<Bando[]> {
+  const { searchInfordat } = await import("../_shared/infordatBandi.ts");
+  const mapped = await searchInfordat({ regioni: filtri.regioni });
+  return applyFiltri(mapped, filtri).slice(0, 30);
+}
+
 async function searchTed(filtri: Filtri): Promise<Bando[]> {
   const da = tedDate(filtri.dataDa || "2025-01-01");
   const aClause = filtri.dataA ? ` AND publication-date<=${tedDate(filtri.dataA)}` : "";
@@ -510,6 +517,8 @@ Deno.serve(async (req) => {
       try {
         const bandi = fonte === "mondoappalti"
           ? await searchMondoAppalti(filtri)
+          : fonte === "infordat"
+          ? await searchInfordatFonte(filtri)
           : await searchTed(filtri);
         return { fonte, bandi, error: null as string | null };
       } catch (error: unknown) {
@@ -544,19 +553,23 @@ Deno.serve(async (req) => {
     const parts: string[] = [];
     if (fonti.includes("ted")) parts.push(`TED ${counts.ted ?? 0}`);
     if (fonti.includes("mondoappalti")) parts.push(`Mondo Appalti ${counts.mondoappalti ?? 0}`);
+    if (fonti.includes("infordat")) parts.push(`Infordat ${counts.infordat ?? 0}`);
     const warning = failed.length
       ? failed.map((f) =>
         f.fonte === "mondoappalti"
           ? "Mondo Appalti non disponibile in questa ricerca."
+          : f.fonte === "infordat"
+          ? "Infordat non disponibile in questa ricerca."
           : "TED non disponibile in questa ricerca.",
       ).join(" ")
       : undefined;
 
+    const viaLabel = fonti.length > 1 ? fonti.join("+") : fonti[0] === "ted" ? "ted-api" : fonti[0];
     return new Response(
       JSON.stringify({
         status: "completed",
-        engine: fonti.length > 1 ? "entrambe" : fonti[0],
-        via: fonti.length > 1 ? "ted+mondoappalti" : fonti[0] === "ted" ? "ted-api" : "mondoappalti",
+        engine: fonti.length > 1 ? "tutte" : fonti[0],
+        via: viaLabel,
         done: true,
         sessionIds: [],
         totalBatches: 0,
