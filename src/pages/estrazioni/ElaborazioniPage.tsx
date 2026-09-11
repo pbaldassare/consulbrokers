@@ -41,6 +41,14 @@ import {
   type CampoCatalogo,
   type ValoriCampi,
 } from "@/lib/elaborazioni/render";
+import { useGruppiRamo } from "@/hooks/useRamiLookup";
+import {
+  catalogoOrFilter,
+  filterTitoliByGruppiRamo,
+  gruppoRamoIdOfTitolo,
+  mergeValoriCampi,
+  toggleId,
+} from "@/lib/elaborazioni/selezione";
 
 interface ClienteRow {
   id: string;
@@ -58,6 +66,12 @@ interface TitoloRow {
   ramo_id: string | null;
   garanzia_da: string | null;
   garanzia_a: string | null;
+  ramo?: {
+    id: string;
+    descrizione: string | null;
+    gruppo_ramo_id: string | null;
+    gruppo_ramo?: { id: string; descrizione: string | null } | null;
+  } | null;
 }
 
 interface DocumentoRow {
@@ -96,8 +110,9 @@ const ElaborazioniPage = () => {
   const [clienteSearch, setClienteSearch] = useState("");
   const [clienteSearchDeb, setClienteSearchDeb] = useState("");
   const [clienteId, setClienteId] = useState("");
-  const [titoloId, setTitoloId] = useState("");
-  const [documentoId, setDocumentoId] = useState("");
+  const [gruppoRamoIds, setGruppoRamoIds] = useState<string[]>([]);
+  const [titoloIds, setTitoloIds] = useState<string[]>([]);
+  const [documentoIds, setDocumentoIds] = useState<string[]>([]);
   const [campiSelezionati, setCampiSelezionati] = useState<string[]>([]);
   const [valori, setValori] = useState<ValoriCampi>({});
   const [noteAi, setNoteAi] = useState<string | null>(null);
@@ -140,7 +155,7 @@ const ElaborazioniPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, prodotto_nome, ramo_id, garanzia_da, garanzia_a")
+        .select("id, numero_titolo, prodotto_nome, ramo_id, garanzia_da, garanzia_a, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo_id, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione))")
         .or(`cliente_id.eq.${clienteId},cliente_anagrafica_id.eq.${clienteId}`)
         .order("garanzia_a", { ascending: false, nullsFirst: false })
         .limit(200);
@@ -149,29 +164,24 @@ const ElaborazioniPage = () => {
     },
   });
 
-  const titoloIds = useMemo(() => titoli.map((t) => t.id), [titoli]);
+  const allTitoloIds = useMemo(() => titoli.map((t) => t.id), [titoli]);
 
   const { data: documenti = [], isLoading: loadingDoc } = useQuery({
-    queryKey: ["elab-documenti", titoloIds],
-    enabled: titoloIds.length > 0,
+    queryKey: ["elab-documenti", allTitoloIds],
+    enabled: allTitoloIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("documenti")
         .select("id, nome_file, bucket_name, path_storage, categoria, entita_id, created_at")
         .eq("entita_tipo", "titolo")
-        .in("entita_id", titoloIds)
+        .in("entita_id", allTitoloIds)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as DocumentoRow[];
     },
   });
 
-  const titoliConDocumenti = useMemo(() => {
-    const conDoc = new Set(documenti.map((d) => d.entita_id));
-    return titoli.filter((t) => conDoc.has(t.id));
-  }, [titoli, documenti]);
-
-  const titoloSel = titoli.find((t) => t.id === titoloId) ?? null;
+  const { data: gruppiRamo = [] } = useGruppiRamo();
 
   const { data: rami = [] } = useQuery({
     queryKey: ["elab-rami"],
@@ -182,23 +192,37 @@ const ElaborazioniPage = () => {
     },
   });
 
-  const gruppoRamoId = useMemo(
-    () => rami.find((r) => r.id === titoloSel?.ramo_id)?.gruppo_ramo_id ?? null,
-    [rami, titoloSel],
+  const ramiById = useMemo(
+    () => new Map(rami.map((r) => [r.id, r.gruppo_ramo_id])),
+    [rami],
   );
 
+  const titoliConDocumenti = useMemo(() => {
+    const conDoc = new Set(documenti.map((d) => d.entita_id));
+    return filterTitoliByGruppiRamo(
+      titoli.filter((t) => conDoc.has(t.id)),
+      gruppoRamoIds,
+      ramiById,
+    );
+  }, [titoli, documenti, gruppoRamoIds, ramiById]);
+
+  const titoliSelezionati = useMemo(
+    () => titoli.filter((t) => titoloIds.includes(t.id)),
+    [titoli, titoloIds],
+  );
+
+  const titoloSel = titoliSelezionati[0] ?? null;
+  const gruppoRamoId = gruppoRamoIds[0] ?? gruppoRamoIdOfTitolo(titoloSel ?? { id: "" }, ramiById);
+
   const { data: catalogo = [], isLoading: loadingCampi } = useQuery({
-    queryKey: ["elab-catalogo", gruppoRamoId],
+    queryKey: ["elab-catalogo", gruppoRamoIds],
     queryFn: async () => {
-      let q = supabase
+      const { data, error } = await supabase
         .from("elaborazioni_campi_catalogo")
         .select("id, chiave, etichetta, tipo, descrizione_ai, gruppo_ramo_id, ordine")
         .eq("attivo", true)
+        .or(catalogoOrFilter(gruppoRamoIds))
         .order("ordine");
-      q = gruppoRamoId
-        ? q.or(`gruppo_ramo_id.is.null,gruppo_ramo_id.eq.${gruppoRamoId}`)
-        : q.is("gruppo_ramo_id", null);
-      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as CampoCatalogo[];
     },
@@ -246,21 +270,33 @@ const ElaborazioniPage = () => {
   }, [catalogo]);
 
   useEffect(() => {
-    setTitoloId("");
-    setDocumentoId("");
+    setGruppoRamoIds([]);
+    setTitoloIds([]);
+    setDocumentoIds([]);
     setValori({});
     setNoteAi(null);
   }, [clienteId]);
 
   useEffect(() => {
-    setDocumentoId("");
-    setValori({});
-    setNoteAi(null);
-  }, [titoloId]);
+    setTitoloIds((prev) => {
+      const next = prev.filter((id) => titoliConDocumenti.some((t) => t.id === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [titoliConDocumenti]);
 
-  const documentiPolizza = useMemo(
-    () => documenti.filter((d) => d.entita_id === titoloId),
-    [documenti, titoloId],
+  useEffect(() => {
+    setDocumentoIds((prev) => {
+      const next = prev.filter((id) => {
+        const doc = documenti.find((d) => d.id === id);
+        return !!doc && titoloIds.includes(doc.entita_id);
+      });
+      return next.length === prev.length ? prev : next;
+    });
+  }, [titoloIds, documenti]);
+
+  const documentiPolizze = useMemo(
+    () => documenti.filter((d) => titoloIds.includes(d.entita_id)),
+    [documenti, titoloIds],
   );
 
   const clienteSel = clienti.find((c) => c.id === clienteId) ?? null;
@@ -288,70 +324,90 @@ const ElaborazioniPage = () => {
     if (campiT.length) setCampiSelezionati(campiT);
   };
 
+  const analizzaDocumento = async (doc: DocumentoRow, contesto: string) => {
+    const { data: file, error: dlErr } = await supabase.storage
+      .from(doc.bucket_name)
+      .download(doc.path_storage);
+    if (dlErr || !file) {
+      throw new Error(
+        `Documento non scaricabile dall'archivio (${doc.bucket_name}): ${dlErr?.message ?? "file assente"}`,
+      );
+    }
+
+    const buf = new Uint8Array(await file.arrayBuffer());
+    if (buf.length === 0) throw new Error(`Il documento ${doc.nome_file} risulta vuoto`);
+    if (buf.length > 18 * 1024 * 1024) {
+      throw new Error(`Documento troppo grande (max 18 MB): ${doc.nome_file}`);
+    }
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < buf.length; i += chunk) {
+      binary += String.fromCharCode(...buf.subarray(i, i + chunk));
+    }
+    const fileBase64 = btoa(binary);
+    const nome = doc.nome_file.toLowerCase();
+    const mimeType =
+      nome.endsWith(".pdf") ? "application/pdf"
+      : nome.endsWith(".png") ? "image/png"
+      : nome.endsWith(".jpg") || nome.endsWith(".jpeg") ? "image/jpeg"
+      : file.type || "application/pdf";
+
+    const { data, error } = await supabase.functions.invoke("elabora-documento-polizza", {
+      body: {
+        fileBase64,
+        mimeType,
+        contesto,
+        campi: campiScelti.map((c) => ({
+          chiave: c.chiave,
+          etichetta: c.etichetta,
+          tipo: c.tipo,
+          descrizione_ai: c.descrizione_ai,
+        })),
+      },
+    });
+    if (error) {
+      throw new Error(formatEdgeFunctionError(error, data as { error?: string } | null));
+    }
+    if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+    return data as { campi?: ValoriCampi; note?: string | null };
+  };
+
   const analizza = async () => {
-    const doc = documenti.find((d) => d.id === documentoId);
-    if (!doc || campiScelti.length === 0) return;
+    const docs = documenti.filter((d) => documentoIds.includes(d.id));
+    if (docs.length === 0 || campiScelti.length === 0) return;
     setAnalizzando(true);
     setNoteAi(null);
     try {
-      const { data: file, error: dlErr } = await supabase.storage
-        .from(doc.bucket_name)
-        .download(doc.path_storage);
-      if (dlErr || !file) {
-        throw new Error(
-          `Documento non scaricabile dall'archivio (${doc.bucket_name}): ${dlErr?.message ?? "file assente"}`,
-        );
-      }
-
-      const buf = new Uint8Array(await file.arrayBuffer());
-      if (buf.length === 0) throw new Error("Il documento risulta vuoto");
-      if (buf.length > 18 * 1024 * 1024) {
-        throw new Error("Documento troppo grande (max 18 MB): comprimilo o caricane una versione più leggera");
-      }
-      let binary = "";
-      const chunk = 0x8000;
-      for (let i = 0; i < buf.length; i += chunk) {
-        binary += String.fromCharCode(...buf.subarray(i, i + chunk));
-      }
-      const fileBase64 = btoa(binary);
-      const nome = doc.nome_file.toLowerCase();
-      const mimeType =
-        nome.endsWith(".pdf") ? "application/pdf"
-        : nome.endsWith(".png") ? "image/png"
-        : nome.endsWith(".jpg") || nome.endsWith(".jpeg") ? "image/jpeg"
-        : file.type || "application/pdf";
-
-
+      const polizzeCtx = titoliSelezionati
+        .map((t) => [t.numero_titolo, t.prodotto_nome, t.ramo?.gruppo_ramo?.descrizione || t.ramo?.descrizione]
+          .filter(Boolean).join(" · "))
+        .filter(Boolean)
+        .join("; ");
+      const ramiCtx = gruppiRamo
+        .filter((g) => gruppoRamoIds.includes(g.value))
+        .map((g) => g.label)
+        .join(", ");
       const contesto = [
         clienteSel ? `Contraente atteso: ${nomeCliente(clienteSel)}` : null,
-        titoloSel?.numero_titolo ? `Numero polizza atteso: ${titoloSel.numero_titolo}` : null,
-        titoloSel?.prodotto_nome ? `Prodotto: ${titoloSel.prodotto_nome}` : null,
+        polizzeCtx ? `Polizze: ${polizzeCtx}` : null,
+        ramiCtx ? `Rami da considerare: ${ramiCtx}` : null,
       ].filter(Boolean).join("\n");
 
-      const { data, error } = await supabase.functions.invoke("elabora-documento-polizza", {
-        body: {
-          fileBase64,
-          mimeType,
-          contesto,
-          campi: campiScelti.map((c) => ({
-            chiave: c.chiave,
-            etichetta: c.etichetta,
-            tipo: c.tipo,
-            descrizione_ai: c.descrizione_ai,
-          })),
-        },
-      });
-      if (error) {
-        throw new Error(formatEdgeFunctionError(error, data as { error?: string } | null));
+      let merged: ValoriCampi = {};
+      const note: string[] = [];
+      for (const doc of docs) {
+        const data = await analizzaDocumento(doc, `${contesto}\nDocumento: ${doc.nome_file}`);
+        merged = mergeValoriCampi(merged, (data.campi ?? {}) as ValoriCampi);
+        if (data.note) note.push(`${doc.nome_file}: ${data.note}`);
       }
-      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
-
-
-      const estratti = ((data as { campi?: ValoriCampi })?.campi ?? {}) as ValoriCampi;
-      setValori(estratti);
-      setNoteAi((data as { note?: string | null })?.note ?? null);
-      const trovati = Object.values(estratti).filter((v) => v !== null && v !== "").length;
-      toast.success(`Analisi completata: ${trovati} campi estratti su ${campiScelti.length}`);
+      setValori(merged);
+      setNoteAi(note.length ? note.join(" · ") : null);
+      const trovati = Object.values(merged).filter((v) => v !== null && v !== "").length;
+      toast.success(
+        docs.length > 1
+          ? `Analisi di ${docs.length} documenti: ${trovati} campi estratti su ${campiScelti.length}`
+          : `Analisi completata: ${trovati} campi estratti su ${campiScelti.length}`,
+      );
     } catch (e) {
       toast.error((e as Error).message || "Errore durante l'analisi del documento");
     } finally {
@@ -401,11 +457,12 @@ const ElaborazioniPage = () => {
 
   const salvaElaborazione = async () => {
     if (!clienteId) return;
-    const titolo = `${nomeTemplate.trim() || "Elaborazione"}${titoloSel?.numero_titolo ? ` — ${titoloSel.numero_titolo}` : ""}`;
+    const numeri = titoliSelezionati.map((t) => t.numero_titolo).filter(Boolean).join(", ");
+    const titolo = `${nomeTemplate.trim() || "Elaborazione"}${numeri ? ` — ${numeri}` : ""}`;
     const { error } = await supabase.from("elaborazioni").insert({
       cliente_id: clienteId,
-      titolo_id: titoloId || null,
-      documento_id: documentoId || null,
+      titolo_id: titoloSel?.id || null,
+      documento_id: documentoIds[0] || null,
       template_id: templateId || null,
       gruppo_ramo_id: gruppoRamoId,
       titolo,
@@ -428,9 +485,9 @@ const ElaborazioniPage = () => {
       const bytes = await buildElaborazionePdf(anteprima, {
         titolo: nomeTemplate.trim() || "Elaborazione polizza",
         cliente: clienteSel ? nomeCliente(clienteSel) : null,
-        polizza: titoloSel?.numero_titolo ?? null,
+        polizza: titoliSelezionati.map((t) => t.numero_titolo).filter(Boolean).join(", ") || null,
       });
-      downloadPdf(bytes, `elaborazione-${titoloSel?.numero_titolo ?? "polizza"}.pdf`);
+      downloadPdf(bytes, `elaborazione-${titoloSel?.numero_titolo ?? "polizze"}.pdf`);
       await salvaElaborazione();
     } catch (e) {
       toast.error((e as Error).message || "Errore generazione PDF");
@@ -458,7 +515,7 @@ const ElaborazioniPage = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <FileSearch className="w-4 h-4 text-primary" /> 1. Cliente, polizza e documento
+              <FileSearch className="w-4 h-4 text-primary" /> 1. Cliente, rami, polizze e documenti
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -481,45 +538,183 @@ const ElaborazioniPage = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Polizza con documenti</Label>
-              {loadingTitoli || loadingDoc ? (
-                <Skeleton className="h-10 w-full" />
-              ) : (
-                <SearchableSelect
-                  options={titoliConDocumenti.map((t) => ({
-                    value: t.id,
-                    label: `${t.numero_titolo ?? "—"}${t.prodotto_nome ? ` · ${t.prodotto_nome}` : ""}`,
-                    description: `${documenti.filter((d) => d.entita_id === t.id).length} documenti`,
-                  }))}
-                  value={titoloId}
-                  onValueChange={setTitoloId}
-                  disabled={!clienteId || titoliConDocumenti.length === 0}
-                  placeholder={
-                    !clienteId
-                      ? "Seleziona prima un cliente"
-                      : titoliConDocumenti.length === 0
-                      ? "Nessuna polizza con documenti"
-                      : "Seleziona polizza..."
+              <div className="flex items-center justify-between">
+                <Label>Rami da analizzare</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={gruppiRamo.length === 0}
+                  onClick={() =>
+                    setGruppoRamoIds(
+                      gruppoRamoIds.length === gruppiRamo.length ? [] : gruppiRamo.map((g) => g.value),
+                    )
                   }
-                />
+                >
+                  {gruppoRamoIds.length === gruppiRamo.length && gruppiRamo.length > 0
+                    ? "Deseleziona tutti"
+                    : "Seleziona tutti"}
+                </Button>
+              </div>
+              <ScrollArea className="h-36 rounded-md border border-border p-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {gruppiRamo.map((g) => (
+                    <label
+                      key={g.value}
+                      className="flex items-start gap-2 text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-accent/40"
+                    >
+                      <Checkbox
+                        checked={gruppoRamoIds.includes(g.value)}
+                        onCheckedChange={() => setGruppoRamoIds((prev) => toggleId(prev, g.value))}
+                        className="mt-0.5"
+                      />
+                      <span>{g.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </ScrollArea>
+              <p className="text-xs text-muted-foreground">
+                {gruppoRamoIds.length === 0
+                  ? "Senza rami restano solo i campi generici. Seleziona i rami prima dell'analisi."
+                  : `${gruppoRamoIds.length} ram${gruppoRamoIds.length === 1 ? "o" : "i"} · i campi catalogo e le polizze si adattano alla scelta.`}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>
+                  Polizze con documenti{" "}
+                  <span className="text-muted-foreground font-normal">
+                    ({titoloIds.length}/{titoliConDocumenti.length})
+                  </span>
+                </Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={!clienteId || titoliConDocumenti.length === 0}
+                  onClick={() =>
+                    setTitoloIds(
+                      titoloIds.length === titoliConDocumenti.length
+                        ? []
+                        : titoliConDocumenti.map((t) => t.id),
+                    )
+                  }
+                >
+                  {titoloIds.length === titoliConDocumenti.length && titoliConDocumenti.length > 0
+                    ? "Deseleziona tutte"
+                    : "Seleziona tutte"}
+                </Button>
+              </div>
+              {loadingTitoli || loadingDoc ? (
+                <Skeleton className="h-28 w-full" />
+              ) : (
+                <ScrollArea className="h-40 rounded-md border border-border p-3">
+                  {!clienteId ? (
+                    <p className="text-sm text-muted-foreground">Seleziona prima un cliente.</p>
+                  ) : titoliConDocumenti.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {gruppoRamoIds.length
+                        ? "Nessuna polizza con documenti per i rami scelti."
+                        : "Nessuna polizza con documenti."}
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {titoliConDocumenti.map((t) => {
+                        const ramoLabel =
+                          t.ramo?.gruppo_ramo?.descrizione || t.ramo?.descrizione || null;
+                        const nDoc = documenti.filter((d) => d.entita_id === t.id).length;
+                        return (
+                          <label
+                            key={t.id}
+                            className="flex items-start gap-2 text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-accent/40"
+                          >
+                            <Checkbox
+                              checked={titoloIds.includes(t.id)}
+                              onCheckedChange={() => setTitoloIds((prev) => toggleId(prev, t.id))}
+                              className="mt-0.5"
+                            />
+                            <span>
+                              {t.numero_titolo ?? "—"}
+                              {t.prodotto_nome ? ` · ${t.prodotto_nome}` : ""}
+                              <span className="block text-xs text-muted-foreground">
+                                {[ramoLabel, `${nDoc} document${nDoc === 1 ? "o" : "i"}`]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <Label>Documento da analizzare</Label>
-              <SearchableSelect
-                options={documentiPolizza.map((d) => ({
-                  value: d.id,
-                  label: d.nome_file,
-                  description: [d.categoria, new Date(d.created_at).toLocaleDateString("it-IT")]
-                    .filter(Boolean)
-                    .join(" · "),
-                }))}
-                value={documentoId}
-                onValueChange={setDocumentoId}
-                disabled={!titoloId || documentiPolizza.length === 0}
-                placeholder={titoloId ? "Seleziona documento..." : "Seleziona prima una polizza"}
-              />
+              <div className="flex items-center justify-between">
+                <Label>
+                  Documenti da analizzare{" "}
+                  <span className="text-muted-foreground font-normal">
+                    ({documentoIds.length}/{documentiPolizze.length})
+                  </span>
+                </Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={documentiPolizze.length === 0}
+                  onClick={() =>
+                    setDocumentoIds(
+                      documentoIds.length === documentiPolizze.length
+                        ? []
+                        : documentiPolizze.map((d) => d.id),
+                    )
+                  }
+                >
+                  {documentoIds.length === documentiPolizze.length && documentiPolizze.length > 0
+                    ? "Deseleziona tutti"
+                    : "Seleziona tutti"}
+                </Button>
+              </div>
+              <ScrollArea className="h-36 rounded-md border border-border p-3">
+                {titoloIds.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Seleziona almeno una polizza.</p>
+                ) : documentiPolizze.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nessun documento sulle polizze scelte.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {documentiPolizze.map((d) => {
+                      const polizza = titoli.find((t) => t.id === d.entita_id);
+                      return (
+                        <label
+                          key={d.id}
+                          className="flex items-start gap-2 text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-accent/40"
+                        >
+                          <Checkbox
+                            checked={documentoIds.includes(d.id)}
+                            onCheckedChange={() => setDocumentoIds((prev) => toggleId(prev, d.id))}
+                            className="mt-0.5"
+                          />
+                          <span>
+                            {d.nome_file}
+                            <span className="block text-xs text-muted-foreground">
+                              {[
+                                polizza?.numero_titolo,
+                                d.categoria,
+                                new Date(d.created_at).toLocaleDateString("it-IT"),
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
             </div>
 
             <Separator />
@@ -575,13 +770,18 @@ const ElaborazioniPage = () => {
 
             <Button
               onClick={analizza}
-              disabled={!documentoId || campiScelti.length === 0 || analizzando}
+              disabled={documentoIds.length === 0 || campiScelti.length === 0 || analizzando}
               className="w-full"
             >
               {analizzando ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analisi in corso…</>
               ) : (
-                <><Sparkles className="w-4 h-4 mr-2" /> Analizza documento con IA</>
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {documentoIds.length > 1
+                    ? `Analizza ${documentoIds.length} documenti con IA`
+                    : "Analizza documento con IA"}
+                </>
               )}
             </Button>
           </CardContent>
@@ -598,7 +798,7 @@ const ElaborazioniPage = () => {
             {noteAi && <p className="text-xs text-muted-foreground italic">{noteAi}</p>}
             {Object.keys(valori).length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">
-                Nessun campo estratto. Seleziona un documento e avvia l'analisi IA.
+                Nessun campo estratto. Seleziona rami, polizze e documenti, poi avvia l'analisi IA.
               </p>
             ) : (
               <ScrollArea className="h-[420px] pr-3">
