@@ -78,6 +78,7 @@ import { assertFiscalValid } from "@/lib/assertFiscalValid";
 import { formatClienteDuplicatoError, verificaClienteDuplicato } from "@/lib/clientiDuplicate";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
 import ClienteNidificazionePanel from "@/components/clienti/ClienteNidificazionePanel";
+import ClienteTemplateSommario from "@/components/clienti/ClienteTemplateSommario";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -3801,6 +3802,12 @@ export default function ClienteDetail() {
                   <FieldSwitch label="Stat. Premi/Sinistri" field="statistica_premi_sinistri" />
                   <FieldInput label="Spec. SX Danni" field="spec_sx_danni" />
                   <FieldInput label="Spec. SX Sanità" field="spec_sx_sanita" />
+                  <ClienteTemplateSommario
+                    clienteId={id!}
+                    ragioneSociale={ef.ragione_sociale || cliente?.ragione_sociale}
+                    partitaIva={ef.partita_iva || cliente?.partita_iva}
+                    readOnly={readOnly}
+                  />
                 </div>
               </AccordionContent>
             </AccordionItem>
