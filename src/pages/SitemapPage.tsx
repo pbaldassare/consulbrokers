@@ -187,6 +187,14 @@ const sezioni = [
     icon: ClipboardList,
     pagine: [
       { nome: "Trattative", desc: "Pipeline commerciale unificata con filtri, viste (in corso, chiuse, archiviate) e collegamento bandi", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
+    ],
+  },
+  {
+    area: "Bandi Pubblici",
+    icon: Landmark,
+    pagine: [
+      { nome: "Bandi Pubblici", desc: "Ricerca gare aperte su TED e Mondo Appalti, con decisione Non partecipo / Voglio partecipare", ruoli: ["admin", "cfo", "ufficio", "backoffice", "produttore", "executive"] },
+      { nome: "Bandi partecipati", desc: "Bandi su cui si è deciso di partecipare, con dati portale e creazione trattativa", ruoli: ["admin", "cfo", "ufficio", "backoffice", "produttore", "executive"] },
       { nome: "Storico Gare", desc: "Archivio gare pubbliche e storico partecipazioni", ruoli: ["admin", "cfo", "ufficio", "backoffice", "produttore", "executive"] },
     ],
   },

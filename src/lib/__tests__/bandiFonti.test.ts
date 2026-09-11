@@ -7,6 +7,7 @@ import {
   isFonteBando,
   isFonteRicerca,
   isMondoAppaltiUrl,
+  isMondoSchedaUrl,
   labelFonteBando,
   labelFonteRicerca,
   mapMondoHitToBando,
@@ -74,6 +75,13 @@ describe("mondoappalti url", () => {
     expect(isMondoAppaltiUrl("https://ted.europa.eu/it/notice/1")).toBe(false);
   });
 
+  it("tiene solo le schede gara, non le pagine marketing", () => {
+    expect(isMondoSchedaUrl("https://mondoappalti.it/bancadati/scheda/14893370")).toBe(true);
+    expect(isMondoSchedaUrl("https://mondoappalti.it/Scheda/11111")).toBe(true);
+    expect(isMondoSchedaUrl("https://mondoappalti.it/Main/OffertaTecnica")).toBe(false);
+    expect(isMondoSchedaUrl("https://mondoappalti.it/Main/Contatti")).toBe(false);
+  });
+
   it("estrae l'id numerico dalla scheda", () => {
     expect(schedaIdFromUrl("https://mondoappalti.it/Scheda/128903")).toBe("128903");
   });
@@ -83,6 +91,7 @@ describe("filterMondoHits / map", () => {
   it("scarta login e duplicati, tiene le schede e marca la fonte", () => {
     const hits = filterMondoHits([
       { title: "Login", url: "https://mondoappalti.it/Account/Login", snippet: "" },
+      { title: "Contatti", url: "https://mondoappalti.it/Main/Contatti", snippet: "" },
       { title: "Broker Comune X", url: "https://mondoappalti.it/Scheda/11111", snippet: "Lombardia" },
       { title: "Broker Comune X 2", url: "https://www.mondoappalti.it/Scheda/11111", snippet: "" },
     ]);

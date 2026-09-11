@@ -84,7 +84,20 @@ export function isEnteBandoGenerico(ente: string | null | undefined): boolean {
 
 export type MondoWebHit = { title: string; url: string; snippet: string };
 
-const SKIP_PATH = /\/(login|account|register|privacy|cookie|servizi|cart|checkout)(\/|$)/i;
+const SKIP_PATH = /\/(login|account|register|privacy|cookie|servizi|cart|checkout|landing)(\/|$)/i;
+const MARKETING_PATH = /\/(Main|Landing|Servizi|GareAppalti)(\/|$)/i;
+
+export function isMondoSchedaUrl(url: string): boolean {
+  if (!isMondoAppaltiUrl(url)) return false;
+  try {
+    const path = new URL(url).pathname;
+    if (SKIP_PATH.test(path)) return false;
+    if (MARKETING_PATH.test(path) && !/scheda/i.test(path)) return false;
+    return /\/(bancadati\/)?scheda\//i.test(path) || /\/Scheda\/\d{5,}/.test(path);
+  } catch {
+    return false;
+  }
+}
 
 export function isMondoAppaltiUrl(url: string): boolean {
   try {
@@ -117,12 +130,7 @@ export function regioneFromText(text: string, regioni: string[]): string | null 
 export function filterMondoHits(hits: MondoWebHit[]): MondoWebHit[] {
   const seen = new Set<string>();
   return hits.filter((h) => {
-    if (!h.url || !isMondoAppaltiUrl(h.url)) return false;
-    try {
-      if (SKIP_PATH.test(new URL(h.url).pathname)) return false;
-    } catch {
-      return false;
-    }
+    if (!h.url || !isMondoSchedaUrl(h.url)) return false;
     const key = schedaIdFromUrl(h.url);
     if (seen.has(key)) return false;
     seen.add(key);

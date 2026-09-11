@@ -28,6 +28,7 @@ export const archiviRoutes = (
     <Route path="/trattative" element={<TrattativeList />} />
     <Route path="/trattative/calendario" element={<Navigate to="/trattative" replace />} />
     <Route path="/trattative/storico" element={<Navigate to="/trattative?view=archiviate" replace />} />
+    <Route path="/bandi-pubblici/partecipati" element={<BandiPubbliciPage />} />
     <Route path="/bandi-pubblici" element={<BandiPubbliciPage />} />
   </>
 );
