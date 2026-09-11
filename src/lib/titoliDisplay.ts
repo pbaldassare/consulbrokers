@@ -45,6 +45,33 @@ export function formatPolizzaProdotto(titolo: {
   return titolo?.prodotto_nome?.trim() || titolo?.prodotti?.nome_prodotto?.trim() || "—";
 }
 
+export function formatPolizzaPeriodo(titolo: {
+  garanzia_da?: string | null;
+  durata_da?: string | null;
+  data_decorrenza?: string | null;
+  data_competenza?: string | null;
+  garanzia_a?: string | null;
+  data_scadenza?: string | null;
+} | null | undefined): string {
+  return `${formatPolizzaDecorrenza(titolo)} → ${formatPolizzaScadenza(titolo)}`;
+}
+
+/** Garanzie da premi, altrimenti ramo/sottoramo. */
+export function formatPolizzaGaranzia(titolo: {
+  premi_garanzia_polizza?: Array<{ garanzia?: string | null } | null> | null;
+  ramo?: { descrizione?: string | null; gruppo_ramo?: { descrizione?: string | null } | null } | null;
+} | null | undefined): string {
+  const fromPremi = [
+    ...new Set(
+      (titolo?.premi_garanzia_polizza ?? [])
+        .map((r) => r?.garanzia?.trim())
+        .filter((g): g is string => Boolean(g)),
+    ),
+  ].join(", ");
+  if (fromPremi) return fromPremi;
+  return formatPolizzaRamo(titolo);
+}
+
 export function formatPolizzaCompagnia(titolo: {
   compagnia_diretta?: { nome?: string | null } | null;
   prodotti?: { compagnie?: { nome?: string | null } | null } | null;
@@ -56,29 +83,7 @@ export function formatPolizzaCompagnia(titolo: {
   );
 }
 
-/** Sottotitolo SearchableSelect polizze: compagnia · decorrenza → scadenza */
-export function formatPolizzaOptionDescription(titolo: {
-  compagnia_diretta?: { nome?: string | null } | null;
-  prodotti?: {
-    nome_prodotto?: string | null;
-    compagnie?: { nome?: string | null } | null;
-  } | null;
-  prodotto_nome?: string | null;
-  garanzia_da?: string | null;
-  durata_da?: string | null;
-  data_decorrenza?: string | null;
-  data_competenza?: string | null;
-  garanzia_a?: string | null;
-  data_scadenza?: string | null;
-} | null | undefined): string {
-  const compagnia = formatPolizzaCompagnia(titolo);
-  const decorrenza = formatPolizzaDecorrenza(titolo);
-  const scadenza = formatPolizzaScadenza(titolo);
-  return `${compagnia} · ${decorrenza} → ${scadenza}`;
-}
-
-/** Opzione SearchableSelect per polizze (wizard sinistro, dettaglio pratica). */
-export function buildPolizzaSelectOption(p: {
+export type PolizzaSelectSource = {
   id: string;
   numero_titolo?: string | null;
   sostituisce_polizza?: string | null;
@@ -95,15 +100,40 @@ export function buildPolizzaSelectOption(p: {
   data_competenza?: string | null;
   garanzia_a?: string | null;
   data_scadenza?: string | null;
-}) {
+  ramo?: { descrizione?: string | null; gruppo_ramo?: { descrizione?: string | null } | null } | null;
+  premi_garanzia_polizza?: Array<{ garanzia?: string | null } | null> | null;
+};
+
+/** Sottotitolo compatto: prodotto · garanzia · compagnia */
+export function formatPolizzaOptionDescription(titolo: PolizzaSelectSource | null | undefined): string {
+  const prodotto = formatPolizzaProdotto(titolo);
+  const garanzia = formatPolizzaGaranzia(titolo);
+  const compagnia = formatPolizzaCompagnia(titolo);
+  return [prodotto, garanzia, compagnia].filter((v) => v && v !== "—").join(" · ") || "—";
+}
+
+export function buildPolizzaOptionDetails(titolo: PolizzaSelectSource | null | undefined) {
+  return [
+    { label: "Prodotto", value: formatPolizzaProdotto(titolo) },
+    { label: "Garanzia", value: formatPolizzaGaranzia(titolo) },
+    { label: "Compagnia", value: formatPolizzaCompagnia(titolo) },
+    { label: "Periodo", value: formatPolizzaPeriodo(titolo) },
+  ];
+}
+
+/** Opzione SearchableSelect per polizze (wizard sinistro, dettaglio pratica). */
+export function buildPolizzaSelectOption(p: PolizzaSelectSource) {
+  const details = buildPolizzaOptionDetails(p);
   return {
     value: p.id,
     label: `${p.numero_titolo ?? ""}${p.sostituisce_polizza ? " (quietanza)" : ""}`,
     description: formatPolizzaOptionDescription(p),
+    details,
     searchText: [
       p.numero_titolo,
       formatPolizzaCompagnia(p),
       formatPolizzaProdotto(p),
+      formatPolizzaGaranzia(p),
       p.stato || "",
     ]
       .filter(Boolean)

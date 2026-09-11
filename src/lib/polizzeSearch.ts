@@ -57,6 +57,9 @@ export function mergePolizze(titoli: TitoloRow[], cga: CgaRow[]) {
       nome_prodotto: c.prodotti_cga?.nome_prodotto,
       compagnie: { id: null, nome: c.prodotti_cga?.compagnia },
     },
+    ramo: c.prodotti_cga?.ramo
+      ? { descrizione: c.prodotti_cga.ramo, gruppo_ramo: null }
+      : null,
     clienti: null,
     _isCga: true as const,
   }));
@@ -83,6 +86,7 @@ const TITOLI_POLIZZE_SELECT = `id, numero_titolo, premio_lordo, stato, created_a
   compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome),
   prodotti(nome_prodotto, compagnie(id, nome)),
   ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)),
+  premi_garanzia_polizza:premi_garanzia_polizza!premi_garanzia_polizza_titolo_id_fkey(garanzia),
   clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`;
 
 /** Carica polizze (titoli + CGA) per un cliente — riusabile in wizard e dettaglio sinistro. */

@@ -40,6 +40,9 @@ const payloadSchema = z.discriminatedUnion("azione", [
     descrizione: z.string().optional().nullable(),
     user_id: z.string().uuid().optional(),
     cliente_anagrafica_id: z.string().uuid().nullable().optional(),
+    numero_polizza: z.string().optional().nullable(),
+    ramo_sinistro: z.string().optional().nullable(),
+    prodotto_sinistro: z.string().optional().nullable(),
     tipo_sinistro: z.string().optional().nullable(),
     tipo_sinistro_personalizzato: z.string().max(500).optional().nullable(),
     luogo_sinistro: z.string().optional().nullable(),
@@ -110,6 +113,11 @@ const payloadSchema = z.discriminatedUnion("azione", [
     note_interne: z.string().optional().nullable(),
     note_importanti: z.string().optional().nullable(),
     bozza_wizard_json: z.record(z.unknown()).optional().nullable(),
+    compagnia_id: z.string().uuid().nullable().optional(),
+    ufficio_id: z.string().uuid().nullable().optional(),
+    numero_polizza: z.string().optional().nullable(),
+    ramo_sinistro: z.string().optional().nullable(),
+    prodotto_sinistro: z.string().optional().nullable(),
   }),
   z.object({
     azione: z.literal("finalizza_bozza"),
@@ -120,6 +128,9 @@ const payloadSchema = z.discriminatedUnion("azione", [
     cliente_anagrafica_id: z.string().uuid().nullable().optional(),
     compagnia_id: z.string().uuid().nullable().optional(),
     ufficio_id: z.string().uuid().nullable().optional(),
+    numero_polizza: z.string().optional().nullable(),
+    ramo_sinistro: z.string().optional().nullable(),
+    prodotto_sinistro: z.string().optional().nullable(),
     descrizione: z.string().optional().nullable(),
     tipo_sinistro: z.string().optional().nullable(),
     tipo_sinistro_personalizzato: z.string().max(500).optional().nullable(),
@@ -206,7 +217,7 @@ Deno.serve(async (req) => {
     if (azione === "crea") {
       const {
         numero_sinistro, titolo_id, sinistro_terzi, cliente_id, compagnia_id, responsabile_id, liquidatore_id,
-        ufficio_id, descrizione, user_id,
+        ufficio_id, descrizione, user_id, numero_polizza, ramo_sinistro, prodotto_sinistro,
         cliente_anagrafica_id, tipo_sinistro, tipo_sinistro_personalizzato, luogo_sinistro, data_evento,
         data_denuncia, data_apertura, numero_sinistro_compagnia, importo_riserva,
         controparte, targa_veicolo, dinamica, indirizzo_sinistro, citta_sinistro, cap_sinistro, provincia_sinistro,
@@ -234,6 +245,9 @@ Deno.serve(async (req) => {
         responsabile_id: responsabile_id ?? null,
         liquidatore_id: liquidatore_id ?? null,
         ufficio_id: ufficio_id ?? null,
+        numero_polizza: numero_polizza?.trim() || null,
+        ramo_sinistro: ramo_sinistro?.trim() || null,
+        prodotto_sinistro: prodotto_sinistro?.trim() || null,
         descrizione: descrizioneTesto,
         dinamica: dinamica ?? descrizioneTesto,
         cliente_anagrafica_id: cliente_anagrafica_id ?? null,
@@ -390,6 +404,7 @@ Deno.serve(async (req) => {
         citta_sinistro, cap_sinistro, provincia_sinistro, controparte, targa_veicolo,
         importo_riserva, costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
         responsabile_id, liquidatore_id, note_interne, note_importanti, bozza_wizard_json,
+        compagnia_id, ufficio_id, numero_polizza, ramo_sinistro, prodotto_sinistro,
       } = parsed.data;
 
       const { data: prev, error: prevErr } = await supabase
@@ -437,6 +452,11 @@ Deno.serve(async (req) => {
       if (note_interne !== undefined) updateData.note_interne = note_interne?.trim() || null;
       if (note_importanti !== undefined) updateData.note_importanti = note_importanti?.trim() || null;
       if (bozza_wizard_json !== undefined) updateData.bozza_wizard_json = bozza_wizard_json;
+      if (compagnia_id !== undefined) updateData.compagnia_id = compagnia_id;
+      if (ufficio_id !== undefined) updateData.ufficio_id = ufficio_id;
+      if (numero_polizza !== undefined) updateData.numero_polizza = numero_polizza?.trim() || null;
+      if (ramo_sinistro !== undefined) updateData.ramo_sinistro = ramo_sinistro?.trim() || null;
+      if (prodotto_sinistro !== undefined) updateData.prodotto_sinistro = prodotto_sinistro?.trim() || null;
       if (sinistro_terzi !== undefined) {
         updateData.sinistro_terzi = sinistro_terzi;
         if (sinistro_terzi === true) updateData.titolo_id = null;
@@ -493,6 +513,7 @@ Deno.serve(async (req) => {
     if (azione === "finalizza_bozza") {
       const {
         sinistro_id, user_id, sinistro_terzi, titolo_id, cliente_anagrafica_id, compagnia_id, ufficio_id,
+        numero_polizza, ramo_sinistro, prodotto_sinistro,
         descrizione, tipo_sinistro, tipo_sinistro_personalizzato, luogo_sinistro, data_evento, data_denuncia,
         numero_sinistro_compagnia, importo_riserva, controparte, targa_veicolo, dinamica,
         indirizzo_sinistro, citta_sinistro, cap_sinistro, provincia_sinistro,
@@ -539,6 +560,9 @@ Deno.serve(async (req) => {
         cliente_anagrafica_id: cliente_anagrafica_id ?? null,
         compagnia_id: compagnia_id ?? null,
         ufficio_id: ufficio_id ?? null,
+        numero_polizza: numero_polizza?.trim() || null,
+        ramo_sinistro: ramo_sinistro?.trim() || null,
+        prodotto_sinistro: prodotto_sinistro?.trim() || null,
         responsabile_id: responsabile_id ?? null,
         liquidatore_id: liquidatore_id ?? null,
         descrizione: descrizioneTesto,
