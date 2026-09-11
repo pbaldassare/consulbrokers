@@ -31,6 +31,12 @@ import {
   type AnalisiGaranziaRow,
   type AnalisiPolizzaRow,
 } from "@/lib/portafoglioClienteAnalisi";
+import {
+  buildPdfSommarioCliente,
+  parseSommarioLayoutJson,
+  type ClienteTemplateSommarioRow,
+  type SommarioPolizzaRow,
+} from "@/lib/sommarioPolizze";
 import { toast } from "sonner";
 
 const fmtEur = (n: number | null | undefined) =>
@@ -60,7 +66,7 @@ const labelAnagrafica = (a: {
 const PortafoglioClienteAnalisiPage = () => {
   const { clienteId } = useParams<{ clienteId: string }>();
   const navigate = useNavigate();
-  const [busy, setBusy] = useState<"excel" | "sintetico" | "elaborato" | null>(null);
+  const [busy, setBusy] = useState<"excel" | "sintetico" | "elaborato" | "sommario" | null>(null);
 
   const { data: cliente, isLoading: loadingCli } = useQuery({
     queryKey: ["analisi-cliente-anagrafica", clienteId],
@@ -130,11 +136,11 @@ const PortafoglioClienteAnalisiPage = () => {
   const { data: polizze = [], isLoading: loadingPolizze } = useQuery({
     queryKey: ["analisi-cliente-polizze", clienteId],
     enabled: !!clienteId,
-    queryFn: async (): Promise<AnalisiPolizzaRow[]> => {
+    queryFn: async (): Promise<SommarioPolizzaRow[]> => {
       const { data, error } = await supabase
         .from("v_portafoglio_titoli")
         .select(
-          "id, numero_titolo, stato, ramo_nome, compagnia_nome, premio_lordo, garanzia_da, garanzia_a, data_scadenza, tacito_rinnovo, prodotto_nome, produttore_nome, nome_ufficio, ufficio_id",
+          "id, numero_titolo, stato, ramo_nome, compagnia_nome, premio_lordo, garanzia_da, garanzia_a, data_scadenza, tacito_rinnovo, prodotto_nome, produttore_nome, nome_ufficio, ufficio_id, periodicita, disdetta_giorni, mora_giorni, limite_mora, descrizione_polizza, is_regolazione",
         )
         .eq("cliente_anagrafica_id", clienteId!)
         .is("sostituisce_polizza", null)
@@ -156,11 +162,65 @@ const PortafoglioClienteAnalisiPage = () => {
         produttore_nome: r.produttore_nome || null,
         nome_ufficio: r.nome_ufficio || null,
         ufficio_id: r.ufficio_id || null,
+        periodicita: r.periodicita || null,
+        disdetta_giorni: r.disdetta_giorni ?? null,
+        mora_giorni: r.mora_giorni ?? null,
+        limite_mora: r.limite_mora || null,
+        descrizione_polizza: r.descrizione_polizza || null,
+        is_regolazione: r.is_regolazione ?? null,
       }));
     },
   });
 
   const titoloIds = useMemo(() => polizze.map((p) => p.id), [polizze]);
+
+  const { data: extraTitoli = [] } = useQuery({
+    queryKey: ["analisi-cliente-titoli-sommario", titoloIds.join(",")],
+    enabled: titoloIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("titoli")
+        .select("id, frazionamento, regolazione, regolazione_fattore, regolazione_note")
+        .in("id", titoloIds);
+      if (error) throw error;
+      return (data || []) as Array<{
+        id: string;
+        frazionamento: string | null;
+        regolazione: boolean | null;
+        regolazione_fattore: string | null;
+        regolazione_note: string | null;
+      }>;
+    },
+  });
+
+  const polizzeSommario = useMemo<SommarioPolizzaRow[]>(() => {
+    const extra = new Map(extraTitoli.map((t) => [t.id, t]));
+    return polizze.map((p) => {
+      const e = extra.get(p.id);
+      return {
+        ...p,
+        frazionamento: e?.frazionamento ?? p.frazionamento ?? null,
+        regolazione: e?.regolazione ?? null,
+        regolazione_fattore: e?.regolazione_fattore ?? null,
+        regolazione_note: e?.regolazione_note ?? null,
+      };
+    });
+  }, [polizze, extraTitoli]);
+
+  const { data: templateSommario } = useQuery({
+    queryKey: ["cliente-template-sommario", clienteId],
+    enabled: !!clienteId,
+    queryFn: async (): Promise<ClienteTemplateSommarioRow | null> => {
+      const { data, error } = await (supabase as any)
+        .from("clienti_template_sommario")
+        .select("*")
+        .eq("cliente_id", clienteId!)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return { ...data, layout_json: parseSommarioLayoutJson(data.layout_json) };
+    },
+  });
 
   const assegnazioni = useMemo((): AnalisiClienteAssegnazioni => {
     const ufficioFromPolizze = [...new Set(polizze.map((p) => p.nome_ufficio).filter(Boolean))] as string[];
@@ -438,6 +498,31 @@ const PortafoglioClienteAnalisiPage = () => {
     }
   };
 
+  const runSommario = async () => {
+    try {
+      setBusy("sommario");
+      const bytes = await buildPdfSommarioCliente({
+        clienteLabel,
+        polizze: polizzeSommario,
+        garanzie,
+        cgaDettagli,
+        layout: templateSommario?.layout_json,
+        meta: pdfMeta,
+      });
+      const safe = clienteLabel.replace(/[^\w\-]+/g, "_").slice(0, 40);
+      downloadPdfBytes(bytes, `sommario_polizze_${safe}_${format(new Date(), "yyyyMMdd")}.pdf`);
+      toast.success(
+        templateSommario?.layout_key === "varese"
+          ? "Sommario polizze generato (layout Comune di Varese)"
+          : "Sommario polizze generato dal template cliente",
+      );
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Errore sommario");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const runElaborato = async () => {
     try {
       setBusy("elaborato");
@@ -508,6 +593,11 @@ const PortafoglioClienteAnalisiPage = () => {
           <Button variant="outline" size="sm" onClick={runExcel} disabled={!polizze.length || !!busy}>
             {busy === "excel" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-1 text-green-700" />}
             Excel
+          </Button>
+          <Button size="sm" onClick={runSommario} disabled={!polizze.length || !!busy || loadingCgaDet}>
+            {busy === "sommario" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileText className="h-4 w-4 mr-1" />}
+            Sommario polizze
+            {templateSommario?.layout_key === "varese" ? " (Varese)" : ""}
           </Button>
           <Button variant="outline" size="sm" onClick={runSintetico} disabled={!polizze.length || !!busy}>
             {busy === "sintetico" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileText className="h-4 w-4 mr-1" />}
