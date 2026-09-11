@@ -3,6 +3,7 @@ import {
   buildNidificazioneForest,
   flattenNidificazioneForest,
   formatNidificazionePhrase,
+  formatNidificazioneSaveError,
   wouldCreateCycle,
   type ClienteNidificazioneLite,
   type RelazioneNidificazione,
@@ -47,5 +48,14 @@ describe("nidificazione", () => {
     const flat = flattenNidificazioneForest(forest);
     expect(flat.some((r) => r.phrase?.includes("sindaco di Comune di Varese"))).toBe(true);
     expect(flat.some((r) => r.phrase?.includes("figlio di"))).toBe(true);
+  });
+
+  it("traduce errori di salvataggio nidificazione", () => {
+    expect(formatNidificazioneSaveError({ code: "42501", message: "new row violates row-level security policy" }))
+      .toMatch(/permessi/i);
+    expect(formatNidificazioneSaveError({ code: "23505", message: "duplicate key", details: "clienti_relazioni_unique" }))
+      .toMatch(/esiste già/i);
+    expect(formatNidificazioneSaveError({ message: "Invalid tipo_relazione: foo" }))
+      .toMatch(/non valido/i);
   });
 });
