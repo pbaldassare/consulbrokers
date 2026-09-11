@@ -64,7 +64,6 @@ import {
   keywordDaTesto,
   labelKeywordRicerca,
   matchesFiltroKeyword,
-  parseKeywordRicerca,
   type FiltroKeywordLista,
   type KeywordRicerca,
 } from "@/lib/bandiKeywords";
@@ -472,7 +471,7 @@ export default function BandiPubbliciPage() {
                 ...b,
                 keyword: b.keyword || b.categoria || keywordDaTesto(`${b.titolo} ${b.categoria || ""}`),
               })),
-              KEYWORD_BROKERAGGIO,
+              labelKeywordRicerca(keywordRicerca),
             );
             const prospectCount = await autoCreateProspects(
               bandi.filter((b) => !isEnteBandoGenerico(b.ente)),
@@ -898,19 +897,32 @@ export default function BandiPubbliciPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Label className="whitespace-nowrap">Keyword:</Label>
-              <Select
-                value={keywordRicerca}
-                onValueChange={(v) => setKeywordRicerca(parseKeywordRicerca(v))}
+              <div
+                className="inline-flex flex-wrap items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5"
+                role="tablist"
+                aria-label="Keyword servizi assicurativi"
               >
-                <SelectTrigger className="w-[280px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {KEYWORDS_RICERCA.map((k) => (
-                    <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {KEYWORDS_RICERCA.map((k) => (
+                  <button
+                    key={k.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={keywordRicerca === k.value}
+                    disabled={loading}
+                    onClick={() => setKeywordRicerca(k.value)}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                      keywordRicerca === k.value
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {k.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
