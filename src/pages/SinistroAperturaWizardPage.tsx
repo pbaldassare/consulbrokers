@@ -43,8 +43,10 @@ import {
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 import {
   buildPolizzaSelectOption,
-  formatPolizzaRamo,
-  formatPolizzaScadenza,
+  formatPolizzaCompagnia,
+  formatPolizzaGaranzia,
+  formatPolizzaPeriodo,
+  formatPolizzaProdotto,
 } from "@/lib/titoliDisplay";
 import { labelAgenziaRiferimento } from "@/lib/compagniaDisplay";
 import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
@@ -955,26 +957,34 @@ export default function SinistroAperturaWizardPage() {
                 {!watchSinistroTerzi && selectedPolizzaData && (
                   <div className="p-4 bg-muted/50 rounded-lg border space-y-2">
                     <h4 className="font-semibold text-sm text-primary">Polizza Selezionata per il Sinistro</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 text-xs">
                       <div>
-                        <span className="text-muted-foreground">Numero Polizza:</span>
+                        <span className="text-muted-foreground">Numero Polizza</span>
                         <p className="font-semibold">{selectedPolizzaData.numero_titolo}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Contraente:</span>
+                        <span className="text-muted-foreground">Contraente</span>
                         <p className="font-semibold">{resolveClienteNome(selectedPolizzaData.clienti || selectedClienteData)}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Stato Polizza:</span>
+                        <span className="text-muted-foreground">Prodotto</span>
+                        <p className="font-semibold">{formatPolizzaProdotto(selectedPolizzaData)}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Garanzia</span>
+                        <p className="font-semibold">{formatPolizzaGaranzia(selectedPolizzaData)}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Compagnia</span>
+                        <p className="font-semibold">{formatPolizzaCompagnia(selectedPolizzaData)}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Periodo garanzia</span>
+                        <p className="font-semibold">{formatPolizzaPeriodo(selectedPolizzaData)}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Stato Polizza</span>
                         <p className="font-semibold capitalize"><Badge variant="outline">{selectedPolizzaData.stato}</Badge></p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Ramo collegato:</span>
-                        <p className="font-semibold">{formatPolizzaRamo(selectedPolizzaData)}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Data di scadenza:</span>
-                        <p className="font-semibold">{formatPolizzaScadenza(selectedPolizzaData)}</p>
                       </div>
                     </div>
                   </div>
@@ -1304,15 +1314,19 @@ export default function SinistroAperturaWizardPage() {
                         </div>
                         <div>
                           <span className="text-muted-foreground">Prodotto</span>
-                          <p className="font-semibold mt-0.5">{selectedPolizzaData?.prodotti?.nome_prodotto || "—"}</p>
+                          <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaProdotto(selectedPolizzaData) : "—"}</p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Ramo collegato</span>
-                          <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaRamo(selectedPolizzaData) : "—"}</p>
+                          <span className="text-muted-foreground">Garanzia</span>
+                          <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaGaranzia(selectedPolizzaData) : "—"}</p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Data di scadenza</span>
-                          <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaScadenza(selectedPolizzaData) : "—"}</p>
+                          <span className="text-muted-foreground">Compagnia</span>
+                          <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaCompagnia(selectedPolizzaData) : "—"}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Periodo garanzia</span>
+                          <p className="font-semibold mt-0.5">{selectedPolizzaData ? formatPolizzaPeriodo(selectedPolizzaData) : "—"}</p>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Data Accadimento</span>

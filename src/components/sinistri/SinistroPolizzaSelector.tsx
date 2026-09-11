@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { fetchPolizzeForCliente, type TitoloRow } from "@/lib/polizzeSearch";
-import { buildPolizzaSelectOption, formatPolizzaRamo } from "@/lib/titoliDisplay";
+import { buildPolizzaSelectOption, formatPolizzaGaranzia, formatPolizzaProdotto } from "@/lib/titoliDisplay";
 import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
 import { TIPI_SINISTRO, suggestTipoSinistroFromTitolo } from "@/lib/tipiSinistro";
 import { resolveTipoSinistroPayload, validateTipoSinistro } from "@/lib/sinistroPraticaSchema";
@@ -209,9 +209,20 @@ export default function SinistroPolizzaSelector({
           />
         )}
         {selectedPolizza && (
-          <p className="text-xs text-muted-foreground">
-            Ramo collegato: <span className="font-medium text-foreground">{formatPolizzaRamo(selectedPolizza as unknown as Parameters<typeof formatPolizzaRamo>[0])}</span>
-          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <p>
+              Prodotto:{" "}
+              <span className="font-medium text-foreground">
+                {formatPolizzaProdotto(selectedPolizza as unknown as Parameters<typeof formatPolizzaProdotto>[0])}
+              </span>
+            </p>
+            <p>
+              Garanzia:{" "}
+              <span className="font-medium text-foreground">
+                {formatPolizzaGaranzia(selectedPolizza as unknown as Parameters<typeof formatPolizzaGaranzia>[0])}
+              </span>
+            </p>
+          </div>
         )}
       </div>
 

@@ -51,7 +51,7 @@ describe('mergePolizze', () => {
 
   it('include le polizze CGA mappate e filtra le righe senza numero', () => {
     const cga = [
-      { id: 'c1', numero_polizza: 'CGA-1', cliente_id: 'x', prodotti_cga: { nome_prodotto: 'P', compagnia: 'C' } },
+      { id: 'c1', numero_polizza: 'CGA-1', cliente_id: 'x', prodotti_cga: { nome_prodotto: 'P', compagnia: 'C', ramo: 'RCA' } },
       { id: 'c2', numero_polizza: null, cliente_id: 'x' } as any,
     ];
     const merged = mergePolizze([madre], cga);
@@ -59,6 +59,7 @@ describe('mergePolizze', () => {
     const cgaRow: any = merged.find((r: any) => r._isCga);
     expect(cgaRow.numero_titolo).toBe('CGA-1');
     expect(cgaRow.id).toBe('cga:c1');
+    expect(cgaRow.ramo).toEqual({ descrizione: 'RCA', gruppo_ramo: null });
   });
 
   it('marca correttamente _isCga sulle due fonti', () => {
