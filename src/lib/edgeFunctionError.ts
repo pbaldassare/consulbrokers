@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 /** Nasconde i nomi dei motori dai messaggi mostrati all'utente. */
-=======
-/** Nasconde nomi dei motori IA (Kimi, Gemini, …) dai messaggi utente. */
->>>>>>> origin/cursor/cb-bot-siti-autorizzati-c52b
 export function hideAiVendorNames(msg: string): string {
   if (/kimi|gemini|moonshot|moonshine|lovable ai|openai|gpt-|claude/i.test(msg)) {
     return "Ricerca non disponibile. Riprovare tra poco.";
