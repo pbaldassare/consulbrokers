@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import {
+  FILTRI_FONTE_LISTA,
+  FONTI_RICERCA,
+  isEnteBandoGenerico,
+  labelFonteBando,
+  labelFonteRicerca,
+  matchesFiltroFonte,
+  progressMsgRicerca,
+  resolveFonteBando,
+  type FiltroFonteLista,
+  type FonteRicerca,
+} from "@/lib/bandiFonti";
 
 interface BandoResult {
   id: string;
@@ -62,6 +74,7 @@ interface BandoResult {
   pdf_url?: string | null;
   pdf_path?: string | null;
   keyword?: string | null;
+  fonte?: string | null;
 }
 
 const regioniItaliane = [
@@ -119,6 +132,7 @@ async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
         stato: b.stato || "aperto",
         pdf_url: b.pdf_url || null,
         keyword: keyword,
+        fonte: resolveFonteBando(b.fonte, b.link),
       };
     });
 
@@ -126,7 +140,7 @@ async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
 
   const { error } = await supabase
     .from("bandi_pubblici")
-    .upsert(rows, { onConflict: "scheda_id", ignoreDuplicates: false });
+    .upsert(rows as never, { onConflict: "scheda_id", ignoreDuplicates: false });
 
   if (error) {
     console.error("Upsert bandi error:", error);
@@ -137,7 +151,7 @@ async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
 
 // Auto-create prospects from enti
 async function autoCreateProspects(bandi: BandoResult[], ufficio_id: string | undefined) {
-  const entiUnici = [...new Set(bandi.map(b => b.ente).filter(Boolean))];
+  const entiUnici = [...new Set(bandi.map((b) => b.ente).filter((ente) => !isEnteBandoGenerico(ente)))];
   let created = 0;
   for (const ente of entiUnici) {
     // Check if already exists
@@ -149,10 +163,11 @@ async function autoCreateProspects(bandi: BandoResult[], ufficio_id: string | un
     
     if (existing && existing.length > 0) continue;
 
+    const sample = bandi.find((b) => b.ente === ente);
     const { error } = await supabase.from("prospect").insert({
       ragione_sociale: ente,
       tipo_cliente: "ente",
-      fonte: "Portali gare",
+      fonte: labelFonteBando(resolveFonteBando(sample?.fonte, sample?.link)),
       stato: "nuovo",
       ufficio_id: ufficio_id || null,
     });
@@ -161,12 +176,18 @@ async function autoCreateProspects(bandi: BandoResult[], ufficio_id: string | un
   return created;
 }
 
-async function logRicerca(regioni: string[], count: number, userId: string | undefined) {
+async function logRicerca(
+  regioni: string[],
+  count: number,
+  userId: string | undefined,
+  fonte: string,
+) {
   await supabase.from("ricerche_bandi").insert({
     regioni,
     risultati_count: count,
     eseguita_da: userId || null,
-  });
+    fonte,
+  } as never);
 }
 
 export default function BandiPubbliciPage() {
@@ -184,7 +205,8 @@ export default function BandiPubbliciPage() {
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [fonte, setFonte] = useState("ted");
+  const [fonte, setFonte] = useState<FonteRicerca>("entrambe");
+  const [filtroFonte, setFiltroFonte] = useState<FiltroFonteLista>("tutte");
   const [regioniOpen, setRegioniOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [progressMsg, setProgressMsg] = useState("");
@@ -273,7 +295,7 @@ export default function BandiPubbliciPage() {
     setRisultatiLive([]);
     setElapsedSeconds(0);
     setSearchError(null);
-    setProgressMsg("Ricerca sui portali gare in corso...");
+    setProgressMsg(progressMsgRicerca(fonte));
     setApiCallCount(prev => prev + 1);
 
     elapsedTimerRef.current = setInterval(() => {
@@ -310,19 +332,21 @@ export default function BandiPubbliciPage() {
           try {
             await upsertBandiToDB(bandi, KEYWORD_FISSA);
             const prospectCount = await autoCreateProspects(
-              bandi.filter((b) => b.ente && !b.ente.startsWith("Fonte web")),
+              bandi.filter((b) => !isEnteBandoGenerico(b.ente)),
               profile?.ufficio_id,
             );
             await refetchBandi();
-            toast.success(`${bandi.length} bando/i trovati e salvati.`);
+            toast.success(startData.message || `${bandi.length} bando/i trovati e salvati.`);
+            if (startData.warning) toast.warning(startData.warning);
             if (prospectCount > 0) toast.info(`${prospectCount} nuovi prospect creati.`);
           } catch {
             toast.warning("Risultati trovati ma errore nel salvataggio");
           }
         } else {
-          toast.info("Nessun bando trovato con i criteri specificati");
+          toast.info(startData.message || "Nessun bando trovato con i criteri specificati");
+          if (startData.warning) toast.warning(startData.warning);
         }
-        await logRicerca(regioniSelezionate, bandi.length, profile?.id);
+        await logRicerca(regioniSelezionate, bandi.length, profile?.id, fonte);
         queryClient.invalidateQueries({ queryKey: ["ricerche_bandi_recenti"] });
         return;
       }
@@ -404,7 +428,7 @@ export default function BandiPubbliciPage() {
         const { data: newProspect, error: pErr } = await supabase.from("prospect").insert({
           ragione_sociale: selectedBando.ente,
           tipo_cliente: "ente",
-          fonte: "TED Europa",
+          fonte: labelFonteBando(resolveFonteBando(selectedBando.fonte, selectedBando.link)),
           stato: "nuovo",
           ufficio_id: profile?.ufficio_id || null,
         }).select("id").single();
@@ -420,7 +444,7 @@ export default function BandiPubbliciPage() {
         data_scadenza: trattativaScadenza || null,
         note: trattativaNote || null,
         stato: "aperta",
-        fonte: "TED Europa",
+        fonte: labelFonteBando(resolveFonteBando(selectedBando.fonte, selectedBando.link)),
         ufficio_id: profile?.ufficio_id || null,
         created_by: profile?.id || null,
         data_apertura: new Date().toISOString().split("T")[0],
@@ -453,7 +477,12 @@ export default function BandiPubbliciPage() {
       ? "Tutte le regioni selezionate"
       : `${regioniSelezionate.length} region${regioniSelezionate.length === 1 ? 'e' : 'i'}`;
 
-  const displayBandi = bandiDB.length > 0 ? bandiDB : [];
+  const displayBandi = useMemo(
+    () => bandiDB.filter((b: { fonte?: string | null; link?: string | null }) =>
+      matchesFiltroFonte(b.fonte, b.link, filtroFonte),
+    ),
+    [bandiDB, filtroFonte],
+  );
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -492,6 +521,7 @@ export default function BandiPubbliciPage() {
                   <span>
                     {r.regioni?.length > 0 ? r.regioni.join(", ") : "Tutte le regioni"}
                   </span>
+                  <Badge variant="outline">{labelFonteRicerca(r.fonte)}</Badge>
                   <Badge variant="outline" className="ml-auto">{r.risultati_count} risultati</Badge>
                   {r.profiles && (
                     <span className="text-xs text-muted-foreground">
@@ -510,10 +540,12 @@ export default function BandiPubbliciPage() {
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <Label className="whitespace-nowrap">Fonte:</Label>
-              <Select value={fonte} onValueChange={setFonte}>
+              <Select value={fonte} onValueChange={(v) => setFonte(v as FonteRicerca)}>
                 <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ted">TED Europa</SelectItem>
+                  {FONTI_RICERCA.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -676,9 +708,31 @@ export default function BandiPubbliciPage() {
       {/* Bandi from DB */}
       {displayBandi.length > 0 && (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {displayBandi.length} bando/i salvati in archivio
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {displayBandi.length} bando/i
+              {filtroFonte === "tutte" ? " salvati in archivio" : ` da ${labelFonteBando(filtroFonte)}`}
+            </p>
+            <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5" role="tablist" aria-label="Filtro fonte bandi">
+              {FILTRI_FONTE_LISTA.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={filtroFonte === f.value}
+                  onClick={() => setFiltroFonte(f.value)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                    filtroFonte === f.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
           {displayBandi.map((bando: any) => (
             <Card key={bando.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
@@ -694,6 +748,9 @@ export default function BandiPubbliciPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {labelFonteBando(resolveFonteBando(bando.fonte, bando.link))}
+                    </Badge>
                     {bando.keyword && (
                       <Badge variant="secondary" className="gap-1 text-xs">
                         <Tag className="h-3 w-3" />
@@ -815,7 +872,7 @@ export default function BandiPubbliciPage() {
           <CardContent className="py-16 text-center">
             <Landmark className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium text-muted-foreground">Nessun bando in archivio</h3>
-            <p className="text-sm text-muted-foreground/70 mt-2">Clicca &quot;Cerca Bandi&quot; per cercare sui portali gare.</p>
+            <p className="text-sm text-muted-foreground/70 mt-2">Clicca &quot;Cerca Bandi&quot; per cercare su TED Europa e Mondo Appalti.</p>
           </CardContent>
         </Card>
       )}
@@ -842,7 +899,7 @@ export default function BandiPubbliciPage() {
                     <Tag className="h-3 w-3" />
                     {selectedBando.keyword || KEYWORD_FISSA}
                   </Badge>
-                  <Badge variant="outline" className="text-xs">Fonte: TED Europa</Badge>
+                  <Badge variant="outline" className="text-xs">Fonte: {labelFonteBando(resolveFonteBando(selectedBando.fonte, selectedBando.link))}</Badge>
                 </div>
               </div>
 
@@ -925,7 +982,7 @@ export default function BandiPubbliciPage() {
               <div>
                 <p>
                   Stai per creare una nuova trattativa per <strong>{selectedBando?.ente}</strong> con
-                  prodotto "{trattativaProdotto}" e fonte "TED Europa".
+                  prodotto "{trattativaProdotto}" e fonte "{labelFonteBando(resolveFonteBando(selectedBando?.fonte, selectedBando?.link))}".
                   {trattativaPremio && <> Premio previsto: €{Number(trattativaPremio).toLocaleString("it-IT")}.</>}
                 </p>
                 {existingTrattative.length > 0 && (
