@@ -25,6 +25,9 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import ElaborazioniSommarioPanel from "@/components/estrazioni/ElaborazioniSommarioPanel";
+import { ELAB_TIPO_SINGOLA } from "@/lib/elaborazioni/sommarioBatch";
 import {
   Table,
   TableBody,
@@ -226,7 +229,7 @@ const ElaborazioniPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("elaborazioni")
-        .select("id, titolo, created_at, stato, titolo_id, contenuto, campi_estratti")
+        .select("id, titolo, created_at, stato, titolo_id, contenuto, campi_estratti, tipo, titolo_ids")
         .eq("cliente_id", clienteId)
         .order("created_at", { ascending: false })
         .limit(25);
@@ -234,6 +237,7 @@ const ElaborazioniPage = () => {
       return (data ?? []) as {
         id: string; titolo: string | null; created_at: string; stato: string;
         titolo_id: string | null; contenuto: string | null; campi_estratti: ValoriCampi;
+        tipo?: string | null; titolo_ids?: string[] | null;
       }[];
     },
   });
@@ -263,7 +267,21 @@ const ElaborazioniPage = () => {
     [documenti, titoloId],
   );
 
-  const clienteSel = clienti.find((c) => c.id === clienteId) ?? null;
+  const { data: clienteById } = useQuery({
+    queryKey: ["elab-cliente", clienteId],
+    enabled: !!clienteId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clienti")
+        .select("id, ragione_sociale, nome, cognome, codice_fiscale, partita_iva")
+        .eq("id", clienteId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as ClienteRow | null;
+    },
+  });
+
+  const clienteSel = clienti.find((c) => c.id === clienteId) ?? clienteById ?? null;
   const campiScelti = useMemo(
     () => catalogo.filter((c) => campiSelezionati.includes(c.chiave)),
     [catalogo, campiSelezionati],
@@ -414,7 +432,9 @@ const ElaborazioniPage = () => {
       stato: "generata",
       created_by: profile?.id ?? null,
       ufficio_id: profile?.ufficio_id ?? null,
-    });
+      tipo: ELAB_TIPO_SINGOLA,
+      titolo_ids: titoloId ? [titoloId] : [],
+    } as never);
     if (error) {
       toast.error(error.message);
       return;
@@ -448,38 +468,62 @@ const ElaborazioniPage = () => {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Elaborazioni</h1>
           <p className="text-sm text-muted-foreground">
-            Analizza con l'IA i documenti già caricati sulle polizze e genera documenti da template
+            Sommario di più polizze sul template del cliente, oppure elaborazione singola da documento
           </p>
         </div>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileSearch className="w-4 h-4 text-primary" /> Cliente
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5 max-w-xl">
+            <Label>Cliente</Label>
+            <SearchableSelect
+              options={clienti.map((c) => ({
+                value: c.id,
+                label: nomeCliente(c),
+                description: c.partita_iva || c.codice_fiscale || undefined,
+              }))}
+              value={clienteId}
+              onValueChange={setClienteId}
+              searchValue={clienteSearch}
+              onSearchChange={setClienteSearch}
+              serverSideSearch
+              placeholder="Seleziona cliente..."
+              searchPlaceholder="Cerca per nome, CF o P.IVA..."
+            />
+          </div>
+          {clienteId && clienteSel && (
+            <ElaborazioniSommarioPanel
+              clienteId={clienteId}
+              clienteLabel={nomeCliente(clienteSel)}
+              partitaIva={clienteSel.partita_iva}
+              codiceFiscale={clienteSel.codice_fiscale}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      <Accordion type="single" collapsible>
+        <AccordionItem value="singola" className="border rounded-lg px-4">
+          <AccordionTrigger>
+            <span className="text-sm font-semibold">Elaborazione singola polizza (documento + template ramo)</span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-6 pb-4">
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 1. Selezione */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <FileSearch className="w-4 h-4 text-primary" /> 1. Cliente, polizza e documento
+              <FileSearch className="w-4 h-4 text-primary" /> Polizza e documento
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Cliente</Label>
-              <SearchableSelect
-                options={clienti.map((c) => ({
-                  value: c.id,
-                  label: nomeCliente(c),
-                  description: c.partita_iva || c.codice_fiscale || undefined,
-                }))}
-                value={clienteId}
-                onValueChange={setClienteId}
-                searchValue={clienteSearch}
-                onSearchChange={setClienteSearch}
-                serverSideSearch
-                placeholder="Seleziona cliente..."
-                searchPlaceholder="Cerca per nome, CF o P.IVA..."
-              />
-            </div>
-
             <div className="space-y-1.5">
               <Label>Polizza con documenti</Label>
               {loadingTitoli || loadingDoc ? (
@@ -700,6 +744,9 @@ const ElaborazioniPage = () => {
           </div>
         </CardContent>
       </Card>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {/* Storico */}
       {clienteId && (
@@ -716,6 +763,7 @@ const ElaborazioniPage = () => {
                   <TableRow>
                     <TableHead>Data</TableHead>
                     <TableHead>Titolo</TableHead>
+                    <TableHead>Tipo</TableHead>
                     <TableHead>Stato</TableHead>
                     <TableHead className="text-right">Azioni</TableHead>
                   </TableRow>
@@ -725,6 +773,13 @@ const ElaborazioniPage = () => {
                     <TableRow key={s.id} className={i % 2 ? "bg-muted/30" : undefined}>
                       <TableCell>{new Date(s.created_at).toLocaleString("it-IT")}</TableCell>
                       <TableCell>{s.titolo ?? "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {s.tipo === "sommario_portafoglio"
+                            ? `Sommario (${(s.titolo_ids || []).length || "più"} polizze)`
+                            : "Singola"}
+                        </Badge>
+                      </TableCell>
                       <TableCell><Badge variant="secondary">{s.stato}</Badge></TableCell>
                       <TableCell className="text-right">
                         <Button
