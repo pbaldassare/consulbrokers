@@ -38,6 +38,18 @@ export function clienteDisplayName(c: ClienteNidificazioneLite | null | undefine
   return resolveClienteNome(c);
 }
 
+/** Garanzie da premi_garanzia_polizza, altrimenti prodotto / ramo. */
+export function garanziaCollegataLabel(
+  garanzie: Array<string | null | undefined>,
+  prodottoNome?: string | null,
+  ramoNome?: string | null,
+): string {
+  const fromGaranzie = [...new Set(garanzie.map((g) => (g || "").trim()).filter(Boolean))].join(", ");
+  if (fromGaranzie) return fromGaranzie;
+  const fallback = [...new Set([prodottoNome, ramoNome].map((v) => (v || "").trim()).filter(Boolean))].join(", ");
+  return fallback || "—";
+}
+
 export function findTitolo(
   codice: string,
   titoli: TitoloNidificazione[],
