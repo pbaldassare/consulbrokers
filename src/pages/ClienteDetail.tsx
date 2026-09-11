@@ -3267,7 +3267,10 @@ export default function ClienteDetail() {
 
 
           <TabsContent value="sinistri">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-end gap-2 mb-2">
+              <Button size="sm" variant="outline" onClick={() => navigate(`/sinistri/caricamento?cliente_id=${id}`)}>
+                Caricamento massivo
+              </Button>
               <Button size="sm" onClick={() => navigate(`/sinistri/apertura?cliente_id=${id}`)}>
                 <Plus className="w-3 h-3 mr-1" />Apri Sinistro
               </Button>

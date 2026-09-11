@@ -36,6 +36,7 @@ import {
   ClipboardList,
   FileUp,
   FilePlus,
+  FileSpreadsheet,
   Clock,
   FileCheck,
   Printer,
@@ -202,6 +203,7 @@ const sidebarEntries: SidebarEntry[] = [
       children: [
         { label: "Ricerca", path: "/sinistri", icon: Search },
         { label: "Apertura", path: "/sinistri/apertura", icon: FilePlus },
+        { label: "Caricamento massivo", path: "/sinistri/caricamento", icon: FileSpreadsheet },
         { label: "Termini di prescrizione", path: "/sinistri/prescrizioni", icon: Clock },
         { label: "Reminder", path: "/sinistri/reminder", icon: Bell },
         { label: "Report Sanitario SIR", path: "/sinistri/report-sir", icon: FileText },

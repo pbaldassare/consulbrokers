@@ -222,6 +222,7 @@ const sezioni = [
     icon: AlertTriangle,
     pagine: [
       { nome: "Lista Sinistri", desc: "Elenco sinistri con filtri per stato, data, agenzia e tipo", ruoli: ["admin", "ufficio", "backoffice"] },
+      { nome: "Caricamento massivo", desc: "Import Excel MODULO SX per un cliente, anteprima e collegamento a polizze CBnet o pratiche senza polizza", ruoli: ["admin", "ufficio", "backoffice", "produttore"] },
       { nome: "Dettaglio Sinistro", desc: "Scheda sinistro con cronologia, perizie, documenti e liquidazioni", ruoli: ["admin", "ufficio", "backoffice"] },
       { nome: "Doc Precontrattuale", desc: "Generazione documentazione precontrattuale obbligatoria", ruoli: ["admin", "ufficio"] },
     ],
