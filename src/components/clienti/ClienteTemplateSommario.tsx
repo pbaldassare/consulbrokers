@@ -80,13 +80,13 @@ export default function ClienteTemplateSommario({
   const seedOnce = useRef(false);
 
   useEffect(() => {
-    if (readOnly || isLoading || !row || seedOnce.current) return;
+    if (isLoading || !row || seedOnce.current) return;
     if (layoutKey !== "varese" || row.storage_path) return;
     seedOnce.current = true;
     void seedVarese();
     // seedVarese è definito sotto; l'auto-allegato Varese parte una sola volta.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readOnly, isLoading, row, layoutKey]);
+  }, [isLoading, row, layoutKey]);
 
   const persistFile = async (file: File, nextLayout: SommarioLayoutKey) => {
     const { data: { user } } = await supabase.auth.getUser();
