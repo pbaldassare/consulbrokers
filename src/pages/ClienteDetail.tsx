@@ -3238,10 +3238,7 @@ export default function ClienteDetail() {
 
         <TabsContent value="relazioni">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Nidificazione</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <ClienteNidificazionePanel
                 clienteId={id!}
                 cliente={{
@@ -3252,7 +3249,6 @@ export default function ClienteDetail() {
                   ragione_sociale: cliente?.ragione_sociale,
                   gruppo_statistico: cliente?.gruppo_statistico,
                 }}
-                readOnly={readOnly}
               />
             </CardContent>
           </Card>
