@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,13 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown, X, List, SlidersHorizontal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { formatTipoSinistro } from "@/lib/tipiSinistro";
+import { SinistriRicercaForm } from "@/components/sinistri/SinistriRicercaForm";
+import { formatTipoSinistro, getTipoSinistroLabel } from "@/lib/tipiSinistro";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
+import {
+  EMPTY_SINISTRI_FILTERS,
+  hasSinistriFilters,
+  sanitizePostgrestTerm,
+  sinistriFilterChips,
+  type SinistriListFilters,
+} from "@/lib/sinistriListSearch";
 
 const statiSinistro = ["bozza", "in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
 
@@ -28,6 +38,8 @@ const statoBadge: Record<string, string> = {
   respinto: "bg-red-100 text-red-800",
 };
 
+const NO_MATCH_ID = "00000000-0000-0000-0000-000000000000";
+
 type SortField =
   | "numero_sinistro"
   | "tipo_sinistro"
@@ -40,29 +52,23 @@ type SortField =
 
 export default function SinistriList() {
   const navigate = useNavigate();
-  const [filtroStato, setFiltroStato] = useState<string>("tutti");
-  const [filtroCompagnia, setFiltroCompagnia] = useState<string>("tutti");
-  const [filtroTerzi, setFiltroTerzi] = useState<string>("tutti");
-  const [filtroResponsabile, setFiltroResponsabile] = useState<string>("tutti");
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [tab, setTab] = useState("elenco");
+  const [filters, setFilters] = useState<SinistriListFilters>(EMPTY_SINISTRI_FILTERS);
+  const [debounced, setDebounced] = useState<SinistriListFilters>(EMPTY_SINISTRI_FILTERS);
+  const [clientiSearch, setClientiSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const { page, setPage, pageSize, range } = useServerPagination(25, [
-    filtroStato,
-    filtroCompagnia,
-    filtroTerzi,
-    filtroResponsabile,
-    debouncedSearch,
+    debounced,
     sortField,
     sortDirection,
   ]);
   const qc = useQueryClient();
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    const t = setTimeout(() => setDebounced(filters), 350);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [filters]);
 
   useEffect(() => {
     const ch = supabase
@@ -73,8 +79,73 @@ export default function SinistriList() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
+  const patchFilters = (patch: Partial<SinistriListFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(0);
+  };
+
+  const resetFilters = () => {
+    setFilters(EMPTY_SINISTRI_FILTERS);
+    setClientiSearch("");
+    setPage(0);
+  };
+
+  const clearChip = (key: string) => {
+    if (key === "cliente") patchFilters({ clienteId: "", clienteLabel: "" });
+    else if (key === "date") patchFilters({ dataDa: "", dataA: "" });
+    else if (key === "compagniaId") patchFilters({ compagniaId: "tutti", compagniaLabel: "" });
+    else if (key === "responsabileId") patchFilters({ responsabileId: "tutti", responsabileLabel: "" });
+    else if (key === "stato") patchFilters({ stato: "tutti" });
+    else if (key === "terzi") patchFilters({ terzi: "tutti" });
+    else if (key === "tipo") patchFilters({ tipo: "" });
+    else if (key === "quickSearch") patchFilters({ quickSearch: "" });
+    else patchFilters({ [key]: "" } as Partial<SinistriListFilters>);
+  };
+
+  const { data: compagnie = [] } = useQuery({
+    queryKey: ["agenzie"],
+    queryFn: async () => {
+      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      return data || [];
+    },
+  });
+
+  const { data: responsabili = [] } = useQuery({
+    queryKey: ["profiles-responsabili-list"],
+    queryFn: async () => {
+      const { data: ss } = await supabase
+        .from("specialist_sinistri_sedi" as any)
+        .select("profilo_id");
+      const ids = [...new Set(((ss || []) as unknown as { profilo_id: string }[]).map((r) => r.profilo_id))];
+      let q = supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
+      if (ids.length > 0) q = q.in("id", ids);
+      const { data } = await q;
+      return data || [];
+    },
+  });
+
+  const clientiQ = sanitizePostgrestTerm(clientiSearch);
+  const { data: clientiHits = [], isFetching: clientiLoading } = useQuery({
+    queryKey: ["sinistri-list-clienti", clientiQ],
+    enabled: clientiQ.length >= 2,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva")
+        .or(`cognome.ilike.%${clientiQ}%,nome.ilike.%${clientiQ}%,ragione_sociale.ilike.%${clientiQ}%,codice_fiscale.ilike.%${clientiQ}%,partita_iva.ilike.%${clientiQ}%`)
+        .order("cognome", { ascending: true, nullsFirst: false })
+        .limit(25);
+      if (error) throw error;
+      return (data || []).map((c) => ({
+        id: c.id,
+        label: resolveClienteNome(c) || "(senza nome)",
+        description: [c.codice_fiscale || c.partita_iva, c.tipo_cliente].filter(Boolean).join(" · ") || undefined,
+      }));
+    },
+  });
+
   const { data: sinistriResult } = useQuery({
-    queryKey: ["sinistri", filtroStato, filtroCompagnia, filtroTerzi, filtroResponsabile, debouncedSearch, page, sortField, sortDirection],
+    queryKey: ["sinistri", debounced, page, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("sinistri").select(
         `id, numero_sinistro, stato, descrizione, data_apertura, data_denuncia, controparte, sinistro_terzi, titolo_id, compagnia_id,
@@ -84,13 +155,46 @@ export default function SinistriList() {
          titoli(numero_titolo)`,
         { count: "exact" }
       );
-      if (filtroStato !== "tutti") q = q.eq("stato", filtroStato);
-      if (filtroCompagnia !== "tutti") q = q.eq("compagnia_id", filtroCompagnia);
-      if (filtroTerzi === "terzi") q = q.eq("sinistro_terzi", true);
-      if (filtroTerzi === "con_polizza") q = q.eq("sinistro_terzi", false).not("titolo_id", "is", null);
-      if (filtroResponsabile !== "tutti") q = q.eq("responsabile_id", filtroResponsabile);
 
-      const term = debouncedSearch.trim();
+      if (debounced.stato !== "tutti") q = q.eq("stato", debounced.stato);
+      if (debounced.compagniaId !== "tutti") q = q.eq("compagnia_id", debounced.compagniaId);
+      if (debounced.terzi === "terzi") q = q.eq("sinistro_terzi", true);
+      if (debounced.terzi === "con_polizza") q = q.eq("sinistro_terzi", false).not("titolo_id", "is", null);
+      if (debounced.responsabileId !== "tutti") q = q.eq("responsabile_id", debounced.responsabileId);
+      if (debounced.clienteId) q = q.eq("cliente_anagrafica_id", debounced.clienteId);
+
+      const controparte = sanitizePostgrestTerm(debounced.controparte);
+      if (controparte) q = q.ilike("controparte", `%${controparte}%`);
+
+      if (debounced.tipo) {
+        const tipoLabel = sanitizePostgrestTerm(getTipoSinistroLabel(debounced.tipo));
+        q = q.or(
+          [`tipo_sinistro.eq.${debounced.tipo}`, tipoLabel ? `tipo_sinistro_personalizzato.ilike.%${tipoLabel}%` : ""]
+            .filter(Boolean)
+            .join(","),
+        );
+      }
+
+      const numero = sanitizePostgrestTerm(debounced.numero);
+      if (numero) {
+        q = q.or(`numero_sinistro.ilike.%${numero}%,numero_sinistro_compagnia.ilike.%${numero}%`);
+      }
+
+      const polizza = sanitizePostgrestTerm(debounced.polizza);
+      if (polizza) {
+        const { data: titoliMatch } = await supabase
+          .from("titoli")
+          .select("id")
+          .ilike("numero_titolo", `%${polizza}%`)
+          .limit(200);
+        const titoloIds = (titoliMatch || []).map((t) => t.id);
+        q = q.in("titolo_id", titoloIds.length ? titoloIds : [NO_MATCH_ID]);
+      }
+
+      if (debounced.dataDa) q = q.gte("data_apertura", debounced.dataDa);
+      if (debounced.dataA) q = q.lte("data_apertura", debounced.dataA);
+
+      const term = sanitizePostgrestTerm(debounced.quickSearch);
       if (term) {
         const [{ data: clientiMatch }, { data: profilesMatch }, { data: titoliMatch }] = await Promise.all([
           supabase
@@ -114,19 +218,14 @@ export default function SinistriList() {
           `numero_sinistro.ilike.%${term}%`,
           `numero_sinistro_compagnia.ilike.%${term}%`,
           `descrizione.ilike.%${term}%`,
+          `controparte.ilike.%${term}%`,
         ];
         const clienteIds = (clientiMatch || []).map((c) => c.id);
-        if (clienteIds.length > 0) {
-          parts.push(`cliente_anagrafica_id.in.(${clienteIds.join(",")})`);
-        }
+        if (clienteIds.length > 0) parts.push(`cliente_anagrafica_id.in.(${clienteIds.join(",")})`);
         const responsabileIds = (profilesMatch || []).map((p) => p.id);
-        if (responsabileIds.length > 0) {
-          parts.push(`responsabile_id.in.(${responsabileIds.join(",")})`);
-        }
+        if (responsabileIds.length > 0) parts.push(`responsabile_id.in.(${responsabileIds.join(",")})`);
         const titoloIds = (titoliMatch || []).map((t) => t.id);
-        if (titoloIds.length > 0) {
-          parts.push(`titolo_id.in.(${titoloIds.join(",")})`);
-        }
+        if (titoloIds.length > 0) parts.push(`titolo_id.in.(${titoloIds.join(",")})`);
         q = q.or(parts.join(","));
       }
 
@@ -141,28 +240,6 @@ export default function SinistriList() {
   const sinistri = sinistriResult?.data || [];
   const totalCount = sinistriResult?.count || 0;
 
-  const { data: compagnie } = useQuery({
-    queryKey: ["agenzie"],
-    queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      return data || [];
-    },
-  });
-
-  const { data: responsabili = [] } = useQuery({
-    queryKey: ["profiles-responsabili-list"],
-    queryFn: async () => {
-      const { data: ss } = await supabase
-        .from("specialist_sinistri_sedi" as any)
-        .select("profilo_id");
-      const ids = [...new Set(((ss || []) as unknown as { profilo_id: string }[]).map((r) => r.profilo_id))];
-      let q = supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
-      if (ids.length > 0) q = q.in("id", ids);
-      const { data } = await q;
-      return data || [];
-    },
-  });
-
   const { data: eventiScaduti } = useQuery({
     queryKey: ["eventi-scaduti"],
     queryFn: async () => {
@@ -170,11 +247,6 @@ export default function SinistriList() {
       return data?.length || 0;
     },
   });
-
-  const handleFilterChange = (setter: (v: string) => void) => (v: string) => {
-    setter(v);
-    setPage(0);
-  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -185,6 +257,11 @@ export default function SinistriList() {
     }
     setPage(0);
   };
+
+  const chips = useMemo(
+    () => sinistriFilterChips(filters, filters.tipo ? getTipoSinistroLabel(filters.tipo) : undefined),
+    [filters],
+  );
 
   const SortableHeader = ({
     field,
@@ -233,53 +310,119 @@ export default function SinistriList() {
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Cerca per cliente, numero, polizza, descrizione..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      <Tabs value={tab} onValueChange={setTab} className="space-y-3">
+        <TabsList>
+          <TabsTrigger value="elenco" className="gap-1.5">
+            <List className="h-4 w-4" /> Elenco
+          </TabsTrigger>
+          <TabsTrigger value="ricerca" className="gap-1.5">
+            <SlidersHorizontal className="h-4 w-4" /> Ricerca
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="elenco" className="mt-0">
+          <div className="flex gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[16rem]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cerca per cliente, numero, polizza, controparte, descrizione..."
+                value={filters.quickSearch}
+                onChange={(e) => patchFilters({ quickSearch: e.target.value })}
+                className="pl-9"
+              />
+            </div>
+            <Select value={filters.stato} onValueChange={(stato) => patchFilters({ stato })}>
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tutti">Tutti gli stati</SelectItem>
+                {statiSinistro.map((s) => (
+                  <SelectItem key={s} value={s}>{s === "bozza" ? "Bozza" : s.replace(/_/g, " ")}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filters.compagniaId}
+              onValueChange={(id) => patchFilters({
+                compagniaId: id,
+                compagniaLabel: compagnie.find((c) => c.id === id)?.nome || "",
+              })}
+            >
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tutti">Tutte le compagnie</SelectItem>
+                {compagnie.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filters.terzi} onValueChange={(terzi) => patchFilters({ terzi })}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tutti">Tutti</SelectItem>
+                <SelectItem value="con_polizza">Con polizza</SelectItem>
+                <SelectItem value="terzi">Sinistro Terzi</SelectItem>
+              </SelectContent>
+            </Select>
+            <SearchableSelect
+              value={filters.responsabileId === "tutti" ? "" : filters.responsabileId}
+              onValueChange={(id) => {
+                const r = responsabili.find((x) => x.id === id);
+                patchFilters({
+                  responsabileId: id || "tutti",
+                  responsabileLabel: r ? `${r.cognome || ""} ${r.nome || ""}`.trim() : "",
+                });
+              }}
+              placeholder="Responsabile interno"
+              clearable
+              clearLabel="Tutti"
+              className="w-52"
+              options={responsabili.map((r) => ({
+                value: r.id,
+                label: `${r.cognome || ""} ${r.nome || ""}`.trim(),
+              }))}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="ricerca" className="mt-0">
+          <Card>
+            <CardContent className="pt-5">
+              <SinistriRicercaForm
+                filters={filters}
+                onChange={patchFilters}
+                onReset={resetFilters}
+                clientiSearch={clientiSearch}
+                onClientiSearch={setClientiSearch}
+                clientiOptions={clientiHits}
+                clientiLoading={clientiLoading}
+                compagnie={compagnie}
+                responsabili={responsabili}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {chips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {chips.map((c) => (
+            <Badge key={c.key} variant="secondary" className="gap-1 pr-1 font-normal">
+              {c.label}
+              <button
+                type="button"
+                className="rounded-full p-0.5 hover:bg-muted"
+                onClick={() => clearChip(c.key)}
+                aria-label={`Rimuovi ${c.label}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          {hasSinistriFilters(filters) && (
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={resetFilters}>
+              Azzera
+            </Button>
+          )}
         </div>
-        <Select value={filtroStato} onValueChange={handleFilterChange(setFiltroStato)}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Tutti gli stati</SelectItem>
-            {statiSinistro.map(s => (
-              <SelectItem key={s} value={s}>{s === "bozza" ? "Bozza" : s.replace(/_/g, " ")}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filtroCompagnia} onValueChange={handleFilterChange(setFiltroCompagnia)}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Tutte le compagnie</SelectItem>
-            {compagnie?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filtroTerzi} onValueChange={handleFilterChange(setFiltroTerzi)}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Tutti</SelectItem>
-            <SelectItem value="con_polizza">Con polizza</SelectItem>
-            <SelectItem value="terzi">Sinistro Terzi</SelectItem>
-          </SelectContent>
-        </Select>
-        <SearchableSelect
-          value={filtroResponsabile === "tutti" ? "" : filtroResponsabile}
-          onValueChange={(v) => handleFilterChange(setFiltroResponsabile)(v || "tutti")}
-          placeholder="Responsabile interno"
-          clearable
-          clearLabel="Tutti"
-          className="w-52"
-          options={responsabili.map((r) => ({
-            value: r.id,
-            label: `${r.cognome || ""} ${r.nome || ""}`.trim(),
-          }))}
-        />
-      </div>
+      )}
 
       <div className="border rounded-lg">
         <Table>
