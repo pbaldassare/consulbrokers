@@ -20,7 +20,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { parseCbBotSitoInput, type CbBotSito } from "@/lib/cbBotSiti";
-import { ExternalLink, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { missingCatalogoSiti } from "@/lib/cbBotSitiCatalogo";
+import { ExternalLink, Library, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
 const QUERY_KEY = ["cb-bot-siti-autorizzati"];
 
@@ -90,7 +91,31 @@ export default function CbBotSitiAutorizzatiPanel() {
     onError: (e: Error) => toast.error(e.message || "Impossibile eliminare il sito"),
   });
 
+  const importCatalogoMutation = useMutation({
+    mutationFn: async () => {
+      const missing = missingCatalogoSiti(siti.map((s) => s.dominio));
+      if (missing.length === 0) return 0;
+      const { error } = await supabase.from("cb_bot_siti_autorizzati").insert(
+        missing.map((s) => ({
+          nome: s.nome,
+          url: s.url,
+          dominio: s.dominio,
+          note: s.note,
+          created_by: user?.id ?? null,
+        })),
+      );
+      if (error) throw error;
+      return missing.length;
+    },
+    onSuccess: (n) => {
+      toast.success(n > 0 ? `Aggiunti ${n} siti di settore e compagnie` : "Elenco già completo");
+      qc.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+    onError: (e: Error) => toast.error(e.message || "Impossibile importare il catalogo"),
+  });
+
   const attivi = siti.filter((s) => s.attivo).length;
+  const catalogoMancanti = missingCatalogoSiti(siti.map((s) => s.dominio)).length;
 
   return (
     <div className="space-y-4">
@@ -138,6 +163,17 @@ export default function CbBotSitiAutorizzatiPanel() {
         </div>
         <Button type="submit" size="sm" className="h-8 shrink-0" disabled={addMutation.isPending || !url.trim()}>
           <Plus className="h-4 w-4 mr-1" /> Aggiungi
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 shrink-0"
+          disabled={importCatalogoMutation.isPending || catalogoMancanti === 0}
+          onClick={() => importCatalogoMutation.mutate()}
+        >
+          <Library className="h-4 w-4 mr-1" />
+          {catalogoMancanti > 0 ? `Settore e compagnie (${catalogoMancanti})` : "Catalogo già caricato"}
         </Button>
       </form>
 

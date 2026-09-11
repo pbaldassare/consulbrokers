@@ -1,3 +1,11 @@
+/** Nasconde i nomi dei motori dai messaggi mostrati all'utente. */
+export function hideAiVendorNames(msg: string): string {
+  if (/kimi|gemini|moonshot|moonshine|lovable ai|openai|gpt-|claude/i.test(msg)) {
+    return "Ricerca non disponibile. Riprovare tra poco.";
+  }
+  return msg;
+}
+
 type EdgeErrorBody = {
   success?: boolean;
   error?: string;
@@ -26,7 +34,7 @@ export function formatEdgeFunctionError(
     return formErrors[0];
   }
 
-  if (data?.error && data.error !== "Payload non valido") return data.error;
+  if (data?.error && data.error !== "Payload non valido") return hideAiVendorNames(data.error);
   if (data?.details) return "Payload non valido per il server";
 
   const generic = error?.message || "";
@@ -34,7 +42,7 @@ export function formatEdgeFunctionError(
     return "Errore del server durante l'operazione. Riprova o contatta l'assistenza.";
   }
 
-  return generic || "Errore sconosciuto";
+  return hideAiVendorNames(generic) || "Errore sconosciuto";
 }
 
 /** Estrae il messaggio utile da supabase.functions.invoke (body JSON o FunctionsHttpError). */
@@ -44,8 +52,8 @@ export function edgeFunctionErrorMessage(
 ): string | null {
   if (data && typeof data === "object" && "error" in data) {
     const raw = (data as { error: unknown }).error;
-    if (typeof raw === "string" && raw.trim()) return raw.trim();
+    if (typeof raw === "string" && raw.trim()) return hideAiVendorNames(raw.trim());
   }
   const msg = error?.message?.trim();
-  return msg || null;
+  return msg ? hideAiVendorNames(msg) : null;
 }
