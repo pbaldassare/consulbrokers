@@ -77,6 +77,7 @@ import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { assertFiscalValid } from "@/lib/assertFiscalValid";
 import { formatClienteDuplicatoError, verificaClienteDuplicato } from "@/lib/clientiDuplicate";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
+import ClienteNidificazionePanel from "@/components/clienti/ClienteNidificazionePanel";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -475,13 +476,6 @@ function FieldComuneItaliano({
 }
 
 
-const tipiRelazione = [
-  { value: "dipendente", label: "Dipendente" },
-  { value: "legale_rappresentante", label: "Legale Rappresentante" },
-  { value: "referente", label: "Referente" },
-  { value: "socio", label: "Socio" },
-];
-
 /* ── Rete Commerciale Sub-component ──
  * Allineato al flusso attuale di creazione cliente: solo assegnazione profilo
  * per Account Executive (AE) e Consul (DB ruolo "Produttore Sede").
@@ -736,7 +730,7 @@ function NominativiSection({ clienteId, readOnly }: { clienteId: string; readOnl
 }
 
 /* ── Dati Statistici Sub-component ── */
-function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari, isFieldMissing }: { ef: Record<string, any>; readOnly: boolean; updateField: (f: string, v: any) => void; gruppiFinanziari: any[]; isFieldMissing: (f: string) => boolean }) {
+function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari, isFieldMissing, clienteId }: { ef: Record<string, any>; readOnly: boolean; updateField: (f: string, v: any) => void; gruppiFinanziari: any[]; isFieldMissing: (f: string) => boolean; clienteId: string }) {
   const { data: zoneOpts = [] } = useLookupZone();
   const { data: indottiOpts = [] } = useLookupIndotti();
   const { data: attivitaOpts = [] } = useLookupAttivita();
@@ -822,6 +816,21 @@ function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari, is
       <FieldSwitch label="Cliente Associato" field="cliente_associato" />
       <FieldSwitch label="Cliente Captive" field="cliente_captive" />
       <FieldSwitch label="Internazionale" field="internazionale" />
+      <div className="col-span-2 md:col-span-4 pt-2 border-t">
+        <ClienteNidificazionePanel
+          clienteId={clienteId}
+          cliente={{
+            id: clienteId,
+            tipo_cliente: ef.tipo_cliente,
+            nome: ef.nome,
+            cognome: ef.cognome,
+            ragione_sociale: ef.ragione_sociale,
+            gruppo_statistico: ef.gruppo_statistico,
+          }}
+          compact
+          readOnly={readOnly}
+        />
+      </div>
     </div>
   );
 }
@@ -2420,11 +2429,6 @@ export default function ClienteDetail() {
   const queryClient = useQueryClient();
   const stickyChromeRef = useRef<HTMLDivElement>(null);
   const [stickyChromeH, setStickyChromeH] = useState(176); // fallback ~11rem
-  const [relazioneOpen, setRelazioneOpen] = useState(false);
-  const [searchCliente, setSearchCliente] = useState("");
-  const [selectedCollegatoId, setSelectedCollegatoId] = useState("");
-  const [tipoRelazione, setTipoRelazione] = useState("referente");
-  const [noteRelazione, setNoteRelazione] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -2868,42 +2872,6 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
-  const { data: clientiSearch = [] } = useQuery({
-    queryKey: ["clienti_search_rel", searchCliente],
-    queryFn: async () => {
-      if (searchCliente.length < 2) return [];
-      const { data } = await supabase
-        .from("clienti")
-        .select("id, tipo_cliente, nome, cognome, ragione_sociale, codice_fiscale")
-        .neq("id", id!)
-        .or(`cognome.ilike.%${searchCliente}%,nome.ilike.%${searchCliente}%,ragione_sociale.ilike.%${searchCliente}%,codice_fiscale.ilike.%${searchCliente}%`)
-        .limit(10);
-      return data || [];
-    },
-    enabled: searchCliente.length >= 2,
-  });
-
-  const addRelazioneMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("clienti_relazioni").insert({
-        cliente_id: id!,
-        cliente_collegato_id: selectedCollegatoId,
-        tipo_relazione: tipoRelazione,
-        note: noteRelazione || null,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["relazioni_cliente", id] });
-      setRelazioneOpen(false);
-      setSearchCliente("");
-      setSelectedCollegatoId("");
-      setNoteRelazione("");
-      toast.success("Relazione aggiunta");
-    },
-    onError: (err: any) => toast.error("Errore: " + err.message),
-  });
-
   const handleScanUpload = async (file: File, documentType: DocumentType) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -2954,13 +2922,6 @@ export default function ClienteDetail() {
   const displayName = isPrivato
     ? `${cliente.cognome || ""} ${cliente.nome || ""}`.trim() || cliente.ragione_sociale || "—"
     : cliente.ragione_sociale || `${cliente.cognome || ""} ${cliente.nome || ""}`.trim() || "—";
-
-  const getClienteDisplayName = (c: any) => {
-    if (!c) return "—";
-    return c.tipo_cliente === "privato"
-      ? `${c.cognome || ""} ${c.nome || ""}`.trim() || "—"
-      : c.ragione_sociale || "—";
-  };
 
   const ef = editFields;
 
@@ -3198,7 +3159,7 @@ export default function ClienteDetail() {
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
+              <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />Nidificazione ({relazioni.length})</TabsTrigger>
               <TabsTrigger value="documenti">Documenti ({documentiCliente.length})</TabsTrigger>
               <TabsTrigger value="chat">Chat</TabsTrigger>
               <TabsTrigger value="timeline">Log Attività</TabsTrigger>
@@ -3277,35 +3238,22 @@ export default function ClienteDetail() {
 
         <TabsContent value="relazioni">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-base">{isPrivato ? "Aziende Collegate" : "Persone Collegate"}</CardTitle>
-              <Button size="sm" onClick={() => setRelazioneOpen(true)}><Plus className="w-4 h-4 mr-1" />Aggiungi</Button>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Nidificazione</CardTitle>
             </CardHeader>
             <CardContent>
-              {relazioni.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">Nessuna relazione presente</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Relazione</TableHead>
-                      <TableHead>Note</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {relazioni.map((r: any) => (
-                      <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${r.collegato?.id}`)}>
-                        <TableCell className="font-medium">{getClienteDisplayName(r.collegato)}</TableCell>
-                        <TableCell><Badge variant="outline">{r.collegato?.tipo_cliente === "privato" ? "Privato" : "Azienda"}</Badge></TableCell>
-                        <TableCell><Badge variant="secondary">{tipiRelazione.find(t => t.value === r.tipo_relazione)?.label || r.tipo_relazione}</Badge></TableCell>
-                        <TableCell className="text-muted-foreground">{r.note || "—"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+              <ClienteNidificazionePanel
+                clienteId={id!}
+                cliente={{
+                  id: id!,
+                  tipo_cliente: cliente?.tipo_cliente,
+                  nome: cliente?.nome,
+                  cognome: cliente?.cognome,
+                  ragione_sociale: cliente?.ragione_sociale,
+                  gruppo_statistico: cliente?.gruppo_statistico,
+                }}
+                readOnly={readOnly}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -3863,7 +3811,7 @@ export default function ClienteDetail() {
                 <div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /><span className="font-semibold">Dati Statistici</span></div>
               </AccordionTrigger>
               <AccordionContent>
-                <DatiStatisticiSection ef={ef} readOnly={readOnly} updateField={updateField} gruppiFinanziari={gruppiFinanziari} isFieldMissing={isFieldMissing} />
+                <DatiStatisticiSection ef={ef} readOnly={readOnly} updateField={updateField} gruppiFinanziari={gruppiFinanziari} isFieldMissing={isFieldMissing} clienteId={id!} />
               </AccordionContent>
             </AccordionItem>
 
@@ -3891,49 +3839,6 @@ export default function ClienteDetail() {
           </AnagraficaFormCtx.Provider>
         </TabsContent>
       </Tabs>
-
-      {/* Dialog Aggiungi Relazione */}
-      <Dialog open={relazioneOpen} onOpenChange={setRelazioneOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Aggiungi Relazione</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Cerca Cliente / Azienda</Label>
-              <Input placeholder="Nome, cognome o ragione sociale..." value={searchCliente} onChange={(e) => setSearchCliente(e.target.value)} />
-              {clientiSearch.length > 0 && (
-                <div className="border rounded-md mt-1 max-h-40 overflow-y-auto">
-                  {clientiSearch.map((c: any) => (
-                    <div
-                      key={c.id}
-                      className={`px-3 py-2 cursor-pointer hover:bg-muted text-sm ${selectedCollegatoId === c.id ? "bg-primary/10 font-medium" : ""}`}
-                      onClick={() => { setSelectedCollegatoId(c.id); setSearchCliente(getClienteDisplayName(c)); }}
-                    >
-                      {getClienteDisplayName(c)}
-                      <span className="text-muted-foreground ml-2">({c.tipo_cliente === "privato" ? "Privato" : "Azienda"})</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <Label>Tipo Relazione</Label>
-              <Select value={tipoRelazione} onValueChange={setTipoRelazione}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {tipiRelazione.map(t => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Note (opzionale)</Label>
-              <Input value={noteRelazione} onChange={(e) => setNoteRelazione(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => addRelazioneMutation.mutate()} disabled={!selectedCollegatoId || addRelazioneMutation.isPending}>Aggiungi</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {(() => {
         const _clienteName = cliente?.ragione_sociale || `${cliente?.nome || ""} ${cliente?.cognome || ""}`.trim() || "Cliente";
