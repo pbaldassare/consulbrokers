@@ -9,7 +9,37 @@ const corsHeaders = {
 
 const TED_SEARCH = "https://api.ted.europa.eu/v3/notices/search";
 const CPV_BROKER = "66518100";
+const CPV_SERVIZI = "66510000";
 const BROKER_RE = /brokeraggio|broker assicur|intermediazione assicur/i;
+const SERVIZI_RE = /servizi assicurativ|servizi di assicurazione|polizze assicur|coperture assicur|assicurativ/i;
+
+type KeywordRicerca = "brokeraggio" | "servizi" | "entrambe";
+
+function parseKeywordRicerca(raw: unknown): KeywordRicerca {
+  const v = String(raw || "").toLowerCase();
+  if (v === "servizi" || v === "servizi_assicurativi") return "servizi";
+  if (v === "entrambe" || v === "tutte" || v === "both") return "entrambe";
+  return "brokeraggio";
+}
+
+function wantBrokeraggio(k: KeywordRicerca): boolean {
+  return k === "brokeraggio" || k === "entrambe";
+}
+
+function wantServizi(k: KeywordRicerca): boolean {
+  return k === "servizi" || k === "entrambe";
+}
+
+function frasiKeyword(k: KeywordRicerca): string[] {
+  if (k === "servizi") return ["servizi assicurativi"];
+  if (k === "entrambe") return ["brokeraggio assicurativo", "servizi assicurativi"];
+  return ["brokeraggio assicurativo"];
+}
+
+function categoriaDaKeyword(title: string, cpvs: string[]): string {
+  if (isBrokeraggio(title, cpvs)) return "Brokeraggio assicurativo";
+  return "Servizi assicurativi";
+}
 
 const NUTS_REGION: [string, string][] = [
   ["ITC1", "Piemonte"],
@@ -42,6 +72,7 @@ type Filtri = {
   dataDa?: string;
   dataA?: string;
   statoBando?: string;
+  keyword: KeywordRicerca;
 };
 
 type FonteBando = "ted" | "mondoappalti" | "infordat";
@@ -231,6 +262,19 @@ function isBrokeraggio(title: string, cpvs: string[]): boolean {
   return cpvs.includes(CPV_BROKER) && cpvs.length <= 6;
 }
 
+function isServiziAssicurativi(title: string, cpvs: string[]): boolean {
+  if (SERVIZI_RE.test(title) || BROKER_RE.test(title)) return true;
+  return cpvs.some((c) => c.startsWith("6651"));
+}
+
+function matchesKeyword(title: string, cpvs: string[], keyword: KeywordRicerca): boolean {
+  const broker = isBrokeraggio(title, cpvs);
+  const servizi = isServiziAssicurativi(title, cpvs);
+  if (keyword === "brokeraggio") return broker;
+  if (keyword === "servizi") return servizi;
+  return broker || servizi;
+}
+
 function tedDate(iso?: string): string {
   if (!iso) return "20250101";
   return iso.replace(/-/g, "").slice(0, 8);
@@ -257,13 +301,14 @@ async function tedSearch(query: string): Promise<Record<string, unknown>[]> {
   return Array.isArray(json?.notices) ? json.notices : [];
 }
 
-function mapNotice(n: Record<string, unknown>, opts?: { force?: boolean }): Bando | null {
+function mapNotice(n: Record<string, unknown>, opts?: { force?: boolean; keyword?: KeywordRicerca }): Bando | null {
   const pub = String(n["publication-number"] || "").trim();
   if (!pub) return null;
   const titleRaw = pickLang(n["notice-title"]) || "Titolo non disponibile";
   const titolo = cleanTitle(titleRaw);
   const cpvs = uniqueCpvs(n["classification-cpv"]);
-  if (!opts?.force && !isBrokeraggio(`${titolo} ${titleRaw}`, cpvs)) return null;
+  const keyword = opts?.keyword ?? "brokeraggio";
+  if (!opts?.force && !matchesKeyword(`${titolo} ${titleRaw}`, cpvs, keyword)) return null;
 
   const ente = pickLang(n["buyer-name"]) || "Ente non specificato";
   const pubIso = toIsoDate(firstString(n["publication-date"]));
@@ -297,7 +342,7 @@ function mapNotice(n: Record<string, unknown>, opts?: { force?: boolean }): Band
     stato,
     dataPublicazione: pubIso,
     link: html,
-    categoria: cpvs.includes(CPV_BROKER) ? "Brokeraggio assicurativo" : "Servizi assicurativi",
+    categoria: categoriaDaKeyword(`${titolo} ${titleRaw}`, cpvs),
     scheda_id: pub,
     cig: null,
     localita,
@@ -372,9 +417,10 @@ function regioneFromText(text: string, regioni: string[]): string | null {
 
 function hitToBando(hit: WebHit, i: number, regioni: string[]): Bando {
   const id = schedaIdFromUrl(hit.url) || `mondo-${i}`;
+  const titolo = (hit.title || "Titolo non disponibile").slice(0, 300);
   return {
     id,
-    titolo: (hit.title || "Titolo non disponibile").slice(0, 300),
+    titolo,
     ente: "Scheda Mondo Appalti",
     ente_tipo: null,
     importo: null,
@@ -382,7 +428,7 @@ function hitToBando(hit: WebHit, i: number, regioni: string[]): Bando {
     stato: "aperto",
     dataPublicazione: "",
     link: hit.url,
-    categoria: "Brokeraggio assicurativo",
+    categoria: categoriaDaKeyword(`${titolo} ${hit.snippet || ""}`, []),
     scheda_id: id,
     cig: null,
     localita: null,
@@ -481,7 +527,7 @@ async function extractMondoBandi(hits: WebHit[], filtri: Filtri): Promise<Bando[
     "Estrai SOLO bandi reali da Mondo Appalti. Non inventare CIG, importi, enti. " +
     "Rispondi SOLO con un JSON array: scheda_id, oggetto, stazione_appaltante, localita, regione, importo, scadenza (dd/MM/yyyy), cig, link, pdf_url, tipo_avviso (gara|esito), aggiudicatario, servizio_da (yyyy-mm-dd), servizio_a (yyyy-mm-dd), tipo_procedura.";
   const user =
-    `Keyword: brokeraggio assicurativo` +
+    `Keyword: ${frasiKeyword(filtri.keyword).join(" | ")}` +
     (filtri.regioni.length ? `; regioni: ${filtri.regioni.join(", ")}` : "") +
     `.\n\nRISULTATI:\n${JSON.stringify(hits.slice(0, 20), null, 2)}`;
   const resp = await aiChatCompletions({
@@ -507,7 +553,7 @@ async function extractMondoBandi(hits: WebHit[], filtri: Filtri): Promise<Bando[
       stato: "aperto",
       dataPublicazione: "",
       link: link || null,
-      categoria: "Brokeraggio assicurativo",
+      categoria: categoriaDaKeyword(String(b.oggetto || b.titolo || ""), []),
       scheda_id: id,
       cig: typeof b.cig === "string" ? b.cig : null,
       localita: typeof b.localita === "string" ? b.localita : null,
@@ -532,12 +578,21 @@ async function searchMondoAppalti(filtri: Filtri): Promise<Bando[]> {
     console.error("mondoappalti: manca TAVILY_API_KEY / SERPER_API_KEY");
     throw new Error("Ricerca su Mondo Appalti non disponibile. Riprova più tardi.");
   }
-  const q = [
-    "brokeraggio assicurativo bando gara",
-    filtri.regioni.length ? filtri.regioni.join(" ") : "Italia",
-  ].join(" ");
-  let hits = filterMondoHits(await searchTavilyMondo(q));
-  if (hits.length === 0) hits = filterMondoHits(await searchSerperMondo(q));
+  const seen = new Set<string>();
+  const hits: WebHit[] = [];
+  for (const frase of frasiKeyword(filtri.keyword)) {
+    const q = [
+      `${frase} bando gara`,
+      filtri.regioni.length ? filtri.regioni.join(" ") : "Italia",
+    ].join(" ");
+    let batch = filterMondoHits(await searchTavilyMondo(q));
+    if (batch.length === 0) batch = filterMondoHits(await searchSerperMondo(q));
+    for (const h of batch) {
+      if (seen.has(h.url)) continue;
+      seen.add(h.url);
+      hits.push(h);
+    }
+  }
   if (hits.length === 0) return [];
 
   const extracted = await extractMondoBandi(hits, filtri).catch((e) => {
@@ -552,17 +607,34 @@ async function searchMondoAppalti(filtri: Filtri): Promise<Bando[]> {
 
 async function searchInfordatFonte(filtri: Filtri): Promise<Bando[]> {
   const { searchInfordat } = await import("../_shared/infordatBandi.ts");
-  const mapped = await searchInfordat({ regioni: filtri.regioni });
+  const mapped = await searchInfordat({
+    regioni: filtri.regioni,
+    keyword: frasiKeyword(filtri.keyword).join(" "),
+    mode: filtri.keyword,
+  });
   return applyFiltri(mapped, filtri).slice(0, 30);
 }
 
 async function searchTed(filtri: Filtri): Promise<Bando[]> {
   const da = tedDate(filtri.dataDa || "2025-01-01");
   const aClause = filtri.dataA ? ` AND publication-date<=${tedDate(filtri.dataA)}` : "";
-  const queries = [
-    `(FT~"brokeraggio assicurativo" OR FT~"broker assicurativo" OR FT~"intermediazione assicurativa") AND buyer-country=ITA AND publication-date>=${da}${aClause} SORT BY publication-date DESC`,
-    `classification-cpv=${CPV_BROKER} AND buyer-country=ITA AND publication-date>=${da}${aClause} SORT BY publication-date DESC`,
-  ];
+  const queries: string[] = [];
+  if (wantBrokeraggio(filtri.keyword)) {
+    queries.push(
+      `(FT~"brokeraggio assicurativo" OR FT~"broker assicurativo" OR FT~"intermediazione assicurativa") AND buyer-country=ITA AND publication-date>=${da}${aClause} SORT BY publication-date DESC`,
+    );
+    queries.push(
+      `classification-cpv=${CPV_BROKER} AND buyer-country=ITA AND publication-date>=${da}${aClause} SORT BY publication-date DESC`,
+    );
+  }
+  if (wantServizi(filtri.keyword)) {
+    queries.push(
+      `(FT~"servizi assicurativi" OR FT~"servizi di assicurazione") AND buyer-country=ITA AND publication-date>=${da}${aClause} SORT BY publication-date DESC`,
+    );
+    queries.push(
+      `classification-cpv=${CPV_SERVIZI} AND buyer-country=ITA AND publication-date>=${da}${aClause} SORT BY publication-date DESC`,
+    );
+  }
 
   console.log("cerca-bandi ted", filtri);
 
@@ -571,7 +643,7 @@ async function searchTed(filtri: Filtri): Promise<Bando[]> {
   const mapped: Bando[] = [];
   for (const batch of batches) {
     for (const notice of batch) {
-      const bando = mapNotice(notice);
+      const bando = mapNotice(notice, { keyword: filtri.keyword });
       if (!bando || seen.has(bando.id)) continue;
       seen.add(bando.id);
       mapped.push(bando);
@@ -603,7 +675,7 @@ function applyFiltri(bandi: Bando[], filtri: Filtri): Bando[] {
 async function enrichFromTed(schedaId: string): Promise<Bando | null> {
   const notices = await tedSearch(`publication-number=${schedaId}`);
   for (const n of notices) {
-    const mapped = mapNotice(n) || mapNotice(n, { force: true });
+        const mapped = mapNotice(n, { force: true });
     if (mapped) return mapped;
   }
   return null;
@@ -688,6 +760,7 @@ Deno.serve(async (req) => {
       dataDa: body.dataDa,
       dataA: body.dataA,
       statoBando: body.statoBando,
+      keyword: parseKeywordRicerca(body.keyword),
     };
     const fonti = fontiRichieste(body.fonte);
     const jobs = fonti.map(async (fonte) => {

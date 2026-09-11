@@ -57,6 +57,18 @@ import {
   type FonteRicerca,
 } from "@/lib/bandiFonti";
 import {
+  FILTRI_KEYWORD_LISTA,
+  KEYWORD_BROKERAGGIO,
+  KEYWORD_RICERCA_DEFAULT,
+  KEYWORDS_RICERCA,
+  keywordDaTesto,
+  labelKeywordRicerca,
+  matchesFiltroKeyword,
+  parseKeywordRicerca,
+  type FiltroKeywordLista,
+  type KeywordRicerca,
+} from "@/lib/bandiKeywords";
+import {
   FILTRI_PIPELINE_BANDI,
   FILTRI_PIPELINE_LISTA_PRINCIPALE,
   buildBandoSnapshot,
@@ -118,8 +130,6 @@ const regioniItaliane = [
   "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto",
 ];
 
-const KEYWORD_FISSA = "Brokeraggio assicurativo";
-
 const statoBadgeVariant = (stato: string) => {
   switch (stato) {
     case "aperto": return "default";
@@ -160,7 +170,7 @@ async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
         regione: b.regione || null,
         stato: aggiudicato ? "scaduto" : (b.stato || "aperto"),
         pdf_url: b.pdf_url || null,
-        keyword: keyword,
+        keyword: b.keyword || b.categoria || keyword,
         fonte: resolveFonteBando(b.fonte, b.link),
         tipo_avviso: b.tipo_avviso || (aggiudicato ? "esito" : "gara"),
         notice_type: b.notice_type || null,
@@ -294,7 +304,9 @@ export default function BandiPubbliciPage() {
   const [showFilters, setShowFilters] = useState(true);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [fonte, setFonte] = useState<FonteRicerca>("tutte");
+  const [keywordRicerca, setKeywordRicerca] = useState<KeywordRicerca>(KEYWORD_RICERCA_DEFAULT);
   const [filtroFonte, setFiltroFonte] = useState<FiltroFonteLista>("tutte");
+  const [filtroKeyword, setFiltroKeyword] = useState<FiltroKeywordLista>("tutte");
   const [filtroPipeline, setFiltroPipeline] = useState<FiltroPipelineBando>(
     isPartecipati ? "voglio_partecipare" : "da_valutare",
   );
@@ -435,6 +447,7 @@ export default function BandiPubbliciPage() {
         dataDa: dataDa ? format(dataDa, "yyyy-MM-dd") : undefined,
         dataA: dataA ? format(dataA, "yyyy-MM-dd") : undefined,
         fonte,
+        keyword: keywordRicerca,
       };
 
       const { data, error } = await supabase.functions.invoke("cerca-bandi", {
@@ -454,7 +467,13 @@ export default function BandiPubbliciPage() {
         setRisultatiLive(bandi);
         if (bandi.length > 0) {
           try {
-            await upsertBandiToDB(bandi, KEYWORD_FISSA);
+            await upsertBandiToDB(
+              bandi.map((b) => ({
+                ...b,
+                keyword: b.keyword || b.categoria || keywordDaTesto(`${b.titolo} ${b.categoria || ""}`),
+              })),
+              KEYWORD_BROKERAGGIO,
+            );
             const prospectCount = await autoCreateProspects(
               bandi.filter((b) => !isEnteBandoGenerico(b.ente)),
               profile?.ufficio_id,
@@ -498,13 +517,15 @@ export default function BandiPubbliciPage() {
     setSearchError(null);
     setProgressMsg("");
     setElapsedSeconds(0);
+    setKeywordRicerca(KEYWORD_RICERCA_DEFAULT);
+    setFiltroKeyword("tutte");
   };
 
   const openCreaTrattativaDialog = async (bando: any) => {
     setSelectedBando(bando);
     setExistingTrattative([]);
     // Pre-fill fields
-    setTrattativaProdotto(bando.keyword || KEYWORD_FISSA);
+    setTrattativaProdotto(bando.keyword || KEYWORD_BROKERAGGIO);
     setTrattativaPremio(bando.importo ? String(bando.importo) : "");
     setTrattativaScadenza(bando.scadenza || "");
     const noteLines = [
@@ -723,10 +744,16 @@ export default function BandiPubbliciPage() {
       : `${regioniSelezionate.length} region${regioniSelezionate.length === 1 ? 'e' : 'i'}`;
 
   const bandiByFonte = useMemo(
-    () => bandiDB.filter((b: { fonte?: string | null; link?: string | null }) =>
-      matchesFiltroFonte(b.fonte, b.link, filtroFonte),
+    () => bandiDB.filter((b: {
+      fonte?: string | null;
+      link?: string | null;
+      keyword?: string | null;
+      titolo?: string | null;
+    }) =>
+      matchesFiltroFonte(b.fonte, b.link, filtroFonte) &&
+      matchesFiltroKeyword(b.keyword, b.titolo, filtroKeyword),
     ),
-    [bandiDB, filtroFonte],
+    [bandiDB, filtroFonte, filtroKeyword],
   );
 
   const displayBandi = useMemo(
@@ -809,7 +836,7 @@ export default function BandiPubbliciPage() {
           <p className="text-muted-foreground">
             {isPartecipati
               ? "Bandi su cui vuoi partecipare, prima della trattativa"
-              : `Ricerca bandi e gare d'appalto — ${KEYWORD_FISSA}`}
+              : `Ricerca bandi e gare d'appalto — ${labelKeywordRicerca(keywordRicerca)}`}
           </p>
         </div>
         {!isPartecipati && (
@@ -873,7 +900,17 @@ export default function BandiPubbliciPage() {
             </div>
             <div className="flex items-center gap-2">
               <Label className="whitespace-nowrap">Keyword:</Label>
-              <Badge variant="secondary" className="text-sm py-1 px-3">{KEYWORD_FISSA}</Badge>
+              <Select
+                value={keywordRicerca}
+                onValueChange={(v) => setKeywordRicerca(parseKeywordRicerca(v))}
+              >
+                <SelectTrigger className="w-[280px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {KEYWORDS_RICERCA.map((k) => (
+                    <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -1036,24 +1073,45 @@ export default function BandiPubbliciPage() {
                 {displayBandi.length} bando/i
                 {filtroFonte === "tutte" ? " in questa lista" : ` da ${labelFonteBando(filtroFonte)}`}
               </p>
-              <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5" role="tablist" aria-label="Filtro fonte bandi">
-                {FILTRI_FONTE_LISTA.map((f) => (
-                  <button
-                    key={f.value}
-                    type="button"
-                    role="tab"
-                    aria-selected={filtroFonte === f.value}
-                    onClick={() => setFiltroFonte(f.value)}
-                    className={cn(
-                      "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                      filtroFonte === f.value
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {f.label}
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5" role="tablist" aria-label="Filtro fonte bandi">
+                  {FILTRI_FONTE_LISTA.map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={filtroFonte === f.value}
+                      onClick={() => setFiltroFonte(f.value)}
+                      className={cn(
+                        "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                        filtroFonte === f.value
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5" role="tablist" aria-label="Filtro keyword bandi">
+                  {FILTRI_KEYWORD_LISTA.map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={filtroKeyword === f.value}
+                      onClick={() => setFiltroKeyword(f.value)}
+                      className={cn(
+                        "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                        filtroKeyword === f.value
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             {!isPartecipati && (
@@ -1169,7 +1227,7 @@ export default function BandiPubbliciPage() {
                   )}
                   {(bando.servizio_da || bando.servizio_a) && (
                     <div>
-                      <span className="text-muted-foreground">Servizio brokeraggio: </span>
+                      <span className="text-muted-foreground">Periodo servizio: </span>
                       <span className="font-medium">
                         {[fmtData(bando.servizio_da), fmtData(bando.servizio_a)].filter(Boolean).join(" – ")}
                       </span>
@@ -1391,7 +1449,7 @@ export default function BandiPubbliciPage() {
                 <div className="flex gap-2 mt-1">
                   <Badge variant="secondary" className="text-xs gap-1">
                     <Tag className="h-3 w-3" />
-                    {selectedBando.keyword || KEYWORD_FISSA}
+                    {selectedBando.keyword || KEYWORD_BROKERAGGIO}
                   </Badge>
                   <Badge variant="outline" className="text-xs">Fonte: {labelFonteBando(resolveFonteBando(selectedBando.fonte, selectedBando.link))}</Badge>
                 </div>

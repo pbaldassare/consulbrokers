@@ -273,6 +273,8 @@ function findSearchAction(html: string): { action: string; fields: Record<string
 
 export async function searchInfordat(filtri: {
   regioni: string[];
+  keyword?: string;
+  mode?: "brokeraggio" | "servizi" | "entrambe";
 }): Promise<InfordatBando[]> {
   const { user, pass } = await loadInfordatCredentials();
   const jar = new CookieJar();
@@ -281,7 +283,7 @@ export async function searchInfordat(filtri: {
   pages.push(await request(jar, `${BASE}/account`));
   pages.push(await request(jar, `${BASE}/account/listaemail?tutte=true&gare=true`));
 
-  const keyword = "brokeraggio assicurativo";
+  const keyword = (filtri.keyword || "brokeraggio assicurativo").trim();
   for (const html of [...pages]) {
     const search = findSearchAction(html);
     if (!search) continue;
@@ -314,6 +316,11 @@ export async function searchInfordat(filtri: {
     }
   }
 
-  const broker = mapped.filter((b) => BROKER_RE.test(`${b.titolo} ${b.ente} ${b.categoria}`));
-  return (broker.length ? broker : mapped).slice(0, 40);
+  const BROKER_ONLY = /brokeraggio|broker assicur|intermediazione assicur/i;
+  const filtered = mapped.filter((b) => {
+    const hay = `${b.titolo} ${b.ente} ${b.categoria}`;
+    if (filtri.mode === "brokeraggio") return BROKER_ONLY.test(hay);
+    return BROKER_RE.test(hay);
+  });
+  return (filtered.length ? filtered : mapped).slice(0, 40);
 }
