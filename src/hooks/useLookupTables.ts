@@ -51,6 +51,29 @@ export function useLookupFasceFatturato() { return useLookupOrdered("lookup_fasc
 export function useLookupFasceDipendenti() { return useLookupOrdered("lookup_fasce_dipendenti"); }
 export function useLookupTipologiaVeicolo() { return useLookup("lookup_tipologia_veicolo"); }
 
+export function useTitoliNidificazione() {
+  return useQuery({
+    queryKey: ["lookup", "lookup_titoli_nidificazione"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lookup_titoli_nidificazione" as never)
+        .select("codice, descrizione, preposizione, categoria, attivo")
+        .eq("attivo", true)
+        .order("categoria")
+        .order("descrizione");
+      if (error) throw error;
+      return (data || []) as {
+        codice: string;
+        descrizione: string;
+        preposizione: string;
+        categoria: "incarico" | "familiare" | "societario";
+        attivo: boolean;
+      }[];
+    },
+    staleTime: 300000 * 60 * 30,
+  });
+}
+
 export function useGruppiStatistici() {
   return useQuery<LookupOption[]>({
     queryKey: ["lookup", "gruppi_statistici"],

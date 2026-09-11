@@ -10,6 +10,7 @@ import {
   Wallet,
   Mail,
   Wand2,
+  GitBranch,
   LucideIcon,
 } from "lucide-react";
 
@@ -22,6 +23,7 @@ interface ActionCard {
 
 const actions: ActionCard[] = [
   { label: "Titoli da incassare", description: "Estrazione per competenza con Excel pivot e report PDF", icon: Wallet, path: "/portafoglio/estrazioni/titoli-da-incassare" },
+  { label: "Nidificazione", description: "Albero clienti: incarichi, titoli familiari e rapporti societari", icon: GitBranch, path: "/portafoglio/estrazioni/nidificazione" },
   { label: "Portafoglio per Cliente", description: "Portafoglio per cliente con Excel pivot e report PDF", icon: Users, path: "/portafoglio/estrazioni/per-cliente" },
   { label: "Portafoglio per Agenzia", description: "Portafoglio per agenzia con Excel pivot e report PDF", icon: Building2, path: "/portafoglio/estrazioni/per-compagnia" },
   { label: "Premi e Provvigioni", description: "Titoli incassati — 36 colonne, pivot e report PDF", icon: DollarSign, path: "/portafoglio/estrazioni/premi-provvigioni" },

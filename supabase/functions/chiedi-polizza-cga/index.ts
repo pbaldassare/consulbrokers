@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
 
     const { data: polizza, error: errP } = await supabase
       .from("polizza_cga")
-      .select("id, sommario_personalizzato, prodotto_id, prodotti_cga:prodotto_id(nome_prodotto, compagnia, ramo, edizione, sommario_ai)")
+      .select("id, sommario_personalizzato, forma_copertura, forma_copertura_note, prodotto_id, prodotti_cga:prodotto_id(nome_prodotto, compagnia, ramo, edizione, sommario_ai, forma_copertura)")
       .eq("id", polizza_cga_id)
       .maybeSingle();
     if (errP || !polizza) {
@@ -41,25 +41,47 @@ Deno.serve(async (req) => {
       });
     }
 
-    const [{ data: garPers }, { data: garProd }, { data: cond }] = await Promise.all([
+    const [
+      { data: garPers },
+      { data: garProd },
+      { data: cond },
+      { data: partite },
+      { data: beniEsclusi },
+      { data: esclusioni },
+      { data: sottolimiti },
+      { data: premioCalcolo },
+    ] = await Promise.all([
       supabase.from("polizza_garanzie_personali").select("*").eq("polizza_cga_id", polizza_cga_id),
       supabase.from("prodotti_garanzie").select("*").eq("prodotto_id", polizza.prodotto_id),
       supabase.from("prodotti_condizioni").select("*").eq("prodotto_id", polizza.prodotto_id),
+      supabase.from("polizza_partite").select("*").eq("polizza_cga_id", polizza_cga_id).order("numero"),
+      supabase.from("polizza_beni_esclusi").select("*").eq("polizza_cga_id", polizza_cga_id),
+      supabase.from("polizza_esclusioni").select("*").eq("polizza_cga_id", polizza_cga_id),
+      supabase.from("polizza_sottolimiti").select("*").eq("polizza_cga_id", polizza_cga_id),
+      supabase.from("polizza_premio_calcolo").select("*").eq("polizza_cga_id", polizza_cga_id),
     ]);
 
     const contesto = {
       prodotto: polizza.prodotti_cga,
       sommario_personalizzato_cliente: polizza.sommario_personalizzato,
+      forma_copertura: polizza.forma_copertura,
+      forma_copertura_note: polizza.forma_copertura_note,
       garanzie_standard_prodotto: garProd ?? [],
       garanzie_personalizzate_cliente: garPers ?? [],
       condizioni_prodotto: cond ?? [],
+      partite: partite ?? [],
+      beni_esclusi: beniEsclusi ?? [],
+      esclusioni: esclusioni ?? [],
+      sottolimiti: sottolimiti ?? [],
+      premio_calcolo: premioCalcolo ?? [],
     };
 
     const messages = [
       {
         role: "system",
         content:
-          "Sei un assistente esperto di polizze assicurative italiane. Rispondi SOLO usando il contesto JSON fornito (dati già estratti dalla CGA). Non inventare nulla. " +
+          "Sei un assistente esperto di polizze assicurative italiane. Rispondi SOLO usando il contesto JSON fornito (dati già estratti dalla CGA/certificato). Non inventare nulla. " +
+          "Usa partite, somme assicurate, forma di copertura, beni esclusi, esclusioni, sottolimiti e calcolo premio se presenti. " +
           "Quando una garanzia ha override personalizzato, dai priorità a quello e indica esplicitamente la fonte: '(dato personalizzato)' o '(dato di prodotto)'. " +
           "Se l'informazione non è nel contesto, rispondi che non è presente nei dati estratti.",
       },

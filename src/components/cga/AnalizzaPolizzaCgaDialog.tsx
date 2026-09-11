@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sparkles, Loader2, FileText } from "lucide-react";
 import { toast } from "sonner";
+import EstrazioneTecnicaPreview from "@/components/cga/EstrazioneTecnicaPreview";
+import { persistEstrazioneTecnica, type EstrazioneTecnicaExtracted } from "@/lib/polizzaEstrazioneTecnica";
 
 type Props = {
   clienteId: string;
@@ -103,7 +105,14 @@ type ExtractedData = {
     premio_lordo_totale?: number;
     premio_rata_sottoscrizione_lordo?: number;
     premio_rate_successive_lordo?: number;
+    forma_copertura?: string;
+    forma_copertura_note?: string;
   };
+  partite?: EstrazioneTecnicaExtracted["partite"];
+  beni_esclusi?: EstrazioneTecnicaExtracted["beni_esclusi"];
+  esclusioni_polizza?: EstrazioneTecnicaExtracted["esclusioni_polizza"];
+  sottolimiti?: EstrazioneTecnicaExtracted["sottolimiti"];
+  premio_calcolo?: EstrazioneTecnicaExtracted["premio_calcolo"];
   garanzie_personali?: Array<{
     garanzia: string;
     massimale_personalizzato?: number;
@@ -336,6 +345,8 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
         premio_lordo_totale: dp.premio_lordo_totale ?? null,
         premio_rata_sottoscrizione_lordo: dp.premio_rata_sottoscrizione_lordo ?? null,
         premio_rate_successive_lordo: dp.premio_rate_successive_lordo ?? null,
+        forma_copertura: dp.forma_copertura ?? p.forma_copertura ?? null,
+        forma_copertura_note: dp.forma_copertura_note ?? null,
         stato,
         approvato_da: stato === "approvato" ? user?.id : null,
         approvato_at: stato === "approvato" ? new Date().toISOString() : null,
@@ -372,6 +383,8 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
           }))
         );
       }
+
+      await persistEstrazioneTecnica(supabase as never, pc.id, extracted);
     },
     onSuccess: () => {
       toast.success("Polizza CGA salvata");
@@ -405,7 +418,7 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
             Analizza Polizza CGA
           </DialogTitle>
           <DialogDescription>
-            Carica il PDF delle Condizioni Generali. L'AI estrarrà dati di prodotto, anagrafica polizza, intermediario e composizione del premio.
+            Carica il PDF della polizza/CGA. L&apos;AI estrae prodotto, anagrafica, partite, somme assicurate, esclusioni, beni esclusi, sottolimiti e calcolo premio.
           </DialogDescription>
         </DialogHeader>
 
@@ -573,6 +586,8 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
                   </CardContent>
                 </Card>
               )}
+
+              <EstrazioneTecnicaPreview extracted={extracted} />
 
               {/* Override garanzie personali */}
               {!!extracted.garanzie_personali?.length && (
