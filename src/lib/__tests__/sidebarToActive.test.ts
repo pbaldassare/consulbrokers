@@ -16,4 +16,11 @@ describe("isSidebarToActive", () => {
     expect(isSidebarToActive({ pathname: "/portafoglio/documentale", search: "" }, archivio)).toBe(true);
     expect(isSidebarToActive({ pathname: "/portafoglio/documentale", search: "?tab=libreria-cga" }, archivio)).toBe(true);
   });
+
+  it("non accende Trattative su Storico Gare se end è true", () => {
+    const loc = { pathname: "/trattative/storico-gare", search: "" };
+    expect(isSidebarToActive(loc, "/trattative", true)).toBe(false);
+    expect(isSidebarToActive(loc, "/trattative/storico-gare")).toBe(true);
+    expect(isSidebarToActive({ pathname: "/trattative", search: "" }, "/trattative", true)).toBe(true);
+  });
 });

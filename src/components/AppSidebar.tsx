@@ -93,6 +93,8 @@ interface SidebarSingleItem {
   hasBadge?: boolean;
   hideForRoles?: string[];
   showForRoles?: string[];
+  /** Match esatto del path (non i sotto-path). */
+  end?: boolean;
 }
 
 type SidebarEntry =
@@ -139,15 +141,13 @@ const sidebarEntries: SidebarEntry[] = [
     },
   },
   {
-    type: "group",
-    group: {
+    type: "single",
+    item: {
       label: "Trattative",
+      path: "/trattative",
       icon: ArrowRightLeft,
       permissionKey: "trattative",
-      children: [
-        { label: "Trattative", path: "/trattative", icon: ArrowRightLeft },
-        { label: "Storico Gare", path: "/trattative/storico-gare", icon: Landmark },
-      ],
+      end: true,
     },
   },
   {
@@ -159,6 +159,7 @@ const sidebarEntries: SidebarEntry[] = [
       children: [
         { label: "Bandi Pubblici", path: "/bandi-pubblici", icon: Landmark },
         { label: "Bandi partecipati", path: "/bandi-pubblici/partecipati", icon: Heart },
+        { label: "Storico Gare", path: "/trattative/storico-gare", icon: Archive },
       ],
     },
   },
@@ -386,9 +387,9 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
               <RouterNavLink
                 key={item.path}
                 to={item.path}
-                end={item.path === "/"}
+                end={item.end || item.path === "/"}
                 className={() => {
-                  const isActive = isSidebarToActive(location, item.path, item.path === "/");
+                  const isActive = isSidebarToActive(location, item.path, item.end || item.path === "/");
                   return `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 mb-0.5 ${
                     isActive
                       ? "bg-white/15 text-white shadow-sm backdrop-blur-sm"
