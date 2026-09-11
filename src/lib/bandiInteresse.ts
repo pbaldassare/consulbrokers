@@ -9,6 +9,15 @@ export const FILTRI_PIPELINE_BANDI = [
   { value: "tutti", label: "Tutti" },
 ] as const;
 
+/** Filtri sulla lista principale: «Voglio partecipare» vive in Bandi partecipati. */
+export const FILTRI_PIPELINE_LISTA_PRINCIPALE = FILTRI_PIPELINE_BANDI.filter(
+  (f) => f.value !== "voglio_partecipare",
+);
+
+export function isBandiPartecipatiPath(pathname: string): boolean {
+  return pathname === "/bandi-pubblici/partecipati";
+}
+
 export type FiltroPipelineBando = (typeof FILTRI_PIPELINE_BANDI)[number]["value"];
 
 export type BandoInteresseRow = {

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -57,8 +58,10 @@ import {
 } from "@/lib/bandiFonti";
 import {
   FILTRI_PIPELINE_BANDI,
+  FILTRI_PIPELINE_LISTA_PRINCIPALE,
   buildBandoSnapshot,
   effectiveEsitoBando,
+  isBandiPartecipatiPath,
   labelEsitoBando,
   matchesFiltroPipeline,
   normalizeBandoInteresse,
@@ -205,6 +208,9 @@ async function logRicerca(
 export default function BandiPubbliciPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isPartecipati = isBandiPartecipatiPath(pathname);
 
   const [regioniSelezionate, setRegioniSelezionate] = useState<string[]>([]);
   const [importoMin, setImportoMin] = useState("");
@@ -219,7 +225,13 @@ export default function BandiPubbliciPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [fonte, setFonte] = useState<FonteRicerca>("entrambe");
   const [filtroFonte, setFiltroFonte] = useState<FiltroFonteLista>("tutte");
-  const [filtroPipeline, setFiltroPipeline] = useState<FiltroPipelineBando>("da_valutare");
+  const [filtroPipeline, setFiltroPipeline] = useState<FiltroPipelineBando>(
+    isPartecipati ? "voglio_partecipare" : "da_valutare",
+  );
+
+  useEffect(() => {
+    setFiltroPipeline(isPartecipati ? "voglio_partecipare" : "da_valutare");
+  }, [isPartecipati]);
   const [regioniOpen, setRegioniOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [progressMsg, setProgressMsg] = useState("");
@@ -574,8 +586,9 @@ export default function BandiPubbliciPage() {
         harvest_at: new Date().toISOString(),
         harvest_note: harvestNote,
       });
-      toast.success("Bando spostato in Voglio partecipare");
-      refetchBandi();
+      toast.success("Bando spostato in Bandi partecipati");
+      await refetchBandi();
+      navigate("/bandi-pubblici/partecipati");
     } catch (err: any) {
       console.error("Errore voglio partecipare:", err);
       toast.error(err.message || "Impossibile salvare la decisione");
@@ -663,6 +676,12 @@ export default function BandiPubbliciPage() {
   }, [bandiByFonte]);
 
   const emptyListaMsg = (() => {
+    if (isPartecipati) {
+      return {
+        title: "Nessun bando partecipato",
+        hint: "Dalla lista Bandi Pubblici clicca «Voglio partecipare» per spostarlo qui.",
+      };
+    }
     if (bandiDB.length === 0) {
       return hasSearched
         ? { title: "Nessun bando trovato", hint: "Prova ad allargare i filtri o un'altra regione." }
@@ -672,7 +691,7 @@ export default function BandiPubbliciPage() {
     return {
       title: `Nessun bando in «${label}»`,
       hint: filtroPipeline === "da_valutare"
-        ? "I bandi scartati o già scelti sono nelle altre liste. Puoi recuperarli da Non partecipo."
+        ? "I bandi scartati sono in Non partecipo. Quelli su cui vuoi partecipare sono in Bandi partecipati."
         : "Cambia lista o fonte per vedere altri bandi.",
     };
   })();
@@ -680,11 +699,16 @@ export default function BandiPubbliciPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
-        <Landmark className="h-8 w-8 text-primary" />
+        {isPartecipati ? <Heart className="h-8 w-8 text-primary" /> : <Landmark className="h-8 w-8 text-primary" />}
         <div>
-          <h1 className="text-3xl font-bold">Bandi Pubblici</h1>
-          <p className="text-muted-foreground">Ricerca bandi e gare d'appalto — {KEYWORD_FISSA}</p>
+          <h1 className="text-3xl font-bold">{isPartecipati ? "Bandi partecipati" : "Bandi Pubblici"}</h1>
+          <p className="text-muted-foreground">
+            {isPartecipati
+              ? "Bandi su cui vuoi partecipare, prima della trattativa"
+              : `Ricerca bandi e gare d'appalto — ${KEYWORD_FISSA}`}
+          </p>
         </div>
+        {!isPartecipati && (
         <div className="ml-auto flex items-center gap-3">
           {apiCallCount > 0 && (
             <Badge variant="outline" className="gap-1.5 py-1">
@@ -697,9 +721,10 @@ export default function BandiPubbliciPage() {
             Ricerche recenti
           </Button>
         </div>
+        )}
       </div>
 
-      {showStoria && ricercheRecenti.length > 0 && (
+      {!isPartecipati && showStoria && ricercheRecenti.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Ultime ricerche</CardTitle>
@@ -728,7 +753,7 @@ export default function BandiPubbliciPage() {
         </Card>
       )}
 
-      <Card>
+      {!isPartecipati && <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
@@ -862,10 +887,10 @@ export default function BandiPubbliciPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Loading / Error states during live search */}
-      {loading && (
+      {!isPartecipati && loading && (
         <Card>
           <CardContent className="py-16 text-center space-y-4">
             <div className="flex items-center justify-center gap-3">
@@ -888,7 +913,7 @@ export default function BandiPubbliciPage() {
         </Card>
       )}
 
-      {!loading && searchError && (
+      {!isPartecipati && !loading && searchError && (
         <Card>
           <CardContent className="py-16 text-center">
             <Search className="mx-auto h-16 w-16 text-destructive/30 mb-4" />
@@ -927,8 +952,9 @@ export default function BandiPubbliciPage() {
                 ))}
               </div>
             </div>
+            {!isPartecipati && (
             <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5 w-fit" role="tablist" aria-label="Lista interesse bandi">
-              {FILTRI_PIPELINE_BANDI.map((f) => (
+              {FILTRI_PIPELINE_LISTA_PRINCIPALE.map((f) => (
                 <button
                   key={f.value}
                   type="button"
@@ -947,6 +973,7 @@ export default function BandiPubbliciPage() {
                 </button>
               ))}
             </div>
+            )}
           </div>
           {displayBandi.map((bando: any) => {
             const esito = effectiveEsitoBando(bando.interesse, bando.trattative_count);

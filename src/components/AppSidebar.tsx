@@ -61,6 +61,7 @@ import {
   Wand2,
   Target,
   Bot,
+  Heart,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isSidebarToActive } from "@/lib/sidebarToActive";
@@ -149,7 +150,18 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-  { type: "single", item: { label: "Bandi Pubblici", path: "/bandi-pubblici", icon: Landmark, permissionKey: "trattative" } },
+  {
+    type: "group",
+    group: {
+      label: "Bandi Pubblici",
+      icon: Landmark,
+      permissionKey: "trattative",
+      children: [
+        { label: "Bandi Pubblici", path: "/bandi-pubblici", icon: Landmark },
+        { label: "Bandi partecipati", path: "/bandi-pubblici/partecipati", icon: Heart },
+      ],
+    },
+  },
   { type: "single", item: { label: "Opportunity", path: "/opportunity", icon: Target, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Chat", path: "/chat", icon: MessageSquare, permissionKey: "dashboard", hasBadge: true } },
   {

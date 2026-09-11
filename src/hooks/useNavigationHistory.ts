@@ -31,6 +31,8 @@ const ROUTE_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/documentale": "Archivio Documentale",
   "/bandi": "Bandi Pubblici",
+  "/bandi-pubblici": "Bandi Pubblici",
+  "/bandi-pubblici/partecipati": "Bandi partecipati",
 };
 
 function labelFor(fullPath: string): string {

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  FILTRI_PIPELINE_LISTA_PRINCIPALE,
   buildBandoSnapshot,
   effectiveEsitoBando,
   isBandoEsito,
+  isBandiPartecipatiPath,
   labelEsitoBando,
   matchesFiltroPipeline,
   normalizeBandoInteresse,
@@ -45,6 +47,13 @@ describe("bandiInteresse", () => {
     expect(snap.ente).toBe("Provincia di Grosseto");
     expect(snap.stato_gara).toBe("aperto");
     expect(snap.cig).toBe("ABC");
+  });
+
+  it("separa Bandi partecipati dalla lista principale", () => {
+    expect(isBandiPartecipatiPath("/bandi-pubblici/partecipati")).toBe(true);
+    expect(isBandiPartecipatiPath("/bandi-pubblici")).toBe(false);
+    expect(FILTRI_PIPELINE_LISTA_PRINCIPALE.some((f) => f.value === "voglio_partecipare")).toBe(false);
+    expect(FILTRI_PIPELINE_LISTA_PRINCIPALE.some((f) => f.value === "da_valutare")).toBe(true);
   });
 
   it("normalizza interesse da embed 1:1 o array", () => {
