@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, User, Building2, Landmark, Search, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import TitoliNidificazioneTab from "@/pages/tabelle-base/TitoliNidificazioneTab";
 
 const matchSearch = (q: string, fields: (string | null | undefined | number)[]) => {
   const s = (q || "").trim().toLowerCase();
@@ -46,7 +47,8 @@ type LookupTableName =
   | "lookup_fasce_dipendenti"
   | "lookup_tipo_documento"
   | "lookup_conti_incasso"
-  | "lookup_tipologia_veicolo";
+  | "lookup_tipologia_veicolo"
+  | "lookup_titoli_nidificazione";
 
 interface SimpleLookupTabProps {
   tableName: LookupTableName;
@@ -1866,6 +1868,7 @@ const tabConfig: { value: string; label: string; tableName: LookupTableName; que
   { value: "lookup_tipologia_veicolo", label: "Tipologia Veicolo", tableName: "lookup_tipologia_veicolo", queryKey: "lookup-tipologia-veicolo", title: "Tipologia Veicolo" },
   { value: "rca_garanzie", label: "Catalogo Garanzie RCA", tableName: "rca_garanzie", queryKey: "rca-garanzie", title: "Garanzia", custom: "rca_garanzie" },
   { value: "gruppi_statistici", label: "Gruppi Statistici", tableName: "gruppi_statistici", queryKey: "gruppi-statistici", title: "Gruppo Statistico" },
+  { value: "lookup_titoli_nidificazione", label: "Titoli Nidificazione", tableName: "lookup_titoli_nidificazione", queryKey: "lookup-titoli-nidificazione", title: "Titolo Nidificazione", custom: "titoli_nidificazione" },
   { value: "gruppi_finanziari", label: "Gruppi Finanziari", tableName: "gruppi_finanziari", queryKey: "gruppi-finanziari", title: "Gruppo Finanziario", custom: "gruppi_finanziari" },
   { value: "tipi_mandatario", label: "Tipi Mandatario", tableName: "tipi_mandatario", queryKey: "tipi-mandatario", title: "Tipo Mandatario" },
   { value: "tipi_rinnovo", label: "Tipi Rinnovo", tableName: "tipi_rinnovo", queryKey: "tipi-rinnovo", title: "Tipo Rinnovo" },
@@ -1943,6 +1946,8 @@ const TabelleBasePage = () => {
               <CausaliMovTab />
             ) : t.custom === "causali_comp" ? (
               <CausaliCompensazioneTab />
+            ) : t.custom === "titoli_nidificazione" ? (
+              <TitoliNidificazioneTab />
             ) : (
               <SimpleLookupTab tableName={t.tableName} title={t.title} queryKey={t.queryKey} />
             )}
