@@ -4,6 +4,7 @@ import {
   flattenNidificazioneForest,
   formatNidificazionePhrase,
   formatNidificazioneSaveError,
+  garanziaCollegataLabel,
   wouldCreateCycle,
   type ClienteNidificazioneLite,
   type RelazioneNidificazione,
@@ -57,5 +58,11 @@ describe("nidificazione", () => {
       .toMatch(/esiste già/i);
     expect(formatNidificazioneSaveError({ message: "Invalid tipo_relazione: foo" }))
       .toMatch(/non valido/i);
+  });
+
+  it("compone la garanzia collegata da premi, prodotto o ramo", () => {
+    expect(garanziaCollegataLabel(["Incendio", "Furto", "Incendio"])).toBe("Incendio, Furto");
+    expect(garanziaCollegataLabel([], "RCT Enti pubblici", "Responsabilità civile")).toBe("RCT Enti pubblici, Responsabilità civile");
+    expect(garanziaCollegataLabel([])).toBe("—");
   });
 });

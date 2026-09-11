@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft, ChevronDown, FileSpreadsheet, GitBranch } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { ArrowLeft, FileSpreadsheet, GitBranch } from "lucide-react";
 import { toast } from "sonner";
+import { NidificazionePolizzePanel } from "@/components/estrazioni/NidificazionePolizzePanel";
 import { useGruppiStatistici, useTitoliNidificazione } from "@/hooks/useLookupTables";
 import { exportEstrazioneWorkbook } from "@/lib/estrazioni/exportXlsx";
+import { cn } from "@/lib/utils";
 import {
   CATEGORIA_LABEL,
   NIDIFICAZIONE_CATEGORIE,
@@ -30,6 +32,7 @@ export default function NidificazionePage() {
   const [search, setSearch] = useState("");
   const [gruppo, setGruppo] = useState("");
   const [categoria, setCategoria] = useState<string>("tutte");
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["estrazione-nidificazione"],
@@ -107,6 +110,7 @@ export default function NidificazionePage() {
           </h1>
           <p className="text-muted-foreground">
             Albero dei collegamenti tra clienti: incarichi (sindaco di…), titoli familiari (figlio di…) e rapporti societari.
+            Clicca una riga per aprire le polizze (scadenza, numero, agenzia, premio, garanzia).
           </p>
         </div>
         <div className="flex gap-2">
@@ -145,6 +149,7 @@ export default function NidificazionePage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8" />
                 <TableHead>Cliente</TableHead>
                 <TableHead>Nidificazione</TableHead>
                 <TableHead>Categoria</TableHead>
@@ -153,26 +158,44 @@ export default function NidificazionePage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={4} className="text-muted-foreground">Caricamento…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-muted-foreground">Caricamento…</TableCell></TableRow>
               ) : rows.length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="text-muted-foreground">Nessuna nidificazione trovata.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-muted-foreground">Nessuna nidificazione trovata.</TableCell></TableRow>
               ) : (
-                rows.map((r) => (
-                  <TableRow
-                    key={`${r.cliente.id}-${r.phrase || "root"}`}
-                    className="cursor-pointer"
-                    onClick={() => navigate(`/archivi/clienti/${r.cliente.id}`)}
-                  >
-                    <TableCell style={{ paddingLeft: 12 + r.depth * 20 }} className="font-medium">
-                      {clienteDisplayName(r.cliente)}
-                    </TableCell>
-                    <TableCell>{r.phrase || "— radice —"}</TableCell>
-                    <TableCell>
-                      {r.categoria ? <Badge variant="secondary">{CATEGORIA_LABEL[r.categoria]}</Badge> : "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{r.gruppo_statistico || "—"}</TableCell>
-                  </TableRow>
-                ))
+                rows.map((r) => {
+                  const rowKey = `${r.cliente.id}-${r.phrase || "root"}`;
+                  const open = openKey === rowKey;
+                  return (
+                    <Fragment key={rowKey}>
+                      <TableRow
+                        className="cursor-pointer"
+                        data-state={open ? "selected" : undefined}
+                        onClick={() => setOpenKey(open ? null : rowKey)}
+                      >
+                        <TableCell className="w-8 pr-0">
+                          <ChevronDown
+                            className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")}
+                          />
+                        </TableCell>
+                        <TableCell style={{ paddingLeft: 12 + r.depth * 20 }} className="font-medium">
+                          {clienteDisplayName(r.cliente)}
+                        </TableCell>
+                        <TableCell>{r.phrase || "— radice —"}</TableCell>
+                        <TableCell>
+                          {r.categoria ? <Badge variant="secondary">{CATEGORIA_LABEL[r.categoria]}</Badge> : "—"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{r.gruppo_statistico || "—"}</TableCell>
+                      </TableRow>
+                      {open && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={5} className="bg-muted/30 p-0">
+                            <NidificazionePolizzePanel clienteId={r.cliente.id} />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })
               )}
             </TableBody>
           </Table>
