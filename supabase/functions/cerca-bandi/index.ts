@@ -63,7 +63,40 @@ type Bando = {
   regione: string | null;
   pdf_url: string | null;
   fonte: FonteBando;
+  tipo_avviso: "gara" | "esito" | "altro";
+  notice_type: string | null;
+  form_type: string | null;
+  aggiudicato: boolean;
+  aggiudicatario: string | null;
+  data_decisione: string | null;
+  data_contratto: string | null;
+  servizio_da: string | null;
+  servizio_a: string | null;
+  tipo_procedura: string | null;
 };
+
+const TED_FIELDS = [
+  "publication-number",
+  "notice-title",
+  "buyer-name",
+  "total-value",
+  "publication-date",
+  "classification-cpv",
+  "place-of-performance",
+  "deadline-date-lot",
+  "deadline",
+  "deadline-receipt-tender-date-lot",
+  "contract-duration-start-date-lot",
+  "contract-duration-end-date-lot",
+  "winner-selection-status",
+  "winner-name",
+  "winner-decision-date",
+  "contract-conclusion-date",
+  "procedure-type",
+  "notice-type",
+  "form-type",
+  "links",
+];
 
 function fontiRichieste(raw: unknown): FonteBando[] {
   const v = String(raw || "entrambe").toLowerCase();
@@ -112,7 +145,47 @@ function firstString(value: unknown): string | null {
 
 function toIsoDate(raw: string | null): string {
   if (!raw) return "";
-  return raw.slice(0, 10);
+  const m = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : raw.slice(0, 10);
+}
+
+function parsePeriodoDaTitolo(titolo: string): { servizio_da: string | null; servizio_a: string | null } {
+  const m = titolo.match(
+    /dal\s+(\d{1,2})[./-](\d{1,2})[./-](\d{4})\s+al\s+(\d{1,2})[./-](\d{1,2})[./-](\d{4})/i,
+  );
+  if (!m) return { servizio_da: null, servizio_a: null };
+  const pad = (v: string) => v.padStart(2, "0");
+  return {
+    servizio_da: `${m[3]}-${pad(m[2])}-${pad(m[1])}`,
+    servizio_a: `${m[6]}-${pad(m[5])}-${pad(m[4])}`,
+  };
+}
+
+function emptyDettaglio(): Pick<
+  Bando,
+  | "tipo_avviso"
+  | "notice_type"
+  | "form_type"
+  | "aggiudicato"
+  | "aggiudicatario"
+  | "data_decisione"
+  | "data_contratto"
+  | "servizio_da"
+  | "servizio_a"
+  | "tipo_procedura"
+> {
+  return {
+    tipo_avviso: "gara",
+    notice_type: null,
+    form_type: null,
+    aggiudicato: false,
+    aggiudicatario: null,
+    data_decisione: null,
+    data_contratto: null,
+    servizio_da: null,
+    servizio_a: null,
+    tipo_procedura: null,
+  };
 }
 
 function toItDate(iso: string | null): string | null {
@@ -168,18 +241,7 @@ async function tedSearch(query: string): Promise<Record<string, unknown>[]> {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({
       query,
-      fields: [
-        "publication-number",
-        "notice-title",
-        "buyer-name",
-        "total-value",
-        "publication-date",
-        "classification-cpv",
-        "place-of-performance",
-        "deadline-date-lot",
-        "deadline",
-        "links",
-      ],
+      fields: TED_FIELDS,
       limit: 50,
       scope: "ALL",
       paginationMode: "PAGE_NUMBER",
@@ -194,23 +256,35 @@ async function tedSearch(query: string): Promise<Record<string, unknown>[]> {
   return Array.isArray(json?.notices) ? json.notices : [];
 }
 
-function mapNotice(n: Record<string, unknown>): Bando | null {
+function mapNotice(n: Record<string, unknown>, opts?: { force?: boolean }): Bando | null {
   const pub = String(n["publication-number"] || "").trim();
   if (!pub) return null;
   const titleRaw = pickLang(n["notice-title"]) || "Titolo non disponibile";
   const titolo = cleanTitle(titleRaw);
   const cpvs = uniqueCpvs(n["classification-cpv"]);
-  if (!isBrokeraggio(`${titolo} ${titleRaw}`, cpvs)) return null;
+  if (!opts?.force && !isBrokeraggio(`${titolo} ${titleRaw}`, cpvs)) return null;
 
   const ente = pickLang(n["buyer-name"]) || "Ente non specificato";
   const pubIso = toIsoDate(firstString(n["publication-date"]));
-  const deadlineIso = toIsoDate(firstString(n["deadline-date-lot"]) || firstString(n["deadline"]));
+  const deadlineIso = toIsoDate(
+    firstString(n["deadline-date-lot"]) ||
+      firstString(n["deadline-receipt-tender-date-lot"]) ||
+      firstString(n["deadline"]),
+  );
   const { regione, localita } = regioneFromNuts(n["place-of-performance"]);
   const links = (n.links || {}) as Record<string, Record<string, string>>;
   const html = links.html?.ITA || links.html?.ENG || `https://ted.europa.eu/it/notice/-/detail/${pub}`;
   const pdf = links.pdf?.ITA || links.pdf?.ENG || null;
   const oggi = new Date().toISOString().slice(0, 10);
-  const stato = deadlineIso && deadlineIso < oggi ? "scaduto" : "aperto";
+  const formType = firstString(n["form-type"]);
+  const noticeType = firstString(n["notice-type"]);
+  const winnerStatus = firstString(n["winner-selection-status"]);
+  const aggiudicatario = pickLang(n["winner-name"]);
+  const isEsito = formType === "result" || winnerStatus === "selec-w" || !!aggiudicatario;
+  const periodoTitolo = parsePeriodoDaTitolo(titolo);
+  const servizioDa = toIsoDate(firstString(n["contract-duration-start-date-lot"])) || periodoTitolo.servizio_da;
+  const servizioA = toIsoDate(firstString(n["contract-duration-end-date-lot"])) || periodoTitolo.servizio_a;
+  const stato = isEsito || (deadlineIso && deadlineIso < oggi) ? "scaduto" : "aperto";
 
   return {
     id: pub,
@@ -229,6 +303,16 @@ function mapNotice(n: Record<string, unknown>): Bando | null {
     regione,
     pdf_url: pdf,
     fonte: "ted",
+    tipo_avviso: isEsito ? "esito" : "gara",
+    notice_type: noticeType,
+    form_type: formType,
+    aggiudicato: isEsito,
+    aggiudicatario,
+    data_decisione: toIsoDate(firstString(n["winner-decision-date"])) || null,
+    data_contratto: toIsoDate(firstString(n["contract-conclusion-date"])) || null,
+    servizio_da: servizioDa || null,
+    servizio_a: servizioA || null,
+    tipo_procedura: firstString(n["procedure-type"]),
   };
 }
 
@@ -254,16 +338,22 @@ function schedaIdFromUrl(url: string): string {
   }
 }
 
+function isMondoSchedaUrl(url: string): boolean {
+  if (!isMondoUrl(url)) return false;
+  try {
+    const path = new URL(url).pathname;
+    if (/\/(login|account|register|privacy|cookie|servizi|cart|checkout|landing)(\/|$)/i.test(path)) return false;
+    if (/\/(Main|Landing|Servizi|GareAppalti)(\/|$)/i.test(path) && !/scheda/i.test(path)) return false;
+    return /\/(bancadati\/)?scheda\//i.test(path) || /\/Scheda\/\d{5,}/.test(path);
+  } catch {
+    return false;
+  }
+}
+
 function filterMondoHits(hits: WebHit[]): WebHit[] {
-  const skip = /\/(login|account|register|privacy|cookie|servizi|cart|checkout)(\/|$)/i;
   const seen = new Set<string>();
   return hits.filter((h) => {
-    if (!h.url || !isMondoUrl(h.url)) return false;
-    try {
-      if (skip.test(new URL(h.url).pathname)) return false;
-    } catch {
-      return false;
-    }
+    if (!h.url || !isMondoSchedaUrl(h.url)) return false;
     const key = schedaIdFromUrl(h.url);
     if (seen.has(key)) return false;
     seen.add(key);
@@ -298,6 +388,8 @@ function hitToBando(hit: WebHit, i: number, regioni: string[]): Bando {
     regione: regioneFromText(`${hit.title} ${hit.snippet}`, regioni),
     pdf_url: null,
     fonte: "mondoappalti",
+    ...emptyDettaglio(),
+    ...parsePeriodoDaTitolo((hit.title || "") + " " + (hit.snippet || "")),
   };
 }
 
@@ -375,12 +467,18 @@ function parseBandiJson(output: string | null): Record<string, unknown>[] {
 }
 
 async function extractMondoBandi(hits: WebHit[], filtri: Filtri): Promise<Bando[] | null> {
-  const { hasAiCredentials, aiChatCompletions } = await import("../_shared/aiProvider.ts");
+  let ai: { hasAiCredentials: () => boolean; aiChatCompletions: typeof import("../_shared/aiProvider.ts")["aiChatCompletions"] };
+  try {
+    ai = await import("../_shared/aiProvider.ts");
+  } catch {
+    return null;
+  }
+  const { hasAiCredentials, aiChatCompletions } = ai;
   if (!hasAiCredentials()) return null;
   const system =
     "Sei un analista di gare d'appalto italiane per un broker. " +
     "Estrai SOLO bandi reali da Mondo Appalti. Non inventare CIG, importi, enti. " +
-    "Rispondi SOLO con un JSON array: scheda_id, oggetto, stazione_appaltante, localita, regione, importo, scadenza (dd/MM/yyyy), cig, link, pdf_url.";
+    "Rispondi SOLO con un JSON array: scheda_id, oggetto, stazione_appaltante, localita, regione, importo, scadenza (dd/MM/yyyy), cig, link, pdf_url, tipo_avviso (gara|esito), aggiudicatario, servizio_da (yyyy-mm-dd), servizio_a (yyyy-mm-dd), tipo_procedura.";
   const user =
     `Keyword: brokeraggio assicurativo` +
     (filtri.regioni.length ? `; regioni: ${filtri.regioni.join(", ")}` : "") +
@@ -415,6 +513,15 @@ async function extractMondoBandi(hits: WebHit[], filtri: Filtri): Promise<Bando[
       regione: typeof b.regione === "string" ? b.regione : regioneFromText(`${b.oggetto ?? ""} ${b.stazione_appaltante ?? ""}`, filtri.regioni.length ? filtri.regioni : []),
       pdf_url: typeof b.pdf_url === "string" ? b.pdf_url : null,
       fonte: "mondoappalti",
+      ...emptyDettaglio(),
+      tipo_avviso: b.tipo_avviso === "esito" ? "esito" : "gara",
+      aggiudicato: b.tipo_avviso === "esito" || !!b.aggiudicatario,
+      aggiudicatario: typeof b.aggiudicatario === "string" ? b.aggiudicatario : null,
+      servizio_da: toIsoDate(typeof b.servizio_da === "string" ? b.servizio_da : null) ||
+        parsePeriodoDaTitolo(String(b.oggetto || "")).servizio_da,
+      servizio_a: toIsoDate(typeof b.servizio_a === "string" ? b.servizio_a : null) ||
+        parsePeriodoDaTitolo(String(b.oggetto || "")).servizio_a,
+      tipo_procedura: typeof b.tipo_procedura === "string" ? b.tipo_procedura : null,
     } satisfies Bando;
   });
 }
@@ -486,11 +593,81 @@ function applyFiltri(bandi: Bando[], filtri: Filtri): Bando[] {
   });
 }
 
+async function enrichFromTed(schedaId: string): Promise<Bando | null> {
+  const notices = await tedSearch(`publication-number=${schedaId}`);
+  for (const n of notices) {
+    const mapped = mapNotice(n) || mapNotice(n, { force: true });
+    if (mapped) return mapped;
+  }
+  return null;
+}
+
+async function enrichFromMondo(input: {
+  titolo?: string;
+  cig?: string;
+  link?: string;
+}): Promise<Partial<Bando>> {
+  const titolo = input.titolo || "";
+  const periodo = parsePeriodoDaTitolo(titolo);
+  const extra: Partial<Bando> = {
+    ...emptyDettaglio(),
+    servizio_da: periodo.servizio_da,
+    servizio_a: periodo.servizio_a,
+    cig: input.cig || null,
+    fonte: "mondoappalti",
+  };
+  if (!input.link || !isMondoSchedaUrl(input.link)) return extra;
+  try {
+    const resp = await fetch(input.link, {
+      headers: { Accept: "text/html,application/xhtml+xml", "User-Agent": "CBnet/1.0" },
+    });
+    if (!resp.ok) return extra;
+    const html = (await resp.text()).replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ");
+    const text = html.replace(/\s+/g, " ").slice(0, 8000);
+    const cigMatch = text.match(/\bCIG[:\s]+([A-Z0-9]{10})\b/i);
+    const scadMatch = text.match(/scadenza[:\s]+(\d{1,2}[./-]\d{1,2}[./-]\d{4})/i);
+    const vincMatch = text.match(/impresa vincitrice[:\s]+([^.]{4,80})/i) ||
+      text.match(/aggiudicatari[oa][:\s]+([^.]{4,80})/i);
+    if (cigMatch) extra.cig = cigMatch[1].toUpperCase();
+    if (scadMatch) extra.scadenza = scadMatch[1];
+    if (vincMatch) {
+      extra.aggiudicatario = vincMatch[1].trim();
+      extra.aggiudicato = true;
+      extra.tipo_avviso = "esito";
+    }
+    const periodoHtml = parsePeriodoDaTitolo(text);
+    extra.servizio_da = extra.servizio_da || periodoHtml.servizio_da;
+    extra.servizio_a = extra.servizio_a || periodoHtml.servizio_a;
+  } catch (e) {
+    console.warn("enrich mondo fetch", e);
+  }
+  return extra;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const body = await req.json().catch(() => ({}));
+    if (body.action === "enrich") {
+      const schedaId = String(body.scheda_id || "").trim();
+      const fonte = String(body.fonte || "").toLowerCase();
+      let bando: Partial<Bando> | null = null;
+      if (fonte === "ted" || /^\d{4,}-\d{4}$/.test(schedaId)) {
+        bando = await enrichFromTed(schedaId);
+      }
+      if (!bando || fonte === "mondoappalti") {
+        const mondo = await enrichFromMondo({
+          titolo: body.titolo,
+          cig: body.cig,
+          link: body.link,
+        });
+        bando = bando ? { ...mondo, ...bando } : mondo;
+      }
+      return new Response(JSON.stringify({ bando, done: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if ((body.action || "start") === "status") {
       return new Response(JSON.stringify({ done: true, sessions: [], bandi: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

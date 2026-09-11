@@ -69,6 +69,14 @@ import {
   type BandoInteresseRow,
   type FiltroPipelineBando,
 } from "@/lib/bandiInteresse";
+import {
+  dettaglioUpdatePayload,
+  labelTipoAvviso,
+  labelTipoProcedura,
+  mergeDettaglio,
+  needsDettaglioHarvest,
+  toIsoDate,
+} from "@/lib/bandiDettaglio";
 
 interface BandoResult {
   id: string;
@@ -90,6 +98,17 @@ interface BandoResult {
   pdf_path?: string | null;
   keyword?: string | null;
   fonte?: string | null;
+  tipo_avviso?: string | null;
+  notice_type?: string | null;
+  form_type?: string | null;
+  aggiudicato?: boolean;
+  aggiudicatario?: string | null;
+  data_decisione?: string | null;
+  data_contratto?: string | null;
+  servizio_da?: string | null;
+  servizio_a?: string | null;
+  tipo_procedura?: string | null;
+  data_pubblicazione?: string | null;
 }
 
 const regioniItaliane = [
@@ -124,13 +143,8 @@ async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
   const rows = bandi
     .filter((b) => b.scheda_id)
     .map((b) => {
-      let scadenzaDate: string | null = null;
-      if (b.scadenza) {
-        const parts = b.scadenza.split("/");
-        if (parts.length === 3) {
-          scadenzaDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-        }
-      }
+      const scadenzaDate = toIsoDate(b.scadenza);
+      const aggiudicato = !!b.aggiudicato;
       return {
         scheda_id: b.scheda_id!,
         titolo: b.titolo || null,
@@ -144,10 +158,21 @@ async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
         link: b.link || null,
         localita: b.localita || null,
         regione: b.regione || null,
-        stato: b.stato || "aperto",
+        stato: aggiudicato ? "scaduto" : (b.stato || "aperto"),
         pdf_url: b.pdf_url || null,
         keyword: keyword,
         fonte: resolveFonteBando(b.fonte, b.link),
+        tipo_avviso: b.tipo_avviso || (aggiudicato ? "esito" : "gara"),
+        notice_type: b.notice_type || null,
+        form_type: b.form_type || null,
+        aggiudicato,
+        aggiudicatario: b.aggiudicatario || null,
+        data_decisione: toIsoDate(b.data_decisione),
+        data_contratto: toIsoDate(b.data_contratto),
+        servizio_da: toIsoDate(b.servizio_da),
+        servizio_a: toIsoDate(b.servizio_a),
+        tipo_procedura: b.tipo_procedura || null,
+        data_pubblicazione: toIsoDate(b.dataPublicazione || b.data_pubblicazione),
       };
     });
 
@@ -162,6 +187,51 @@ async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
     throw error;
   }
   return rows.length;
+}
+
+async function enrichBandoFromPortale(bando: any) {
+  const { data, error } = await supabase.functions.invoke("arricchisci-bando", {
+    body: {
+      action: "enrich",
+      fonte: resolveFonteBando(bando.fonte, bando.link),
+      scheda_id: bando.scheda_id,
+      titolo: bando.titolo || bando.oggetto,
+      cig: bando.cig,
+      link: bando.link,
+    },
+  });
+  if (error) throw error;
+  const extra = data?.bando || {};
+  const merged = mergeDettaglio(
+    { ...bando, titolo: bando.titolo || bando.oggetto },
+    {
+      tipo_avviso: extra.tipo_avviso,
+      notice_type: extra.notice_type,
+      form_type: extra.form_type,
+      aggiudicato: extra.aggiudicato,
+      aggiudicatario: extra.aggiudicatario,
+      data_decisione: extra.data_decisione,
+      data_contratto: extra.data_contratto,
+      servizio_da: extra.servizio_da,
+      servizio_a: extra.servizio_a,
+      tipo_procedura: extra.tipo_procedura,
+      data_pubblicazione: extra.dataPublicazione || extra.data_pubblicazione,
+      scadenza: extra.scadenza,
+      cig: extra.cig,
+    },
+  );
+  const { error: upErr } = await (supabase as any)
+    .from("bandi_pubblici")
+    .update(dettaglioUpdatePayload(merged))
+    .eq("id", bando.id);
+  if (upErr) throw upErr;
+  return { ...bando, ...merged };
+}
+
+function fmtData(value?: string | null) {
+  const iso = toIsoDate(value);
+  if (!iso) return null;
+  return format(new Date(`${iso}T12:00:00`), "dd/MM/yyyy", { locale: it });
 }
 
 // Auto-create prospects from enti
@@ -254,6 +324,7 @@ export default function BandiPubbliciPage() {
   const [savingEsito, setSavingEsito] = useState(false);
   const [harvestingId, setHarvestingId] = useState<string | null>(null);
   const searchActiveRef = useRef(false);
+  const enrichTriedRef = useRef<Set<string>>(new Set());
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load bandi from DB
@@ -571,20 +642,29 @@ export default function BandiPubbliciPage() {
   const handleVoglioPartecipare = async (bando: any) => {
     setHarvestingId(bando.id);
     try {
-      let harvestNote = "Nessun PDF disponibile";
-      if (bando.pdf_path) {
+      let harvested = bando;
+      try {
+        harvested = await enrichBandoFromPortale(bando);
+      } catch (enrichErr) {
+        console.warn("Arricchimento portale non riuscito:", enrichErr);
+      }
+      let harvestNote = "Dati portale salvati";
+      if (harvested.aggiudicatario) {
+        harvestNote = `Aggiudicato a ${harvested.aggiudicatario}`;
+      } else if (harvested.pdf_path) {
         harvestNote = "PDF già in archivio";
-      } else if (bando.pdf_url) {
+      } else if (harvested.pdf_url) {
         const { error } = await supabase.functions.invoke("scarica-bando-pdf", {
-          body: { bando_id: bando.id, pdf_url: bando.pdf_url },
+          body: { bando_id: harvested.id, pdf_url: harvested.pdf_url },
         });
         harvestNote = error
           ? `PDF non scaricato: ${error.message}`
           : "PDF salvato in archivio";
       }
-      await upsertInteresse(bando, "voglio_partecipare", {
+      await upsertInteresse(harvested, "voglio_partecipare", {
         harvest_at: new Date().toISOString(),
         harvest_note: harvestNote,
+        snapshot_json: buildBandoSnapshot(harvested),
       });
       toast.success("Bando spostato in Bandi partecipati");
       await refetchBandi();
@@ -695,6 +775,30 @@ export default function BandiPubbliciPage() {
         : "Cambia lista o fonte per vedere altri bandi.",
     };
   })();
+
+  useEffect(() => {
+    if (!isPartecipati) return;
+    const missing = displayBandi.filter((b: { id: string }) =>
+      !enrichTriedRef.current.has(b.id) && needsDettaglioHarvest(b),
+    );
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const bando of missing.slice(0, 10)) {
+        enrichTriedRef.current.add(bando.id);
+        try {
+          await enrichBandoFromPortale(bando);
+        } catch (err) {
+          console.warn("enrich partecipati", err);
+        }
+        if (cancelled) return;
+      }
+      if (!cancelled) refetchBandi();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isPartecipati, displayBandi, refetchBandi]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -1014,6 +1118,11 @@ export default function BandiPubbliciPage() {
                         {bando.trattative_count} trattativ{bando.trattative_count === 1 ? "a" : "e"}
                       </Badge>
                     )}
+                    {bando.tipo_avviso && (
+                      <Badge variant={bando.aggiudicato || bando.tipo_avviso === "esito" ? "destructive" : "outline"} className="text-xs">
+                        {labelTipoAvviso(bando.tipo_avviso)}
+                      </Badge>
+                    )}
                     <Badge variant={statoBadgeVariant(bando.stato)}>
                       {statoLabel(bando.stato)}
                     </Badge>
@@ -1030,8 +1139,46 @@ export default function BandiPubbliciPage() {
                   )}
                   {bando.scadenza && (
                     <div>
-                      <span className="text-muted-foreground">Scadenza: </span>
-                      <span className="font-medium">{format(new Date(bando.scadenza), "dd/MM/yyyy", { locale: it })}</span>
+                      <span className="text-muted-foreground">Scadenza offerta: </span>
+                      <span className="font-medium">{fmtData(bando.scadenza) || format(new Date(bando.scadenza), "dd/MM/yyyy", { locale: it })}</span>
+                    </div>
+                  )}
+                  {bando.aggiudicatario && (
+                    <div>
+                      <span className="text-muted-foreground">Aggiudicato a: </span>
+                      <span className="font-medium">{bando.aggiudicatario}</span>
+                    </div>
+                  )}
+                  {bando.data_decisione && (
+                    <div>
+                      <span className="text-muted-foreground">Decisione: </span>
+                      <span className="font-medium">{fmtData(bando.data_decisione)}</span>
+                    </div>
+                  )}
+                  {bando.data_contratto && (
+                    <div>
+                      <span className="text-muted-foreground">Contratto: </span>
+                      <span className="font-medium">{fmtData(bando.data_contratto)}</span>
+                    </div>
+                  )}
+                  {fmtData(bando.data_pubblicazione) && (
+                    <div>
+                      <span className="text-muted-foreground">Pubblicato il: </span>
+                      <span className="font-medium">{fmtData(bando.data_pubblicazione)}</span>
+                    </div>
+                  )}
+                  {(bando.servizio_da || bando.servizio_a) && (
+                    <div>
+                      <span className="text-muted-foreground">Servizio brokeraggio: </span>
+                      <span className="font-medium">
+                        {[fmtData(bando.servizio_da), fmtData(bando.servizio_a)].filter(Boolean).join(" – ")}
+                      </span>
+                    </div>
+                  )}
+                  {labelTipoProcedura(bando.tipo_procedura) && (
+                    <div>
+                      <span className="text-muted-foreground">Procedura: </span>
+                      <span>{labelTipoProcedura(bando.tipo_procedura)}</span>
                     </div>
                   )}
                   {bando.tipologia && (

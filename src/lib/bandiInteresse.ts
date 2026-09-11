@@ -96,6 +96,15 @@ export function buildBandoSnapshot(bando: {
   pdf_url?: string | null;
   pdf_path?: string | null;
   stato?: string | null;
+  tipo_avviso?: string | null;
+  aggiudicato?: boolean | null;
+  aggiudicatario?: string | null;
+  data_decisione?: string | null;
+  data_contratto?: string | null;
+  servizio_da?: string | null;
+  servizio_a?: string | null;
+  tipo_procedura?: string | null;
+  data_pubblicazione?: string | null;
 }): Record<string, unknown> {
   return {
     id: bando.id ?? null,
@@ -116,6 +125,15 @@ export function buildBandoSnapshot(bando: {
     pdf_url: bando.pdf_url ?? null,
     pdf_path: bando.pdf_path ?? null,
     stato_gara: bando.stato ?? null,
+    tipo_avviso: bando.tipo_avviso ?? null,
+    aggiudicato: !!bando.aggiudicato,
+    aggiudicatario: bando.aggiudicatario ?? null,
+    data_decisione: bando.data_decisione ?? null,
+    data_contratto: bando.data_contratto ?? null,
+    servizio_da: bando.servizio_da ?? null,
+    servizio_a: bando.servizio_a ?? null,
+    tipo_procedura: bando.tipo_procedura ?? null,
+    data_pubblicazione: bando.data_pubblicazione ?? null,
     salvato_il: new Date().toISOString(),
   };
 }
