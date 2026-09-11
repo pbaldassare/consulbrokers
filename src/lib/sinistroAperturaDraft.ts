@@ -4,6 +4,7 @@ import {
   sinistroRowToPraticaValues,
   todayDateISO,
 } from "@/lib/sinistroPraticaSchema";
+import { emptySinistroTerziPolizza, terziPolizzaFromRow } from "@/lib/sinistroTerziPolizza";
 
 export const LEGACY_LOCAL_DRAFT_KEY = "sinistri:apertura:bozza";
 
@@ -53,6 +54,7 @@ export const createWizardFormDefaults = () => ({
   data_denuncia: todayDateISO(),
   titolo_id: "",
   sinistro_terzi: false,
+  ...emptySinistroTerziPolizza(),
   documenti: [] as WizardDocumentEntry[],
 });
 
@@ -114,6 +116,7 @@ export const hydrateWizardFromSinistroBozza = (
       data_denuncia: pratica.data_denuncia || todayDateISO(),
       titolo_id: (row.sinistro_terzi ? "" : (row.titolo_id as string) || "") as string,
       sinistro_terzi: row.sinistro_terzi === true,
+      ...terziPolizzaFromRow(row),
       documenti,
     },
     ui: {

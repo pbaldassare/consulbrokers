@@ -78,6 +78,7 @@ export default function SinistriList() {
     queryFn: async () => {
       let q = supabase.from("sinistri").select(
         `id, numero_sinistro, stato, descrizione, data_apertura, data_denuncia, controparte, sinistro_terzi, titolo_id, compagnia_id,
+         numero_polizza, ramo_sinistro, prodotto_sinistro,
          tipo_sinistro, tipo_sinistro_personalizzato,
          compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome),
          clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente),
@@ -113,6 +114,7 @@ export default function SinistriList() {
         const parts = [
           `numero_sinistro.ilike.%${term}%`,
           `numero_sinistro_compagnia.ilike.%${term}%`,
+          `numero_polizza.ilike.%${term}%`,
           `descrizione.ilike.%${term}%`,
         ];
         const clienteIds = (clientiMatch || []).map((c) => c.id);
@@ -326,7 +328,7 @@ export default function SinistriList() {
                   </div>
                 </TableCell>
                 <TableCell>{resolveClienteNome(s.clienti)}</TableCell>
-                <TableCell>{s.sinistro_terzi ? "—" : (s.titoli?.numero_titolo || "—")}</TableCell>
+                <TableCell>{s.sinistro_terzi ? (s.numero_polizza || "—") : (s.titoli?.numero_titolo || "—")}</TableCell>
                 <TableCell className="max-w-[10rem] truncate">{s.controparte || "—"}</TableCell>
                 <TableCell>{formatTipoSinistro(s)}</TableCell>
                 <TableCell>

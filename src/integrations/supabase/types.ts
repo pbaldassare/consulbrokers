@@ -9539,10 +9539,12 @@ export type Database = {
           note_importanti: string | null
           note_interne: string | null
           note_perito: string | null
+          numero_polizza: string | null
           numero_sinistro: string | null
           numero_sinistro_compagnia: string | null
           perito_id: string | null
           polizza_id: string | null
+          prodotto_sinistro: string | null
           provincia_sinistro: string | null
           ramo_sinistro: string | null
           reparto: string | null
@@ -9587,10 +9589,12 @@ export type Database = {
           note_importanti?: string | null
           note_interne?: string | null
           note_perito?: string | null
+          numero_polizza?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
           perito_id?: string | null
           polizza_id?: string | null
+          prodotto_sinistro?: string | null
           provincia_sinistro?: string | null
           ramo_sinistro?: string | null
           reparto?: string | null
@@ -9635,10 +9639,12 @@ export type Database = {
           note_importanti?: string | null
           note_interne?: string | null
           note_perito?: string | null
+          numero_polizza?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
           perito_id?: string | null
           polizza_id?: string | null
+          prodotto_sinistro?: string | null
           provincia_sinistro?: string | null
           ramo_sinistro?: string | null
           reparto?: string | null

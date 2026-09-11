@@ -301,7 +301,9 @@ export default function SinistroDetail() {
                 </Button>
               ) : (
                 <span className="font-medium text-foreground">
-                  {sinistro.sinistro_terzi ? "Terzi (senza CBnet)" : "—"}
+                  {sinistro.sinistro_terzi
+                    ? (sinistro.numero_polizza || "Terzi (senza CBnet)")
+                    : "—"}
                 </span>
               )}
               <span className="text-border">·</span>

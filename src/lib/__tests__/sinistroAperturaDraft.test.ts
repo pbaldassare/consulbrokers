@@ -29,6 +29,7 @@ describe("sinistroAperturaDraft", () => {
     const d = createWizardFormDefaults();
     expect(d.titolo_id).toBe("");
     expect(d.sinistro_terzi).toBe(false);
+    expect(d.numero_polizza).toBe("");
     expect(d.documenti).toEqual([]);
     expect(d.data_evento).toBe("");
     expect(d.data_denuncia).toBe(todayDateISO());
@@ -65,6 +66,8 @@ describe("sinistroAperturaDraft", () => {
         cliente_anagrafica_id: "c1",
         titolo_id: "t1",
         sinistro_terzi: false,
+        numero_polizza: "1602/1",
+        ramo_sinistro: "RCA",
         data_evento: "2026-01-15",
         data_denuncia: "2026-01-20",
         descrizione: "Descrizione di test sufficientemente lunga",
@@ -91,6 +94,8 @@ describe("sinistroAperturaDraft", () => {
     expect(ui.selectedClienteId).toBe("c1");
     expect(ui.soloMadri).toBe(false);
     expect(formValues.titolo_id).toBe("t1");
+    expect(formValues.numero_polizza).toBe("1602/1");
+    expect(formValues.ramo_sinistro).toBe("RCA");
     expect(formValues.documenti).toHaveLength(1);
     expect(formValues.documenti[0].saved).toBe(true);
     expect(formValues.data_denuncia).toBe("2026-01-20");

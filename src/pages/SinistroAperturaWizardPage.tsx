@@ -35,6 +35,8 @@ import {
   validateTipoSinistro,
 } from "@/lib/sinistroPraticaSchema";
 import { fetchPolizzeForCliente } from "@/lib/polizzeSearch";
+import SinistroTerziPolizzaFields from "@/components/sinistri/SinistroTerziPolizzaFields";
+import { terziPolizzaToDbPayload, validateSinistroTerziObbligatori } from "@/lib/sinistroTerziPolizza";
 import type { SinistroPrescrizioneDraft, SinistroReminderDraft } from "@/lib/sinistroPrescrizioniReminder";
 import {
   DESTINATARIO_LABEL,
@@ -59,6 +61,11 @@ import {
 const wizardSchema = sinistroPraticaSchema.extend({
   titolo_id: z.string().optional(),
   sinistro_terzi: z.boolean().optional(),
+  numero_polizza: z.string().optional(),
+  compagnia_id: z.string().optional(),
+  ramo_sinistro: z.string().optional(),
+  prodotto_sinistro: z.string().optional(),
+  ufficio_id: z.string().optional(),
   documenti: z.array(
     z.object({
       nome_file: z.string(),
@@ -476,6 +483,13 @@ export default function SinistroAperturaWizardPage() {
         return;
       }
       fieldsToValidate = ["data_evento"];
+      if (getValues("sinistro_terzi")) {
+        const terziErr = validateSinistroTerziObbligatori(getValues());
+        if (terziErr) {
+          toast.error(terziErr);
+          return;
+        }
+      }
     } else if (currentStep === 2) {
       fieldsToValidate = ["data_denuncia", "descrizione", "importo_riserva"];
       const tipoErr = validateTipoSinistro(getValues("tipo_sinistro"), getValues("tipo_sinistro_personalizzato"));
@@ -503,18 +517,21 @@ export default function SinistroAperturaWizardPage() {
 
   const buildSinistroContext = (values: WizardFormValues) => {
     const isTerzi = !!values.sinistro_terzi;
+    const terziPayload = isTerzi ? terziPolizzaToDbPayload(values) : null;
     const compagniaId = isTerzi
-      ? null
+      ? terziPayload?.compagnia_id ?? null
       : (selectedPolizzaData?.compagnia_id ||
         selectedPolizzaData?.prodotti?.compagnie?.id ||
         null);
     const clienteAnagraficaId = selectedClienteId || selectedPolizzaData?.cliente_anagrafica_id || null;
-    const ufficioId = isTerzi ? null : (selectedPolizzaData?.ufficio_id || null);
+    const ufficioId = isTerzi
+      ? terziPayload?.ufficio_id ?? null
+      : (selectedPolizzaData?.ufficio_id || null);
     const titoloId =
       !isTerzi && values.titolo_id && !values.titolo_id.startsWith("cga:")
         ? values.titolo_id
         : null;
-    return { isTerzi, compagniaId, clienteAnagraficaId, ufficioId, titoloId };
+    return { isTerzi, compagniaId, clienteAnagraficaId, ufficioId, titoloId, terziPayload };
   };
 
   const buildBozzaWizardJsonPayload = (values: WizardFormValues) =>
@@ -574,7 +591,7 @@ export default function SinistroAperturaWizardPage() {
   const handleSalvaBozza = async () => {
     await commitFocusedField();
     const values = getValues();
-    const { isTerzi, compagniaId, clienteAnagraficaId, ufficioId, titoloId } = buildSinistroContext(values);
+    const { isTerzi, compagniaId, clienteAnagraficaId, ufficioId, titoloId, terziPayload } = buildSinistroContext(values);
 
     if (!clienteAnagraficaId) {
       toast.error("Seleziona un cliente prima di salvare la bozza");
@@ -600,6 +617,10 @@ export default function SinistroAperturaWizardPage() {
             user_id: user.id,
             sinistro_terzi: isTerzi,
             titolo_id: titoloId,
+            ...(isTerzi && terziPayload ? terziPayload : {
+              ...(compagniaId ? { compagnia_id: compagniaId } : {}),
+              ...(ufficioId ? { ufficio_id: ufficioId } : {}),
+            }),
             ...praticaPayload,
             bozza_wizard_json: bozzaWizardJson,
           },
@@ -614,8 +635,10 @@ export default function SinistroAperturaWizardPage() {
             sinistro_terzi: isTerzi,
             titolo_id: titoloId,
             cliente_anagrafica_id: clienteAnagraficaId,
-            ...(compagniaId ? { compagnia_id: compagniaId } : {}),
-            ...(ufficioId ? { ufficio_id: ufficioId } : {}),
+            ...(isTerzi && terziPayload ? terziPayload : {
+              ...(compagniaId ? { compagnia_id: compagniaId } : {}),
+              ...(ufficioId ? { ufficio_id: ufficioId } : {}),
+            }),
             ...praticaPayload,
             user_id: user.id,
             stato_iniziale: "bozza",
@@ -661,10 +684,19 @@ export default function SinistroAperturaWizardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Utente non autenticato");
 
-      const { isTerzi, compagniaId, clienteAnagraficaId, ufficioId, titoloId } = buildSinistroContext(values);
+      const { isTerzi, compagniaId, clienteAnagraficaId, ufficioId, titoloId, terziPayload } = buildSinistroContext(values);
 
       if (!clienteAnagraficaId) {
         throw new Error("Cliente non selezionato");
+      }
+      if (isTerzi) {
+        const terziErr = validateSinistroTerziObbligatori(values);
+        if (terziErr) {
+          toast.error(terziErr);
+          setCurrentStep(1);
+          setSubmitting(false);
+          return;
+        }
       }
 
       const docsConCategoriaMancante = (values.documenti ?? []).filter((d) => !d.saved && !d.categoria?.trim());
@@ -687,8 +719,10 @@ export default function SinistroAperturaWizardPage() {
             sinistro_terzi: isTerzi,
             titolo_id: titoloId,
             cliente_anagrafica_id: clienteAnagraficaId,
-            ...(compagniaId ? { compagnia_id: compagniaId } : {}),
-            ...(ufficioId ? { ufficio_id: ufficioId } : {}),
+            ...(isTerzi && terziPayload ? terziPayload : {
+              ...(compagniaId ? { compagnia_id: compagniaId } : {}),
+              ...(ufficioId ? { ufficio_id: ufficioId } : {}),
+            }),
             ...praticaPayload,
             ...(prescrizioniDrafts.length > 0 ? { prescrizioni_iniziali: prescrizioniDrafts } : {}),
             ...(reminderDrafts.length > 0 ? { reminder_iniziali: reminderDrafts } : {}),
@@ -705,8 +739,10 @@ export default function SinistroAperturaWizardPage() {
             sinistro_terzi: isTerzi,
             titolo_id: titoloId,
             cliente_anagrafica_id: clienteAnagraficaId,
-            ...(compagniaId ? { compagnia_id: compagniaId } : {}),
-            ...(ufficioId ? { ufficio_id: ufficioId } : {}),
+            ...(isTerzi && terziPayload ? terziPayload : {
+              ...(compagniaId ? { compagnia_id: compagniaId } : {}),
+              ...(ufficioId ? { ufficio_id: ufficioId } : {}),
+            }),
             ...praticaPayload,
             user_id: user.id,
             stato_iniziale: "aperto",
@@ -947,10 +983,20 @@ export default function SinistroAperturaWizardPage() {
                 )}
 
                 {watchSinistroTerzi && selectedClienteId && (
-                  <div className="p-3 border rounded-lg bg-amber-50 border-amber-200 text-xs text-amber-900">
-                    <Badge variant="outline" className="mb-1 border-amber-400 text-amber-800">Sinistro Terzi</Badge>
-                    <p>Pratica senza polizza CBnet. Compagnia e ufficio restano opzionali.</p>
-                  </div>
+                  <SinistroTerziPolizzaFields
+                    numeroPolizza={watch("numero_polizza") || ""}
+                    compagniaId={watch("compagnia_id") || ""}
+                    ramoSinistro={watch("ramo_sinistro") || ""}
+                    prodottoSinistro={watch("prodotto_sinistro") || ""}
+                    ufficioId={watch("ufficio_id") || ""}
+                    onChange={(patch) => {
+                      if (patch.numero_polizza !== undefined) setValue("numero_polizza", patch.numero_polizza);
+                      if (patch.compagnia_id !== undefined) setValue("compagnia_id", patch.compagnia_id);
+                      if (patch.ramo_sinistro !== undefined) setValue("ramo_sinistro", patch.ramo_sinistro);
+                      if (patch.prodotto_sinistro !== undefined) setValue("prodotto_sinistro", patch.prodotto_sinistro);
+                      if (patch.ufficio_id !== undefined) setValue("ufficio_id", patch.ufficio_id);
+                    }}
+                  />
                 )}
 
                 {/* Riepilogo polizza selezionata */}
@@ -1294,8 +1340,16 @@ export default function SinistroAperturaWizardPage() {
                           <p className="font-semibold mt-0.5">{resolveClienteNome(selectedClienteData)}</p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Polizza CBnet</span>
-                          <p className="font-semibold mt-0.5">Nessuna</p>
+                          <span className="text-muted-foreground">Numero polizza</span>
+                          <p className="font-semibold mt-0.5">{watch("numero_polizza") || "—"}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Prodotto</span>
+                          <p className="font-semibold mt-0.5">{watch("prodotto_sinistro") || "—"}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Garanzia</span>
+                          <p className="font-semibold mt-0.5">{watch("ramo_sinistro") || "—"}</p>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Data Accadimento</span>
