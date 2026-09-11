@@ -58,6 +58,27 @@ export function formatNidificazionePhrase(
   return `${chi} ${etichetta} ${prep} ${diChi}`.replace(/\s+/g, " ").trim();
 }
 
+/** Messaggio utente da errore PostgREST / trigger su clienti_relazioni. */
+export function formatNidificazioneSaveError(err: unknown): string {
+  const e = err && typeof err === "object" ? (err as { message?: string; details?: string; hint?: string; code?: string }) : null;
+  const raw = [e?.message, e?.details, e?.hint].filter(Boolean).join(" — ")
+    || (err instanceof Error ? err.message : "");
+  const lower = raw.toLowerCase();
+  if (e?.code === "42501" || lower.includes("row-level security") || lower.includes("permission denied")) {
+    return "Non hai i permessi per salvare la nidificazione. Riprova: se persiste, manca il ruolo staff su user_roles o profiles.";
+  }
+  if (e?.code === "23505" || lower.includes("clienti_relazioni_unique")) {
+    return "Questo collegamento esiste già.";
+  }
+  if (lower.includes("invalid tipo_relazione")) {
+    return "Titolo di nidificazione non valido o non attivo.";
+  }
+  if (lower.includes("nidificazione ciclica") || lower.includes("cannot create self-relation")) {
+    return "Questo collegamento creerebbe un ciclo o un auto-collegamento.";
+  }
+  return raw || "Impossibile salvare la nidificazione";
+}
+
 export function wouldCreateCycle(
   clienteId: string,
   parentId: string,

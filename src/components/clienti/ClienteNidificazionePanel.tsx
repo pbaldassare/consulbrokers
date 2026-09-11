@@ -17,6 +17,7 @@ import {
   clienteDisplayName,
   findTitolo,
   formatNidificazionePhrase,
+  formatNidificazioneSaveError,
   wouldCreateCycle,
   type ClienteNidificazioneLite,
   type RelazioneNidificazione,
@@ -36,6 +37,7 @@ export default function ClienteNidificazionePanel({ clienteId, cliente, compact,
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
+  const [selectedCliente, setSelectedCliente] = useState<ClienteNidificazioneLite | null>(null);
   const [tipo, setTipo] = useState("");
   const [note, setNote] = useState("");
 
@@ -131,7 +133,9 @@ export default function ClienteNidificazionePanel({ clienteId, cliente, compact,
       });
       if (error) throw error;
 
-      const altro = searchHits.find((c) => c.id === selectedId);
+      const altro = selectedCliente?.id === selectedId
+        ? selectedCliente
+        : searchHits.find((c) => c.id === selectedId);
       if (altro?.gruppo_statistico && !cliente.gruppo_statistico) {
         await supabase.from("clienti").update({ gruppo_statistico: altro.gruppo_statistico }).eq("id", clienteId);
       } else if (cliente.gruppo_statistico && altro && !altro.gruppo_statistico) {
@@ -144,10 +148,11 @@ export default function ClienteNidificazionePanel({ clienteId, cliente, compact,
       setOpen(false);
       setSearch("");
       setSelectedId("");
+      setSelectedCliente(null);
       setNote("");
       toast.success("Nidificazione aggiunta");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: unknown) => toast.error(formatNidificazioneSaveError(err)),
   });
 
   const remove = useMutation({
@@ -159,7 +164,7 @@ export default function ClienteNidificazionePanel({ clienteId, cliente, compact,
       qc.invalidateQueries({ queryKey: ["relazioni_cliente", clienteId] });
       toast.success("Collegamento rimosso");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: unknown) => toast.error(formatNidificazioneSaveError(err)),
   });
 
   const titoloOptions = titoli.map((t) => ({
@@ -272,13 +277,22 @@ export default function ClienteNidificazionePanel({ clienteId, cliente, compact,
               <Label>… di questo cliente</Label>
               <SearchableSelect
                 className="w-full mt-1"
-                options={searchHits.map((c) => ({
+                options={(selectedCliente && !searchHits.some((c) => c.id === selectedCliente.id)
+                  ? [selectedCliente, ...searchHits]
+                  : searchHits
+                ).map((c) => ({
                   value: c.id,
                   label: clienteDisplayName(c),
                   description: c.gruppo_statistico || undefined,
                 }))}
                 value={selectedId}
-                onValueChange={setSelectedId}
+                onValueChange={(id) => {
+                  setSelectedId(id);
+                  setSelectedCliente(
+                    searchHits.find((c) => c.id === id)
+                      || (selectedCliente?.id === id ? selectedCliente : null),
+                  );
+                }}
                 placeholder="Cerca in anagrafica…"
                 searchPlaceholder="Digita almeno 2 caratteri…"
                 searchValue={search}
