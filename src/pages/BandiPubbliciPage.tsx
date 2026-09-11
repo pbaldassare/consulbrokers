@@ -19,6 +19,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -32,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle } from "lucide-react";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -54,6 +55,17 @@ import {
   type FiltroFonteLista,
   type FonteRicerca,
 } from "@/lib/bandiFonti";
+import {
+  FILTRI_PIPELINE_BANDI,
+  buildBandoSnapshot,
+  effectiveEsitoBando,
+  labelEsitoBando,
+  matchesFiltroPipeline,
+  normalizeBandoInteresse,
+  type BandoEsito,
+  type BandoInteresseRow,
+  type FiltroPipelineBando,
+} from "@/lib/bandiInteresse";
 
 interface BandoResult {
   id: string;
@@ -207,6 +219,7 @@ export default function BandiPubbliciPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [fonte, setFonte] = useState<FonteRicerca>("entrambe");
   const [filtroFonte, setFiltroFonte] = useState<FiltroFonteLista>("tutte");
+  const [filtroPipeline, setFiltroPipeline] = useState<FiltroPipelineBando>("da_valutare");
   const [regioniOpen, setRegioniOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [progressMsg, setProgressMsg] = useState("");
@@ -223,6 +236,11 @@ export default function BandiPubbliciPage() {
   const [trattativaPremio, setTrattativaPremio] = useState("");
   const [trattativaScadenza, setTrattativaScadenza] = useState("");
   const [existingTrattative, setExistingTrattative] = useState<any[]>([]);
+  const [nonPartecipoOpen, setNonPartecipoOpen] = useState(false);
+  const [nonPartecipoBando, setNonPartecipoBando] = useState<any>(null);
+  const [nonPartecipoMotivo, setNonPartecipoMotivo] = useState("");
+  const [savingEsito, setSavingEsito] = useState(false);
+  const [harvestingId, setHarvestingId] = useState<string | null>(null);
   const searchActiveRef = useRef(false);
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -230,20 +248,43 @@ export default function BandiPubbliciPage() {
   const { data: bandiDB = [], refetch: refetchBandi } = useQuery({
     queryKey: ["bandi_pubblici", statoBando],
     queryFn: async () => {
-      let query = supabase
-        .from("bandi_pubblici")
-        .select("*, bandi_trattative(id, trattativa_id)")
-        .order("created_at", { ascending: false });
+      const applyStato = (q: any) =>
+        statoBando && statoBando !== "tutti" ? q.eq("stato", statoBando) : q;
 
-      if (statoBando && statoBando !== "tutti") {
-        query = query.eq("stato", statoBando);
+      let query = applyStato(
+        (supabase as any)
+          .from("bandi_pubblici")
+          .select("*, bandi_trattative(id, trattativa_id), bandi_interesse(*)")
+          .order("created_at", { ascending: false }),
+      );
+
+      let { data, error } = await query;
+      if (error) {
+        const fallback = await applyStato(
+          supabase
+            .from("bandi_pubblici")
+            .select("*, bandi_trattative(id, trattativa_id)")
+            .order("created_at", { ascending: false }),
+        );
+        if (fallback.error) throw fallback.error;
+        data = fallback.data;
+        const ids = (data || []).map((b: { id: string }) => b.id);
+        const interessi = ids.length
+          ? await (supabase as any).from("bandi_interesse").select("*").in("bando_id", ids)
+          : { data: [] };
+        const byBando = new Map(
+          ((interessi.data || []) as BandoInteresseRow[]).map((row) => [row.bando_id, row]),
+        );
+        return (data || []).map((b: any) => ({
+          ...b,
+          trattative_count: b.bandi_trattative?.length || 0,
+          interesse: byBando.get(b.id) ?? null,
+        }));
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
       return (data || []).map((b: any) => ({
         ...b,
         trattative_count: b.bandi_trattative?.length || 0,
+        interesse: normalizeBandoInteresse(b.bandi_interesse),
       }));
     },
   });
@@ -458,6 +499,27 @@ export default function BandiPubbliciPage() {
         trattativa_id: trattativa.id,
       });
 
+      const snapshot =
+        selectedBando.interesse?.snapshot_json &&
+        Object.keys(selectedBando.interesse.snapshot_json).length > 0
+          ? selectedBando.interesse.snapshot_json
+          : buildBandoSnapshot(selectedBando);
+      const { error: interesseErr } = await (supabase as any)
+        .from("bandi_interesse")
+        .upsert({
+          bando_id: selectedBando.id,
+          esito: "in_trattativa",
+          motivo: selectedBando.interesse?.motivo ?? null,
+          snapshot_json: snapshot,
+          harvest_at: selectedBando.interesse?.harvest_at ?? new Date().toISOString(),
+          harvest_note: selectedBando.interesse?.harvest_note ?? "Trattativa creata dal bando",
+          deciso_da: profile?.id || null,
+          deciso_il: new Date().toISOString(),
+        }, { onConflict: "bando_id" });
+      if (interesseErr) {
+        console.error("Errore esito in_trattativa:", interesseErr);
+      }
+
       toast.success("Trattativa creata e collegata al bando!");
       setCreaTrattativaOpen(false);
       setConfirmOpen(false);
@@ -471,18 +533,149 @@ export default function BandiPubbliciPage() {
     }
   };
 
+  const upsertInteresse = async (
+    bando: any,
+    esito: BandoEsito,
+    extra: {
+      motivo?: string | null;
+      harvest_at?: string | null;
+      harvest_note?: string | null;
+      snapshot_json?: Record<string, unknown>;
+    } = {},
+  ) => {
+    const { error } = await (supabase as any).from("bandi_interesse").upsert({
+      bando_id: bando.id,
+      esito,
+      motivo: extra.motivo ?? bando.interesse?.motivo ?? null,
+      snapshot_json: extra.snapshot_json ?? buildBandoSnapshot(bando),
+      harvest_at: extra.harvest_at ?? bando.interesse?.harvest_at ?? null,
+      harvest_note: extra.harvest_note ?? bando.interesse?.harvest_note ?? null,
+      deciso_da: profile?.id || null,
+      deciso_il: new Date().toISOString(),
+    }, { onConflict: "bando_id" });
+    if (error) throw error;
+  };
+
+  const handleVoglioPartecipare = async (bando: any) => {
+    setHarvestingId(bando.id);
+    try {
+      let harvestNote = "Nessun PDF disponibile";
+      if (bando.pdf_path) {
+        harvestNote = "PDF già in archivio";
+      } else if (bando.pdf_url) {
+        const { error } = await supabase.functions.invoke("scarica-bando-pdf", {
+          body: { bando_id: bando.id, pdf_url: bando.pdf_url },
+        });
+        harvestNote = error
+          ? `PDF non scaricato: ${error.message}`
+          : "PDF salvato in archivio";
+      }
+      await upsertInteresse(bando, "voglio_partecipare", {
+        harvest_at: new Date().toISOString(),
+        harvest_note: harvestNote,
+      });
+      toast.success("Bando spostato in Voglio partecipare");
+      refetchBandi();
+    } catch (err: any) {
+      console.error("Errore voglio partecipare:", err);
+      toast.error(err.message || "Impossibile salvare la decisione");
+    } finally {
+      setHarvestingId(null);
+    }
+  };
+
+  const handleConfirmNonPartecipo = async () => {
+    if (!nonPartecipoBando) return;
+    setSavingEsito(true);
+    try {
+      await upsertInteresse(nonPartecipoBando, "non_partecipo", {
+        motivo: nonPartecipoMotivo.trim() || null,
+        snapshot_json: buildBandoSnapshot(nonPartecipoBando),
+      });
+      toast.success("Bando nascosto da «Da valutare». Lo trovi in Non partecipo.");
+      setNonPartecipoOpen(false);
+      setNonPartecipoBando(null);
+      setNonPartecipoMotivo("");
+      refetchBandi();
+    } catch (err: any) {
+      console.error("Errore non partecipo:", err);
+      toast.error(err.message || "Impossibile salvare la decisione");
+    } finally {
+      setSavingEsito(false);
+    }
+  };
+
+  const handleRimettiInValutazione = async (bando: any) => {
+    setSavingEsito(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("bandi_interesse")
+        .delete()
+        .eq("bando_id", bando.id);
+      if (error) throw error;
+      toast.success("Bando rimesso in valutazione");
+      refetchBandi();
+    } catch (err: any) {
+      console.error("Errore rimetti in valutazione:", err);
+      toast.error(err.message || "Impossibile ripristinare il bando");
+    } finally {
+      setSavingEsito(false);
+    }
+  };
+
   const regioniLabel = regioniSelezionate.length === 0
     ? "Tutte le regioni"
     : regioniSelezionate.length === regioniItaliane.length
       ? "Tutte le regioni selezionate"
       : `${regioniSelezionate.length} region${regioniSelezionate.length === 1 ? 'e' : 'i'}`;
 
-  const displayBandi = useMemo(
+  const bandiByFonte = useMemo(
     () => bandiDB.filter((b: { fonte?: string | null; link?: string | null }) =>
       matchesFiltroFonte(b.fonte, b.link, filtroFonte),
     ),
     [bandiDB, filtroFonte],
   );
+
+  const displayBandi = useMemo(
+    () => bandiByFonte.filter((b: { interesse?: BandoInteresseRow | null; trattative_count?: number }) =>
+      matchesFiltroPipeline(
+        effectiveEsitoBando(b.interesse, b.trattative_count),
+        filtroPipeline,
+      ),
+    ),
+    [bandiByFonte, filtroPipeline],
+  );
+
+  const pipelineCounts = useMemo(() => {
+    const counts: Record<FiltroPipelineBando, number> = {
+      da_valutare: 0,
+      voglio_partecipare: 0,
+      non_partecipo: 0,
+      in_trattativa: 0,
+      tutti: bandiByFonte.length,
+    };
+    for (const b of bandiByFonte as { interesse?: BandoInteresseRow | null; trattative_count?: number }[]) {
+      const esito = effectiveEsitoBando(b.interesse, b.trattative_count);
+      if (!esito) counts.da_valutare += 1;
+      else counts[esito] += 1;
+    }
+    return counts;
+  }, [bandiByFonte]);
+
+  const emptyListaMsg = (() => {
+    if (bandiDB.length === 0) {
+      return hasSearched
+        ? { title: "Nessun bando trovato", hint: "Prova ad allargare i filtri o un'altra regione." }
+        : { title: "Nessun bando in archivio", hint: "Clicca \"Cerca Bandi\" per cercare su TED Europa e Mondo Appalti." };
+    }
+    const label = FILTRI_PIPELINE_BANDI.find((f) => f.value === filtroPipeline)?.label ?? "questa lista";
+    return {
+      title: `Nessun bando in «${label}»`,
+      hint: filtroPipeline === "da_valutare"
+        ? "I bandi scartati o già scelti sono nelle altre liste. Puoi recuperarli da Non partecipo."
+        : "Cambia lista o fonte per vedere altri bandi.",
+    };
+  })();
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -705,35 +898,60 @@ export default function BandiPubbliciPage() {
         </Card>
       )}
 
-      {/* Bandi from DB */}
-      {displayBandi.length > 0 && (
+      {/* Bandi from DB — filtri visibili anche a lista vuota per recuperare «Non partecipo» */}
+      {!loading && !searchError && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              {displayBandi.length} bando/i
-              {filtroFonte === "tutte" ? " salvati in archivio" : ` da ${labelFonteBando(filtroFonte)}`}
-            </p>
-            <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5" role="tablist" aria-label="Filtro fonte bandi">
-              {FILTRI_FONTE_LISTA.map((f) => (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-muted-foreground">
+                {displayBandi.length} bando/i
+                {filtroFonte === "tutte" ? " in questa lista" : ` da ${labelFonteBando(filtroFonte)}`}
+              </p>
+              <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5" role="tablist" aria-label="Filtro fonte bandi">
+                {FILTRI_FONTE_LISTA.map((f) => (
+                  <button
+                    key={f.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={filtroFonte === f.value}
+                    onClick={() => setFiltroFonte(f.value)}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                      filtroFonte === f.value
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5 w-fit" role="tablist" aria-label="Lista interesse bandi">
+              {FILTRI_PIPELINE_BANDI.map((f) => (
                 <button
                   key={f.value}
                   type="button"
                   role="tab"
-                  aria-selected={filtroFonte === f.value}
-                  onClick={() => setFiltroFonte(f.value)}
+                  aria-selected={filtroPipeline === f.value}
+                  onClick={() => setFiltroPipeline(f.value)}
                   className={cn(
                     "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                    filtroFonte === f.value
+                    filtroPipeline === f.value
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {f.label}
+                  <span className="ml-1 tabular-nums text-[10px] text-muted-foreground">{pipelineCounts[f.value]}</span>
                 </button>
               ))}
             </div>
           </div>
-          {displayBandi.map((bando: any) => (
+          {displayBandi.map((bando: any) => {
+            const esito = effectiveEsitoBando(bando.interesse, bando.trattative_count);
+            const busy = harvestingId === bando.id || savingEsito;
+            return (
             <Card key={bando.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-4">
@@ -747,7 +965,13 @@ export default function BandiPubbliciPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <Badge
+                      variant={esito === "voglio_partecipare" ? "default" : esito === "non_partecipo" ? "secondary" : "outline"}
+                      className="text-xs"
+                    >
+                      {labelEsitoBando(esito)}
+                    </Badge>
                     <Badge variant="outline" className="text-xs">
                       {labelFonteBando(resolveFonteBando(bando.fonte, bando.link))}
                     </Badge>
@@ -801,15 +1025,75 @@ export default function BandiPubbliciPage() {
                       <span className="text-muted-foreground">{[bando.localita, bando.regione].filter(Boolean).join(', ')}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 ml-auto">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="gap-1 h-7 text-xs"
-                      onClick={() => openCreaTrattativaDialog(bando)}
-                    >
-                      <Plus className="h-3 w-3" /> Crea Trattativa
-                    </Button>
+                  {bando.interesse?.motivo && esito === "non_partecipo" && (
+                    <div className="w-full text-xs text-muted-foreground">
+                      Motivo: {bando.interesse.motivo}
+                    </div>
+                  )}
+                  {bando.interesse?.harvest_note && esito === "voglio_partecipare" && (
+                    <div className="w-full text-xs text-muted-foreground">
+                      {bando.interesse.harvest_note}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
+                    {esito !== "non_partecipo" && esito !== "in_trattativa" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        disabled={busy}
+                        onClick={() => {
+                          setNonPartecipoBando(bando);
+                          setNonPartecipoMotivo("");
+                          setNonPartecipoOpen(true);
+                        }}
+                      >
+                        <Ban className="h-3 w-3" /> Non partecipo
+                      </Button>
+                    )}
+                    {esito !== "voglio_partecipare" && esito !== "in_trattativa" && esito !== "non_partecipo" && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        disabled={busy}
+                        onClick={() => handleVoglioPartecipare(bando)}
+                      >
+                        {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Heart className="h-3 w-3" />}
+                        Voglio partecipare
+                      </Button>
+                    )}
+                    {esito === "non_partecipo" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        disabled={busy}
+                        onClick={() => handleRimettiInValutazione(bando)}
+                      >
+                        <RotateCcw className="h-3 w-3" /> Rimetti in valutazione
+                      </Button>
+                    )}
+                    {esito === "voglio_partecipare" && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        onClick={() => openCreaTrattativaDialog(bando)}
+                      >
+                        <Plus className="h-3 w-3" /> Crea Trattativa
+                      </Button>
+                    )}
+                    {esito !== "voglio_partecipare" && (
+                      <Button
+                        variant={esito === "in_trattativa" ? "outline" : "default"}
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        onClick={() => openCreaTrattativaDialog(bando)}
+                      >
+                        <Plus className="h-3 w-3" /> Crea Trattativa
+                      </Button>
+                    )}
                     {bando.pdf_path ? (
                       <Button
                         variant="outline"
@@ -853,29 +1137,65 @@ export default function BandiPubbliciPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
+          {displayBandi.length === 0 && (
+            <Card>
+              <CardContent className="py-16 text-center">
+                {bandiDB.length === 0 && !hasSearched ? (
+                  <Landmark className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
+                ) : (
+                  <Search className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
+                )}
+                <h3 className="text-lg font-medium text-muted-foreground">{emptyListaMsg.title}</h3>
+                <p className="text-sm text-muted-foreground/70 mt-2">{emptyListaMsg.hint}</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
-      {!loading && !searchError && displayBandi.length === 0 && hasSearched && (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Search className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium text-muted-foreground">Nessun bando trovato</h3>
-            <p className="text-sm text-muted-foreground/70 mt-2">Prova ad allargare i filtri o un&apos;altra regione.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {!loading && !searchError && displayBandi.length === 0 && !hasSearched && (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Landmark className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium text-muted-foreground">Nessun bando in archivio</h3>
-            <p className="text-sm text-muted-foreground/70 mt-2">Clicca &quot;Cerca Bandi&quot; per cercare su TED Europa e Mondo Appalti.</p>
-          </CardContent>
-        </Card>
-      )}
+      <Dialog open={nonPartecipoOpen} onOpenChange={(open) => {
+        setNonPartecipoOpen(open);
+        if (!open) {
+          setNonPartecipoBando(null);
+          setNonPartecipoMotivo("");
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="h-5 w-5" />
+              Non partecipo
+            </DialogTitle>
+            <DialogDescription>
+              Il bando sparisce da «Da valutare» ma resta in archivio. Puoi recuperarlo dalla lista Non partecipo.
+            </DialogDescription>
+          </DialogHeader>
+          {nonPartecipoBando && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium">{nonPartecipoBando.titolo || nonPartecipoBando.oggetto}</p>
+              <div className="space-y-1.5">
+                <Label htmlFor="motivo-non-partecipo">Motivo (facoltativo)</Label>
+                <Textarea
+                  id="motivo-non-partecipo"
+                  value={nonPartecipoMotivo}
+                  onChange={(e) => setNonPartecipoMotivo(e.target.value)}
+                  rows={3}
+                  placeholder="Es. importo troppo basso, ente fuori zona…"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNonPartecipoOpen(false)} disabled={savingEsito}>Annulla</Button>
+            <Button variant="secondary" onClick={handleConfirmNonPartecipo} disabled={savingEsito} className="gap-1">
+              {savingEsito ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+              Conferma
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: Crea Trattativa da Bando */}
       <Dialog open={creaTrattativaOpen} onOpenChange={setCreaTrattativaOpen}>
