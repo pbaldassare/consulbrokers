@@ -1,26 +1,36 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Shield, CalendarClock, Bell, FileText, AlertTriangle, TrendingUp } from "lucide-react";
+import { Shield, CalendarClock, AlertTriangle, TrendingUp } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, differenceInDays } from "date-fns";
 import { it } from "date-fns/locale";
 import { fmtEuro0 as fmt } from "@/lib/formatCurrency";
 import InfoHint from "@/components/cliente/InfoHint";
+import {
+  aggregaPremiSinistriPerAnno,
+  aggregaSomma,
+  dedupeCgaSuTitoli,
+  isPolizzaDashAttiva,
+  premioAnnuoDash,
+  ramoLabelFromJoin,
+  topNConAltri,
+  topNSinistriPerRamo,
+  type ClienteDashPolizza,
+  type ClienteDashSinistro,
+} from "@/lib/clienteDashboard";
 
 const COLORS = ["#0d9488", "#f59e0b", "#6366f1", "#ef4444", "#10b981", "#8b5cf6", "#ec4899", "#06b6d4"];
-const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
-const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
 
 const ClienteDashboard = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [polizze, setPolizze] = useState<any[]>([]);
-  const [sinistri, setSinistri] = useState<any[]>([]);
-  const [notifiche, setNotifiche] = useState(0);
+  const [polizze, setPolizze] = useState<ClienteDashPolizza[]>([]);
+  const [sinistri, setSinistri] = useState<ClienteDashSinistro[]>([]);
+  const [today] = useState(() => new Date());
 
   useEffect(() => {
     if (!user) return;
@@ -28,111 +38,126 @@ const ClienteDashboard = () => {
       const { data: clienteIds } = await supabase.rpc("get_my_cliente_ids");
       if (!clienteIds?.length) { setLoading(false); return; }
 
-      const ids = clienteIds.map((c: any) => c);
+      const ids = clienteIds.map((c: string) => c);
 
-      const [polRes, cgaRes, sinRes, notRes] = await Promise.all([
-        supabase.from("titoli").select("id, numero_titolo, stato, premio_lordo, data_scadenza, durata_da, compagnia_id, ramo_id, descrizione_polizza, compagnie(nome), rami(descrizione)").in("cliente_anagrafica_id", ids),
-        supabase.from("polizza_cga").select("id, numero_polizza, stato, premio_lordo_totale, data_scadenza, data_decorrenza, prodotti_cga(nome_prodotto, compagnia, ramo)").in("cliente_id", ids).eq("stato", "approvato"),
-        supabase.from("sinistri").select("id, numero_sinistro, stato, tipo_sinistro, importo_riserva, importo_liquidato, data_evento, data_apertura, ramo_sinistro, titoli(numero_titolo)").in("cliente_anagrafica_id", ids).order("data_apertura", { ascending: false }),
-        supabase.from("notifiche").select("id", { count: "exact" }).eq("letto", false),
+      const [polRes, cgaRes, sinRes] = await Promise.all([
+        supabase
+          .from("titoli")
+          .select("id, numero_titolo, stato, premio_lordo, frazionamento, periodicita, data_scadenza, durata_da, garanzia_da, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, compagnie(nome), rami:rami!titoli_ramo_id_fkey(descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(descrizione))")
+          .in("cliente_anagrafica_id", ids),
+        supabase
+          .from("polizza_cga")
+          .select("id, numero_polizza, stato, premio_lordo_totale, data_scadenza, data_decorrenza, prodotti_cga(nome_prodotto, compagnia, ramo)")
+          .in("cliente_id", ids)
+          .eq("stato", "approvato"),
+        supabase
+          .from("sinistri")
+          .select("id, stato, importo_riserva, importo_liquidato, data_apertura, ramo_sinistro")
+          .in("cliente_anagrafica_id", ids)
+          .order("data_apertura", { ascending: false }),
       ]);
 
-      const cgaMapped = (cgaRes.data ?? []).map((c: any) => ({
+      const titoliMapped: ClienteDashPolizza[] = (polRes.data ?? []).map((t: any) => ({
+        id: t.id,
+        source: "titoli",
+        numero: t.numero_titolo ?? null,
+        stato: t.stato ?? null,
+        premioRata: Number(t.premio_lordo) || 0,
+        frazionamento: t.frazionamento || t.periodicita || null,
+        dataScadenza: t.data_scadenza ?? null,
+        dataInizio: t.durata_da || t.garanzia_da || null,
+        ramo: ramoLabelFromJoin(t.rami),
+        compagnia: t.compagnie?.nome || "Altro",
+        sostituisce_polizza: t.sostituisce_polizza ?? null,
+        is_appendice_modifica: !!t.is_appendice_modifica,
+        is_proroga: !!t.is_proroga,
+        is_regolazione: !!t.is_regolazione,
+        detailPath: `/cliente/polizze/${t.id}#scadenziario`,
+      }));
+
+      const cgaMapped: ClienteDashPolizza[] = (cgaRes.data ?? []).map((c: any) => ({
         id: c.id,
-        _source: "cga" as const,
-        _detailPath: `/cliente/assistente?polizza=${c.id}`,
-        numero_titolo: c.numero_polizza,
+        source: "cga",
+        numero: c.numero_polizza ?? null,
         stato: "attivo",
-        premio_lordo: c.premio_lordo_totale || 0,
-        data_scadenza: c.data_scadenza,
-        durata_da: c.data_decorrenza,
-        descrizione_polizza: c.prodotti_cga?.nome_prodotto,
-        compagnie: { nome: c.prodotti_cga?.compagnia || "—" },
-        rami: { descrizione: c.prodotti_cga?.ramo || "Altro" },
+        premioRata: Number(c.premio_lordo_totale) || 0,
+        frazionamento: null,
+        dataScadenza: c.data_scadenza ?? null,
+        dataInizio: c.data_decorrenza ?? null,
+        ramo: c.prodotti_cga?.ramo || "Altro",
+        compagnia: c.prodotti_cga?.compagnia || "Altro",
+        sostituisce_polizza: null,
+        is_appendice_modifica: false,
+        is_proroga: false,
+        is_regolazione: false,
+        detailPath: `/cliente/assistente?polizza=${c.id}`,
       }));
 
-      const titoliMapped = (polRes.data ?? []).map((t: any) => ({
-        ...t,
-        _source: "titoli" as const,
-        _detailPath: `/cliente/polizze/${t.id}#scadenziario`,
-      }));
-
-      setPolizze([...titoliMapped, ...cgaMapped]);
-
-      setSinistri(sinRes.data ?? []);
-      setNotifiche(notRes.count ?? 0);
+      setPolizze(dedupeCgaSuTitoli(titoliMapped, cgaMapped));
+      setSinistri((sinRes.data ?? []).map((s: any) => ({
+        id: s.id,
+        stato: s.stato ?? null,
+        ramo: s.ramo_sinistro || "Altro",
+        importo: Number(s.importo_liquidato) || Number(s.importo_riserva) || 0,
+        dataApertura: s.data_apertura ?? null,
+      })));
       setLoading(false);
     };
     load();
   }, [user]);
 
-  const attive = polizze.filter(p => p.stato === "attivo");
-  const premiTotali = attive.reduce((s, p) => s + (p.premio_lordo || 0), 0);
-  const sinAperti = sinistri.filter(s => !["chiuso", "respinto"].includes(s.stato)).length;
-  const today = new Date();
-  const prossimeScadenze = attive.filter(p => p.data_scadenza && differenceInDays(new Date(p.data_scadenza), today) <= 90 && differenceInDays(new Date(p.data_scadenza), today) >= 0).length;
+  const attive = useMemo(() => polizze.filter(isPolizzaDashAttiva), [polizze]);
+  const premiTotali = useMemo(() => attive.reduce((s, p) => s + premioAnnuoDash(p), 0), [attive]);
+  const sinAperti = useMemo(
+    () => sinistri.filter((s) => !["chiuso", "respinto"].includes(String(s.stato || "").toLowerCase())).length,
+    [sinistri],
+  );
+  const prossimeScadenze = useMemo(
+    () => attive.filter((p) => {
+      if (!p.dataScadenza) return false;
+      const d = differenceInDays(new Date(p.dataScadenza), today);
+      return d <= 90 && d >= 0;
+    }).length,
+    [attive, today],
+  );
 
-  // Charts data
-  const premiPerRamo = attive.reduce((acc: any[], p) => {
-    const name = p.rami?.descrizione || "Altro";
-    const existing = acc.find(a => a.name === name);
-    if (existing) existing.value += (p.premio_lordo || 0);
-    else acc.push({ name, value: p.premio_lordo || 0 });
-    return acc;
-  }, []);
+  const premiPerRamo = useMemo(
+    () => topNConAltri(aggregaSomma(attive, (p) => p.ramo), 6),
+    [attive],
+  );
+  const totRamo = premiPerRamo.reduce((s, x) => s + x.value, 0);
 
-  const premiPerCompagnia = attive.reduce((acc: any[], p) => {
-    const name = p.compagnie?.nome || "Altro";
-    const existing = acc.find(a => a.name === name);
-    if (existing) existing.value += (p.premio_lordo || 0);
-    else acc.push({ name, value: p.premio_lordo || 0 });
-    return acc;
-  }, []).sort((a, b) => b.value - a.value);
+  const premiPerCompagnia = useMemo(
+    () => topNConAltri(aggregaSomma(attive, (p) => p.compagnia), 8, "Altre"),
+    [attive],
+  );
 
-  // Sinistri per Ramo (aperti vs chiusi) - pie chart data
-  const sinPerRamo = sinistri.reduce((acc: any[], s: any) => {
-    const ramo = s.ramo_sinistro || "Altro";
-    const isOpen = !["chiuso", "respinto"].includes(s.stato);
-    const key = `${ramo} (${isOpen ? "Aperti" : "Chiusi"})`;
-    const existing = acc.find(a => a.name === key);
-    if (existing) existing.value++;
-    else acc.push({ name: key, value: 1, ramo, isOpen });
-    return acc;
-  }, []);
+  const sinPerRamo = useMemo(() => topNSinistriPerRamo(sinistri, 6), [sinistri]);
 
-  // Rapporto Premi/Sinistri per Anno
-  const anniPremi: Record<string, { premi: number; sinistri: number }> = {};
-  polizze.forEach(p => {
-    const anno = p.durata_da ? new Date(p.durata_da).getFullYear().toString() : null;
-    if (anno) {
-      if (!anniPremi[anno]) anniPremi[anno] = { premi: 0, sinistri: 0 };
-      anniPremi[anno].premi += (p.premio_lordo || 0);
-    }
-  });
-  sinistri.forEach(s => {
-    const anno = s.data_apertura ? new Date(s.data_apertura).getFullYear().toString() : null;
-    if (anno) {
-      if (!anniPremi[anno]) anniPremi[anno] = { premi: 0, sinistri: 0 };
-      anniPremi[anno].sinistri += (s.importo_liquidato || s.importo_riserva || 0);
-    }
-  });
-  const barPremiSinistri = Object.entries(anniPremi)
-    .map(([anno, v]) => ({ anno, premi: v.premi, sinistri: v.sinistri }))
-    .sort((a, b) => a.anno.localeCompare(b.anno));
+  const barPremiSinistri = useMemo(
+    () => aggregaPremiSinistriPerAnno(attive, sinistri),
+    [attive, sinistri],
+  );
 
   const kpis = [
-    { title: "Polizze Attive", value: attive.length, icon: Shield, color: "text-emerald-600", bg: "bg-emerald-100", link: "/cliente/polizze", hint: "Polizze in stato 'attivo' del tuo ente. Esclude polizze scadute, annullate o sospese." },
-    { title: "Premi Totali", value: fmt(premiTotali), icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-100", link: "/cliente/polizze", hint: "Somma dei premi lordi annui delle polizze attive (importo che l'ente paga per la copertura)." },
+    { title: "Polizze Attive", value: attive.length, icon: Shield, color: "text-emerald-600", bg: "bg-emerald-100", link: "/cliente/polizze", hint: "Polizze madri in portafoglio (escluse quietanze, appendici e duplicati CGA)." },
+    { title: "Premi Totali", value: fmt(premiTotali), icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-100", link: "/cliente/polizze", hint: "Somma dei premi lordi annui (rata × frazionamento) delle polizze madri attive." },
     { title: "Sinistri Aperti", value: sinAperti, icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-100", link: "/cliente/sinistri", hint: "Sinistri non ancora chiusi o respinti: in valutazione, lavorazione, attesa documenti o liquidazione." },
     { title: "Scadenze 90gg", value: prossimeScadenze, icon: CalendarClock, color: "text-red-600", bg: "bg-red-100", link: "/cliente/scadenze", hint: "Polizze attive che scadono nei prossimi 90 giorni: pianifica i rinnovi per tempo." },
   ];
 
-  const scadenzeVicine = attive
-    .filter(p => p.data_scadenza)
-    .map(p => ({ ...p, giorni: differenceInDays(new Date(p.data_scadenza), today) }))
-    .filter(p => p.giorni >= 0)
-    .sort((a, b) => a.giorni - b.giorni)
-    .slice(0, 4);
+  const scadenzeVicine = useMemo(
+    () => attive
+      .filter((p) => p.dataScadenza)
+      .map((p) => ({ ...p, giorni: differenceInDays(new Date(p.dataScadenza!), today) }))
+      .filter((p) => p.giorni >= 0)
+      .sort((a, b) => a.giorni - b.giorni)
+      .slice(0, 4),
+    [attive, today],
+  );
+
+  const barCompagniaH = Math.min(420, Math.max(260, premiPerCompagnia.length * 36 + 24));
+  const barSinH = Math.min(320, Math.max(220, sinPerRamo.length * 36 + 48));
 
   return (
     <div className="space-y-6">
@@ -141,7 +166,6 @@ const ClienteDashboard = () => {
         <p className="text-muted-foreground text-sm mt-1">Panoramica della tua situazione assicurativa</p>
       </div>
 
-      {/* KPI Cards */}
       <div data-tour="cl-dash-kpi" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((k) => (
           <Link key={k.title} to={k.link}>
@@ -165,39 +189,55 @@ const ClienteDashboard = () => {
         ))}
       </div>
 
-      {/* Charts Row */}
       {!loading && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Pie Chart - Premi per Ramo */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Ripartizione Premi per Ramo</CardTitle>
             </CardHeader>
             <CardContent>
               {premiPerRamo.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
-                    <Pie data={premiPerRamo} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="value" label={({ name, percent }) => `${name.substring(0, 15)} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                    <Pie
+                      data={premiPerRamo}
+                      cx="42%"
+                      cy="50%"
+                      innerRadius={58}
+                      outerRadius={92}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
                       {premiPerRamo.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(v: number) => fmt(v)} />
+                    <Legend
+                      layout="vertical"
+                      align="right"
+                      verticalAlign="middle"
+                      wrapperStyle={{ fontSize: 12, maxWidth: 180 }}
+                      formatter={(value: string, entry: { payload?: { value?: number } }) => {
+                        const v = Number(entry?.payload?.value) || 0;
+                        const pct = totRamo > 0 ? Math.round((v / totRamo) * 100) : 0;
+                        return `${value} ${pct}%`;
+                      }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               ) : <p className="text-sm text-muted-foreground text-center py-12">Nessun dato</p>}
             </CardContent>
           </Card>
 
-          {/* Bar Chart - Premi per Agenzia */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Premi per Agenzia</CardTitle>
+              <CardTitle className="text-base">Premi per Compagnia</CardTitle>
             </CardHeader>
             <CardContent>
               {premiPerCompagnia.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={premiPerCompagnia} layout="vertical" margin={{ left: 10, right: 20 }}>
-                    <XAxis type="number" tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`} />
-                    <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
+                <ResponsiveContainer width="100%" height={barCompagniaH}>
+                  <BarChart data={premiPerCompagnia} layout="vertical" margin={{ left: 4, right: 16, top: 4, bottom: 4 }}>
+                    <XAxis type="number" tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
+                    <YAxis type="category" dataKey="name" width={168} tick={{ fontSize: 11 }} interval={0} />
                     <Tooltip formatter={(v: number) => fmt(v)} />
                     <Bar dataKey="value" fill="#0d9488" radius={[0, 6, 6, 0]} />
                   </BarChart>
@@ -208,10 +248,8 @@ const ClienteDashboard = () => {
         </div>
       )}
 
-      {/* Bottom Row - Scadenze + 2 nuovi grafici sinistri */}
       {!loading && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Prossime Scadenze */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
@@ -221,23 +259,22 @@ const ClienteDashboard = () => {
             <CardContent className="space-y-1">
               {scadenzeVicine.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">Nessuna scadenza nei prossimi 90 giorni</p>
-              ) : scadenzeVicine.map(s => (
+              ) : scadenzeVicine.map((s) => (
                 <Link
                   key={s.id}
-                  to={s._detailPath ?? `/cliente/polizze/${s.id}#scadenziario`}
-
+                  to={s.detailPath}
                   className="flex items-center justify-between py-2 px-2 -mx-2 rounded-md border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
                 >
                   <div className="min-w-0 pr-2">
-                    <p className="text-sm font-medium truncate">{s.numero_titolo}</p>
-                    <p className="text-xs text-muted-foreground truncate">{s.rami?.descrizione}</p>
-                    {s.compagnie?.nome && <p className="text-[11px] text-muted-foreground/80 truncate">{s.compagnie.nome}</p>}
+                    <p className="text-sm font-medium truncate">{s.numero}</p>
+                    <p className="text-xs text-muted-foreground truncate">{s.ramo}</p>
+                    {s.compagnia && <p className="text-[11px] text-muted-foreground/80 truncate">{s.compagnia}</p>}
                   </div>
                   <div className="text-right shrink-0">
                     <Badge className={s.giorni <= 30 ? "bg-red-100 text-red-800" : s.giorni <= 60 ? "bg-orange-100 text-orange-800" : "bg-yellow-100 text-yellow-800"}>
                       {s.giorni} gg
                     </Badge>
-                    <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(s.data_scadenza), "dd MMM yyyy", { locale: it })}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(s.dataScadenza!), "dd MMM yyyy", { locale: it })}</p>
                   </div>
                 </Link>
               ))}
@@ -247,10 +284,8 @@ const ClienteDashboard = () => {
                 </div>
               )}
             </CardContent>
-
           </Card>
 
-          {/* Pie - Sinistri per Ramo (Aperti vs Chiusi) */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
@@ -259,22 +294,20 @@ const ClienteDashboard = () => {
             </CardHeader>
             <CardContent>
               {sinPerRamo.length > 0 ? (
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie data={sinPerRamo} cx="50%" cy="50%" innerRadius={45} outerRadius={85} paddingAngle={2} dataKey="value" label={({ name, value }) => `${value}`} labelLine={false}>
-                      {sinPerRamo.map((entry, i) => (
-                        <Cell key={i} fill={entry.isOpen ? COLORS_OPEN[i % COLORS_OPEN.length] : COLORS_CLOSED[i % COLORS_CLOSED.length]} />
-                      ))}
-                    </Pie>
+                <ResponsiveContainer width="100%" height={barSinH}>
+                  <BarChart data={sinPerRamo} layout="vertical" margin={{ left: 4, right: 12, top: 4, bottom: 4 }}>
+                    <XAxis type="number" allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11 }} interval={0} />
                     <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                  </PieChart>
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="aperti" name="Aperti" stackId="s" fill="#f97316" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="chiusi" name="Chiusi" stackId="s" fill="#94a3b8" radius={[0, 4, 4, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               ) : <p className="text-sm text-muted-foreground text-center py-12">Nessun sinistro</p>}
             </CardContent>
           </Card>
 
-          {/* Bar - Rapporto Premi/Sinistri per Anno */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
@@ -286,11 +319,11 @@ const ClienteDashboard = () => {
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={barPremiSinistri}>
                     <XAxis dataKey="anno" tick={{ fontSize: 12 }} />
-                    <YAxis tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`} />
+                    <YAxis tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
                     <Tooltip formatter={(v: number) => fmt(v)} />
-                    <Legend />
-                    <Bar dataKey="premi" name="Premi Pagati" fill="#0d9488" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="sinistri" name="Sinistri Liquidati" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="premi" name="Premi annui" fill="#0d9488" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="sinistri" name="Importo sinistri" fill="#ef4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : <p className="text-sm text-muted-foreground text-center py-12">Nessun dato</p>}
@@ -299,14 +332,12 @@ const ClienteDashboard = () => {
         </div>
       )}
 
-      {/* Quick Actions */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Azioni rapide</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          
-          <Link to="/cliente/chat"><Badge variant="secondary" className="cursor-pointer px-3 py-1.5 text-sm hover:bg-muted">💬 Scrivi all'agenzia</Badge></Link>
+          <Link to="/cliente/chat"><Badge variant="secondary" className="cursor-pointer px-3 py-1.5 text-sm hover:bg-muted">💬 Scrivi all&apos;agenzia</Badge></Link>
           <Link to="/cliente/polizze"><Badge variant="secondary" className="cursor-pointer px-3 py-1.5 text-sm hover:bg-muted">📋 Vedi polizze</Badge></Link>
           <Link to="/cliente/sinistri"><Badge variant="secondary" className="cursor-pointer px-3 py-1.5 text-sm hover:bg-muted">⚠️ Sinistri</Badge></Link>
         </CardContent>
