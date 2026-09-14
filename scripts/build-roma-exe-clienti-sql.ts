@@ -20,10 +20,25 @@ const catalogo: CatalogoClienteCBnet[] = catalogoRaw.map((c) => ({
   codice_fiscale_azienda: c.codice_fiscale_azienda ?? c.cf_az ?? null,
 }));
 const RM2 = "c83a748c-653f-4cbd-b075-b399eccdd1b1";
-
-const resolved = exe.map((c) =>
-  resolveRomaExeCliente(c.exe_codice, c.righe, catalogo, { ufficioId: RM2 }),
+const SKIP = new Set<string>(
+  (() => {
+    try {
+      return JSON.parse(readFileSync("/tmp/roma-exe-already.json", "utf8")) as string[];
+    } catch {
+      return [];
+    }
+  })(),
 );
+const GF_IDS = {
+  linea_persona: "a3d9b7c4-dacc-43bc-ba25-7829475a0697",
+  aziende_private: "9f712168-3abc-4b09-b7f2-81e819848bd0",
+  enti_territoriali: "0e090595-0f3e-475c-b70b-583ec70fb0b0",
+};
+const SPECIALIST = "3d7d17cc-caeb-47b7-8b2c-51ead91bb983";
+
+const resolved = exe
+  .filter((c) => !SKIP.has(String(c.exe_codice)))
+  .map((c) => resolveRomaExeCliente(c.exe_codice, c.righe, catalogo, { ufficioId: RM2 }));
 
 const stats = resolved.reduce(
   (acc, r) => {
@@ -44,46 +59,12 @@ function sqlIdent(id: string): string {
 }
 
 const GF = {
-  linea_persona: "(SELECT id FROM gf WHERE key = 'linea_persona')",
-  aziende_private: "(SELECT id FROM gf WHERE key = 'aziende_private')",
-  enti_territoriali: "(SELECT id FROM gf WHERE key = 'enti_territoriali')",
+  linea_persona: `'${GF_IDS.linea_persona}'::uuid`,
+  aziende_private: `'${GF_IDS.aziende_private}'::uuid`,
+  enti_territoriali: `'${GF_IDS.enti_territoriali}'::uuid`,
 };
 
-const header = `-- Import anagrafiche EXE → CBnet (generato, non editare a mano)
--- ${resolved.length} clienti EXE | ${JSON.stringify(stats)}
-
-DROP TABLE IF EXISTS gf;
-CREATE TEMP TABLE gf (key text PRIMARY KEY, id uuid);
-INSERT INTO gf (key, id)
-SELECT 'linea_persona', id FROM gruppi_finanziari
-WHERE nome = 'Linea Persona' AND tipo_soggetto = 'privato'
-ORDER BY (SELECT count(*) FROM clienti c WHERE c.gruppo_finanziario_id = gruppi_finanziari.id) DESC
-LIMIT 1;
-INSERT INTO gf (key, id)
-SELECT 'aziende_private', id FROM gruppi_finanziari
-WHERE nome = 'Aziende Private' AND tipo_soggetto = 'azienda'
-ORDER BY (SELECT count(*) FROM clienti c WHERE c.gruppo_finanziario_id = gruppi_finanziari.id) DESC
-LIMIT 1;
-INSERT INTO gf (key, id)
-SELECT 'enti_territoriali', id FROM gruppi_finanziari
-WHERE nome = 'Enti Pubblici Territoriali' AND tipo_soggetto = 'ente'
-ORDER BY (SELECT count(*) FROM clienti c WHERE c.gruppo_finanziario_id = gruppi_finanziari.id) DESC
-LIMIT 1;
-
-DO $chk$
-BEGIN
-  IF (SELECT count(*) FROM gf) <> 3 THEN
-    RAISE EXCEPTION 'Gruppi finanziari Roma EXE non trovati';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM uffici WHERE codice_ufficio = 'RM2') THEN
-    RAISE EXCEPTION 'Ufficio RM2 mancante';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM profiles WHERE email = 'romaexe@consulbrokers.it') THEN
-    RAISE EXCEPTION 'Profilo sede Roma EXE mancante';
-  END IF;
-END
-$chk$;
-`;
+const header = `-- Roma EXE clienti remaining ${resolved.length} ${JSON.stringify(stats)}\n`;
 
 const existing = resolved.filter((r) => r.esito === "esistente" && r.clienteId);
 const created = resolved.filter((r) => r.esito === "da_creare");
@@ -103,8 +84,8 @@ const clienteRows = createdWithId.map((r) => {
     ${sqlStr(r.nome)}, ${sqlStr(r.cognome)}, ${sqlStr(r.titolo)},
     ${sqlStr(isPriv ? r.codiceFiscale : null)}, ${sqlStr(isPriv ? null : r.partitaIva)}, ${sqlStr(isPriv ? null : r.codiceFiscaleAzienda)},
     ${sqlStr(r.formaGiuridica)}, ${GF[r.gruppoKey]},
-    (SELECT id FROM uffici WHERE codice_ufficio = 'RM2'),
-    (SELECT email FROM uffici WHERE codice_ufficio = 'RM2'),
+    '${RM2}'::uuid,
+    'romaexe@consulbrokers.it',
     ${sqlStr(r.pec)}, ${sqlStr(r.telefono)}, ${sqlStr(r.cellulare)}, ${sqlStr(r.fax)},
     ${sqlStr(isPriv ? r.indirizzo : null)}, ${sqlStr(isPriv ? r.cap : null)}, ${sqlStr(isPriv ? r.citta : null)}, ${sqlStr(isPriv ? r.provincia : null)},
     ${sqlStr(isPriv ? null : r.indirizzo)}, ${sqlStr(isPriv ? null : r.cap)}, ${sqlStr(isPriv ? null : r.citta)}, ${sqlStr(isPriv ? null : r.provincia)},
@@ -121,7 +102,7 @@ const mapCreated = createdWithId
 
 const specialistIds = createdWithId.map((r) => sqlIdent(r.newId)).join(",\n  ");
 
-const CHUNK = 80;
+const CHUNK = 12;
 const chunks: string[] = [];
 for (let i = 0; i < createdWithId.length; i += CHUNK) {
   const slice = createdWithId.slice(i, i + CHUNK);
@@ -132,7 +113,7 @@ for (let i = 0; i < createdWithId.length; i += CHUNK) {
         `  (${sqlStr(r.exeCodice)}, ${sqlStr(r.ragioneSociale)}, ${sqlIdent(r.newId)}, 'creata', ${sqlStr(r.motivo)})`,
     )
     .join(",\n");
-  const specs = slice.map((r) => sqlIdent(r.newId)).join(",\n  ");
+  const specs = slice.map((r) => `(${sqlIdent(r.newId)})`).join(",\n  ");
   chunks.push(`INSERT INTO public.clienti (
   id, tipo_cliente, codice_cliente, ragione_sociale,
   nome, cognome, titolo,
@@ -154,11 +135,10 @@ ON CONFLICT (exe_codice) DO UPDATE
 SET cliente_id = EXCLUDED.cliente_id, esito = EXCLUDED.esito, motivo = EXCLUDED.motivo;
 
 INSERT INTO public.codici_commerciali_cliente (cliente_id, ruolo, profilo_id)
-SELECT x.id, 'Backoffice', p.id
+SELECT x.id, 'Backoffice', '${SPECIALIST}'::uuid
 FROM (VALUES
   ${specs}
 ) AS x(id)
-JOIN public.profiles p ON p.email = 'romaexe@consulbrokers.it'
 ON CONFLICT (cliente_id, ruolo) DO UPDATE
 SET profilo_id = EXCLUDED.profilo_id;
 `);
