@@ -20,6 +20,8 @@ describe("mapRomaExeRamo", () => {
     expect(mapRomaExeRamo(null, "CAUZIONI")?.ramoCodice).toBe("FID");
     expect(mapRomaExeRamo("", "RCA")?.ramoCodice).toBe("QA");
     expect(mapRomaExeRamo(undefined, "C.A.R.")?.ramoCodice).toBe("GC");
+    expect(mapRomaExeRamo(null, "GLOB.ESER.")?.ramoCodice).toBe("LQ");
+    expect(mapRomaExeRamo(null, "RCVT")?.ramoCodice).toBe("PB");
   });
 
   it("non inventa un ramo sconosciuto", () => {
