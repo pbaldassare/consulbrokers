@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon, Check, FileDown, Building2 } from "lucide-react";
+import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon, Check, FileDown, Building2, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
 // MultiSelect filter: array of values, "all" when empty
 function MultiSelectFilter({ label, values, options, onChange, formatOption }: {
@@ -125,6 +125,10 @@ export default function ClienteSinistri() {
   const [exporting, setExporting] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
+  // Ordinamento tabella (client-side). null = ordine di default (per data apertura).
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
   const { data: cliente } = useQuery({
     queryKey: ["cliente-ente-profile", user?.id],
     queryFn: async () => {
@@ -196,6 +200,56 @@ export default function ClienteSinistri() {
     setFSearch(""); setFStati([]); setFRami([]); setFCompagnie([]);
     setFPolizze([]); setFCitta([]); setFReparti([]);
     setFDataDa(undefined); setFDataA(undefined);
+  };
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  // Righe ordinate per la tabella (l'ordinamento non tocca KPI/grafici/selezione).
+  const sortedSinistri = useMemo(() => {
+    if (!sortKey) return filteredSinistri;
+    const arr = [...filteredSinistri];
+    const sortVal = (s: (typeof arr)[number]): string | number => {
+      switch (sortKey) {
+        case "numero": return s.numero_sinistro || "";
+        case "garanzia": return resolveGaranzia(s) || "";
+        case "polizza": return resolvePolizzaNumero(s) || "";
+        case "stato": return s.stato || "";
+        case "luogo": return (isSanitario ? resolveReparto(s) : (s.citta_sinistro || s.luogo_sinistro)) || "";
+        case "riserva": return s.importo_riserva || 0;
+        case "liquidato": return s.importo_liquidato || 0;
+        case "data_evento": return s.data_evento ? new Date(s.data_evento).getTime() : 0;
+        default: return "";
+      }
+    };
+    arr.sort((a, b) => {
+      const va = sortVal(a);
+      const vb = sortVal(b);
+      const cmp = typeof va === "number" && typeof vb === "number"
+        ? va - vb
+        : String(va).localeCompare(String(vb), "it", { numeric: true, sensitivity: "base" });
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return arr;
+  }, [filteredSinistri, sortKey, sortDir, isSanitario]);
+
+  const SortHead = ({ k, children, className }: { k: string; children: ReactNode; className?: string }) => {
+    const Icon = sortKey === k ? (sortDir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+    const alignRight = className?.includes("text-right");
+    return (
+      <TableHead className={cn("cursor-pointer select-none", className)} onClick={() => handleSort(k)}>
+        <div className={cn("flex items-center gap-1", alignRight && "justify-end")}>
+          {children}
+          <Icon className={cn("h-3.5 w-3.5 shrink-0", sortKey === k ? "text-foreground" : "text-muted-foreground/50")} />
+        </div>
+      </TableHead>
+    );
   };
 
 
@@ -526,18 +580,18 @@ export default function ClienteSinistri() {
                       <Checkbox checked={allFilteredSelected} onCheckedChange={toggleSelectAll} aria-label="Seleziona tutti" />
                     </TableHead>
                     <TableHead className="w-8"></TableHead>
-                    <TableHead>N. Sinistro</TableHead>
-                    <TableHead>Garanzia</TableHead>
-                    <TableHead>Polizza</TableHead>
-                    <TableHead>Stato</TableHead>
-                    <TableHead>{isSanitario ? "Reparto" : "Luogo"}</TableHead>
-                    <TableHead className="text-right">Riserva</TableHead>
-                    <TableHead className="text-right">Liquidato</TableHead>
-                    <TableHead>Data Evento</TableHead>
+                    <SortHead k="numero">N. Sinistro</SortHead>
+                    <SortHead k="garanzia">Garanzia</SortHead>
+                    <SortHead k="polizza">Polizza</SortHead>
+                    <SortHead k="stato">Stato</SortHead>
+                    <SortHead k="luogo">{isSanitario ? "Reparto" : "Luogo"}</SortHead>
+                    <SortHead k="riserva" className="text-right">Riserva</SortHead>
+                    <SortHead k="liquidato" className="text-right">Liquidato</SortHead>
+                    <SortHead k="data_evento">Data Evento</SortHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSinistri.map((s: any) => (
+                  {sortedSinistri.map((s: any) => (
                     <>
                       <TableRow
                         key={s.id}
