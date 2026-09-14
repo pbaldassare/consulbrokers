@@ -8,6 +8,7 @@ import {
   type SinistroGeo,
 } from "./sinistriMapUtils";
 import { resolveReparto } from "./sinistriReparto";
+import { resolveGaranzia, resolvePolizzaNumero, resolveCompagnia } from "./sinistroView";
 
 const GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY ||
   import.meta.env.VITE_GOOGLE_MAPS_API_KEY) as string | undefined;
@@ -109,7 +110,7 @@ export function computeKpis(sinistri: any[]): SinistriReportKpis {
 export function aggregateSinPerRamo(sinistri: any[]): SinPerRamoRow[] {
   const map = new Map<string, SinPerRamoRow>();
   sinistri.forEach((s) => {
-    const ramo = s.ramo_sinistro || "Altro";
+    const ramo = resolveGaranzia(s) || "Altro";
     const isOpen = !["chiuso", "respinto"].includes(s.stato);
     const cur = map.get(ramo) || { ramo, aperti: 0, chiusi: 0, riserva: 0, liquidato: 0 };
     if (isOpen) cur.aperti++;
@@ -125,9 +126,9 @@ export function aggregateSinPerRamo(sinistri: any[]): SinPerRamoRow[] {
 export function mapSinistriToPdfRows(sinistri: any[], opts?: { includeReparto?: boolean }): SinistroPdfRow[] {
   return sinistri.map((s) => ({
     numeroSinistro: s.numero_sinistro || "—",
-    garanzia: s.ramo_sinistro || "—",
-    polizza: s.titoli?.numero_titolo || "—",
-    compagnia: s.compagnie?.nome || "—",
+    garanzia: resolveGaranzia(s) || "—",
+    polizza: resolvePolizzaNumero(s) || "—",
+    compagnia: resolveCompagnia(s) || "—",
     stato: formatStatoLabel(s.stato),
     luogo: s.citta_sinistro || s.luogo_sinistro || s.indirizzo_sinistro || "—",
     reparto: opts?.includeReparto ? resolveReparto(s) : undefined,

@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveGaranzia, resolvePolizzaNumero, resolveCompagnia } from "./sinistroView";
 
 const fmtDate = (v: any) => (v ? format(new Date(v), "dd/MM/yyyy") : "");
 
@@ -26,6 +27,7 @@ export async function exportSinistriXlsx(sinistri: any[]) {
       "N° Sinistro Compagnia": s.numero_sinistro_compagnia || "",
       Stato: s.stato || "",
       "Ramo Sinistro": s.ramo_sinistro || "",
+      Garanzia: resolveGaranzia(s) || "",
       "Data Evento": fmtDate(s.data_evento),
       "Data Denuncia": fmtDate(s.data_denuncia),
       "Data Apertura": fmtDate(s.data_apertura),
@@ -50,9 +52,10 @@ export async function exportSinistriXlsx(sinistri: any[]) {
       "Costo Preventivato": s.costo_preventivato ?? "",
       "Costo Effettivo": s.costo_effettivo ?? "",
       "Note Perito": s.note_perito || "",
-      // Polizza essenziale
-      "Polizza N°": p?.numero_titolo || s.titoli?.numero_titolo || "",
-      "Polizza Compagnia": p?.compagnie?.nome || s.compagnie?.nome || "",
+      // Polizza essenziale (CBnet oppure polizza terzi)
+      "Polizza N°": p?.numero_titolo || resolvePolizzaNumero(s) || "",
+      "Polizza Compagnia": p?.compagnie?.nome || resolveCompagnia(s) || "",
+      "Polizza Terzi": s.sinistro_terzi ? "Sì" : "",
       "Polizza Ramo": p?.rami ? `${p.rami.codice} - ${p.rami.descrizione}` : "",
       "Polizza Prodotto": p?.prodotto_nome || "",
       "Polizza Decorrenza": fmtDate(p?.decorrenza),
