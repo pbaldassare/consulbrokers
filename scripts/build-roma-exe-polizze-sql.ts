@@ -134,7 +134,7 @@ function sqlBool(v: boolean): string {
 
 function titoloValues(r: RomaExePolizzaRisolta & { newId: string }): string {
   return `(${sqlIdent(r.newId)}, ${sqlStr(r.numeroTitolo)}, ${r.riga}, ${sqlStr(r.stato)},
-    ${r.clienteId ? sqlIdent(r.clienteId) : "NULL"}, ${r.clienteId ? sqlIdent(r.clienteId) : "NULL"},
+    NULL, ${r.clienteId ? sqlIdent(r.clienteId) : "NULL"},
     ${r.compagniaId ? sqlIdent(r.compagniaId) : "NULL"}, ${r.ramoId ? sqlIdent(r.ramoId) : "NULL"},
     '${RM2}'::uuid, ${sqlDate(r.garanziaDa)}, ${sqlDate(r.garanziaA)},
     ${sqlDate(r.garanziaDa)}, ${sqlDate(r.garanziaA)}, ${sqlDate(r.garanziaA)}, ${sqlDate(r.dataCompetenza)},
