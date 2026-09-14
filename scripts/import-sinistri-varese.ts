@@ -39,6 +39,7 @@ const EXCEL_PATH = args.find((a) => !a.startsWith("--") && /\.xlsx?$/i.test(a));
 const CLIENTE_ID = flag("--cliente-id") || process.env.COMUNE_VARESE_CLIENTE_ID;
 const EXECUTE = has("--execute");
 const LIMIT = Number(flag("--limit") || "0"); // 0 = tutte
+const OFFSET = Number(flag("--offset") || "0"); // salta le prime N righe (per riprendere)
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const ANON_KEY =
@@ -99,8 +100,9 @@ async function creaSinistro(payload: unknown): Promise<{ ok: boolean; error?: st
 
 async function main() {
   const rows = readRows(EXCEL_PATH!);
-  const selected = LIMIT > 0 ? rows.slice(0, LIMIT) : rows;
-  console.log(`\n📄 Righe lette: ${rows.length}${LIMIT ? ` (limitate a ${selected.length})` : ""}`);
+  const afterOffset = OFFSET > 0 ? rows.slice(OFFSET) : rows;
+  const selected = LIMIT > 0 ? afterOffset.slice(0, LIMIT) : afterOffset;
+  console.log(`\n📄 Righe lette: ${rows.length}${OFFSET ? ` · offset ${OFFSET}` : ""}${LIMIT ? ` · limite ${LIMIT}` : ""} → elaboro ${selected.length}`);
   console.log(`🏛️  Comune di Varese cliente_anagrafica_id: ${CLIENTE_ID}`);
   console.log(`🔗 Endpoint: ${SUPABASE_URL}/functions/v1/gestione-sinistri`);
   console.log(EXECUTE ? "⚙️  Modalità: ESECUZIONE (scrive su Supabase)" : "🔎 Modalità: DRY-RUN (nessuna scrittura)\n");
@@ -120,14 +122,15 @@ async function main() {
     }
 
     const r = await creaSinistro(payload);
+    const globalIdx = OFFSET + i + 1;
     if (r.ok) {
       ok++;
-      console.log(`  ✅ [${i + 1}/${selected.length}] ${row.nSinistroMarsh} → ${r.numero}`);
+      console.log(`  ✅ [${globalIdx}/${rows.length}] ${row.nSinistroMarsh} → ${r.numero}`);
     } else {
       ko++;
-      console.error(`  ❌ [${i + 1}/${selected.length}] ${row.nSinistroMarsh} → ${r.error}`);
+      console.error(`  ❌ [${globalIdx}/${rows.length}] ${row.nSinistroMarsh} → ${r.error}`);
     }
-    report.push({ riga: i + 1, marsh: row.nSinistroMarsh, ok: r.ok, numero: r.numero, error: r.error });
+    report.push({ riga: globalIdx, marsh: row.nSinistroMarsh, ok: r.ok, numero: r.numero, error: r.error });
     // piccola pausa per non saturare la edge function
     await new Promise((res) => setTimeout(res, 120));
   }

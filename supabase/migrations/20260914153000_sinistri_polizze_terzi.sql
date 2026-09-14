@@ -65,17 +65,20 @@ ALTER TABLE public.sinistri
 -- RLS: come le altre entita' sinistri ma senza logica di sede (la polizza non e' nostra)
 ALTER TABLE public.polizze_terzi ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admin all polizze terzi" ON public.polizze_terzi;
 CREATE POLICY "Admin all polizze terzi"
   ON public.polizze_terzi
   FOR ALL
   USING (has_role(auth.uid(), 'admin'::app_role))
   WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
+DROP POLICY IF EXISTS "CFO select polizze terzi" ON public.polizze_terzi;
 CREATE POLICY "CFO select polizze terzi"
   ON public.polizze_terzi
   FOR SELECT
   USING (has_role(auth.uid(), 'cfo'::app_role));
 
+DROP POLICY IF EXISTS "Ufficio all polizze terzi" ON public.polizze_terzi;
 CREATE POLICY "Ufficio all polizze terzi"
   ON public.polizze_terzi
   FOR ALL
@@ -83,6 +86,7 @@ CREATE POLICY "Ufficio all polizze terzi"
   WITH CHECK (has_role(auth.uid(), 'ufficio'::app_role));
 
 -- Lettura per qualsiasi utente autenticato (dati non sensibili, coerente con "meno regole")
+DROP POLICY IF EXISTS "Auth select polizze terzi" ON public.polizze_terzi;
 CREATE POLICY "Auth select polizze terzi"
   ON public.polizze_terzi
   FOR SELECT
