@@ -189,7 +189,13 @@ const sidebarEntries: SidebarEntry[] = [
   },
   {
     type: "single",
-    item: { label: "CB Bot", path: "/portafoglio/documentale?tab=cb-bot", icon: Bot, permissionKey: "portafoglio" },
+    item: {
+      label: "CB Bot",
+      path: "/portafoglio/documentale?tab=cb-bot",
+      icon: Bot,
+      permissionKey: "portafoglio",
+      hideForRoles: ["admin"],
+    },
   },
   {
     type: "group",
