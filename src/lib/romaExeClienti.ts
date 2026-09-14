@@ -93,6 +93,7 @@ export type RomaExeClienteRisolto = {
 const TITOLI = [
   "DOTT.SSA",
   "DOTTSSA",
+  "D.SSA",
   "AUT.SSA",
   "GEOM",
   "ARCH",

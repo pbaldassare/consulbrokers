@@ -26,6 +26,11 @@ describe("splitNomeCognome", () => {
       nome: "MARIA CRISTINA",
       titolo: "DR",
     });
+    expect(splitNomeCognome("GAMUCCI D.SSA TERESA")).toEqual({
+      cognome: "GAMUCCI",
+      nome: "TERESA",
+      titolo: "D.SSA",
+    });
   });
 
   it("tiene il doppio cognome e prende l'ultimo token come nome", () => {
