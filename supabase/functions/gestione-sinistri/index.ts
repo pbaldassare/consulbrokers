@@ -13,6 +13,7 @@ function sanitizeEdgePayload(body: unknown): unknown {
   const uuidKeys = [
     "titolo_id", "cliente_id", "compagnia_id", "responsabile_id", "liquidatore_id",
     "ufficio_id", "user_id", "cliente_anagrafica_id", "sinistro_id", "assegnato_a",
+    "polizza_terzi_id",
   ];
   const numberKeys = [
     "importo_riserva", "costo_preventivato", "costo_effettivo", "franchigia", "importo_liquidato",
@@ -26,12 +27,78 @@ function sanitizeEdgePayload(body: unknown): unknown {
   return o;
 }
 
+/**
+ * Dati di una polizza NON-CBnet collegata a un Sinistro Terzi.
+ * compagnia_id / cliente_anagrafica_id restano string libere (pulite lato server):
+ * il client puo' inviare "" e la validazione uuid fallirebbe.
+ */
+const polizzaTerziInput = z.object({
+  numero_polizza: z.string().optional().nullable(),
+  compagnia_id: z.string().optional().nullable(),
+  compagnia_nome: z.string().optional().nullable(),
+  contraente: z.string().optional().nullable(),
+  cliente_anagrafica_id: z.string().optional().nullable(),
+  garanzia_principale: z.string().optional().nullable(),
+  broker_riferimento: z.string().optional().nullable(),
+  ramo: z.string().optional().nullable(),
+  note: z.string().optional().nullable(),
+}).partial();
+
+/**
+ * Crea (o riusa) una polizza terzi e ritorna il suo id.
+ * Ritorna null se non e' un sinistro terzi o se non ci sono dati utili.
+ */
+async function resolvePolizzaTerziId(
+  supabase: ReturnType<typeof createClient>,
+  isTerzi: boolean,
+  polizzaTerziId: string | null | undefined,
+  polizzaTerzi: Record<string, unknown> | null | undefined,
+  userId: string | null | undefined,
+): Promise<string | null> {
+  if (!isTerzi) return null;
+  if (polizzaTerziId) return polizzaTerziId;
+  if (!polizzaTerzi || typeof polizzaTerzi !== "object") return null;
+
+  const clean = (v: unknown): string | null => {
+    if (typeof v !== "string") return v == null ? null : (v as unknown as string);
+    const t = v.trim();
+    return t.length > 0 ? t : null;
+  };
+
+  const row = {
+    numero_polizza: clean(polizzaTerzi.numero_polizza),
+    compagnia_id: clean(polizzaTerzi.compagnia_id),
+    compagnia_nome: clean(polizzaTerzi.compagnia_nome),
+    contraente: clean(polizzaTerzi.contraente),
+    cliente_anagrafica_id: clean(polizzaTerzi.cliente_anagrafica_id),
+    garanzia_principale: clean(polizzaTerzi.garanzia_principale),
+    broker_riferimento: clean(polizzaTerzi.broker_riferimento),
+    ramo: clean(polizzaTerzi.ramo),
+    note: clean(polizzaTerzi.note),
+    created_by: userId ?? null,
+  };
+
+  // Rispetta il CHECK polizze_terzi_almeno_un_dato: serve almeno un dato identificativo
+  const hasData = row.numero_polizza || row.compagnia_id || row.compagnia_nome || row.contraente;
+  if (!hasData) return null;
+
+  const { data, error } = await supabase
+    .from("polizze_terzi")
+    .insert(row)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return (data as { id: string }).id;
+}
+
 const payloadSchema = z.discriminatedUnion("azione", [
   z.object({
     azione: z.literal("crea"),
     numero_sinistro: z.string().min(1).optional(),
     titolo_id: z.string().uuid().nullable().optional(),
     sinistro_terzi: z.boolean().optional(),
+    polizza_terzi_id: z.string().uuid().nullable().optional(),
+    polizza_terzi: polizzaTerziInput.optional().nullable(),
     cliente_id: z.string().uuid().nullable().optional(),
     compagnia_id: z.string().uuid().nullable().optional(),
     responsabile_id: z.string().uuid().nullable().optional(),
@@ -86,6 +153,8 @@ const payloadSchema = z.discriminatedUnion("azione", [
     user_id: z.string().uuid().optional(),
     sinistro_terzi: z.boolean().optional(),
     titolo_id: z.string().uuid().nullable().optional(),
+    polizza_terzi_id: z.string().uuid().nullable().optional(),
+    polizza_terzi: polizzaTerziInput.optional().nullable(),
     data_evento: z.string().optional().nullable(),
     data_denuncia: z.string().optional().nullable(),
     tipo_sinistro: z.string().optional().nullable(),
@@ -117,6 +186,8 @@ const payloadSchema = z.discriminatedUnion("azione", [
     user_id: z.string().uuid().optional(),
     sinistro_terzi: z.boolean().optional(),
     titolo_id: z.string().uuid().nullable().optional(),
+    polizza_terzi_id: z.string().uuid().nullable().optional(),
+    polizza_terzi: polizzaTerziInput.optional().nullable(),
     cliente_anagrafica_id: z.string().uuid().nullable().optional(),
     compagnia_id: z.string().uuid().nullable().optional(),
     ufficio_id: z.string().uuid().nullable().optional(),
@@ -205,7 +276,8 @@ Deno.serve(async (req) => {
 
     if (azione === "crea") {
       const {
-        numero_sinistro, titolo_id, sinistro_terzi, cliente_id, compagnia_id, responsabile_id, liquidatore_id,
+        numero_sinistro, titolo_id, sinistro_terzi, polizza_terzi_id, polizza_terzi,
+        cliente_id, compagnia_id, responsabile_id, liquidatore_id,
         ufficio_id, descrizione, user_id,
         cliente_anagrafica_id, tipo_sinistro, tipo_sinistro_personalizzato, luogo_sinistro, data_evento,
         data_denuncia, data_apertura, numero_sinistro_compagnia, importo_riserva,
@@ -224,11 +296,15 @@ Deno.serve(async (req) => {
       const oggi = new Date().toISOString().split("T")[0];
       const descrizioneTesto = descrizione ?? dinamica ?? null;
       const isTerzi = sinistro_terzi === true;
+      const polizzaTerziId = await resolvePolizzaTerziId(
+        supabase, isTerzi, polizza_terzi_id, polizza_terzi, user_id,
+      );
 
       const { data: sinistro, error } = await supabase.from("sinistri").insert({
         numero_sinistro: numero,
         titolo_id: isTerzi ? null : (titolo_id ?? null),
         sinistro_terzi: isTerzi,
+        polizza_terzi_id: polizzaTerziId,
         cliente_id: cliente_id ?? null,
         compagnia_id: compagnia_id ?? null,
         responsabile_id: responsabile_id ?? null,
@@ -385,7 +461,8 @@ Deno.serve(async (req) => {
 
     if (azione === "aggiorna") {
       const {
-        sinistro_id, user_id, sinistro_terzi, titolo_id, data_evento, data_denuncia, tipo_sinistro, tipo_sinistro_personalizzato,
+        sinistro_id, user_id, sinistro_terzi, titolo_id, polizza_terzi_id, polizza_terzi,
+        data_evento, data_denuncia, tipo_sinistro, tipo_sinistro_personalizzato,
         numero_sinistro_compagnia, descrizione, dinamica, luogo_sinistro, indirizzo_sinistro,
         citta_sinistro, cap_sinistro, provincia_sinistro, controparte, targa_veicolo,
         importo_riserva, costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
@@ -439,11 +516,23 @@ Deno.serve(async (req) => {
       if (bozza_wizard_json !== undefined) updateData.bozza_wizard_json = bozza_wizard_json;
       if (sinistro_terzi !== undefined) {
         updateData.sinistro_terzi = sinistro_terzi;
-        if (sinistro_terzi === true) updateData.titolo_id = null;
+        if (sinistro_terzi === true) {
+          updateData.titolo_id = null;
+          const ptId = await resolvePolizzaTerziId(
+            supabase, true, polizza_terzi_id, polizza_terzi, user_id,
+          );
+          if (ptId) updateData.polizza_terzi_id = ptId;
+        } else {
+          // Non piu' terzi: la polizza terzi non e' ammessa (CHECK)
+          updateData.polizza_terzi_id = null;
+        }
       }
       if (titolo_id !== undefined && sinistro_terzi !== true) {
         updateData.titolo_id = titolo_id;
-        if (titolo_id) updateData.sinistro_terzi = false;
+        if (titolo_id) {
+          updateData.sinistro_terzi = false;
+          updateData.polizza_terzi_id = null;
+        }
         // Allinea compagnia/ufficio alla polizza collegata
         if (titolo_id) {
           const { data: titoloRow } = await supabase
@@ -492,7 +581,8 @@ Deno.serve(async (req) => {
 
     if (azione === "finalizza_bozza") {
       const {
-        sinistro_id, user_id, sinistro_terzi, titolo_id, cliente_anagrafica_id, compagnia_id, ufficio_id,
+        sinistro_id, user_id, sinistro_terzi, titolo_id, polizza_terzi_id, polizza_terzi,
+        cliente_anagrafica_id, compagnia_id, ufficio_id,
         descrizione, tipo_sinistro, tipo_sinistro_personalizzato, luogo_sinistro, data_evento, data_denuncia,
         numero_sinistro_compagnia, importo_riserva, controparte, targa_veicolo, dinamica,
         indirizzo_sinistro, citta_sinistro, cap_sinistro, provincia_sinistro,
@@ -522,6 +612,9 @@ Deno.serve(async (req) => {
 
       const oggi = new Date().toISOString().split("T")[0];
       const isTerzi = sinistro_terzi === true;
+      const polizzaTerziId = await resolvePolizzaTerziId(
+        supabase, isTerzi, polizza_terzi_id, polizza_terzi, user_id,
+      );
       const descrizioneTesto = descrizione ?? dinamica ?? null;
       const numeroFinale = prev.numero_sinistro?.startsWith("BOZZA-")
         ? `SIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
@@ -536,6 +629,7 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
         sinistro_terzi: isTerzi,
         titolo_id: isTerzi ? null : (titolo_id ?? null),
+        polizza_terzi_id: isTerzi ? polizzaTerziId : null,
         cliente_anagrafica_id: cliente_anagrafica_id ?? null,
         compagnia_id: compagnia_id ?? null,
         ufficio_id: ufficio_id ?? null,
