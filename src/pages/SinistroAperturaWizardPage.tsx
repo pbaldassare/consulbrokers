@@ -119,6 +119,26 @@ export default function SinistroAperturaWizardPage() {
   const skipBozzaHydrateRef = useRef<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
+  // Dati polizza terzi (polizza NON-CBnet): valorizzati solo quando "Sinistro Terzi" è attivo.
+  const [polizzaTerzi, setPolizzaTerzi] = useState({
+    numero_polizza: "",
+    compagnia_nome: "",
+    garanzia_principale: "",
+    contraente: "",
+    broker_riferimento: "",
+  });
+  const buildPolizzaTerziPayload = () => {
+    const p = {
+      numero_polizza: polizzaTerzi.numero_polizza.trim(),
+      compagnia_nome: polizzaTerzi.compagnia_nome.trim(),
+      garanzia_principale: polizzaTerzi.garanzia_principale.trim(),
+      contraente: polizzaTerzi.contraente.trim(),
+      broker_riferimento: polizzaTerzi.broker_riferimento.trim(),
+    };
+    const hasData = p.numero_polizza || p.compagnia_nome || p.contraente;
+    return hasData ? p : undefined;
+  };
+
   const { register, control, handleSubmit, setValue, getValues, watch, trigger, reset, formState: { errors } } = useForm<WizardFormValues>({
     resolver: zodResolver(wizardSchema),
     defaultValues: createWizardFormDefaults(),
@@ -146,6 +166,7 @@ export default function SinistroAperturaWizardPage() {
       data_scadenza_risposta: "",
     });
     setReminderDraftForm({ testo: "", data_scadenza: "" });
+    setPolizzaTerzi({ numero_polizza: "", compagnia_nome: "", garanzia_principale: "", contraente: "", broker_riferimento: "" });
     pendingFilesRef.current.forEach((_, pathTemp) => URL.revokeObjectURL(pathTemp));
     pendingFilesRef.current.clear();
     setDbBozzaId(null);
@@ -598,6 +619,7 @@ export default function SinistroAperturaWizardPage() {
             user_id: user.id,
             sinistro_terzi: isTerzi,
             titolo_id: titoloId,
+            ...(isTerzi && buildPolizzaTerziPayload() ? { polizza_terzi: buildPolizzaTerziPayload() } : {}),
             ...praticaPayload,
             bozza_wizard_json: bozzaWizardJson,
           },
@@ -611,6 +633,7 @@ export default function SinistroAperturaWizardPage() {
             azione: "crea",
             sinistro_terzi: isTerzi,
             titolo_id: titoloId,
+            ...(isTerzi && buildPolizzaTerziPayload() ? { polizza_terzi: buildPolizzaTerziPayload() } : {}),
             cliente_anagrafica_id: clienteAnagraficaId,
             ...(compagniaId ? { compagnia_id: compagniaId } : {}),
             ...(ufficioId ? { ufficio_id: ufficioId } : {}),
@@ -684,6 +707,7 @@ export default function SinistroAperturaWizardPage() {
             user_id: user.id,
             sinistro_terzi: isTerzi,
             titolo_id: titoloId,
+            ...(isTerzi && buildPolizzaTerziPayload() ? { polizza_terzi: buildPolizzaTerziPayload() } : {}),
             cliente_anagrafica_id: clienteAnagraficaId,
             ...(compagniaId ? { compagnia_id: compagniaId } : {}),
             ...(ufficioId ? { ufficio_id: ufficioId } : {}),
@@ -702,6 +726,7 @@ export default function SinistroAperturaWizardPage() {
             azione: "crea",
             sinistro_terzi: isTerzi,
             titolo_id: titoloId,
+            ...(isTerzi && buildPolizzaTerziPayload() ? { polizza_terzi: buildPolizzaTerziPayload() } : {}),
             cliente_anagrafica_id: clienteAnagraficaId,
             ...(compagniaId ? { compagnia_id: compagniaId } : {}),
             ...(ufficioId ? { ufficio_id: ufficioId } : {}),
@@ -945,9 +970,38 @@ export default function SinistroAperturaWizardPage() {
                 )}
 
                 {watchSinistroTerzi && selectedClienteId && (
-                  <div className="p-3 border rounded-lg bg-amber-50 border-amber-200 text-xs text-amber-900">
-                    <Badge variant="outline" className="mb-1 border-amber-400 text-amber-800">Sinistro Terzi</Badge>
-                    <p>Pratica senza polizza CBnet. Compagnia e ufficio restano opzionali.</p>
+                  <div className="p-3 border rounded-lg bg-amber-50 border-amber-200 space-y-3">
+                    <div className="text-xs text-amber-900">
+                      <Badge variant="outline" className="mb-1 border-amber-400 text-amber-800">Sinistro Terzi</Badge>
+                      <p>Pratica senza polizza CBnet. Puoi indicare qui i dati della polizza esterna (non a portafoglio): non entra nel portafoglio e non ha vincoli di sede.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="pt_numero" className="text-xs">Numero polizza (esterna)</Label>
+                        <Input id="pt_numero" className="h-9" value={polizzaTerzi.numero_polizza}
+                          onChange={(e) => setPolizzaTerzi({ ...polizzaTerzi, numero_polizza: e.target.value })} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="pt_compagnia" className="text-xs">Compagnia</Label>
+                        <Input id="pt_compagnia" className="h-9" value={polizzaTerzi.compagnia_nome}
+                          onChange={(e) => setPolizzaTerzi({ ...polizzaTerzi, compagnia_nome: e.target.value })} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="pt_garanzia" className="text-xs">Garanzia principale</Label>
+                        <Input id="pt_garanzia" className="h-9" value={polizzaTerzi.garanzia_principale}
+                          onChange={(e) => setPolizzaTerzi({ ...polizzaTerzi, garanzia_principale: e.target.value })} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="pt_contraente" className="text-xs">Contraente</Label>
+                        <Input id="pt_contraente" className="h-9" value={polizzaTerzi.contraente}
+                          onChange={(e) => setPolizzaTerzi({ ...polizzaTerzi, contraente: e.target.value })} />
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <Label htmlFor="pt_broker" className="text-xs">Broker di riferimento</Label>
+                        <Input id="pt_broker" className="h-9" placeholder="es. Marsh" value={polizzaTerzi.broker_riferimento}
+                          onChange={(e) => setPolizzaTerzi({ ...polizzaTerzi, broker_riferimento: e.target.value })} />
+                      </div>
+                    </div>
                   </div>
                 )}
 

@@ -114,6 +114,30 @@ export default function SinistroDetail() {
 
   const prescrizioniAttive = prescrizioni?.filter((p: { stato: string }) => p.stato === "bozza" || p.stato === "inviata").length ?? 0;
 
+  // Polizza terzi (non-CBnet) collegata al sinistro. Query separata e resiliente:
+  // se la tabella/colonna non e' ancora deployata, degrada silenziosamente a null.
+  const polizzaTerziId = (sinistro as { polizza_terzi_id?: string | null } | undefined)?.polizza_terzi_id;
+  const { data: polizzaTerzi } = useQuery({
+    queryKey: ["sinistro-polizza-terzi", polizzaTerziId],
+    enabled: !!polizzaTerziId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("polizze_terzi" as never)
+        .select("numero_polizza, compagnia_nome, contraente, garanzia_principale, broker_riferimento, note")
+        .eq("id", polizzaTerziId!)
+        .maybeSingle();
+      if (error) return null;
+      return data as {
+        numero_polizza: string | null;
+        compagnia_nome: string | null;
+        contraente: string | null;
+        garanzia_principale: string | null;
+        broker_riferimento: string | null;
+        note: string | null;
+      } | null;
+    },
+  });
+
   // Timeline is now rendered by TimelineTab component
 
   const invalidate = () => {
@@ -301,15 +325,26 @@ export default function SinistroDetail() {
                 </Button>
               ) : (
                 <span className="font-medium text-foreground">
-                  {sinistro.sinistro_terzi ? "Terzi (senza CBnet)" : "—"}
+                  {sinistro.sinistro_terzi
+                    ? (polizzaTerzi?.numero_polizza
+                        ? `${polizzaTerzi.numero_polizza} · Terzi`
+                        : "Terzi (senza CBnet)")
+                    : "—"}
                 </span>
+              )}
+              {sinistro.sinistro_terzi && polizzaTerzi?.broker_riferimento && (
+                <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-800 bg-amber-50">
+                  Broker {polizzaTerzi.broker_riferimento}
+                </Badge>
               )}
               <span className="text-border">·</span>
               <span>{formatTipoSinistro(sinistro)}</span>
-              {sinistro.compagnie?.nome && (
+              {(sinistro.compagnie?.nome || (sinistro.sinistro_terzi && polizzaTerzi?.compagnia_nome)) && (
                 <>
                   <span className="text-border">·</span>
-                  <span className="truncate max-w-[160px]">{sinistro.compagnie.nome}</span>
+                  <span className="truncate max-w-[160px]">
+                    {sinistro.compagnie?.nome || polizzaTerzi?.compagnia_nome}
+                  </span>
                 </>
               )}
               <span className="text-border">·</span>
