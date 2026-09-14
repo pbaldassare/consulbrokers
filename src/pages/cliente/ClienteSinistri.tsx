@@ -84,6 +84,7 @@ import InfoHint from "@/components/cliente/InfoHint";
 import SinistriMap from "@/components/cliente/SinistriMap";
 import SinistriPerRepartoChart from "@/components/cliente/SinistriPerRepartoChart";
 import { isClienteSanitario, resolveReparto } from "@/lib/sinistriReparto";
+import { resolveGaranzia, resolveCompagnia, resolvePolizzaNumero, isPolizzaTerzi } from "@/lib/sinistroView";
 
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
 const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
@@ -151,7 +152,7 @@ export default function ClienteSinistri() {
       if (!clienteIds?.length) return [];
       const { data, error } = await supabase
         .from("sinistri")
-        .select("*, compagnie(nome), titoli(id, numero_titolo), anagrafiche_professionali!sinistri_perito_id_fkey(nome, cognome, ragione_sociale)")
+        .select("*, compagnie(nome), titoli(id, numero_titolo), polizze_terzi(numero_polizza, compagnia_nome, garanzia_principale, contraente, broker_riferimento), anagrafiche_professionali!sinistri_perito_id_fkey(nome, cognome, ragione_sociale)")
         .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
         .order("data_apertura", { ascending: false });
       if (error) throw error;
@@ -164,9 +165,9 @@ export default function ClienteSinistri() {
   const distinct = (key: (s: any) => string | undefined | null) =>
     Array.from(new Set(sinistri.map(key).filter(Boolean))) as string[];
   const optStati = distinct((s) => s.stato);
-  const optRami = distinct((s) => s.ramo_sinistro);
-  const optCompagnie = distinct((s) => s.compagnie?.nome);
-  const optPolizze = distinct((s) => s.titoli?.numero_titolo);
+  const optRami = distinct((s) => resolveGaranzia(s));
+  const optCompagnie = distinct((s) => resolveCompagnia(s));
+  const optPolizze = distinct((s) => resolvePolizzaNumero(s));
   const optCitta = distinct((s) => s.citta_sinistro);
   const optReparti = Array.from(new Set(sinistri.map((s: any) => resolveReparto(s)).filter((r) => r !== "Non specificato"))).sort((a, b) => a.localeCompare(b, "it"));
 
@@ -174,15 +175,16 @@ export default function ClienteSinistri() {
     const q = fSearch.trim().toLowerCase();
     return sinistri.filter((s: any) => {
       if (fStati.length && !fStati.includes(s.stato)) return false;
-      if (fRami.length && !fRami.includes(s.ramo_sinistro)) return false;
-      if (fCompagnie.length && !fCompagnie.includes(s.compagnie?.nome)) return false;
-      if (fPolizze.length && !fPolizze.includes(s.titoli?.numero_titolo)) return false;
+      if (fRami.length && !fRami.includes(resolveGaranzia(s))) return false;
+      if (fCompagnie.length && !fCompagnie.includes(resolveCompagnia(s))) return false;
+      if (fPolizze.length && !fPolizze.includes(resolvePolizzaNumero(s))) return false;
       if (fCitta.length && !fCitta.includes(s.citta_sinistro)) return false;
       if (fReparti.length && !fReparti.includes(resolveReparto(s))) return false;
       if (fDataDa && (!s.data_evento || new Date(s.data_evento) < fDataDa)) return false;
       if (fDataA && (!s.data_evento || new Date(s.data_evento) > fDataA)) return false;
       if (q) {
-        const hay = [s.numero_sinistro, s.numero_sinistro_compagnia, s.controparte, s.targa_veicolo, s.citta_sinistro, s.dinamica]
+        const hay = [s.numero_sinistro, s.numero_sinistro_compagnia, s.controparte, s.targa_veicolo, s.citta_sinistro, s.dinamica,
+          resolvePolizzaNumero(s), resolveGaranzia(s), resolveCompagnia(s), s.polizze_terzi?.contraente]
           .filter(Boolean).join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
@@ -206,7 +208,7 @@ export default function ClienteSinistri() {
   const sinPerRamo = (() => {
     const map = new Map<string, { ramo: string; aperti: number; chiusi: number }>();
     filteredSinistri.forEach((s: any) => {
-      const ramo = s.ramo_sinistro || "Altro";
+      const ramo = resolveGaranzia(s) || "Altro";
       const isOpen = !["chiuso", "respinto"].includes(s.stato);
       const cur = map.get(ramo) || { ramo, aperti: 0, chiusi: 0 };
       if (isOpen) cur.aperti++; else cur.chiusi++;
@@ -550,13 +552,18 @@ export default function ClienteSinistri() {
                         </TableCell>
                         <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs font-normal">{s.ramo_sinistro || "—"}</Badge>
+                          <Badge variant="outline" className="text-xs font-normal">{resolveGaranzia(s) || "—"}</Badge>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           {s.titoli?.id ? (
                             <Link to={`/cliente/polizze/${s.titoli.id}`} className="text-teal-700 hover:underline inline-flex items-center gap-1">
                               {s.titoli.numero_titolo}<ExternalLink className="h-3 w-3" />
                             </Link>
+                          ) : isPolizzaTerzi(s) ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              {resolvePolizzaNumero(s)}
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-300 text-amber-700 bg-amber-50">terzi</Badge>
+                            </span>
                           ) : "—"}
                         </TableCell>
                         <TableCell><Badge className={statoBadge[s.stato] || ""}>{s.stato?.replace(/_/g, " ")}</Badge></TableCell>

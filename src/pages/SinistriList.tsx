@@ -14,6 +14,7 @@ import ServerPagination from "@/components/ServerPagination";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
+import { resolveCompagnia, resolvePolizzaNumero, isPolizzaTerzi } from "@/lib/sinistroView";
 
 const statiSinistro = ["bozza", "in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
 
@@ -81,7 +82,7 @@ export default function SinistriList() {
          tipo_sinistro, tipo_sinistro_personalizzato,
          compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome),
          clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente),
-         titoli(numero_titolo)`,
+         titoli(numero_titolo), polizze_terzi(numero_polizza, compagnia_nome, garanzia_principale)`,
         { count: "exact" }
       );
       if (filtroStato !== "tutti") q = q.eq("stato", filtroStato);
@@ -92,7 +93,7 @@ export default function SinistriList() {
 
       const term = debouncedSearch.trim();
       if (term) {
-        const [{ data: clientiMatch }, { data: profilesMatch }, { data: titoliMatch }] = await Promise.all([
+        const [{ data: clientiMatch }, { data: profilesMatch }, { data: titoliMatch }, { data: polizzeTerziMatch }] = await Promise.all([
           supabase
             .from("clienti")
             .select("id")
@@ -107,6 +108,11 @@ export default function SinistriList() {
             .from("titoli")
             .select("id")
             .ilike("numero_titolo", `%${term}%`)
+            .limit(200),
+          supabase
+            .from("polizze_terzi")
+            .select("id")
+            .or(`numero_polizza.ilike.%${term}%,compagnia_nome.ilike.%${term}%,contraente.ilike.%${term}%`)
             .limit(200),
         ]);
 
@@ -126,6 +132,10 @@ export default function SinistriList() {
         const titoloIds = (titoliMatch || []).map((t) => t.id);
         if (titoloIds.length > 0) {
           parts.push(`titolo_id.in.(${titoloIds.join(",")})`);
+        }
+        const polizzaTerziIds = (polizzeTerziMatch || []).map((p) => p.id);
+        if (polizzaTerziIds.length > 0) {
+          parts.push(`polizza_terzi_id.in.(${polizzaTerziIds.join(",")})`);
         }
         q = q.or(parts.join(","));
       }
@@ -323,7 +333,16 @@ export default function SinistriList() {
                   </div>
                 </TableCell>
                 <TableCell>{resolveClienteNome(s.clienti)}</TableCell>
-                <TableCell>{s.sinistro_terzi ? "—" : (s.titoli?.numero_titolo || "—")}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span>{resolvePolizzaNumero(s) || "—"}</span>
+                    {isPolizzaTerzi(s) && (
+                      <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-300 text-amber-700 bg-amber-50">
+                        terzi
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="max-w-[10rem] truncate">{s.controparte || "—"}</TableCell>
                 <TableCell>{formatTipoSinistro(s)}</TableCell>
                 <TableCell>
@@ -331,7 +350,7 @@ export default function SinistriList() {
                     {s.stato === "bozza" ? "Bozza" : s.stato.replace(/_/g, " ")}
                   </Badge>
                 </TableCell>
-                <TableCell>{s.compagnie?.nome || "—"}</TableCell>
+                <TableCell>{resolveCompagnia(s) || "—"}</TableCell>
                 <TableCell>{s.data_apertura ? format(new Date(s.data_apertura), "dd/MM/yyyy") : "—"}</TableCell>
                 <TableCell>{s.data_denuncia ? format(new Date(s.data_denuncia), "dd/MM/yyyy") : "—"}</TableCell>
                 <TableCell className="min-w-[20rem] max-w-[40rem]">
