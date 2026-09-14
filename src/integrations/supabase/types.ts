@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       _backup_compagnie_cleanup_20260516: {
@@ -686,93 +711,6 @@ export type Database = {
         }
         Relationships: []
       }
-      cb_bot_siti_autorizzati: {
-        Row: {
-          attivo: boolean
-          created_at: string
-          created_by: string | null
-          dominio: string
-          id: string
-          nome: string
-          note: string | null
-          updated_at: string
-          url: string
-        }
-        Insert: {
-          attivo?: boolean
-          created_at?: string
-          created_by?: string | null
-          dominio: string
-          id?: string
-          nome: string
-          note?: string | null
-          updated_at?: string
-          url: string
-        }
-        Update: {
-          attivo?: boolean
-          created_at?: string
-          created_by?: string | null
-          dominio?: string
-          id?: string
-          nome?: string
-          note?: string | null
-          updated_at?: string
-          url?: string
-        }
-        Relationships: []
-      }
-      cb_bot_fonti: {
-        Row: {
-          attiva: boolean
-          conversazione_id: string | null
-          created_at: string
-          dominio: string
-          id: string
-          messaggio_id: string | null
-          note: string | null
-          origine: string
-          salvata_da: string | null
-          snippet: string | null
-          tags: string[]
-          titolo: string
-          updated_at: string
-          url: string
-        }
-        Insert: {
-          attiva?: boolean
-          conversazione_id?: string | null
-          created_at?: string
-          dominio: string
-          id?: string
-          messaggio_id?: string | null
-          note?: string | null
-          origine?: string
-          salvata_da?: string | null
-          snippet?: string | null
-          tags?: string[]
-          titolo: string
-          updated_at?: string
-          url: string
-        }
-        Update: {
-          attiva?: boolean
-          conversazione_id?: string | null
-          created_at?: string
-          dominio?: string
-          id?: string
-          messaggio_id?: string | null
-          note?: string | null
-          origine?: string
-          salvata_da?: string | null
-          snippet?: string | null
-          tags?: string[]
-          titolo?: string
-          updated_at?: string
-          url?: string
-        }
-        Relationships: []
-      }
       ai_chat_conversazioni: {
         Row: {
           created_at: string
@@ -1361,66 +1299,152 @@ export type Database = {
           },
         ]
       }
+      bandi_interesse: {
+        Row: {
+          bando_id: string
+          created_at: string
+          deciso_da: string | null
+          deciso_il: string
+          esito: string
+          harvest_at: string | null
+          harvest_note: string | null
+          id: string
+          motivo: string | null
+          snapshot_json: Json
+          updated_at: string
+        }
+        Insert: {
+          bando_id: string
+          created_at?: string
+          deciso_da?: string | null
+          deciso_il?: string
+          esito: string
+          harvest_at?: string | null
+          harvest_note?: string | null
+          id?: string
+          motivo?: string | null
+          snapshot_json?: Json
+          updated_at?: string
+        }
+        Update: {
+          bando_id?: string
+          created_at?: string
+          deciso_da?: string | null
+          deciso_il?: string
+          esito?: string
+          harvest_at?: string | null
+          harvest_note?: string | null
+          id?: string
+          motivo?: string | null
+          snapshot_json?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bandi_interesse_bando_id_fkey"
+            columns: ["bando_id"]
+            isOneToOne: true
+            referencedRelation: "bandi_pubblici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bandi_pubblici: {
         Row: {
+          aggiudicatario: string | null
+          aggiudicato: boolean
           cig: string | null
           created_at: string
+          data_contratto: string | null
+          data_decisione: string | null
+          data_pubblicazione: string | null
           ente: string | null
           ente_tipo: string | null
+          fonte: string
+          form_type: string | null
           id: string
           importo: number | null
           keyword: string | null
           link: string | null
           localita: string | null
+          notice_type: string | null
           oggetto: string | null
           pdf_path: string | null
           pdf_url: string | null
           regione: string | null
           scadenza: string | null
           scheda_id: string
+          servizio_a: string | null
+          servizio_da: string | null
           stato: string
+          tipo_avviso: string | null
+          tipo_procedura: string | null
           tipologia: string | null
           titolo: string | null
           updated_at: string
         }
         Insert: {
+          aggiudicatario?: string | null
+          aggiudicato?: boolean
           cig?: string | null
           created_at?: string
+          data_contratto?: string | null
+          data_decisione?: string | null
+          data_pubblicazione?: string | null
           ente?: string | null
           ente_tipo?: string | null
+          fonte?: string
+          form_type?: string | null
           id?: string
           importo?: number | null
           keyword?: string | null
           link?: string | null
           localita?: string | null
+          notice_type?: string | null
           oggetto?: string | null
           pdf_path?: string | null
           pdf_url?: string | null
           regione?: string | null
           scadenza?: string | null
           scheda_id: string
+          servizio_a?: string | null
+          servizio_da?: string | null
           stato?: string
+          tipo_avviso?: string | null
+          tipo_procedura?: string | null
           tipologia?: string | null
           titolo?: string | null
           updated_at?: string
         }
         Update: {
+          aggiudicatario?: string | null
+          aggiudicato?: boolean
           cig?: string | null
           created_at?: string
+          data_contratto?: string | null
+          data_decisione?: string | null
+          data_pubblicazione?: string | null
           ente?: string | null
           ente_tipo?: string | null
+          fonte?: string
+          form_type?: string | null
           id?: string
           importo?: number | null
           keyword?: string | null
           link?: string | null
           localita?: string | null
+          notice_type?: string | null
           oggetto?: string | null
           pdf_path?: string | null
           pdf_url?: string | null
           regione?: string | null
           scadenza?: string | null
           scheda_id?: string
+          servizio_a?: string | null
+          servizio_da?: string | null
           stato?: string
+          tipo_avviso?: string | null
+          tipo_procedura?: string | null
           tipologia?: string | null
           titolo?: string | null
           updated_at?: string
@@ -1547,6 +1571,240 @@ export type Database = {
           note?: string | null
           segno?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      cb_bot_confronti: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          documento_ids: string[]
+          id: string
+          risultato: string
+          titolo: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          documento_ids?: string[]
+          id?: string
+          risultato: string
+          titolo: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          documento_ids?: string[]
+          id?: string
+          risultato?: string
+          titolo?: string
+        }
+        Relationships: []
+      }
+      cb_bot_documenti: {
+        Row: {
+          analisi: string | null
+          created_at: string
+          created_by: string | null
+          file_name: string
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+          testo_estratto: string | null
+          titolo: string
+          updated_at: string
+        }
+        Insert: {
+          analisi?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_name: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          testo_estratto?: string | null
+          titolo: string
+          updated_at?: string
+        }
+        Update: {
+          analisi?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_name?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          testo_estratto?: string | null
+          titolo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cb_bot_fonti: {
+        Row: {
+          attiva: boolean
+          conversazione_id: string | null
+          created_at: string
+          dominio: string
+          id: string
+          messaggio_id: string | null
+          note: string | null
+          origine: string
+          salvata_da: string | null
+          snippet: string | null
+          tags: string[]
+          titolo: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          attiva?: boolean
+          conversazione_id?: string | null
+          created_at?: string
+          dominio: string
+          id?: string
+          messaggio_id?: string | null
+          note?: string | null
+          origine?: string
+          salvata_da?: string | null
+          snippet?: string | null
+          tags?: string[]
+          titolo: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          attiva?: boolean
+          conversazione_id?: string | null
+          created_at?: string
+          dominio?: string
+          id?: string
+          messaggio_id?: string | null
+          note?: string | null
+          origine?: string
+          salvata_da?: string | null
+          snippet?: string | null
+          tags?: string[]
+          titolo?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cb_bot_fonti_conversazione_id_fkey"
+            columns: ["conversazione_id"]
+            isOneToOne: false
+            referencedRelation: "garanzie_chat_conversazioni"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cb_bot_fonti_messaggio_id_fkey"
+            columns: ["messaggio_id"]
+            isOneToOne: false
+            referencedRelation: "garanzie_chat_messaggi"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cb_bot_know_how: {
+        Row: {
+          attiva: boolean
+          conversazione_id: string | null
+          created_at: string
+          domanda: string
+          domanda_norm: string
+          fonti: Json
+          hit_count: number
+          id: string
+          messaggio_id: string | null
+          risposta: string
+          salvata_da: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          attiva?: boolean
+          conversazione_id?: string | null
+          created_at?: string
+          domanda: string
+          domanda_norm: string
+          fonti?: Json
+          hit_count?: number
+          id?: string
+          messaggio_id?: string | null
+          risposta: string
+          salvata_da?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          attiva?: boolean
+          conversazione_id?: string | null
+          created_at?: string
+          domanda?: string
+          domanda_norm?: string
+          fonti?: Json
+          hit_count?: number
+          id?: string
+          messaggio_id?: string | null
+          risposta?: string
+          salvata_da?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cb_bot_know_how_conversazione_id_fkey"
+            columns: ["conversazione_id"]
+            isOneToOne: false
+            referencedRelation: "garanzie_chat_conversazioni"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cb_bot_know_how_messaggio_id_fkey"
+            columns: ["messaggio_id"]
+            isOneToOne: false
+            referencedRelation: "garanzie_chat_messaggi"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cb_bot_siti_autorizzati: {
+        Row: {
+          attivo: boolean
+          created_at: string
+          created_by: string | null
+          dominio: string
+          id: string
+          nome: string
+          note: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          attivo?: boolean
+          created_at?: string
+          created_by?: string | null
+          dominio: string
+          id?: string
+          nome: string
+          note?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          attivo?: boolean
+          created_at?: string
+          created_by?: string | null
+          dominio?: string
+          id?: string
+          nome?: string
+          note?: string | null
+          updated_at?: string
+          url?: string
         }
         Relationships: []
       }
@@ -2531,6 +2789,59 @@ export type Database = {
             foreignKeyName: "clienti_relazioni_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clienti_template_sommario: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          file_size: number | null
+          id: string
+          layout_json: Json
+          layout_key: string
+          mime_type: string | null
+          nome_file: string | null
+          storage_bucket: string | null
+          storage_path: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          file_size?: number | null
+          id?: string
+          layout_json?: Json
+          layout_key?: string
+          mime_type?: string | null
+          nome_file?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          file_size?: number | null
+          id?: string
+          layout_json?: Json
+          layout_key?: string
+          mime_type?: string | null
+          nome_file?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clienti_template_sommario_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: true
             referencedRelation: "clienti"
             referencedColumns: ["id"]
           },
@@ -4145,8 +4456,10 @@ export type Database = {
           id: string
           stato: string
           template_id: string | null
+          tipo: string
           titolo: string | null
           titolo_id: string | null
+          titolo_ids: string[]
           ufficio_id: string | null
           updated_at: string
         }
@@ -4161,8 +4474,10 @@ export type Database = {
           id?: string
           stato?: string
           template_id?: string | null
+          tipo?: string
           titolo?: string | null
           titolo_id?: string | null
+          titolo_ids?: string[]
           ufficio_id?: string | null
           updated_at?: string
         }
@@ -4177,8 +4492,10 @@ export type Database = {
           id?: string
           stato?: string
           template_id?: string | null
+          tipo?: string
           titolo?: string | null
           titolo_id?: string | null
+          titolo_ids?: string[]
           ufficio_id?: string | null
           updated_at?: string
         }
@@ -4714,6 +5031,8 @@ export type Database = {
           in_evidenza_at: string | null
           prodotto_cga_id: string | null
           ramo: string | null
+          salvata: boolean
+          salvata_at: string | null
           tags: string[] | null
           tipo: string
           titolo: string
@@ -4731,6 +5050,8 @@ export type Database = {
           in_evidenza_at?: string | null
           prodotto_cga_id?: string | null
           ramo?: string | null
+          salvata?: boolean
+          salvata_at?: string | null
           tags?: string[] | null
           tipo?: string
           titolo?: string
@@ -4748,6 +5069,8 @@ export type Database = {
           in_evidenza_at?: string | null
           prodotto_cga_id?: string | null
           ramo?: string | null
+          salvata?: boolean
+          salvata_at?: string | null
           tags?: string[] | null
           tipo?: string
           titolo?: string
@@ -5639,6 +5962,36 @@ export type Database = {
           created_at?: string | null
           descrizione?: string
           id?: string
+        }
+        Relationships: []
+      }
+      lookup_titoli_nidificazione: {
+        Row: {
+          attivo: boolean
+          categoria: string
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+          preposizione: string
+        }
+        Insert: {
+          attivo?: boolean
+          categoria: string
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+          preposizione?: string
+        }
+        Update: {
+          attivo?: boolean
+          categoria?: string
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+          preposizione?: string
         }
         Relationships: []
       }
@@ -6715,6 +7068,54 @@ export type Database = {
           },
         ]
       }
+      polizza_beni_esclusi: {
+        Row: {
+          created_at: string
+          descrizione: string
+          fonte_testo: string | null
+          id: string
+          motivo: string | null
+          ordine: number | null
+          partita_id: string | null
+          polizza_cga_id: string
+        }
+        Insert: {
+          created_at?: string
+          descrizione: string
+          fonte_testo?: string | null
+          id?: string
+          motivo?: string | null
+          ordine?: number | null
+          partita_id?: string | null
+          polizza_cga_id: string
+        }
+        Update: {
+          created_at?: string
+          descrizione?: string
+          fonte_testo?: string | null
+          id?: string
+          motivo?: string | null
+          ordine?: number | null
+          partita_id?: string | null
+          polizza_cga_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polizza_beni_esclusi_partita_id_fkey"
+            columns: ["partita_id"]
+            isOneToOne: false
+            referencedRelation: "polizza_partite"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizza_beni_esclusi_polizza_cga_id_fkey"
+            columns: ["polizza_cga_id"]
+            isOneToOne: false
+            referencedRelation: "polizza_cga"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       polizza_cga: {
         Row: {
           approvato_at: string | null
@@ -6737,6 +7138,8 @@ export type Database = {
           data_emissione: string | null
           data_scadenza: string | null
           documento_id: string | null
+          forma_copertura: string | null
+          forma_copertura_note: string | null
           frazionamento: string | null
           id: string
           intermediario_email: string | null
@@ -6777,6 +7180,8 @@ export type Database = {
           data_emissione?: string | null
           data_scadenza?: string | null
           documento_id?: string | null
+          forma_copertura?: string | null
+          forma_copertura_note?: string | null
           frazionamento?: string | null
           id?: string
           intermediario_email?: string | null
@@ -6817,6 +7222,8 @@ export type Database = {
           data_emissione?: string | null
           data_scadenza?: string | null
           documento_id?: string | null
+          forma_copertura?: string | null
+          forma_copertura_note?: string | null
           frazionamento?: string | null
           id?: string
           intermediario_email?: string | null
@@ -6915,6 +7322,66 @@ export type Database = {
           },
         ]
       }
+      polizza_esclusioni: {
+        Row: {
+          articolo: string | null
+          created_at: string
+          fonte_testo: string | null
+          garanzia: string | null
+          id: string
+          livello: string
+          ordine: number | null
+          partita_id: string | null
+          polizza_cga_id: string
+          rilevante_sinistri: boolean
+          testo: string
+          titolo: string | null
+        }
+        Insert: {
+          articolo?: string | null
+          created_at?: string
+          fonte_testo?: string | null
+          garanzia?: string | null
+          id?: string
+          livello?: string
+          ordine?: number | null
+          partita_id?: string | null
+          polizza_cga_id: string
+          rilevante_sinistri?: boolean
+          testo: string
+          titolo?: string | null
+        }
+        Update: {
+          articolo?: string | null
+          created_at?: string
+          fonte_testo?: string | null
+          garanzia?: string | null
+          id?: string
+          livello?: string
+          ordine?: number | null
+          partita_id?: string | null
+          polizza_cga_id?: string
+          rilevante_sinistri?: boolean
+          testo?: string
+          titolo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polizza_esclusioni_partita_id_fkey"
+            columns: ["partita_id"]
+            isOneToOne: false
+            referencedRelation: "polizza_partite"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizza_esclusioni_polizza_cga_id_fkey"
+            columns: ["polizza_cga_id"]
+            isOneToOne: false
+            referencedRelation: "polizza_cga"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       polizza_garanzie_personali: {
         Row: {
           created_at: string
@@ -6959,6 +7426,221 @@ export type Database = {
             columns: ["prodotto_garanzia_id"]
             isOneToOne: false
             referencedRelation: "prodotti_garanzie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polizza_partite: {
+        Row: {
+          codice: string | null
+          created_at: string
+          descrizione: string
+          fonte_testo: string | null
+          forma_assicurazione: string | null
+          franchigia: number | null
+          id: string
+          numero: number
+          ordine: number | null
+          percentuale_scoperto: number | null
+          polizza_cga_id: string
+          somma_assicurata: number | null
+          tipo_bene: string
+          ubicazione: string | null
+          valuta: string
+        }
+        Insert: {
+          codice?: string | null
+          created_at?: string
+          descrizione: string
+          fonte_testo?: string | null
+          forma_assicurazione?: string | null
+          franchigia?: number | null
+          id?: string
+          numero: number
+          ordine?: number | null
+          percentuale_scoperto?: number | null
+          polizza_cga_id: string
+          somma_assicurata?: number | null
+          tipo_bene?: string
+          ubicazione?: string | null
+          valuta?: string
+        }
+        Update: {
+          codice?: string | null
+          created_at?: string
+          descrizione?: string
+          fonte_testo?: string | null
+          forma_assicurazione?: string | null
+          franchigia?: number | null
+          id?: string
+          numero?: number
+          ordine?: number | null
+          percentuale_scoperto?: number | null
+          polizza_cga_id?: string
+          somma_assicurata?: number | null
+          tipo_bene?: string
+          ubicazione?: string | null
+          valuta?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polizza_partite_polizza_cga_id_fkey"
+            columns: ["polizza_cga_id"]
+            isOneToOne: false
+            referencedRelation: "polizza_cga"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polizza_premio_calcolo: {
+        Row: {
+          aliquota_imposte_pct: number | null
+          base_imponibile: number | null
+          created_at: string
+          formula_fonte: string | null
+          garanzia: string | null
+          id: string
+          imposte: number | null
+          ordine: number | null
+          parametro_regolazione: string | null
+          partita_id: string | null
+          polizza_cga_id: string
+          premio_imponibile: number | null
+          premio_lordo: number | null
+          premio_minimo: number | null
+          regolazione: boolean
+          ssn: number | null
+          tasso: number | null
+          tasso_unita: string
+          tipo_rata: string
+        }
+        Insert: {
+          aliquota_imposte_pct?: number | null
+          base_imponibile?: number | null
+          created_at?: string
+          formula_fonte?: string | null
+          garanzia?: string | null
+          id?: string
+          imposte?: number | null
+          ordine?: number | null
+          parametro_regolazione?: string | null
+          partita_id?: string | null
+          polizza_cga_id: string
+          premio_imponibile?: number | null
+          premio_lordo?: number | null
+          premio_minimo?: number | null
+          regolazione?: boolean
+          ssn?: number | null
+          tasso?: number | null
+          tasso_unita?: string
+          tipo_rata?: string
+        }
+        Update: {
+          aliquota_imposte_pct?: number | null
+          base_imponibile?: number | null
+          created_at?: string
+          formula_fonte?: string | null
+          garanzia?: string | null
+          id?: string
+          imposte?: number | null
+          ordine?: number | null
+          parametro_regolazione?: string | null
+          partita_id?: string | null
+          polizza_cga_id?: string
+          premio_imponibile?: number | null
+          premio_lordo?: number | null
+          premio_minimo?: number | null
+          regolazione?: boolean
+          ssn?: number | null
+          tasso?: number | null
+          tasso_unita?: string
+          tipo_rata?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polizza_premio_calcolo_partita_id_fkey"
+            columns: ["partita_id"]
+            isOneToOne: false
+            referencedRelation: "polizza_partite"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizza_premio_calcolo_polizza_cga_id_fkey"
+            columns: ["polizza_cga_id"]
+            isOneToOne: false
+            referencedRelation: "polizza_cga"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polizza_sottolimiti: {
+        Row: {
+          base_calcolo: string | null
+          created_at: string
+          fonte_testo: string | null
+          franchigia: number | null
+          garanzia: string | null
+          id: string
+          importo: number | null
+          massimo: number | null
+          minimo: number | null
+          ordine: number | null
+          partita_id: string | null
+          per: string | null
+          percentuale: number | null
+          polizza_cga_id: string
+          scoperto_pct: number | null
+          voce: string
+        }
+        Insert: {
+          base_calcolo?: string | null
+          created_at?: string
+          fonte_testo?: string | null
+          franchigia?: number | null
+          garanzia?: string | null
+          id?: string
+          importo?: number | null
+          massimo?: number | null
+          minimo?: number | null
+          ordine?: number | null
+          partita_id?: string | null
+          per?: string | null
+          percentuale?: number | null
+          polizza_cga_id: string
+          scoperto_pct?: number | null
+          voce: string
+        }
+        Update: {
+          base_calcolo?: string | null
+          created_at?: string
+          fonte_testo?: string | null
+          franchigia?: number | null
+          garanzia?: string | null
+          id?: string
+          importo?: number | null
+          massimo?: number | null
+          minimo?: number | null
+          ordine?: number | null
+          partita_id?: string | null
+          per?: string | null
+          percentuale?: number | null
+          polizza_cga_id?: string
+          scoperto_pct?: number | null
+          voce?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polizza_sottolimiti_partita_id_fkey"
+            columns: ["partita_id"]
+            isOneToOne: false
+            referencedRelation: "polizza_partite"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizza_sottolimiti_polizza_cga_id_fkey"
+            columns: ["polizza_cga_id"]
+            isOneToOne: false
+            referencedRelation: "polizza_cga"
             referencedColumns: ["id"]
           },
         ]
@@ -7267,6 +7949,76 @@ export type Database = {
             columns: ["ufficio_id"]
             isOneToOne: false
             referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polizze_terzi: {
+        Row: {
+          broker_riferimento: string | null
+          cliente_anagrafica_id: string | null
+          compagnia_id: string | null
+          compagnia_nome: string | null
+          contraente: string | null
+          created_at: string
+          created_by: string | null
+          garanzia_principale: string | null
+          id: string
+          note: string | null
+          numero_polizza: string | null
+          ramo: string | null
+          updated_at: string
+        }
+        Insert: {
+          broker_riferimento?: string | null
+          cliente_anagrafica_id?: string | null
+          compagnia_id?: string | null
+          compagnia_nome?: string | null
+          contraente?: string | null
+          created_at?: string
+          created_by?: string | null
+          garanzia_principale?: string | null
+          id?: string
+          note?: string | null
+          numero_polizza?: string | null
+          ramo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          broker_riferimento?: string | null
+          cliente_anagrafica_id?: string | null
+          compagnia_id?: string | null
+          compagnia_nome?: string | null
+          contraente?: string | null
+          created_at?: string
+          created_by?: string | null
+          garanzia_principale?: string | null
+          id?: string
+          note?: string | null
+          numero_polizza?: string | null
+          ramo?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polizze_terzi_cliente_anagrafica_id_fkey"
+            columns: ["cliente_anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_terzi_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polizze_terzi_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -9015,6 +9767,7 @@ export type Database = {
         Row: {
           eseguita_da: string | null
           eseguita_il: string
+          fonte: string
           id: string
           regioni: string[] | null
           risultati_count: number | null
@@ -9022,6 +9775,7 @@ export type Database = {
         Insert: {
           eseguita_da?: string | null
           eseguita_il?: string
+          fonte?: string
           id?: string
           regioni?: string[] | null
           risultati_count?: number | null
@@ -9029,6 +9783,7 @@ export type Database = {
         Update: {
           eseguita_da?: string | null
           eseguita_il?: string
+          fonte?: string
           id?: string
           regioni?: string[] | null
           risultati_count?: number | null
@@ -9393,6 +10148,133 @@ export type Database = {
           },
         ]
       }
+      roma_exe_clienti_map: {
+        Row: {
+          cliente_id: string | null
+          created_at: string
+          esito: string
+          exe_codice: string
+          exe_ragione_sociale: string | null
+          id: string
+          motivo: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string
+          esito: string
+          exe_codice: string
+          exe_ragione_sociale?: string | null
+          id?: string
+          motivo?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string
+          esito?: string
+          exe_codice?: string
+          exe_ragione_sociale?: string | null
+          id?: string
+          motivo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roma_exe_clienti_map_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roma_exe_compagnie_map: {
+        Row: {
+          compagnia_id: string | null
+          created_at: string
+          esito: string
+          exe_codice: string | null
+          exe_nome: string
+          exe_nome_norm: string
+          id: string
+          motivo: string | null
+        }
+        Insert: {
+          compagnia_id?: string | null
+          created_at?: string
+          esito: string
+          exe_codice?: string | null
+          exe_nome: string
+          exe_nome_norm: string
+          id?: string
+          motivo?: string | null
+        }
+        Update: {
+          compagnia_id?: string | null
+          created_at?: string
+          esito?: string
+          exe_codice?: string | null
+          exe_nome?: string
+          exe_nome_norm?: string
+          id?: string
+          motivo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roma_exe_compagnie_map_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roma_exe_polizze_map: {
+        Row: {
+          created_at: string
+          esito: string
+          exe_chiave: string
+          exe_numero: string | null
+          exe_tipo: string
+          id: string
+          motivo: string | null
+          titolo_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          esito: string
+          exe_chiave: string
+          exe_numero?: string | null
+          exe_tipo: string
+          id?: string
+          motivo?: string | null
+          titolo_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          esito?: string
+          exe_chiave?: string
+          exe_numero?: string | null
+          exe_tipo?: string
+          id?: string
+          motivo?: string | null
+          titolo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roma_exe_polizze_map_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roma_exe_polizze_map_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ruoli_template: {
         Row: {
           created_at: string | null
@@ -9539,10 +10421,13 @@ export type Database = {
           note_importanti: string | null
           note_interne: string | null
           note_perito: string | null
+          numero_polizza: string | null
           numero_sinistro: string | null
           numero_sinistro_compagnia: string | null
           perito_id: string | null
           polizza_id: string | null
+          polizza_terzi_id: string | null
+          prodotto_sinistro: string | null
           provincia_sinistro: string | null
           ramo_sinistro: string | null
           reparto: string | null
@@ -9587,10 +10472,13 @@ export type Database = {
           note_importanti?: string | null
           note_interne?: string | null
           note_perito?: string | null
+          numero_polizza?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
           perito_id?: string | null
           polizza_id?: string | null
+          polizza_terzi_id?: string | null
+          prodotto_sinistro?: string | null
           provincia_sinistro?: string | null
           ramo_sinistro?: string | null
           reparto?: string | null
@@ -9635,10 +10523,13 @@ export type Database = {
           note_importanti?: string | null
           note_interne?: string | null
           note_perito?: string | null
+          numero_polizza?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
           perito_id?: string | null
           polizza_id?: string | null
+          polizza_terzi_id?: string | null
+          prodotto_sinistro?: string | null
           provincia_sinistro?: string | null
           ramo_sinistro?: string | null
           reparto?: string | null
@@ -9702,6 +10593,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_portafoglio_quietanze"
             referencedColumns: ["polizza_id"]
+          },
+          {
+            foreignKeyName: "sinistri_polizza_terzi_id_fkey"
+            columns: ["polizza_terzi_id"]
+            isOneToOne: false
+            referencedRelation: "polizze_terzi"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "sinistri_responsabile_id_fkey"
@@ -12367,6 +13265,7 @@ export type Database = {
           tacito_rinnovo: boolean | null
           targa_telaio: string | null
           tasse: number | null
+          tipo_pagamento: string | null
           tipo_portafoglio: string | null
           titolo_derivato_numero: string | null
           titolo_legacy_id: string | null
@@ -12702,6 +13601,7 @@ export type Database = {
     }
     Functions: {
       _elimina_titoli_finanziari: { Args: { p_ids: string[] }; Returns: Json }
+      _roma_exe_apply: { Args: { p_filename: string }; Returns: string }
       _scollega_riferimenti_titoli: {
         Args: { p_ids: string[] }
         Returns: undefined
@@ -12758,6 +13658,19 @@ export type Database = {
           p_tipo_premio: string
         }
         Returns: number
+      }
+      cb_bot_insert_know_how_consultazione: {
+        Args: {
+          p_conversazione_id: string
+          p_domanda: string
+          p_domanda_norm: string
+          p_email: string
+          p_fonti: Json
+          p_messaggio_id: string
+          p_risposta: string
+          p_tipo: string
+        }
+        Returns: string
       }
       cerca_ec_agenzia_storico: {
         Args: {
@@ -13079,6 +13992,10 @@ export type Database = {
         Args: { p_conv_id: string; p_email: string }
         Returns: undefined
       }
+      garanzie_chat_azzera_cronologia_consultazione: {
+        Args: { p_email: string; p_tipo: string }
+        Returns: number
+      }
       garanzie_chat_create_consultazione: {
         Args: {
           p_compagnia?: string
@@ -13130,8 +14047,12 @@ export type Database = {
           condivisa_at: string | null
           created_at: string
           id: string
+          in_evidenza: boolean
+          in_evidenza_at: string | null
           prodotto_cga_id: string | null
           ramo: string | null
+          salvata: boolean
+          salvata_at: string | null
           tags: string[] | null
           tipo: string
           titolo: string
@@ -13144,6 +14065,14 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      garanzie_chat_salva_consultazione: {
+        Args: {
+          p_conversazione_id: string
+          p_email: string
+          p_salvata: boolean
+        }
+        Returns: undefined
       }
       garanzie_chat_share_consultazione: {
         Args: { p_conversazione_id: string; p_email: string }
@@ -13549,6 +14478,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: [
