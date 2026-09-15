@@ -133,6 +133,10 @@ const ORDINE_TIPI_DOCUMENTO: TipoDocumentoBando[] = [
   "altro",
 ];
 
+export function documentiVisibili<T extends { stato?: string | null }>(docs: T[]): T[] {
+  return docs.filter((d) => d.stato !== "rimosso");
+}
+
 export function groupDocumentiByTipo<T extends { tipo?: string | null }>(
   docs: T[],
 ): Array<{ tipo: string; label: string; docs: T[] }> {

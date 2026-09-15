@@ -3,6 +3,7 @@ import {
   buildHarvestNote,
   classifyDocumentoHash,
   countNovitaDocumenti,
+  documentiVisibili,
   groupDocumentiByTipo,
   inferTipoDocumentoBando,
   labelStatoDocumentoBando,
@@ -49,5 +50,13 @@ describe("bandiDocumenti", () => {
     expect(groups.map((g) => g.tipo)).toEqual(["bando", "esito", "altro"]);
     expect(groups[0].docs).toHaveLength(2);
     expect(groups[0].label).toBe("Bando");
+  });
+
+  it("nasconde i documenti rimossi dall'archivio", () => {
+    expect(documentiVisibili([
+      { stato: "nuovo" },
+      { stato: "rimosso" },
+      { stato: "invariato" },
+    ])).toHaveLength(2);
   });
 });

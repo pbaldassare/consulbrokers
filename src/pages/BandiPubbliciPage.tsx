@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw, Sparkles } from "lucide-react";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw, FolderOpen } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -103,10 +103,8 @@ import {
 import {
   buildHarvestNote,
   countNovitaDocumenti,
-  groupDocumentiByTipo,
+  documentiVisibili,
   inferTipoDocumentoBando,
-  labelStatoDocumentoBando,
-  labelTipoDocumentoBando,
   lastHarvestLabel,
   type BandoDocumentoRow,
   type BandoHarvestRunRow,
@@ -116,10 +114,8 @@ import {
   collectHarvestUrls,
   isBandoMonitorabile,
   isMonitorDue,
-  labelMonitorScript,
-  normalizeMonitorScript,
-  type BandoMonitorScriptRow,
 } from "@/lib/bandiMonitor";
+import { BandiFascicoloArchivio } from "@/components/bandi/BandiFascicoloArchivio";
 import {
   dettaglioUpdatePayload,
   labelTipoAvviso,
@@ -389,10 +385,9 @@ export default function BandiPubbliciPage() {
   const [nonPartecipoMotivo, setNonPartecipoMotivo] = useState("");
   const [savingEsito, setSavingEsito] = useState(false);
   const [harvestingId, setHarvestingId] = useState<string | null>(null);
-  const [generatingScriptId, setGeneratingScriptId] = useState<string | null>(null);
   const [monitoringAll, setMonitoringAll] = useState(false);
-  const [previewDoc, setPreviewDoc] = useState<BandoDocumentoRow | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [fascicoloBando, setFascicoloBando] = useState<any>(null);
+  const [fascicoloOpen, setFascicoloOpen] = useState(false);
   const [archivioBando, setArchivioBando] = useState<any>(null);
   const [archivioOpen, setArchivioOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -905,23 +900,6 @@ export default function BandiPubbliciPage() {
     }
   };
 
-  const openDocumentoFascicolo = async (doc: BandoDocumentoRow) => {
-    if (!doc.storage_path) {
-      if (doc.url_origine) window.open(doc.url_origine, "_blank");
-      else toast.error("Documento non disponibile");
-      return;
-    }
-    const { data } = await supabase.storage
-      .from("documenti_generali")
-      .createSignedUrl(doc.storage_path, 3600);
-    if (!data?.signedUrl) {
-      toast.error("Errore apertura documento");
-      return;
-    }
-    setPreviewDoc(doc);
-    setPreviewUrl(data.signedUrl);
-  };
-
   const handleAggiornaPortale = async (bando: any, opts?: { generate?: boolean }) => {
     setHarvestingId(bando.id);
     const motore = resolveFonteBando(bando.fonte, bando.link);
@@ -1048,27 +1026,6 @@ export default function BandiPubbliciPage() {
 
   const handleScaricaTuttiDocumenti = (bando: any) => handleAggiornaPortale(bando, { generate: true });
 
-  const handleGeneraScript = async (bando: any) => {
-    setGeneratingScriptId(bando.id);
-    try {
-      const { data, error } = await supabase.functions.invoke("genera-monitor-bando", {
-        body: { bando_id: bando.id, action: "generate" },
-      });
-      if (error) throw error;
-      const n = Array.isArray(data?.urls) ? data.urls.length : 0;
-      toast.success(
-        n > 0
-          ? `Script salvato: ${n} link documento`
-          : "Script salvato. Nessun documento extra trovato sulla scheda.",
-      );
-      queryClient.invalidateQueries({ queryKey: ["bandi_monitor_script"] });
-    } catch (err: any) {
-      toast.error(err.message || "Impossibile generare lo script");
-    } finally {
-      setGeneratingScriptId(null);
-    }
-  };
-
   const regioniLabel = regioniSelezionate.length === 0
     ? "Tutte le regioni"
     : regioniSelezionate.length === regioniItaliane.length
@@ -1191,6 +1148,7 @@ export default function BandiPubbliciPage() {
         .from("bandi_documenti")
         .select("id, bando_id, tipo, nome, mime, url_origine, storage_path, hash_sha256, stato, visto_il, scaricato_il")
         .in("bando_id", cantiereIds)
+        .neq("stato", "rimosso")
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return (data || []) as BandoDocumentoRow[];
@@ -1209,19 +1167,6 @@ export default function BandiPubbliciPage() {
         .limit(80);
       if (error) throw error;
       return (data || []) as BandoHarvestRunRow[];
-    },
-  });
-
-  const { data: scriptsCantiere = [] } = useQuery({
-    queryKey: ["bandi_monitor_script", cantiereIds],
-    enabled: isPartecipati && cantiereIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("bandi_monitor_script")
-        .select("id, bando_id, versione, motore, source_url, script_json, generated_at, last_used_at, last_ok_at, errore")
-        .in("bando_id", cantiereIds);
-      if (error) throw error;
-      return (data || []) as BandoMonitorScriptRow[];
     },
   });
 
@@ -1697,20 +1642,15 @@ export default function BandiPubbliciPage() {
               ? matchStoricoPerEnte(bando.ente, storicoMatchRows)
               : [];
             const docsBando = isPartecipati
-              ? documentiCantiere.filter((d) => d.bando_id === bando.id)
+              ? documentiVisibili(documentiCantiere.filter((d) => d.bando_id === bando.id))
               : [];
             const novitaDoc = countNovitaDocumenti(docsBando);
             const lastRun = isPartecipati
               ? harvestRuns.find((r) => r.bando_id === bando.id)
               : undefined;
-            const scriptBando = isPartecipati
-              ? scriptsCantiere.find((s) => s.bando_id === bando.id)
-              : undefined;
-            const scriptJson = scriptBando ? normalizeMonitorScript(scriptBando.script_json) : null;
             const checkDue = isPartecipati && isBandoMonitorabile(cantiere)
               && isMonitorDue(lastRun?.avviato_il || bando.interesse?.harvest_at);
-            const busy = harvestingId === bando.id || generatingScriptId === bando.id
-              || savingEsito || archiving || monitoringAll;
+            const busy = harvestingId === bando.id || savingEsito || archiving || monitoringAll;
             return (
             <Card
               key={bando.id}
@@ -1852,55 +1792,23 @@ export default function BandiPubbliciPage() {
                     </div>
                   )}
                   {isPartecipati && (
-                    <div className="w-full space-y-1 text-xs text-muted-foreground">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {(novitaDoc.nuovi + novitaDoc.aggiornati) > 0 && (
-                          <Badge variant="default" className="text-[10px]">
-                            {novitaDoc.nuovi + novitaDoc.aggiornati} doc nuovi/aggiornati
-                          </Badge>
-                        )}
-                        <span>
-                          {docsBando.length} document{docsBando.length === 1 ? "o" : "i"}
-                          {lastHarvestLabel(lastRun?.avviato_il || bando.interesse?.harvest_at)
-                            ? ` · ultimo check ${lastHarvestLabel(lastRun?.avviato_il || bando.interesse?.harvest_at)}`
-                            : ""}
-                          {` · ${labelMonitorScript(scriptBando)}`}
-                        </span>
-                        {checkDue && (
-                          <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-700">
-                            Check scaduto
-                          </Badge>
-                        )}
-                        {scriptBando?.errore && (
-                          <span className="text-destructive">{scriptBando.errore}</span>
-                        )}
-                        {scriptJson && scriptJson.documenti.length > 0 && (
-                          <span>{scriptJson.documenti.length} link nello script</span>
-                        )}
-                      </div>
-                      {groupDocumentiByTipo(docsBando).map((group) => (
-                        <div key={group.tipo} className="space-y-0.5">
-                          <div className="font-medium text-foreground">
-                            {group.label} ({group.docs.length})
-                          </div>
-                          {group.docs.map((doc) => (
-                            <div key={doc.id} className="flex items-center gap-2">
-                              <span>{doc.nome || "documento"}</span>
-                              <Badge variant="outline" className="text-[10px]">{labelStatoDocumentoBando(doc.stato)}</Badge>
-                              <button
-                                type="button"
-                                className="text-primary hover:underline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void openDocumentoFascicolo(doc);
-                                }}
-                              >
-                                Apri
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ))}
+                    <div className="w-full flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {(novitaDoc.nuovi + novitaDoc.aggiornati) > 0 && (
+                        <Badge variant="default" className="text-[10px]">
+                          {novitaDoc.nuovi + novitaDoc.aggiornati} doc nuovi/aggiornati
+                        </Badge>
+                      )}
+                      <span>
+                        {docsBando.length} document{docsBando.length === 1 ? "o" : "i"} in archivio
+                        {lastHarvestLabel(lastRun?.avviato_il || bando.interesse?.harvest_at)
+                          ? ` · ultimo check ${lastHarvestLabel(lastRun?.avviato_il || bando.interesse?.harvest_at)}`
+                          : ""}
+                      </span>
+                      {checkDue && (
+                        <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-700">
+                          Check scaduto
+                        </Badge>
+                      )}
                     </div>
                   )}
                   <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
@@ -1942,6 +1850,20 @@ export default function BandiPubbliciPage() {
                         <RotateCcw className="h-3 w-3" /> Rimetti in valutazione
                       </Button>
                     )}
+                    {isPartecipati && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFascicoloBando(bando);
+                          setFascicoloOpen(true);
+                        }}
+                      >
+                        <FolderOpen className="h-3 w-3" /> Archivio documenti
+                      </Button>
+                    )}
                     {isPartecipati && cantiere && cantiere !== "archiviato_storico" && (
                       <>
                         <Button
@@ -1969,19 +1891,6 @@ export default function BandiPubbliciPage() {
                         >
                           {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                           Aggiorna dal portale
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1 h-7 text-xs"
-                          disabled={busy}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleGeneraScript(bando);
-                          }}
-                        >
-                          {generatingScriptId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                          {scriptBando ? "Rigenera script" : "Genera script"}
                         </Button>
                         {CANTIERE_AZIONI.filter((a) => a.value !== cantiere).map((a) => (
                           <Button
@@ -2143,41 +2052,24 @@ export default function BandiPubbliciPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!previewDoc} onOpenChange={(open) => {
-        if (!open) {
-          setPreviewDoc(null);
-          setPreviewUrl(null);
-        }
-      }}>
-        <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              {previewDoc ? `${labelTipoDocumentoBando(previewDoc.tipo)}: ${previewDoc.nome || "documento"}` : "Documento"}
-            </DialogTitle>
-            <DialogDescription>
-              Fascicolo del bando. Puoi aprire il file in una nuova scheda.
-            </DialogDescription>
-          </DialogHeader>
-          {previewUrl ? (
-            <iframe
-              title={previewDoc?.nome || "PDF"}
-              src={previewUrl}
-              className="flex-1 w-full min-h-[60vh] rounded-md border bg-muted/30"
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">Anteprima non disponibile.</p>
-          )}
-          <DialogFooter>
-            {previewUrl && (
-              <Button variant="outline" onClick={() => window.open(previewUrl, "_blank")}>
-                Apri in nuova scheda
-              </Button>
-            )}
-            <Button onClick={() => { setPreviewDoc(null); setPreviewUrl(null); }}>Chiudi</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <BandiFascicoloArchivio
+        open={fascicoloOpen}
+        onOpenChange={(open) => {
+          setFascicoloOpen(open);
+          if (!open) setFascicoloBando(null);
+        }}
+        bando={fascicoloBando}
+        documenti={fascicoloBando
+          ? documentiVisibili(documentiCantiere.filter((d) => d.bando_id === fascicoloBando.id))
+          : []}
+        downloading={!!fascicoloBando && harvestingId === fascicoloBando.id}
+        onScaricaTutti={fascicoloBando && fascicoloBando.interesse?.cantiere_stato !== "archiviato_storico"
+          ? () => void handleScaricaTuttiDocumenti(fascicoloBando)
+          : undefined}
+        onRefresh={() => {
+          queryClient.invalidateQueries({ queryKey: ["bandi_documenti"] });
+        }}
+      />
 
       <Dialog open={nonPartecipoOpen} onOpenChange={(open) => {
         setNonPartecipoOpen(open);
