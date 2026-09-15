@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw } from "lucide-react";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -109,6 +109,14 @@ import {
   type BandoDocumentoRow,
   type BandoHarvestRunRow,
 } from "@/lib/bandiDocumenti";
+import {
+  collectHarvestUrls,
+  isBandoMonitorabile,
+  isMonitorDue,
+  labelMonitorScript,
+  normalizeMonitorScript,
+  type BandoMonitorScriptRow,
+} from "@/lib/bandiMonitor";
 import {
   dettaglioUpdatePayload,
   labelTipoAvviso,
@@ -378,6 +386,8 @@ export default function BandiPubbliciPage() {
   const [nonPartecipoMotivo, setNonPartecipoMotivo] = useState("");
   const [savingEsito, setSavingEsito] = useState(false);
   const [harvestingId, setHarvestingId] = useState<string | null>(null);
+  const [generatingScriptId, setGeneratingScriptId] = useState<string | null>(null);
+  const [monitoringAll, setMonitoringAll] = useState(false);
   const [archivioBando, setArchivioBando] = useState<any>(null);
   const [archivioOpen, setArchivioOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -922,8 +932,26 @@ export default function BandiPubbliciPage() {
         errore = enrichErr?.message || "Arricchimento portale non riuscito";
       }
 
-      const pdfUrl = harvested.pdf_url || bando.pdf_url;
-      if (pdfUrl) {
+      let extraUrls: string[] = [];
+      try {
+        const { data: mon, error: monErr } = await supabase.functions.invoke("genera-monitor-bando", {
+          body: { bando_id: bando.id, action: "refresh" },
+        });
+        if (monErr) {
+          errore = [errore, monErr.message].filter(Boolean).join(" · ");
+        } else {
+          extraUrls = Array.isArray(mon?.urls) ? mon.urls : [];
+          if (mon?.errore) errore = [errore, mon.errore].filter(Boolean).join(" · ");
+        }
+      } catch (monCatch: any) {
+        errore = [errore, monCatch?.message || "Refresh script non riuscito"].filter(Boolean).join(" · ");
+      }
+
+      const urls = collectHarvestUrls({
+        pdfUrl: harvested.pdf_url || bando.pdf_url,
+        extraUrls,
+      });
+      for (const pdfUrl of urls) {
         const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("scarica-bando-pdf", {
           body: { bando_id: bando.id, pdf_url: pdfUrl, harvest_run_id: run.id },
         });
@@ -963,6 +991,7 @@ export default function BandiPubbliciPage() {
       refetchBandi();
       queryClient.invalidateQueries({ queryKey: ["bandi_documenti"] });
       queryClient.invalidateQueries({ queryKey: ["bandi_harvest_run"] });
+      queryClient.invalidateQueries({ queryKey: ["bandi_monitor_script"] });
     } catch (err: any) {
       await (supabase as any)
         .from("bandi_harvest_run")
@@ -975,6 +1004,27 @@ export default function BandiPubbliciPage() {
       toast.error(err.message || "Harvest non riuscito");
     } finally {
       setHarvestingId(null);
+    }
+  };
+
+  const handleGeneraScript = async (bando: any) => {
+    setGeneratingScriptId(bando.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("genera-monitor-bando", {
+        body: { bando_id: bando.id, action: "generate" },
+      });
+      if (error) throw error;
+      const n = Array.isArray(data?.urls) ? data.urls.length : 0;
+      toast.success(
+        n > 0
+          ? `Script salvato: ${n} link documento`
+          : "Script salvato. Nessun documento extra trovato sulla scheda.",
+      );
+      queryClient.invalidateQueries({ queryKey: ["bandi_monitor_script"] });
+    } catch (err: any) {
+      toast.error(err.message || "Impossibile generare lo script");
+    } finally {
+      setGeneratingScriptId(null);
     }
   };
 
@@ -1121,6 +1171,54 @@ export default function BandiPubbliciPage() {
     },
   });
 
+  const { data: scriptsCantiere = [] } = useQuery({
+    queryKey: ["bandi_monitor_script", cantiereIds],
+    enabled: isPartecipati && cantiereIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("bandi_monitor_script")
+        .select("id, bando_id, versione, motore, source_url, script_json, generated_at, last_used_at, last_ok_at, errore")
+        .in("bando_id", cantiereIds);
+      if (error) throw error;
+      return (data || []) as BandoMonitorScriptRow[];
+    },
+  });
+
+  const bandiCheckScaduti = useMemo(() => {
+    return (cantiereBandi as {
+      id: string;
+      interesse?: BandoInteresseRow | null;
+      trattative_count?: number;
+    }[]).filter((b) => {
+      const esito = effectiveEsitoBando(b.interesse, b.trattative_count);
+      const cantiere = effectiveCantiereStato({
+        esito,
+        cantiere: b.interesse?.cantiere_stato,
+        storicoGaraId: b.interesse?.storico_gara_id,
+        trattativeCount: b.trattative_count,
+      });
+      const last = harvestRuns.find((r) => r.bando_id === b.id)?.avviato_il
+        || b.interesse?.harvest_at;
+      return isBandoMonitorabile(cantiere) && isMonitorDue(last);
+    });
+  }, [cantiereBandi, harvestRuns]);
+
+  const handleMonitoraScaduti = async () => {
+    const coda = bandiCheckScaduti.slice(0, 5);
+    if (coda.length === 0) {
+      toast.info("Nessun bando con check scaduto");
+      return;
+    }
+    setMonitoringAll(true);
+    try {
+      for (const bando of coda) {
+        await handleAggiornaPortale(bando);
+      }
+    } finally {
+      setMonitoringAll(false);
+    }
+  };
+
   const pipelineCounts = useMemo(() => {
     const counts: Record<FiltroPipelineBando, number> = {
       nuovi: 0,
@@ -1202,10 +1300,29 @@ export default function BandiPubbliciPage() {
           <h1 className="text-3xl font-bold">{isPartecipati ? "Bandi partecipati" : "Bandi Pubblici"}</h1>
           <p className="text-muted-foreground">
             {isPartecipati
-              ? "Cantiere: approfondisci, cambia stato, crea trattativa o manda in Storico Gare"
+              ? "Cantiere: approfondisci, monitora i documenti, crea trattativa o manda in Storico Gare"
               : `Nuovi e già visti restano in archivio. Poi decidi se partecipare — ${labelKeywordRicerca(keywordRicerca)}`}
           </p>
         </div>
+        {isPartecipati && (
+        <div className="ml-auto flex items-center gap-3">
+          {bandiCheckScaduti.length > 0 && (
+            <Badge variant="outline" className="gap-1.5 py-1">
+              {bandiCheckScaduti.length} check scadut{bandiCheckScaduti.length === 1 ? "o" : "i"}
+            </Badge>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="gap-1.5"
+            disabled={monitoringAll || harvestingId !== null}
+            onClick={() => void handleMonitoraScaduti()}
+          >
+            {monitoringAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Monitora scaduti
+          </Button>
+        </div>
+        )}
         {!isPartecipati && (
         <div className="ml-auto flex items-center gap-3">
           {apiCallCount > 0 && (
@@ -1545,7 +1662,14 @@ export default function BandiPubbliciPage() {
             const lastRun = isPartecipati
               ? harvestRuns.find((r) => r.bando_id === bando.id)
               : undefined;
-            const busy = harvestingId === bando.id || savingEsito || archiving;
+            const scriptBando = isPartecipati
+              ? scriptsCantiere.find((s) => s.bando_id === bando.id)
+              : undefined;
+            const scriptJson = scriptBando ? normalizeMonitorScript(scriptBando.script_json) : null;
+            const checkDue = isPartecipati && isBandoMonitorabile(cantiere)
+              && isMonitorDue(lastRun?.avviato_il || bando.interesse?.harvest_at);
+            const busy = harvestingId === bando.id || generatingScriptId === bando.id
+              || savingEsito || archiving || monitoringAll;
             return (
             <Card
               key={bando.id}
@@ -1699,7 +1823,19 @@ export default function BandiPubbliciPage() {
                           {lastHarvestLabel(lastRun?.avviato_il || bando.interesse?.harvest_at)
                             ? ` · ultimo check ${lastHarvestLabel(lastRun?.avviato_il || bando.interesse?.harvest_at)}`
                             : ""}
+                          {` · ${labelMonitorScript(scriptBando)}`}
                         </span>
+                        {checkDue && (
+                          <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-700">
+                            Check scaduto
+                          </Badge>
+                        )}
+                        {scriptBando?.errore && (
+                          <span className="text-destructive">{scriptBando.errore}</span>
+                        )}
+                        {scriptJson && scriptJson.documenti.length > 0 && (
+                          <span>{scriptJson.documenti.length} link nello script</span>
+                        )}
                       </div>
                       {docsBando.slice(0, 4).map((doc) => (
                         <div key={doc.id} className="flex items-center gap-2">
@@ -1778,6 +1914,19 @@ export default function BandiPubbliciPage() {
                         >
                           {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                           Aggiorna dal portale
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 h-7 text-xs"
+                          disabled={busy}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleGeneraScript(bando);
+                          }}
+                        >
+                          {generatingScriptId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                          {scriptBando ? "Rigenera script" : "Genera script"}
                         </Button>
                         {CANTIERE_AZIONI.filter((a) => a.value !== cantiere).map((a) => (
                           <Button

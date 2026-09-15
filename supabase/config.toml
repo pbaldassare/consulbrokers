@@ -66,6 +66,9 @@ verify_jwt = false
 [functions.arricchisci-bando]
 verify_jwt = false
 
+[functions.genera-monitor-bando]
+verify_jwt = false
+
 [functions.provision-user]
 verify_jwt = false
 
