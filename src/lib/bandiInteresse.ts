@@ -31,6 +31,9 @@ export type BandoInteresseRow = {
   harvest_note: string | null;
   deciso_da: string | null;
   deciso_il: string;
+  cantiere_stato?: string | null;
+  cantiere_il?: string | null;
+  storico_gara_id?: string | null;
 };
 
 export function isBandoEsito(value: string | null | undefined): value is BandoEsito {
