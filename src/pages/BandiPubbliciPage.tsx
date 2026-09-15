@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw } from "lucide-react";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw, FolderOpen } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -81,6 +81,41 @@ import {
   type BandoInteresseRow,
   type FiltroPipelineBando,
 } from "@/lib/bandiInteresse";
+import {
+  labelVisibilitaBando,
+  matchesFiltroVisibilita,
+  toastSalvataggioBandi,
+  visibilitaBando,
+} from "@/lib/bandiVisibilita";
+import {
+  CANTIERE_AZIONI,
+  FILTRI_CANTIERE,
+  buildStoricoGaraFromBando,
+  effectiveCantiereStato,
+  enteSearchToken,
+  isBandoInCantiere,
+  labelCantiereStato,
+  matchStoricoPerEnte,
+  matchesFiltroCantiere,
+  type FiltroCantiere,
+  type StoricoGaraMatch,
+} from "@/lib/bandiCantiere";
+import {
+  buildHarvestNote,
+  countNovitaDocumenti,
+  documentiVisibili,
+  inferTipoDocumentoBando,
+  lastHarvestLabel,
+  type BandoDocumentoRow,
+  type BandoHarvestRunRow,
+} from "@/lib/bandiDocumenti";
+import {
+  HARVEST_URL_LIMIT,
+  collectHarvestUrls,
+  isBandoMonitorabile,
+  isMonitorDue,
+} from "@/lib/bandiMonitor";
+import { BandiFascicoloArchivio } from "@/components/bandi/BandiFascicoloArchivio";
 import {
   dettaglioUpdatePayload,
   labelTipoAvviso,
@@ -183,10 +218,22 @@ async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
         servizio_a: toIsoDate(b.servizio_a),
         tipo_procedura: b.tipo_procedura || null,
         data_pubblicazione: toIsoDate(b.dataPublicazione || b.data_pubblicazione),
+        last_harvest_at: new Date().toISOString(),
       };
     });
 
-  if (rows.length === 0) return 0;
+  if (rows.length === 0) return { salvati: 0, nuovi: 0, giaInArchivio: 0 };
+
+  const schedaIds = rows.map((r) => r.scheda_id);
+  const { data: existing, error: existingErr } = await supabase
+    .from("bandi_pubblici")
+    .select("scheda_id")
+    .in("scheda_id", schedaIds);
+  if (existingErr) {
+    console.error("Lookup bandi esistenti:", existingErr);
+    throw existingErr;
+  }
+  const known = new Set((existing || []).map((r: { scheda_id: string }) => r.scheda_id));
 
   const { error } = await supabase
     .from("bandi_pubblici")
@@ -196,7 +243,8 @@ async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
     console.error("Upsert bandi error:", error);
     throw error;
   }
-  return rows.length;
+  const nuovi = rows.filter((r) => !known.has(r.scheda_id)).length;
+  return { salvati: rows.length, nuovi, giaInArchivio: rows.length - nuovi };
 }
 
 async function enrichBandoFromPortale(bando: any) {
@@ -308,11 +356,13 @@ export default function BandiPubbliciPage() {
   const [filtroFonte, setFiltroFonte] = useState<FiltroFonteLista>("tutte");
   const [filtroKeyword, setFiltroKeyword] = useState<FiltroKeywordLista>("tutte");
   const [filtroPipeline, setFiltroPipeline] = useState<FiltroPipelineBando>(
-    isPartecipati ? "voglio_partecipare" : "da_valutare",
+    isPartecipati ? "voglio_partecipare" : "nuovi",
   );
+  const [filtroCantiere, setFiltroCantiere] = useState<FiltroCantiere>("da_approfondire");
 
   useEffect(() => {
-    setFiltroPipeline(isPartecipati ? "voglio_partecipare" : "da_valutare");
+    setFiltroPipeline(isPartecipati ? "voglio_partecipare" : "nuovi");
+    setFiltroCantiere("da_approfondire");
   }, [isPartecipati]);
   const [regioniOpen, setRegioniOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -335,6 +385,12 @@ export default function BandiPubbliciPage() {
   const [nonPartecipoMotivo, setNonPartecipoMotivo] = useState("");
   const [savingEsito, setSavingEsito] = useState(false);
   const [harvestingId, setHarvestingId] = useState<string | null>(null);
+  const [monitoringAll, setMonitoringAll] = useState(false);
+  const [fascicoloBando, setFascicoloBando] = useState<any>(null);
+  const [fascicoloOpen, setFascicoloOpen] = useState(false);
+  const [archivioBando, setArchivioBando] = useState<any>(null);
+  const [archivioOpen, setArchivioOpen] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const searchActiveRef = useRef(false);
   const enrichTriedRef = useRef<Set<string>>(new Set());
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -467,7 +523,7 @@ export default function BandiPubbliciPage() {
         setRisultatiLive(bandi);
         if (bandi.length > 0) {
           try {
-            await upsertBandiToDB(
+            const salvati = await upsertBandiToDB(
               bandi.map((b) => ({
                 ...b,
                 keyword: b.keyword || b.categoria || keywordDaTesto(`${b.titolo} ${b.categoria || ""}`),
@@ -479,7 +535,9 @@ export default function BandiPubbliciPage() {
               profile?.ufficio_id,
             );
             await refetchBandi();
-            toast.success(startData.message || `${bandi.length} bando/i trovati e salvati.`);
+            toast.success(
+              `${startData.message || `${bandi.length} bando/i trovati.`} ${toastSalvataggioBandi(salvati.nuovi, salvati.giaInArchivio)}`.trim(),
+            );
             if (startData.warning) toast.warning(startData.warning);
             if (prospectCount > 0) toast.info(`${prospectCount} nuovi prospect creati.`);
           } catch {
@@ -619,6 +677,9 @@ export default function BandiPubbliciPage() {
           harvest_note: selectedBando.interesse?.harvest_note ?? "Trattativa creata dal bando",
           deciso_da: profile?.id || null,
           deciso_il: new Date().toISOString(),
+          cantiere_stato: "in_trattativa",
+          cantiere_il: new Date().toISOString(),
+          storico_gara_id: selectedBando.interesse?.storico_gara_id ?? null,
         }, { onConflict: "bando_id" });
       if (interesseErr) {
         console.error("Errore esito in_trattativa:", interesseErr);
@@ -645,6 +706,9 @@ export default function BandiPubbliciPage() {
       harvest_at?: string | null;
       harvest_note?: string | null;
       snapshot_json?: Record<string, unknown>;
+      cantiere_stato?: string | null;
+      cantiere_il?: string | null;
+      storico_gara_id?: string | null;
     } = {},
   ) => {
     const { error } = await (supabase as any).from("bandi_interesse").upsert({
@@ -656,8 +720,34 @@ export default function BandiPubbliciPage() {
       harvest_note: extra.harvest_note ?? bando.interesse?.harvest_note ?? null,
       deciso_da: profile?.id || null,
       deciso_il: new Date().toISOString(),
+      cantiere_stato: extra.cantiere_stato ?? bando.interesse?.cantiere_stato ?? null,
+      cantiere_il: extra.cantiere_il ?? bando.interesse?.cantiere_il ?? null,
+      storico_gara_id: extra.storico_gara_id ?? bando.interesse?.storico_gara_id ?? null,
     }, { onConflict: "bando_id" });
     if (error) throw error;
+  };
+
+  const markBandoVisto = async (bando: any) => {
+    if (!bando?.id || bando.visto_il) return;
+    const vistoIl = new Date().toISOString();
+    const { error } = await (supabase as any)
+      .from("bandi_pubblici")
+      .update({
+        visto_il: vistoIl,
+        visto_da: profile?.id || null,
+      })
+      .eq("id", bando.id)
+      .is("visto_il", null);
+    if (error) {
+      console.warn("Impossibile segnare il bando come visto:", error);
+      return;
+    }
+    queryClient.setQueriesData({ queryKey: ["bandi_pubblici"] }, (old: unknown) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((row: { id: string; visto_il?: string | null }) =>
+        row.id === bando.id ? { ...row, visto_il: vistoIl, visto_da: profile?.id || null } : row,
+      );
+    });
   };
 
   const handleVoglioPartecipare = async (bando: any) => {
@@ -686,6 +776,8 @@ export default function BandiPubbliciPage() {
         harvest_at: new Date().toISOString(),
         harvest_note: harvestNote,
         snapshot_json: buildBandoSnapshot(harvested),
+        cantiere_stato: "da_approfondire",
+        cantiere_il: new Date().toISOString(),
       });
       toast.success("Bando spostato in Bandi partecipati");
       await refetchBandi();
@@ -705,8 +797,10 @@ export default function BandiPubbliciPage() {
       await upsertInteresse(nonPartecipoBando, "non_partecipo", {
         motivo: nonPartecipoMotivo.trim() || null,
         snapshot_json: buildBandoSnapshot(nonPartecipoBando),
+        cantiere_stato: isPartecipati ? "abbandonato" : nonPartecipoBando.interesse?.cantiere_stato ?? null,
+        cantiere_il: isPartecipati ? new Date().toISOString() : nonPartecipoBando.interesse?.cantiere_il ?? null,
       });
-      toast.success("Bando nascosto da «Da valutare». Lo trovi in Non partecipo.");
+      toast.success("Bando nascosto da «Nuovi». Lo trovi in Non partecipo.");
       setNonPartecipoOpen(false);
       setNonPartecipoBando(null);
       setNonPartecipoMotivo("");
@@ -727,7 +821,17 @@ export default function BandiPubbliciPage() {
         .delete()
         .eq("bando_id", bando.id);
       if (error) throw error;
-      toast.success("Bando rimesso in valutazione");
+      if (!bando.visto_il) {
+        await (supabase as any)
+          .from("bandi_pubblici")
+          .update({
+            visto_il: new Date().toISOString(),
+            visto_da: profile?.id || null,
+          })
+          .eq("id", bando.id)
+          .is("visto_il", null);
+      }
+      toast.success("Bando rimesso tra i già visti");
       refetchBandi();
     } catch (err: any) {
       console.error("Errore rimetti in valutazione:", err);
@@ -736,6 +840,191 @@ export default function BandiPubbliciPage() {
       setSavingEsito(false);
     }
   };
+
+  const handleCambiaCantiere = async (bando: any, stato: string) => {
+    setSavingEsito(true);
+    try {
+      await upsertInteresse(bando, bando.interesse?.esito || "voglio_partecipare", {
+        cantiere_stato: stato,
+        cantiere_il: new Date().toISOString(),
+        snapshot_json: buildBandoSnapshot(bando),
+      });
+      toast.success(`Stato cantiere: ${labelCantiereStato(stato)}`);
+      refetchBandi();
+    } catch (err: any) {
+      toast.error(err.message || "Impossibile aggiornare lo stato");
+    } finally {
+      setSavingEsito(false);
+    }
+  };
+
+  const handleArchiviaStorico = async () => {
+    if (!archivioBando) return;
+    setArchiving(true);
+    try {
+      const payload = buildStoricoGaraFromBando(archivioBando, profile?.id);
+      let storicoId: string | null = null;
+      const { data, error } = await (supabase as any)
+        .from("storico_gare")
+        .insert(payload)
+        .select("id")
+        .single();
+      if (error) {
+        const existing = await (supabase as any)
+          .from("storico_gare")
+          .select("id")
+          .eq("bando_id", archivioBando.id)
+          .maybeSingle();
+        if (!existing.data?.id) throw error;
+        storicoId = existing.data.id;
+      } else {
+        storicoId = data.id;
+      }
+      await upsertInteresse(archivioBando, archivioBando.interesse?.esito || "voglio_partecipare", {
+        cantiere_stato: "archiviato_storico",
+        cantiere_il: new Date().toISOString(),
+        storico_gara_id: storicoId,
+        snapshot_json: buildBandoSnapshot(archivioBando),
+      });
+      toast.success("Bando archiviato in Storico Gare");
+      setArchivioOpen(false);
+      setArchivioBando(null);
+      refetchBandi();
+      queryClient.invalidateQueries({ queryKey: ["storico_gare"] });
+      queryClient.invalidateQueries({ queryKey: ["storico_match_bandi"] });
+    } catch (err: any) {
+      console.error("Errore archivio storico:", err);
+      toast.error(err.message || "Impossibile scrivere lo Storico Gare");
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const handleAggiornaPortale = async (bando: any, opts?: { generate?: boolean }) => {
+    setHarvestingId(bando.id);
+    const motore = resolveFonteBando(bando.fonte, bando.link);
+    const { data: run, error: runErr } = await (supabase as any)
+      .from("bandi_harvest_run")
+      .insert({
+        bando_id: bando.id,
+        motore,
+        created_by: profile?.id || null,
+        esito: "ok",
+      })
+      .select("id")
+      .single();
+    if (runErr || !run?.id) {
+      setHarvestingId(null);
+      toast.error(runErr?.message || "Impossibile avviare l'harvest");
+      return;
+    }
+
+    let arricchito = false;
+    let nuovi = 0;
+    let aggiornati = 0;
+    let errore: string | null = null;
+    let harvested = bando;
+    try {
+      try {
+        harvested = await enrichBandoFromPortale(bando);
+        arricchito = true;
+      } catch (enrichErr: any) {
+        errore = enrichErr?.message || "Arricchimento portale non riuscito";
+      }
+
+      let extraUrls: string[] = [];
+      let metaByUrl = new Map<string, { url: string; tipo?: string; nome?: string }>();
+      try {
+        const { data: mon, error: monErr } = await supabase.functions.invoke("genera-monitor-bando", {
+          body: { bando_id: bando.id, action: opts?.generate ? "generate" : "refresh" },
+        });
+        if (monErr) {
+          errore = [errore, monErr.message].filter(Boolean).join(" · ");
+        } else {
+          extraUrls = Array.isArray(mon?.urls) ? mon.urls : [];
+          const docsMeta = Array.isArray(mon?.script?.documenti) ? mon.script.documenti : [];
+          metaByUrl = new Map(
+            docsMeta
+              .filter((d: { url?: string }) => d?.url)
+              .map((d: { url: string; tipo?: string; nome?: string }) => [d.url.split("#")[0], d]),
+          );
+          if (mon?.errore) errore = [errore, mon.errore].filter(Boolean).join(" · ");
+        }
+      } catch (monCatch: any) {
+        errore = [errore, monCatch?.message || "Refresh script non riuscito"].filter(Boolean).join(" · ");
+      }
+
+      const primaryUrl = harvested.pdf_url || bando.pdf_url;
+      const urls = collectHarvestUrls({
+        pdfUrl: primaryUrl,
+        extraUrls,
+        limit: HARVEST_URL_LIMIT,
+      });
+      for (const pdfUrl of urls) {
+        const meta = metaByUrl.get(pdfUrl);
+        const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("scarica-bando-pdf", {
+          body: {
+            bando_id: bando.id,
+            pdf_url: pdfUrl,
+            harvest_run_id: run.id,
+            tipo: meta?.tipo || inferTipoDocumentoBando(meta?.nome, pdfUrl),
+            nome: meta?.nome,
+            primario: pdfUrl === primaryUrl,
+          },
+        });
+        if (pdfErr) {
+          errore = [errore, pdfErr.message].filter(Boolean).join(" · ");
+        } else if (pdfData?.stato === "nuovo") {
+          nuovi += 1;
+        } else if (pdfData?.stato === "aggiornato") {
+          aggiornati += 1;
+        }
+      }
+
+      const note = buildHarvestNote({ arricchito, nuovi, aggiornati, errore });
+      await (supabase as any)
+        .from("bandi_harvest_run")
+        .update({
+          concluso_il: new Date().toISOString(),
+          esito: errore ? "parziale" : "ok",
+          documenti_nuovi: nuovi,
+          documenti_aggiornati: aggiornati,
+          errore,
+          novita_json: { arricchito, nuovi, aggiornati },
+        })
+        .eq("id", run.id);
+
+      const nextCantiere = bando.interesse?.cantiere_stato === "da_approfondire" || !bando.interesse?.cantiere_stato
+        ? "in_monitoraggio"
+        : bando.interesse?.cantiere_stato;
+      await upsertInteresse(bando, bando.interesse?.esito || "voglio_partecipare", {
+        harvest_at: new Date().toISOString(),
+        harvest_note: note,
+        cantiere_stato: nextCantiere,
+        cantiere_il: new Date().toISOString(),
+        snapshot_json: buildBandoSnapshot(harvested),
+      });
+      toast.success(note);
+      refetchBandi();
+      queryClient.invalidateQueries({ queryKey: ["bandi_documenti"] });
+      queryClient.invalidateQueries({ queryKey: ["bandi_harvest_run"] });
+      queryClient.invalidateQueries({ queryKey: ["bandi_monitor_script"] });
+    } catch (err: any) {
+      await (supabase as any)
+        .from("bandi_harvest_run")
+        .update({
+          concluso_il: new Date().toISOString(),
+          esito: "errore",
+          errore: err.message || "Errore harvest",
+        })
+        .eq("id", run.id);
+      toast.error(err.message || "Harvest non riuscito");
+    } finally {
+      setHarvestingId(null);
+    }
+  };
+
+  const handleScaricaTuttiDocumenti = (bando: any) => handleAggiornaPortale(bando, { generate: true });
 
   const regioniLabel = regioniSelezionate.length === 0
     ? "Tutte le regioni"
@@ -756,37 +1045,197 @@ export default function BandiPubbliciPage() {
     [bandiDB, filtroFonte, filtroKeyword],
   );
 
-  const displayBandi = useMemo(
-    () => bandiByFonte.filter((b: { interesse?: BandoInteresseRow | null; trattative_count?: number }) =>
-      matchesFiltroPipeline(
-        effectiveEsitoBando(b.interesse, b.trattative_count),
-        filtroPipeline,
-      ),
-    ),
-    [bandiByFonte, filtroPipeline],
+  const cantiereBandi = useMemo(
+    () => bandiByFonte.filter((b: {
+      interesse?: BandoInteresseRow | null;
+      trattative_count?: number;
+    }) => isBandoInCantiere(
+      effectiveEsitoBando(b.interesse, b.trattative_count),
+      b.interesse?.cantiere_stato,
+      b.trattative_count,
+    )),
+    [bandiByFonte],
   );
+
+  const displayBandi = useMemo(
+    () => {
+      const source = isPartecipati ? cantiereBandi : bandiByFonte;
+      return source.filter((b: {
+        interesse?: BandoInteresseRow | null;
+        trattative_count?: number;
+        visto_il?: string | null;
+      }) => {
+        const esito = effectiveEsitoBando(b.interesse, b.trattative_count);
+        if (isPartecipati) {
+          const cantiere = effectiveCantiereStato({
+            esito,
+            cantiere: b.interesse?.cantiere_stato,
+            storicoGaraId: b.interesse?.storico_gara_id,
+            trattativeCount: b.trattative_count,
+          });
+          return matchesFiltroCantiere(cantiere, filtroCantiere);
+        }
+        const vis = visibilitaBando({ esito, visto_il: b.visto_il });
+        if (filtroPipeline === "nuovi" || filtroPipeline === "gia_visti") {
+          return matchesFiltroVisibilita(vis, filtroPipeline);
+        }
+        return matchesFiltroPipeline(esito, filtroPipeline);
+      });
+    },
+    [bandiByFonte, cantiereBandi, filtroCantiere, filtroPipeline, isPartecipati],
+  );
+
+  const cantiereCounts = useMemo(() => {
+    const counts: Record<FiltroCantiere, number> = {
+      da_approfondire: 0,
+      in_monitoraggio: 0,
+      pronto_trattativa: 0,
+      in_trattativa: 0,
+      archiviato_storico: 0,
+      tutti: cantiereBandi.length,
+    };
+    for (const b of cantiereBandi as {
+      interesse?: BandoInteresseRow | null;
+      trattative_count?: number;
+    }[]) {
+      const esito = effectiveEsitoBando(b.interesse, b.trattative_count);
+      const cantiere = effectiveCantiereStato({
+        esito,
+        cantiere: b.interesse?.cantiere_stato,
+        storicoGaraId: b.interesse?.storico_gara_id,
+        trattativeCount: b.trattative_count,
+      });
+      if (cantiere && cantiere !== "abbandonato") counts[cantiere] += 1;
+    }
+    return counts;
+  }, [cantiereBandi]);
+
+  const storicoTokens = useMemo(() => {
+    if (!isPartecipati) return [];
+    return [...new Set(
+      (cantiereBandi as { ente?: string | null }[])
+        .map((b) => enteSearchToken(b.ente))
+        .filter((t) => t.length >= 4),
+    )].slice(0, 8);
+  }, [cantiereBandi, isPartecipati]);
+
+  const { data: storicoMatchRows = [] } = useQuery({
+    queryKey: ["storico_match_bandi", storicoTokens],
+    enabled: isPartecipati && storicoTokens.length > 0,
+    queryFn: async () => {
+      const orFilter = storicoTokens.map((t) => `ente_nome.ilike.%${t}%`).join(",");
+      const { data, error } = await (supabase as any)
+        .from("v_storico_gare")
+        .select("id, ente_nome, anno_riferimento, esito, broker_incumbent, data_fine_mandato, bando_id")
+        .or(orFilter)
+        .order("anno_riferimento", { ascending: false })
+        .limit(80);
+      if (error) throw error;
+      return (data || []) as StoricoGaraMatch[];
+    },
+  });
+
+  const cantiereIds = useMemo(
+    () => (cantiereBandi as { id: string }[]).map((b) => b.id),
+    [cantiereBandi],
+  );
+
+  const { data: documentiCantiere = [] } = useQuery({
+    queryKey: ["bandi_documenti", cantiereIds],
+    enabled: isPartecipati && cantiereIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("bandi_documenti")
+        .select("id, bando_id, tipo, nome, mime, url_origine, storage_path, hash_sha256, stato, visto_il, scaricato_il")
+        .in("bando_id", cantiereIds)
+        .neq("stato", "rimosso")
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as BandoDocumentoRow[];
+    },
+  });
+
+  const { data: harvestRuns = [] } = useQuery({
+    queryKey: ["bandi_harvest_run", cantiereIds],
+    enabled: isPartecipati && cantiereIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("bandi_harvest_run")
+        .select("id, bando_id, avviato_il, concluso_il, esito, motore, documenti_nuovi, documenti_aggiornati, novita_json, errore")
+        .in("bando_id", cantiereIds)
+        .order("avviato_il", { ascending: false })
+        .limit(80);
+      if (error) throw error;
+      return (data || []) as BandoHarvestRunRow[];
+    },
+  });
+
+  const bandiCheckScaduti = useMemo(() => {
+    return (cantiereBandi as {
+      id: string;
+      interesse?: BandoInteresseRow | null;
+      trattative_count?: number;
+    }[]).filter((b) => {
+      const esito = effectiveEsitoBando(b.interesse, b.trattative_count);
+      const cantiere = effectiveCantiereStato({
+        esito,
+        cantiere: b.interesse?.cantiere_stato,
+        storicoGaraId: b.interesse?.storico_gara_id,
+        trattativeCount: b.trattative_count,
+      });
+      const last = harvestRuns.find((r) => r.bando_id === b.id)?.avviato_il
+        || b.interesse?.harvest_at;
+      return isBandoMonitorabile(cantiere) && isMonitorDue(last);
+    });
+  }, [cantiereBandi, harvestRuns]);
+
+  const handleMonitoraScaduti = async () => {
+    const coda = bandiCheckScaduti.slice(0, 5);
+    if (coda.length === 0) {
+      toast.info("Nessun bando con check scaduto");
+      return;
+    }
+    setMonitoringAll(true);
+    try {
+      for (const bando of coda) {
+        await handleAggiornaPortale(bando);
+      }
+    } finally {
+      setMonitoringAll(false);
+    }
+  };
 
   const pipelineCounts = useMemo(() => {
     const counts: Record<FiltroPipelineBando, number> = {
-      da_valutare: 0,
+      nuovi: 0,
+      gia_visti: 0,
       voglio_partecipare: 0,
       non_partecipo: 0,
       in_trattativa: 0,
       tutti: bandiByFonte.length,
     };
-    for (const b of bandiByFonte as { interesse?: BandoInteresseRow | null; trattative_count?: number }[]) {
+    for (const b of bandiByFonte as {
+      interesse?: BandoInteresseRow | null;
+      trattative_count?: number;
+      visto_il?: string | null;
+    }[]) {
       const esito = effectiveEsitoBando(b.interesse, b.trattative_count);
-      if (!esito) counts.da_valutare += 1;
-      else counts[esito] += 1;
+      const vis = visibilitaBando({ esito, visto_il: b.visto_il });
+      if (vis === "nuovo") counts.nuovi += 1;
+      else if (vis === "gia_visto") counts.gia_visti += 1;
+      else if (esito) counts[esito] += 1;
     }
     return counts;
   }, [bandiByFonte]);
 
   const emptyListaMsg = (() => {
     if (isPartecipati) {
+      const label = FILTRI_CANTIERE.find((f) => f.value === filtroCantiere)?.label ?? "questa lista";
       return {
-        title: "Nessun bando partecipato",
-        hint: "Dalla lista Bandi Pubblici clicca «Voglio partecipare» per spostarlo qui.",
+        title: cantiereBandi.length === 0 ? "Nessun bando partecipato" : `Nessun bando in «${label}»`,
+        hint: cantiereBandi.length === 0
+          ? "Dalla lista Bandi Pubblici clicca «Voglio partecipare» per spostarlo qui."
+          : "Cambia tab del cantiere o manda un bando in Storico Gare / trattativa.",
       };
     }
     if (bandiDB.length === 0) {
@@ -797,8 +1246,10 @@ export default function BandiPubbliciPage() {
     const label = FILTRI_PIPELINE_BANDI.find((f) => f.value === filtroPipeline)?.label ?? "questa lista";
     return {
       title: `Nessun bando in «${label}»`,
-      hint: filtroPipeline === "da_valutare"
-        ? "I bandi scartati sono in Non partecipo. Quelli su cui vuoi partecipare sono in Bandi partecipati."
+      hint: filtroPipeline === "nuovi"
+        ? "I bandi già aperti sono in Già visti. Quelli su cui vuoi partecipare sono in Bandi partecipati."
+        : filtroPipeline === "gia_visti"
+          ? "Apri un bando nuovo per spostarlo qui. Poi decidi se partecipare o scartarlo."
         : "Cambia lista o fonte per vedere altri bandi.",
     };
   })();
@@ -835,10 +1286,29 @@ export default function BandiPubbliciPage() {
           <h1 className="text-3xl font-bold">{isPartecipati ? "Bandi partecipati" : "Bandi Pubblici"}</h1>
           <p className="text-muted-foreground">
             {isPartecipati
-              ? "Bandi su cui vuoi partecipare, prima della trattativa"
-              : `Ricerca bandi e gare d'appalto — ${labelKeywordRicerca(keywordRicerca)}`}
+              ? "Cantiere: approfondisci, monitora i documenti, crea trattativa o manda in Storico Gare"
+              : `Nuovi e già visti restano in archivio. Poi decidi se partecipare — ${labelKeywordRicerca(keywordRicerca)}`}
           </p>
         </div>
+        {isPartecipati && (
+        <div className="ml-auto flex items-center gap-3">
+          {bandiCheckScaduti.length > 0 && (
+            <Badge variant="outline" className="gap-1.5 py-1">
+              {bandiCheckScaduti.length} check scadut{bandiCheckScaduti.length === 1 ? "o" : "i"}
+            </Badge>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="gap-1.5"
+            disabled={monitoringAll || harvestingId !== null}
+            onClick={() => void handleMonitoraScaduti()}
+          >
+            {monitoringAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Monitora scaduti
+          </Button>
+        </div>
+        )}
         {!isPartecipati && (
         <div className="ml-auto flex items-center gap-3">
           {apiCallCount > 0 && (
@@ -1114,6 +1584,28 @@ export default function BandiPubbliciPage() {
                 </div>
               </div>
             </div>
+            {isPartecipati && (
+            <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5 w-fit" role="tablist" aria-label="Cantiere bandi partecipati">
+              {FILTRI_CANTIERE.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={filtroCantiere === f.value}
+                  onClick={() => setFiltroCantiere(f.value)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                    filtroCantiere === f.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {f.label}
+                  <span className="ml-1 tabular-nums text-[10px] text-muted-foreground">{cantiereCounts[f.value]}</span>
+                </button>
+              ))}
+            </div>
+            )}
             {!isPartecipati && (
             <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-border bg-muted/50 p-0.5 w-fit" role="tablist" aria-label="Lista interesse bandi">
               {FILTRI_PIPELINE_LISTA_PRINCIPALE.map((f) => (
@@ -1139,9 +1631,32 @@ export default function BandiPubbliciPage() {
           </div>
           {displayBandi.map((bando: any) => {
             const esito = effectiveEsitoBando(bando.interesse, bando.trattative_count);
-            const busy = harvestingId === bando.id || savingEsito;
+            const vis = visibilitaBando({ esito, visto_il: bando.visto_il });
+            const cantiere = effectiveCantiereStato({
+              esito,
+              cantiere: bando.interesse?.cantiere_stato,
+              storicoGaraId: bando.interesse?.storico_gara_id,
+              trattativeCount: bando.trattative_count,
+            });
+            const storicoHits = isPartecipati
+              ? matchStoricoPerEnte(bando.ente, storicoMatchRows)
+              : [];
+            const docsBando = isPartecipati
+              ? documentiVisibili(documentiCantiere.filter((d) => d.bando_id === bando.id))
+              : [];
+            const novitaDoc = countNovitaDocumenti(docsBando);
+            const lastRun = isPartecipati
+              ? harvestRuns.find((r) => r.bando_id === bando.id)
+              : undefined;
+            const checkDue = isPartecipati && isBandoMonitorabile(cantiere)
+              && isMonitorDue(lastRun?.avviato_il || bando.interesse?.harvest_at);
+            const busy = harvestingId === bando.id || savingEsito || archiving || monitoringAll;
             return (
-            <Card key={bando.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={bando.id}
+              className="hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => { void markBandoVisto(bando); }}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
@@ -1159,7 +1674,9 @@ export default function BandiPubbliciPage() {
                       variant={esito === "voglio_partecipare" ? "default" : esito === "non_partecipo" ? "secondary" : "outline"}
                       className="text-xs"
                     >
-                      {labelEsitoBando(esito)}
+                      {isPartecipati && cantiere
+                        ? labelCantiereStato(cantiere)
+                        : esito ? labelEsitoBando(esito) : labelVisibilitaBando(vis)}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
                       {labelFonteBando(resolveFonteBando(bando.fonte, bando.link))}
@@ -1267,6 +1784,33 @@ export default function BandiPubbliciPage() {
                       {bando.interesse.harvest_note}
                     </div>
                   )}
+                  {isPartecipati && storicoHits.length > 0 && (
+                    <div className="w-full text-xs text-muted-foreground">
+                      Storico Gare: {storicoHits.map((s) => (
+                        `${s.ente_nome}${s.anno_riferimento ? ` ${s.anno_riferimento}` : ""}${s.broker_incumbent ? ` · ${s.broker_incumbent}` : ""}${s.esito ? ` · ${s.esito}` : ""}`
+                      )).join(" · ")}
+                    </div>
+                  )}
+                  {isPartecipati && (
+                    <div className="w-full flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {(novitaDoc.nuovi + novitaDoc.aggiornati) > 0 && (
+                        <Badge variant="default" className="text-[10px]">
+                          {novitaDoc.nuovi + novitaDoc.aggiornati} doc nuovi/aggiornati
+                        </Badge>
+                      )}
+                      <span>
+                        {docsBando.length} document{docsBando.length === 1 ? "o" : "i"} in archivio
+                        {lastHarvestLabel(lastRun?.avviato_il || bando.interesse?.harvest_at)
+                          ? ` · ultimo check ${lastHarvestLabel(lastRun?.avviato_il || bando.interesse?.harvest_at)}`
+                          : ""}
+                      </span>
+                      {checkDue && (
+                        <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-700">
+                          Check scaduto
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
                     {esito !== "non_partecipo" && esito !== "in_trattativa" && (
                       <Button
@@ -1304,6 +1848,91 @@ export default function BandiPubbliciPage() {
                         onClick={() => handleRimettiInValutazione(bando)}
                       >
                         <RotateCcw className="h-3 w-3" /> Rimetti in valutazione
+                      </Button>
+                    )}
+                    {isPartecipati && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFascicoloBando(bando);
+                          setFascicoloOpen(true);
+                        }}
+                      >
+                        <FolderOpen className="h-3 w-3" /> Archivio documenti
+                      </Button>
+                    )}
+                    {isPartecipati && cantiere && cantiere !== "archiviato_storico" && (
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="gap-1 h-7 text-xs"
+                          disabled={busy}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleScaricaTuttiDocumenti(bando);
+                          }}
+                        >
+                          {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
+                          Scarica tutti i documenti
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="gap-1 h-7 text-xs"
+                          disabled={busy}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleAggiornaPortale(bando);
+                          }}
+                        >
+                          {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                          Aggiorna dal portale
+                        </Button>
+                        {CANTIERE_AZIONI.filter((a) => a.value !== cantiere).map((a) => (
+                          <Button
+                            key={a.value}
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 h-7 text-xs"
+                            disabled={busy}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleCambiaCantiere(bando, a.value);
+                            }}
+                          >
+                            {a.label}
+                          </Button>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 h-7 text-xs"
+                          disabled={busy}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setArchivioBando(bando);
+                            setArchivioOpen(true);
+                          }}
+                        >
+                          <Archive className="h-3 w-3" /> Manda in Storico Gare
+                        </Button>
+                      </>
+                    )}
+                    {isPartecipati && cantiere === "archiviato_storico" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate("/trattative/storico-gare");
+                        }}
+                      >
+                        <Archive className="h-3 w-3" /> Apri Storico Gare
                       </Button>
                     )}
                     {esito === "voglio_partecipare" && (
@@ -1387,6 +2016,61 @@ export default function BandiPubbliciPage() {
         </div>
       )}
 
+      <Dialog open={archivioOpen} onOpenChange={(open) => {
+        setArchivioOpen(open);
+        if (!open) setArchivioBando(null);
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Archive className="h-5 w-5" />
+              Manda in Storico Gare
+            </DialogTitle>
+            <DialogDescription>
+              Crea una riga di intelligence in Storico Gare. Non apre una trattativa e non cambia i KPI commerciali.
+            </DialogDescription>
+          </DialogHeader>
+          {archivioBando && (
+            <div className="space-y-2 text-sm">
+              <p className="font-medium">{archivioBando.titolo || archivioBando.oggetto}</p>
+              <p className="text-muted-foreground">{archivioBando.ente}</p>
+              {matchStoricoPerEnte(archivioBando.ente, storicoMatchRows).length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Esistono già {matchStoricoPerEnte(archivioBando.ente, storicoMatchRows).length} gare
+                  storiche per questo ente: la nuova riga si aggiunge, non le sovrascrive.
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setArchivioOpen(false)} disabled={archiving}>Annulla</Button>
+            <Button onClick={() => void handleArchiviaStorico()} disabled={archiving} className="gap-1">
+              {archiving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+              Archivia
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <BandiFascicoloArchivio
+        open={fascicoloOpen}
+        onOpenChange={(open) => {
+          setFascicoloOpen(open);
+          if (!open) setFascicoloBando(null);
+        }}
+        bando={fascicoloBando}
+        documenti={fascicoloBando
+          ? documentiVisibili(documentiCantiere.filter((d) => d.bando_id === fascicoloBando.id))
+          : []}
+        downloading={!!fascicoloBando && harvestingId === fascicoloBando.id}
+        onScaricaTutti={fascicoloBando && fascicoloBando.interesse?.cantiere_stato !== "archiviato_storico"
+          ? () => void handleScaricaTuttiDocumenti(fascicoloBando)
+          : undefined}
+        onRefresh={() => {
+          queryClient.invalidateQueries({ queryKey: ["bandi_documenti"] });
+        }}
+      />
+
       <Dialog open={nonPartecipoOpen} onOpenChange={(open) => {
         setNonPartecipoOpen(open);
         if (!open) {
@@ -1401,7 +2085,7 @@ export default function BandiPubbliciPage() {
               Non partecipo
             </DialogTitle>
             <DialogDescription>
-              Il bando sparisce da «Da valutare» ma resta in archivio. Puoi recuperarlo dalla lista Non partecipo.
+              Il bando sparisce da «Nuovi» / «Già visti» ma resta in archivio. Puoi recuperarlo dalla lista Non partecipo.
             </DialogDescription>
           </DialogHeader>
           {nonPartecipoBando && (

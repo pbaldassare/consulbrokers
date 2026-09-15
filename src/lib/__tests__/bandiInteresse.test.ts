@@ -26,8 +26,8 @@ describe("bandiInteresse", () => {
   });
 
   it("filtra le liste pipeline", () => {
-    expect(matchesFiltroPipeline(null, "da_valutare")).toBe(true);
-    expect(matchesFiltroPipeline("non_partecipo", "da_valutare")).toBe(false);
+    expect(matchesFiltroPipeline(null, "nuovi")).toBe(true);
+    expect(matchesFiltroPipeline("non_partecipo", "nuovi")).toBe(false);
     expect(matchesFiltroPipeline("non_partecipo", "non_partecipo")).toBe(true);
     expect(matchesFiltroPipeline("voglio_partecipare", "tutti")).toBe(true);
     expect(matchesFiltroPipeline(null, "voglio_partecipare")).toBe(false);
@@ -53,7 +53,8 @@ describe("bandiInteresse", () => {
     expect(isBandiPartecipatiPath("/bandi-pubblici/partecipati")).toBe(true);
     expect(isBandiPartecipatiPath("/bandi-pubblici")).toBe(false);
     expect(FILTRI_PIPELINE_LISTA_PRINCIPALE.some((f) => f.value === "voglio_partecipare")).toBe(false);
-    expect(FILTRI_PIPELINE_LISTA_PRINCIPALE.some((f) => f.value === "da_valutare")).toBe(true);
+    expect(FILTRI_PIPELINE_LISTA_PRINCIPALE.some((f) => f.value === "nuovi")).toBe(true);
+    expect(FILTRI_PIPELINE_LISTA_PRINCIPALE.some((f) => f.value === "gia_visti")).toBe(true);
   });
 
   it("normalizza interesse da embed 1:1 o array", () => {

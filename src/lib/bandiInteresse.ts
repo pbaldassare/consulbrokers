@@ -2,7 +2,8 @@ export const BANDI_ESITI = ["non_partecipo", "voglio_partecipare", "in_trattativ
 export type BandoEsito = (typeof BANDI_ESITI)[number];
 
 export const FILTRI_PIPELINE_BANDI = [
-  { value: "da_valutare", label: "Da valutare" },
+  { value: "nuovi", label: "Nuovi" },
+  { value: "gia_visti", label: "Già visti" },
   { value: "voglio_partecipare", label: "Voglio partecipare" },
   { value: "non_partecipo", label: "Non partecipo" },
   { value: "in_trattativa", label: "In trattativa" },
@@ -30,6 +31,9 @@ export type BandoInteresseRow = {
   harvest_note: string | null;
   deciso_da: string | null;
   deciso_il: string;
+  cantiere_stato?: string | null;
+  cantiere_il?: string | null;
+  storico_gara_id?: string | null;
 };
 
 export function isBandoEsito(value: string | null | undefined): value is BandoEsito {
@@ -64,7 +68,7 @@ export function matchesFiltroPipeline(
   filtro: FiltroPipelineBando,
 ): boolean {
   if (filtro === "tutti") return true;
-  if (filtro === "da_valutare") return !esito;
+  if (filtro === "nuovi" || filtro === "gia_visti") return !esito;
   return esito === filtro;
 }
 

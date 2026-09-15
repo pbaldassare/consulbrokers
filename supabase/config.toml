@@ -60,7 +60,13 @@ verify_jwt = false
 [functions.cerca-bandi]
 verify_jwt = false
 
+[functions.scarica-bando-pdf]
+verify_jwt = false
+
 [functions.arricchisci-bando]
+verify_jwt = false
+
+[functions.genera-monitor-bando]
 verify_jwt = false
 
 [functions.provision-user]
