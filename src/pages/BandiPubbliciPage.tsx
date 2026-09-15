@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive } from "lucide-react";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -100,6 +100,15 @@ import {
   type FiltroCantiere,
   type StoricoGaraMatch,
 } from "@/lib/bandiCantiere";
+import {
+  buildHarvestNote,
+  countNovitaDocumenti,
+  labelStatoDocumentoBando,
+  labelTipoDocumentoBando,
+  lastHarvestLabel,
+  type BandoDocumentoRow,
+  type BandoHarvestRunRow,
+} from "@/lib/bandiDocumenti";
 import {
   dettaglioUpdatePayload,
   labelTipoAvviso,
@@ -881,6 +890,94 @@ export default function BandiPubbliciPage() {
     }
   };
 
+  const handleAggiornaPortale = async (bando: any) => {
+    setHarvestingId(bando.id);
+    const motore = resolveFonteBando(bando.fonte, bando.link);
+    const { data: run, error: runErr } = await (supabase as any)
+      .from("bandi_harvest_run")
+      .insert({
+        bando_id: bando.id,
+        motore,
+        created_by: profile?.id || null,
+        esito: "ok",
+      })
+      .select("id")
+      .single();
+    if (runErr || !run?.id) {
+      setHarvestingId(null);
+      toast.error(runErr?.message || "Impossibile avviare l'harvest");
+      return;
+    }
+
+    let arricchito = false;
+    let nuovi = 0;
+    let aggiornati = 0;
+    let errore: string | null = null;
+    let harvested = bando;
+    try {
+      try {
+        harvested = await enrichBandoFromPortale(bando);
+        arricchito = true;
+      } catch (enrichErr: any) {
+        errore = enrichErr?.message || "Arricchimento portale non riuscito";
+      }
+
+      const pdfUrl = harvested.pdf_url || bando.pdf_url;
+      if (pdfUrl) {
+        const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("scarica-bando-pdf", {
+          body: { bando_id: bando.id, pdf_url: pdfUrl, harvest_run_id: run.id },
+        });
+        if (pdfErr) {
+          errore = [errore, pdfErr.message].filter(Boolean).join(" · ");
+        } else if (pdfData?.stato === "nuovo") {
+          nuovi += 1;
+        } else if (pdfData?.stato === "aggiornato") {
+          aggiornati += 1;
+        }
+      }
+
+      const note = buildHarvestNote({ arricchito, nuovi, aggiornati, errore });
+      await (supabase as any)
+        .from("bandi_harvest_run")
+        .update({
+          concluso_il: new Date().toISOString(),
+          esito: errore ? "parziale" : "ok",
+          documenti_nuovi: nuovi,
+          documenti_aggiornati: aggiornati,
+          errore,
+          novita_json: { arricchito, nuovi, aggiornati },
+        })
+        .eq("id", run.id);
+
+      const nextCantiere = bando.interesse?.cantiere_stato === "da_approfondire" || !bando.interesse?.cantiere_stato
+        ? "in_monitoraggio"
+        : bando.interesse?.cantiere_stato;
+      await upsertInteresse(bando, bando.interesse?.esito || "voglio_partecipare", {
+        harvest_at: new Date().toISOString(),
+        harvest_note: note,
+        cantiere_stato: nextCantiere,
+        cantiere_il: new Date().toISOString(),
+        snapshot_json: buildBandoSnapshot(harvested),
+      });
+      toast.success(note);
+      refetchBandi();
+      queryClient.invalidateQueries({ queryKey: ["bandi_documenti"] });
+      queryClient.invalidateQueries({ queryKey: ["bandi_harvest_run"] });
+    } catch (err: any) {
+      await (supabase as any)
+        .from("bandi_harvest_run")
+        .update({
+          concluso_il: new Date().toISOString(),
+          esito: "errore",
+          errore: err.message || "Errore harvest",
+        })
+        .eq("id", run.id);
+      toast.error(err.message || "Harvest non riuscito");
+    } finally {
+      setHarvestingId(null);
+    }
+  };
+
   const regioniLabel = regioniSelezionate.length === 0
     ? "Tutte le regioni"
     : regioniSelezionate.length === regioniItaliane.length
@@ -987,6 +1084,40 @@ export default function BandiPubbliciPage() {
         .limit(80);
       if (error) throw error;
       return (data || []) as StoricoGaraMatch[];
+    },
+  });
+
+  const cantiereIds = useMemo(
+    () => (cantiereBandi as { id: string }[]).map((b) => b.id),
+    [cantiereBandi],
+  );
+
+  const { data: documentiCantiere = [] } = useQuery({
+    queryKey: ["bandi_documenti", cantiereIds],
+    enabled: isPartecipati && cantiereIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("bandi_documenti")
+        .select("id, bando_id, tipo, nome, mime, url_origine, storage_path, hash_sha256, stato, visto_il, scaricato_il")
+        .in("bando_id", cantiereIds)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as BandoDocumentoRow[];
+    },
+  });
+
+  const { data: harvestRuns = [] } = useQuery({
+    queryKey: ["bandi_harvest_run", cantiereIds],
+    enabled: isPartecipati && cantiereIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("bandi_harvest_run")
+        .select("id, bando_id, avviato_il, concluso_il, esito, motore, documenti_nuovi, documenti_aggiornati, novita_json, errore")
+        .in("bando_id", cantiereIds)
+        .order("avviato_il", { ascending: false })
+        .limit(80);
+      if (error) throw error;
+      return (data || []) as BandoHarvestRunRow[];
     },
   });
 
@@ -1407,6 +1538,13 @@ export default function BandiPubbliciPage() {
             const storicoHits = isPartecipati
               ? matchStoricoPerEnte(bando.ente, storicoMatchRows)
               : [];
+            const docsBando = isPartecipati
+              ? documentiCantiere.filter((d) => d.bando_id === bando.id)
+              : [];
+            const novitaDoc = countNovitaDocumenti(docsBando);
+            const lastRun = isPartecipati
+              ? harvestRuns.find((r) => r.bando_id === bando.id)
+              : undefined;
             const busy = harvestingId === bando.id || savingEsito || archiving;
             return (
             <Card
@@ -1548,6 +1686,45 @@ export default function BandiPubbliciPage() {
                       )).join(" · ")}
                     </div>
                   )}
+                  {isPartecipati && (
+                    <div className="w-full space-y-1 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(novitaDoc.nuovi + novitaDoc.aggiornati) > 0 && (
+                          <Badge variant="default" className="text-[10px]">
+                            {novitaDoc.nuovi + novitaDoc.aggiornati} doc nuovi/aggiornati
+                          </Badge>
+                        )}
+                        <span>
+                          {docsBando.length} document{docsBando.length === 1 ? "o" : "i"}
+                          {lastHarvestLabel(lastRun?.avviato_il || bando.interesse?.harvest_at)
+                            ? ` · ultimo check ${lastHarvestLabel(lastRun?.avviato_il || bando.interesse?.harvest_at)}`
+                            : ""}
+                        </span>
+                      </div>
+                      {docsBando.slice(0, 4).map((doc) => (
+                        <div key={doc.id} className="flex items-center gap-2">
+                          <span>{labelTipoDocumentoBando(doc.tipo)}: {doc.nome || "documento"}</span>
+                          <Badge variant="outline" className="text-[10px]">{labelStatoDocumentoBando(doc.stato)}</Badge>
+                          {doc.storage_path && (
+                            <button
+                              type="button"
+                              className="text-primary hover:underline"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const { data } = await supabase.storage
+                                  .from("documenti_generali")
+                                  .createSignedUrl(doc.storage_path!, 3600);
+                                if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                                else toast.error("Errore apertura documento");
+                              }}
+                            >
+                              Apri
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
                     {esito !== "non_partecipo" && esito !== "in_trattativa" && (
                       <Button
@@ -1589,6 +1766,19 @@ export default function BandiPubbliciPage() {
                     )}
                     {isPartecipati && cantiere && cantiere !== "archiviato_storico" && (
                       <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="gap-1 h-7 text-xs"
+                          disabled={busy}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleAggiornaPortale(bando);
+                          }}
+                        >
+                          {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                          Aggiorna dal portale
+                        </Button>
                         {CANTIERE_AZIONI.filter((a) => a.value !== cantiere).map((a) => (
                           <Button
                             key={a.value}
