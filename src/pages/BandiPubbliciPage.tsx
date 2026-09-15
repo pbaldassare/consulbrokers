@@ -82,6 +82,12 @@ import {
   type FiltroPipelineBando,
 } from "@/lib/bandiInteresse";
 import {
+  labelVisibilitaBando,
+  matchesFiltroVisibilita,
+  toastSalvataggioBandi,
+  visibilitaBando,
+} from "@/lib/bandiVisibilita";
+import {
   dettaglioUpdatePayload,
   labelTipoAvviso,
   labelTipoProcedura,
@@ -183,10 +189,22 @@ async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
         servizio_a: toIsoDate(b.servizio_a),
         tipo_procedura: b.tipo_procedura || null,
         data_pubblicazione: toIsoDate(b.dataPublicazione || b.data_pubblicazione),
+        last_harvest_at: new Date().toISOString(),
       };
     });
 
-  if (rows.length === 0) return 0;
+  if (rows.length === 0) return { salvati: 0, nuovi: 0, giaInArchivio: 0 };
+
+  const schedaIds = rows.map((r) => r.scheda_id);
+  const { data: existing, error: existingErr } = await supabase
+    .from("bandi_pubblici")
+    .select("scheda_id")
+    .in("scheda_id", schedaIds);
+  if (existingErr) {
+    console.error("Lookup bandi esistenti:", existingErr);
+    throw existingErr;
+  }
+  const known = new Set((existing || []).map((r: { scheda_id: string }) => r.scheda_id));
 
   const { error } = await supabase
     .from("bandi_pubblici")
@@ -196,7 +214,8 @@ async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
     console.error("Upsert bandi error:", error);
     throw error;
   }
-  return rows.length;
+  const nuovi = rows.filter((r) => !known.has(r.scheda_id)).length;
+  return { salvati: rows.length, nuovi, giaInArchivio: rows.length - nuovi };
 }
 
 async function enrichBandoFromPortale(bando: any) {
@@ -308,11 +327,11 @@ export default function BandiPubbliciPage() {
   const [filtroFonte, setFiltroFonte] = useState<FiltroFonteLista>("tutte");
   const [filtroKeyword, setFiltroKeyword] = useState<FiltroKeywordLista>("tutte");
   const [filtroPipeline, setFiltroPipeline] = useState<FiltroPipelineBando>(
-    isPartecipati ? "voglio_partecipare" : "da_valutare",
+    isPartecipati ? "voglio_partecipare" : "nuovi",
   );
 
   useEffect(() => {
-    setFiltroPipeline(isPartecipati ? "voglio_partecipare" : "da_valutare");
+    setFiltroPipeline(isPartecipati ? "voglio_partecipare" : "nuovi");
   }, [isPartecipati]);
   const [regioniOpen, setRegioniOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -467,7 +486,7 @@ export default function BandiPubbliciPage() {
         setRisultatiLive(bandi);
         if (bandi.length > 0) {
           try {
-            await upsertBandiToDB(
+            const salvati = await upsertBandiToDB(
               bandi.map((b) => ({
                 ...b,
                 keyword: b.keyword || b.categoria || keywordDaTesto(`${b.titolo} ${b.categoria || ""}`),
@@ -479,7 +498,9 @@ export default function BandiPubbliciPage() {
               profile?.ufficio_id,
             );
             await refetchBandi();
-            toast.success(startData.message || `${bandi.length} bando/i trovati e salvati.`);
+            toast.success(
+              `${startData.message || `${bandi.length} bando/i trovati.`} ${toastSalvataggioBandi(salvati.nuovi, salvati.giaInArchivio)}`.trim(),
+            );
             if (startData.warning) toast.warning(startData.warning);
             if (prospectCount > 0) toast.info(`${prospectCount} nuovi prospect creati.`);
           } catch {
@@ -660,6 +681,29 @@ export default function BandiPubbliciPage() {
     if (error) throw error;
   };
 
+  const markBandoVisto = async (bando: any) => {
+    if (!bando?.id || bando.visto_il) return;
+    const vistoIl = new Date().toISOString();
+    const { error } = await (supabase as any)
+      .from("bandi_pubblici")
+      .update({
+        visto_il: vistoIl,
+        visto_da: profile?.id || null,
+      })
+      .eq("id", bando.id)
+      .is("visto_il", null);
+    if (error) {
+      console.warn("Impossibile segnare il bando come visto:", error);
+      return;
+    }
+    queryClient.setQueriesData({ queryKey: ["bandi_pubblici"] }, (old: unknown) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((row: { id: string; visto_il?: string | null }) =>
+        row.id === bando.id ? { ...row, visto_il: vistoIl, visto_da: profile?.id || null } : row,
+      );
+    });
+  };
+
   const handleVoglioPartecipare = async (bando: any) => {
     setHarvestingId(bando.id);
     try {
@@ -706,7 +750,7 @@ export default function BandiPubbliciPage() {
         motivo: nonPartecipoMotivo.trim() || null,
         snapshot_json: buildBandoSnapshot(nonPartecipoBando),
       });
-      toast.success("Bando nascosto da «Da valutare». Lo trovi in Non partecipo.");
+      toast.success("Bando nascosto da «Nuovi». Lo trovi in Non partecipo.");
       setNonPartecipoOpen(false);
       setNonPartecipoBando(null);
       setNonPartecipoMotivo("");
@@ -727,7 +771,17 @@ export default function BandiPubbliciPage() {
         .delete()
         .eq("bando_id", bando.id);
       if (error) throw error;
-      toast.success("Bando rimesso in valutazione");
+      if (!bando.visto_il) {
+        await (supabase as any)
+          .from("bandi_pubblici")
+          .update({
+            visto_il: new Date().toISOString(),
+            visto_da: profile?.id || null,
+          })
+          .eq("id", bando.id)
+          .is("visto_il", null);
+      }
+      toast.success("Bando rimesso tra i già visti");
       refetchBandi();
     } catch (err: any) {
       console.error("Errore rimetti in valutazione:", err);
@@ -757,27 +811,40 @@ export default function BandiPubbliciPage() {
   );
 
   const displayBandi = useMemo(
-    () => bandiByFonte.filter((b: { interesse?: BandoInteresseRow | null; trattative_count?: number }) =>
-      matchesFiltroPipeline(
-        effectiveEsitoBando(b.interesse, b.trattative_count),
-        filtroPipeline,
-      ),
-    ),
+    () => bandiByFonte.filter((b: {
+      interesse?: BandoInteresseRow | null;
+      trattative_count?: number;
+      visto_il?: string | null;
+    }) => {
+      const esito = effectiveEsitoBando(b.interesse, b.trattative_count);
+      const vis = visibilitaBando({ esito, visto_il: b.visto_il });
+      if (filtroPipeline === "nuovi" || filtroPipeline === "gia_visti") {
+        return matchesFiltroVisibilita(vis, filtroPipeline);
+      }
+      return matchesFiltroPipeline(esito, filtroPipeline);
+    }),
     [bandiByFonte, filtroPipeline],
   );
 
   const pipelineCounts = useMemo(() => {
     const counts: Record<FiltroPipelineBando, number> = {
-      da_valutare: 0,
+      nuovi: 0,
+      gia_visti: 0,
       voglio_partecipare: 0,
       non_partecipo: 0,
       in_trattativa: 0,
       tutti: bandiByFonte.length,
     };
-    for (const b of bandiByFonte as { interesse?: BandoInteresseRow | null; trattative_count?: number }[]) {
+    for (const b of bandiByFonte as {
+      interesse?: BandoInteresseRow | null;
+      trattative_count?: number;
+      visto_il?: string | null;
+    }[]) {
       const esito = effectiveEsitoBando(b.interesse, b.trattative_count);
-      if (!esito) counts.da_valutare += 1;
-      else counts[esito] += 1;
+      const vis = visibilitaBando({ esito, visto_il: b.visto_il });
+      if (vis === "nuovo") counts.nuovi += 1;
+      else if (vis === "gia_visto") counts.gia_visti += 1;
+      else if (esito) counts[esito] += 1;
     }
     return counts;
   }, [bandiByFonte]);
@@ -797,8 +864,10 @@ export default function BandiPubbliciPage() {
     const label = FILTRI_PIPELINE_BANDI.find((f) => f.value === filtroPipeline)?.label ?? "questa lista";
     return {
       title: `Nessun bando in «${label}»`,
-      hint: filtroPipeline === "da_valutare"
-        ? "I bandi scartati sono in Non partecipo. Quelli su cui vuoi partecipare sono in Bandi partecipati."
+      hint: filtroPipeline === "nuovi"
+        ? "I bandi già aperti sono in Già visti. Quelli su cui vuoi partecipare sono in Bandi partecipati."
+        : filtroPipeline === "gia_visti"
+          ? "Apri un bando nuovo per spostarlo qui. Poi decidi se partecipare o scartarlo."
         : "Cambia lista o fonte per vedere altri bandi.",
     };
   })();
@@ -836,7 +905,7 @@ export default function BandiPubbliciPage() {
           <p className="text-muted-foreground">
             {isPartecipati
               ? "Bandi su cui vuoi partecipare, prima della trattativa"
-              : `Ricerca bandi e gare d'appalto — ${labelKeywordRicerca(keywordRicerca)}`}
+              : `Nuovi e già visti restano in archivio. Poi decidi se partecipare — ${labelKeywordRicerca(keywordRicerca)}`}
           </p>
         </div>
         {!isPartecipati && (
@@ -1139,9 +1208,14 @@ export default function BandiPubbliciPage() {
           </div>
           {displayBandi.map((bando: any) => {
             const esito = effectiveEsitoBando(bando.interesse, bando.trattative_count);
+            const vis = visibilitaBando({ esito, visto_il: bando.visto_il });
             const busy = harvestingId === bando.id || savingEsito;
             return (
-            <Card key={bando.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={bando.id}
+              className="hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => { void markBandoVisto(bando); }}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
@@ -1159,7 +1233,7 @@ export default function BandiPubbliciPage() {
                       variant={esito === "voglio_partecipare" ? "default" : esito === "non_partecipo" ? "secondary" : "outline"}
                       className="text-xs"
                     >
-                      {labelEsitoBando(esito)}
+                      {esito ? labelEsitoBando(esito) : labelVisibilitaBando(vis)}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
                       {labelFonteBando(resolveFonteBando(bando.fonte, bando.link))}
@@ -1401,7 +1475,7 @@ export default function BandiPubbliciPage() {
               Non partecipo
             </DialogTitle>
             <DialogDescription>
-              Il bando sparisce da «Da valutare» ma resta in archivio. Puoi recuperarlo dalla lista Non partecipo.
+              Il bando sparisce da «Nuovi» / «Già visti» ma resta in archivio. Puoi recuperarlo dalla lista Non partecipo.
             </DialogDescription>
           </DialogHeader>
           {nonPartecipoBando && (
