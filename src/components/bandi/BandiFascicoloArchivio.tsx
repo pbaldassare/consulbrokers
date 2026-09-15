@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -14,12 +13,10 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import {
   TIPI_DOCUMENTO_BANDO,
   documentiVisibili,
   groupDocumentiByTipo,
-  labelStatoDocumentoBando,
   labelTipoDocumentoBando,
   type BandoDocumentoRow,
 } from "@/lib/bandiDocumenti";
@@ -34,6 +31,16 @@ type Props = {
   onRefresh: () => void;
 };
 
+async function signedUrl(doc: BandoDocumentoRow): Promise<string | null> {
+  if (doc.storage_path) {
+    const { data } = await supabase.storage
+      .from("documenti_generali")
+      .createSignedUrl(doc.storage_path, 3600);
+    return data?.signedUrl || null;
+  }
+  return doc.url_origine;
+}
+
 export function BandiFascicoloArchivio({
   open,
   onOpenChange,
@@ -45,92 +52,77 @@ export function BandiFascicoloArchivio({
 }: Props) {
   const visibili = useMemo(() => documentiVisibili(documenti), [documenti]);
   const gruppi = useMemo(() => groupDocumentiByTipo(visibili), [visibili]);
-  const [filtroTipo, setFiltroTipo] = useState("tutti");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [nomeEdit, setNomeEdit] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const lista = filtroTipo === "tutti"
-    ? visibili
-    : visibili.filter((d) => d.tipo === filtroTipo);
-  const selected = lista.find((d) => d.id === selectedId) || lista[0] || null;
+  const [nomi, setNomi] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) {
-      setSelectedId(null);
-      setPreviewUrl(null);
-      setFiltroTipo("tutti");
-      return;
-    }
-    if (selected && selected.id !== selectedId) setSelectedId(selected.id);
-  }, [open, selected, selectedId]);
+    if (!open) return;
+    setNomi(Object.fromEntries(visibili.map((d) => [d.id, d.nome || ""])));
+  }, [open, visibili]);
 
-  useEffect(() => {
-    if (!selected) {
-      setPreviewUrl(null);
-      setNomeEdit("");
-      return;
-    }
-    setNomeEdit(selected.nome || "");
-    let cancelled = false;
-    const load = async () => {
-      if (!selected.storage_path) {
-        setPreviewUrl(selected.url_origine);
-        return;
-      }
-      const { data } = await supabase.storage
-        .from("documenti_generali")
-        .createSignedUrl(selected.storage_path, 3600);
-      if (!cancelled) setPreviewUrl(data?.signedUrl || null);
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [selected?.id, selected?.storage_path, selected?.url_origine, selected?.nome]);
-
-  const updateDoc = async (patch: Partial<BandoDocumentoRow>) => {
-    if (!selected) return;
-    setSaving(true);
+  const updateDoc = async (id: string, patch: Partial<BandoDocumentoRow>, ok = "Documento aggiornato") => {
+    setBusyId(id);
     try {
       const { error } = await (supabase as any)
         .from("bandi_documenti")
         .update(patch)
-        .eq("id", selected.id);
+        .eq("id", id);
       if (error) throw error;
-      toast.success("Documento aggiornato");
+      toast.success(ok);
       onRefresh();
     } catch (err: any) {
       toast.error(err.message || "Impossibile aggiornare il documento");
     } finally {
-      setSaving(false);
+      setBusyId(null);
     }
   };
 
-  const rimuovi = async () => {
-    if (!selected) return;
-    if (!window.confirm(`Rimuovere «${selected.nome || "documento"}» dall'archivio?`)) return;
-    await updateDoc({ stato: "rimosso" });
-    setSelectedId(null);
+  const apri = async (doc: BandoDocumentoRow) => {
+    const url = await signedUrl(doc);
+    if (!url) {
+      toast.error("Documento non disponibile");
+      return;
+    }
+    window.open(url, "_blank");
+  };
+
+  const scarica = async (doc: BandoDocumentoRow) => {
+    const url = await signedUrl(doc);
+    if (!url) {
+      toast.error("Documento non disponibile");
+      return;
+    }
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = doc.nome || "documento.pdf";
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.click();
+  };
+
+  const rimuovi = async (doc: BandoDocumentoRow) => {
+    if (!window.confirm(`Rimuovere «${doc.nome || "documento"}» dall'archivio?`)) return;
+    await updateDoc(doc.id, { stato: "rimosso" }, "Documento rimosso");
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[90vh] flex flex-col gap-3">
+      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col gap-4">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FolderOpen className="h-5 w-5" />
             Archivio documenti
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="line-clamp-2">
             {bando?.ente ? `${bando.ente} · ` : ""}
             {bando?.titolo || bando?.oggetto || "Bando"}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{visibili.length} file</Badge>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm text-muted-foreground">
+            {visibili.length} document{visibili.length === 1 ? "o" : "i"}
+          </span>
           {onScaricaTutti && (
             <Button size="sm" className="gap-1" disabled={downloading} onClick={onScaricaTutti}>
               {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
@@ -139,87 +131,36 @@ export function BandiFascicoloArchivio({
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-3 min-h-0 flex-1">
-          <div className="border rounded-md flex flex-col min-h-0">
-            <div className="p-2 border-b flex flex-wrap gap-1">
-              <button
-                type="button"
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[11px]",
-                  filtroTipo === "tutti" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-                )}
-                onClick={() => setFiltroTipo("tutti")}
-              >
-                Tutti ({visibili.length})
-              </button>
-              {gruppi.map((g) => (
-                <button
-                  key={g.tipo}
-                  type="button"
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-[11px]",
-                    filtroTipo === g.tipo ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-                  )}
-                  onClick={() => setFiltroTipo(g.tipo)}
-                >
-                  {g.label} ({g.docs.length})
-                </button>
-              ))}
-            </div>
-            <div className="flex-1 overflow-y-auto p-1">
-              {lista.length === 0 && (
-                <p className="text-xs text-muted-foreground p-3">
-                  Nessun documento in archivio. Usa «Scarica dal portale».
-                </p>
-              )}
-              {lista.map((doc) => (
-                <button
-                  key={doc.id}
-                  type="button"
-                  onClick={() => setSelectedId(doc.id)}
-                  className={cn(
-                    "w-full text-left rounded-md px-2 py-2 mb-1 text-sm",
-                    selected?.id === doc.id ? "bg-muted" : "hover:bg-muted/60",
-                  )}
-                >
-                  <div className="flex items-start gap-2">
-                    <FileText className="h-4 w-4 mt-0.5 text-red-500 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">{doc.nome || "documento"}</div>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-[10px] text-muted-foreground">{labelTipoDocumentoBando(doc.tipo)}</span>
-                        <Badge variant="outline" className="text-[10px]">{labelStatoDocumentoBando(doc.stato)}</Badge>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="border rounded-md flex flex-col min-h-0">
-            {selected ? (
-              <>
-                <div className="p-3 border-b grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Nome</Label>
+        <div className="overflow-y-auto min-h-0 flex-1 space-y-5 pr-1">
+          {visibili.length === 0 && (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              Nessun documento in archivio. Usa «Scarica dal portale».
+            </p>
+          )}
+          {gruppi.map((group) => (
+            <section key={group.tipo} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold">{group.label}</h3>
+                <Badge variant="secondary">{group.docs.length}</Badge>
+              </div>
+              <div className="rounded-md border divide-y">
+                {group.docs.map((doc) => (
+                  <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3">
+                    <FileText className="h-4 w-4 text-red-500 shrink-0 hidden sm:block" />
                     <Input
-                      value={nomeEdit}
-                      onChange={(e) => setNomeEdit(e.target.value)}
+                      value={nomi[doc.id] ?? doc.nome ?? ""}
+                      onChange={(e) => setNomi((prev) => ({ ...prev, [doc.id]: e.target.value }))}
                       onBlur={() => {
-                        if (nomeEdit.trim() && nomeEdit.trim() !== selected.nome) {
-                          void updateDoc({ nome: nomeEdit.trim() });
-                        }
+                        const next = (nomi[doc.id] || "").trim();
+                        if (next && next !== (doc.nome || "")) void updateDoc(doc.id, { nome: next });
                       }}
+                      className="h-8 sm:flex-1"
                     />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Categoria</Label>
                     <Select
-                      value={selected.tipo}
-                      onValueChange={(v) => void updateDoc({ tipo: v })}
+                      value={doc.tipo}
+                      onValueChange={(v) => void updateDoc(doc.id, { tipo: v })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-8 w-full sm:w-40">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -228,43 +169,28 @@ export function BandiFascicoloArchivio({
                         ))}
                       </SelectContent>
                     </Select>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => void apri(doc)}>
+                        <ExternalLink className="h-3.5 w-3.5" /> Apri
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => void scarica(doc)}>
+                        <Download className="h-3.5 w-3.5" /> Scarica
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-destructive"
+                        disabled={busyId === doc.id}
+                        onClick={() => void rimuovi(doc)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="sm:col-span-2 flex flex-wrap gap-2">
-                    {previewUrl && (
-                      <>
-                        <Button size="sm" variant="outline" className="gap-1" onClick={() => window.open(previewUrl, "_blank")}>
-                          <ExternalLink className="h-3.5 w-3.5" /> Apri
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1" asChild>
-                          <a href={previewUrl} download={selected.nome || "documento.pdf"}>
-                            <Download className="h-3.5 w-3.5" /> Scarica
-                          </a>
-                        </Button>
-                      </>
-                    )}
-                    <Button size="sm" variant="outline" className="gap-1 text-destructive" disabled={saving} onClick={() => void rimuovi()}>
-                      <Trash2 className="h-3.5 w-3.5" /> Rimuovi
-                    </Button>
-                  </div>
-                </div>
-                {previewUrl ? (
-                  <iframe
-                    title={selected.nome || "PDF"}
-                    src={previewUrl}
-                    className="flex-1 w-full min-h-[40vh] bg-muted/20"
-                  />
-                ) : (
-                  <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-                    Anteprima non disponibile
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-                Seleziona un documento a sinistra
+                ))}
               </div>
-            )}
-          </div>
+            </section>
+          ))}
         </div>
       </DialogContent>
     </Dialog>
