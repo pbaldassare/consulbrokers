@@ -103,6 +103,8 @@ import {
 import {
   buildHarvestNote,
   countNovitaDocumenti,
+  groupDocumentiByTipo,
+  inferTipoDocumentoBando,
   labelStatoDocumentoBando,
   labelTipoDocumentoBando,
   lastHarvestLabel,
@@ -110,6 +112,7 @@ import {
   type BandoHarvestRunRow,
 } from "@/lib/bandiDocumenti";
 import {
+  HARVEST_URL_LIMIT,
   collectHarvestUrls,
   isBandoMonitorabile,
   isMonitorDue,
@@ -388,6 +391,8 @@ export default function BandiPubbliciPage() {
   const [harvestingId, setHarvestingId] = useState<string | null>(null);
   const [generatingScriptId, setGeneratingScriptId] = useState<string | null>(null);
   const [monitoringAll, setMonitoringAll] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<BandoDocumentoRow | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [archivioBando, setArchivioBando] = useState<any>(null);
   const [archivioOpen, setArchivioOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -900,7 +905,24 @@ export default function BandiPubbliciPage() {
     }
   };
 
-  const handleAggiornaPortale = async (bando: any) => {
+  const openDocumentoFascicolo = async (doc: BandoDocumentoRow) => {
+    if (!doc.storage_path) {
+      if (doc.url_origine) window.open(doc.url_origine, "_blank");
+      else toast.error("Documento non disponibile");
+      return;
+    }
+    const { data } = await supabase.storage
+      .from("documenti_generali")
+      .createSignedUrl(doc.storage_path, 3600);
+    if (!data?.signedUrl) {
+      toast.error("Errore apertura documento");
+      return;
+    }
+    setPreviewDoc(doc);
+    setPreviewUrl(data.signedUrl);
+  };
+
+  const handleAggiornaPortale = async (bando: any, opts?: { generate?: boolean }) => {
     setHarvestingId(bando.id);
     const motore = resolveFonteBando(bando.fonte, bando.link);
     const { data: run, error: runErr } = await (supabase as any)
@@ -933,27 +955,44 @@ export default function BandiPubbliciPage() {
       }
 
       let extraUrls: string[] = [];
+      let metaByUrl = new Map<string, { url: string; tipo?: string; nome?: string }>();
       try {
         const { data: mon, error: monErr } = await supabase.functions.invoke("genera-monitor-bando", {
-          body: { bando_id: bando.id, action: "refresh" },
+          body: { bando_id: bando.id, action: opts?.generate ? "generate" : "refresh" },
         });
         if (monErr) {
           errore = [errore, monErr.message].filter(Boolean).join(" · ");
         } else {
           extraUrls = Array.isArray(mon?.urls) ? mon.urls : [];
+          const docsMeta = Array.isArray(mon?.script?.documenti) ? mon.script.documenti : [];
+          metaByUrl = new Map(
+            docsMeta
+              .filter((d: { url?: string }) => d?.url)
+              .map((d: { url: string; tipo?: string; nome?: string }) => [d.url.split("#")[0], d]),
+          );
           if (mon?.errore) errore = [errore, mon.errore].filter(Boolean).join(" · ");
         }
       } catch (monCatch: any) {
         errore = [errore, monCatch?.message || "Refresh script non riuscito"].filter(Boolean).join(" · ");
       }
 
+      const primaryUrl = harvested.pdf_url || bando.pdf_url;
       const urls = collectHarvestUrls({
-        pdfUrl: harvested.pdf_url || bando.pdf_url,
+        pdfUrl: primaryUrl,
         extraUrls,
+        limit: HARVEST_URL_LIMIT,
       });
       for (const pdfUrl of urls) {
+        const meta = metaByUrl.get(pdfUrl);
         const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("scarica-bando-pdf", {
-          body: { bando_id: bando.id, pdf_url: pdfUrl, harvest_run_id: run.id },
+          body: {
+            bando_id: bando.id,
+            pdf_url: pdfUrl,
+            harvest_run_id: run.id,
+            tipo: meta?.tipo || inferTipoDocumentoBando(meta?.nome, pdfUrl),
+            nome: meta?.nome,
+            primario: pdfUrl === primaryUrl,
+          },
         });
         if (pdfErr) {
           errore = [errore, pdfErr.message].filter(Boolean).join(" · ");
@@ -1006,6 +1045,8 @@ export default function BandiPubbliciPage() {
       setHarvestingId(null);
     }
   };
+
+  const handleScaricaTuttiDocumenti = (bando: any) => handleAggiornaPortale(bando, { generate: true });
 
   const handleGeneraScript = async (bando: any) => {
     setGeneratingScriptId(bando.id);
@@ -1837,26 +1878,27 @@ export default function BandiPubbliciPage() {
                           <span>{scriptJson.documenti.length} link nello script</span>
                         )}
                       </div>
-                      {docsBando.slice(0, 4).map((doc) => (
-                        <div key={doc.id} className="flex items-center gap-2">
-                          <span>{labelTipoDocumentoBando(doc.tipo)}: {doc.nome || "documento"}</span>
-                          <Badge variant="outline" className="text-[10px]">{labelStatoDocumentoBando(doc.stato)}</Badge>
-                          {doc.storage_path && (
-                            <button
-                              type="button"
-                              className="text-primary hover:underline"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                const { data } = await supabase.storage
-                                  .from("documenti_generali")
-                                  .createSignedUrl(doc.storage_path!, 3600);
-                                if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-                                else toast.error("Errore apertura documento");
-                              }}
-                            >
-                              Apri
-                            </button>
-                          )}
+                      {groupDocumentiByTipo(docsBando).map((group) => (
+                        <div key={group.tipo} className="space-y-0.5">
+                          <div className="font-medium text-foreground">
+                            {group.label} ({group.docs.length})
+                          </div>
+                          {group.docs.map((doc) => (
+                            <div key={doc.id} className="flex items-center gap-2">
+                              <span>{doc.nome || "documento"}</span>
+                              <Badge variant="outline" className="text-[10px]">{labelStatoDocumentoBando(doc.stato)}</Badge>
+                              <button
+                                type="button"
+                                className="text-primary hover:underline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void openDocumentoFascicolo(doc);
+                                }}
+                              >
+                                Apri
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       ))}
                     </div>
@@ -1902,6 +1944,19 @@ export default function BandiPubbliciPage() {
                     )}
                     {isPartecipati && cantiere && cantiere !== "archiviato_storico" && (
                       <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="gap-1 h-7 text-xs"
+                          disabled={busy}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleScaricaTuttiDocumenti(bando);
+                          }}
+                        >
+                          {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
+                          Scarica tutti i documenti
+                        </Button>
                         <Button
                           variant="secondary"
                           size="sm"
@@ -2084,6 +2139,42 @@ export default function BandiPubbliciPage() {
               {archiving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
               Archivia
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!previewDoc} onOpenChange={(open) => {
+        if (!open) {
+          setPreviewDoc(null);
+          setPreviewUrl(null);
+        }
+      }}>
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {previewDoc ? `${labelTipoDocumentoBando(previewDoc.tipo)}: ${previewDoc.nome || "documento"}` : "Documento"}
+            </DialogTitle>
+            <DialogDescription>
+              Fascicolo del bando. Puoi aprire il file in una nuova scheda.
+            </DialogDescription>
+          </DialogHeader>
+          {previewUrl ? (
+            <iframe
+              title={previewDoc?.nome || "PDF"}
+              src={previewUrl}
+              className="flex-1 w-full min-h-[60vh] rounded-md border bg-muted/30"
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Anteprima non disponibile.</p>
+          )}
+          <DialogFooter>
+            {previewUrl && (
+              <Button variant="outline" onClick={() => window.open(previewUrl, "_blank")}>
+                Apri in nuova scheda
+              </Button>
+            )}
+            <Button onClick={() => { setPreviewDoc(null); setPreviewUrl(null); }}>Chiudi</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

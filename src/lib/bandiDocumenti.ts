@@ -123,3 +123,32 @@ export function lastHarvestLabel(iso: string | null | undefined): string | null 
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" });
 }
+
+const ORDINE_TIPI_DOCUMENTO: TipoDocumentoBando[] = [
+  "bando",
+  "disciplinare",
+  "capitolato",
+  "chiarimento",
+  "esito",
+  "altro",
+];
+
+export function groupDocumentiByTipo<T extends { tipo?: string | null }>(
+  docs: T[],
+): Array<{ tipo: string; label: string; docs: T[] }> {
+  const buckets = new Map<string, T[]>();
+  for (const tipo of ORDINE_TIPI_DOCUMENTO) buckets.set(tipo, []);
+  for (const doc of docs) {
+    const tipo = ORDINE_TIPI_DOCUMENTO.includes(doc.tipo as TipoDocumentoBando)
+      ? String(doc.tipo)
+      : "altro";
+    buckets.get(tipo)!.push(doc);
+  }
+  return ORDINE_TIPI_DOCUMENTO
+    .map((tipo) => ({
+      tipo,
+      label: labelTipoDocumentoBando(tipo),
+      docs: buckets.get(tipo) || [],
+    }))
+    .filter((g) => g.docs.length > 0);
+}

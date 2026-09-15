@@ -3,12 +3,42 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   extractDocumentLinks,
+  flattenTedApiLinks,
   inferTipoDocumento,
   isHttpUrl,
+  isTedSchedaId,
   normalizeMonitorScript,
+  tedOfficialPdfUrls,
   uniqueHttpUrls,
+  type DiscoveredDocLink,
   type MonitorScriptJson,
 } from "../_shared/bandiMonitor.ts";
+
+const TED_SEARCH = "https://api.ted.europa.eu/v3/notices/search";
+
+async function fetchTedApiLinks(schedaId: string): Promise<DiscoveredDocLink[]> {
+  if (!isTedSchedaId(schedaId)) return [];
+  const resp = await fetch(TED_SEARCH, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      query: `publication-number=${schedaId}`,
+      fields: ["publication-number", "notice-title", "links"],
+      limit: 5,
+      scope: "ALL",
+      paginationMode: "PAGE_NUMBER",
+      page: 1,
+    }),
+  });
+  if (!resp.ok) return [];
+  const json = await resp.json();
+  const notices = Array.isArray(json?.notices) ? json.notices : [];
+  const out: DiscoveredDocLink[] = [];
+  for (const n of notices) {
+    out.push(...flattenTedApiLinks(n?.links));
+  }
+  return out;
+}
 
 function moonshotKey(): string | undefined {
   return Deno.env.get("MOONSHOT_API_KEY") || Deno.env.get("MOONSHINE_API_KEY") || undefined;
@@ -162,7 +192,7 @@ Deno.serve(async (req) => {
 
     const { data: bando, error: bandoError } = await supabase
       .from("bandi_pubblici")
-      .select("id, titolo, oggetto, link, pdf_url, fonte, scheda_id")
+      .select("id, titolo, oggetto, link, pdf_url, fonte, scheda_id, tipo_avviso")
       .eq("id", bandoId)
       .single();
     if (bandoError || !bando) {
@@ -182,12 +212,27 @@ Deno.serve(async (req) => {
     const startUrl = isHttpUrl(bando.link) ? bando.link : prev.start_url;
     const motore = String(bando.fonte || prev.motore || "");
     let htmlError: string | null = null;
-    let discovered: Array<{ url: string; nome: string }> = [];
+    let discovered: DiscoveredDocLink[] = [
+      ...tedOfficialPdfUrls(bando.scheda_id),
+    ];
+    if (isHttpUrl(bando.pdf_url)) {
+      discovered.push({
+        url: bando.pdf_url,
+        nome: bando.tipo_avviso === "esito" ? `Esito ${bando.scheda_id || ""}`.trim() : `Avviso ${bando.scheda_id || ""}`.trim(),
+      });
+    }
+
+    try {
+      const tedLinks = await fetchTedApiLinks(String(bando.scheda_id || ""));
+      discovered = [...discovered, ...tedLinks];
+    } catch (e) {
+      console.warn("TED links", e);
+    }
 
     if (startUrl) {
       try {
         const html = await fetchHtml(startUrl);
-        if (html) discovered = extractDocumentLinks(html, startUrl);
+        if (html) discovered = [...discovered, ...extractDocumentLinks(html, startUrl)];
       } catch (e) {
         htmlError = e instanceof Error ? e.message : "Pagina non raggiungibile";
       }
@@ -228,7 +273,7 @@ Deno.serve(async (req) => {
       ...prev.extra_urls,
       ...discovered.map((d) => d.url),
       ...aiDocs.map((d) => d.url),
-    ], 40);
+    ], 30);
 
     const aiPatterns = (aiPart?.link_patterns || []).filter((p) => typeof p === "string" && p.trim());
     const script: MonitorScriptJson = {
@@ -275,7 +320,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       action,
-      urls: extra.slice(0, 8),
+      urls: extra,
       scoperti: discovered.length,
       script,
       errore: htmlError,

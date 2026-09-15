@@ -3,10 +3,12 @@ import {
   applyLinkPatterns,
   collectHarvestUrls,
   extractDocumentLinks,
+  flattenTedApiLinks,
   isBandoMonitorabile,
   isMonitorDue,
   labelMonitorScript,
   normalizeMonitorScript,
+  tedOfficialPdfUrls,
   uniqueHttpUrls,
 } from "@/lib/bandiMonitor";
 
@@ -76,5 +78,28 @@ describe("bandiMonitor", () => {
       script_json: script,
       generated_at: new Date().toISOString(),
     })).toBe("Script v2 · 2 link");
+  });
+
+  it("ricostruisce i PDF ufficiali TED e i link API", () => {
+    const official = tedOfficialPdfUrls("245559-2026");
+    expect(official[0].url).toContain("TED:NOTICE:245559-2026:TEXT:IT:PDF");
+    const fromApi = flattenTedApiLinks({
+      pdf: { ITA: "https://ted.europa.eu/files/245559-2026.pdf", ENG: "https://ted.europa.eu/files/en.pdf" },
+      html: { ITA: "https://ted.europa.eu/it/notice/-/detail/245559-2026" },
+    });
+    expect(fromApi.map((l) => l.url)).toEqual([
+      "https://ted.europa.eu/files/245559-2026.pdf",
+      "https://ted.europa.eu/files/en.pdf",
+    ]);
+  });
+
+  it("prende anche data-href e più d 8 documenti", () => {
+    const extra = extractDocumentLinks(
+      `<a data-href="/atti/chiarimenti.pdf">FAQ</a>`,
+      "https://ente.it",
+    );
+    expect(extra[0].url).toBe("https://ente.it/atti/chiarimenti.pdf");
+    const many = Array.from({ length: 12 }, (_, i) => `https://ente.it/d${i}.pdf`);
+    expect(collectHarvestUrls({ extraUrls: many })).toHaveLength(12);
   });
 });

@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { bando_id, pdf_url, harvest_run_id, tipo } = await req.json()
+    const { bando_id, pdf_url, harvest_run_id, tipo, nome: nomeIn, primario } = await req.json()
 
     if (!bando_id || !pdf_url) {
       return new Response(JSON.stringify({ error: 'bando_id e pdf_url sono obbligatori' }), {
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
 
     const { data: bando, error: bandoError } = await supabase
       .from('bandi_pubblici')
-      .select('scheda_id')
+      .select('scheda_id, pdf_url')
       .eq('id', bando_id)
       .single()
 
@@ -93,10 +93,18 @@ Deno.serve(async (req) => {
     }
 
     const pdfBuffer = await pdfRes.arrayBuffer()
+    const head = new Uint8Array(pdfBuffer.slice(0, 5))
+    const isPdf = head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46
+    if (!isPdf) {
+      return new Response(JSON.stringify({ error: 'Il file scaricato non è un PDF' }), {
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
     const hash = await sha256Hex(pdfBuffer)
     const safeScheda = String(bando.scheda_id).replace(/[^a-zA-Z0-9_-]/g, '_')
     const fileName = `bandi/${safeScheda}/${hash.slice(0, 16)}.pdf`
-    const nome = nomeDaUrl(pdf_url)
+    const nome = String(nomeIn || '').trim() || nomeDaUrl(pdf_url)
     const tipoDoc = tipo || inferTipo(nome, pdf_url)
 
     const { error: uploadError } = await supabase.storage
@@ -145,17 +153,20 @@ Deno.serve(async (req) => {
       if (docErr) console.error('Insert documento:', docErr)
     }
 
-    const { error: updateError } = await supabase
-      .from('bandi_pubblici')
-      .update({ pdf_path: fileName, pdf_url })
-      .eq('id', bando_id)
+    const updateScheda = primario === true || !bando.pdf_url || bando.pdf_url === pdf_url
+    if (updateScheda) {
+      const { error: updateError } = await supabase
+        .from('bandi_pubblici')
+        .update({ pdf_path: fileName, pdf_url })
+        .eq('id', bando_id)
 
-    if (updateError) {
-      console.error('Update error:', updateError)
-      return new Response(JSON.stringify({ error: `Errore aggiornamento: ${updateError.message}` }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      if (updateError) {
+        console.error('Update error:', updateError)
+        return new Response(JSON.stringify({ error: `Errore aggiornamento: ${updateError.message}` }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
     }
 
     return new Response(JSON.stringify({
@@ -163,6 +174,8 @@ Deno.serve(async (req) => {
       pdf_path: fileName,
       hash_sha256: hash,
       stato,
+      tipo: tipoDoc,
+      nome,
       documento_id: existing?.id || null,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -3,6 +3,7 @@ import {
   buildHarvestNote,
   classifyDocumentoHash,
   countNovitaDocumenti,
+  groupDocumentiByTipo,
   inferTipoDocumentoBando,
   labelStatoDocumentoBando,
   labelTipoDocumentoBando,
@@ -36,5 +37,17 @@ describe("bandiDocumenti", () => {
     expect(buildHarvestNote({})).toBe("Nessuna novità dal portale");
     expect(labelTipoDocumentoBando("capitolato")).toBe("Capitolato");
     expect(labelStatoDocumentoBando("nuovo")).toBe("Nuovo");
+  });
+
+  it("raggruppa il fascicolo per tipo", () => {
+    const groups = groupDocumentiByTipo([
+      { tipo: "esito", nome: "e.pdf" },
+      { tipo: "bando", nome: "b.pdf" },
+      { tipo: "bando", nome: "b2.pdf" },
+      { tipo: "sconosciuto", nome: "x.pdf" },
+    ]);
+    expect(groups.map((g) => g.tipo)).toEqual(["bando", "esito", "altro"]);
+    expect(groups[0].docs).toHaveLength(2);
+    expect(groups[0].label).toBe("Bando");
   });
 });

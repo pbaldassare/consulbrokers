@@ -1,5 +1,5 @@
 export const MONITOR_INTERVAL_HOURS = 24;
-export const HARVEST_URL_LIMIT = 8;
+export const HARVEST_URL_LIMIT = 30;
 
 export const CANTIERI_MONITORABILI = [
   "da_approfondire",
@@ -38,6 +38,7 @@ export type BandoMonitorScriptRow = {
 
 const DOC_EXT = /\.(pdf|zip|docx?|xlsx?)(?:[?#]|$)/i;
 const DOC_HINT = /\/(download|document|allegat|atti|bando|disciplinar|capitolat|chiariment|avviso)/i;
+const TED_PDF_HINT = /TED:NOTICE[^"'<\s]*PDF|\/(?:it|en|fr)\/notice\/-\/detail\/[^"'<\s]+\/pdf|[?&]format=pdf/i;
 
 export function isHttpUrl(value: string | null | undefined): value is string {
   if (!value) return false;
@@ -77,10 +78,24 @@ export function resolveHref(href: string, baseUrl: string): string | null {
 
 export function looksLikeDocumentUrl(url: string, label = ""): boolean {
   const blob = `${url} ${label}`.toLowerCase();
-  return DOC_EXT.test(url) || DOC_HINT.test(blob);
+  return DOC_EXT.test(url) || DOC_HINT.test(blob) || TED_PDF_HINT.test(url)
+    || /[:&]TEXT:[A-Z]{2}:PDF/i.test(url) || /\bpdf\b/i.test(label);
 }
 
 export type DiscoveredDocLink = { url: string; nome: string };
+
+function pushDiscovered(
+  found: DiscoveredDocLink[],
+  seen: Set<string>,
+  url: string | null,
+  nome: string,
+) {
+  if (!url) return;
+  const key = url.split("#")[0];
+  if (seen.has(key)) return;
+  seen.add(key);
+  found.push({ url: key, nome: nome || key.split("/").pop() || "documento" });
+}
 
 export function extractDocumentLinks(html: string, baseUrl: string): DiscoveredDocLink[] {
   if (!html) return [];
@@ -90,22 +105,67 @@ export function extractDocumentLinks(html: string, baseUrl: string): DiscoveredD
   let match: RegExpExecArray | null;
   while ((match = re.exec(html))) {
     const attrs = match[1] || "";
-    const hrefMatch = attrs.match(/href\s*=\s*["']([^"']+)["']/i);
+    const hrefMatch = attrs.match(/href\s*=\s*["']([^"']+)["']/i)
+      || attrs.match(/data-(?:href|url|file|src)\s*=\s*["']([^"']+)["']/i);
     if (!hrefMatch) continue;
     const url = resolveHref(hrefMatch[1], baseUrl);
-    if (!url) continue;
     const nome = String(match[2] || "")
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 160);
-    if (!looksLikeDocumentUrl(url, nome)) continue;
-    const key = url.split("#")[0];
-    if (seen.has(key)) continue;
-    seen.add(key);
-    found.push({ url: key, nome: nome || key.split("/").pop() || "documento" });
+    if (!looksLikeDocumentUrl(url || "", nome)) continue;
+    pushDiscovered(found, seen, url, nome);
   }
-  return found.slice(0, 40);
+
+  const attrRe = /(?:href|src|data-href|data-url|data-file)\s*=\s*["']([^"']+)["']/gi;
+  let attr: RegExpExecArray | null;
+  while ((attr = attrRe.exec(html))) {
+    const url = resolveHref(attr[1], baseUrl);
+    if (!url || !looksLikeDocumentUrl(url)) continue;
+    pushDiscovered(found, seen, url, url.split("/").pop() || "documento");
+  }
+  return found.slice(0, HARVEST_URL_LIMIT);
+}
+
+export function isTedSchedaId(value: string | null | undefined): boolean {
+  return !!value && /^\d{4,}-\d{4}$/.test(value.trim());
+}
+
+export function tedOfficialPdfUrls(schedaId: string | null | undefined): DiscoveredDocLink[] {
+  const id = String(schedaId || "").trim();
+  if (!isTedSchedaId(id)) return [];
+  return [
+    { url: `https://ted.europa.eu/udl?uri=TED:NOTICE:${id}:TEXT:IT:PDF`, nome: `Avviso TED ${id} (IT)` },
+    { url: `https://ted.europa.eu/udl?uri=TED:NOTICE:${id}:TEXT:EN:PDF`, nome: `TED notice ${id} (EN)` },
+    { url: `https://ted.europa.eu/it/notice/-/detail/${id}/pdf`, nome: `PDF scheda ${id}` },
+  ];
+}
+
+export function flattenTedApiLinks(links: unknown): DiscoveredDocLink[] {
+  const found: DiscoveredDocLink[] = [];
+  const seen = new Set<string>();
+  const walk = (value: unknown, path: string) => {
+    if (!value) return;
+    if (typeof value === "string") {
+      if (!isHttpUrl(value) && !value.startsWith("/")) return;
+      const url = isHttpUrl(value) ? value : resolveHref(value, "https://ted.europa.eu");
+      if (!url || !looksLikeDocumentUrl(url, path)) return;
+      pushDiscovered(found, seen, url, path || url.split("/").pop() || "documento TED");
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((v, i) => walk(v, path || String(i)));
+      return;
+    }
+    if (typeof value === "object") {
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        walk(v, [path, k].filter(Boolean).join(" "));
+      }
+    }
+  };
+  walk(links, "");
+  return found;
 }
 
 export function applyLinkPatterns(urls: string[], patterns: string[]): string[] {
@@ -190,7 +250,7 @@ export function isBandoMonitorabile(cantiere: string | null | undefined): boolea
 
 export function countScriptLinks(script: BandiMonitorScriptJson | null | undefined): number {
   if (!script) return 0;
-  return uniqueHttpUrls([...script.extra_urls, ...script.documenti.map((d) => d.url)], 40).length;
+  return uniqueHttpUrls([...script.extra_urls, ...script.documenti.map((d) => d.url)], HARVEST_URL_LIMIT).length;
 }
 
 export function labelMonitorScript(script: BandoMonitorScriptRow | null | undefined): string {
