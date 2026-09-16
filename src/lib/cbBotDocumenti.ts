@@ -1,3 +1,5 @@
+import { safeId } from "@/lib/safeId";
+
 export const CB_BOT_DOC_BUCKET = "cb-bot-documenti";
 export const CB_BOT_DOC_MAX_FILES = 5;
 export const CB_BOT_DOC_MAX_BYTES = 12 * 1024 * 1024;
@@ -60,7 +62,7 @@ export function validateCbBotDocFiles(files: { name: string; type?: string; size
   return { ok: true, files };
 }
 
-export function buildStoragePath(userId: string, fileName: string, id = crypto.randomUUID()): string {
+export function buildStoragePath(userId: string, fileName: string, id = safeId()): string {
   return `${userId}/${id}_${sanitizeStorageFileName(fileName)}`;
 }
 
