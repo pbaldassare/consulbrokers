@@ -1,3 +1,5 @@
+import { safeId } from "@/lib/safeId";
+
 const STORAGE_KEY = "cbnet_cb_bot_fonti_siti_v1";
 
 export type CbBotFonteSito = {
@@ -85,7 +87,7 @@ export function mergeFontiUfficiali(existing: CbBotFonteSito[]): CbBotFonteSito[
   for (const f of CB_BOT_FONTI_UFFICIALI) {
     if (hasUrl(next, f.url)) continue;
     next.push({
-      id: crypto.randomUUID(),
+      id: safeId(),
       url: f.url,
       titolo: f.titolo,
       gruppo: f.gruppo,
@@ -111,24 +113,43 @@ export function readCbBotFontiSiti(): CbBotFonteSito[] {
 }
 
 export function writeCbBotFontiSiti(rows: CbBotFonteSito[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+  } catch {
+    // private mode / quota: non far crashare la pagina
+  }
+}
+
+export function countCbBotFontiSiti(): number {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw) as CbBotFonteSito[];
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch {
+    return 0;
+  }
 }
 
 export function seedFontiUfficialiSeVuoto(): CbBotFonteSito[] {
-  const current = (() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as CbBotFonteSito[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  })();
-  if (current.length > 0) return current;
-  const seeded = mergeFontiUfficiali([]);
-  writeCbBotFontiSiti(seeded);
-  return seeded;
+  try {
+    const current = (() => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw) as CbBotFonteSito[];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    })();
+    if (current.length > 0) return current;
+    const seeded = mergeFontiUfficiali([]);
+    writeCbBotFontiSiti(seeded);
+    return seeded;
+  } catch {
+    return [];
+  }
 }
 
 export function applyFontiUfficiali(): { rows: CbBotFonteSito[]; added: number } {
@@ -148,7 +169,7 @@ export function addCbBotFonteSito(url: string): { ok: true; rows: CbBotFonteSito
   if (hasUrl(rows, trimmed)) return { ok: false, error: "Questo sito è già in elenco." };
   const next = [
     ...rows,
-    { id: crypto.randomUUID(), url: trimmed, createdAt: new Date().toISOString() },
+    { id: safeId(), url: trimmed, createdAt: new Date().toISOString() },
   ];
   writeCbBotFontiSiti(next);
   return { ok: true, rows: next };

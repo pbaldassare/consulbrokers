@@ -17,6 +17,12 @@ describe("isSidebarToActive", () => {
     expect(isSidebarToActive({ pathname: "/portafoglio/documentale", search: "?tab=libreria-cga" }, archivio)).toBe(true);
   });
 
+  it("accende l'hub admin /cb-bot solo su quel ramo", () => {
+    expect(isSidebarToActive({ pathname: "/cb-bot", search: "" }, "/cb-bot")).toBe(true);
+    expect(isSidebarToActive({ pathname: "/cb-bot/fonti-siti", search: "" }, "/cb-bot")).toBe(true);
+    expect(isSidebarToActive({ pathname: "/portafoglio/documentale", search: "?tab=cb-bot" }, "/cb-bot")).toBe(false);
+  });
+
   it("non accende Trattative su Storico Gare se end è true", () => {
     const loc = { pathname: "/trattative/storico-gare", search: "" };
     expect(isSidebarToActive(loc, "/trattative", true)).toBe(false);

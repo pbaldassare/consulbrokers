@@ -18,7 +18,7 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
   const showSitiTab = !consultazioneMode && isAdmin;
   const showFontiTab = !consultazioneMode;
   const showKnowHowTab = !consultazioneMode;
-  const showDocumentiTab = !consultazioneMode;
+  const showDocumentiTab = true;
 
   return (
     <div className="space-y-4">
@@ -49,7 +49,7 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
               </>
             )}
             {consultazioneMode
-              ? " Salva le ricerche per non perderle; azzera la cronologia quando vuoi."
+              ? " Salva le ricerche per non perderle; azzera la cronologia quando vuoi. I documenti restano solo sulla tua email."
               : " Il segnalibro salva la ricerca; la stella la promuove in know-how."}
           </p>
         </div>
@@ -110,7 +110,7 @@ export default function AssistenteGaranzieSection({ consultazioneMode = false }:
         )}
         {showDocumentiTab && (
           <TabsContent value="documenti" className="mt-4">
-            <CbBotDocumentiPanel />
+            <CbBotDocumentiPanel consultazioneMode={consultazioneMode} />
           </TabsContent>
         )}
       </Tabs>
