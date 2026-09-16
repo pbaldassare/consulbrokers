@@ -356,7 +356,7 @@ export function resolveRomaUnoProduttore(
 
 function noteParts(parts: Array<string | null | undefined>): string | null {
   const rows = parts.map((p) => normSpace(p)).filter(Boolean);
-  return rows.length ? rows.join("\n") : null;
+  return rows.length ? rows.join(" | ") : null;
 }
 
 export function resolveRomaUnoPolizza(

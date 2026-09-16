@@ -147,7 +147,6 @@ for (let i = 0; i < toCreate.length; i += CHUNK) {
   const sql = `ALTER TABLE public.titoli DISABLE TRIGGER trg_genera_quietanze_su_insert_madre;
 ${headerCols}
 ${slice.map(titoloValues).join(",\n")};
-ALTER TABLE public.titoli ENABLE TRIGGER trg_genera_quietanze_su_insert_madre;
 `;
   writeFileSync(`${OUT}/ins-${String(n).padStart(4, "0")}.sql`, sql);
   n += 1;
