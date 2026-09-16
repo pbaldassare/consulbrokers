@@ -100,9 +100,11 @@ export type RomaUnoTitoloRisolto = {
   numeroExcel: string;
   riga: number;
   stato: string;
+  /** UUID `clienti.id` (va su `titoli.cliente_anagrafica_id`, non su `cliente_id`/profiles). */
   clienteId: string | null;
   compagniaId: string | null;
   ramoId: string | null;
+  /** UUID `anagrafiche_professionali.id` → `titoli.anagrafica_commerciale_id`. */
   produttoreId: string | null;
   produttoreNome: string | null;
   garanziaDa: string | null;

@@ -105,8 +105,10 @@ function sqlBool(v: boolean): string {
 }
 
 function titoloValues(r: RomaUnoTitoloRisolto & { newId: string }): string {
+  // cliente_id / produttore_id → profiles; l'anagrafica viva sta su cliente_anagrafica_id
+  // e anagrafica_commerciale_id (anagrafiche_professionali).
   return `(${sqlIdent(r.newId)}, ${sqlStr(r.numeroTitolo)}, ${r.riga}, ${sqlStr(r.stato)},
-    ${r.clienteId ? sqlIdent(r.clienteId) : "NULL"}, ${r.clienteId ? sqlIdent(r.clienteId) : "NULL"},
+    NULL, ${r.clienteId ? sqlIdent(r.clienteId) : "NULL"},
     ${r.compagniaId ? sqlIdent(r.compagniaId) : "NULL"}, ${r.ramoId ? sqlIdent(r.ramoId) : "NULL"},
     ${r.produttoreId ? sqlIdent(r.produttoreId) : "NULL"},
     '${ROMA_UNO_UFFICIO_ID}'::uuid, ${sqlDate(r.garanziaDa)}, ${sqlDate(r.garanziaA)},
@@ -131,7 +133,7 @@ mkdirSync(OUT, { recursive: true });
 const headerCols = `INSERT INTO public.titoli (
   id, numero_titolo, riga, stato,
   cliente_id, cliente_anagrafica_id,
-  compagnia_id, ramo_id, produttore_id, ufficio_id,
+  compagnia_id, ramo_id, anagrafica_commerciale_id, ufficio_id,
   garanzia_da, garanzia_a, durata_da, durata_a, data_scadenza, data_competenza,
   premio_netto, tasse, premio_lordo, provvigioni_firma, provvigioni_quietanza,
   frazionamento, periodicita, rate,
