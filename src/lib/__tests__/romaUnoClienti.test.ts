@@ -71,6 +71,18 @@ describe("resolveRomaUnoCliente", () => {
     expect(validatePIVA(hit.partitaIva).valid).toBe(true);
   });
 
+  it("tratta XXXXXX come indirizzo mancante e usa la sede Roma Uno", () => {
+    const hit = resolveRomaUnoCliente({
+      Codice: "013060",
+      Nome: "CAUZIONI PROVVISORIE OLIMPIA MGA",
+      Indirizzo: "XXXXXX",
+      "F/G": "G",
+      GruFin: "Aziende Private",
+    });
+    expect(hit.indirizzo).toBe(ROMA_UNO_INDIRIZZO);
+    expect(hit.indirizzoInventato).toBe(true);
+  });
+
   it("inventa il CF obbligatorio per i privati e l'indirizzo sede se manca", () => {
     const hit = resolveRomaUnoCliente({
       Codice: "019999",

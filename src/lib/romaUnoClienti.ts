@@ -297,7 +297,8 @@ export function resolveRomaUnoCliente(
   const emailFallback = !emailOwn;
   const email = emailOwn || ROMA_UNO_SEDE_EMAIL;
 
-  const indirizzoFile = trimCell(riga.Indirizzo);
+  const indirizzoFileRaw = trimCell(riga.Indirizzo);
+  const indirizzoFile = /^(X{3,}|-+|\.+)$/i.test(indirizzoFileRaw) ? "" : indirizzoFileRaw;
   const indirizzoInventato = !indirizzoFile;
   const indirizzo = indirizzoFile || ROMA_UNO_INDIRIZZO;
   const cap = trimCell(riga.Cap) || (indirizzoInventato ? ROMA_UNO_CAP : "");
