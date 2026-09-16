@@ -63,3 +63,32 @@ export function validateCbBotDocFiles(files: { name: string; type?: string; size
 export function buildStoragePath(userId: string, fileName: string, id = crypto.randomUUID()): string {
   return `${userId}/${id}_${sanitizeStorageFileName(fileName)}`;
 }
+
+/** Cartella storage per upload da Area consultazione (niente auth.uid). */
+export function consultazioneDocFolder(email: string): string {
+  const slug = String(email ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+  return `c/${slug || "anon"}`;
+}
+
+export function isConsultazioneStoragePath(path: string, email: string): boolean {
+  const folder = consultazioneDocFolder(email);
+  return path === folder || path.startsWith(`${folder}/`);
+}
+
+export function fileToBase64(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(new Error("Impossibile leggere il file"));
+    reader.readAsDataURL(file);
+  });
+}

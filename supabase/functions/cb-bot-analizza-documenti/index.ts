@@ -26,6 +26,54 @@ const BUCKET = "cb-bot-documenti";
 
 type StorageRef = { path: string; name?: string; mime?: string };
 type TestoDoc = { titolo: string; testo: string };
+type FileB64 = { name?: string; mime?: string; content_base64?: string };
+
+const ALLOWED_EMAIL_DOMAINS = [
+  "consulbrokers.it",
+  "cbdigital.tech",
+  "etisicura.it",
+  "mpcunderwriting.it",
+  "interfidi.net",
+  "gbintermediazioni.it",
+  "exebroker.it",
+  "igbsrl.it",
+  "probroker.it",
+  "dibroker.it",
+];
+
+function getEmailDomain(email: string): string | null {
+  const e = email.trim().toLowerCase();
+  const at = e.lastIndexOf("@");
+  if (at <= 0 || at === e.length - 1) return null;
+  return e.slice(at + 1);
+}
+
+function isEmailAllowed(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const domain = getEmailDomain(email);
+  return !!domain && ALLOWED_EMAIL_DOMAINS.includes(domain);
+}
+
+function consultazioneDocFolder(email: string): string {
+  const slug = email.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80);
+  return `c/${slug || "anon"}`;
+}
+
+function sanitizeStorageFileName(name: string): string {
+  const i = name.lastIndexOf(".");
+  const ext = i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+  const stem = name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80);
+  const safe = stem.replace(/^_+|_+$/g, "") || "documento";
+  return ext ? `${safe}.${ext}` : safe;
+}
+
+function decodeBase64(raw: string): Uint8Array {
+  const clean = raw.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
+  const bin = atob(clean);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
 
 function json(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
@@ -96,39 +144,46 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("authorization") ?? "";
-    if (!authHeader.toLowerCase().startsWith("bearer ")) {
-      return json(401, { error: "Accesso non autorizzato" });
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const userClient = createClient(supabaseUrl, anon, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    const user = userData?.user;
-    if (userErr || !user) return json(401, { error: "Accesso non autorizzato" });
-
-    const { data: profile } = await userClient
-      .from("profiles")
-      .select("ruolo")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (profile?.ruolo === "cliente" || profile?.ruolo === "prospect") {
-      return json(403, { error: "Accesso non autorizzato" });
-    }
-
     const body = await req.json();
+    const consultazioneEmail = body?.email ? String(body.email).trim().toLowerCase() : "";
     const mode = body?.mode === "compare" ? "compare" : "analyze";
     const storageRefs: StorageRef[] = Array.isArray(body?.storage_paths) ? body.storage_paths : [];
     const testoDocs: TestoDoc[] = Array.isArray(body?.documenti) ? body.documenti : [];
     const documentoIds: string[] = Array.isArray(body?.documento_ids) ? body.documento_ids : [];
+    const fileB64: FileB64[] = Array.isArray(body?.files) ? body.files : [];
+
+    const authHeader = req.headers.get("authorization") ?? "";
+    let staffUserId: string | null = null;
+    if (authHeader.toLowerCase().startsWith("bearer ")) {
+      const userClient = createClient(supabaseUrl, anon, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData } = await userClient.auth.getUser();
+      const user = userData?.user;
+      if (user) {
+        const { data: profile } = await userClient
+          .from("profiles")
+          .select("ruolo")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (profile?.ruolo !== "cliente" && profile?.ruolo !== "prospect") {
+          staffUserId = user.id;
+        }
+      }
+    }
+
+    const consultazioneOk = !staffUserId && isEmailAllowed(consultazioneEmail);
+    if (!staffUserId && !consultazioneOk) {
+      return json(401, { error: "Accesso non autorizzato" });
+    }
 
     requireAi();
     const admin = createClient(supabaseUrl, service);
+    const consultFolder = consultazioneOk ? consultazioneDocFolder(consultazioneEmail) : "";
 
     const extracted: { titolo: string; testo: string; storage_path?: string }[] = [];
 
@@ -139,10 +194,14 @@ Deno.serve(async (req) => {
     }
 
     if (documentoIds.length > 0) {
-      const { data: rows, error } = await admin
+      let q = admin
         .from("cb_bot_documenti")
-        .select("id, titolo, testo_estratto, storage_path, file_name, mime_type")
+        .select("id, titolo, testo_estratto, storage_path, file_name, mime_type, created_by_email")
         .in("id", documentoIds.slice(0, MAX_FILES));
+      if (consultazioneOk) {
+        q = q.is("created_by", null).eq("created_by_email", consultazioneEmail);
+      }
+      const { data: rows, error } = await q;
       if (error) throw error;
       for (const row of rows ?? []) {
         if (row.testo_estratto && String(row.testo_estratto).trim().length >= 8) {
@@ -166,10 +225,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    for (const raw of fileB64.slice(0, MAX_FILES)) {
+      const name = String(raw?.name ?? "documento.pdf").slice(0, 180);
+      const mime = String(raw?.mime ?? "");
+      const bytes = decodeBase64(String(raw?.content_base64 ?? ""));
+      if (bytes.length < 8) return json(400, { error: `File vuoto: ${name}` });
+      if (bytes.length > 12 * 1024 * 1024) return json(400, { error: `${name}: supera i 12 MB` });
+      const ownerPrefix = consultazioneOk ? consultFolder : staffUserId!;
+      const path = `${ownerPrefix}/${crypto.randomUUID()}_${sanitizeStorageFileName(name)}`;
+      const { error: upErr } = await admin.storage.from(BUCKET).upload(path, bytes, {
+        contentType: mime || undefined,
+        upsert: false,
+      });
+      if (upErr) return json(400, { error: `${name}: ${upErr.message}` });
+      storageRefs.push({ path, name, mime });
+    }
+
     for (const ref of storageRefs.slice(0, MAX_FILES)) {
       const path = String(ref.path ?? "").replace(/^\/+/, "");
       if (!path || path.includes("..")) return json(400, { error: "Percorso file non valido" });
-      if (!path.startsWith(`${user.id}/`)) {
+      const allowedPrefix = consultazioneOk ? `${consultFolder}/` : `${staffUserId}/`;
+      if (!path.startsWith(allowedPrefix)) {
         return json(403, { error: "Percorso file non autorizzato" });
       }
       const { data: blob, error: dlErr } = await admin.storage.from(BUCKET).download(path);

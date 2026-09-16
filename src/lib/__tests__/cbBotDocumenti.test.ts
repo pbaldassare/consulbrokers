@@ -3,7 +3,9 @@ import {
   CB_BOT_DOC_MAX_BYTES,
   CB_BOT_DOC_MAX_FILES,
   buildStoragePath,
+  consultazioneDocFolder,
   isCbBotDocFileAllowed,
+  isConsultazioneStoragePath,
   sanitizeStorageFileName,
   titoloFromFileName,
   validateCbBotDocFiles,
@@ -51,5 +53,13 @@ describe("buildStoragePath", () => {
   it("mette il file sotto la cartella utente", () => {
     const path = buildStoragePath("user-1", "CGA.pdf", "abc");
     expect(path).toBe("user-1/abc_CGA.pdf");
+  });
+});
+
+describe("consultazioneDocFolder", () => {
+  it("deriva una cartella stabile dalla email", () => {
+    expect(consultazioneDocFolder("Mario.Rossi@ExeBroker.it")).toBe("c/mario_rossi_exebroker_it");
+    expect(isConsultazioneStoragePath("c/mario_rossi_exebroker_it/x_CGA.pdf", "mario.rossi@exebroker.it")).toBe(true);
+    expect(isConsultazioneStoragePath("user-1/x_CGA.pdf", "mario.rossi@exebroker.it")).toBe(false);
   });
 });

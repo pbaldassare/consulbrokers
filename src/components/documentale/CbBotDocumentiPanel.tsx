@@ -14,9 +14,18 @@ import {
   CB_BOT_DOC_BUCKET,
   CB_BOT_DOC_MAX_FILES,
   buildStoragePath,
+  fileToBase64,
   titoloFromFileName,
   validateCbBotDocFiles,
 } from "@/lib/cbBotDocumenti";
+import {
+  deleteDocumentoConsultazione,
+  insertConfrontoConsultazione,
+  insertDocumentoConsultazione,
+  listConfrontiConsultazione,
+  listDocumentiConsultazione,
+} from "@/lib/cbBotDocumentiConsultazione";
+import { useConsultazione } from "@/contexts/ConsultazioneContext";
 import { Files, GitCompare, Loader2, Save, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -55,9 +64,18 @@ type AnalisiPreview = {
 
 const tbl = (name: string) => supabase.from(name as never);
 
-export default function CbBotDocumentiPanel() {
+type Props = {
+  consultazioneMode?: boolean;
+};
+
+export default function CbBotDocumentiPanel({ consultazioneMode = false }: Props) {
   const { user } = useAuth();
+  const { email: consultazioneEmail } = useConsultazione();
   const qc = useQueryClient();
+  const email = consultazioneMode ? consultazioneEmail : null;
+  const isConsultazione = consultazioneMode && !!email;
+  const canUse = isConsultazione || !!user?.id;
+  const queryScope = isConsultazione ? email : user?.id ?? "anon";
   const [files, setFiles] = useState<File[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<AnalisiPreview[]>([]);
@@ -66,10 +84,13 @@ export default function CbBotDocumentiPanel() {
   const [openDocId, setOpenDocId] = useState<string | null>(null);
 
   const { data: docs = [], isLoading } = useQuery({
-    queryKey: CB_BOT_DOCUMENTI_QUERY_KEY,
+    queryKey: [...CB_BOT_DOCUMENTI_QUERY_KEY, queryScope],
+    enabled: canUse,
     queryFn: async () => {
+      if (isConsultazione) return listDocumentiConsultazione(email!);
       const { data, error } = await tbl("cb_bot_documenti")
         .select("id, titolo, file_name, storage_path, mime_type, size_bytes, analisi, created_at")
+        .is("created_by_email", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as DocRow[];
@@ -77,10 +98,13 @@ export default function CbBotDocumentiPanel() {
   });
 
   const { data: confronti = [] } = useQuery({
-    queryKey: CB_BOT_CONFRONTI_QUERY_KEY,
+    queryKey: [...CB_BOT_CONFRONTI_QUERY_KEY, queryScope],
+    enabled: canUse,
     queryFn: async () => {
+      if (isConsultazione) return listConfrontiConsultazione(email!);
       const { data, error } = await tbl("cb_bot_confronti")
         .select("id, titolo, documento_ids, risultato, created_at")
+        .is("created_by_email", null)
         .order("created_at", { ascending: false })
         .limit(20);
       if (error) throw error;
@@ -109,28 +133,47 @@ export default function CbBotDocumentiPanel() {
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
-      const refs = await uploadFiles(files);
-      const { data, error } = await supabase.functions.invoke("cb-bot-analizza-documenti", {
-        body: {
-          mode: files.length > 1 ? "compare" : "analyze",
-          storage_paths: refs.map((r) => ({
-            path: r.path,
-            name: r.file.name,
-            mime: r.file.type,
+      if (!canUse) throw new Error("Devi accedere all'area consultazione o al gestionale");
+      const check = validateCbBotDocFiles(files);
+      if (!check.ok) throw new Error(check.reason);
+
+      const body: Record<string, unknown> = {
+        mode: files.length > 1 ? "compare" : "analyze",
+      };
+      if (isConsultazione) {
+        body.email = email;
+        body.files = await Promise.all(
+          files.map(async (file) => ({
+            name: file.name,
+            mime: file.type,
+            content_base64: await fileToBase64(file),
           })),
-        },
+        );
+      } else {
+        const refs = await uploadFiles(files);
+        body.storage_paths = refs.map((r) => ({
+          path: r.path,
+          name: r.file.name,
+          mime: r.file.type,
+        }));
+      }
+
+      const { data, error } = await supabase.functions.invoke("cb-bot-analizza-documenti", {
+        body,
       });
       const fnError = edgeFunctionErrorMessage(data, error);
       if (fnError) throw new Error(fnError);
-      const byPath = new Map(refs.map((r) => [r.path, r.file]));
+      const byName = new Map(files.map((f) => [f.name.toLowerCase(), f]));
       const docsOut = (data?.documenti ?? []) as {
         titolo?: string;
         storage_path?: string;
         testo_estratto?: string;
         analisi?: string;
       }[];
-      const previews: AnalisiPreview[] = docsOut.map((d) => {
-        const file = d.storage_path ? byPath.get(d.storage_path) : undefined;
+      const previews: AnalisiPreview[] = docsOut.map((d, i) => {
+        const file =
+          (d.titolo ? byName.get(d.titolo.toLowerCase()) : undefined) ??
+          files[i];
         return {
           titolo: titoloFromFileName(file?.name ?? d.titolo ?? "Documento"),
           file_name: file?.name ?? d.titolo ?? "documento.pdf",
@@ -161,7 +204,11 @@ export default function CbBotDocumentiPanel() {
     mutationFn: async () => {
       if (selected.length < 2) throw new Error("Seleziona almeno due documenti in libreria");
       const { data, error } = await supabase.functions.invoke("cb-bot-analizza-documenti", {
-        body: { mode: "compare", documento_ids: selected.slice(0, CB_BOT_DOC_MAX_FILES) },
+        body: {
+          mode: "compare",
+          documento_ids: selected.slice(0, CB_BOT_DOC_MAX_FILES),
+          ...(isConsultazione ? { email } : {}),
+        },
       });
       const fnError = edgeFunctionErrorMessage(data, error);
       if (fnError) throw new Error(fnError);
@@ -181,8 +228,22 @@ export default function CbBotDocumentiPanel() {
 
   const saveLibraryMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.id) throw new Error("Devi essere autenticato");
       if (preview.length === 0) throw new Error("Nessuna analisi da salvare");
+      if (isConsultazione) {
+        for (const p of preview) {
+          await insertDocumentoConsultazione(email!, {
+            titolo: p.titolo,
+            file_name: p.file_name,
+            storage_path: p.storage_path,
+            mime_type: p.mime_type,
+            size_bytes: p.size_bytes,
+            testo_estratto: p.testo_estratto,
+            analisi: p.analisi || "",
+          });
+        }
+        return;
+      }
+      if (!user?.id) throw new Error("Devi essere autenticato");
       for (const p of preview) {
         const { error } = await tbl("cb_bot_documenti").insert({
           titolo: p.titolo,
@@ -207,10 +268,15 @@ export default function CbBotDocumentiPanel() {
 
   const saveConfrontoMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.id) throw new Error("Devi essere autenticato");
       if (!confronto?.trim()) throw new Error("Nessun confronto da salvare");
+      const titolo = confrontoTitolo.trim() || "Confronto documenti";
+      if (isConsultazione) {
+        await insertConfrontoConsultazione(email!, titolo, selected, confronto);
+        return;
+      }
+      if (!user?.id) throw new Error("Devi essere autenticato");
       const { error } = await tbl("cb_bot_confronti").insert({
-        titolo: confrontoTitolo.trim() || "Confronto documenti",
+        titolo,
         documento_ids: selected,
         risultato: confronto,
         created_by: user.id,
@@ -226,6 +292,10 @@ export default function CbBotDocumentiPanel() {
 
   const deleteDocMutation = useMutation({
     mutationFn: async (row: DocRow) => {
+      if (isConsultazione) {
+        await deleteDocumentoConsultazione(email!, row.id);
+        return;
+      }
       const { error } = await tbl("cb_bot_documenti").delete().eq("id", row.id);
       if (error) throw error;
       await supabase.storage.from(CB_BOT_DOC_BUCKET).remove([row.storage_path]);
