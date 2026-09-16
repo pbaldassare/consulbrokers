@@ -56,11 +56,11 @@ describe("splitCompagniaAgenzia", () => {
     expect(hit.agenzia).toBeNull();
   });
 
-  it("Dual Italia - Arch resta Dual, non diventa Arch", () => {
-    const hit = splitCompagniaAgenzia("DUAL ITALIA SPA - ARCH INSURANCE");
-    expect(hit.esito).toBe("solo_compagnia");
-    expect(hit.agenzia).toBeNull();
-    expect(hit.gruppo).toBe("DUAL AGENCY");
+  it("Dual Italia - Great Lakes: Dual è l'agenzia, Great Lakes la compagnia", () => {
+    const hit = splitCompagniaAgenzia("DUAL ITALIA SPA - GREAT LAKES");
+    expect(hit.esito).toBe("gia_agenzia");
+    expect(hit.agenzia).toBe("DUAL ITALIA SPA");
+    expect(hit.gruppo).toBe("Great Lakes Insurance Re");
   });
 
   it("Aviva + controparte dopo il trattino", () => {

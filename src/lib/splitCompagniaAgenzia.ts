@@ -221,6 +221,15 @@ export function splitCompagniaAgenzia(
   if (dashed) {
     const leftBrand = matchBrandPrefix(dashed.left);
     const rightBrand = matchBrandPrefix(dashed.right);
+    if (rightBrand && leftBrand) {
+      return {
+        brand: rightBrand.prefix,
+        gruppo: rightBrand.gruppo,
+        agenzia: dashed.left,
+        esito: "gia_agenzia",
+        motivo: `Agenzia ${dashed.left}, compagnia ${rightBrand.gruppo}`,
+      };
+    }
     if (rightBrand && !leftBrand) {
       return {
         brand: rightBrand.prefix,
