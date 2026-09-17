@@ -1912,17 +1912,7 @@ export default function BandiPubbliciPage() {
                         <Archive className="h-3 w-3" /> Apri Storico Gare
                       </Button>
                     )}
-                    {esito === "voglio_partecipare" && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="gap-1 h-7 text-xs"
-                        onClick={() => openCreaTrattativaDialog(bando)}
-                      >
-                        <Plus className="h-3 w-3" /> Crea Trattativa
-                      </Button>
-                    )}
-                    {esito !== "voglio_partecipare" && (
+                    {isPartecipati && (
                       <Button
                         variant={esito === "in_trattativa" ? "outline" : "default"}
                         size="sm"
@@ -1932,7 +1922,7 @@ export default function BandiPubbliciPage() {
                         <Plus className="h-3 w-3" /> Crea Trattativa
                       </Button>
                     )}
-                    {bando.pdf_path ? (
+                    {isPartecipati && (bando.pdf_path ? (
                       <Button
                         variant="outline"
                         size="sm"
@@ -1965,7 +1955,7 @@ export default function BandiPubbliciPage() {
                       >
                         <FileDown className="h-3 w-3" /> Scarica PDF
                       </Button>
-                    ) : null}
+                    ) : null)}
                     {bando.link && (
                       <a href={bando.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-sm">
                         Vedi bando <ExternalLink className="h-3 w-3" />
