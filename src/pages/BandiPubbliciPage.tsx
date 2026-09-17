@@ -97,6 +97,7 @@ import {
   labelCantiereStato,
   matchStoricoPerEnte,
   matchesFiltroCantiere,
+  storicoGarePath,
   type FiltroCantiere,
   type StoricoGaraMatch,
 } from "@/lib/bandiCantiere";
@@ -856,12 +857,12 @@ export default function BandiPubbliciPage() {
         storico_gara_id: storicoId,
         snapshot_json: buildBandoSnapshot(archivioBando),
       });
-      toast.success("Bando archiviato in Storico Gare");
+      toast.success("Bando spostato in Storico Gare");
       setArchivioOpen(false);
       setArchivioBando(null);
-      refetchBandi();
       queryClient.invalidateQueries({ queryKey: ["storico_gare"] });
       queryClient.invalidateQueries({ queryKey: ["storico_match_bandi"] });
+      navigate(storicoGarePath(storicoId));
     } catch (err: any) {
       console.error("Errore archivio storico:", err);
       toast.error(err.message || "Impossibile scrivere lo Storico Gare");
@@ -1044,6 +1045,7 @@ export default function BandiPubbliciPage() {
       effectiveEsitoBando(b.interesse, b.trattative_count),
       b.interesse?.cantiere_stato,
       b.trattative_count,
+      b.interesse?.storico_gara_id,
     )),
     [bandiByFonte],
   );
@@ -1082,7 +1084,6 @@ export default function BandiPubbliciPage() {
       in_monitoraggio: 0,
       pronto_trattativa: 0,
       in_trattativa: 0,
-      archiviato_storico: 0,
       tutti: cantiereBandi.length,
     };
     for (const b of cantiereBandi as {
@@ -1096,7 +1097,9 @@ export default function BandiPubbliciPage() {
         storicoGaraId: b.interesse?.storico_gara_id,
         trattativeCount: b.trattative_count,
       });
-      if (cantiere && cantiere !== "abbandonato") counts[cantiere] += 1;
+      if (cantiere && cantiere !== "abbandonato" && cantiere !== "archiviato_storico") {
+        counts[cantiere] += 1;
+      }
     }
     return counts;
   }, [cantiereBandi]);
@@ -1226,7 +1229,7 @@ export default function BandiPubbliciPage() {
         title: cantiereBandi.length === 0 ? "Nessun bando partecipato" : `Nessun bando in «${label}»`,
         hint: cantiereBandi.length === 0
           ? "Dalla lista Bandi Pubblici clicca «Voglio partecipare» per spostarlo qui."
-          : "Cambia tab del cantiere o manda un bando in Storico Gare / trattativa.",
+          : "Cambia tab del cantiere o crea una trattativa. Le gare archiviate sono in Storico Gare.",
       };
     }
     if (bandiDB.length === 0) {
@@ -1277,7 +1280,7 @@ export default function BandiPubbliciPage() {
           <h1 className="text-3xl font-bold">{isPartecipati ? "Bandi partecipati" : "Bandi Pubblici"}</h1>
           <p className="text-muted-foreground">
             {isPartecipati
-              ? "Cantiere: approfondisci, monitora i documenti, crea trattativa o manda in Storico Gare"
+              ? "Cantiere: approfondisci, monitora i documenti o crea trattativa. «Manda in Storico Gare» apre la pagina Storico Gare."
               : `Nuovi e già visti restano in archivio. Poi decidi se partecipare — ${labelKeywordRicerca(keywordRicerca)}`}
           </p>
         </div>
@@ -1895,19 +1898,6 @@ export default function BandiPubbliciPage() {
                         </Button>
                       </>
                     )}
-                    {isPartecipati && cantiere === "archiviato_storico" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 h-7 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate("/trattative/storico-gare");
-                        }}
-                      >
-                        <Archive className="h-3 w-3" /> Apri Storico Gare
-                      </Button>
-                    )}
                     {isPartecipati && (
                       <Button
                         variant={esito === "in_trattativa" ? "outline" : "default"}
@@ -1956,7 +1946,7 @@ export default function BandiPubbliciPage() {
               Manda in Storico Gare
             </DialogTitle>
             <DialogDescription>
-              Crea una riga di intelligence in Storico Gare. Non apre una trattativa e non cambia i KPI commerciali.
+              Sposta la gara nella pagina Storico Gare. Esce dal cantiere Bandi partecipati. Non apre una trattativa.
             </DialogDescription>
           </DialogHeader>
           {archivioBando && (
