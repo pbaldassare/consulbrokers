@@ -187,11 +187,12 @@ Deno.serve(async (req) => {
         result.giaInArchivio = 0;
       }
 
-      await admin.from("ricerche_bandi").insert({
+      const { error: logErr } = await admin.from("ricerche_bandi").insert({
         regioni: [],
         risultati_count: bandi.length,
-        fonte: "cron-mattina",
+        fonte: FONTE,
       });
+      if (logErr) console.warn("ricerche_bandi", logErr);
     }
 
     if (action !== "search-only") {
