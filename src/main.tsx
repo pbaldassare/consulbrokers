@@ -3,6 +3,9 @@ import App from "./App.tsx";
 import "./index.css";
 import { BUNDLE_VERSION, purgeClientCaches } from "./lib/versionCheck";
 import { APP_RELEASE_LABEL } from "./lib/appRelease";
+import { installSafeRandomUUID } from "./lib/safeId";
+
+installSafeRandomUUID();
 
 console.info(`[CBnet] bundle version: ${BUNDLE_VERSION}`);
 console.info(`[CBnet] release marker: ${APP_RELEASE_LABEL}`);

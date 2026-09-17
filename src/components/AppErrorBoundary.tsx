@@ -45,6 +45,9 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
             <p className="text-sm text-muted-foreground">
               L'applicazione ha intercettato un crash imprevisto. Puoi ricaricare la pagina senza perdere la sessione.
             </p>
+            {import.meta.env.DEV && this.state.error?.message && (
+              <p className="text-xs font-mono text-destructive/80 break-all">{this.state.error.message}</p>
+            )}
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button onClick={this.reload}>Ricarica</Button>

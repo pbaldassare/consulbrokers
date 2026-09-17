@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { safeId } from "@/lib/safeId";
 import {
   PremiGaranziaCardShell,
   emptyGaranziaRow,
@@ -301,7 +302,7 @@ function TitoloImportiPremiBlock({
     const rettifica = Number((p as DbPremio).tasse_rettifica ?? 0);
     if (dirittiAgenzia) {
       return {
-        _localId: crypto.randomUUID(),
+        _localId: safeId(),
         codice: p.codice_garanzia || null,
         descrizione: cat?.descrizione || p.garanzia || "",
         netto: "",
@@ -332,7 +333,7 @@ function TitoloImportiPremiBlock({
       ? calcTasseRiga(netto, accessori, aliquotaTasse)
       : 0;
     return {
-      _localId: crypto.randomUUID(),
+      _localId: safeId(),
       codice: p.codice_garanzia || null,
       descrizione: cat?.descrizione || p.garanzia || "",
       netto: Math.abs(netto) > 0.0001 ? netto.toFixed(2) : "",

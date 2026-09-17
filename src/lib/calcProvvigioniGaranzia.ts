@@ -75,7 +75,8 @@ export function calcTasseRettificaRiga(r: GaranziaRow): number {
 }
 
 /** Tasse effettive = auto + rettifica (usate per lordo e totali). */
-export function calcTasseEffettiveRiga(r: GaranziaRow): number {
+export function calcTasseEffettiveRiga(r: GaranziaRow | null | undefined): number {
+  if (!r) return 0;
   return calcTasseAutoRiga(r) + calcTasseRettificaRiga(r);
 }
 
@@ -110,10 +111,10 @@ export function calcProvvRiga(r: GaranziaRow, matrice: MatriceProvvAccessori | n
 
 /** provv = Σ(netto × pct_netto/100) + Σ(accessori × pct_accessori/100) */
 export function calcProvvigioniGaranzia(
-  rows: GaranziaRow[],
+  rows: GaranziaRow[] | null | undefined,
   matrice: MatriceProvvAccessori | null,
 ): number {
-  return rows.reduce((s, r) => {
+  return (Array.isArray(rows) ? rows : []).reduce((s, r) => {
     if (isRigaEsclusaProvvigioni(r)) return s;
     const netto = parseDecimalItOr(r.netto);
     const accessori = parseDecimalItOr(r.accessori);
@@ -125,14 +126,15 @@ export function calcProvvigioniGaranzia(
 
 /** Media ponderata % netto e % accessori per display footer. */
 export function provvPctBreakdown(
-  rows: GaranziaRow[],
+  rows: GaranziaRow[] | null | undefined,
   matrice: MatriceProvvAccessori | null,
 ): { pctNetto: number; pctAccessori: number } | null {
   let totNetto = 0;
   let totAcc = 0;
   let wNetto = 0;
   let wAcc = 0;
-  for (const r of rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  for (const r of list) {
     if (isRigaEsclusaProvvigioni(r)) continue;
     const netto = parseDecimalItOr(r.netto);
     const accessori = parseDecimalItOr(r.accessori);
@@ -149,8 +151,8 @@ export function provvPctBreakdown(
   }
   if (totNetto <= 0 && totAcc <= 0) return null;
   return {
-    pctNetto: totNetto > 0 ? wNetto / totNetto : resolveRowPctNetto(rows[0] || ({} as GaranziaRow), matrice).pct,
-    pctAccessori: totAcc > 0 ? wAcc / totAcc : resolveRowPctAccessori(rows[0] || ({} as GaranziaRow), matrice).pct,
+    pctNetto: totNetto > 0 ? wNetto / totNetto : resolveRowPctNetto(list[0] || ({} as GaranziaRow), matrice).pct,
+    pctAccessori: totAcc > 0 ? wAcc / totAcc : resolveRowPctAccessori(list[0] || ({} as GaranziaRow), matrice).pct,
   };
 }
 

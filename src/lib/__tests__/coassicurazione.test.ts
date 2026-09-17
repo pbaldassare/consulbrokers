@@ -62,6 +62,12 @@ describe("validateRipartoSum", () => {
     const res = validateRipartoSum(rows);
     expect(res.valid).toBe(false);
   });
+
+  it("non crasha su input assente o non array", () => {
+    expect(validateRipartoSum(undefined).valid).toBe(false);
+    expect(validateRipartoSum(null).valid).toBe(false);
+    expect(isRipartoSumValidForPreview(undefined)).toBe(false);
+  });
 });
 
 describe("splitQuoteEvenly / redistributeQuoteEvenly", () => {
@@ -103,6 +109,14 @@ describe("buildInitialCoassRows", () => {
     expect(rows[0].gruppoCompagniaId).toBe("g-leader");
     expect(rows[0].compagniaId).toBe("c-leader");
     expect(sumQuotePercentuali(rows)).toBe(100);
+  });
+});
+
+describe("sumQuotePercentuali", () => {
+  it("non crasha su input assente o non array", () => {
+    expect(sumQuotePercentuali(undefined)).toBe(0);
+    expect(sumQuotePercentuali(null)).toBe(0);
+    expect(sumQuotePercentuali([] as any)).toBe(0);
   });
 });
 
