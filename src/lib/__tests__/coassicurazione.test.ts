@@ -62,6 +62,12 @@ describe("validateRipartoSum", () => {
     const res = validateRipartoSum(rows);
     expect(res.valid).toBe(false);
   });
+
+  it("non crasha su input assente o non array", () => {
+    expect(validateRipartoSum(undefined).valid).toBe(false);
+    expect(validateRipartoSum(null).valid).toBe(false);
+    expect(isRipartoSumValidForPreview(undefined)).toBe(false);
+  });
 });
 
 describe("splitQuoteEvenly / redistributeQuoteEvenly", () => {

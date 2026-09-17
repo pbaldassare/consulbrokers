@@ -1323,9 +1323,11 @@ const ImmissionePolizzaPage = () => {
 
   /** Sottoramo effettivo per fattori regolazione (prima garanzia o selectedRamo) */
   const regolazioneRamoId = useMemo(() => {
+    const firma = Array.isArray(premiFirmaRows) ? premiFirmaRows : [];
+    const quietanza = Array.isArray(premiQuietanzaRows) ? premiQuietanzaRows : [];
     return (
-      premiFirmaRows.find((r) => r.sottoramoId)?.sottoramoId ||
-      premiQuietanzaRows.find((r) => r.sottoramoId)?.sottoramoId ||
+      firma.find((r) => r?.sottoramoId)?.sottoramoId ||
+      quietanza.find((r) => r?.sottoramoId)?.sottoramoId ||
       selectedRamo ||
       null
     );
@@ -1392,8 +1394,8 @@ const ImmissionePolizzaPage = () => {
   useEffect(() => {
     if (isRCA) return;
     const hasUserData =
-      premiFirmaRows.some((r) => r.netto || r.tasse || r.sottoramoId) ||
-      premiQuietanzaRows.some((r) => r.netto || r.tasse || r.sottoramoId) ||
+      (Array.isArray(premiFirmaRows) ? premiFirmaRows : []).some((r) => r?.netto || r?.tasse || r?.sottoramoId) ||
+      (Array.isArray(premiQuietanzaRows) ? premiQuietanzaRows : []).some((r) => r?.netto || r?.tasse || r?.sottoramoId) ||
       !!vTarga || !!vMarca || !!vModello || !!vTelaio || !!targaTelaio;
     if (hasUserData) return;
     setTargaTelaio("");
@@ -2978,8 +2980,8 @@ const ImmissionePolizzaPage = () => {
                 if (gruppoChanged) {
                   // Cambio Ramo → reset righe garanzia (con conferma se ci sono dati)
                   const hasRows =
-                    premiFirmaRows.some((r) => r.netto || r.tasse || r.sottoramoId) ||
-                    premiQuietanzaRows.some((r) => r.netto || r.tasse || r.sottoramoId);
+                    (Array.isArray(premiFirmaRows) ? premiFirmaRows : []).some((r) => r?.netto || r?.tasse || r?.sottoramoId) ||
+                    (Array.isArray(premiQuietanzaRows) ? premiQuietanzaRows : []).some((r) => r?.netto || r?.tasse || r?.sottoramoId);
                   if (hasRows) {
                     const ok = window.confirm(
                       "Cambiando Ramo le righe di Composizione Premio già inserite verranno cancellate. Continuare?"
@@ -3525,11 +3527,13 @@ const ImmissionePolizzaPage = () => {
             // Le righe Quietanza modificate a mano (quietanzaPersonalizzata=true)
             // si scollegano e smettono di seguire la Firma; il pulsante
             // "Sincronizza da Firma" le riallinea tutte.
+            const firmaSafe = Array.isArray(premiFirmaRows) ? premiFirmaRows : [];
+            const quietanzaSafe = Array.isArray(premiQuietanzaRows) ? premiQuietanzaRows : [];
             const sincronizzata =
-              isQuietanzaSincronizzata(premiQuietanzaRows) &&
-              premiQuietanzaRows.length === premiFirmaRows.length &&
+              isQuietanzaSincronizzata(quietanzaSafe) &&
+              quietanzaSafe.length === firmaSafe.length &&
               accessoriQuietanzaNum === accessoriFirmaNum;
-            const personalizzati = premiQuietanzaRows.map((r) => !!r.quietanzaPersonalizzata);
+            const personalizzati = quietanzaSafe.map((r) => !!r?.quietanzaPersonalizzata);
             return (
               <>
                 <PremiGaranziaCardShell
