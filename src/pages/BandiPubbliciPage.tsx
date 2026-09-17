@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw, FolderOpen } from "lucide-react";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw, FolderOpen, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -115,6 +115,7 @@ import {
   isBandoMonitorabile,
   isMonitorDue,
 } from "@/lib/bandiMonitor";
+import { BANDI_CRON_KEYWORD_LABEL, mapBandoToUpsertRow } from "@/lib/bandiCronMattina";
 import { BandiFascicoloArchivio } from "@/components/bandi/BandiFascicoloArchivio";
 import {
   dettaglioUpdatePayload,
@@ -185,42 +186,10 @@ const statoLabel = (stato: string) => {
 
 // Upsert bandi into DB with keyword
 async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
+  const harvestedAt = new Date().toISOString();
   const rows = bandi
-    .filter((b) => b.scheda_id)
-    .map((b) => {
-      const scadenzaDate = toIsoDate(b.scadenza);
-      const aggiudicato = !!b.aggiudicato;
-      return {
-        scheda_id: b.scheda_id!,
-        titolo: b.titolo || null,
-        oggetto: b.titolo || null,
-        ente: b.ente || null,
-        ente_tipo: b.ente_tipo || null,
-        tipologia: b.categoria || null,
-        importo: b.importo ?? null,
-        scadenza: scadenzaDate,
-        cig: b.cig || null,
-        link: b.link || null,
-        localita: b.localita || null,
-        regione: b.regione || null,
-        stato: aggiudicato ? "scaduto" : (b.stato || "aperto"),
-        pdf_url: b.pdf_url || null,
-        keyword: b.keyword || b.categoria || keyword,
-        fonte: resolveFonteBando(b.fonte, b.link),
-        tipo_avviso: b.tipo_avviso || (aggiudicato ? "esito" : "gara"),
-        notice_type: b.notice_type || null,
-        form_type: b.form_type || null,
-        aggiudicato,
-        aggiudicatario: b.aggiudicatario || null,
-        data_decisione: toIsoDate(b.data_decisione),
-        data_contratto: toIsoDate(b.data_contratto),
-        servizio_da: toIsoDate(b.servizio_da),
-        servizio_a: toIsoDate(b.servizio_a),
-        tipo_procedura: b.tipo_procedura || null,
-        data_pubblicazione: toIsoDate(b.dataPublicazione || b.data_pubblicazione),
-        last_harvest_at: new Date().toISOString(),
-      };
-    });
+    .map((b) => mapBandoToUpsertRow(b, keyword, harvestedAt))
+    .filter((row): row is NonNullable<typeof row> => !!row);
 
   if (rows.length === 0) return { salvati: 0, nuovi: 0, giaInArchivio: 0 };
 
@@ -1398,6 +1367,14 @@ export default function BandiPubbliciPage() {
               </Button>
             )}
           </div>
+          {!isPartecipati && (
+            <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+              <Clock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              Ogni mattina feriale alle 07:00 (ora italiana) il sistema cerca automaticamente
+              su tutte le fonti con keyword «{BANDI_CRON_KEYWORD_LABEL}» e mette in storico
+              i bandi partecipati già scaduti.
+            </p>
+          )}
 
           {showFilters && (
             <div className="space-y-4 pt-4 border-t">
