@@ -329,11 +329,11 @@ export default function BandiPubbliciPage() {
   const [filtroPipeline, setFiltroPipeline] = useState<FiltroPipelineBando>(
     isPartecipati ? "voglio_partecipare" : "nuovi",
   );
-  const [filtroCantiere, setFiltroCantiere] = useState<FiltroCantiere>("da_approfondire");
+  const [filtroCantiere, setFiltroCantiere] = useState<FiltroCantiere>("tutti");
 
   useEffect(() => {
     setFiltroPipeline(isPartecipati ? "voglio_partecipare" : "nuovi");
-    setFiltroCantiere("da_approfondire");
+    setFiltroCantiere("tutti");
   }, [isPartecipati]);
   const [regioniOpen, setRegioniOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
