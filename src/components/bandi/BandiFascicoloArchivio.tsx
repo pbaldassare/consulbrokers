@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FolderOpen, FileText, Download, Trash2, Loader2, FileDown, ExternalLink, RefreshCw } from "lucide-react";
+import { FolderOpen, FileText, Download, Trash2, Loader2, FileDown, ExternalLink, RefreshCw, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,9 +16,12 @@ import { toast } from "sonner";
 import {
   TIPI_DOCUMENTO_BANDO,
   documentiVisibili,
+  formatPortaleDateTime,
   groupDocumentiByTipo,
   labelTipoDocumentoBando,
+  lastPortaleAttivita,
   type BandoDocumentoRow,
+  type BandoHarvestRunRow,
 } from "@/lib/bandiDocumenti";
 
 type Props = {
@@ -26,6 +29,8 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   bando: { id: string; titolo?: string | null; oggetto?: string | null; ente?: string | null } | null;
   documenti: BandoDocumentoRow[];
+  harvestRuns?: BandoHarvestRunRow[];
+  harvestAt?: string | null;
   downloading?: boolean;
   onScaricaTutti?: () => void;
   onAggiornaBando?: () => void;
@@ -47,6 +52,8 @@ export function BandiFascicoloArchivio({
   onOpenChange,
   bando,
   documenti,
+  harvestRuns = [],
+  harvestAt = null,
   downloading,
   onScaricaTutti,
   onAggiornaBando,
@@ -54,6 +61,10 @@ export function BandiFascicoloArchivio({
 }: Props) {
   const visibili = useMemo(() => documentiVisibili(documenti), [documenti]);
   const gruppi = useMemo(() => groupDocumentiByTipo(visibili), [visibili]);
+  const { ultimoAggiornamento, ultimoScarico } = useMemo(
+    () => lastPortaleAttivita({ runs: harvestRuns, documenti: visibili, harvestAt }),
+    [harvestRuns, visibili, harvestAt],
+  );
   const [nomi, setNomi] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -145,6 +156,32 @@ export function BandiFascicoloArchivio({
                 Scarica dal portale
               </Button>
             )}
+          </div>
+        </div>
+        <div className="rounded-md border-2 border-primary/40 bg-primary/5 p-3 grid gap-3 sm:grid-cols-2">
+          <div className="flex items-start gap-2">
+            <Clock className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Ultimo aggiornamento dal portale
+              </p>
+              <p className={`text-base font-semibold tabular-nums ${ultimoAggiornamento ? "text-foreground" : "text-muted-foreground"}`}>
+                {formatPortaleDateTime(ultimoAggiornamento)}
+              </p>
+              <p className="text-xs text-muted-foreground">Controllo scheda («Aggiorna bando dal portale»)</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <FileDown className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Ultimo scarico dal portale
+              </p>
+              <p className={`text-base font-semibold tabular-nums ${ultimoScarico ? "text-foreground" : "text-muted-foreground"}`}>
+                {formatPortaleDateTime(ultimoScarico)}
+              </p>
+              <p className="text-xs text-muted-foreground">Download documenti («Scarica dal portale»)</p>
+            </div>
           </div>
         </div>
         {onAggiornaBando && (

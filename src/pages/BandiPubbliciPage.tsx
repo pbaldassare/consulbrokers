@@ -976,7 +976,12 @@ export default function BandiPubbliciPage() {
           documenti_nuovi: nuovi,
           documenti_aggiornati: aggiornati,
           errore,
-          novita_json: { arricchito, nuovi, aggiornati },
+          novita_json: {
+            azione: opts?.metadataOnly ? "scheda" : "documenti",
+            arricchito,
+            nuovi,
+            aggiornati,
+          },
         })
         .eq("id", run.id);
 
@@ -1986,6 +1991,10 @@ export default function BandiPubbliciPage() {
         documenti={fascicoloBando
           ? documentiVisibili(documentiCantiere.filter((d) => d.bando_id === fascicoloBando.id))
           : []}
+        harvestRuns={fascicoloBando
+          ? harvestRuns.filter((r) => r.bando_id === fascicoloBando.id)
+          : []}
+        harvestAt={fascicoloBando?.interesse?.harvest_at ?? null}
         downloading={!!fascicoloBando && harvestingId === fascicoloBando.id}
         onScaricaTutti={fascicoloBando && fascicoloBando.interesse?.cantiere_stato !== "archiviato_storico"
           ? () => void handleScaricaTuttiDocumenti(fascicoloBando)

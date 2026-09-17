@@ -142,6 +142,62 @@ export function lastHarvestLabel(iso: string | null | undefined): string | null 
   return d.toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" });
 }
 
+export type PortaleAzioneHarvest = "scheda" | "documenti";
+
+export function harvestRunAt(run: Pick<BandoHarvestRunRow, "concluso_il" | "avviato_il">): string | null {
+  return run.concluso_il || run.avviato_il || null;
+}
+
+export function harvestRunAzione(
+  run: Pick<BandoHarvestRunRow, "id" | "documenti_nuovi" | "documenti_aggiornati" | "novita_json">,
+  documenti: Array<{ harvest_run_id?: string | null }> = [],
+): PortaleAzioneHarvest {
+  const raw = run.novita_json?.azione;
+  if (raw === "scheda" || raw === "documenti") return raw;
+  if (documenti.some((d) => d.harvest_run_id === run.id)) return "documenti";
+  if ((run.documenti_aggiornati || 0) > 0) return "documenti";
+  if ((run.documenti_nuovi || 0) > 0) return "documenti";
+  return "scheda";
+}
+
+function maxIso(dates: Array<string | null | undefined>): string | null {
+  let best: string | null = null;
+  let bestMs = -1;
+  for (const iso of dates) {
+    if (!iso) continue;
+    const ms = new Date(iso).getTime();
+    if (!Number.isNaN(ms) && ms > bestMs) {
+      best = iso;
+      bestMs = ms;
+    }
+  }
+  return best;
+}
+
+/** Date distinte: controllo scheda vs download documenti. */
+export function lastPortaleAttivita(opts: {
+  runs?: Array<BandoHarvestRunRow>;
+  documenti?: Array<{ harvest_run_id?: string | null; scaricato_il?: string | null }>;
+  harvestAt?: string | null;
+}): { ultimoAggiornamento: string | null; ultimoScarico: string | null } {
+  const runs = opts.runs || [];
+  const documenti = opts.documenti || [];
+  const ultimoAggiornamento = maxIso([opts.harvestAt, ...runs.map(harvestRunAt)]);
+  const ultimoScarico = maxIso([
+    ...runs.filter((r) => harvestRunAzione(r, documenti) === "documenti").map(harvestRunAt),
+    ...documenti.map((d) => d.scaricato_il),
+  ]);
+  return { ultimoAggiornamento, ultimoScarico };
+}
+
+export function formatPortaleDateTime(iso: string | null | undefined, empty = "Mai"): string {
+  if (!iso) return empty;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return empty;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 const ORDINE_TIPI_DOCUMENTO: TipoDocumentoBando[] = [
   "bando",
   "disciplinare",

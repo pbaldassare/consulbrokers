@@ -9,6 +9,9 @@ import {
   labelStatoDocumentoBando,
   labelTipoDocumentoBando,
   buildPortaleRefreshNote,
+  formatPortaleDateTime,
+  harvestRunAzione,
+  lastPortaleAttivita,
 } from "@/lib/bandiDocumenti";
 
 describe("bandiDocumenti", () => {
@@ -62,5 +65,74 @@ describe("bandiDocumenti", () => {
       { stato: "rimosso" },
       { stato: "invariato" },
     ])).toHaveLength(2);
+  });
+
+  it("formatta data/ora portale in italiano o Mai", () => {
+    expect(formatPortaleDateTime(null)).toBe("Mai");
+    expect(formatPortaleDateTime("non-una-data")).toBe("Mai");
+    const iso = new Date(2026, 8, 17, 14, 5).toISOString();
+    expect(formatPortaleDateTime(iso)).toBe("17/09/2026 14:05");
+  });
+
+  it("distingue harvest scheda da scarico documenti", () => {
+    expect(harvestRunAzione({
+      id: "r1",
+      documenti_nuovi: 0,
+      documenti_aggiornati: 0,
+      novita_json: { azione: "scheda" },
+    })).toBe("scheda");
+    expect(harvestRunAzione({
+      id: "r2",
+      documenti_nuovi: 0,
+      documenti_aggiornati: 0,
+      novita_json: { azione: "documenti" },
+    })).toBe("documenti");
+    expect(harvestRunAzione(
+      { id: "r3", documenti_nuovi: 0, documenti_aggiornati: 0, novita_json: {} },
+      [{ harvest_run_id: "r3" }],
+    )).toBe("documenti");
+    expect(harvestRunAzione({
+      id: "r4",
+      documenti_nuovi: 2,
+      documenti_aggiornati: 0,
+      novita_json: {},
+    })).toBe("documenti");
+  });
+
+  it("prende l'ultima data di aggiornamento e di scarico", () => {
+    const dates = lastPortaleAttivita({
+      harvestAt: "2026-09-10T08:00:00.000Z",
+      runs: [
+        {
+          id: "a",
+          bando_id: "b1",
+          avviato_il: "2026-09-16T10:00:00.000Z",
+          concluso_il: "2026-09-16T10:01:00.000Z",
+          esito: "ok",
+          motore: "ted",
+          documenti_nuovi: 0,
+          documenti_aggiornati: 0,
+          novita_json: { azione: "scheda" },
+          errore: null,
+        },
+        {
+          id: "b",
+          bando_id: "b1",
+          avviato_il: "2026-09-15T09:00:00.000Z",
+          concluso_il: "2026-09-15T09:05:00.000Z",
+          esito: "ok",
+          motore: "ted",
+          documenti_nuovi: 1,
+          documenti_aggiornati: 0,
+          novita_json: { azione: "documenti" },
+          errore: null,
+        },
+      ],
+      documenti: [{ harvest_run_id: "b", scaricato_il: "2026-09-15T09:04:00.000Z" }],
+    });
+    expect(dates.ultimoAggiornamento).toBe("2026-09-16T10:01:00.000Z");
+    expect(dates.ultimoScarico).toBe("2026-09-15T09:05:00.000Z");
+    expect(lastPortaleAttivita({}).ultimoAggiornamento).toBeNull();
+    expect(lastPortaleAttivita({}).ultimoScarico).toBeNull();
   });
 });
