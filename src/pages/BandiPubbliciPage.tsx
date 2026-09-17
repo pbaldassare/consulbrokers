@@ -1806,7 +1806,7 @@ export default function BandiPubbliciPage() {
                     </div>
                   )}
                   <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
-                    {esito !== "non_partecipo" && esito !== "in_trattativa" && (
+                    {!isPartecipati && esito !== "non_partecipo" && esito !== "in_trattativa" && (
                       <Button
                         variant="outline"
                         size="sm"
