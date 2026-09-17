@@ -1860,19 +1860,6 @@ export default function BandiPubbliciPage() {
                     )}
                     {isPartecipati && cantiere && cantiere !== "archiviato_storico" && (
                       <>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="gap-1 h-7 text-xs"
-                          disabled={busy}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleScaricaTuttiDocumenti(bando);
-                          }}
-                        >
-                          {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
-                          Scarica tutti i documenti
-                        </Button>
                         {CANTIERE_AZIONI.filter((a) => a.value !== cantiere).map((a) => (
                           <Button
                             key={a.value}
