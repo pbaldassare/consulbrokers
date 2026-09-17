@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { formatDateIT } from "@/lib/formatDate";
 import { useAuth } from "@/contexts/AuthContext";
+import { safeId } from "@/lib/safeId";
 import { filterContiBancariPerSede, shouldScopeClientiPerSede } from "@/lib/filterContiBancariPerSede";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
 import CigRifField from "@/components/shared/CigRifField";
@@ -828,7 +829,7 @@ export const MessaCassaDialog = ({
   ) => {
     const c = causaliComp.find((x) => x.id === causaleId);
     if (!c) return;
-    const tempId = crypto.randomUUID();
+    const tempId = safeId();
     const row: CompensazioneRow = {
       tempId,
       causale_id: c.id,

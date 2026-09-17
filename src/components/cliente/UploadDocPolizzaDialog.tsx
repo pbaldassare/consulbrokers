@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { ensureFileExtension } from "@/lib/sanitizeFileName";
 import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import { Loader2 } from "lucide-react";
+import { safeId } from "@/lib/safeId";
 
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
@@ -60,7 +61,7 @@ export default function UploadDocPolizzaDialog({ open, onOpenChange, titoloId, c
         try {
           const nomeFile = ensureFileExtension(item.displayName.trim(), item.file.name);
           const safe = item.file.name.replace(/[^\w.\-]+/g, "_");
-          const path = `${clienteAnagraficaId}/${titoloId}/${crypto.randomUUID()}-${safe}`;
+          const path = `${clienteAnagraficaId}/${titoloId}/${safeId()}-${safe}`;
           const { error: upErr } = await supabase.storage.from("documenti_titoli").upload(path, item.file, {
             contentType: item.file.type,
             upsert: false,

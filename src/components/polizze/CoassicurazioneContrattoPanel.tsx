@@ -46,13 +46,23 @@ export interface CoassicurazioneContrattoPanelProps {
   compagnieList: CompagniaItem[];
   gruppiCompagniaList: GruppoCompagniaItem[];
   brokerPluriPerGruppo: string[];
-  rapportiMap: Map<string, string[]>;
+  rapportiMap: Map<string, string[]> | Record<string, string[]>;
   leaderPrefill?: LeaderPrefill;
 }
 
 function isBrokerLike(tipo: string) {
   const t = tipo.toLowerCase();
   return t === "broker" || t === "plurimandataria";
+}
+
+function gruppiFromRapportiMap(
+  map: Map<string, string[]> | Record<string, string[]> | undefined,
+  compagniaId: string,
+): string[] {
+  if (!map) return [];
+  if (map instanceof Map) return map.get(compagniaId) || [];
+  const val = (map as Record<string, string[]>)[compagniaId];
+  return Array.isArray(val) ? val : [];
 }
 
 function quotaRowErrorClass(raw: string): string | undefined {
@@ -85,11 +95,12 @@ export function CoassicurazioneContrattoPanel({
     staleTime: 60_000,
   });
 
-  const quotaSum = useMemo(() => sumQuotePercentuali(rows), [rows]);
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const quotaSum = useMemo(() => sumQuotePercentuali(safeRows), [safeRows]);
   const quotaStatus = getQuotaSumStatus(quotaSum);
 
   const updateRow = (idx: number, patch: Partial<RipartoCoassicurazioneRow>) => {
-    onRowsChange(rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+    onRowsChange(safeRows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   };
 
   const rapportiForRow = (row: RipartoCoassicurazioneRow) => {
@@ -133,7 +144,7 @@ export function CoassicurazioneContrattoPanel({
     const tipoSel = (ag?.tipo || "").toLowerCase();
     let allowed: string[] | null = null;
     if (ag && isBrokerLike(tipoSel)) {
-      allowed = rapportiMap?.get(row.compagniaId) || [];
+      allowed = gruppiFromRapportiMap(rapportiMap, row.compagniaId);
     }
     return (gruppiCompagniaList || [])
       .filter((g) => !allowed || allowed.includes(g.id))
@@ -144,7 +155,7 @@ export function CoassicurazioneContrattoPanel({
   };
 
   const handleRemoveRow = (idx: number) => {
-    const next = rows.filter((_, i) => i !== idx);
+    const next = safeRows.filter((_, i) => i !== idx);
     if (next.length === 0) {
       onRowsChange([]);
       return;
@@ -153,7 +164,7 @@ export function CoassicurazioneContrattoPanel({
   };
 
   const handleAddRow = () => {
-    onRowsChange(redistributeQuoteEvenly([...rows, emptyRipartoRow()]));
+    onRowsChange(redistributeQuoteEvenly([...safeRows, emptyRipartoRow()]));
   };
 
   return (
@@ -165,7 +176,7 @@ export function CoassicurazioneContrattoPanel({
           onCheckedChange={(v) => {
             const on = v === true;
             onEnabledChange(on);
-            if (on && rows.length === 0) {
+            if (on && safeRows.length === 0) {
               onRowsChange(buildInitialCoassRows(leaderPrefill));
             }
           }}
@@ -208,12 +219,12 @@ export function CoassicurazioneContrattoPanel({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row, idx) => {
+                {safeRows.map((row, idx) => {
                   const ag = (compagnieList || []).find((c) => c.id === row.compagniaId);
                   const brokerRow = isBrokerLike(ag?.tipo || "");
                   const rapporti = rapportiForRow(row);
-                  const residuo = calcResiduoQuota(rows, idx);
-                  const canFillResiduo = rows.length > 1 && residuo > 0 && residuo <= 100;
+                  const residuo = calcResiduoQuota(safeRows, idx);
+                  const canFillResiduo = safeRows.length > 1 && residuo > 0 && residuo <= 100;
                   return (
                     <TableRow key={row.localId}>
                       <TableCell className="py-1.5">
@@ -241,7 +252,7 @@ export function CoassicurazioneContrattoPanel({
                             if ((tipo === "agenzia" || tipo === "direzione") && agSel?.gruppo_compagnia_id) {
                               gruppo = agSel.gruppo_compagnia_id;
                             } else if (isBrokerLike(tipo)) {
-                              const gruppi = rapportiMap?.get(v) || [];
+                              const gruppi = gruppiFromRapportiMap(rapportiMap, v);
                               if (gruppi.length === 1) gruppo = gruppi[0];
                               else if (gruppi.length > 1 && gruppo && !gruppi.includes(gruppo)) gruppo = "";
                             }
@@ -311,7 +322,7 @@ export function CoassicurazioneContrattoPanel({
                             <button
                               type="button"
                               className="text-[10px] text-teal-700 hover:underline"
-                              onClick={() => onRowsChange(applyResiduoToRow(rows, idx))}
+                              onClick={() => onRowsChange(applyResiduoToRow(safeRows, idx))}
                             >
                               Imposta residuo ({residuo.toFixed(2)}%)
                             </button>
@@ -324,7 +335,7 @@ export function CoassicurazioneContrattoPanel({
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          disabled={rows.length <= 1}
+                          disabled={safeRows.length <= 1}
                           onClick={() => handleRemoveRow(idx)}
                           aria-label="Rimuovi coassicuratore"
                         >
@@ -347,13 +358,13 @@ export function CoassicurazioneContrattoPanel({
             >
               <Plus className="h-3.5 w-3.5 mr-1" /> Aggiungi coassicuratore
             </Button>
-            {rows.length > 1 && (
+            {safeRows.length > 1 && (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 className="h-7 text-xs text-muted-foreground"
-                onClick={() => onRowsChange(redistributeQuoteEvenly(rows))}
+                onClick={() => onRowsChange(redistributeQuoteEvenly(safeRows))}
               >
                 Ripartisci equamente
               </Button>

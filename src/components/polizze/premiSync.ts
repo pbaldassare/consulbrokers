@@ -123,6 +123,6 @@ export function resetQuietanzaRow(
 }
 
 /** True se la Quietanza è un puro specchio della Firma (nessuna riga personalizzata). */
-export function isQuietanzaSincronizzata(quietanza: GaranziaRow[]): boolean {
-  return quietanza.length > 0 && quietanza.every((r) => !r.quietanzaPersonalizzata);
+export function isQuietanzaSincronizzata(quietanza: GaranziaRow[] | null | undefined): boolean {
+  return Array.isArray(quietanza) && quietanza.length > 0 && quietanza.every((r) => !r?.quietanzaPersonalizzata);
 }

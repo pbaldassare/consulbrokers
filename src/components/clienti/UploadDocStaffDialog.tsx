@@ -16,6 +16,7 @@ import { TIPI_DOCUMENTO_CLIENTE_STAFF } from "@/lib/tipiDocumentoCliente";
 import { ensureFileExtension } from "@/lib/sanitizeFileName";
 import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import { Loader2 } from "lucide-react";
+import { safeId } from "@/lib/safeId";
 
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
@@ -69,7 +70,7 @@ export default function UploadDocStaffDialog({
         try {
           const nomeFile = ensureFileExtension(item.displayName.trim(), item.file.name);
           const safe = item.file.name.replace(/[^\w.\-]+/g, "_");
-          const path = `${clienteId}/cliente/${clienteId}/${crypto.randomUUID()}-${safe}`;
+          const path = `${clienteId}/cliente/${clienteId}/${safeId()}-${safe}`;
           const { error: upErr } = await supabase.storage
             .from(bucketName)
             .upload(path, item.file, { contentType: item.file.type, upsert: false });

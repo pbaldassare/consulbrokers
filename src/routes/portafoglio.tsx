@@ -45,9 +45,6 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/carico" element={<PortafoglioCaricoConsultazionePage />} />
     <Route path="/portafoglio/incassi" element={<IncassiPage />} />
     <Route path="/portafoglio/storico" element={<PortafoglioStoricoPage />} />
-    <Route path="/portafoglio/:id/compensazioni" element={<CompensazioniTitoloDetail />} />
-    <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />
-    
     <Route path="/portafoglio/immissione" element={<ImmissionePolizzaPage />} />
     <Route path="/portafoglio/appendici" element={<AppendiciPolizzaPage />} />
     <Route path="/portafoglio/rinnovi" element={<RinnoviPolizzaPage />} />
@@ -69,6 +66,8 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/estrazioni/nidificazione" element={<NidificazionePage />} />
     <Route path="/portafoglio/collettive" element={<Navigate to="/portafoglio/attive" replace />} />
     <Route path="/portafoglio/documentale" element={<DocumentalePage />} />
+    <Route path="/portafoglio/:id/compensazioni" element={<CompensazioniTitoloDetail />} />
+    <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />
     <Route path="/provvigioni-maturate" element={<ProvvigioniMaturatePage />} />
   </>
 );
