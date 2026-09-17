@@ -534,13 +534,23 @@ export default function SinistroAperturaWizardPage() {
     return { isTerzi, compagniaId, clienteAnagraficaId, ufficioId, titoloId, terziPayload };
   };
 
+  /** Reminder già in lista + quello compilato ma non ancora aggiunto. */
+  const reminderDaSalvare = (): SinistroReminderDraft[] => {
+    const testo = reminderDraftForm.testo.trim();
+    const data = reminderDraftForm.data_scadenza?.trim();
+    if (testo && data) {
+      return [...reminderDrafts, { ...reminderDraftForm, testo, data_scadenza: data }];
+    }
+    return reminderDrafts;
+  };
+
   const buildBozzaWizardJsonPayload = (values: WizardFormValues) =>
     serializeBozzaWizardJson({
       currentStep,
       sinistro_terzi: !!values.sinistro_terzi,
       soloMadri,
       prescrizioniDrafts,
-      reminderDrafts,
+      reminderDrafts: reminderDaSalvare(),
     });
 
   const uploadPendingDocuments = async (
@@ -708,6 +718,7 @@ export default function SinistroAperturaWizardPage() {
       }
 
       const praticaPayload = praticaValuesToDbPayload(values);
+      const reminderIniziali = reminderDaSalvare();
       let newSinistro: { id: string; numero_sinistro: string };
 
       if (dbBozzaId) {
@@ -725,7 +736,7 @@ export default function SinistroAperturaWizardPage() {
             }),
             ...praticaPayload,
             ...(prescrizioniDrafts.length > 0 ? { prescrizioni_iniziali: prescrizioniDrafts } : {}),
-            ...(reminderDrafts.length > 0 ? { reminder_iniziali: reminderDrafts } : {}),
+            ...(reminderIniziali.length > 0 ? { reminder_iniziali: reminderIniziali } : {}),
           },
         });
         if (invokeErr || !invokeRes?.success) {
@@ -747,7 +758,7 @@ export default function SinistroAperturaWizardPage() {
             user_id: user.id,
             stato_iniziale: "aperto",
             ...(prescrizioniDrafts.length > 0 ? { prescrizioni_iniziali: prescrizioniDrafts } : {}),
-            ...(reminderDrafts.length > 0 ? { reminder_iniziali: reminderDrafts } : {}),
+            ...(reminderIniziali.length > 0 ? { reminder_iniziali: reminderIniziali } : {}),
           },
         });
         if (invokeErr || !invokeRes?.success) {
@@ -1259,39 +1270,49 @@ export default function SinistroAperturaWizardPage() {
                 <div className="border rounded-lg p-4 space-y-3">
                   <h4 className="text-sm font-semibold text-primary">Reminder sinistro (opzionale)</h4>
                   <p className="text-xs text-muted-foreground">Promemoria assegnato al responsabile sinistro con scadenza.</p>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Testo reminder *"
-                      className="h-9 flex-1"
-                      value={reminderDraftForm.testo}
-                      onChange={(e) => setReminderDraftForm({ ...reminderDraftForm, testo: e.target.value })}
-                    />
-                    <Input
-                      type="date"
-                      className="h-9 w-36"
-                      value={reminderDraftForm.data_scadenza || ""}
-                      onChange={(e) => setReminderDraftForm({ ...reminderDraftForm, data_scadenza: e.target.value })}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-9"
-                      onClick={() => {
-                        if (!reminderDraftForm.testo.trim()) {
-                          toast.error("Inserisci il testo del reminder");
-                          return;
-                        }
-                        if (!reminderDraftForm.data_scadenza) {
-                          toast.error("Inserisci la scadenza del reminder");
-                          return;
-                        }
-                        setReminderDrafts([...reminderDrafts, { ...reminderDraftForm }]);
-                        setReminderDraftForm({ testo: "", data_scadenza: "" });
-                      }}
-                    >
-                      Aggiungi
-                    </Button>
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="reminder-testo">Testo *</Label>
+                      <Textarea
+                        id="reminder-testo"
+                        rows={3}
+                        placeholder="Cosa ricordare (es. richiedere perizia, richiamare il cliente…)"
+                        value={reminderDraftForm.testo}
+                        onChange={(e) => setReminderDraftForm({ ...reminderDraftForm, testo: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="space-y-1 w-44 shrink-0">
+                        <Label htmlFor="reminder-scadenza">Scadenza *</Label>
+                        <Input
+                          id="reminder-scadenza"
+                          type="date"
+                          className="h-9"
+                          value={reminderDraftForm.data_scadenza || ""}
+                          onChange={(e) => setReminderDraftForm({ ...reminderDraftForm, data_scadenza: e.target.value })}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9"
+                        onClick={() => {
+                          if (!reminderDraftForm.testo.trim()) {
+                            toast.error("Inserisci il testo del reminder");
+                            return;
+                          }
+                          if (!reminderDraftForm.data_scadenza) {
+                            toast.error("Inserisci la scadenza del reminder");
+                            return;
+                          }
+                          setReminderDrafts([...reminderDrafts, { ...reminderDraftForm }]);
+                          setReminderDraftForm({ testo: "", data_scadenza: "" });
+                        }}
+                      >
+                        Aggiungi
+                      </Button>
+                    </div>
                   </div>
                   {reminderDrafts.length > 0 && (
                     <div className="space-y-1">
@@ -1490,7 +1511,7 @@ export default function SinistroAperturaWizardPage() {
                         <p className="mt-1 text-muted-foreground italic bg-muted/10 p-2 border rounded">{watch("note_interne")}</p>
                       </div>
                     )}
-                    {(prescrizioniDrafts.length > 0 || reminderDrafts.length > 0) && (
+                    {(prescrizioniDrafts.length > 0 || reminderDaSalvare().length > 0) && (
                       <div className="col-span-1 md:col-span-2 space-y-2 pt-2 border-t">
                         {prescrizioniDrafts.length > 0 && (
                           <div>
@@ -1502,11 +1523,11 @@ export default function SinistroAperturaWizardPage() {
                             </ul>
                           </div>
                         )}
-                        {reminderDrafts.length > 0 && (
+                        {reminderDaSalvare().length > 0 && (
                           <div>
-                            <span className="text-muted-foreground">Reminder personali ({reminderDrafts.length})</span>
+                            <span className="text-muted-foreground">Reminder personali ({reminderDaSalvare().length})</span>
                             <ul className="mt-1 list-disc list-inside text-muted-foreground">
-                              {reminderDrafts.map((r, i) => (
+                              {reminderDaSalvare().map((r, i) => (
                                 <li key={i}>{r.testo}</li>
                               ))}
                             </ul>
