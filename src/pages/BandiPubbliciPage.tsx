@@ -102,6 +102,7 @@ import {
 } from "@/lib/bandiCantiere";
 import {
   buildHarvestNote,
+  buildPortaleRefreshNote,
   countNovitaDocumenti,
   documentiVisibili,
   inferTipoDocumentoBando,
@@ -869,7 +870,7 @@ export default function BandiPubbliciPage() {
     }
   };
 
-  const handleAggiornaPortale = async (bando: any, opts?: { generate?: boolean }) => {
+  const handleAggiornaPortale = async (bando: any, opts?: { generate?: boolean; metadataOnly?: boolean }) => {
     setHarvestingId(bando.id);
     const motore = resolveFonteBando(bando.fonte, bando.link);
     const { data: run, error: runErr } = await (supabase as any)
@@ -929,28 +930,44 @@ export default function BandiPubbliciPage() {
         extraUrls,
         limit: HARVEST_URL_LIMIT,
       });
-      for (const pdfUrl of urls) {
-        const meta = metaByUrl.get(pdfUrl);
-        const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("scarica-bando-pdf", {
-          body: {
-            bando_id: bando.id,
-            pdf_url: pdfUrl,
-            harvest_run_id: run.id,
-            tipo: meta?.tipo || inferTipoDocumentoBando(meta?.nome, pdfUrl),
-            nome: meta?.nome,
-            primario: pdfUrl === primaryUrl,
-          },
-        });
-        if (pdfErr) {
-          errore = [errore, pdfErr.message].filter(Boolean).join(" · ");
-        } else if (pdfData?.stato === "nuovo") {
-          nuovi += 1;
-        } else if (pdfData?.stato === "aggiornato") {
-          aggiornati += 1;
+      if (opts?.metadataOnly) {
+        const { data: existingDocs } = await (supabase as any)
+          .from("bandi_documenti")
+          .select("url_origine")
+          .eq("bando_id", bando.id)
+          .neq("stato", "rimosso");
+        const already = new Set(
+          ((existingDocs || []) as { url_origine?: string | null }[])
+            .map((d) => (d.url_origine || "").split("#")[0])
+            .filter(Boolean),
+        );
+        nuovi = urls.filter((u) => !already.has(u.split("#")[0])).length;
+      } else {
+        for (const pdfUrl of urls) {
+          const meta = metaByUrl.get(pdfUrl);
+          const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("scarica-bando-pdf", {
+            body: {
+              bando_id: bando.id,
+              pdf_url: pdfUrl,
+              harvest_run_id: run.id,
+              tipo: meta?.tipo || inferTipoDocumentoBando(meta?.nome, pdfUrl),
+              nome: meta?.nome,
+              primario: pdfUrl === primaryUrl,
+            },
+          });
+          if (pdfErr) {
+            errore = [errore, pdfErr.message].filter(Boolean).join(" · ");
+          } else if (pdfData?.stato === "nuovo") {
+            nuovi += 1;
+          } else if (pdfData?.stato === "aggiornato") {
+            aggiornati += 1;
+          }
         }
       }
 
-      const note = buildHarvestNote({ arricchito, nuovi, aggiornati, errore });
+      const note = opts?.metadataOnly
+        ? buildPortaleRefreshNote({ arricchito, nuoviUrl: nuovi, errore })
+        : buildHarvestNote({ arricchito, nuovi, aggiornati, errore });
       await (supabase as any)
         .from("bandi_harvest_run")
         .update({
@@ -1856,19 +1873,6 @@ export default function BandiPubbliciPage() {
                           {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
                           Scarica tutti i documenti
                         </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="gap-1 h-7 text-xs"
-                          disabled={busy}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleAggiornaPortale(bando);
-                          }}
-                        >
-                          {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                          Aggiorna dal portale
-                        </Button>
                         {CANTIERE_AZIONI.filter((a) => a.value !== cantiere).map((a) => (
                           <Button
                             key={a.value}
@@ -2032,6 +2036,9 @@ export default function BandiPubbliciPage() {
         downloading={!!fascicoloBando && harvestingId === fascicoloBando.id}
         onScaricaTutti={fascicoloBando && fascicoloBando.interesse?.cantiere_stato !== "archiviato_storico"
           ? () => void handleScaricaTuttiDocumenti(fascicoloBando)
+          : undefined}
+        onAggiornaBando={fascicoloBando && fascicoloBando.interesse?.cantiere_stato !== "archiviato_storico"
+          ? () => void handleAggiornaPortale(fascicoloBando, { metadataOnly: true })
           : undefined}
         onRefresh={() => {
           queryClient.invalidateQueries({ queryKey: ["bandi_documenti"] });

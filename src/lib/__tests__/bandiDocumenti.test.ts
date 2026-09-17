@@ -8,6 +8,7 @@ import {
   inferTipoDocumentoBando,
   labelStatoDocumentoBando,
   labelTipoDocumentoBando,
+  buildPortaleRefreshNote,
 } from "@/lib/bandiDocumenti";
 
 describe("bandiDocumenti", () => {
@@ -36,6 +37,9 @@ describe("bandiDocumenti", () => {
     expect(buildHarvestNote({ arricchito: true, nuovi: 1, aggiornati: 0 }))
       .toBe("Harvest: scheda aggiornata, 1 doc nuovo");
     expect(buildHarvestNote({})).toBe("Nessuna novità dal portale");
+    expect(buildPortaleRefreshNote({ arricchito: true, nuoviUrl: 2 }))
+      .toBe("Portale: scheda bando aggiornata; 2 nuovi riferimenti — usa «Scarica dal portale»");
+    expect(buildPortaleRefreshNote({})).toBe("Nessun nuovo dato dal portale");
     expect(labelTipoDocumentoBando("capitolato")).toBe("Capitolato");
     expect(labelStatoDocumentoBando("nuovo")).toBe("Nuovo");
   });

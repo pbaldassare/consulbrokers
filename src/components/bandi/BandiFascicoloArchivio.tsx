@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FolderOpen, FileText, Download, Trash2, Loader2, FileDown, ExternalLink } from "lucide-react";
+import { FolderOpen, FileText, Download, Trash2, Loader2, FileDown, ExternalLink, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,7 @@ type Props = {
   documenti: BandoDocumentoRow[];
   downloading?: boolean;
   onScaricaTutti?: () => void;
+  onAggiornaBando?: () => void;
   onRefresh: () => void;
 };
 
@@ -48,6 +49,7 @@ export function BandiFascicoloArchivio({
   documenti,
   downloading,
   onScaricaTutti,
+  onAggiornaBando,
   onRefresh,
 }: Props) {
   const visibili = useMemo(() => documentiVisibili(documenti), [documenti]);
@@ -123,18 +125,38 @@ export function BandiFascicoloArchivio({
           <span className="text-sm text-muted-foreground">
             {visibili.length} document{visibili.length === 1 ? "o" : "i"}
           </span>
-          {onScaricaTutti && (
-            <Button size="sm" className="gap-1" disabled={downloading} onClick={onScaricaTutti}>
-              {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
-              Scarica dal portale
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {onAggiornaBando && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="gap-1"
+                disabled={downloading}
+                onClick={onAggiornaBando}
+                title="Controlla scadenza, esito e nuovi dati sul portale. Non scarica i PDF."
+              >
+                {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                Aggiorna bando dal portale
+              </Button>
+            )}
+            {onScaricaTutti && (
+              <Button size="sm" className="gap-1" disabled={downloading} onClick={onScaricaTutti}>
+                {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+                Scarica dal portale
+              </Button>
+            )}
+          </div>
         </div>
+        {onAggiornaBando && (
+          <p className="text-xs text-muted-foreground">
+            «Aggiorna bando dal portale» cerca nuovi dati sulla scheda. I PDF si scaricano con «Scarica dal portale».
+          </p>
+        )}
 
         <div className="overflow-y-auto min-h-0 flex-1 space-y-5 pr-1">
           {visibili.length === 0 && (
             <p className="text-sm text-muted-foreground py-8 text-center">
-              Nessun documento in archivio. Usa «Scarica dal portale».
+              Nessun documento in archivio. Usa «Scarica dal portale» per i PDF, o «Aggiorna bando dal portale» per i nuovi dati.
             </p>
           )}
           {gruppi.map((group) => (

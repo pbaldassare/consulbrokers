@@ -117,6 +117,24 @@ export function buildHarvestNote(opts: {
   return `Harvest: ${parti.join(", ")}`;
 }
 
+/** Nota per il controllo scheda (senza download PDF). */
+export function buildPortaleRefreshNote(opts: {
+  arricchito?: boolean;
+  nuoviUrl?: number;
+  errore?: string | null;
+}): string {
+  if (opts.errore) return `Controllo portale parziale: ${opts.errore}`;
+  const parti: string[] = [];
+  if (opts.arricchito) parti.push("scheda bando aggiornata");
+  if ((opts.nuoviUrl || 0) > 0) {
+    parti.push(
+      `${opts.nuoviUrl} nuov${opts.nuoviUrl === 1 ? "o riferimento" : "i riferimenti"} — usa «Scarica dal portale»`,
+    );
+  }
+  if (parti.length === 0) return "Nessun nuovo dato dal portale";
+  return `Portale: ${parti.join("; ")}`;
+}
+
 export function lastHarvestLabel(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
