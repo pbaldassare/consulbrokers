@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { ensureFileExtension } from "@/lib/sanitizeFileName";
 import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import { Loader2 } from "lucide-react";
+import { safeId } from "@/lib/safeId";
 
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
@@ -93,7 +94,7 @@ export default function UploadDocClienteDialog({ open, onOpenChange, fixedEntita
         try {
           const nomeFile = ensureFileExtension(item.displayName.trim(), item.file.name);
           const safe = item.file.name.replace(/[^\w.\-]+/g, "_");
-          const path = `${clienteAnagraficaId}/${entitaTipo}/${entitaId}/${crypto.randomUUID()}-${safe}`;
+          const path = `${clienteAnagraficaId}/${entitaTipo}/${entitaId}/${safeId()}-${safe}`;
           const { error: upErr } = await supabase.storage.from(bucket).upload(path, item.file, { contentType: item.file.type, upsert: false });
           if (upErr) throw upErr;
 

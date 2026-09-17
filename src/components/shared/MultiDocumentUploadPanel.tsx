@@ -12,6 +12,7 @@ import {
 import { CheckCircle2, Loader2, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { safeId } from "@/lib/safeId";
 
 export type PendingDocStatus = "pending" | "uploading" | "done" | "error";
 
@@ -31,7 +32,7 @@ export function createPendingDocumentFiles(
 ): PendingDocumentFile[] {
   const visibile = opts?.visibileAlCliente ?? false;
   return files.map((file) => ({
-    id: crypto.randomUUID(),
+    id: safeId(),
     file,
     displayName: fileBaseNameWithoutExt(file.name),
     visibileAlCliente: visibile,

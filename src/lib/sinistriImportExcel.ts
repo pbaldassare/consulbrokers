@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { safeId } from "@/lib/safeId";
 
 /** Intestazioni canoniche del tracciato MODULO SX. */
 export const MODULO_SX_HEADERS = [
@@ -425,10 +426,7 @@ export function validateImportRow(row: Pick<
 }
 
 function newRowId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `row-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return safeId();
 }
 
 export function buildPreviewRows(
