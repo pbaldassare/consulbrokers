@@ -63,6 +63,12 @@ Deno.serve(async (req) => {
 
     const resetPassword = body?.reset_password !== false;
     const dryRun = body?.dry_run === true;
+    const onlyCodici = Array.isArray(body?.codici)
+      ? (body.codici as unknown[]).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean)
+      : [];
+    const onlyEmails = Array.isArray(body?.emails)
+      ? (body.emails as unknown[]).map((e) => String(e || "").trim().toLowerCase()).filter(Boolean)
+      : [];
 
     const url = Deno.env.get("SUPABASE_URL")!;
     const srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -87,6 +93,8 @@ Deno.serve(async (req) => {
       if (!email || !email.includes("@")) return false;
       if (!codice) return false;
       if (u.nome_ufficio?.startsWith("E2E ")) return false;
+      if (onlyCodici.length && !onlyCodici.includes(codice.toUpperCase())) return false;
+      if (onlyEmails.length && !onlyEmails.includes(email)) return false;
       return true;
     });
 
