@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { safeId } from "@/lib/safeId";
+import { emptyGaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
+import { installSafeRandomUUID, safeId } from "@/lib/safeId";
 
 describe("safeId", () => {
   afterEach(() => {
@@ -20,5 +21,29 @@ describe("safeId", () => {
     const id = safeId();
     expect(id.startsWith("id-")).toBe(true);
     expect(id.length).toBeGreaterThan(8);
+  });
+
+  it("installSafeRandomUUID rende randomUUID usabile se manca", () => {
+    vi.stubGlobal("crypto", {});
+    installSafeRandomUUID();
+    expect(typeof crypto.randomUUID).toBe("function");
+    expect(crypto.randomUUID().length).toBeGreaterThan(8);
+  });
+
+  it("installSafeRandomUUID intercetta randomUUID che lancia", () => {
+    vi.stubGlobal("crypto", {
+      randomUUID: () => {
+        throw new Error("Secure random unavailable");
+      },
+    });
+    installSafeRandomUUID();
+    expect(() => crypto.randomUUID()).not.toThrow();
+    expect(crypto.randomUUID().length).toBeGreaterThan(8);
+  });
+
+  it("emptyGaranziaRow non crasha senza randomUUID", () => {
+    vi.stubGlobal("crypto", {});
+    const row = emptyGaranziaRow();
+    expect(row._localId.length).toBeGreaterThan(4);
   });
 });

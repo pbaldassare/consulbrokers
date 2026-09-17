@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
 import { parseDecimalIt, parseDecimalItOr } from "@/lib/number";
+import { safeId } from "@/lib/safeId";
 import {
   calcTasseRiga,
   calcLordoGaranziaRow,
@@ -83,9 +84,7 @@ export interface GaranziaRow {
 }
 
 export const emptyGaranziaRow = (): GaranziaRow => ({
-  _localId: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `riga-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+  _localId: safeId(),
   codice: null,
   descrizione: "",
   netto: "",
@@ -378,7 +377,7 @@ export function PremiGaranziaCardShell({
   const addRow = () => {
     if (readOnly) return;
     const row = buildRowFromSottoramo(defaultSottoramoId);
-    row._localId = crypto.randomUUID();
+    row._localId = safeId();
     onRowsChange([...rows, row]);
   };
 
