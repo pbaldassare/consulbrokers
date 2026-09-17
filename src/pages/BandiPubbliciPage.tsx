@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw, FolderOpen, Clock } from "lucide-react";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw, FolderOpen, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -1913,40 +1913,6 @@ export default function BandiPubbliciPage() {
                         <Plus className="h-3 w-3" /> Crea Trattativa
                       </Button>
                     )}
-                    {isPartecipati && (bando.pdf_path ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 h-7 text-xs"
-                        onClick={async () => {
-                          const { data } = await supabase.storage.from("documenti_generali").createSignedUrl(bando.pdf_path!, 3600);
-                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-                          else toast.error("Errore apertura PDF");
-                        }}
-                      >
-                        <FileText className="h-3 w-3" /> Apri PDF
-                      </Button>
-                    ) : bando.pdf_url ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 h-7 text-xs"
-                        onClick={async () => {
-                          toast.info("Download PDF in corso...");
-                          const { error } = await supabase.functions.invoke("scarica-bando-pdf", {
-                            body: { bando_id: bando.id, pdf_url: bando.pdf_url },
-                          });
-                          if (error) {
-                            toast.error("Errore download PDF: " + error.message);
-                          } else {
-                            toast.success("PDF scaricato e salvato");
-                            refetchBandi();
-                          }
-                        }}
-                      >
-                        <FileDown className="h-3 w-3" /> Scarica PDF
-                      </Button>
-                    ) : null)}
                     {bando.link && (
                       <a href={bando.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-sm">
                         Vedi bando <ExternalLink className="h-3 w-3" />
