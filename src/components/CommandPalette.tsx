@@ -46,7 +46,7 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { id: "new-polizza", label: "Nuova polizza", icon: Plus, link: "/portafoglio/gestione-polizze/immissione", keywords: "nuova polizza titolo immissione crea" },
+  { id: "new-polizza", label: "Nuova polizza", icon: Plus, link: "/portafoglio/immissione", keywords: "nuova polizza titolo immissione crea" },
   { id: "new-cliente", label: "Nuovo cliente", icon: Plus, link: "/clienti?new=1", keywords: "nuovo cliente crea anagrafica" },
   { id: "new-sinistro", label: "Nuovo sinistro", icon: Plus, link: "/sinistri/apertura", keywords: "nuovo sinistro apri denuncia" },
   { id: "import-sinistri", label: "Caricamento massivo sinistri", icon: Plus, link: "/sinistri/caricamento", keywords: "import sinistri excel modulo sx caricamento massivo" },

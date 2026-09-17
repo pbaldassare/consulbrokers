@@ -83,7 +83,9 @@ export interface GaranziaRow {
 }
 
 export const emptyGaranziaRow = (): GaranziaRow => ({
-  _localId: crypto.randomUUID(),
+  _localId: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `riga-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
   codice: null,
   descrizione: "",
   netto: "",
@@ -172,7 +174,7 @@ export function PremiGaranziaCardShell({
   tipoPremio,
   gruppoRamoId,
   defaultSottoramoId,
-  rows,
+  rows: rowsProp,
   onRowsChange,
   addizionali,
   onAddizionaliChange: _onAddizionaliChange,
@@ -205,6 +207,7 @@ export function PremiGaranziaCardShell({
   readOnly = false,
 }: PremiGaranziaCardShellProps) {
 
+  const rows = Array.isArray(rowsProp) ? rowsProp : [];
   const isQuietanza = tipoPremio === "quietanza";
   // Draft locale per il campo Lordo: mentre l'utente digita teniamo la stringa
   // così com'è (es. "4", "47", "476,", "476,5"); il back-solve scatta solo onBlur.

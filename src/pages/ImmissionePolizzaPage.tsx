@@ -631,7 +631,7 @@ const ImmissionePolizzaPage = () => {
         selectedGruppoCompagniaId: setSelectedGruppoCompagniaId,
         selectedRapportoId: setSelectedRapportoId,
         coassicurazione: setCoassicurazione,
-        ripartoRows: setRipartoRows,
+        ripartoRows: (v: unknown) => setRipartoRows(Array.isArray(v) ? v : []),
         selectedRamo: setSelectedRamo,
         selectedGruppoRamoId: setSelectedGruppoRamoId,
         prodottoNome: setProdottoNome,
@@ -692,8 +692,10 @@ const ImmissionePolizzaPage = () => {
         // Bozze legacy: singolo fattore (senza importi) — ignorato
         regolazioneFattore: () => {},
         regolazioneNote: setRegolazioneNote,
-        premiFirmaRows: setPremiFirmaRows,
-        premiQuietanzaRows: setPremiQuietanzaRows,
+        premiFirmaRows: (v: unknown) =>
+          setPremiFirmaRows(Array.isArray(v) && v.length ? v.filter(Boolean) : [emptyGaranziaRow()]),
+        premiQuietanzaRows: (v: unknown) =>
+          setPremiQuietanzaRows(Array.isArray(v) && v.length ? v.filter(Boolean) : [emptyGaranziaRow()]),
         addizionali: setAddizionali,
         valuta: setValuta,
         addizionaliQuietanza: setAddizionaliQuietanza,
@@ -1219,12 +1221,12 @@ const ImmissionePolizzaPage = () => {
         .from("compagnia_rapporti")
         .select("compagnia_id, gruppo_compagnia_id")
         .eq("attivo", true);
-      const map = new Map<string, string[]>();
+      const map: Record<string, string[]> = {};
       for (const r of (data || []) as any[]) {
         if (!r.compagnia_id || !r.gruppo_compagnia_id) continue;
-        const arr = map.get(r.compagnia_id) || [];
+        const arr = map[r.compagnia_id] || [];
         if (!arr.includes(r.gruppo_compagnia_id)) arr.push(r.gruppo_compagnia_id);
-        map.set(r.compagnia_id, arr);
+        map[r.compagnia_id] = arr;
       }
       return map;
     },
@@ -1418,18 +1420,18 @@ const ImmissionePolizzaPage = () => {
   const isProvvigioneModified = false;
 
   // --- Computed: derive scalars from row arrays ---
-  const sumNum = (arr: GaranziaRow[], k: "netto" | "tasse" | "ssn" | "accessori") =>
-    arr.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
+  const sumNum = (arr: GaranziaRow[] | null | undefined, k: "netto" | "tasse" | "ssn" | "accessori") =>
+    (Array.isArray(arr) ? arr : []).reduce((s, r) => s + (parseFloat(r?.[k] || "0") || 0), 0);
   const premioNettoNum = sumNum(premiFirmaRows, "netto");
   const accessoriFirmaNum = sumNum(premiFirmaRows, "accessori");
   // Tasse effettive = auto (aliquota) + rettifica manuale, così il lordo quadra anche in modalità manuale.
-  const tasseNum = premiFirmaRows.reduce((s, r) => s + calcTasseEffettiveRiga(r), 0);
+  const tasseNum = (premiFirmaRows || []).reduce((s, r) => s + calcTasseEffettiveRiga(r), 0);
   const ssnFirmaNum = sumNum(premiFirmaRows, "ssn");
   const premioNetto = premioNettoNum ? String(premioNettoNum) : "";
   const tasse = tasseNum ? String(tasseNum) : "";
   const premioNettoQNum = sumNum(premiQuietanzaRows, "netto");
   const accessoriQuietanzaNum = sumNum(premiQuietanzaRows, "accessori");
-  const tasseQNum = premiQuietanzaRows.reduce((s, r) => s + calcTasseEffettiveRiga(r), 0);
+  const tasseQNum = (premiQuietanzaRows || []).reduce((s, r) => s + calcTasseEffettiveRiga(r), 0);
   const ssnQuietanzaNum = sumNum(premiQuietanzaRows, "ssn");
   const premioNettoQuietanza = premioNettoQNum ? String(premioNettoQNum) : "";
   const tasseQuietanza = tasseQNum ? String(tasseQNum) : "";
@@ -1437,19 +1439,25 @@ const ImmissionePolizzaPage = () => {
   const totFirma = premioNettoNum + accessoriFirmaNum + tasseNum + ssnFirmaNum;
   const totQuietanza = premioNettoQNum + accessoriQuietanzaNum + tasseQNum + ssnQuietanzaNum;
 
-  const quietanzePlanPreview =
-    !polizzaTemporanea && (polizzaRateo || isPremioUnicoAnticipato(frazionamento) || isRataUnica(frazionamento))
-      ? computeQuietanzePlan({
-          polizzaRateo: polizzaRateo || undefined,
-          frazionamento,
-          anniDurata: parseInt(anniDurata) || 1,
-          garanziaDa,
-          garanziaA,
-          durataDa,
-          durataA,
-          dataCompetenza,
-        })
-      : [];
+  const quietanzePlanPreview = (() => {
+    if (polizzaTemporanea || !(polizzaRateo || isPremioUnicoAnticipato(frazionamento) || isRataUnica(frazionamento))) {
+      return [];
+    }
+    try {
+      return computeQuietanzePlan({
+        polizzaRateo: polizzaRateo || undefined,
+        frazionamento,
+        anniDurata: parseInt(anniDurata) || 1,
+        garanziaDa,
+        garanziaA,
+        durataDa,
+        durataA,
+        dataCompetenza,
+      });
+    } catch {
+      return [];
+    }
+  })();
 
   const [provvMatrice, setProvvMatrice] = useState<MatriceProvvAccessori | null>(null);
   // Rapporto effettivo per matrice provvigioni: per monomandatarie deriva dalla coppia (compagnia, gruppo madre)
@@ -2817,7 +2825,7 @@ const ImmissionePolizzaPage = () => {
           compagnieList={(compagnieList || []) as any[]}
           gruppiCompagniaList={(gruppiCompagniaList || []) as any[]}
           brokerPluriPerGruppo={brokerPluriPerGruppo || []}
-          rapportiMap={rapportiMap || new Map()}
+          rapportiMap={rapportiMap || {}}
           leaderPrefill={{
             gruppoCompagniaId: selectedGruppoCompagniaId,
             compagniaId: selectedCompagnia,
@@ -2858,7 +2866,7 @@ const ImmissionePolizzaPage = () => {
                 const tipoSel = (ag?.tipo || "").toLowerCase();
                 let allowed: string[] | null = null;
                 if (ag && (tipoSel === "broker" || tipoSel === "plurimandataria")) {
-                  allowed = rapportiMap?.get(selectedCompagnia) || [];
+                  allowed = rapportiMap?.[selectedCompagnia] || [];
                 }
                 return (gruppiCompagniaList || [])
                   .filter((g: any) => !allowed || allowed.includes(g.id))
@@ -2885,7 +2893,7 @@ const ImmissionePolizzaPage = () => {
                   setSelectedGruppoCompagniaId(ag.gruppo_compagnia_id);
                 } else if (tipo === "broker" || tipo === "plurimandataria") {
                   // broker/pluri → se ha 1 solo gruppo, auto-set; altrimenti l'utente sceglie la compagnia
-                  const gruppi = rapportiMap?.get(v) || [];
+                  const gruppi = rapportiMap?.[v] || [];
                   if (gruppi.length === 1) {
                     setSelectedGruppoCompagniaId(gruppi[0]);
                   } else if (gruppi.length > 1 && selectedGruppoCompagniaId && !gruppi.includes(selectedGruppoCompagniaId)) {
