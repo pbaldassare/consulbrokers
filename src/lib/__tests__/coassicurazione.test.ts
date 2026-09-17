@@ -106,6 +106,14 @@ describe("buildInitialCoassRows", () => {
   });
 });
 
+describe("sumQuotePercentuali", () => {
+  it("non crasha su input assente o non array", () => {
+    expect(sumQuotePercentuali(undefined)).toBe(0);
+    expect(sumQuotePercentuali(null)).toBe(0);
+    expect(sumQuotePercentuali([] as any)).toBe(0);
+  });
+});
+
 describe("getQuotaSumStatus", () => {
   it("distingue under, over e ok", () => {
     expect(getQuotaSumStatus(100)).toBe("ok");

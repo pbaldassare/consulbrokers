@@ -109,9 +109,10 @@ export function validateQuotaRow(raw: string): {
 }
 
 export function sumQuotePercentuali(
-  rows: Pick<RipartoCoassicurazioneRow, "quotaPercentuale">[],
+  rows: Pick<RipartoCoassicurazioneRow, "quotaPercentuale">[] | null | undefined,
 ): number {
-  return roundQuota(rows.reduce((s, r) => s + parseQuotaPercentuale(r.quotaPercentuale), 0));
+  if (!Array.isArray(rows)) return 0;
+  return roundQuota(rows.reduce((s, r) => s + parseQuotaPercentuale(r?.quotaPercentuale), 0));
 }
 
 export type QuotaSumStatus = "ok" | "under" | "over";
