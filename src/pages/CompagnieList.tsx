@@ -25,6 +25,7 @@ import ProvvigioniCompagniaDialog from "@/components/compagnie/ProvvigioniCompag
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { matchAgenziaRagioneSociale } from "@/lib/compagnieAnagraficaFilter";
 
 // ── Constants ──
 
@@ -927,7 +928,7 @@ function AgenzieCollegateDialog({
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Cerca per nome, sede, codice o comune..."
+              placeholder="Cerca per ragione sociale, sede, codice o comune..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -1243,12 +1244,20 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
     <div className="space-y-4">
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-end gap-4">
-            <div className="flex-1 space-y-1">
-              <Label className="text-xs text-muted-foreground">Cerca per descrizione o codice</Label>
+          <div className="grid grid-cols-1 gap-4 items-end sm:grid-cols-[minmax(18rem,1fr)_auto_auto]">
+            <div className="min-w-0 space-y-1">
+              <Label htmlFor="cerca-compagnia-assicurativa" className="text-xs text-muted-foreground">
+                Cerca per ragione sociale
+              </Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Cerca compagnia assicurativa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="cerca-compagnia-assicurativa"
+                  placeholder="Ragione sociale o codice…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-10 w-full min-w-[16rem] pl-9"
+                />
               </div>
             </div>
             <Button variant="secondary" onClick={() => setSearch("")}>Reset</Button>
@@ -1549,7 +1558,7 @@ const CompagnieList = () => {
   };
 
   const filteredAnagrafica = compagnie.filter((c: any) => {
-    const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase()) || c.nome_sede?.toLowerCase().includes(searchNome.toLowerCase());
+    const matchNome = matchAgenziaRagioneSociale(c, searchNome);
     const matchCodice = !searchCodice || c.codice?.toLowerCase().startsWith(searchCodice.toLowerCase());
     const matchPluri = !onlyPluri || (c.gruppo_compagnia_id && gruppiMap[c.gruppo_compagnia_id]?.is_pluri);
     const matchTipo = filterTipo === "all" || c.tipo === filterTipo;
@@ -1620,19 +1629,33 @@ const CompagnieList = () => {
         <TabsContent value="anagrafica" className="space-y-4 mt-4">
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-end gap-4">
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Cerca per nome, sede o codice</Label>
+              <div className="grid grid-cols-1 gap-4 items-end lg:grid-cols-[minmax(18rem,1fr)_10rem_13rem_auto]">
+                <div className="min-w-0 space-y-1">
+                  <Label htmlFor="cerca-ragione-sociale" className="text-xs text-muted-foreground">
+                    Cerca per ragione sociale
+                  </Label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Cerca agenzia..." value={searchNome} onChange={(e) => setSearchNome(e.target.value)} className="pl-9" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="cerca-ragione-sociale"
+                      placeholder="Ragione sociale, sede o comune…"
+                      value={searchNome}
+                      onChange={(e) => setSearchNome(e.target.value)}
+                      className="h-10 w-full min-w-[16rem] pl-9"
+                    />
                   </div>
                 </div>
-                <div className="w-40 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Codice iniziale</Label>
-                  <Input placeholder="es. MED" value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
+                <div className="space-y-1">
+                  <Label htmlFor="cerca-codice-agenzia" className="text-xs text-muted-foreground">Codice iniziale</Label>
+                  <Input
+                    id="cerca-codice-agenzia"
+                    placeholder="es. MED"
+                    value={searchCodice}
+                    onChange={(e) => setSearchCodice(e.target.value)}
+                    className="h-10"
+                  />
                 </div>
-                <div className="space-y-1 w-52">
+                <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Tipo</Label>
                   <SearchableSelect
                     options={[
