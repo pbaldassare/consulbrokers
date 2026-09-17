@@ -23,12 +23,15 @@ const esitoBadge: Record<string, "default" | "secondary" | "destructive"> = {
   ko: "destructive",
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const PortafoglioDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [eventoForm, setEventoForm] = useState({ data_scadenza: "", importo_atteso: "", note: "" });
+  const isValidId = !!id && UUID_RE.test(id);
 
   const { data: portafoglio, isLoading } = useQuery({
     queryKey: ["portafoglio_incassi", id],
@@ -37,11 +40,11 @@ const PortafoglioDetail = () => {
         .from("portafoglio_incassi")
         .select("*, uffici(nome_ufficio), profiles(nome, cognome)")
         .eq("id", id!)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data as any;
     },
-    enabled: !!id,
+    enabled: isValidId,
   });
 
   const { data: eventi } = useQuery({
@@ -54,7 +57,7 @@ const PortafoglioDetail = () => {
         .order("data_scadenza", { ascending: true });
       return (data || []);
     },
-    enabled: !!id,
+    enabled: isValidId,
   });
 
   const updateStatoMutation = useMutation({

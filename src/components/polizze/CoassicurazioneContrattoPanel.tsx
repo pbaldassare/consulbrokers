@@ -252,7 +252,7 @@ export function CoassicurazioneContrattoPanel({
                             if ((tipo === "agenzia" || tipo === "direzione") && agSel?.gruppo_compagnia_id) {
                               gruppo = agSel.gruppo_compagnia_id;
                             } else if (isBrokerLike(tipo)) {
-                              const gruppi = rapportiMap?.get(v) || [];
+                              const gruppi = gruppiFromRapportiMap(rapportiMap, v);
                               if (gruppi.length === 1) gruppo = gruppi[0];
                               else if (gruppi.length > 1 && gruppo && !gruppi.includes(gruppo)) gruppo = "";
                             }

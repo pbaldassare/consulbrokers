@@ -54,7 +54,7 @@ export function CoassicurazioneImportiBreakdown({
     [ripartoRows, totNetto, totAccessori, totTasse, lordo, provvFirma, provvNetto, provvAccessori],
   );
 
-  if (ripartoRows.length === 0 || !isRipartoSumValidForPreview(ripartoRows)) return null;
+  if (!Array.isArray(ripartoRows) || ripartoRows.length === 0 || !isRipartoSumValidForPreview(ripartoRows)) return null;
 
   const labelFor = (row: RipartoCoassicurazioneRow) => {
     const ag = compagnieList.find((c) => c.id === row.compagniaId);

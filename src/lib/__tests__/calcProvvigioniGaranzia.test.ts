@@ -135,6 +135,11 @@ describe("calcProvvigioniGaranzia", () => {
   it("esclude righe diritti di agenzia (solo tasse)", () => {
     expect(calcProvvigioniGaranzia([row({ dirittiAgenzia: true, netto: "", tasse: "50" })], matrice)).toBe(0);
   });
+
+  it("non crasha su input assente o non array", () => {
+    expect(calcProvvigioniGaranzia(undefined, matrice)).toBe(0);
+    expect(calcProvvigioniGaranzia(null, matrice)).toBe(0);
+  });
 });
 
 describe("resolveRowPctAccessori", () => {
