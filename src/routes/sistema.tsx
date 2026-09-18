@@ -33,7 +33,7 @@ export const sistemaRoutes = (
     <Route path="/backup-export" element={<RoleGuard allowedRoles={["admin"]}><BackupExport /></RoleGuard>} />
     <Route path="/manutenzione" element={<RoleGuard allowedRoles={["admin"]}><ManutenzionePage /></RoleGuard>} />
     <Route path="/tabelle-base" element={<RoleGuard allowedRoles={["admin"]}><TabelleBasePage /></RoleGuard>} />
-    <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin"]}><CompagnieList /></RoleGuard>} />
+    <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin", "ufficio"]} permissionKey="agenzie"><CompagnieList /></RoleGuard>} />
     {/* Categorie e Prodotti rimossi dal menu — gestiti nella tab Agenzie */}
     <Route path="/gestione-uffici" element={<RoleGuard allowedRoles={["admin"]}><GestioneUfficiPage /></RoleGuard>} />
     <Route path="/template" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><TemplatePage /></RoleGuard>} />

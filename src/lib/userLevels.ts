@@ -130,6 +130,7 @@ export const LEVELS: LevelConfig[] = [
       "titoli", "sinistri", "trattative", "calendario",
       "contabilita", "rimesse", "ec_clienti",
       "report", "estrazioni",
+      "anagrafiche", "agenzie",
       "documentale", "template",
       "provvigioni",
     ]),
