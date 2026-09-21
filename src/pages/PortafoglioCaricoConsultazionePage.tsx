@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Clock,
   Search,
@@ -57,6 +58,11 @@ const provvigioneRiga = getProvvigioneEC;
 
 const PortafoglioCaricoConsultazionePage = () => {
   const navigate = useNavigate();
+  const { isAdmin, profile, loading: authLoading } = useAuth();
+  const isCfo = profile?.ruolo === "cfo";
+  const seeAllSedi = isAdmin || isCfo;
+  const sedeLockedId = !seeAllSedi && profile?.ufficio_id ? profile.ufficio_id : null;
+  const authReady = !authLoading && !!profile && (seeAllSedi || !!sedeLockedId);
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState("garanzia_a");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -87,6 +93,22 @@ const PortafoglioCaricoConsultazionePage = () => {
     searchParams.get("vista") === "incassati" ? "incassati" : "pendenti",
   );
   const isVistaIncassati = vistaIncasso === "incassati";
+
+  // Utenti sede: forza la propria sede (RLS su tutta la vista va in timeout)
+  useEffect(() => {
+    if (!sedeLockedId) return;
+    setFiltroUffici((prev) => (prev.length === 1 && prev[0] === sedeLockedId ? prev : [sedeLockedId]));
+    if (searchParams.get("sedi") !== sedeLockedId) {
+      const sp = new URLSearchParams(searchParams);
+      sp.set("sedi", sedeLockedId);
+      setSearchParams(sp, { replace: true });
+    }
+  }, [sedeLockedId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const applySede = (q: any) => {
+    if (sedeLockedId) return q.eq("ufficio_id", sedeLockedId);
+    return applySedeFilter(q, filtroUffici);
+  };
 
   const hasActiveFilters =
     !!dateDa ||
@@ -146,7 +168,7 @@ const PortafoglioCaricoConsultazionePage = () => {
     setSearch("");
     setFiltroPeriodo("tutte");
     setUserTouched(false);
-    setFiltroUffici([]);
+    setFiltroUffici(sedeLockedId ? [sedeLockedId] : []);
     setVistaIncasso("pendenti");
     setSelectedIds(new Set());
     setPage(0);
@@ -154,7 +176,8 @@ const PortafoglioCaricoConsultazionePage = () => {
     sp.delete("periodo");
     sp.delete("dal");
     sp.delete("al");
-    sp.delete("sedi");
+    if (sedeLockedId) sp.set("sedi", sedeLockedId);
+    else sp.delete("sedi");
     sp.delete("vista");
     setSearchParams(sp, { replace: true });
   };
@@ -213,6 +236,7 @@ const PortafoglioCaricoConsultazionePage = () => {
     sortDirection,
     filtroUffici.join(","),
     vistaIncasso,
+    sedeLockedId,
   ]);
 
   const periodoOpts = { isVistaIncassati, dateDa, dateA, filtroPeriodo };
@@ -230,7 +254,9 @@ const PortafoglioCaricoConsultazionePage = () => {
       sortDirection,
       filtroUffici.join(","),
       vistaIncasso,
+      sedeLockedId,
     ],
+    enabled: authReady,
     retry: 1,
     staleTime: 15_000,
     queryFn: async () => {
@@ -239,7 +265,7 @@ const PortafoglioCaricoConsultazionePage = () => {
         .select(CARICO_SELECT_FIELDS, { count: "estimated" });
       q = applyPeriodoFilter(q, periodoOpts);
       q = applySearch(q, search);
-      q = applySedeFilter(q, filtroUffici);
+      q = applySede(q);
 
       const orderCol =
         sortField === "inizioPolizza" ? "durata_da"
@@ -400,7 +426,9 @@ const PortafoglioCaricoConsultazionePage = () => {
       dateA,
       filtroUffici.join(","),
       vistaIncasso,
+      sedeLockedId,
     ],
+    enabled: authReady,
     retry: 1,
     staleTime: 15_000,
     queryFn: async () => {
@@ -415,7 +443,7 @@ const PortafoglioCaricoConsultazionePage = () => {
           );
         q = applyPeriodoFilter(q, periodoOpts);
         q = applySearch(q, search);
-        q = applySedeFilter(q, filtroUffici);
+        q = applySede(q);
         const { data, error } = await q.range(from, from + batchSize - 1);
         if (error) throw new Error(error.message || "Errore totali Carico");
         const batch = data || [];
@@ -565,14 +593,16 @@ const PortafoglioCaricoConsultazionePage = () => {
               className="pl-9"
             />
           </div>
-          <UfficiFilterMultiSelect
-            value={filtroUffici}
-            onChange={(next) => {
-              setFiltroUffici(next);
-              setPage(0);
-              updateUrl({ sedi: next });
-            }}
-          />
+          {seeAllSedi && (
+            <UfficiFilterMultiSelect
+              value={filtroUffici}
+              onChange={(next) => {
+                setFiltroUffici(next);
+                setPage(0);
+                updateUrl({ sedi: next });
+              }}
+            />
+          )}
           <div className="flex items-center gap-1">
             <span
               className="text-xs text-muted-foreground"
@@ -696,7 +726,7 @@ const PortafoglioCaricoConsultazionePage = () => {
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoading || !authReady ? (
         <div className="text-center py-10 text-muted-foreground">Caricamento...</div>
       ) : isError ? (
         <div className="text-center py-10 space-y-3">
