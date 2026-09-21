@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -22,7 +23,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   addRegolazioneFattoriRighe,
   createRegolazioneFattoreRiga,
+  fattoreRegolazioneLabel,
   fattoriDisponibiliPerAnno,
+  formatAnnoSlotLabel,
+  formatIsoDateIt,
   removeRegolazioneFattoreRiga,
   updateRegolazioneFattoreImporto,
   yearSlotsFromDatePresunte,
@@ -76,6 +80,25 @@ export function RegolazioneFattoriImportiGrid({
     if (annoNum == null || !Number.isFinite(annoNum)) return fattori;
     return fattoriDisponibiliPerAnno(fattori, righe, annoNum);
   }, [fattori, righe, annoNum]);
+
+  useEffect(() => {
+    if (!addOpen) return;
+    // I picker nativi `type=date` (Calcola da durata) dipingono l'icona
+    // calendario sopra overlay/modale: nascondili finché il dialog è aperto.
+    const style = document.createElement("style");
+    style.setAttribute("data-regolazione-fattore-dialog", "");
+    style.textContent = `
+      input[type="date"]::-webkit-calendar-picker-indicator {
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+      [data-radix-dialog-overlay] { z-index: 200; }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      style.remove();
+    };
+  }, [addOpen]);
 
   const openAdd = () => {
     const firstSlot = slots[0];
@@ -180,26 +203,22 @@ export function RegolazioneFattoriImportiGrid({
             <TableBody>
               {righe.map((r) => {
                 const f = fattoriById.get(r.fattore_id);
-                const desc = r.fattore_descrizione || f?.descrizione || r.fattore_id;
-                const codice = r.fattore_codice || f?.codice;
+                const label = fattoreRegolazioneLabel({
+                  descrizione: r.fattore_descrizione || f?.descrizione,
+                  codice: r.fattore_codice || f?.codice,
+                });
+                const dataIt = formatIsoDateIt(r.data_presunta);
                 return (
                   <TableRow key={r.key}>
                     <TableCell className="font-mono text-xs">
                       {r.anno}
-                      {r.data_presunta ? (
+                      {dataIt ? (
                         <span className="block text-[10px] text-muted-foreground font-sans">
-                          {r.data_presunta}
+                          {dataIt}
                         </span>
                       ) : null}
                     </TableCell>
-                    <TableCell className="text-sm">
-                      {desc}
-                      {codice ? (
-                        <span className="ml-1 text-[10px] text-muted-foreground font-mono">
-                          ({codice})
-                        </span>
-                      ) : null}
-                    </TableCell>
+                    <TableCell className="text-sm">{label}</TableCell>
                     <TableCell className="text-right">
                       {editable ? (
                         <Input
@@ -249,40 +268,44 @@ export function RegolazioneFattoriImportiGrid({
         Aggiungi i fattori necessari con +. Puoi selezionarne più di uno per lo stesso anno.
       </p>
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={addOpen} onOpenChange={setAddOpen} modal>
+        <DialogContent
+          className="z-[200] isolate w-[min(100vw-2rem,600px)] max-w-[600px] overflow-hidden sm:max-w-[600px]"
+        >
           <DialogHeader>
             <DialogTitle>Aggiungi fattore</DialogTitle>
+            <DialogDescription className="sr-only">
+              Seleziona l&apos;anno e uno o più fattori di regolazione da aggiungere.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-1">
-            <div className="space-y-1.5">
+          <div className="space-y-4 py-1">
+            <div className="relative z-10 space-y-1.5">
               <Label className="text-xs">Anno / data presunta</Label>
               <Select value={pickAnno} onValueChange={(v) => {
                 setPickAnno(v);
                 setPickFattoreIds([]);
               }}>
-                <SelectTrigger>
+                <SelectTrigger className="relative z-10 w-full">
                   <SelectValue placeholder="Seleziona anno" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[210]" position="popper">
                   {slots.map((s) => (
                     <SelectItem key={s.anno} value={String(s.anno)}>
-                      {s.anno}
-                      {s.data_presunta ? ` (${s.data_presunta})` : ""}
+                      {formatAnnoSlotLabel(s)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <Label className="text-xs">Fattori</Label>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <Label className="shrink-0 text-xs">Fattori</Label>
                 {pickAnno && fattoriDisponibili.length > 0 && (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="h-7 px-2 text-xs"
+                    className="h-7 shrink-0 px-2.5 text-xs"
                     onClick={toggleSelectAll}
                   >
                     {allDisponibiliSelected ? "Deseleziona tutto" : "Seleziona tutto"}
@@ -296,24 +319,23 @@ export function RegolazioneFattoriImportiGrid({
                   Nessun fattore disponibile per questo anno
                 </p>
               ) : (
-                <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border p-2">
+                <div className="max-h-72 overflow-x-hidden overflow-y-auto rounded-md border p-1.5">
                   {fattoriDisponibili.map((f) => {
                     const checked = pickFattoreIds.includes(f.id);
+                    const label = fattoreRegolazioneLabel(f);
                     return (
                       <label
                         key={f.id}
-                        className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-accent/40"
+                        className="flex min-h-10 cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 text-sm leading-snug hover:bg-accent/40"
                       >
                         <Checkbox
                           checked={checked}
                           onCheckedChange={() => toggleFattore(f.id)}
-                          aria-label={f.descrizione}
+                          aria-label={label}
+                          className="mt-0.5 shrink-0"
                         />
-                        <span className="truncate">
-                          {f.descrizione}{" "}
-                          <span className="font-mono text-[10px] text-muted-foreground">
-                            ({f.codice})
-                          </span>
+                        <span className="min-w-0 flex-1 whitespace-normal break-words">
+                          {label}
                         </span>
                       </label>
                     );
@@ -322,7 +344,7 @@ export function RegolazioneFattoriImportiGrid({
               )}
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:justify-end">
             <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
               Annulla
             </Button>

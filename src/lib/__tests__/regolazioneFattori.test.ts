@@ -4,7 +4,10 @@ import {
   addRegolazioneFattoriRighe,
   buildRegolazioneFattoriRows,
   createRegolazioneFattoreRiga,
+  fattoreRegolazioneLabel,
   fattoriDisponibiliPerAnno,
+  formatAnnoSlotLabel,
+  formatIsoDateIt,
   regolazioneFattoreKey,
   removeRegolazioneFattoreRiga,
   rowsToInsertPayload,
@@ -28,6 +31,59 @@ describe("yearFromIsoDate", () => {
   });
   it("null senza data né fallback", () => {
     expect(yearFromIsoDate("")).toBeNull();
+  });
+});
+
+describe("fattoreRegolazioneLabel", () => {
+  it("usa solo la descrizione italiana, senza codice", () => {
+    expect(
+      fattoreRegolazioneLabel({ codice: "fatturato", descrizione: "Fatturato" }),
+    ).toBe("Fatturato");
+    expect(
+      fattoreRegolazioneLabel({
+        codice: "num_dipendenti",
+        descrizione: "N° dipendenti",
+      }),
+    ).toBe("N° dipendenti");
+    expect(
+      fattoreRegolazioneLabel({
+        codice: "superficie",
+        descrizione: "Superficie (mq)",
+      }),
+    ).toBe("Superficie (mq)");
+  });
+
+  it("se manca la descrizione usa il catalogo standard, non lo snake_case", () => {
+    expect(fattoreRegolazioneLabel({ codice: "valore_assicurato" })).toBe(
+      "Valore assicurato",
+    );
+  });
+
+  it("non concatena il codice tra parentesi", () => {
+    const label = fattoreRegolazioneLabel({
+      codice: "fatturato",
+      descrizione: "Fatturato",
+    });
+    expect(label).not.toContain("(fatturato)");
+    expect(label).not.toMatch(/num_dipendenti|valore_assicurato/);
+  });
+});
+
+describe("formatIsoDateIt / formatAnnoSlotLabel", () => {
+  it("formatta ISO in italiano", () => {
+    expect(formatIsoDateIt("2027-06-30")).toBe("30/06/2027");
+    expect(formatIsoDateIt(null)).toBeNull();
+    expect(formatIsoDateIt("2027")).toBeNull();
+  });
+
+  it("etichetta anno pulita, senza ISO grezzo", () => {
+    expect(formatAnnoSlotLabel({ anno: 2027, data_presunta: "2027-06-30" })).toBe(
+      "2027 — 30/06/2027",
+    );
+    expect(formatAnnoSlotLabel({ anno: 2028, data_presunta: null })).toBe("2028");
+    expect(formatAnnoSlotLabel({ anno: 2027, data_presunta: "2027-06-30" })).not.toContain(
+      "2027-06-30",
+    );
   });
 });
 

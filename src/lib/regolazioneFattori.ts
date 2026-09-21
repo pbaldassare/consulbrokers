@@ -3,11 +3,39 @@
  * Chiave: `${fattoreId}|${anno}` — unique DB (titolo_id, fattore_id, anno).
  */
 
+import { FATTORI_REGOLAZIONE_STANDARD } from "@/lib/fattoriRegolazioneStandard";
+
 export type FattoreRegolazioneRef = {
   id: string;
   codice: string;
   descrizione: string;
 };
+
+/** Etichetta UI: solo descrizione italiana, mai il codice snake_case. */
+export function fattoreRegolazioneLabel(
+  f: { descrizione?: string | null; codice?: string | null } | null | undefined,
+): string {
+  const desc = f?.descrizione?.trim();
+  if (desc) return desc;
+  const codice = f?.codice?.trim();
+  if (!codice) return "Fattore";
+  const std = FATTORI_REGOLAZIONE_STANDARD.find((s) => s.codice === codice);
+  if (std) return std.descrizione;
+  return codice.replace(/_/g, " ");
+}
+
+/** ISO `yyyy-mm-dd` → `dd/mm/yyyy`. */
+export function formatIsoDateIt(iso: string | null | undefined): string | null {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+/** Etichetta slot anno: `2027` oppure `2027 — 30/06/2027`. */
+export function formatAnnoSlotLabel(slot: Pick<AnnoSlot, "anno" | "data_presunta">): string {
+  const it = formatIsoDateIt(slot.data_presunta);
+  return it ? `${slot.anno} — ${it}` : String(slot.anno);
+}
 
 export type RegolazioneFattoreExisting = {
   fattore_id: string;
