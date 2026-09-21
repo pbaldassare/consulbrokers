@@ -31,6 +31,7 @@ import TitoliDaIncassarePage from "@/pages/estrazioni/TitoliDaIncassarePage";
 import RichiestaQuietanzaPage from "@/pages/estrazioni/RichiestaQuietanzaPage";
 import RegistroRichiesteQuietanzaPage from "@/pages/estrazioni/RegistroRichiesteQuietanzaPage";
 import ComunicazioniIncassoPage from "@/pages/estrazioni/ComunicazioniIncassoPage";
+import PrimaNotaPage from "@/pages/estrazioni/PrimaNotaPage";
 import PolizzeTacitoRinnovoPage from "@/pages/estrazioni/PolizzeTacitoRinnovoPage";
 import ElaborazioniPage from "@/pages/estrazioni/ElaborazioniPage";
 import NidificazionePage from "@/pages/estrazioni/NidificazionePage";
@@ -65,6 +66,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/estrazioni/richiesta-quietanza" element={<RichiestaQuietanzaPage />} />
     <Route path="/portafoglio/estrazioni/richiesta-quietanza/registro" element={<RegistroRichiesteQuietanzaPage />} />
     <Route path="/portafoglio/estrazioni/comunicazioni-incasso" element={<ComunicazioniIncassoPage />} />
+    <Route path="/portafoglio/estrazioni/prima-nota" element={<PrimaNotaPage />} />
     <Route path="/portafoglio/estrazioni/tacito-rinnovo" element={<PolizzeTacitoRinnovoPage />} />
     <Route path="/portafoglio/estrazioni/elaborazioni" element={<ElaborazioniPage />} />
     <Route path="/portafoglio/estrazioni/nidificazione" element={<NidificazionePage />} />

@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Wand2,
   GitBranch,
+  BookOpen,
   LucideIcon,
 } from "lucide-react";
 
@@ -36,6 +37,7 @@ const actions: ActionCard[] = [
   { label: "Storico E/C Clienti", description: "PDF E/C Clienti archiviati: ricerca per cliente, periodo e download", icon: Archive, path: "/contabilita/ec-cliente/storico" },
   { label: "Richiesta Quietanza", description: "Polizze in scadenza: filtri, invio mail aggregata e registro", icon: Mail, path: "/portafoglio/estrazioni/richiesta-quietanza" },
   { label: "Comunicazioni di incasso", description: "Avvisi email di incasso alle agenzie: filtri, stato e anteprima", icon: Inbox, path: "/portafoglio/estrazioni/comunicazioni-incasso" },
+  { label: "Prima nota", description: "Polizze incassate nel periodo, per sede e agenzia, con export Excel", icon: BookOpen, path: "/portafoglio/estrazioni/prima-nota" },
   { label: "Tacito rinnovo", description: "Polizze con o senza tacito rinnovo, per sede e periodo di scadenza", icon: RefreshCw, path: "/portafoglio/estrazioni/tacito-rinnovo" },
   { label: "Elaborazioni", description: "Analisi IA dei documenti di polizza e generazione documenti da template", icon: Wand2, path: "/portafoglio/estrazioni/elaborazioni" },
   { label: "Registro Richieste Quietanza", description: "Storico invii email richiesta quietanza alle agenzie", icon: Archive, path: "/portafoglio/estrazioni/richiesta-quietanza/registro" },

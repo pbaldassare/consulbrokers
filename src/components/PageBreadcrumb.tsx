@@ -66,6 +66,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "ec-clienti": "E/C Clienti",
   "richiesta-quietanza": "Richiesta Quietanza",
   "comunicazioni-incasso": "Comunicazioni di incasso",
+  "prima-nota": "Prima nota",
   "tacito-rinnovo": "Tacito rinnovo",
   "registro": "Registro",
   "regolazioni": "Regolazioni",

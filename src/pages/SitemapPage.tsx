@@ -266,6 +266,7 @@ const sezioni = [
       { nome: "Premi Scoperti/Garantiti", desc: "Analisi premi scoperti vs garantiti (limite mora, per sede)", ruoli: ["admin", "cfo", "ufficio"] },
       { nome: "E/C Clienti (Estrazioni)", desc: "Estratti conto clienti in formato esportabile", ruoli: ["admin", "cfo", "ufficio"] },
       { nome: "Comunicazioni di incasso", desc: "Registro avvisi email di incasso alle agenzie (sede solo le proprie; admin raggruppate per sede)", ruoli: ["admin", "cfo", "ufficio"] },
+      { nome: "Prima nota", desc: "Polizze incassate nel periodo (sede solo le proprie; admin raggruppate per sede) con export Excel", ruoli: ["admin", "cfo", "ufficio"] },
       { nome: "Tacito rinnovo", desc: "Polizze con/senza tacito rinnovo per fine garanzia (sede solo le proprie; admin raggruppate per sede)", ruoli: ["admin", "cfo", "ufficio"] },
     ],
   },
