@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addRegolazioneFattoreRiga,
+  addRegolazioneFattoriRighe,
   buildRegolazioneFattoriRows,
   createRegolazioneFattoreRiga,
   fattoriDisponibiliPerAnno,
@@ -133,6 +134,20 @@ describe("add / remove / update", () => {
       "f1",
       "f2",
     ]);
+  });
+
+  it("addRegolazioneFattoriRighe aggiunge più fattori e ignora duplicati", () => {
+    const esistenti = [
+      createRegolazioneFattoreRiga({ fattore: fattori[0], anno: 2027, importo_esposto: 10 }),
+    ];
+    const nuove = [
+      createRegolazioneFattoreRiga({ fattore: fattori[0], anno: 2027, importo_esposto: 99 }),
+      createRegolazioneFattoreRiga({ fattore: fattori[1], anno: 2027, importo_esposto: 20 }),
+    ];
+    const out = addRegolazioneFattoriRighe(esistenti, nuove);
+    expect(out).toHaveLength(2);
+    expect(out[0].importo_esposto).toBe(10);
+    expect(out[1].fattore_id).toBe("f2");
   });
 });
 

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  addRegolazioneFattoreRiga,
+  addRegolazioneFattoriRighe,
   createRegolazioneFattoreRiga,
   fattoriDisponibiliPerAnno,
   removeRegolazioneFattoreRiga,
@@ -57,7 +58,7 @@ export function RegolazioneFattoriImportiGrid({
   loading = false,
 }: Props) {
   const [addOpen, setAddOpen] = useState(false);
-  const [pickFattoreId, setPickFattoreId] = useState("");
+  const [pickFattoreIds, setPickFattoreIds] = useState<string[]>([]);
   const [pickAnno, setPickAnno] = useState<string>("");
 
   const slots = useMemo(
@@ -79,21 +80,43 @@ export function RegolazioneFattoriImportiGrid({
   const openAdd = () => {
     const firstSlot = slots[0];
     setPickAnno(firstSlot ? String(firstSlot.anno) : "");
-    setPickFattoreId("");
+    setPickFattoreIds([]);
     setAddOpen(true);
+  };
+
+  const toggleFattore = (id: string) => {
+    setPickFattoreIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const allDisponibiliSelected =
+    fattoriDisponibili.length > 0 &&
+    fattoriDisponibili.every((f) => pickFattoreIds.includes(f.id));
+
+  const toggleSelectAll = () => {
+    if (allDisponibiliSelected) {
+      setPickFattoreIds([]);
+    } else {
+      setPickFattoreIds(fattoriDisponibili.map((f) => f.id));
+    }
   };
 
   const confirmAdd = () => {
     const slot = slots.find((s) => s.anno === Number(pickAnno));
-    const fattore = fattoriById.get(pickFattoreId);
-    if (!fattore || !slot) return;
-    const riga = createRegolazioneFattoreRiga({
-      fattore,
-      anno: slot.anno,
-      data_presunta: slot.data_presunta,
-      importo_esposto: 0,
-    });
-    onChange(addRegolazioneFattoreRiga(righe, riga));
+    if (!slot || pickFattoreIds.length === 0) return;
+    const nuove = pickFattoreIds
+      .map((fid) => fattoriById.get(fid))
+      .filter((f): f is FattoreRegolazioneRef => !!f)
+      .map((fattore) =>
+        createRegolazioneFattoreRiga({
+          fattore,
+          anno: slot.anno,
+          data_presunta: slot.data_presunta,
+          importo_esposto: 0,
+        }),
+      );
+    onChange(addRegolazioneFattoriRighe(righe, nuove));
     setAddOpen(false);
   };
 
@@ -115,9 +138,9 @@ export function RegolazioneFattoriImportiGrid({
   }
 
   const canConfirm =
-    !!pickFattoreId &&
     !!pickAnno &&
-    fattoriDisponibili.some((f) => f.id === pickFattoreId);
+    pickFattoreIds.length > 0 &&
+    pickFattoreIds.every((id) => fattoriDisponibili.some((f) => f.id === id));
 
   return (
     <div className="space-y-2 md:col-span-3">
@@ -223,7 +246,7 @@ export function RegolazioneFattoriImportiGrid({
       )}
 
       <p className="text-[11px] text-muted-foreground">
-        Aggiungi i fattori necessari con +. I 5 standard e i custom del sottoramo sono selezionabili.
+        Aggiungi i fattori necessari con +. Puoi selezionarne più di uno per lo stesso anno.
       </p>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -236,7 +259,7 @@ export function RegolazioneFattoriImportiGrid({
               <Label className="text-xs">Anno / data presunta</Label>
               <Select value={pickAnno} onValueChange={(v) => {
                 setPickAnno(v);
-                setPickFattoreId("");
+                setPickFattoreIds([]);
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleziona anno" />
@@ -252,29 +275,51 @@ export function RegolazioneFattoriImportiGrid({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Fattore</Label>
-              <Select
-                value={pickFattoreId}
-                onValueChange={setPickFattoreId}
-                disabled={!pickAnno || fattoriDisponibili.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      fattoriDisponibili.length === 0
-                        ? "Nessun fattore disponibile per questo anno"
-                        : "Seleziona fattore"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {fattoriDisponibili.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.descrizione} ({f.codice})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">Fattori</Label>
+                {pickAnno && fattoriDisponibili.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={toggleSelectAll}
+                  >
+                    {allDisponibiliSelected ? "Deseleziona tutto" : "Seleziona tutto"}
+                  </Button>
+                )}
+              </div>
+              {!pickAnno ? (
+                <p className="text-xs text-muted-foreground">Seleziona prima l&apos;anno.</p>
+              ) : fattoriDisponibili.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Nessun fattore disponibile per questo anno
+                </p>
+              ) : (
+                <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border p-2">
+                  {fattoriDisponibili.map((f) => {
+                    const checked = pickFattoreIds.includes(f.id);
+                    return (
+                      <label
+                        key={f.id}
+                        className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-accent/40"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => toggleFattore(f.id)}
+                          aria-label={f.descrizione}
+                        />
+                        <span className="truncate">
+                          {f.descrizione}{" "}
+                          <span className="font-mono text-[10px] text-muted-foreground">
+                            ({f.codice})
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -282,7 +327,7 @@ export function RegolazioneFattoriImportiGrid({
               Annulla
             </Button>
             <Button type="button" onClick={confirmAdd} disabled={!canConfirm}>
-              Aggiungi
+              {pickFattoreIds.length > 1 ? `Aggiungi (${pickFattoreIds.length})` : "Aggiungi"}
             </Button>
           </DialogFooter>
         </DialogContent>

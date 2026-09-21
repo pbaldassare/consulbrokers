@@ -131,6 +131,14 @@ export function addRegolazioneFattoreRiga(
   return [...righe, riga];
 }
 
+/** Aggiunge più fattori per lo stesso anno; ignora duplicati fattore+anno. */
+export function addRegolazioneFattoriRighe(
+  righe: RegolazioneFattoreRiga[],
+  nuove: RegolazioneFattoreRiga[],
+): RegolazioneFattoreRiga[] {
+  return (nuove ?? []).reduce((acc, riga) => addRegolazioneFattoreRiga(acc, riga), righe);
+}
+
 export function removeRegolazioneFattoreRiga(
   righe: RegolazioneFattoreRiga[],
   key: string,
