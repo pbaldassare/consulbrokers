@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Shield, FileText, CalendarClock, MessageSquare,
   Bell, LogOut, Menu, X, AlertTriangle, Building2, Phone,
-  ChevronLeft, ChevronRight, Sparkles,
+  ChevronLeft, ChevronRight, Sparkles, Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -81,6 +81,7 @@ const TourSidebarButton = ({ compact }: { compact?: boolean }) => {
 const allNavItems = [
   { to: "/cliente", label: "Dashboard", icon: LayoutDashboard, end: true, tour: "cl-nav-dashboard" },
   { to: "/cliente/polizze", label: "Polizze", icon: Shield, tour: "cl-nav-polizze" },
+  { to: "/cliente/parco-veicoli", label: "Parco Veicoli", icon: Truck, tour: "cl-nav-parco" },
   { to: "/cliente/scadenze", label: "Scadenziario", icon: CalendarClock, tour: "cl-nav-scadenziario" },
   { to: "/cliente/sinistri", label: "Sinistri", icon: AlertTriangle, tour: "cl-nav-sinistri" },
   { to: "/cliente/chat", label: "Chat", icon: MessageSquare, hasBadge: true, tour: "cl-nav-chat" },

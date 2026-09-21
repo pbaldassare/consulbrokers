@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Shield, CalendarClock, AlertTriangle, TrendingUp } from "lucide-react";
+import { Shield, CalendarClock, AlertTriangle, TrendingUp, Truck } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, differenceInDays } from "date-fns";
 import { it } from "date-fns/locale";
@@ -30,6 +30,7 @@ const ClienteDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [polizze, setPolizze] = useState<ClienteDashPolizza[]>([]);
   const [sinistri, setSinistri] = useState<ClienteDashSinistro[]>([]);
+  const [mezziCount, setMezziCount] = useState(0);
   const [today] = useState(() => new Date());
 
   useEffect(() => {
@@ -43,7 +44,7 @@ const ClienteDashboard = () => {
       const [polRes, cgaRes, sinRes] = await Promise.all([
         supabase
           .from("titoli")
-          .select("id, numero_titolo, stato, premio_lordo, frazionamento, periodicita, data_scadenza, durata_da, garanzia_da, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, compagnie(nome), rami:rami!titoli_ramo_id_fkey(descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(descrizione))")
+          .select("id, numero_titolo, stato, premio_lordo, frazionamento, periodicita, data_scadenza, durata_da, garanzia_da, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, libro_matricola, compagnie(nome), rami:rami!titoli_ramo_id_fkey(descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(descrizione))")
           .in("cliente_anagrafica_id", ids),
         supabase
           .from("polizza_cga")
@@ -101,6 +102,20 @@ const ClienteDashboard = () => {
         importo: Number(s.importo_liquidato) || Number(s.importo_riserva) || 0,
         dataApertura: s.data_apertura ?? null,
       })));
+
+      const lmTitoloIds = (polRes.data ?? [])
+        .filter((t: any) => t.libro_matricola && t.libro_matricola !== "no")
+        .map((t: any) => t.id);
+      if (lmTitoloIds.length) {
+        const { count } = await supabase
+          .from("libro_matricola_mezzi")
+          .select("id", { count: "exact", head: true })
+          .in("titolo_id", lmTitoloIds)
+          .is("data_esclusione", null);
+        setMezziCount(count || 0);
+      } else {
+        setMezziCount(0);
+      }
       setLoading(false);
     };
     load();
@@ -144,6 +159,7 @@ const ClienteDashboard = () => {
     { title: "Premi Totali", value: fmt(premiTotali), icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-100", link: "/cliente/polizze", hint: "Somma dei premi lordi annui (rata × frazionamento) delle polizze madri attive." },
     { title: "Sinistri Aperti", value: sinAperti, icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-100", link: "/cliente/sinistri", hint: "Sinistri non ancora chiusi o respinti: in valutazione, lavorazione, attesa documenti o liquidazione." },
     { title: "Scadenze 90gg", value: prossimeScadenze, icon: CalendarClock, color: "text-red-600", bg: "bg-red-100", link: "/cliente/scadenze", hint: "Polizze attive che scadono nei prossimi 90 giorni: pianifica i rinnovi per tempo." },
+    { title: "Parco Veicoli", value: mezziCount, icon: Truck, color: "text-teal-700", bg: "bg-teal-100", link: "/cliente/parco-veicoli", hint: "Mezzi attivi sul libro matricola delle polizze flotta." },
   ];
 
   const scadenzeVicine = useMemo(
@@ -166,10 +182,10 @@ const ClienteDashboard = () => {
         <p className="text-muted-foreground text-sm mt-1">Panoramica della tua situazione assicurativa</p>
       </div>
 
-      <div data-tour="cl-dash-kpi" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="cl-dash-kpi" className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {kpis.map((k) => (
           <Link key={k.title} to={k.link}>
-            <Card className="hover:shadow-lg transition-all cursor-pointer border-l-4" style={{ borderLeftColor: k.color.includes("emerald") ? "#059669" : k.color.includes("blue") ? "#2563eb" : k.color.includes("orange") ? "#ea580c" : "#dc2626" }}>
+              <Card className="hover:shadow-lg transition-all cursor-pointer border-l-4" style={{ borderLeftColor: k.color.includes("emerald") ? "#059669" : k.color.includes("blue") ? "#2563eb" : k.color.includes("orange") ? "#ea580c" : k.color.includes("teal") ? "#0f766e" : "#dc2626" }}>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center justify-between">
                   <div>

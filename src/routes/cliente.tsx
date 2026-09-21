@@ -15,12 +15,14 @@ import ClienteSinistroDetail from "@/pages/cliente/ClienteSinistroDetail";
 import ClienteAnagrafica from "@/pages/cliente/ClienteAnagrafica";
 import ClienteUfficio from "@/pages/cliente/ClienteUfficio";
 import ClienteAssistente from "@/pages/cliente/ClienteAssistente";
+import ClienteParcoVeicoli from "@/pages/cliente/ClienteParcoVeicoli";
 
 export const clienteRoutes = (
   <Route element={<ClienteGuard><ClienteLayout /></ClienteGuard>}>
     <Route path="/cliente" element={<ClienteDashboard />} />
     <Route path="/cliente/polizze" element={<ClientePolizze />} />
     <Route path="/cliente/polizze/:id" element={<ClientePolizzaDetail />} />
+    <Route path="/cliente/parco-veicoli" element={<ClienteParcoVeicoli />} />
     <Route path="/cliente/documenti" element={<ClienteDocumenti />} />
     <Route path="/cliente/scadenze" element={<ClienteScadenze />} />
     <Route path="/cliente/chat" element={<ClienteComunicazioni />} />

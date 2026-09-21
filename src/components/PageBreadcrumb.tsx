@@ -74,6 +74,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "rientro-documenti": "Rientro Documenti",
   "import-titoli": "Import Titoli",
   "titoli": "Titoli",
+  "parco-veicoli": "Parco Veicoli",
   "sinistri": "Sinistri",
   "apertura": "Apertura",
   "prescrizioni": "Termini di prescrizione",
