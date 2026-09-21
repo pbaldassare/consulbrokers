@@ -12,19 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   addRegolazioneFattoriRighe,
-  createRegolazioneFattoreRiga,
+  createRegolazioneFattoriCartesian,
   fattoreRegolazioneLabel,
-  fattoriDisponibiliPerAnno,
+  fattoriDisponibiliPerAnni,
   formatAnnoSlotLabel,
   formatIsoDateIt,
   removeRegolazioneFattoreRiga,
@@ -63,7 +56,7 @@ export function RegolazioneFattoriImportiGrid({
 }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [pickFattoreIds, setPickFattoreIds] = useState<string[]>([]);
-  const [pickAnno, setPickAnno] = useState<string>("");
+  const [pickAnni, setPickAnni] = useState<number[]>([]);
 
   const slots = useMemo(
     () => yearSlotsFromDatePresunte(datePresunte, fallbackAnno),
@@ -75,11 +68,10 @@ export function RegolazioneFattoriImportiGrid({
     [fattori],
   );
 
-  const annoNum = pickAnno ? Number(pickAnno) : null;
-  const fattoriDisponibili = useMemo(() => {
-    if (annoNum == null || !Number.isFinite(annoNum)) return fattori;
-    return fattoriDisponibiliPerAnno(fattori, righe, annoNum);
-  }, [fattori, righe, annoNum]);
+  const fattoriDisponibili = useMemo(
+    () => fattoriDisponibiliPerAnni(fattori, righe, pickAnni),
+    [fattori, righe, pickAnni],
+  );
 
   useEffect(() => {
     if (!addOpen) return;
@@ -101,10 +93,20 @@ export function RegolazioneFattoriImportiGrid({
   }, [addOpen]);
 
   const openAdd = () => {
-    const firstSlot = slots[0];
-    setPickAnno(firstSlot ? String(firstSlot.anno) : "");
+    setPickAnni([]);
     setPickFattoreIds([]);
     setAddOpen(true);
+  };
+
+  const toggleAnno = (anno: number) => {
+    setPickAnni((prev) => {
+      const next = prev.includes(anno) ? prev.filter((x) => x !== anno) : [...prev, anno];
+      const available = new Set(
+        fattoriDisponibiliPerAnni(fattori, righe, next).map((f) => f.id),
+      );
+      setPickFattoreIds((ids) => ids.filter((id) => available.has(id)));
+      return next;
+    });
   };
 
   const toggleFattore = (id: string) => {
@@ -113,11 +115,30 @@ export function RegolazioneFattoriImportiGrid({
     );
   };
 
+  const allDateSelected = slots.length > 0 && slots.every((s) => pickAnni.includes(s.anno));
+
+  const toggleSelectAllDate = () => {
+    if (allDateSelected) {
+      setPickAnni([]);
+      const available = new Set(
+        fattoriDisponibiliPerAnni(fattori, righe, []).map((f) => f.id),
+      );
+      setPickFattoreIds((ids) => ids.filter((id) => available.has(id)));
+    } else {
+      const next = slots.map((s) => s.anno);
+      setPickAnni(next);
+      const available = new Set(
+        fattoriDisponibiliPerAnni(fattori, righe, next).map((f) => f.id),
+      );
+      setPickFattoreIds((ids) => ids.filter((id) => available.has(id)));
+    }
+  };
+
   const allDisponibiliSelected =
     fattoriDisponibili.length > 0 &&
     fattoriDisponibili.every((f) => pickFattoreIds.includes(f.id));
 
-  const toggleSelectAll = () => {
+  const toggleSelectAllFattori = () => {
     if (allDisponibiliSelected) {
       setPickFattoreIds([]);
     } else {
@@ -125,21 +146,29 @@ export function RegolazioneFattoriImportiGrid({
     }
   };
 
+  const selectedSlots = useMemo(
+    () => slots.filter((s) => pickAnni.includes(s.anno)),
+    [slots, pickAnni],
+  );
+
+  const selectedFattori = useMemo(
+    () =>
+      pickFattoreIds
+        .map((fid) => fattoriById.get(fid))
+        .filter((f): f is FattoreRegolazioneRef => !!f),
+    [pickFattoreIds, fattoriById],
+  );
+
+  const nuovePreview = useMemo(
+    () => createRegolazioneFattoriCartesian(selectedFattori, selectedSlots),
+    [selectedFattori, selectedSlots],
+  );
+
+  const nuoveCount = addRegolazioneFattoriRighe(righe, nuovePreview).length - righe.length;
+
   const confirmAdd = () => {
-    const slot = slots.find((s) => s.anno === Number(pickAnno));
-    if (!slot || pickFattoreIds.length === 0) return;
-    const nuove = pickFattoreIds
-      .map((fid) => fattoriById.get(fid))
-      .filter((f): f is FattoreRegolazioneRef => !!f)
-      .map((fattore) =>
-        createRegolazioneFattoreRiga({
-          fattore,
-          anno: slot.anno,
-          data_presunta: slot.data_presunta,
-          importo_esposto: 0,
-        }),
-      );
-    onChange(addRegolazioneFattoriRighe(righe, nuove));
+    if (pickAnni.length === 0 || pickFattoreIds.length === 0) return;
+    onChange(addRegolazioneFattoriRighe(righe, nuovePreview));
     setAddOpen(false);
   };
 
@@ -160,10 +189,7 @@ export function RegolazioneFattoriImportiGrid({
     );
   }
 
-  const canConfirm =
-    !!pickAnno &&
-    pickFattoreIds.length > 0 &&
-    pickFattoreIds.every((id) => fattoriDisponibili.some((f) => f.id === id));
+  const canConfirm = pickAnni.length > 0 && pickFattoreIds.length > 0;
 
   return (
     <div className="space-y-2 md:col-span-3">
@@ -265,7 +291,8 @@ export function RegolazioneFattoriImportiGrid({
       )}
 
       <p className="text-[11px] text-muted-foreground">
-        Aggiungi i fattori necessari con +. Puoi selezionarne più di uno per lo stesso anno.
+        Aggiungi i fattori necessari con +. Puoi selezionare più date e più fattori: ogni
+        combinazione viene aggiunta.
       </p>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen} modal>
@@ -275,51 +302,75 @@ export function RegolazioneFattoriImportiGrid({
           <DialogHeader>
             <DialogTitle>Aggiungi fattore</DialogTitle>
             <DialogDescription className="sr-only">
-              Seleziona l&apos;anno e uno o più fattori di regolazione da aggiungere.
+              Seleziona uno o più anni e uno o più fattori di regolazione da aggiungere.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-1">
-            <div className="relative z-10 space-y-1.5">
-              <Label className="text-xs">Anno / data presunta</Label>
-              <Select value={pickAnno} onValueChange={(v) => {
-                setPickAnno(v);
-                setPickFattoreIds([]);
-              }}>
-                <SelectTrigger className="relative z-10 w-full">
-                  <SelectValue placeholder="Seleziona anno" />
-                </SelectTrigger>
-                <SelectContent className="z-[210]" position="popper">
-                  {slots.map((s) => (
-                    <SelectItem key={s.anno} value={String(s.anno)}>
-                      {formatAnnoSlotLabel(s)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <Label className="shrink-0 text-xs">Fattori</Label>
-                {pickAnno && fattoriDisponibili.length > 0 && (
+                <Label className="shrink-0 text-xs">Anno / data presunta</Label>
+                {slots.length > 0 && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="h-7 shrink-0 px-2.5 text-xs"
-                    onClick={toggleSelectAll}
+                    onClick={toggleSelectAllDate}
+                  >
+                    {allDateSelected ? "Deseleziona tutto" : "Seleziona tutto"}
+                  </Button>
+                )}
+              </div>
+              {slots.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nessuna data presunta disponibile.</p>
+              ) : (
+                <div className="max-h-44 overflow-x-hidden overflow-y-auto rounded-md border p-1.5">
+                  {slots.map((s) => {
+                    const checked = pickAnni.includes(s.anno);
+                    const label = formatAnnoSlotLabel(s);
+                    return (
+                      <label
+                        key={`${s.anno}-${s.data_presunta ?? ""}`}
+                        className="flex min-h-10 cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 text-sm leading-snug hover:bg-accent/40"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => toggleAnno(s.anno)}
+                          aria-label={label}
+                          className="mt-0.5 shrink-0"
+                        />
+                        <span className="min-w-0 flex-1 whitespace-normal break-words">
+                          {label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <Label className="shrink-0 text-xs">Fattori</Label>
+                {fattoriDisponibili.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 shrink-0 px-2.5 text-xs"
+                    onClick={toggleSelectAllFattori}
                   >
                     {allDisponibiliSelected ? "Deseleziona tutto" : "Seleziona tutto"}
                   </Button>
                 )}
               </div>
-              {!pickAnno ? (
-                <p className="text-xs text-muted-foreground">Seleziona prima l&apos;anno.</p>
-              ) : fattoriDisponibili.length === 0 ? (
+              {fattoriDisponibili.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  Nessun fattore disponibile per questo anno
+                  {pickAnni.length === 0
+                    ? "Nessun fattore disponibile."
+                    : "Nessun fattore disponibile per le date selezionate."}
                 </p>
               ) : (
-                <div className="max-h-72 overflow-x-hidden overflow-y-auto rounded-md border p-1.5">
+                <div className="max-h-56 overflow-x-hidden overflow-y-auto rounded-md border p-1.5">
                   {fattoriDisponibili.map((f) => {
                     const checked = pickFattoreIds.includes(f.id);
                     const label = fattoreRegolazioneLabel(f);
@@ -349,7 +400,7 @@ export function RegolazioneFattoriImportiGrid({
               Annulla
             </Button>
             <Button type="button" onClick={confirmAdd} disabled={!canConfirm}>
-              {pickFattoreIds.length > 1 ? `Aggiungi (${pickFattoreIds.length})` : "Aggiungi"}
+              {nuoveCount > 1 ? `Aggiungi (${nuoveCount})` : "Aggiungi"}
             </Button>
           </DialogFooter>
         </DialogContent>

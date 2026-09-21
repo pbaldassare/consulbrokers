@@ -4,7 +4,9 @@ import {
   addRegolazioneFattoriRighe,
   buildRegolazioneFattoriRows,
   createRegolazioneFattoreRiga,
+  createRegolazioneFattoriCartesian,
   fattoreRegolazioneLabel,
+  fattoriDisponibiliPerAnni,
   fattoriDisponibiliPerAnno,
   formatAnnoSlotLabel,
   formatIsoDateIt,
@@ -204,6 +206,50 @@ describe("add / remove / update", () => {
     expect(out).toHaveLength(2);
     expect(out[0].importo_esposto).toBe(10);
     expect(out[1].fattore_id).toBe("f2");
+  });
+
+  it("fattoriDisponibiliPerAnni tiene i fattori ancora liberi su almeno un anno", () => {
+    const righe = [
+      createRegolazioneFattoreRiga({ fattore: fattori[0], anno: 2027 }),
+    ];
+    expect(fattoriDisponibiliPerAnni(fattori, righe, []).map((f) => f.id)).toEqual([
+      "f1",
+      "f2",
+    ]);
+    expect(fattoriDisponibiliPerAnni(fattori, righe, [2027]).map((f) => f.id)).toEqual(["f2"]);
+    expect(fattoriDisponibiliPerAnni(fattori, righe, [2027, 2028]).map((f) => f.id)).toEqual([
+      "f1",
+      "f2",
+    ]);
+  });
+
+  it("createRegolazioneFattoriCartesian produce fattore × anno e ignora chiavi duplicate", () => {
+    const slots = [
+      { anno: 2027, data_presunta: "2027-06-30" },
+      { anno: 2028, data_presunta: "2028-06-30" },
+    ];
+    const cartesian = createRegolazioneFattoriCartesian(fattori, slots);
+    expect(cartesian).toHaveLength(4);
+    expect(cartesian.map((r) => r.key)).toEqual([
+      "f1|2027",
+      "f2|2027",
+      "f1|2028",
+      "f2|2028",
+    ]);
+    expect(cartesian[0].data_presunta).toBe("2027-06-30");
+    expect(cartesian[2].data_presunta).toBe("2028-06-30");
+
+    const esistenti = [
+      createRegolazioneFattoreRiga({
+        fattore: fattori[0],
+        anno: 2027,
+        data_presunta: "2027-06-30",
+        importo_esposto: 10,
+      }),
+    ];
+    const merged = addRegolazioneFattoriRighe(esistenti, cartesian);
+    expect(merged).toHaveLength(4);
+    expect(merged[0].importo_esposto).toBe(10);
   });
 });
 

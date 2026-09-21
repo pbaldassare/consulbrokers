@@ -159,12 +159,43 @@ export function addRegolazioneFattoreRiga(
   return [...righe, riga];
 }
 
-/** Aggiunge più fattori per lo stesso anno; ignora duplicati fattore+anno. */
+/** Aggiunge più fattori per uno o più anni; ignora duplicati fattore+anno. */
 export function addRegolazioneFattoriRighe(
   righe: RegolazioneFattoreRiga[],
   nuove: RegolazioneFattoreRiga[],
 ): RegolazioneFattoreRiga[] {
   return (nuove ?? []).reduce((acc, riga) => addRegolazioneFattoreRiga(acc, riga), righe);
+}
+
+/**
+ * Prodotto cartesiano fattori × slot anno (ogni fattore per ogni data).
+ * Dedup interno sulla chiave fattore+anno.
+ */
+export function createRegolazioneFattoriCartesian(
+  selectedFattori: FattoreRegolazioneRef[],
+  selectedSlots: AnnoSlot[],
+  importo_esposto = 0,
+): RegolazioneFattoreRiga[] {
+  const out: RegolazioneFattoreRiga[] = [];
+  const seen = new Set<string>();
+  for (const slot of selectedSlots ?? []) {
+    if (!Number.isFinite(slot?.anno)) continue;
+    for (const fattore of selectedFattori ?? []) {
+      if (!fattore?.id) continue;
+      const key = regolazioneFattoreKey(fattore.id, slot.anno);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(
+        createRegolazioneFattoreRiga({
+          fattore,
+          anno: slot.anno,
+          data_presunta: slot.data_presunta,
+          importo_esposto,
+        }),
+      );
+    }
+  }
+  return out;
 }
 
 export function removeRegolazioneFattoreRiga(
@@ -184,16 +215,30 @@ export function updateRegolazioneFattoreImporto(
   );
 }
 
+/**
+ * Fattori del catalogo ancora disponibili per almeno uno degli anni.
+ * Se `anni` è vuoto, restituisce tutti i fattori validi.
+ */
+export function fattoriDisponibiliPerAnni(
+  fattori: FattoreRegolazioneRef[],
+  righe: RegolazioneFattoreRiga[],
+  anni: number[],
+): FattoreRegolazioneRef[] {
+  const list = (fattori ?? []).filter((f) => f?.id);
+  const years = (anni ?? []).filter((y) => Number.isFinite(y));
+  if (years.length === 0) return list;
+  return list.filter((f) =>
+    years.some((anno) => !righe.some((r) => r.fattore_id === f.id && r.anno === anno)),
+  );
+}
+
 /** Fattori del catalogo non ancora usati per lo stesso anno. */
 export function fattoriDisponibiliPerAnno(
   fattori: FattoreRegolazioneRef[],
   righe: RegolazioneFattoreRiga[],
   anno: number,
 ): FattoreRegolazioneRef[] {
-  const used = new Set(
-    righe.filter((r) => r.anno === anno).map((r) => r.fattore_id),
-  );
-  return (fattori ?? []).filter((f) => f?.id && !used.has(f.id));
+  return fattoriDisponibiliPerAnni(fattori, righe, [anno]);
 }
 
 /** Payload insert per titoli_regolazione_fattori. */
