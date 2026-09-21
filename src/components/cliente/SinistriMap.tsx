@@ -5,12 +5,14 @@ import {
   buildSinistroAddress,
   colorForTipo,
   readGeocodeCache,
+  REGGIO_CALABRIA_CENTER,
+  resolveSinistroCoords,
   writeGeocodeCache,
 } from "@/lib/sinistriMapUtils";
 
 const GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY || import.meta.env.VITE_GOOGLE_MAPS_API_KEY) as string | undefined;
 const GOOGLE_MAPS_CHANNEL = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
-const VARESE_CENTER = { lat: 45.8206, lng: 8.8251 };
+const DEFAULT_CENTER = REGGIO_CALABRIA_CENTER;
 
 type Sinistro = {
   id: string;
@@ -26,6 +28,9 @@ type Sinistro = {
   cap_sinistro?: string | null;
   provincia_sinistro?: string | null;
   importo_riserva?: number | null;
+  targa_veicolo?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 };
 
 interface Props {
@@ -140,9 +145,9 @@ export function SinistriMap({ sinistri }: Props) {
         if (cancelled || !containerRef.current) return;
         if (!mapRef.current) {
           mapRef.current = new libs.Map(containerRef.current, {
-            center: VARESE_CENTER,
-            zoom: 13,
-            minZoom: 11,
+            center: DEFAULT_CENTER,
+            zoom: 11,
+            minZoom: 8,
             maxZoom: 16,
             mapTypeControl: false,
             streetViewControl: false,
@@ -158,25 +163,30 @@ export function SinistriMap({ sinistri }: Props) {
         const cache = readGeocodeCache();
         const geocoder = new libs.Geocoder();
         const bounds = new libs.LatLngBounds();
+        const boundsCalabria = new libs.LatLngBounds();
         let placed = 0;
+        let placedCalabria = 0;
 
         for (const s of sinistri) {
-          const addr = buildSinistroAddress(s);
-          if (!addr) continue;
-          let coords = cache[addr];
+          let coords = resolveSinistroCoords(s);
           if (!coords) {
-            try {
-              const res: any = await new Promise((resolve, reject) => {
-                geocoder.geocode({ address: addr }, (results: any[], status: string) => {
-                  if (status === "OK" && results?.[0]) resolve(results[0]);
-                  else reject(new Error(status));
+            const addr = buildSinistroAddress(s);
+            if (!addr) continue;
+            coords = cache[addr];
+            if (!coords) {
+              try {
+                const res: any = await new Promise((resolve, reject) => {
+                  geocoder.geocode({ address: addr }, (results: any[], status: string) => {
+                    if (status === "OK" && results?.[0]) resolve(results[0]);
+                    else reject(new Error(status));
+                  });
                 });
-              });
-              const loc = res.geometry.location;
-              coords = { lat: loc.lat(), lng: loc.lng() };
-              cache[addr] = coords;
-            } catch {
-              continue;
+                const loc = res.geometry.location;
+                coords = { lat: loc.lat(), lng: loc.lng() };
+                cache[addr] = coords;
+              } catch {
+                continue;
+              }
             }
           }
           if (cancelled) return;
@@ -202,6 +212,7 @@ export function SinistriMap({ sinistri }: Props) {
               <div style="font-family:system-ui,sans-serif;min-width:220px;max-width:280px">
                 <div style="font-weight:600;color:#0f172a;margin-bottom:4px">${s.numero_sinistro || "Sinistro"}</div>
                 <div style="display:inline-block;padding:2px 8px;border-radius:9999px;background:${color};color:#fff;font-size:11px;font-weight:600;margin-bottom:6px">${tipo}</div>
+                ${s.targa_veicolo ? `<div style="font-size:12px;color:#475569;margin-bottom:2px"><b>Targa:</b> ${s.targa_veicolo}</div>` : ""}
                 ${s.ramo_sinistro ? `<div style="font-size:12px;color:#475569;margin-bottom:2px"><b>Garanzia:</b> ${s.ramo_sinistro}</div>` : ""}
                 <div style="font-size:12px;color:#475569;margin-bottom:2px"><b>Data:</b> ${dt}</div>
                 ${loc ? `<div style="font-size:12px;color:#475569;margin-bottom:2px"><b>Luogo:</b> ${loc}</div>` : ""}
@@ -214,6 +225,10 @@ export function SinistriMap({ sinistri }: Props) {
           markersRef.current.push(marker);
           bounds.extend(coords);
           placed++;
+          if (coords.lat >= 37.85 && coords.lat <= 39.55 && coords.lng >= 15.45 && coords.lng <= 17.35) {
+            boundsCalabria.extend(coords);
+            placedCalabria++;
+          }
         }
 
         writeGeocodeCache(cache);
@@ -221,16 +236,16 @@ export function SinistriMap({ sinistri }: Props) {
         if (!cancelled) {
           setMappedCount(placed);
           if (placed > 0) {
-            mapRef.current.fitBounds(bounds, 60);
+            mapRef.current.fitBounds(placedCalabria > 0 ? boundsCalabria : bounds, 60);
             const listener = mapRef.current.addListener?.("idle", () => {
-              const z = mapRef.current.getZoom?.() ?? 13;
-              if (z > 14) mapRef.current.setZoom(14);
+              const z = mapRef.current.getZoom?.() ?? 11;
+              if (z > 13) mapRef.current.setZoom(13);
               if (placed === 1) mapRef.current.setZoom(14);
               (window as any).google?.maps?.event?.removeListener(listener);
             });
           } else {
-            mapRef.current.setCenter(VARESE_CENTER);
-            mapRef.current.setZoom(13);
+            mapRef.current.setCenter(DEFAULT_CENTER);
+            mapRef.current.setZoom(11);
           }
           setLoading(false);
         }

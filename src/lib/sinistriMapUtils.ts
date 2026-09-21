@@ -11,6 +11,8 @@ export function colorForTipo(t?: string | null): string {
 
 export const GEOCODE_CACHE_KEY = "cbnet_geocode_cache_v1";
 
+export const REGGIO_CALABRIA_CENTER = { lat: 38.1113, lng: 15.6471 };
+
 export type SinistroGeo = {
   id: string;
   tipo_sinistro?: string | null;
@@ -19,7 +21,20 @@ export type SinistroGeo = {
   citta_sinistro?: string | null;
   cap_sinistro?: string | null;
   provincia_sinistro?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 };
+
+export function resolveSinistroCoords(
+  s: Pick<SinistroGeo, "lat" | "lng">,
+): { lat: number; lng: number } | null {
+  if (s.lat == null || s.lng == null) return null;
+  const lat = Number(s.lat);
+  const lng = Number(s.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
 
 export function buildSinistroAddress(s: SinistroGeo): string {
   const parts = [

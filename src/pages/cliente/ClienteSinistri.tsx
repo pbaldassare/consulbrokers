@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon, Check, FileDown, Building2 } from "lucide-react";
+import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon, Check, FileDown, Building2, Truck } from "lucide-react";
 
 // MultiSelect filter: array of values, "all" when empty
 function MultiSelectFilter({ label, values, options, onChange, formatOption }: {
@@ -84,6 +84,7 @@ import InfoHint from "@/components/cliente/InfoHint";
 import SinistriMap from "@/components/cliente/SinistriMap";
 import SinistriPerRepartoChart from "@/components/cliente/SinistriPerRepartoChart";
 import { isClienteSanitario, resolveReparto } from "@/lib/sinistriReparto";
+import { aggregateSinPerTipo, aggregateSinPerVeicolo } from "@/lib/sinistriClienteCharts";
 
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
 const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
@@ -110,7 +111,7 @@ export default function ClienteSinistri() {
 
   // Filtri (multi-select)
   const [fSearch, setFSearch] = useState("");
-  const [fStati, setFStati] = useState<string[]>(["aperto", "in_lavorazione"]);
+  const [fStati, setFStati] = useState<string[]>([]);
   const [fRami, setFRami] = useState<string[]>([]);
   const [fCompagnie, setFCompagnie] = useState<string[]>([]);
   const [fPolizze, setFPolizze] = useState<string[]>([]);
@@ -202,18 +203,9 @@ export default function ClienteSinistri() {
   const riserve = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
   const liquidato = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
 
-  // Istogramma - Sinistri per Ramo (aperti vs chiusi)
-  const sinPerRamo = (() => {
-    const map = new Map<string, { ramo: string; aperti: number; chiusi: number }>();
-    filteredSinistri.forEach((s: any) => {
-      const ramo = s.ramo_sinistro || "Altro";
-      const isOpen = !["chiuso", "respinto"].includes(s.stato);
-      const cur = map.get(ramo) || { ramo, aperti: 0, chiusi: 0 };
-      if (isOpen) cur.aperti++; else cur.chiusi++;
-      map.set(ramo, cur);
-    });
-    return Array.from(map.values());
-  })();
+  const sinPerTipo = useMemo(() => aggregateSinPerTipo(filteredSinistri), [filteredSinistri]);
+  const sinPerVeicolo = useMemo(() => aggregateSinPerVeicolo(filteredSinistri, 8), [filteredSinistri]);
+  const veicoloChartH = Math.min(360, Math.max(240, sinPerVeicolo.length * 36 + 56));
 
   // Bar data riserve vs liquidato
   const barData = filteredSinistri.map((s: any) => ({
@@ -387,30 +379,14 @@ export default function ClienteSinistri() {
 
       {/* Charts */}
       {sinistri.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card ref={chartRef}>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Sinistri per Ramo (Aperti vs Chiusi)</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={sinPerRamo} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
-                  <XAxis dataKey="ramo" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={50} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="aperti" name="Aperti" stackId="a" fill="#ea580c" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="chiusi" name="Chiusi" stackId="a" fill="#059669" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
+        <div className="space-y-6">
           <Card ref={isSanitario ? repartoChartRef : undefined}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 {isSanitario ? (
                   <><Building2 className="h-4 w-4 text-teal-700" /> Sinistri per Reparto</>
                 ) : (
-                  <><MapPin className="h-4 w-4 text-teal-700" /> Mappa Sinistri</>
+                  <><MapPin className="h-4 w-4 text-teal-700" /> Mappa sinistri — area Reggio Calabria</>
                 )}
               </CardTitle>
             </CardHeader>
@@ -422,6 +398,58 @@ export default function ClienteSinistri() {
               )}
             </CardContent>
           </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card ref={chartRef}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Sinistri per tipo (Aperti vs Chiusi)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {sinPerTipo.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-12">Nessun dato con i filtri attuali</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={sinPerTipo} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-22} textAnchor="end" height={60} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="aperti" name="Aperti" stackId="a" fill="#ea580c" />
+                      <Bar dataKey="chiusi" name="Chiusi" stackId="a" fill="#059669" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-teal-700" />
+                  Sinistri per veicolo
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {sinPerVeicolo.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-12">Nessuna targa nei filtri attuali</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={veicoloChartH}>
+                    <BarChart data={sinPerVeicolo} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <YAxis type="category" dataKey="name" width={88} tick={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }} />
+                      <Tooltip
+                        formatter={(value: number, key: string) =>
+                          key === "riserve" ? fmt(value) : value
+                        }
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="sinistri" name="N° sinistri" fill="#0d9488" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
 

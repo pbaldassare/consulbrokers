@@ -3,6 +3,7 @@ import {
   buildSinistroAddress,
   colorForTipo,
   readGeocodeCache,
+  resolveSinistroCoords,
   staticMapColor,
   writeGeocodeCache,
   type SinistroGeo,
@@ -177,9 +178,8 @@ type MarkerPoint = { lat: number; lng: number; color: string };
 async function resolveMarkers(sinistri: SinistroGeo[]): Promise<MarkerPoint[]> {
   const markers: MarkerPoint[] = [];
   for (const s of sinistri) {
-    const addr = buildSinistroAddress(s);
-    if (!addr) continue;
-    const coords = await geocodeAddress(addr);
+    const stored = resolveSinistroCoords(s);
+    const coords = stored || (buildSinistroAddress(s) ? await geocodeAddress(buildSinistroAddress(s)) : null);
     if (!coords) continue;
     markers.push({ ...coords, color: staticMapColor(colorForTipo(s.tipo_sinistro)) });
   }
