@@ -265,6 +265,7 @@ const sezioni = [
       { nome: "Premi e Provvigioni", desc: "Report premi e provvigioni con filtri temporali e per agenzia", ruoli: ["admin", "cfo", "ufficio"] },
       { nome: "Premi Scoperti/Garantiti", desc: "Analisi premi scoperti vs garantiti (limite mora, per sede)", ruoli: ["admin", "cfo", "ufficio"] },
       { nome: "E/C Clienti (Estrazioni)", desc: "Estratti conto clienti in formato esportabile", ruoli: ["admin", "cfo", "ufficio"] },
+      { nome: "Comunicazioni di incasso", desc: "Registro avvisi email di incasso alle agenzie (sede solo le proprie; admin raggruppate per sede)", ruoli: ["admin", "cfo", "ufficio"] },
     ],
   },
   {

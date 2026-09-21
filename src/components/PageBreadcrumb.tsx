@@ -65,6 +65,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "premi-scoperti-garantiti": "Premi Scoperti e Garantiti",
   "ec-clienti": "E/C Clienti",
   "richiesta-quietanza": "Richiesta Quietanza",
+  "comunicazioni-incasso": "Comunicazioni di incasso",
   "registro": "Registro",
   "regolazioni": "Regolazioni",
   "documentale": "Archivio Documentale",
