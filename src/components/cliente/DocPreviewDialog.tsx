@@ -32,14 +32,7 @@ export default function DocPreviewDialog({ open, onOpenChange, doc }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between gap-3">
-            <span className="truncate">{doc?.nome_file}</span>
-            {url && (
-              <a href={url} target="_blank" rel="noopener noreferrer">
-                <Button size="sm" variant="outline" className="gap-1.5"><Download className="h-4 w-4" />Scarica</Button>
-              </a>
-            )}
-          </DialogTitle>
+          <DialogTitle className="truncate pr-8">{doc?.nome_file}</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-hidden bg-muted rounded-md flex items-center justify-center">
           {loading ? (
