@@ -2,13 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   AZIONE_INCASSO_ERRORE,
   AZIONE_INCASSO_INVIATA,
+  detectPresetPeriodo,
+  endOfMonthISO,
   filterComunicazioniByStato,
   formatAgenziaRiferimento,
   groupComunicazioniBySede,
   mapTitoloToComunicazione,
+  normalizeDateRange,
   paginateComunicazioni,
   pickLogIncassoPreferito,
+  rangeForPreset,
   resolveStatoIncasso,
+  startOfMonthISO,
   todayISODate,
   unwrapOne,
   type ComunicazioneIncassoRow,
@@ -32,6 +37,18 @@ describe("comunicazioniIncasso", () => {
   it("todayISODate usa il calendario locale senza UTC shift", () => {
     expect(todayISODate(new Date(2026, 8, 21, 23, 30))).toBe("2026-09-21");
     expect(todayISODate(new Date(2026, 0, 5, 0, 15))).toBe("2026-01-05");
+  });
+
+  it("preset Oggi e Mese corrente compilano Dal/Al", () => {
+    const now = new Date(2026, 8, 21, 15, 0);
+    expect(rangeForPreset("oggi", now)).toEqual({ da: "2026-09-21", a: "2026-09-21" });
+    expect(rangeForPreset("mese_corrente", now)).toEqual({ da: "2026-09-01", a: "2026-09-30" });
+    expect(startOfMonthISO(now)).toBe("2026-09-01");
+    expect(endOfMonthISO(new Date(2026, 1, 10))).toBe("2026-02-28");
+    expect(detectPresetPeriodo("2026-09-21", "2026-09-21", now)).toBe("oggi");
+    expect(detectPresetPeriodo("2026-09-01", "2026-09-30", now)).toBe("mese_corrente");
+    expect(detectPresetPeriodo("2026-09-01", "2026-09-21", now)).toBe("personalizzato");
+    expect(normalizeDateRange("2026-09-30", "2026-09-01")).toEqual({ da: "2026-09-01", a: "2026-09-30" });
   });
 
   it("unwrapOne accetta oggetto o array PostgREST", () => {

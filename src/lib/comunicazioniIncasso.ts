@@ -39,8 +39,13 @@ export type GruppoSedeComunicazioni = {
   rows: ComunicazioneIncassoRow[];
 };
 
+export type PresetPeriodoIncasso = "oggi" | "mese_corrente" | "personalizzato";
+
+export type DateRangeIncasso = { da: string; a: string };
+
 export type FetchComunicazioniIncassoParams = {
-  giornoIncasso: string;
+  dataDa: string;
+  dataA: string;
   ufficioId?: string | null;
   agenziaId?: string | null;
 };
@@ -98,6 +103,46 @@ export function todayISODate(now: Date = new Date()): string {
   const m = String(now.getMonth() + 1).padStart(2, "0");
   const d = String(now.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+export function startOfMonthISO(now: Date = new Date()): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}-01`;
+}
+
+export function endOfMonthISO(now: Date = new Date()): string {
+  return todayISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+}
+
+export function rangeForPreset(
+  preset: Exclude<PresetPeriodoIncasso, "personalizzato">,
+  now: Date = new Date(),
+): DateRangeIncasso {
+  if (preset === "oggi") {
+    const d = todayISODate(now);
+    return { da: d, a: d };
+  }
+  return { da: startOfMonthISO(now), a: endOfMonthISO(now) };
+}
+
+export function normalizeDateRange(da: string, a: string): DateRangeIncasso {
+  const fallback = todayISODate();
+  const d1 = /^\d{4}-\d{2}-\d{2}$/.test(da) ? da : fallback;
+  const d2 = /^\d{4}-\d{2}-\d{2}$/.test(a) ? a : d1;
+  return d1 <= d2 ? { da: d1, a: d2 } : { da: d2, a: d1 };
+}
+
+export function detectPresetPeriodo(
+  da: string,
+  a: string,
+  now: Date = new Date(),
+): PresetPeriodoIncasso {
+  const oggi = rangeForPreset("oggi", now);
+  if (da === oggi.da && a === oggi.a) return "oggi";
+  const mese = rangeForPreset("mese_corrente", now);
+  if (da === mese.da && a === mese.a) return "mese_corrente";
+  return "personalizzato";
 }
 
 export function unwrapOne<T>(value: T | T[] | null | undefined): T | null {
@@ -210,7 +255,8 @@ function docFromLog(dettagli: Record<string, unknown> | null): DocumentoIncassoP
   };
 }
 
-async function fetchTitoliGiorno(params: FetchComunicazioniIncassoParams): Promise<TitoloIncassoRaw[]> {
+async function fetchTitoliPeriodo(params: FetchComunicazioniIncassoParams): Promise<TitoloIncassoRaw[]> {
+  const { da, a } = normalizeDateRange(params.dataDa, params.dataA);
   const out: TitoloIncassoRaw[] = [];
   let from = 0;
   while (true) {
@@ -230,7 +276,8 @@ async function fetchTitoliGiorno(params: FetchComunicazioniIncassoParams): Promi
           "uffici(nome_ufficio)",
         ].join(", "),
       )
-      .eq("data_messa_cassa", params.giornoIncasso)
+      .gte("data_messa_cassa", da)
+      .lte("data_messa_cassa", a)
       .order("numero_titolo", { ascending: true })
       .range(from, from + TITOLI_PAGE - 1);
 
@@ -304,9 +351,10 @@ async function fetchDocumentiIncasso(opts: {
 export async function fetchComunicazioniIncasso(
   params: FetchComunicazioniIncassoParams,
 ): Promise<ComunicazioneIncassoRow[]> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.giornoIncasso)) return [];
+  const range = normalizeDateRange(params.dataDa, params.dataA);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(range.da) || !/^\d{4}-\d{2}-\d{2}$/.test(range.a)) return [];
 
-  const titoli = await fetchTitoliGiorno(params);
+  const titoli = await fetchTitoliPeriodo({ ...params, dataDa: range.da, dataA: range.a });
   if (titoli.length === 0) return [];
 
   const titoloIds = titoli.map((t) => t.id);

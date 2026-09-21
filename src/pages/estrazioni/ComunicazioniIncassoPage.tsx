@@ -16,14 +16,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import {
+  detectPresetPeriodo,
   fetchComunicazioniIncasso,
   filterComunicazioniByStato,
   groupComunicazioniBySede,
+  normalizeDateRange,
   paginateComunicazioni,
+  rangeForPreset,
   todayISODate,
   type ComunicazioneIncassoRow,
   type DocumentoIncassoPreview,
   type FiltroStatoIncasso,
+  type PresetPeriodoIncasso,
 } from "@/lib/comunicazioniIncasso";
 
 const fmtDateTime = (iso: string | null | undefined) => {
@@ -128,12 +132,14 @@ const ComunicazioniIncassoPage = () => {
   const sedeLockedId = !seeAllSedi && profile?.ufficio_id ? profile.ufficio_id : null;
   const authReady = !authLoading && !!profile && (seeAllSedi || !!sedeLockedId);
 
-  const [giornoIncasso, setGiornoIncasso] = useState(() => todayISODate());
+  const [dateDa, setDateDa] = useState(() => todayISODate());
+  const [dateA, setDateA] = useState(() => todayISODate());
   const [agenziaId, setAgenziaId] = useState<string | null>(null);
   const [stato, setStato] = useState<FiltroStatoIncasso>("tutti");
   const [previewDoc, setPreviewDoc] = useState<DocumentoIncassoPreview | null>(null);
 
-  const { page, setPage, pageSize } = useServerPagination(25, [giornoIncasso, agenziaId, stato, sedeLockedId]);
+  const presetPeriodo = detectPresetPeriodo(dateDa, dateA);
+  const { page, setPage, pageSize } = useServerPagination(25, [dateDa, dateA, agenziaId, stato, sedeLockedId]);
 
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie-attive-comunicazioni-incasso"],
@@ -161,11 +167,12 @@ const ComunicazioniIncassoPage = () => {
   );
 
   const { data: allRows = [], isLoading } = useQuery({
-    queryKey: ["comunicazioni-incasso", giornoIncasso, agenziaId, sedeLockedId, seeAllSedi],
+    queryKey: ["comunicazioni-incasso", dateDa, dateA, agenziaId, sedeLockedId, seeAllSedi],
     enabled: authReady,
     queryFn: () =>
       fetchComunicazioniIncasso({
-        giornoIncasso,
+        dataDa: dateDa,
+        dataA: dateA,
         ufficioId: sedeLockedId,
         agenziaId,
       }),
@@ -181,8 +188,20 @@ const ComunicazioniIncassoPage = () => {
     [seeAllSedi, filtered, page, pageSize],
   );
 
+  const applyPreset = (preset: Exclude<PresetPeriodoIncasso, "personalizzato">) => {
+    const range = rangeForPreset(preset);
+    setDateDa(range.da);
+    setDateA(range.a);
+  };
+
+  const applyCustomRange = (nextDa: string, nextA: string) => {
+    const range = normalizeDateRange(nextDa || dateDa, nextA || dateA);
+    setDateDa(range.da);
+    setDateA(range.a);
+  };
+
   const resetFilters = () => {
-    setGiornoIncasso(todayISODate());
+    applyPreset("oggi");
     setAgenziaId(null);
     setStato("tutti");
   };
@@ -200,7 +219,7 @@ const ComunicazioniIncassoPage = () => {
               Comunicazioni di incasso
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Avvisi email di incasso alle agenzie. Default: incassi di oggi
+              Avvisi email di incasso alle agenzie. Default: oggi
               {seeAllSedi ? " — tutte le sedi, raggruppate." : " — solo la tua sede."}
             </p>
           </div>
@@ -211,12 +230,39 @@ const ComunicazioniIncassoPage = () => {
         <CardContent className="pt-4">
           <div className="flex flex-wrap gap-2 items-end">
             <div className="space-y-1">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Giorno di incasso</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Periodo</p>
+              <ToggleGroup
+                type="single"
+                value={presetPeriodo === "personalizzato" ? "" : presetPeriodo}
+                onValueChange={(v) => {
+                  if (v === "oggi" || v === "mese_corrente") applyPreset(v);
+                }}
+                className="justify-start"
+              >
+                <ToggleGroupItem value="oggi" className="h-9 px-3 text-xs">
+                  Oggi
+                </ToggleGroupItem>
+                <ToggleGroupItem value="mese_corrente" className="h-9 px-3 text-xs">
+                  Mese corrente
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Dal</p>
               <Input
                 type="date"
                 className="h-9 w-[160px]"
-                value={giornoIncasso}
-                onChange={(e) => setGiornoIncasso(e.target.value || todayISODate())}
+                value={dateDa}
+                onChange={(e) => applyCustomRange(e.target.value, dateA)}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Al</p>
+              <Input
+                type="date"
+                className="h-9 w-[160px]"
+                value={dateA}
+                onChange={(e) => applyCustomRange(dateDa, e.target.value)}
               />
             </div>
             <FilterSearchableSelect
