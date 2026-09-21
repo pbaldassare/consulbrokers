@@ -202,10 +202,15 @@ export function computeQuietanzePlan(input: QuietanzaPlanInput): QuietanzaPlanRo
   if (nTot < 1) return [];
 
   const competenza = toDate(input.dataCompetenza);
+  const durA = toDate(input.durataA);
   const rows: QuietanzaPlanRow[] = [];
   for (let i = 1; i <= nTot; i++) {
     const da = addMonths(garDa, (i - 1) * mesiRata);
-    const a = addMonths(da, mesiRata);
+    // Non partire una rata a/dopo fine durata (es. 2029-06-30 → 2030).
+    if (durA && da >= durA) break;
+    let a = addMonths(da, mesiRata);
+    if (durA && a > durA) a = durA;
+    if (a <= da) break;
     rows.push({
       idx: i,
       garanzia_da: iso(da),
@@ -214,6 +219,31 @@ export function computeQuietanzePlan(input: QuietanzaPlanInput): QuietanzaPlanRo
     });
   }
   return rows;
+}
+
+/**
+ * Slot successivo alla messa a cassa di una rata.
+ * La prossima garanzia parte da garanzia_a corrente; se cade a/dopo durata_a
+ * della madre non si crea nulla (ultima rata legittima).
+ */
+export function nextQuietanzaAfterMessaCassa(input: {
+  garanziaA?: string | Date | null;
+  durataA?: string | Date | null;
+  mesiRata: number;
+}): QuietanzaPlanRow | null {
+  const da = toDate(input.garanziaA);
+  const durA = toDate(input.durataA);
+  if (!da || input.mesiRata <= 0) return null;
+  if (durA && da >= durA) return null;
+  let a = addMonths(da, input.mesiRata);
+  if (durA && a > durA) a = durA;
+  if (a <= da) return null;
+  return {
+    idx: 0,
+    garanzia_da: iso(da),
+    garanzia_a: iso(a),
+    data_competenza: iso(da),
+  };
 }
 
 /** Solo le quietanze successive alla prima (idx >= 2). */

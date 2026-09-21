@@ -22,7 +22,7 @@ import { TipoFilterSegmented, type FiltroTipo } from "@/components/polizze/TipoF
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { SortableTableHead, nextSort } from "@/components/shared/SortableTableHead";
 import { datePeriodoPolizzaGaranzia } from "@/lib/datePolizzaGaranzia";
-import { rowBorderClass, isQuietanzaRow, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
+import { rowBorderClass, isQuietanzaRow, isPolizzaMadreRow, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
 import { cn } from "@/lib/utils";
 
 const ROW_SELECT =
@@ -255,8 +255,8 @@ const PortafoglioAttivePage = () => {
       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
       <TableCell>{p.compagnia_nome || "—"}</TableCell>
       <TableCell>{p.ramo_nome || "—"}</TableCell>
-      <TableCell>{fmtDate(d.inizioPolizza)}</TableCell>
-      <TableCell>{fmtDate(d.finePolizza)}</TableCell>
+      <TableCell>{isPolizzaMadreRow(p) ? fmtDate(d.inizioPolizza) : "—"}</TableCell>
+      <TableCell>{isPolizzaMadreRow(p) ? fmtDate(d.finePolizza) : "—"}</TableCell>
       <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_da ?? d.inizioGaranzia) : "—"}</TableCell>
       <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_a ?? d.fineGaranzia) : "—"}</TableCell>
       <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>

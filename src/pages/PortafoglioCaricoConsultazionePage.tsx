@@ -31,6 +31,7 @@ import { datePeriodoPolizzaGaranzia } from "@/lib/datePolizzaGaranzia";
 import {
   rowBorderClass,
   isQuietanzaRow,
+  isPolizzaMadreRow,
   displayStatoPolizza,
   messaCassaRowBgClass,
   isMessaACassa,
@@ -865,8 +866,8 @@ const PortafoglioCaricoConsultazionePage = () => {
                         const d = datePeriodoPolizzaGaranzia(p);
                         return (
                           <>
-                            <TableCell>{fmtDate(d.inizioPolizza)}</TableCell>
-                            <TableCell>{fmtDate(d.finePolizza)}</TableCell>
+                            <TableCell>{isPolizzaMadreRow(p) ? fmtDate(d.inizioPolizza) : "—"}</TableCell>
+                            <TableCell>{isPolizzaMadreRow(p) ? fmtDate(d.finePolizza) : "—"}</TableCell>
                             <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_da ?? d.inizioGaranzia) : "—"}</TableCell>
                             <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_a ?? d.fineGaranzia) : "—"}</TableCell>
                           </>

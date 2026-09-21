@@ -1,5 +1,5 @@
 import { format, parseISO } from "date-fns";
-import { displayStatoPolizza, isQuietanzaRow } from "@/lib/polizzeDisplay";
+import { displayStatoPolizza, isPolizzaMadreRow, isQuietanzaRow } from "@/lib/polizzeDisplay";
 import { datePeriodoPolizzaGaranzia } from "@/lib/datePolizzaGaranzia";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import type { CaricoExportRow } from "./columns";
@@ -81,8 +81,8 @@ export function mapCaricoExportRow(
     agenzia: p.compagnia_nome || "",
     sede,
     garanzia: p.ramo_nome || "",
-    inizioPolizza: fmtDate(dates.inizioPolizza),
-    finePolizza: fmtDate(dates.finePolizza),
+    inizioPolizza: isPolizzaMadreRow(p) ? fmtDate(dates.inizioPolizza) : "—",
+    finePolizza: isPolizzaMadreRow(p) ? fmtDate(dates.finePolizza) : "—",
     inizioGaranzia: fmtDate(dates.inizioGaranzia),
     fineGaranzia: fmtDate(dates.fineGaranzia),
     targa: p.targa_telaio || "",

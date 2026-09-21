@@ -1944,8 +1944,12 @@ function PolizzeClienteTable({
                   </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
-                  <TableCell className="text-xs">{fmtDate(d.inizioPolizza)}</TableCell>
-                  <TableCell className="text-xs">{fmtDate(d.finePolizza)}</TableCell>
+                  <TableCell className="text-xs">
+                    {r.sostituisce_polizza || isAppendice(r) ? "—" : fmtDate(d.inizioPolizza)}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {r.sostituisce_polizza || isAppendice(r) ? "—" : fmtDate(d.finePolizza)}
+                  </TableCell>
                   <TableCell className="text-xs">
                     {r.sostituisce_polizza && !isAppendice(r) ? fmtDate(r.garanzia_da) : "—"}
                   </TableCell>
@@ -2005,8 +2009,8 @@ function PolizzeClienteTable({
                   </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
-                  <TableCell className="text-xs">{fmtDate(datePolizza.inizioPolizza)}</TableCell>
-                  <TableCell className="text-xs">{fmtDate(datePolizza.finePolizza)}</TableCell>
+                  <TableCell className="text-xs">—</TableCell>
+                  <TableCell className="text-xs">—</TableCell>
                   <TableCell className="text-xs">{isAppendice(r) ? "—" : fmtDate(r.garanzia_da)}</TableCell>
                   <TableCell className="text-xs">{isAppendice(r) ? "—" : fmtDate(r.garanzia_a)}</TableCell>
                   <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
@@ -2249,8 +2253,8 @@ function PolizzeClienteTable({
                       </TableCell>
                       <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                       <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
-                      <TableCell className="text-xs">{fmtDate(dateCatena.inizioPolizza)}</TableCell>
-                      <TableCell className="text-xs">{fmtDate(dateCatena.finePolizza)}</TableCell>
+                      <TableCell className="text-xs">—</TableCell>
+                      <TableCell className="text-xs">—</TableCell>
                       <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
                       <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
                       <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
@@ -2303,8 +2307,8 @@ function PolizzeClienteTable({
                       </TableCell>
                       <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                       <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
-                      <TableCell className="text-xs">{fmtDate(dateCatena.inizioPolizza)}</TableCell>
-                      <TableCell className="text-xs">{fmtDate(dateCatena.finePolizza)}</TableCell>
+                      <TableCell className="text-xs">—</TableCell>
+                      <TableCell className="text-xs">—</TableCell>
                       <TableCell className="text-xs">—</TableCell>
                       <TableCell className="text-xs">—</TableCell>
                       <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>

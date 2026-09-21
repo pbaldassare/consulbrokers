@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeQuietanzePlan, computeQuietanzeOnly } from "../quietanzePlan";
+import { computeQuietanzePlan, computeQuietanzeOnly, nextQuietanzaAfterMessaCassa } from "../quietanzePlan";
 
 const base = { garanziaDa: "2026-01-01", garanziaA: "2027-01-01", dataCompetenza: "2026-01-15" };
 
@@ -245,6 +245,37 @@ describe("computeQuietanzePlan", () => {
     expect(plan[1]).toMatchObject({ garanzia_da: "2027-06-30", garanzia_a: "2027-06-30" });
   });
 
+  it("Annuale 3y Camposampiero: garanzia 2026–2027, durata_a 2029 → 3 rate, ultima a 2029, no 2029–2030", () => {
+    const plan = computeQuietanzePlan({
+      frazionamento: "Annuale",
+      anniDurata: 3,
+      garanziaDa: "2026-06-30",
+      garanziaA: "2027-06-30",
+      durataDa: "2026-06-30",
+      durataA: "2029-06-30",
+    });
+    expect(plan).toHaveLength(3);
+    expect(plan.map((r) => [r.garanzia_da, r.garanzia_a])).toEqual([
+      ["2026-06-30", "2027-06-30"],
+      ["2027-06-30", "2028-06-30"],
+      ["2028-06-30", "2029-06-30"],
+    ]);
+    expect(plan[2].garanzia_a).toBe("2029-06-30");
+    expect(plan.some((r) => r.garanzia_da === "2029-06-30")).toBe(false);
+  });
+
+  it("Annuale con nTot oltre durata_a: clip, niente rata a/dopo fine contratto", () => {
+    const plan = computeQuietanzePlan({
+      frazionamento: "Annuale",
+      anniDurata: 4,
+      garanziaDa: "2026-06-30",
+      garanziaA: "2027-06-30",
+      durataA: "2029-06-30",
+    });
+    expect(plan).toHaveLength(3);
+    expect(plan[2]).toMatchObject({ garanzia_da: "2028-06-30", garanzia_a: "2029-06-30" });
+  });
+
   it("Premio unico anticipato periodo 1 giorno → Q1 e Q2 sullo stesso giorno (fallback)", () => {
     const plan = computeQuietanzePlan({
       frazionamento: "Premio unico anticipato",
@@ -255,5 +286,28 @@ describe("computeQuietanzePlan", () => {
       { idx: 1, garanzia_da: "2026-08-11", garanzia_a: "2026-08-11", data_competenza: "2026-08-11" },
       { idx: 2, garanzia_da: "2026-08-11", garanzia_a: "2026-08-11", data_competenza: "2026-08-11" },
     ]);
+  });
+});
+
+describe("nextQuietanzaAfterMessaCassa", () => {
+  it("dopo l'ultima rata legittima (garanzia_a = durata_a) non crea lo slot successivo", () => {
+    expect(nextQuietanzaAfterMessaCassa({
+      garanziaA: "2029-06-30",
+      durataA: "2029-06-30",
+      mesiRata: 12,
+    })).toBeNull();
+  });
+
+  it("messa a cassa di rata intermedia crea lo slot successivo clipato a durata_a", () => {
+    expect(nextQuietanzaAfterMessaCassa({
+      garanziaA: "2028-06-30",
+      durataA: "2029-06-30",
+      mesiRata: 12,
+    })).toEqual({
+      idx: 0,
+      garanzia_da: "2028-06-30",
+      garanzia_a: "2029-06-30",
+      data_competenza: "2028-06-30",
+    });
   });
 });
