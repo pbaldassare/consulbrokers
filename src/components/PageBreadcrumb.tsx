@@ -205,7 +205,7 @@ const PageBreadcrumb = () => {
 
       <div className="h-4 w-px bg-border" />
 
-      <Breadcrumb
+      <Breadcrumb>
         <BreadcrumbList>
           {crumbs.map((crumb, i) => (
             <span key={crumb.path} className="contents">
