@@ -3044,7 +3044,7 @@ export default function ClienteDetail() {
         {/* Header + tab sticky sotto Topbar (come Incassi): restano visibili mentre scorri polizze/quietanze */}
         <div className="sticky top-14 z-20 -mx-3 sm:-mx-6 px-3 sm:px-6 pt-1 pb-3 space-y-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60 shadow-sm">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/archivi/clienti")}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Indietro">
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex-1 min-w-0">

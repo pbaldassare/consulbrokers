@@ -14,6 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import HistoryBackButton from "@/components/HistoryBackButton";
 import { TourProvider, useTour, hasSeenAIAssistant } from "@/components/tour/AppTourContext";
 import AppTour from "@/components/tour/AppTour";
 
@@ -274,6 +275,7 @@ const ClienteLayout = () => {
               >
                 <Menu className="h-5 w-5" />
               </button>
+              <HistoryBackButton fallback="/cliente" />
               <h1 className="text-base sm:text-lg font-bold text-primary tracking-tight truncate">CBnet</h1>
               <span className="hidden sm:inline text-xs text-muted-foreground border-l border-border pl-2 ml-1 truncate">
                 Area Clienti

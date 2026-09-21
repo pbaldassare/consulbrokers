@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Home, ChevronLeft } from "lucide-react";
+import { Home } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/breadcrumb";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Button } from "@/components/ui/button";
-import { getPreviousListRoute } from "@/hooks/useNavigationHistory";
 import { useRecentEntities } from "@/hooks/useRecentEntities";
 import {
   detectEntityFromContext,
@@ -192,8 +191,6 @@ const PageBreadcrumb = () => {
     };
   });
 
-  const prev = getPreviousListRoute(location.pathname + location.search);
-
   return (
     <div className="flex items-center gap-3 mb-4">
       <Button
@@ -208,20 +205,7 @@ const PageBreadcrumb = () => {
 
       <div className="h-4 w-px bg-border" />
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => (prev ? navigate(prev.path) : navigate(-1))}
-        className="h-8 px-2 text-muted-foreground hover:text-foreground"
-        title={prev ? `Torna a ${prev.label}` : "Indietro"}
-      >
-        <ChevronLeft className="w-4 h-4 mr-1" />
-        {prev ? `Torna a ${prev.label}` : "Indietro"}
-      </Button>
-
-      <div className="h-4 w-px bg-border" />
-
-      <Breadcrumb>
+      <Breadcrumb
         <BreadcrumbList>
           {crumbs.map((crumb, i) => (
             <span key={crumb.path} className="contents">

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import HistoryBackButton from "@/components/HistoryBackButton";
 
 const navItems = [
   { to: "/prospect", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -56,6 +57,7 @@ const ProspectLayout = () => {
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
+            <HistoryBackButton fallback="/prospect" />
             <h1 className="text-lg font-bold text-primary tracking-tight">CBnet</h1>
             <span className="hidden sm:inline text-xs text-muted-foreground">Area Prospect</span>
           </div>

@@ -1,6 +1,7 @@
 import { LogOut, Menu, User as UserIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import HistoryBackButton from "./HistoryBackButton";
 import GlobalSearch from "./GlobalSearch";
 import NotificheDropdown from "./NotificheDropdown";
 import { ProfileThemeToggle } from "./ThemeToggle";
@@ -51,6 +52,8 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
       >
         <Menu className="w-5 h-5" />
       </button>
+
+      <HistoryBackButton />
 
       <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
         <div className="flex-1 min-w-0 max-w-xl relative">
