@@ -1204,7 +1204,7 @@ function PolizzeClienteTable({
     () => groupTitoliByPolizza(polizze, appendiceBaseOverrides),
     [polizze, appendiceBaseOverrides],
   );
-  const [filtroTipoState, setFiltroTipoState] = useState<"polizze" | "quietanze" | "regolazioni" | "garantiti">("quietanze");
+  const [filtroTipoState, setFiltroTipoState] = useState<"polizze" | "quietanze" | "regolazioni" | "garantiti">("polizze");
   const filtroTipo: "polizze" | "quietanze" | "regolazioni" | "garantiti" = mode ?? filtroTipoState;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [cassaDialogTitoli, setCassaDialogTitoli] = useState<
