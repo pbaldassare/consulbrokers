@@ -9,9 +9,10 @@ import ServerPagination from "@/components/ServerPagination";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
+import { SortableTableHead, nextSort } from "@/components/shared/SortableTableHead";
 import { formatDateIT } from "@/lib/formatDate";
 import { fmtEuro } from "@/lib/formatCurrency";
 import {
@@ -19,38 +20,67 @@ import {
   exportPrimaNotaXlsx,
   fetchPrimaNota,
   applySedeFilter,
+  filterPrimaNotaRows,
+  groupPrimaNotaByAgenzia,
+  groupPrimaNotaByCliente,
+  groupPrimaNotaByClienteEAgenzia,
   groupPrimaNotaBySede,
   normalizeDateRange,
   paginatePrimaNota,
   rangeForPreset,
   resolveSedeLock,
   rowsForPrimaNotaExport,
+  sortPrimaNotaRows,
+  uniquePrimaNotaOptions,
   todayISODate,
   type PrimaNotaRow,
+  type PrimaNotaSortField,
+  type RaggruppaPrimaNota,
 } from "@/lib/primaNota";
 import type { PresetPeriodoIncasso } from "@/lib/comunicazioniIncasso";
 
 const PrimaNotaTable = ({
   rows,
   loading,
+  sortField,
+  sortDirection,
+  onSort,
+  hideHeader,
 }: {
   rows: PrimaNotaRow[];
   loading?: boolean;
+  sortField: PrimaNotaSortField;
+  sortDirection: "asc" | "desc";
+  onSort: (field: PrimaNotaSortField) => void;
+  hideHeader?: boolean;
 }) => {
   const navigate = useNavigate();
+  const header = (field: PrimaNotaSortField, label: string, className?: string) => (
+    <SortableTableHead
+      field={field}
+      sortField={sortField}
+      sortDirection={sortDirection}
+      onSort={(f) => onSort(f as PrimaNotaSortField)}
+      className={className}
+    >
+      <span className="text-xs">{label}</span>
+    </SortableTableHead>
+  );
 
   return (
     <div className="border rounded-md overflow-x-auto">
       <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/40">
-            <TableHead className="text-xs">N. polizza</TableHead>
-            <TableHead className="text-xs">Nome cliente</TableHead>
-            <TableHead className="text-xs">Agenzia</TableHead>
-            <TableHead className="text-xs text-right">Premio incassato</TableHead>
-            <TableHead className="text-xs">Data incasso</TableHead>
-          </TableRow>
-        </TableHeader>
+        {!hideHeader && (
+          <TableHeader>
+            <TableRow className="bg-muted/40">
+              {header("numeroPolizza", "N. polizza")}
+              {header("clienteNome", "Nome cliente")}
+              {header("agenziaNome", "Agenzia")}
+              {header("premioIncassato", "Premio incassato", "text-right")}
+              {header("dataIncasso", "Data incasso")}
+            </TableRow>
+          </TableHeader>
+        )}
         <TableBody>
           {loading ? (
             <TableRow>
@@ -89,6 +119,18 @@ const PrimaNotaTable = ({
   );
 };
 
+const GroupHeading = ({ label, count, total }: { label: string; count: number; total: number }) => (
+  <div className="flex flex-wrap items-baseline justify-between gap-2">
+    <h3 className="text-sm font-semibold text-foreground">
+      {label}
+      <span className="ml-2 text-xs font-normal text-muted-foreground">
+        {count} polizz{count === 1 ? "a" : "e"}
+      </span>
+    </h3>
+    <p className="text-xs tabular-nums text-muted-foreground">{fmtEuro(total)}</p>
+  </div>
+);
+
 const PrimaNotaPage = () => {
   const navigate = useNavigate();
   const { isAdmin, profile, loading: authLoading } = useAuth();
@@ -103,9 +145,22 @@ const PrimaNotaPage = () => {
   const [dateDa, setDateDa] = useState(() => todayISODate());
   const [dateA, setDateA] = useState(() => todayISODate());
   const [agenziaId, setAgenziaId] = useState<string | null>(null);
+  const [clienteId, setClienteId] = useState<string | null>(null);
+  const [raggruppa, setRaggruppa] = useState<RaggruppaPrimaNota>("nessuno");
+  const [sortField, setSortField] = useState<PrimaNotaSortField>("dataIncasso");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const presetPeriodo = detectPresetPeriodo(dateDa, dateA);
-  const { page, setPage, pageSize } = useServerPagination(25, [dateDa, dateA, agenziaId, sedeLockedId]);
+  const { page, setPage, pageSize } = useServerPagination(25, [
+    dateDa,
+    dateA,
+    agenziaId,
+    clienteId,
+    raggruppa,
+    sortField,
+    sortDirection,
+    sedeLockedId,
+  ]);
 
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie-attive-prima-nota"],
@@ -121,26 +176,14 @@ const PrimaNotaPage = () => {
     staleTime: 300_000,
   });
 
-  const agenziaOpts = useMemo(
-    () =>
-      compagnie.map((c) => ({
-        value: c.id,
-        label: c.nome,
-        description: c.codice || undefined,
-        searchText: `${c.nome} ${c.codice || ""}`,
-      })),
-    [compagnie],
-  );
-
   const { data: allRows = [], isLoading } = useQuery({
-    queryKey: ["prima-nota", dateDa, dateA, agenziaId, sedeLockedId, seeAllSedi],
+    queryKey: ["prima-nota", dateDa, dateA, sedeLockedId, seeAllSedi],
     enabled: authReady,
     queryFn: () =>
       fetchPrimaNota({
         dataDa: dateDa,
         dataA: dateA,
         ufficioId: sedeLockedId,
-        agenziaId,
       }),
   });
 
@@ -148,13 +191,30 @@ const PrimaNotaPage = () => {
     () => applySedeFilter(allRows, sedeLockedId),
     [allRows, sedeLockedId],
   );
-  const gruppi = useMemo(
-    () => (seeAllSedi ? groupPrimaNotaBySede(scopedRows) : []),
-    [seeAllSedi, scopedRows],
+
+  const clienteOpts = useMemo(() => uniquePrimaNotaOptions(scopedRows, "cliente"), [scopedRows]);
+  const agenziaOptsFromRows = useMemo(() => uniquePrimaNotaOptions(scopedRows, "agenzia"), [scopedRows]);
+  const agenziaOpts = useMemo(() => {
+    if (agenziaOptsFromRows.length > 0) return agenziaOptsFromRows;
+    return compagnie.map((c) => ({
+      value: c.id,
+      label: c.nome,
+      searchText: `${c.nome} ${c.codice || ""}`,
+    }));
+  }, [agenziaOptsFromRows, compagnie]);
+
+  const filteredRows = useMemo(
+    () => filterPrimaNotaRows(scopedRows, { clienteId, agenziaId }),
+    [scopedRows, clienteId, agenziaId],
   );
+  const sortedRows = useMemo(
+    () => sortPrimaNotaRows(filteredRows, sortField, sortDirection),
+    [filteredRows, sortField, sortDirection],
+  );
+
   const paged = useMemo(
-    () => (seeAllSedi ? scopedRows : paginatePrimaNota(scopedRows, page, pageSize)),
-    [seeAllSedi, scopedRows, page, pageSize],
+    () => (raggruppa === "nessuno" && !seeAllSedi ? paginatePrimaNota(sortedRows, page, pageSize) : sortedRows),
+    [raggruppa, seeAllSedi, sortedRows, page, pageSize],
   );
 
   const applyPreset = (preset: Exclude<PresetPeriodoIncasso, "personalizzato">) => {
@@ -172,12 +232,114 @@ const PrimaNotaPage = () => {
   const resetFilters = () => {
     applyPreset("oggi");
     setAgenziaId(null);
+    setClienteId(null);
+    setRaggruppa("nessuno");
+    setSortField("dataIncasso");
+    setSortDirection("desc");
+  };
+
+  const handleSort = (field: PrimaNotaSortField) => {
+    const next = nextSort(sortField, sortDirection, field);
+    setSortField(next.field as PrimaNotaSortField);
+    setSortDirection(next.direction);
   };
 
   const handleExport = () => {
-    const rows = rowsForPrimaNotaExport(scopedRows, seeAllSedi);
+    const rows = rowsForPrimaNotaExport(sortedRows, seeAllSedi);
     if (rows.length === 0) return;
     exportPrimaNotaXlsx(rows, { dataDa: dateDa, dataA: dateA, includeSede: seeAllSedi });
+  };
+
+  const tableProps = {
+    sortField,
+    sortDirection,
+    onSort: handleSort,
+  };
+
+  const renderGrouped = (rows: PrimaNotaRow[]) => {
+    if (raggruppa === "cliente") {
+      return groupPrimaNotaByCliente(rows).map((g) => (
+        <section key={g.key} className="space-y-2">
+          <GroupHeading label={g.label} count={g.rows.length} total={g.totalPremio} />
+          <PrimaNotaTable rows={g.rows} {...tableProps} />
+        </section>
+      ));
+    }
+    if (raggruppa === "agenzia") {
+      return groupPrimaNotaByAgenzia(rows).map((g) => (
+        <section key={g.key} className="space-y-2">
+          <GroupHeading label={g.label} count={g.rows.length} total={g.totalPremio} />
+          <PrimaNotaTable rows={g.rows} {...tableProps} />
+        </section>
+      ));
+    }
+    return groupPrimaNotaByClienteEAgenzia(rows).map((cliente) => (
+      <section key={cliente.key} className="space-y-3">
+        <GroupHeading label={cliente.label} count={cliente.groups.reduce((n, g) => n + g.rows.length, 0)} total={cliente.totalPremio} />
+        <div className="space-y-3 pl-2 border-l">
+          {cliente.groups.map((ag) => (
+            <div key={ag.key} className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">{ag.label}</p>
+              <PrimaNotaTable rows={ag.rows} {...tableProps} />
+            </div>
+          ))}
+        </div>
+      </section>
+    ));
+  };
+
+  const renderBody = () => {
+    if (!authReady) {
+      return (
+        <div className="text-sm text-muted-foreground py-8 text-center">
+          <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+          Verifica sede…
+        </div>
+      );
+    }
+    if (isLoading) return <PrimaNotaTable rows={[]} loading {...tableProps} />;
+    if (sortedRows.length === 0) return <PrimaNotaTable rows={[]} {...tableProps} />;
+
+    if (seeAllSedi && raggruppa === "nessuno") {
+      return (
+        <div className="space-y-6">
+          {groupPrimaNotaBySede(sortedRows).map((g) => (
+            <section key={g.sedeId} className="space-y-2">
+              <GroupHeading label={g.sedeNome} count={g.rows.length} total={g.rows.reduce((s, r) => s + (r.premioIncassato || 0), 0)} />
+              <PrimaNotaTable rows={g.rows} {...tableProps} />
+            </section>
+          ))}
+        </div>
+      );
+    }
+
+    if (raggruppa !== "nessuno") {
+      if (seeAllSedi) {
+        return (
+          <div className="space-y-8">
+            {groupPrimaNotaBySede(sortedRows).map((sede) => (
+              <section key={sede.sedeId} className="space-y-4">
+                <h2 className="text-base font-semibold">{sede.sedeNome}</h2>
+                <div className="space-y-4">{renderGrouped(sede.rows)}</div>
+              </section>
+            ))}
+          </div>
+        );
+      }
+      return <div className="space-y-4">{renderGrouped(sortedRows)}</div>;
+    }
+
+    return (
+      <>
+        <PrimaNotaTable rows={paged} {...tableProps} />
+        <ServerPagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={sortedRows.length}
+          onPageChange={setPage}
+        />
+      </>
+    );
   };
 
   return (
@@ -198,7 +360,7 @@ const PrimaNotaPage = () => {
             </p>
           </div>
         </div>
-        <Button onClick={handleExport} disabled={scopedRows.length === 0 || isLoading}>
+        <Button onClick={handleExport} disabled={sortedRows.length === 0 || isLoading}>
           <FileSpreadsheet className="h-4 w-4 mr-1" />
           Esporta Excel
         </Button>
@@ -244,12 +406,32 @@ const PrimaNotaPage = () => {
               />
             </div>
             <FilterSearchableSelect
+              value={clienteId}
+              onValueChange={setClienteId}
+              options={clienteOpts}
+              placeholder="Cliente"
+              allLabel="Tutti i clienti"
+              className="w-[260px] h-9"
+            />
+            <FilterSearchableSelect
               value={agenziaId}
               onValueChange={setAgenziaId}
               options={agenziaOpts}
               placeholder="Agenzia"
               allLabel="Tutte le agenzie"
               className="w-[260px] h-9"
+            />
+            <FilterSearchableSelect
+              value={raggruppa === "nessuno" ? null : raggruppa}
+              onValueChange={(v) => setRaggruppa((v as RaggruppaPrimaNota) || "nessuno")}
+              options={[
+                { value: "cliente", label: "Cliente" },
+                { value: "agenzia", label: "Agenzia" },
+                { value: "cliente_agenzia", label: "Cliente e agenzia" },
+              ]}
+              placeholder="Raggruppa"
+              allLabel="Nessun raggruppamento"
+              className="w-[220px] h-9"
             />
             <Button variant="ghost" size="sm" className="h-9" onClick={resetFilters}>
               <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reset (oggi)
@@ -258,42 +440,7 @@ const PrimaNotaPage = () => {
         </CardContent>
       </Card>
 
-      {!authReady ? (
-        <div className="text-sm text-muted-foreground py-8 text-center">
-          <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-          Verifica sede…
-        </div>
-      ) : seeAllSedi ? (
-        gruppi.length === 0 && !isLoading ? (
-          <PrimaNotaTable rows={[]} />
-        ) : isLoading ? (
-          <PrimaNotaTable rows={[]} loading />
-        ) : (
-          <div className="space-y-6">
-            {gruppi.map((g) => (
-              <section key={g.sedeId} className="space-y-2">
-                <h2 className="text-sm font-semibold text-foreground">
-                  {g.sedeNome}
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    {g.rows.length} polizz{g.rows.length === 1 ? "a" : "e"}
-                  </span>
-                </h2>
-                <PrimaNotaTable rows={g.rows} />
-              </section>
-            ))}
-          </div>
-        )
-      ) : (
-        <>
-          <PrimaNotaTable rows={paged} loading={isLoading} />
-          <ServerPagination
-            page={page}
-            pageSize={pageSize}
-            totalCount={scopedRows.length}
-            onPageChange={setPage}
-          />
-        </>
-      )}
+      {renderBody()}
     </div>
   );
 };

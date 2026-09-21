@@ -3,6 +3,10 @@ import {
   applySedeFilter,
   detectPresetPeriodo,
   endOfMonthISO,
+  filterPrimaNotaRows,
+  groupPrimaNotaByAgenzia,
+  groupPrimaNotaByCliente,
+  groupPrimaNotaByClienteEAgenzia,
   groupPrimaNotaBySede,
   mapTitoloToPrimaNota,
   normalizeDateRange,
@@ -13,7 +17,9 @@ import {
   resolveSedeLock,
   rowsForPrimaNotaExport,
   rowsToPrimaNotaSheet,
+  sortPrimaNotaRows,
   startOfMonthISO,
+  uniquePrimaNotaOptions,
   todayISODate,
   type PrimaNotaRow,
 } from "@/lib/primaNota";
@@ -22,6 +28,7 @@ const row = (partial: Partial<PrimaNotaRow>): PrimaNotaRow => ({
   titoloId: partial.titoloId || "t1",
   numeroPolizza: partial.numeroPolizza || "P1",
   clienteNome: partial.clienteNome || "Cliente",
+  clienteAnagraficaId: partial.clienteAnagraficaId ?? "cli-1",
   agenziaNome: partial.agenziaNome || "Agenzia",
   compagniaId: partial.compagniaId ?? "c1",
   ufficioId: partial.ufficioId ?? "u1",
@@ -97,6 +104,7 @@ describe("primaNota", () => {
     expect(mapped.ufficioNome).toBe("SEDE SAN DONA' DI PIAVE");
     expect(mapped.premioIncassato).toBe(348.5);
     expect(mapped.dataIncasso).toBe("2026-09-21");
+    expect(mapped.clienteAnagraficaId).toBeNull();
   });
 
   it("mapTitoloToPrimaNota usa cognome+nome e premio_lordo se incassato assente", () => {
@@ -213,5 +221,55 @@ describe("primaNota", () => {
     const sedeSheet = rowsToPrimaNotaSheet(rowsForPrimaNotaExport(rows, false));
     expect(Object.keys(sedeSheet[0])).not.toContain("Sede");
     expect(sedeSheet).toHaveLength(2);
+  });
+
+  it("filtra, ordina e raggruppa per cliente/agenzia", () => {
+    const rows = [
+      row({
+        titoloId: "1",
+        numeroPolizza: "B2",
+        clienteAnagraficaId: "c-a",
+        clienteNome: "Rossi",
+        compagniaId: "ag-1",
+        agenziaNome: "ITAS",
+        premioIncassato: 20,
+        dataIncasso: "2026-09-02",
+      }),
+      row({
+        titoloId: "2",
+        numeroPolizza: "A1",
+        clienteAnagraficaId: "c-b",
+        clienteNome: "Bianchi",
+        compagniaId: "ag-2",
+        agenziaNome: "Unipol",
+        premioIncassato: 10,
+        dataIncasso: "2026-09-01",
+      }),
+      row({
+        titoloId: "3",
+        numeroPolizza: "C3",
+        clienteAnagraficaId: "c-a",
+        clienteNome: "Rossi",
+        compagniaId: "ag-2",
+        agenziaNome: "Unipol",
+        premioIncassato: 30,
+        dataIncasso: "2026-09-03",
+      }),
+    ];
+    expect(filterPrimaNotaRows(rows, { clienteId: "c-a" }).map((r) => r.titoloId)).toEqual(["1", "3"]);
+    expect(sortPrimaNotaRows(rows, "numeroPolizza", "asc").map((r) => r.numeroPolizza)).toEqual([
+      "A1",
+      "B2",
+      "C3",
+    ]);
+    expect(sortPrimaNotaRows(rows, "premioIncassato", "desc").map((r) => r.premioIncassato)).toEqual([
+      30, 20, 10,
+    ]);
+    expect(uniquePrimaNotaOptions(rows, "cliente").map((o) => o.label)).toEqual(["Bianchi", "Rossi"]);
+    expect(groupPrimaNotaByCliente(rows).map((g) => g.label)).toEqual(["Bianchi", "Rossi"]);
+    expect(groupPrimaNotaByAgenzia(rows).map((g) => g.label)).toEqual(["ITAS", "Unipol"]);
+    const nested = groupPrimaNotaByClienteEAgenzia(rows);
+    expect(nested.map((g) => g.label)).toEqual(["Bianchi", "Rossi"]);
+    expect(nested[1].groups.map((g) => g.label)).toEqual(["ITAS", "Unipol"]);
   });
 });

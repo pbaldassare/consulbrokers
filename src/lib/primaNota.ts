@@ -22,16 +22,46 @@ export const paginatePrimaNota = paginateComunicazioni;
 
 const TITOLI_PAGE = 1000;
 
+export type PrimaNotaSortField =
+  | "numeroPolizza"
+  | "clienteNome"
+  | "agenziaNome"
+  | "premioIncassato"
+  | "dataIncasso";
+
+export type RaggruppaPrimaNota = "nessuno" | "cliente" | "agenzia" | "cliente_agenzia";
+
 export type PrimaNotaRow = {
   titoloId: string;
   numeroPolizza: string;
   clienteNome: string;
+  clienteAnagraficaId: string | null;
   agenziaNome: string;
   compagniaId: string | null;
   ufficioId: string | null;
   ufficioNome: string;
   premioIncassato: number | null;
   dataIncasso: string | null;
+};
+
+export type PrimaNotaFilterOption = {
+  value: string;
+  label: string;
+  searchText?: string;
+};
+
+export type GruppoPrimaNota = {
+  key: string;
+  label: string;
+  rows: PrimaNotaRow[];
+  totalPremio: number;
+};
+
+export type GruppoAnnidatoPrimaNota = {
+  key: string;
+  label: string;
+  groups: GruppoPrimaNota[];
+  totalPremio: number;
 };
 
 export type GruppoSedePrimaNota = {
@@ -82,6 +112,7 @@ export type TitoloPrimaNotaRaw = {
   tipo_pagamento?: string | null;
   compagnia_id: string | null;
   compagnia_rapporto_id?: string | null;
+  cliente_anagrafica_id?: string | null;
   ufficio_id: string | null;
   clienti?: ClienteSnippet | ClienteSnippet[] | null;
   compagnie?: CompagniaSnippet | CompagniaSnippet[] | null;
@@ -143,6 +174,7 @@ export function mapTitoloToPrimaNota(titolo: TitoloPrimaNotaRaw): PrimaNotaRow {
     titoloId: titolo.id,
     numeroPolizza: (titolo.numero_titolo || "").trim() || "—",
     clienteNome: formatClienteEc(unwrapOne(titolo.clienti)),
+    clienteAnagraficaId: titolo.cliente_anagrafica_id ?? null,
     agenziaNome: formatAgenziaRiferimento(
       unwrapOne(titolo.compagnia_rapporti),
       unwrapOne(titolo.compagnie),
@@ -153,6 +185,103 @@ export function mapTitoloToPrimaNota(titolo: TitoloPrimaNotaRaw): PrimaNotaRow {
     premioIncassato: resolvePremioIncassato(titolo),
     dataIncasso: titolo.data_messa_cassa,
   };
+}
+
+export function filterPrimaNotaRows(
+  rows: PrimaNotaRow[],
+  opts: { clienteId?: string | null; agenziaId?: string | null },
+): PrimaNotaRow[] {
+  let out = rows;
+  if (opts.clienteId) {
+    out = out.filter((r) => (r.clienteAnagraficaId || `nome:${r.clienteNome}`) === opts.clienteId);
+  }
+  if (opts.agenziaId) {
+    out = out.filter((r) => (r.compagniaId || `nome:${r.agenziaNome}`) === opts.agenziaId);
+  }
+  return out;
+}
+
+function comparePrimaNota(a: PrimaNotaRow, b: PrimaNotaRow, field: PrimaNotaSortField): number {
+  if (field === "premioIncassato") {
+    return (a.premioIncassato ?? 0) - (b.premioIncassato ?? 0);
+  }
+  const av = String(a[field] ?? "");
+  const bv = String(b[field] ?? "");
+  return av.localeCompare(bv, "it", { numeric: true, sensitivity: "base" });
+}
+
+export function sortPrimaNotaRows(
+  rows: PrimaNotaRow[],
+  field: PrimaNotaSortField,
+  direction: "asc" | "desc",
+): PrimaNotaRow[] {
+  const sign = direction === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => sign * comparePrimaNota(a, b, field));
+}
+
+export function uniquePrimaNotaOptions(
+  rows: PrimaNotaRow[],
+  kind: "cliente" | "agenzia",
+): PrimaNotaFilterOption[] {
+  const seen = new Map<string, PrimaNotaFilterOption>();
+  for (const r of rows) {
+    const value =
+      kind === "cliente"
+        ? r.clienteAnagraficaId || `nome:${r.clienteNome}`
+        : r.compagniaId || `nome:${r.agenziaNome}`;
+    const label = kind === "cliente" ? r.clienteNome : r.agenziaNome;
+    if (!value || seen.has(value)) continue;
+    seen.set(value, { value, label, searchText: label });
+  }
+  return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label, "it"));
+}
+
+function sumPremio(rows: PrimaNotaRow[]): number {
+  return rows.reduce((s, r) => s + (r.premioIncassato || 0), 0);
+}
+
+function groupByKey(
+  rows: PrimaNotaRow[],
+  keyOf: (r: PrimaNotaRow) => string,
+  labelOf: (r: PrimaNotaRow) => string,
+): GruppoPrimaNota[] {
+  const map = new Map<string, GruppoPrimaNota>();
+  for (const row of rows) {
+    const key = keyOf(row);
+    const g = map.get(key);
+    if (g) g.rows.push(row);
+    else map.set(key, { key, label: labelOf(row), rows: [row], totalPremio: 0 });
+  }
+  const groups = [...map.values()].map((g) => ({ ...g, totalPremio: sumPremio(g.rows) }));
+  return groups.sort((a, b) => a.label.localeCompare(b.label, "it"));
+}
+
+export function groupPrimaNotaByCliente(rows: PrimaNotaRow[]): GruppoPrimaNota[] {
+  return groupByKey(
+    rows,
+    (r) => r.clienteAnagraficaId || `nome:${r.clienteNome}`,
+    (r) => r.clienteNome,
+  );
+}
+
+export function groupPrimaNotaByAgenzia(rows: PrimaNotaRow[]): GruppoPrimaNota[] {
+  return groupByKey(
+    rows,
+    (r) => r.compagniaId || `nome:${r.agenziaNome}`,
+    (r) => r.agenziaNome,
+  );
+}
+
+export function groupPrimaNotaByClienteEAgenzia(rows: PrimaNotaRow[]): GruppoAnnidatoPrimaNota[] {
+  return groupPrimaNotaByCliente(rows).map((cliente) => {
+    const groups = groupPrimaNotaByAgenzia(cliente.rows);
+    return {
+      key: cliente.key,
+      label: cliente.label,
+      groups,
+      totalPremio: cliente.totalPremio,
+    };
+  });
 }
 
 export function rowsForPrimaNotaExport(rows: PrimaNotaRow[], seeAllSedi: boolean): PrimaNotaRow[] {
@@ -209,6 +338,7 @@ export async function fetchPrimaNota(params: FetchPrimaNotaParams): Promise<Prim
           "tipo_pagamento",
           "compagnia_id",
           "compagnia_rapporto_id",
+          "cliente_anagrafica_id",
           "ufficio_id",
           "clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)",
           "compagnie:compagnie!titoli_compagnia_id_fkey(nome)",
