@@ -12,6 +12,12 @@ export type DatePolizzaGaranzia = {
   fineGaranzia: string | null;
 };
 
+function nonemptyDate(d: string | null | undefined): string | null {
+  if (!d) return null;
+  const s = String(d).trim();
+  return s === "" ? null : s;
+}
+
 export function extremaDate(
   dates: (string | null | undefined)[],
   mode: "min" | "max",
@@ -23,7 +29,11 @@ export function extremaDate(
 }
 
 /**
- * Durata contratto (min/max su durata + tutte le garanzie) vs periodo di garanzia più recente.
+ * Periodo contratto (Inizio/Fine Polizza) = durata della testata, come in TitoloDetail.
+ * Non estendere la fine con le garanzia_a delle quietanze: una rata oltre durata_a
+ * non deve far comparire un anno in più in elenco (es. M16850989: durata 2029, rata 2030).
+ * Se manca durata_da/a, fallback alle garanzie (testata + rate).
+ * Inizio/Fine Garanzia restano quelli della quietanza più recente.
  */
 export function datePeriodoPolizzaGaranzia(
   head: DateRangeLike | null | undefined,
@@ -31,14 +41,12 @@ export function datePeriodoPolizzaGaranzia(
 ): DatePolizzaGaranzia {
   const h = head || {};
   const all = [h, ...rate];
-  const inizioPolizza = extremaDate(
-    [h.durata_da, ...all.map((r) => r.garanzia_da)],
-    "min",
-  );
-  const finePolizza = extremaDate(
-    [h.durata_a, ...all.map((r) => r.garanzia_a)],
-    "max",
-  );
+  const inizioPolizza =
+    nonemptyDate(h.durata_da) ||
+    extremaDate(all.map((r) => r.garanzia_da), "min");
+  const finePolizza =
+    nonemptyDate(h.durata_a) ||
+    extremaDate(all.map((r) => r.garanzia_a), "max");
   const conFine = rate.filter((r) => r.garanzia_a);
   const ultima =
     conFine.length > 0

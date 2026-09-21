@@ -2,7 +2,27 @@ import { describe, it, expect } from "vitest";
 import { datePeriodoPolizzaGaranzia, extremaDate, compareText } from "../datePolizzaGaranzia";
 
 describe("datePeriodoPolizzaGaranzia", () => {
-  it("fine polizza usa la quietanza più lunga anche se durata_a è ferma al primo anno", () => {
+  it("fine polizza resta su durata_a anche se una quietanza ha garanzia oltre il contratto", () => {
+    // COMUNE CAMPOSAMPIERO / M16850989: durata 2026-2029, ultima rata 2029-2030
+    const head = {
+      durata_da: "2026-06-30",
+      durata_a: "2029-06-30",
+      garanzia_da: "2027-06-30",
+      garanzia_a: "2028-06-30",
+    };
+    const rate = [
+      { garanzia_da: "2027-06-30", garanzia_a: "2028-06-30" },
+      { garanzia_da: "2028-06-30", garanzia_a: "2029-06-30" },
+      { garanzia_da: "2029-06-30", garanzia_a: "2030-06-30" },
+    ];
+    const d = datePeriodoPolizzaGaranzia(head, rate);
+    expect(d.inizioPolizza).toBe("2026-06-30");
+    expect(d.finePolizza).toBe("2029-06-30");
+    expect(d.inizioGaranzia).toBe("2029-06-30");
+    expect(d.fineGaranzia).toBe("2030-06-30");
+  });
+
+  it("non allunga la durata se durata_a è ferma al primo anno e le rate vanno oltre", () => {
     const head = {
       durata_da: "2026-06-29",
       durata_a: "2027-06-29",
@@ -15,9 +35,18 @@ describe("datePeriodoPolizzaGaranzia", () => {
     ];
     const d = datePeriodoPolizzaGaranzia(head, rate);
     expect(d.inizioPolizza).toBe("2026-06-29");
-    expect(d.finePolizza).toBe("2028-06-29");
+    expect(d.finePolizza).toBe("2027-06-29");
     expect(d.inizioGaranzia).toBe("2027-06-29");
     expect(d.fineGaranzia).toBe("2028-06-29");
+  });
+
+  it("senza durata_a usa il max delle garanzie (testata + rate)", () => {
+    const d = datePeriodoPolizzaGaranzia(
+      { garanzia_da: "2026-06-30", garanzia_a: "2027-06-30" },
+      [{ garanzia_da: "2027-06-30", garanzia_a: "2028-06-30" }],
+    );
+    expect(d.inizioPolizza).toBe("2026-06-30");
+    expect(d.finePolizza).toBe("2028-06-30");
   });
 
   it("senza rate usa le date della madre", () => {
