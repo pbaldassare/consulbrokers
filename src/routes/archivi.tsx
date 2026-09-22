@@ -1,4 +1,5 @@
 import { Route, Navigate } from "react-router-dom";
+import RoleGuard from "@/components/RoleGuard";
 import ProspectDetail from "@/pages/ProspectDetail";
 import ClientiList from "@/pages/ClientiList";
 import ClienteDetail from "@/pages/ClienteDetail";
@@ -20,8 +21,8 @@ export const archiviRoutes = (
     <Route path="/archivi/clienti" element={<ClientiList />} />
     <Route path="/archivi/clienti/deduplica" element={<DeduplicaClientiPage />} />
     <Route path="/archivi/clienti/:id" element={<ClienteDetail />} />
-    <Route path="/archivi/anagrafiche-agenzie" element={<AnagraficheCompagniePage />} />
-    <Route path="/archivi/anagrafiche-amministrative" element={<AnagraficheInternePage />} />
+    <Route path="/archivi/anagrafiche-agenzie" element={<RoleGuard allowedRoles={["admin", "ufficio"]} permissionKey="agenzie"><AnagraficheCompagniePage /></RoleGuard>} />
+    <Route path="/archivi/anagrafiche-amministrative" element={<RoleGuard allowedRoles={["admin", "ufficio"]} permissionKey="anagrafiche"><AnagraficheInternePage /></RoleGuard>} />
     <Route path="/archivi/anagrafiche-interne" element={<Navigate to="/archivi/anagrafiche-amministrative" replace />} />
     <Route path="/archivi/anagrafiche" element={<Navigate to="/archivi/anagrafiche-amministrative" replace />} />
     <Route path="/archivi/conti-bancari" element={<ContiBancariPage />} />

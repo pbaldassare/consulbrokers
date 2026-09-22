@@ -203,9 +203,8 @@ const sidebarEntries: SidebarEntry[] = [
       label: "Anagrafiche",
       icon: Briefcase,
       permissionKey: "anagrafiche",
-      hideForRoles: ["ufficio"],
       children: [
-        { label: "Centro Utenti & Privilegi", path: "/utenti-privilegi", icon: ShieldCheck },
+        { label: "Centro Utenti & Privilegi", path: "/utenti-privilegi", icon: ShieldCheck, hideForRoles: ["ufficio", "backoffice", "contabilita", "cfo", "manager", "produttore", "corrispondente"] },
         { label: "Anagrafiche Agenzie", path: "/archivi/anagrafiche-agenzie", icon: Scale },
         { label: "Anagrafiche Amministrative", path: "/archivi/anagrafiche-amministrative", icon: Briefcase },
         { label: "Conti Bancari", path: "/archivi/conti-bancari", icon: Banknote },
