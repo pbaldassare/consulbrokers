@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -7,11 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Upload, Save, Image as ImageIcon, Palette, Loader2 } from "lucide-react";
+import { Upload, Save, Image as ImageIcon, Palette, Loader2, Copy } from "lucide-react";
 import { ResendDomainStatus } from "./ResendDomainStatus";
+import { SedeTemplateSelect, type UfficioOption } from "./SedeTemplateSelect";
 
 interface Branding {
-  id: string;
+  id?: string;
+  ufficio_id?: string | null;
   logo_url: string | null;
   colore_primario: string;
   firma_html: string;
@@ -19,47 +21,86 @@ interface Branding {
   mittente_default: string;
 }
 
+const EMPTY_BRANDING: Branding = {
+  logo_url: null,
+  colore_primario: "#0e7490",
+  firma_html: "",
+  intestazione_html: "",
+  mittente_default: "ConsulNet <onboarding@resend.dev>",
+};
+
 export function EmailBrandingTab() {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [form, setForm] = useState<Partial<Branding>>({});
+  const [sedeId, setSedeId] = useState<string | null>(null);
+  const [form, setForm] = useState<Partial<Branding>>(EMPTY_BRANDING);
   const [uploading, setUploading] = useState(false);
 
-  const { data: branding, isLoading } = useQuery({
+  const { data: uffici = [] } = useQuery({
+    queryKey: ["uffici-branding"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("uffici")
+        .select("id, nome_ufficio, codice_ufficio")
+        .eq("attivo", true)
+        .order("nome_ufficio");
+      if (error) throw error;
+      return (data || []) as UfficioOption[];
+    },
+  });
+
+  const { data: brandingRows = [], isLoading } = useQuery({
     queryKey: ["email_branding"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("email_branding" as any)
-        .select("*")
-        .limit(1)
-        .maybeSingle();
+        .select("*");
       if (error) throw error;
-      return data as unknown as Branding | null;
+      return (data || []) as unknown as Branding[];
     },
   });
 
+  const exactSede = useMemo(
+    () => brandingRows.find((r) => (r.ufficio_id || null) === (sedeId || null)) || null,
+    [brandingRows, sedeId],
+  );
+  const globale = useMemo(
+    () => brandingRows.find((r) => r.ufficio_id == null) || null,
+    [brandingRows],
+  );
+
   useEffect(() => {
-    if (branding) setForm(branding);
-  }, [branding]);
+    if (exactSede) setForm(exactSede);
+    else if (globale && sedeId) setForm({ ...globale, id: undefined, ufficio_id: sedeId });
+    else if (globale) setForm(globale);
+    else setForm({ ...EMPTY_BRANDING, ufficio_id: sedeId });
+  }, [exactSede, globale, sedeId]);
 
   const saveMut = useMutation({
     mutationFn: async () => {
-      if (!branding?.id) throw new Error("Branding non inizializzato");
-      const { error } = await supabase
-        .from("email_branding" as any)
-        .update({
-          logo_url: form.logo_url ?? null,
-          colore_primario: form.colore_primario || "#0e7490",
-          firma_html: form.firma_html || "",
-          intestazione_html: form.intestazione_html || "",
-          mittente_default: form.mittente_default || "ConsulNet <onboarding@resend.dev>",
-        } as any)
-        .eq("id", branding.id);
-      if (error) throw error;
+      const payload = {
+        logo_url: form.logo_url ?? null,
+        colore_primario: form.colore_primario || "#0e7490",
+        firma_html: form.firma_html || "",
+        intestazione_html: form.intestazione_html || "",
+        mittente_default: form.mittente_default || "ConsulNet <onboarding@resend.dev>",
+        ufficio_id: sedeId,
+        singleton: sedeId ? false : true,
+      };
+      if (exactSede?.id) {
+        const { error } = await supabase
+          .from("email_branding" as any)
+          .update(payload as any)
+          .eq("id", exactSede.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("email_branding" as any).insert(payload as any);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["email_branding"] });
-      toast.success("Branding salvato");
+      toast.success(sedeId ? "Branding sede salvato" : "Branding globale salvato");
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -74,7 +115,7 @@ export function EmailBrandingTab() {
     setUploading(true);
     try {
       const ext = file.name.split(".").pop();
-      const path = `logo-${Date.now()}.${ext}`;
+      const path = `${sedeId ? `sede-${sedeId}-` : "globale-"}logo-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("branding").upload(path, file, { upsert: true });
       if (upErr) throw upErr;
       const { data } = supabase.storage.from("branding").getPublicUrl(path);
@@ -95,6 +136,29 @@ export function EmailBrandingTab() {
   return (
     <div className="space-y-4">
       <ResendDomainStatus />
+      <div className="flex items-end gap-3 flex-wrap">
+        <div className="space-y-1.5 w-[320px]">
+          <Label>Sede branding</Label>
+          <SedeTemplateSelect uffici={uffici} value={sedeId} onChange={setSedeId} />
+        </div>
+        {sedeId && globale && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setForm({ ...globale, id: undefined, ufficio_id: sedeId })}
+          >
+            <Copy className="h-4 w-4 mr-1" /> Copia da globale
+          </Button>
+        )}
+        <p className="text-xs text-muted-foreground pb-1">
+          {exactSede
+            ? "Questa sede ha un branding proprio."
+            : sedeId
+              ? "Nessun branding sede: al salvataggio si crea una copia (precompilata dal globale)."
+              : "Branding globale: usato se la sede del template non ha una configurazione."}
+        </p>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card>
         <CardHeader>

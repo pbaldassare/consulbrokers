@@ -2,9 +2,12 @@ import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, Eye, Tag, Mail, Copy, Search, User, FileText, Send, Palette } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, Tag, Mail, Copy, CopyPlus, Search, User, FileText, Send, Palette, Link2 } from "lucide-react";
 import { SendTestEmailDialog } from "@/components/template/SendTestEmailDialog";
 import { EmailBrandingTab } from "@/components/template/EmailBrandingTab";
+import { AssociazioniTemplateTab } from "@/components/template/AssociazioniTemplateTab";
+import { SedeTemplateSelect, type UfficioOption } from "@/components/template/SedeTemplateSelect";
+import { duplicateTemplateNome, labelSedeTemplate } from "@/lib/emailBrandingSede";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,7 +67,7 @@ function replaceVarsWithData(text: string, data: Record<string, string>): string
 }
 
 interface Categoria { id: string; nome: string; descrizione: string | null; }
-interface Template { id: string; categoria_id: string; nome: string; oggetto: string; corpo: string; attivo: boolean; created_at: string; }
+interface Template { id: string; categoria_id: string; nome: string; oggetto: string; corpo: string; attivo: boolean; created_at: string; ufficio_id: string | null; }
 
 interface ClienteResult {
   id: string;
@@ -342,7 +345,7 @@ export default function TemplatePage() {
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [editTemplate, setEditTemplate] = useState<Template | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
-  const [form, setForm] = useState({ nome: "", oggetto: "", corpo: "", categoria_id: "", attivo: true });
+  const [form, setForm] = useState({ nome: "", oggetto: "", corpo: "", categoria_id: "", attivo: true, ufficio_id: null as string | null });
   const [newCatNome, setNewCatNome] = useState("");
   const [newCatDesc, setNewCatDesc] = useState("");
   const corpoRef = useRef<HTMLTextAreaElement>(null);
@@ -367,13 +370,29 @@ export default function TemplatePage() {
     },
   });
 
+  const { data: uffici = [] } = useQuery({
+    queryKey: ["uffici-template"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("uffici")
+        .select("id, nome_ufficio, codice_ufficio")
+        .eq("attivo", true)
+        .order("nome_ufficio");
+      if (error) throw error;
+      return (data || []) as UfficioOption[];
+    },
+  });
+
+  const ufficiById = Object.fromEntries(uffici.map((u) => [u.id, u.nome_ufficio]));
+
   const saveMut = useMutation({
     mutationFn: async (t: typeof form & { id?: string }) => {
+      const payload = { nome: t.nome, oggetto: t.oggetto, corpo: t.corpo, categoria_id: t.categoria_id, attivo: t.attivo, ufficio_id: t.ufficio_id };
       if (t.id) {
-        const { error } = await supabase.from("template_email").update({ nome: t.nome, oggetto: t.oggetto, corpo: t.corpo, categoria_id: t.categoria_id, attivo: t.attivo } as any).eq("id", t.id);
+        const { error } = await supabase.from("template_email").update(payload as any).eq("id", t.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("template_email").insert({ nome: t.nome, oggetto: t.oggetto, corpo: t.corpo, categoria_id: t.categoria_id, attivo: t.attivo } as any);
+        const { error } = await supabase.from("template_email").insert(payload as any);
         if (error) throw error;
       }
     },
@@ -407,18 +426,49 @@ export default function TemplatePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["template_email"] }),
   });
 
+  const duplicateMut = useMutation({
+    mutationFn: async (t: Template) => {
+      const { error } = await supabase.from("template_email").insert({
+        nome: duplicateTemplateNome(t.nome),
+        oggetto: t.oggetto,
+        corpo: t.corpo,
+        categoria_id: t.categoria_id,
+        attivo: t.attivo,
+        ufficio_id: t.ufficio_id,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["template_email"] });
+      toast.success("Template duplicato");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const changeSedeMut = useMutation({
+    mutationFn: async ({ id, ufficio_id }: { id: string; ufficio_id: string | null }) => {
+      const { error } = await supabase.from("template_email").update({ ufficio_id } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["template_email"] });
+      toast.success("Sede del template aggiornata");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const filtered = selectedCat === "all" ? templates : templates.filter(t => t.categoria_id === selectedCat);
   const catMap = Object.fromEntries(categorie.map(c => [c.id, c.nome]));
 
-  function openNew() {
+  function openNew(ufficioId: string | null = null) {
     setEditTemplate(null);
-    setForm({ nome: "", oggetto: "", corpo: "", categoria_id: categorie[0]?.id || "", attivo: true });
+    setForm({ nome: "", oggetto: "", corpo: "", categoria_id: categorie[0]?.id || "", attivo: true, ufficio_id: ufficioId });
     setDialogOpen(true);
   }
 
   function openEdit(t: Template) {
     setEditTemplate(t);
-    setForm({ nome: t.nome, oggetto: t.oggetto, corpo: t.corpo, categoria_id: t.categoria_id, attivo: t.attivo });
+    setForm({ nome: t.nome, oggetto: t.oggetto, corpo: t.corpo, categoria_id: t.categoria_id, attivo: t.attivo, ufficio_id: t.ufficio_id ?? null });
     setDialogOpen(true);
   }
 
@@ -436,7 +486,7 @@ export default function TemplatePage() {
     }
   }
 
-  const [mainTab, setMainTab] = useState<"templates" | "branding">("templates");
+  const [mainTab, setMainTab] = useState<"templates" | "branding" | "associazioni">("templates");
 
   return (
     <div className="p-6 space-y-6">
@@ -445,7 +495,7 @@ export default function TemplatePage() {
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2"><Mail className="h-6 w-6" /> Template Email</h1>
           <p className="text-muted-foreground text-sm mt-1">Gestisci modelli, branding e invio test delle comunicazioni</p>
         </div>
-        {mainTab === "templates" && (
+        {(mainTab === "templates" || mainTab === "associazioni") && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setCatDialogOpen(true)}><Tag className="h-4 w-4 mr-1" /> Nuova Categoria</Button>
             <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nuovo Template</Button>
@@ -453,14 +503,37 @@ export default function TemplatePage() {
         )}
       </div>
 
-      <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as "templates" | "branding")}>
+      <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as "templates" | "branding" | "associazioni")}>
         <TabsList>
           <TabsTrigger value="templates"><Mail className="h-4 w-4 mr-1.5" /> Templates</TabsTrigger>
           <TabsTrigger value="branding"><Palette className="h-4 w-4 mr-1.5" /> Branding email</TabsTrigger>
+          <TabsTrigger value="associazioni"><Link2 className="h-4 w-4 mr-1.5" /> Associazioni Template</TabsTrigger>
         </TabsList>
 
         <TabsContent value="branding" className="mt-4">
           <EmailBrandingTab />
+        </TabsContent>
+
+        <TabsContent value="associazioni" className="mt-4">
+          <AssociazioniTemplateTab
+            templates={templates}
+            uffici={uffici}
+            categorie={catMap}
+            onNew={(ufficioId) => openNew(ufficioId)}
+            onEdit={(id) => {
+              const t = templates.find((x) => x.id === id);
+              if (t) openEdit(t);
+            }}
+            onPreview={(id) => {
+              const t = templates.find((x) => x.id === id);
+              if (t) { setPreviewTemplate(t); setPreviewOpen(true); }
+            }}
+            onDuplicate={(id) => {
+              const t = templates.find((x) => x.id === id);
+              if (t) duplicateMut.mutate(t);
+            }}
+            onChangeSede={(id, ufficioId) => changeSedeMut.mutate({ id, ufficio_id: ufficioId })}
+          />
         </TabsContent>
 
         <TabsContent value="templates" className="mt-4">
@@ -480,6 +553,7 @@ export default function TemplatePage() {
                       <TableRow>
                         <TableHead>Nome</TableHead>
                         <TableHead>Categoria</TableHead>
+                        <TableHead>Sede</TableHead>
                         <TableHead>Oggetto</TableHead>
                         <TableHead className="text-center">Attivo</TableHead>
                         <TableHead className="text-right">Azioni</TableHead>
@@ -490,6 +564,7 @@ export default function TemplatePage() {
                         <TableRow key={t.id}>
                           <TableCell className="font-medium">{t.nome}</TableCell>
                           <TableCell><Badge variant="secondary">{catMap[t.categoria_id] || "—"}</Badge></TableCell>
+                          <TableCell><Badge variant="outline">{labelSedeTemplate(t.ufficio_id, ufficiById)}</Badge></TableCell>
                           <TableCell className="text-muted-foreground text-sm max-w-[300px] truncate">{t.oggetto}</TableCell>
                           <TableCell className="text-center">
                             <Switch checked={t.attivo} onCheckedChange={v => toggleMut.mutate({ id: t.id, attivo: v })} />
@@ -499,6 +574,7 @@ export default function TemplatePage() {
                               <TooltipProvider><Tooltip><TooltipTrigger asChild>
                                 <Button variant="ghost" size="icon" onClick={() => { setPreviewTemplate(t); setPreviewOpen(true); }}><Eye className="h-4 w-4" /></Button>
                               </TooltipTrigger><TooltipContent>Anteprima & invia test</TooltipContent></Tooltip></TooltipProvider>
+                              <Button variant="ghost" size="icon" title="Duplica" onClick={() => duplicateMut.mutate(t)}><CopyPlus className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="icon" onClick={() => openEdit(t)}><Edit2 className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="icon" className="text-destructive" onClick={() => { if (confirm("Eliminare questo template?")) deleteMut.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>
                             </div>
@@ -530,6 +606,17 @@ export default function TemplatePage() {
                   <SelectTrigger><SelectValue placeholder="Seleziona" /></SelectTrigger>
                   <SelectContent>{categorie.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label>Sede di default</Label>
+                <SedeTemplateSelect
+                  uffici={uffici}
+                  value={form.ufficio_id}
+                  onChange={(id) => setForm((f) => ({ ...f, ufficio_id: id }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Il branding email (logo, colore, firma, mittente) è quello di questa sede, con fallback al branding globale.
+                </p>
               </div>
             </div>
 

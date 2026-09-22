@@ -60,21 +60,12 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // Branding
-    const { data: branding } = await admin
-      .from("email_branding")
-      .select("logo_url, colore_primario")
-      .limit(1)
-      .maybeSingle();
-
-    const color = hexToRgb(branding?.colore_primario || "#0e7490");
-
-    // Cliente
+    // Cliente (serve anche ufficio_id per il branding sede)
     let cliente: any = null;
     if (cliente_id) {
       const { data } = await admin
         .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, email, indirizzo_residenza, indirizzo_sede, citta_residenza, citta_sede, cap_residenza, cap_sede, tipo_cliente")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, email, indirizzo_residenza, indirizzo_sede, citta_residenza, citta_sede, cap_residenza, cap_sede, tipo_cliente, ufficio_id")
         .eq("id", cliente_id)
         .maybeSingle();
       cliente = data;
@@ -85,19 +76,48 @@ serve(async (req) => {
     if (titolo_id) {
       const { data } = await admin
         .from("titoli")
-        .select("id, numero_titolo, data_decorrenza, data_scadenza, premio_lordo, premio_netto, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio, indirizzo, email, telefono)")
+        .select("id, numero_titolo, data_decorrenza, data_scadenza, premio_lordo, premio_netto, ufficio_id, cliente_anagrafica_id, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio, indirizzo, email, telefono)")
         .eq("id", titolo_id)
         .maybeSingle();
       titolo = data;
       if (titolo && !cliente && titolo.cliente_anagrafica_id) {
         const { data: c } = await admin
           .from("clienti")
-          .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, email, indirizzo_residenza, indirizzo_sede, citta_residenza, citta_sede, tipo_cliente")
+          .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, email, indirizzo_residenza, indirizzo_sede, citta_residenza, citta_sede, tipo_cliente, ufficio_id")
           .eq("id", titolo.cliente_anagrafica_id)
           .maybeSingle();
         cliente = c;
       }
     }
+
+    const brandingUfficio = titolo?.ufficio_id || cliente?.ufficio_id || null;
+    let branding: { logo_url: string | null; colore_primario: string | null } | null = null;
+    if (brandingUfficio) {
+      const { data } = await admin
+        .from("email_branding")
+        .select("logo_url, colore_primario")
+        .eq("ufficio_id", brandingUfficio)
+        .maybeSingle();
+      branding = data;
+    }
+    if (!branding) {
+      const { data } = await admin
+        .from("email_branding")
+        .select("logo_url, colore_primario")
+        .is("ufficio_id", null)
+        .maybeSingle();
+      branding = data;
+    }
+    if (!branding) {
+      const { data } = await admin
+        .from("email_branding")
+        .select("logo_url, colore_primario")
+        .limit(1)
+        .maybeSingle();
+      branding = data;
+    }
+
+    const color = hexToRgb(branding?.colore_primario || "#0e7490");
 
     let sinistro: any = null;
     if (body.sinistro_id) {
