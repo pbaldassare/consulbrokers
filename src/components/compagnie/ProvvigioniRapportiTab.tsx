@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, Fragment } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,26 +12,21 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Check } from "lucide-react";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
-  Percent, Copy, ClipboardPaste, Upload, Sparkles, Save, Plus, Trash2, Download,
-  Search, ChevronLeft, ChevronRight, ChevronDown, ChevronsUpDown, Wand2, RotateCcw,
-  AlertCircle, FileText, Loader2,
+  Percent, Copy, ClipboardPaste, Upload, Sparkles, Plus, Download, Save,
+  Search, ChevronLeft, ChevronRight, ChevronsUpDown,
+  AlertCircle, FileText, Loader2, ListPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MAX_DOCUMENT_UPLOAD_BYTES, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
-import RamiAbilitatiEditor from "./RamiAbilitatiEditor";
+import { garanzieDelRamo, rowKeyProvv } from "@/lib/provvigioniRamoTree";
+import ProvvigioniRamoTree from "./ProvvigioniRamoTree";
 
-const TIPI_RAPPORTO = ["Direzione", "Agenzia", "Broker", "Plurimandataria", "Mandato diretto", "Sub-agenzia", "Convenzione broker", "Coverholder", "Altro"];
-const LS_KEY = "provv-rapporti-ui-v1";
-type FilterStato = "all" | "configured" | "missing" | "only_default";
+const LS_KEY = "provv-rapporti-ui-v2";
 
 
 type Props = {
@@ -55,7 +50,7 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
   const [copyOpen, setCopyOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [search, setSearch] = useState<string>("");
-  const [filterStato, setFilterStato] = useState<FilterStato>(persisted.filterStato || "all");
+  const [addRamoId, setAddRamoId] = useState("");
   const [expandedGruppi, setExpandedGruppi] = useState<Set<string>>(() => {
     const raw = persisted.expandedGruppi ?? persisted.expanded;
     if (Array.isArray(raw)) return new Set(raw as string[]);
@@ -68,25 +63,20 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
     }
     return new Set();
   });
-  const [bulkConfirm, setBulkConfirm] = useState<{ kind: "apply" | "reset"; keys?: string[]; gruppoId?: string; perc?: number; overwrite?: boolean } | null>(null);
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
-  const [bulkVal, setBulkVal] = useState("");
-  const [bulkOverwrite, setBulkOverwrite] = useState(false);
 
   useEffect(() => {
     if (isFixed) return;
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
         rapportoId,
-        filterStato,
         expandedGruppi: Array.from(expandedGruppi),
       }));
     } catch {}
-  }, [isFixed, rapportoId, filterStato, expandedGruppi]);
+  }, [isFixed, rapportoId, expandedGruppi]);
 
   useEffect(() => {
-    setSelectedKeys(new Set());
-  }, [rapportoId, filterStato, search]);
+    setAddRamoId("");
+  }, [rapportoId]);
 
 
   // Rapporti elenco
@@ -161,17 +151,10 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
       return ((data || []) as unknown) as { gruppo_ramo_id: string; ramo_id: string | null }[];
     },
   });
-  // Set di gruppi abilitati + map sottorami specifici per gruppo
-  const enabledGruppoIds = new Set<string>(ramiAbilitati.map((x) => x.gruppo_ramo_id));
-  const specificSottoByGruppo: Record<string, Set<string>> = {};
-  const gruppoHasAll: Record<string, boolean> = {};
-  ramiAbilitati.forEach((x) => {
-    if (x.ramo_id === null) gruppoHasAll[x.gruppo_ramo_id] = true;
-    else {
-      specificSottoByGruppo[x.gruppo_ramo_id] = specificSottoByGruppo[x.gruppo_ramo_id] || new Set();
-      specificSottoByGruppo[x.gruppo_ramo_id].add(x.ramo_id);
-    }
-  });
+  const enabledGruppoIds = useMemo(
+    () => new Set<string>(ramiAbilitati.map((x) => x.gruppo_ramo_id)),
+    [ramiAbilitati],
+  );
 
   // Provvigioni del rapporto selezionato
   const { data: provvigioni = [], refetch: refetchProvv } = useQuery({
@@ -191,7 +174,7 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
   const provvMap = useMemo(() => {
     const m: Record<string, { id: string; perc: number; percAccessori: number | null }> = {};
     provvigioni.forEach((p: any) => {
-      const key = `${p.gruppo_ramo_id || ""}|${p.ramo_id || ""}`;
+      const key = rowKeyProvv(p.gruppo_ramo_id || "", p.ramo_id);
       m[key] = {
         id: p.id,
         perc: Number(p.percentuale_provvigione),
@@ -279,6 +262,50 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
     },
   });
 
+  const addRamiMutation = useMutation({
+    mutationFn: async (gruppoIds: string[]) => {
+      if (!rapportoId) throw new Error("Seleziona un rapporto");
+      const missing = [...new Set(gruppoIds.filter((id) => id && !enabledGruppoIds.has(id)))];
+      if (!missing.length) return 0;
+      const { error } = await supabase.from("compagnia_rapporto_rami" as any).insert(
+        missing.map((gruppo_ramo_id) => ({
+          rapporto_id: rapportoId,
+          gruppo_ramo_id,
+          ramo_id: null,
+        })),
+      );
+      if (error) throw error;
+      return missing.length;
+    },
+    onSuccess: (n) => {
+      if (n) toast.success(n === 1 ? "Ramo aggiunto (tutte le garanzie)" : `${n} rami aggiunti`);
+      qc.invalidateQueries({ queryKey: ["rapporto-rami-abilitati", rapportoId] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Errore nell'aggiunta del ramo"),
+  });
+
+  const removeRamoMutation = useMutation({
+    mutationFn: async (gruppoId: string) => {
+      if (!rapportoId) throw new Error("Seleziona un rapporto");
+      const { error } = await supabase
+        .from("compagnia_rapporto_rami" as any)
+        .delete()
+        .eq("rapporto_id", rapportoId)
+        .eq("gruppo_ramo_id", gruppoId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Ramo rimosso dal rapporto. Le % salvate restano (appendici e polizze le riusano).");
+      qc.invalidateQueries({ queryKey: ["rapporto-rami-abilitati", rapportoId] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Errore nella rimozione del ramo"),
+  });
+
+  const enableGruppiFromRows = (rows: { gruppo_ramo_id?: string | null }[]) => {
+    const ids = [...new Set(rows.map((r) => r.gruppo_ramo_id).filter(Boolean))] as string[];
+    if (ids.length) addRamiMutation.mutate(ids);
+  };
+
   const exportCsv = () => {
     if (!rapportoSelected) return;
     const lines = ["ramo;sottoramo;percentuale"];
@@ -312,34 +339,31 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
     return hit ? Number(hit.percentuale) : null;
   };
 
-  // Lista gruppi visibili (abilitati + filtro testo + filtro stato)
+  // Lista gruppi visibili: tutti i rami abilitati, con TUTTE le garanzie di catalogo
   const gruppiVisibili = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (gruppiRamo as any[])
       .filter((gr) => enabledGruppoIds.has(gr.id))
       .map((gr) => {
-        const allSotto = (rami as any[]).filter((r) => r.gruppo_ramo_id === gr.id);
-        const sottorami = gruppoHasAll[gr.id]
-          ? allSotto
-          : allSotto.filter((r) => specificSottoByGruppo[gr.id]?.has(r.id));
-        const defaultRow = provvMap[`${gr.id}|`];
-        const configuredCount = sottorami.filter((s) => provvMap[`${gr.id}|${s.id}`]).length;
+        const sottorami = garanzieDelRamo(rami as any[], gr.id);
+        const defaultRow = provvMap[rowKeyProvv(gr.id, null)];
+        const configuredCount = sottorami.filter((s) => provvMap[rowKeyProvv(gr.id, s.id)]).length;
         return { gr, sottorami, defaultRow, configuredCount };
       })
-      .filter(({ gr, sottorami, defaultRow, configuredCount }) => {
-        if (q) {
-          const grMatch = gr.descrizione?.toLowerCase().includes(q) || gr.codice?.toLowerCase().includes(q);
-          const sottoMatch = sottorami.some(
-            (s: any) => s.descrizione?.toLowerCase().includes(q) || s.codice?.toLowerCase().includes(q)
-          );
-          if (!grMatch && !sottoMatch) return false;
-        }
-        if (filterStato === "configured") return !!defaultRow || configuredCount > 0;
-        if (filterStato === "missing") return !defaultRow && configuredCount === 0;
-        if (filterStato === "only_default") return !!defaultRow && configuredCount === 0;
-        return true;
+      .filter(({ gr, sottorami }) => {
+        if (!q) return true;
+        const grMatch = gr.descrizione?.toLowerCase().includes(q) || gr.codice?.toLowerCase().includes(q);
+        const sottoMatch = sottorami.some(
+          (s: any) => s.descrizione?.toLowerCase().includes(q) || s.codice?.toLowerCase().includes(q)
+        );
+        return grMatch || sottoMatch;
       });
-  }, [gruppiRamo, rami, enabledGruppoIds, gruppoHasAll, specificSottoByGruppo, provvMap, search, filterStato]);
+  }, [gruppiRamo, rami, enabledGruppoIds, provvMap, search]);
+
+  const ramiNonAbilitati = useMemo(
+    () => (gruppiRamo as any[]).filter((g) => !enabledGruppoIds.has(g.id)),
+    [gruppiRamo, enabledGruppoIds],
+  );
 
   const totals = useMemo(() => {
     const totSotto = gruppiVisibili.reduce((acc, g) => acc + g.sottorami.length, 0);
@@ -347,87 +371,26 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
     return { gruppi: gruppiVisibili.length, sottorami: totSotto, configurati: totConf };
   }, [gruppiVisibili]);
 
-  const rowKey = (gruppoId: string, ramoId: string) => `${gruppoId}|${ramoId}`;
-
-  const toggleSelected = (key: string) => {
-    setSelectedKeys((prev) => {
+  const lastRapportoForExpand = useRef<string>("");
+  useEffect(() => {
+    const ids = ramiAbilitati.map((x) => x.gruppo_ramo_id);
+    if (rapportoId !== lastRapportoForExpand.current) {
+      lastRapportoForExpand.current = rapportoId;
+      setExpandedGruppi(new Set(ids));
+      return;
+    }
+    setExpandedGruppi((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
+      let changed = false;
+      for (const id of ids) {
+        if (!next.has(id)) {
+          next.add(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
     });
-  };
-
-  const toggleGruppoSelection = (gruppoId: string, sottorami: any[]) => {
-    const keys = sottorami.map((s: any) => rowKey(gruppoId, s.id));
-    const allSelected = keys.length > 0 && keys.every((k) => selectedKeys.has(k));
-    setSelectedKeys((prev) => {
-      const next = new Set(prev);
-      if (allSelected) keys.forEach((k) => next.delete(k));
-      else keys.forEach((k) => next.add(k));
-      return next;
-    });
-  };
-
-  // Bulk-apply su gruppo: scrive la stessa % a tutti i sottorami abilitati
-  const doBulkApply = (gruppoId: string, perc: number, overwrite: boolean) => {
-    const g = gruppiVisibili.find((x) => x.gr.id === gruppoId);
-    if (!g) return;
-    const rows = g.sottorami
-      .filter((s: any) => overwrite || !provvMap[`${gruppoId}|${s.id}`])
-      .map((s: any) => ({
-        id: provvMap[`${gruppoId}|${s.id}`]?.id,
-        gruppo_ramo_id: gruppoId,
-        ramo_id: s.id,
-        percentuale: perc,
-      }));
-    if (rows.length === 0) { toast.info("Nessuna riga da aggiornare"); return; }
-    upsertMutation.mutate(rows);
-  };
-
-  // Bulk-reset: rimuove tutti gli override sui sottorami del gruppo
-  const doBulkReset = (gruppoId: string) => {
-    const g = gruppiVisibili.find((x) => x.gr.id === gruppoId);
-    if (!g) return;
-    const ids = g.sottorami
-      .map((s: any) => provvMap[`${gruppoId}|${s.id}`]?.id)
-      .filter(Boolean) as string[];
-    if (ids.length === 0) { toast.info("Nessun override da rimuovere"); return; }
-    Promise.all(ids.map((id) => deleteMutation.mutateAsync(id))).then(() =>
-      toast.success(`${ids.length} override rimossi`)
-    );
-  };
-
-  const doBulkApplySelected = (perc: number, overwrite: boolean) => {
-    const rows: { id?: string; gruppo_ramo_id: string; ramo_id: string; percentuale: number }[] = [];
-    selectedKeys.forEach((key) => {
-      const [gruppoId, ramoId] = key.split("|");
-      if (!gruppoId || !ramoId) return;
-      const existing = provvMap[key];
-      if (!overwrite && existing) return;
-      rows.push({
-        id: existing?.id,
-        gruppo_ramo_id: gruppoId,
-        ramo_id: ramoId,
-        percentuale: perc,
-      });
-    });
-    if (rows.length === 0) { toast.info("Nessuna riga da aggiornare"); return; }
-    upsertMutation.mutate(rows);
-  };
-
-  const doBulkResetSelected = () => {
-    const ids: string[] = [];
-    selectedKeys.forEach((key) => {
-      const existing = provvMap[key];
-      if (existing?.id) ids.push(existing.id);
-    });
-    if (ids.length === 0) { toast.info("Nessun override da rimuovere"); return; }
-    Promise.all(ids.map((id) => deleteMutation.mutateAsync(id))).then(() => {
-      toast.success(`${ids.length} override rimossi`);
-      setSelectedKeys(new Set());
-    });
-  };
+  }, [rapportoId, ramiAbilitati]);
 
   const toggleGruppoExpanded = (gruppoId: string) => {
     setExpandedGruppi((prev) => {
@@ -445,17 +408,6 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
   const collapseAllGruppi = () => {
     setExpandedGruppi(new Set());
   };
-
-  const allSottoramoKeys = useMemo(
-    () =>
-      gruppiVisibili.flatMap(({ gr, sottorami }) =>
-        sottorami.map((s: any) => rowKey(gr.id, s.id))
-      ),
-    [gruppiVisibili]
-  );
-  const allSelected =
-    allSottoramoKeys.length > 0 && allSottoramoKeys.every((k) => selectedKeys.has(k));
-  const someSelected = selectedKeys.size > 0 && !allSelected;
 
   // Navigazione rapporto prev/next
   const currentIdx = rapportoOptions.findIndex((o) => o.value === rapportoId);
@@ -484,18 +436,6 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
                 <li>Default per <b>Tipo rapporto + Gruppo Ramo/Garanzia</b></li>
                 <li>Se nessuna regola → <b>0%</b> + warning</li>
               </ol>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-
-        {/* Default tipo rapporto */}
-        <Accordion type="single" collapsible>
-          <AccordionItem value="def">
-            <AccordionTrigger className="text-sm font-medium">
-              <span className="flex items-center gap-2"><Percent className="w-4 h-4" />Default globali per tipo rapporto ({defaultTipo.length})</span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <DefaultTipoEditor rows={defaultTipo} gruppiRamo={gruppiRamo} rami={rami} onChanged={() => qc.invalidateQueries({ queryKey: ["provv-default-tipo"] })} />
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -640,22 +580,9 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
                       className="pl-8 h-9"
                     />
                   </div>
-                  <div className="flex items-center gap-1 text-xs">
-                    {(["all", "configured", "missing", "only_default"] as FilterStato[]).map((f) => (
-                      <Button
-                        key={f}
-                        size="sm"
-                        variant={filterStato === f ? "default" : "outline"}
-                        className="h-8"
-                        onClick={() => setFilterStato(f)}
-                      >
-                        {f === "all" ? "Tutti" : f === "configured" ? "Configurati" : f === "missing" ? "Mancanti" : "Solo default"}
-                      </Button>
-                    ))}
-                  </div>
                   <div className="ml-auto flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
-                      {totals.gruppi} Rami · {totals.sottorami} sottorami · <b>{totals.configurati}</b> configurati
+                      {totals.gruppi} Rami · {totals.sottorami} garanzie · <b>{totals.configurati}</b> configurati
                     </span>
                     <Button size="sm" variant="ghost" className="h-8" onClick={expandAllGruppi}>
                       <ChevronsUpDown className="w-3.5 h-3.5 mr-1" />Espandi tutti
@@ -670,222 +597,74 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
           </Card>
         </div>
 
-        {/* Editor manuale Rami/Sottorami abilitati */}
         {rapportoId && (
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm">Gestione manuale Rami e Sottorami abilitati</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <RamiAbilitatiEditor compagniaRapportoId={rapportoId} />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Matrice piatta */}
-        {rapportoId && (
-          ramiAbilitati.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
-              Nessun Ramo abilitato su questo rapporto. Usa il pannello "Gestione manuale" qui sopra, oppure Import IA / Incolla CSV / Copia da altro per popolarli.
-            </CardContent></Card>
-          ) : gruppiVisibili.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
-              Nessun Ramo corrisponde ai filtri.
-            </CardContent></Card>
-          ) : (
-            <Card className="overflow-hidden">
-              <CardHeader className="py-3 border-b">
-                <CardTitle className="text-sm">Matrice % Provvigioni per Ramo / Garanzia</CardTitle>
-              </CardHeader>
-              <div className="flex items-center gap-2 flex-wrap px-4 py-2 bg-muted/20 border-b">
-                <Wand2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <span className="text-xs text-muted-foreground">
-                  Applica % a {selectedKeys.size > 0 ? `${selectedKeys.size} selezionati` : "selezionati"}:
-                </span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={bulkVal}
-                  onChange={(e) => setBulkVal(e.target.value)}
-                  className="h-8 w-20"
-                  placeholder="es. 15"
-                />
-                <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={bulkOverwrite}
-                    onChange={(e) => setBulkOverwrite(e.target.checked)}
-                  />
-                  sovrascrivi configurati
-                </label>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8"
-                  disabled={selectedKeys.size === 0 || !bulkVal || isNaN(parseFloat(bulkVal))}
-                  onClick={() => {
-                    const perc = parseFloat(bulkVal);
-                    if (bulkOverwrite) {
-                      setBulkConfirm({ kind: "apply", keys: Array.from(selectedKeys), perc, overwrite: true });
-                    } else {
-                      doBulkApplySelected(perc, false);
-                    }
-                  }}
-                >
-                  Applica
-                </Button>
-                <div className="ml-auto">
+          <Card className="overflow-hidden">
+            <CardHeader className="py-3 border-b space-y-3">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <CardTitle className="text-sm">Matrice % Provvigioni — Ramo e garanzie</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    La % di default del ramo vale per tutte le garanzie e per le appendici.
+                    Un override sulla garanzia sostituisce solo quella garanzia.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="w-[260px]">
+                    <SearchableSelect
+                      options={ramiNonAbilitati.map((g: any) => ({
+                        value: g.id,
+                        label: `${g.codice} - ${g.descrizione}`,
+                      }))}
+                      value={addRamoId}
+                      onValueChange={setAddRamoId}
+                      placeholder={ramiNonAbilitati.length ? "Aggiungi ramo..." : "Tutti i rami sono già in lista"}
+                    />
+                  </div>
                   <Button
                     size="sm"
-                    variant="ghost"
-                    className="h-8 text-destructive"
-                    disabled={selectedKeys.size === 0}
-                    onClick={() => setBulkConfirm({ kind: "reset", keys: Array.from(selectedKeys) })}
+                    disabled={!addRamoId || addRamiMutation.isPending}
+                    onClick={() => {
+                      addRamiMutation.mutate([addRamoId]);
+                      setAddRamoId("");
+                    }}
                   >
-                    <RotateCcw className="w-3.5 h-3.5 mr-1" />Resetta selezionati
+                    <Plus className="w-4 h-4 mr-1" />
+                    Aggiungi ramo
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!ramiNonAbilitati.length || addRamiMutation.isPending}
+                    onClick={() => addRamiMutation.mutate(ramiNonAbilitati.map((g: any) => g.id))}
+                  >
+                    <ListPlus className="w-4 h-4 mr-1" />
+                    Tutti i rami
                   </Button>
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background z-10">
-                    <TableRow>
-                      <TableHead className="w-10 h-9 px-2">
-                        <Checkbox
-                          checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                          onCheckedChange={() => {
-                            if (allSelected) setSelectedKeys(new Set());
-                            else setSelectedKeys(new Set(allSottoramoKeys));
-                          }}
-                          aria-label="Seleziona tutti i sottorami"
-                        />
-                      </TableHead>
-                      <TableHead className="w-[72px] h-9 px-2 text-xs">Cod. Ramo</TableHead>
-                      <TableHead className="min-w-[130px] h-9 px-2 text-xs">Ramo</TableHead>
-                      <TableHead className="w-[72px] h-9 px-2 text-xs">Cod. Gar.</TableHead>
-                      <TableHead className="min-w-[150px] h-9 px-2 text-xs">Garanzia</TableHead>
-                      <TableHead className="w-[90px] h-9 px-2 text-xs">% Def. netto</TableHead>
-                      <TableHead className="w-[90px] h-9 px-2 text-xs">% Def. acc.</TableHead>
-                      <TableHead className="w-[90px] h-9 px-2 text-xs">% Provv.</TableHead>
-                      <TableHead className="w-[90px] h-9 px-2 text-xs">% Accessori</TableHead>
-                      <TableHead className="w-[150px] h-9 px-2 text-xs">Stato</TableHead>
-                      <TableHead className="w-10 h-9 px-2" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {gruppiVisibili.map(({ gr, sottorami, defaultRow, configuredCount }, gi) => {
-                      const isOpen = expandedGruppi.has(gr.id);
-                      const gruppoKeys = sottorami.map((s: any) => rowKey(gr.id, s.id));
-                      const gruppoAllSelected =
-                        gruppoKeys.length > 0 && gruppoKeys.every((k) => selectedKeys.has(k));
-                      const gruppoSomeSelected =
-                        gruppoKeys.some((k) => selectedKeys.has(k)) && !gruppoAllSelected;
-                      const inheritedDefault = inheritedFromTipo(gr.id, null);
-                      let rowIndex = 0;
-
-                      return (
-                        <Fragment key={gr.id}>
-                          <GruppoRamoHeaderRow
-                            gr={gr}
-                            sottorami={sottorami}
-                            defaultRow={defaultRow}
-                            configuredCount={configuredCount}
-                            inheritedDefault={inheritedDefault}
-                            expanded={isOpen}
-                            onToggle={() => toggleGruppoExpanded(gr.id)}
-                            gruppoAllSelected={gruppoAllSelected}
-                            gruppoSomeSelected={gruppoSomeSelected}
-                            onToggleGruppoSelect={() => toggleGruppoSelection(gr.id, sottorami)}
-                            onSave={(row) => upsertMutation.mutate([row])}
-                            onDelete={(id) => deleteMutation.mutate(id)}
-                          />
-                          {isOpen && (
-                            sottorami.length === 0 ? (
-                              <TableRow key={`${gr.id}-empty`}>
-                                <TableCell colSpan={11} className="px-4 py-3 text-xs text-muted-foreground italic">
-                                  Nessun sottoramo abilitato per questo Ramo.
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              sottorami.map((s: any) => {
-                                rowIndex += 1;
-                                const key = rowKey(gr.id, s.id);
-                                const row = provvMap[key];
-                                return (
-                                  <SottoramoTableRow
-                                    key={s.id}
-                                    gr={gr}
-                                    ramo={s}
-                                    existing={row}
-                                    zebra={(gi + rowIndex) % 2 === 1}
-                                    selected={selectedKeys.has(key)}
-                                    onToggleSelect={() => toggleSelected(key)}
-                                    inheritedTipo={inheritedFromTipo(gr.id, s.id)}
-                                    hasDefaultRamo={!!defaultRow}
-                                    onSave={(perc: number, percAcc: number | null) =>
-                                      upsertMutation.mutate([{
-                                        id: row?.id,
-                                        gruppo_ramo_id: gr.id,
-                                        ramo_id: s.id,
-                                        percentuale: perc,
-                                        percentuale_accessori: percAcc,
-                                      }])
-                                    }
-                                    onDelete={() => row && deleteMutation.mutate(row.id)}
-                                  />
-                                );
-                              })
-                            )
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </Card>
-          )
+            </CardHeader>
+            {ramiAbilitati.length === 0 ? (
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                Nessun ramo in questo rapporto. Aggiungi un ramo, usa Tutti i rami, oppure Import IA / Incolla CSV / Copia da altro.
+              </CardContent>
+            ) : gruppiVisibili.length === 0 ? (
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                Nessun ramo corrisponde alla ricerca.
+              </CardContent>
+            ) : (
+              <ProvvigioniRamoTree
+                gruppi={gruppiVisibili}
+                expanded={expandedGruppi}
+                onToggle={toggleGruppoExpanded}
+                provvMap={provvMap}
+                inheritedFromTipo={inheritedFromTipo}
+                onSave={(rows) => upsertMutation.mutate(rows)}
+                onDelete={(id) => deleteMutation.mutate(id)}
+                onRemoveRamo={(gruppoId) => removeRamoMutation.mutate(gruppoId)}
+              />
+            )}
+          </Card>
         )}
-
-        {/* AlertDialog conferma bulk */}
-        <AlertDialog open={!!bulkConfirm} onOpenChange={(v) => !v && setBulkConfirm(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {bulkConfirm?.kind === "apply" ? "Applica % a tutti i sottorami" : "Rimuovi override sottorami"}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {bulkConfirm?.kind === "apply"
-                  ? `Verrà scritta la % ${bulkConfirm?.perc}% su ${bulkConfirm?.overwrite ? "tutti" : "solo i sottorami vuoti"} ${bulkConfirm?.keys ? "selezionati" : "di questo Ramo"}.`
-                  : bulkConfirm?.keys
-                    ? "I sottorami selezionati torneranno a ereditare dal default ramo. Operazione non distruttiva (soft delete)."
-                    : "Tutti i sottorami configurati di questo Ramo torneranno a ereditare dal default ramo. Operazione non distruttiva (soft delete)."}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Annulla</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  if (!bulkConfirm) return;
-                  if (bulkConfirm.kind === "apply") {
-                    if (bulkConfirm.keys?.length) {
-                      doBulkApplySelected(bulkConfirm.perc!, !!bulkConfirm.overwrite);
-                    } else if (bulkConfirm.gruppoId) {
-                      doBulkApply(bulkConfirm.gruppoId, bulkConfirm.perc!, !!bulkConfirm.overwrite);
-                    }
-                  } else if (bulkConfirm.keys?.length) {
-                    doBulkResetSelected();
-                  } else if (bulkConfirm.gruppoId) {
-                    doBulkReset(bulkConfirm.gruppoId);
-                  }
-                  setBulkConfirm(null);
-                }}
-              >
-                Conferma
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
 
         {pasteOpen && (
           <PasteDialog
@@ -894,7 +673,12 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
             gruppiRamo={gruppiRamo}
             rami={rami}
             onConfirm={(rows) => {
-              upsertMutation.mutate(rows, { onSuccess: () => setPasteOpen(false) });
+              upsertMutation.mutate(rows, {
+                onSuccess: () => {
+                  enableGruppiFromRows(rows);
+                  setPasteOpen(false);
+                },
+              });
             }}
           />
         )}
@@ -921,7 +705,12 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
                 toast.error("Il rapporto sorgente non ha righe");
                 return;
               }
-              upsertMutation.mutate(rows, { onSuccess: () => setCopyOpen(false) });
+              upsertMutation.mutate(rows, {
+                onSuccess: () => {
+                  enableGruppiFromRows(rows);
+                  setCopyOpen(false);
+                },
+              });
             }}
           />
         )}
@@ -933,378 +722,17 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
             gruppiRamo={gruppiRamo}
             rami={rami}
             onConfirm={(rows) => {
-              upsertMutation.mutate(rows, { onSuccess: () => setAiOpen(false) });
+              upsertMutation.mutate(rows, {
+                onSuccess: () => {
+                  enableGruppiFromRows(rows);
+                  setAiOpen(false);
+                },
+              });
             }}
           />
         )}
       </div>
     </TooltipProvider>
-  );
-}
-
-// ─── Header gruppo ramo (accordion + default inline) ────────────────────────
-function GruppoRamoHeaderRow({
-  gr, sottorami, defaultRow, configuredCount, inheritedDefault,
-  expanded, onToggle, gruppoAllSelected, gruppoSomeSelected, onToggleGruppoSelect,
-  onSave, onDelete,
-}: any) {
-  const [defVal, setDefVal] = useState<string>(defaultRow ? String(defaultRow.perc) : "");
-  const [defAccVal, setDefAccVal] = useState<string>(
-    defaultRow?.percAccessori != null ? String(defaultRow.percAccessori) : ""
-  );
-  const [flash, setFlash] = useState(false);
-
-  useEffect(() => { setDefVal(defaultRow ? String(defaultRow.perc) : ""); }, [defaultRow?.id, defaultRow?.perc]);
-  useEffect(() => {
-    setDefAccVal(defaultRow?.percAccessori != null ? String(defaultRow.percAccessori) : "");
-  }, [defaultRow?.id, defaultRow?.percAccessori]);
-
-  const triggerFlash = () => { setFlash(true); setTimeout(() => setFlash(false), 700); };
-
-  const saveDefault = () => {
-    const n = parseFloat(defVal);
-    if (isNaN(n)) return;
-    const acc = defAccVal.trim() === "" ? null : parseFloat(defAccVal);
-    if (defAccVal.trim() !== "" && isNaN(acc!)) return;
-    if (defaultRow && n === defaultRow.perc && (acc ?? null) === (defaultRow.percAccessori ?? null)) return;
-    onSave({
-      id: defaultRow?.id,
-      gruppo_ramo_id: gr.id,
-      ramo_id: null,
-      percentuale: n,
-      percentuale_accessori: acc,
-    });
-    triggerFlash();
-  };
-
-  const statoBadge = defaultRow ? (
-    <Badge variant="secondary" className="text-[10px]">default {defaultRow.perc}%</Badge>
-  ) : inheritedDefault != null ? (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge variant="outline" className="text-[10px] text-muted-foreground">eredita tipo: {inheritedDefault}%</Badge>
-      </TooltipTrigger>
-      <TooltipContent>Da "Default globali per tipo rapporto" (livello 4)</TooltipContent>
-    </Tooltip>
-  ) : (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 bg-amber-50 dark:bg-amber-950/30">
-          mancante
-        </Badge>
-      </TooltipTrigger>
-      <TooltipContent>Nessun default ramo configurato</TooltipContent>
-    </Tooltip>
-  );
-
-  return (
-    <TableRow
-      className={`${defaultRow || configuredCount > 0 ? "bg-primary/5" : "bg-muted/40"} border-t-2 border-border ${flash ? "ring-2 ring-emerald-400 ring-inset" : ""} transition-all`}
-    >
-      <TableCell className="px-2 py-2">
-        <div className="flex items-center gap-0.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0"
-            onClick={onToggle}
-            aria-label={expanded ? "Collassa" : "Espandi"}
-          >
-            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </Button>
-          {sottorami.length > 0 && (
-            <Checkbox
-              checked={gruppoAllSelected ? true : gruppoSomeSelected ? "indeterminate" : false}
-              onCheckedChange={onToggleGruppoSelect}
-              aria-label={`Seleziona sottorami ${gr.descrizione}`}
-            />
-          )}
-        </div>
-      </TableCell>
-      <TableCell className="px-2 py-2">
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{gr.codice}</span>
-      </TableCell>
-      <TableCell className="px-2 py-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm">{gr.descrizione}</span>
-          <Badge variant="outline" className="text-[10px]">
-            {configuredCount}/{sottorami.length} sottorami
-          </Badge>
-          {defaultRow && (
-            <Badge variant="secondary" className="text-[10px]">
-              default {defaultRow.perc}%
-            </Badge>
-          )}
-          {!defaultRow && inheritedDefault != null && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                  eredita tipo: {inheritedDefault}%
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>Da "Default globali per tipo rapporto" (livello 4)</TooltipContent>
-            </Tooltip>
-          )}
-        </div>
-      </TableCell>
-      <TableCell className="px-2 py-2 text-xs text-muted-foreground">—</TableCell>
-      <TableCell className="px-2 py-2 text-sm italic text-muted-foreground">— Default ramo</TableCell>
-      <TableCell className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-        <Input
-          type="number"
-          step="0.01"
-          value={defVal}
-          onChange={(e) => setDefVal(e.target.value)}
-          onBlur={saveDefault}
-          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-          className="h-8 w-20"
-          placeholder="% netto"
-          title="% Provvigione su netto"
-        />
-      </TableCell>
-      <TableCell className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-        <Input
-          type="number"
-          step="0.01"
-          value={defAccVal}
-          onChange={(e) => setDefAccVal(e.target.value)}
-          onBlur={saveDefault}
-          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-          className="h-8 w-20"
-          placeholder="% acc."
-          title="% Provvigione su accessori (vuoto = come netto)"
-        />
-      </TableCell>
-      <TableCell className="px-2 py-2 text-xs text-muted-foreground">—</TableCell>
-      <TableCell className="px-2 py-2 text-xs text-muted-foreground">—</TableCell>
-      <TableCell className="px-2 py-2">{statoBadge}</TableCell>
-      <TableCell className="px-2 py-2 text-right">
-        {defaultRow && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(defaultRow.id)}>
-                <Trash2 className="w-3.5 h-3.5 text-destructive" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Rimuovi default ramo</TooltipContent>
-          </Tooltip>
-        )}
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function SottoramoTableRow({
-  gr, ramo, existing, zebra, selected, onToggleSelect,
-  inheritedTipo, hasDefaultRamo, onSave, onDelete,
-}: any) {
-  const [val, setVal] = useState<string>(existing ? String(existing.perc) : "");
-  const [valAcc, setValAcc] = useState<string>(
-    existing?.percAccessori != null ? String(existing.percAccessori) : ""
-  );
-  const [flash, setFlash] = useState(false);
-  useEffect(() => { setVal(existing ? String(existing.perc) : ""); }, [existing?.id, existing?.perc]);
-  useEffect(() => {
-    setValAcc(existing?.percAccessori != null ? String(existing.percAccessori) : "");
-  }, [existing?.id, existing?.percAccessori]);
-
-  const commit = () => {
-    const n = parseFloat(val);
-    if (isNaN(n)) return;
-    const acc = valAcc.trim() === "" ? null : parseFloat(valAcc);
-    if (valAcc.trim() !== "" && isNaN(acc!)) return;
-    if (existing && n === existing.perc && (acc ?? null) === (existing.percAccessori ?? null)) return;
-    onSave(n, acc);
-    setFlash(true); setTimeout(() => setFlash(false), 700);
-  };
-
-  const inheritLabel = existing
-    ? null
-    : hasDefaultRamo
-      ? "eredita default ramo"
-      : inheritedTipo != null
-        ? `eredita tipo (${inheritedTipo}%)`
-        : "0% (nessuna regola)";
-
-  const isMissing = !existing && !hasDefaultRamo && inheritedTipo == null;
-
-  return (
-    <TableRow
-      className={`${zebra ? "bg-muted/20" : ""} ${flash ? "ring-2 ring-emerald-400 ring-inset" : ""} ${isMissing ? "border-l-2 border-l-amber-400" : ""} transition-all`}
-    >
-      <TableCell className="px-2 py-2">
-        <Checkbox checked={selected} onCheckedChange={onToggleSelect} aria-label={`Seleziona ${ramo.descrizione}`} />
-      </TableCell>
-      <TableCell className="px-2 py-2">
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{gr.codice}</span>
-      </TableCell>
-      <TableCell className="px-2 py-2 text-sm">{gr.descrizione}</TableCell>
-      <TableCell className="px-2 py-2 text-xs text-muted-foreground">{ramo.codice}</TableCell>
-      <TableCell className="px-2 py-2 text-sm">{ramo.descrizione}</TableCell>
-      <TableCell className="px-2 py-2 text-xs text-muted-foreground">—</TableCell>
-      <TableCell className="px-2 py-2 text-xs text-muted-foreground">—</TableCell>
-      <TableCell className="px-2 py-2">
-        <Input
-          type="number"
-          step="0.01"
-          value={val}
-          onChange={(e) => setVal(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-          className="h-8 w-20"
-          placeholder="—"
-        />
-      </TableCell>
-      <TableCell className="px-2 py-2">
-        <Input
-          type="number"
-          step="0.01"
-          value={valAcc}
-          onChange={(e) => setValAcc(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-          className="h-8 w-20"
-          placeholder="= netto"
-          title="Vuoto = stessa % del netto"
-        />
-      </TableCell>
-      <TableCell className="px-2 py-2">
-        {existing ? (
-          <Badge variant="default" className="text-[10px]">salvato</Badge>
-        ) : (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge
-                variant="outline"
-                className={`text-[10px] cursor-help ${isMissing ? "text-amber-700 border-amber-300 bg-amber-50 dark:bg-amber-950/30" : "text-muted-foreground"}`}
-              >
-                {inheritLabel}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              {hasDefaultRamo
-                ? "Usa la % del default ramo configurata sopra (livello 2)."
-                : inheritedTipo != null
-                  ? "Usa la % del default globale per tipo rapporto (livello 4)."
-                  : "Nessuna regola: in fase di immissione polizza verrà applicato 0% con warning."}
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </TableCell>
-      <TableCell className="px-2 py-2 text-right">
-        {existing && (
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}>
-            <Trash2 className="w-3.5 h-3.5 text-destructive" />
-          </Button>
-        )}
-      </TableCell>
-    </TableRow>
-  );
-}
-
-
-// ─── Editor default tipo rapporto ──────────────────────────────────────────
-function DefaultTipoEditor({ rows, gruppiRamo, rami, onChanged }: any) {
-  const [tipo, setTipo] = useState("");
-  const [gr, setGr] = useState("");
-  const [ramoId, setRamoId] = useState("");
-  const [perc, setPerc] = useState("");
-
-  const add = async () => {
-    if (!tipo || !gr || !perc) {
-      toast.error("Compila tipo, ramo e %");
-      return;
-    }
-    const { error } = await supabase.from("provvigioni_default_tipo" as any).upsert(
-      {
-        tipo_rapporto: tipo,
-        gruppo_ramo_id: gr,
-        ramo_id: ramoId || null,
-        percentuale: parseFloat(perc),
-        attiva: true,
-      },
-      { onConflict: "tipo_rapporto,gruppo_ramo_id,ramo_id" }
-    );
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Default salvato");
-      setPerc("");
-      onChanged();
-    }
-  };
-
-  const remove = async (id: string) => {
-    await supabase.from("provvigioni_default_tipo" as any).update({ attiva: false }).eq("id", id);
-    onChanged();
-  };
-
-  return (
-    <div className="space-y-3 pt-2">
-      <div className="flex items-end gap-2 flex-wrap">
-        <div className="w-48 space-y-1">
-          <Label className="text-xs">Tipo rapporto</Label>
-          <SearchableSelect options={TIPI_RAPPORTO.map((t) => ({ value: t, label: t }))} value={tipo} onValueChange={setTipo} placeholder="Tipo..." />
-        </div>
-        <div className="w-56 space-y-1">
-          <Label className="text-xs">Gruppo Ramo</Label>
-          <SearchableSelect
-            options={gruppiRamo.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.descrizione}` }))}
-            value={gr}
-            onValueChange={setGr}
-            placeholder="Ramo..."
-          />
-        </div>
-        <div className="w-56 space-y-1">
-          <Label className="text-xs">Garanzia (opz)</Label>
-          <SearchableSelect
-            options={rami
-              .filter((r: any) => !gr || r.gruppo_ramo_id === gr)
-              .map((r: any) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }))}
-            value={ramoId}
-            onValueChange={setRamoId}
-            placeholder="Default ramo se vuoto"
-          />
-        </div>
-        <div className="w-24 space-y-1">
-          <Label className="text-xs">%</Label>
-          <Input type="number" step="0.01" value={perc} onChange={(e) => setPerc(e.target.value)} />
-        </div>
-        <Button onClick={add}><Plus className="w-4 h-4 mr-1" />Aggiungi</Button>
-      </div>
-
-      {rows.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Gruppo Ramo</TableHead>
-              <TableHead>Garanzia</TableHead>
-              <TableHead>%</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((r: any, i: number) => {
-              const grObj = gruppiRamo.find((x: any) => x.id === r.gruppo_ramo_id);
-              const raObj = rami.find((x: any) => x.id === r.ramo_id);
-              return (
-                <TableRow key={r.id} className={i % 2 ? "bg-muted/30" : ""}>
-                  <TableCell><Badge variant="outline">{r.tipo_rapporto}</Badge></TableCell>
-                  <TableCell>{grObj?.descrizione || "—"}</TableCell>
-                  <TableCell>{raObj?.descrizione || <span className="text-muted-foreground italic">default ramo</span>}</TableCell>
-                  <TableCell>{Number(r.percentuale).toFixed(2)}%</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(r.id)}>
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      )}
-    </div>
   );
 }
 
