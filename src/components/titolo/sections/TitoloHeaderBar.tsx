@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, RefreshCw, Clock, FilePen } from "lucide-react";
+import { ArrowLeft, RefreshCw, Clock, FilePen, Pencil } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -32,6 +32,8 @@ interface Props {
   rataIndex?: number;
   /** Numero totale di rate della catena. */
   totRate?: number;
+  /** Apre la modifica dell'importo firma (solo polizza originale). */
+  onEditImportoFirma?: () => void;
 }
 
 /**
@@ -47,6 +49,7 @@ export function TitoloHeaderBar({
   polizzaStato,
   rataIndex,
   totRate,
+  onEditImportoFirma,
 }: Props) {
   const isRegolazione = !!t.is_regolazione;
   const isProroga = !!t.is_proroga;
@@ -219,6 +222,19 @@ export function TitoloHeaderBar({
             <div className="flex items-center gap-1.5">
               <span className="text-xs uppercase tracking-wide text-muted-foreground">{importoLabel}:</span>
               <span className="font-semibold text-teal-700 tabular-nums">{fmtEuro(importoLordo)}</span>
+              {importoLabel === "Importo Firma" && onEditImportoFirma && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                  onClick={onEditImportoFirma}
+                  title="Modifica importo firma"
+                  aria-label="Modifica importo firma"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
+              )}
             </div>
           </div>
         </div>

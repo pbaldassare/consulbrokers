@@ -10,6 +10,12 @@ import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { buildGarantitoPayload, buildIncassoDateFields, isInCoperturaGarantita, isGarantitoAperto } from "@/lib/garantitoTitolo";
 import { annullaPolizza } from "@/lib/annullaPolizza";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
+import {
+  lordoFirmaDaVoci,
+  payloadImportoFirma,
+  vociDaLordoFirma,
+  type VociImportoFirma,
+} from "@/lib/importoFirma";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
 import { computeRegolazioneDatePresunte } from "@/lib/regolazioneDatePresunte";
@@ -1499,13 +1505,55 @@ const TitoloDetail = () => {
     { value: "CHF", label: "CHF" },
   ];
 
+  const [importoFirmaOpen, setImportoFirmaOpen] = useState(false);
+  const [importoFirmaForm, setImportoFirmaForm] = useState<VociImportoFirma>({
+    netto: 0,
+    tasse: 0,
+    ssn: 0,
+    addizionali: 0,
+  });
+  const [importoFirmaLordo, setImportoFirmaLordo] = useState("");
+
+  const openImportoFirma = () => {
+    const row: any = titolo;
+    const voci: VociImportoFirma = {
+      netto: Number(row?.premio_netto) || 0,
+      tasse: Number(row?.tasse) || 0,
+      ssn: Number(row?.ssn_firma) || 0,
+      addizionali: Number(row?.addizionali) || 0,
+    };
+    setImportoFirmaForm(voci);
+    setImportoFirmaLordo(String(lordoFirmaDaVoci(voci) || Number(row?.premio_lordo) || 0));
+    setImportoFirmaOpen(true);
+  };
+
+  const saveImportoFirmaMutation = useMutation({
+    mutationFn: async () => {
+      if (!id || !titolo) throw new Error("Titolo non disponibile");
+      const payload = payloadImportoFirma(importoFirmaForm);
+      assertSameTitolo(id, titolo.id, "saveImportoFirmaMutation");
+      const { error } = await supabase.from("titoli").update(payload).eq("id", id);
+      if (error) throw error;
+      await logAttivita({
+        azione: "modifica_importo_firma",
+        entita_tipo: "titolo",
+        entita_id: id,
+        dettagli_json: { before: { premio_lordo: titolo.premio_lordo }, after: payload },
+        severity: "info",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
+      toast.success("Importo firma aggiornato");
+      setImportoFirmaOpen(false);
+    },
+    onError: (e: any) => toast.error(e.message || "Impossibile salvare l'importo firma"),
+  });
+
   const startEditImporti = () => {
     if (titolo) {
       const t: any = titolo;
-      // Opzione A: sulla polizza originale (madre) i premi non si modificano; si editano sulla quietanza.
-      const isMadre =
-        !t.sostituisce_polizza && !t.is_regolazione && !t.is_proroga && !t.is_appendice_modifica;
-      if (isMadre) return;
       setImportiForm({
         premio_netto: t.premio_netto != null ? String(t.premio_netto) : "",
         addizionali: t.addizionali != null ? String(t.addizionali) : "",
@@ -2106,6 +2154,7 @@ const TitoloDetail = () => {
         rataIndex={rataIndex}
         totRate={totRate}
         isQuietanzaCorrente={isQuietanzaCorrente}
+        onEditImportoFirma={!isLocked && isPolizzaMadre ? openImportoFirma : undefined}
         polizzaMadre={(isQuietanzaCorrente || isAppendiceTitolo) && madre ? {
           id: madre.id,
           numero_titolo: madre.numero_titolo,
@@ -3999,13 +4048,13 @@ const TitoloDetail = () => {
         <div className="flex justify-between items-center mb-2 gap-2">
           {isPolizzaMadre && !t.polizza_temporanea ? (
             <p className="text-[11px] text-muted-foreground italic">
-              I premi si modificano sulla <b>quietanza</b>, non sulla polizza originale.
+              L'importo firma è netto + tasse + SSN + accessori. Modificalo dal titolo in alto o da <b>Modifica</b>.
             </p>
           ) : (
             <span />
           )}
           <div className="flex gap-2">
-            {isPolizzaMadre ? null : !editingImporti ? (
+            {!editingImporti ? (
               <Button variant="ghost" size="sm" onClick={startEditImporti} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
                 <Pencil className="w-4 h-4 mr-1" /> Modifica
               </Button>
@@ -4672,6 +4721,100 @@ const TitoloDetail = () => {
       )}
 
       {/* RegolazionePremioDialog deprecato: la regolazione ora apre ImmissionePolizzaPage in mode=regolazione */}
+
+      <Dialog open={importoFirmaOpen} onOpenChange={setImportoFirmaOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Modifica importo firma</DialogTitle>
+            <DialogDescription>
+              Il lordo è la somma di netto, tasse, SSN e accessori. Cambiando il lordo si aggiorna il netto
+              (se le altre voci superano il nuovo lordo vengono azzerate).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 space-y-1.5">
+              <Label>Importo firma (lordo)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={importoFirmaLordo}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setImportoFirmaLordo(raw);
+                  const n = Number(raw);
+                  if (!Number.isNaN(n)) setImportoFirmaForm(vociDaLordoFirma(n, importoFirmaForm));
+                }}
+                className="h-9 font-mono"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Netto</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={importoFirmaForm.netto}
+                onChange={(e) => {
+                  const next = { ...importoFirmaForm, netto: Number(e.target.value) || 0 };
+                  setImportoFirmaForm(next);
+                  setImportoFirmaLordo(String(lordoFirmaDaVoci(next)));
+                }}
+                className="h-9 font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tasse</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={importoFirmaForm.tasse}
+                onChange={(e) => {
+                  const next = { ...importoFirmaForm, tasse: Number(e.target.value) || 0 };
+                  setImportoFirmaForm(next);
+                  setImportoFirmaLordo(String(lordoFirmaDaVoci(next)));
+                }}
+                className="h-9 font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>SSN</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={importoFirmaForm.ssn}
+                onChange={(e) => {
+                  const next = { ...importoFirmaForm, ssn: Number(e.target.value) || 0 };
+                  setImportoFirmaForm(next);
+                  setImportoFirmaLordo(String(lordoFirmaDaVoci(next)));
+                }}
+                className="h-9 font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Accessori</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={importoFirmaForm.addizionali}
+                onChange={(e) => {
+                  const next = { ...importoFirmaForm, addizionali: Number(e.target.value) || 0 };
+                  setImportoFirmaForm(next);
+                  setImportoFirmaLordo(String(lordoFirmaDaVoci(next)));
+                }}
+                className="h-9 font-mono"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportoFirmaOpen(false)} disabled={saveImportoFirmaMutation.isPending}>
+              Annulla
+            </Button>
+            <Button onClick={() => saveImportoFirmaMutation.mutate()} disabled={saveImportoFirmaMutation.isPending}>
+              {saveImportoFirmaMutation.isPending ? "Salvataggio..." : "Salva"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   );
 };
