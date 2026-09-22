@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
-import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
+import { handleNotificaMessaCassaOutcome, invokeNotificaMessaCassa, scheduleOrInvokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
+import { MessaCassaSeraleCheckbox } from "@/components/portafoglio/MessaCassaSeraleCheckbox";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { buildGarantitoPayload, buildIncassoDateFields, isInCoperturaGarantita, isGarantitoAperto } from "@/lib/garantitoTitolo";
 import { annullaPolizza } from "@/lib/annullaPolizza";
@@ -189,6 +190,7 @@ const TitoloDetail = () => {
   // --- Conferimento Gestito dialog state ---
   const [conferimentoDialogOpen, setConferimentoDialogOpen] = useState(false);
   const [conferimentoAccettato, setConferimentoAccettato] = useState(false);
+  const [conferimentoMessaCassaSerale, setConferimentoMessaCassaSerale] = useState(false);
   const [conferimentoForm, setConferimentoForm] = useState({
     dataCopertura: "",
     dataDecorrenza: "",
@@ -1958,7 +1960,9 @@ const TitoloDetail = () => {
           },
         });
       }
-      const res = await invokeNotificaMessaCassa([id!]);
+      const res = await scheduleOrInvokeNotificaMessaCassa([id!], {
+        serale: conferimentoMessaCassaSerale,
+      });
       return res;
     },
     onSuccess: (res) => {
@@ -1967,10 +1971,12 @@ const TitoloDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
       queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
       toast.success("Copertura garantita");
-      if (res?.error) toast.warning(`Notifica non inviata: ${res.error.message ?? res.error}`);
-      else if (res?.data?.recipient) toast.success(`Notifica inviata a ${res.data.recipient}`);
-      if (res?.data?.documenti_archiviati) queryClient.invalidateQueries({ queryKey: ["documenti", "titolo"] });
-      if (res?.data?.archive_error) toast.warning(`Archivio PDF non creato: ${res.data.archive_error}`);
+      handleNotificaMessaCassaOutcome(res, () => {
+        queryClient.invalidateQueries({ queryKey: ["documenti", "titolo"] });
+      });
+      if (res.mode === "sent" && res.data?.recipient && (res.data.agenzie ?? 1) <= 1 && !res.data.archive_error && !res.error) {
+        toast.success(`Notifica inviata a ${res.data.recipient}`);
+      }
       setConferimentoDialogOpen(false);
     },
     onError: (err: any) => toast.error(err?.message || "Errore copertura garantita"),
@@ -2695,6 +2701,7 @@ const TitoloDetail = () => {
                         updateMadre: true,
                       });
                       setConferimentoAccettato(false);
+                      setConferimentoMessaCassaSerale(false);
                       setConferimentoDialogOpen(true);
                     }} disabled={conferimentoGestitoMutation.isPending}>
                       <Shield className="w-4 h-4 mr-1" /> Garantito
@@ -2744,7 +2751,12 @@ const TitoloDetail = () => {
       {/* Dialog Garantito */}
       <Dialog open={conferimentoDialogOpen} onOpenChange={setConferimentoDialogOpen}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+          <MessaCassaSeraleCheckbox
+            checked={conferimentoMessaCassaSerale}
+            onCheckedChange={setConferimentoMessaCassaSerale}
+            id="messa-cassa-serale-conferimento"
+          />
+          <DialogHeader className="pr-52">
             <DialogTitle>Garantito</DialogTitle>
             <DialogDescription>Polizza {t.numero_titolo || t.id.slice(0, 8)} — Messa a cassa garantita (senza fondi)</DialogDescription>
           </DialogHeader>

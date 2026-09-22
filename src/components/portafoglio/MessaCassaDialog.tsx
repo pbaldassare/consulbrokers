@@ -11,7 +11,8 @@ import { CheckSquare, Wallet, Trash2, Calculator, Printer, FileText, Plus, Users
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
-import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
+import { handleNotificaMessaCassaOutcome, scheduleOrInvokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
+import { MessaCassaSeraleCheckbox } from "@/components/portafoglio/MessaCassaSeraleCheckbox";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import { Badge } from "@/components/ui/badge";
 import { fmtEuro } from "@/lib/formatCurrency";
@@ -258,6 +259,7 @@ export const MessaCassaDialog = ({
   const [modalitaByTitolo, setModalitaByTitolo] = useState<Record<string, ModalitaIncasso>>({});
   const [cigById, setCigById] = useState<Record<string, CigDraft>>({});
   const [updateMadreCig, setUpdateMadreCig] = useState(true);
+  const [messaCassaSerale, setMessaCassaSerale] = useState(false);
 
   const isMulti = titoli.length > 1;
   const totaleLordo = titoli.reduce((s, t) => s + (Number(t.premio_lordo) || 0), 0);
@@ -588,6 +590,7 @@ export const MessaCassaDialog = ({
       setSuggerimentoAltroConto(null);
       setCigById({});
       setUpdateMadreCig(true);
+      setMessaCassaSerale(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bankIncasso?.movimentoId, preferredBonifico?.movimentoId, preferredPagatoreId]);
@@ -1719,20 +1722,11 @@ export const MessaCassaDialog = ({
     }
 
     if (notificaTitoloIds.length > 0) {
-      invokeNotificaMessaCassa(notificaTitoloIds)
-        .then(({ data, error }) => {
-          if (error || (data && data.ok === false && !data.skipped && !(data.invii_ok))) {
-            toast.warning("Notifica agenzia non inviata");
-          } else if (data?.invii_ko) {
-            toast.warning(`Notifiche: ${data.invii_ok} agenzie ok, ${data.invii_ko} con errore`);
-          } else if ((data?.agenzie ?? 0) > 1) {
-            toast.success(`Notifiche inviate a ${data.agenzie} agenzie (ognuna solo le proprie polizze)`);
-          } else if (data?.archive_error) {
-            toast.warning(`Email inviata ma archivio PDF fallito: ${data.archive_error}`);
-          }
-          if (data?.documenti_archiviati) {
+      scheduleOrInvokeNotificaMessaCassa(notificaTitoloIds, { serale: messaCassaSerale })
+        .then((outcome) => {
+          handleNotificaMessaCassaOutcome(outcome, () => {
             queryClient.invalidateQueries({ queryKey: ["documenti", "titolo"] });
-          }
+          });
         })
         .catch(() => toast.warning("Notifica agenzia non inviata"));
     }
@@ -1999,7 +1993,12 @@ export const MessaCassaDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-5xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+        <MessaCassaSeraleCheckbox
+          checked={messaCassaSerale}
+          onCheckedChange={setMessaCassaSerale}
+          id="messa-cassa-serale-incasso"
+        />
+        <DialogHeader className="pr-52">
           <DialogTitle>
             {titoliACredito.length > 0 && titoliACredito.length === titoli.length
               ? "Chiusura conguaglio a credito"

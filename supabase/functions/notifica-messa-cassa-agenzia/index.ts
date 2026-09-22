@@ -432,10 +432,45 @@ const payloadSchema = z.object({
   titolo_id: z.string().uuid().optional(),
   titolo_ids: z.array(z.string().uuid()).min(1).optional(),
   force: z.boolean().optional(),
+  flush_coda: z.boolean().optional(),
 }).refine(
-  (d) => !!d.titolo_id || (Array.isArray(d.titolo_ids) && d.titolo_ids.length > 0),
-  { message: "Specificare titolo_id o titolo_ids" },
+  (d) =>
+    !!d.flush_coda ||
+    !!d.titolo_id ||
+    (Array.isArray(d.titolo_ids) && d.titolo_ids.length > 0),
+  { message: "Specificare titolo_id, titolo_ids o flush_coda" },
 );
+
+type CodaClaimRow = { id: string; titolo_ids: string[] | null };
+
+async function claimDueCoda(
+  supabase: ReturnType<typeof createClient>,
+): Promise<CodaClaimRow[]> {
+  const { data, error } = await supabase.rpc("claim_messa_cassa_notifiche_coda");
+  if (error) {
+    console.error("claim_messa_cassa_notifiche_coda:", error);
+    return [];
+  }
+  return (data || []) as CodaClaimRow[];
+}
+
+async function markCoda(
+  supabase: ReturnType<typeof createClient>,
+  rowIds: string[],
+  status: "sent" | "error",
+  result: Record<string, unknown>,
+): Promise<void> {
+  if (rowIds.length === 0) return;
+  await supabase
+    .from("messa_cassa_notifiche_coda")
+    .update({
+      status,
+      processed_at: new Date().toISOString(),
+      error_message: status === "error" ? String(result.error ?? "errore") : null,
+      result_json: result,
+    })
+    .in("id", rowIds);
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -461,7 +496,7 @@ serve(async (req) => {
       });
     }
 
-    const { force = false } = parsed.data;
+    const { force = false, flush_coda: flushCoda = false } = parsed.data;
     let titoloIds = [...new Set(
       parsed.data.titolo_ids?.length
         ? parsed.data.titolo_ids
@@ -483,12 +518,32 @@ serve(async (req) => {
       userId = userData.user?.id ?? null;
     }
 
+    let codaRows: CodaClaimRow[] = [];
+    if (flushCoda) {
+      codaRows = await claimDueCoda(supabase);
+      const codaIds = codaRows.flatMap((r) => r.titolo_ids || []).filter(Boolean);
+      titoloIds = [...new Set([...titoloIds, ...codaIds])].sort();
+    }
+
+    if (titoloIds.length === 0) {
+      if (codaRows.length > 0) {
+        await markCoda(supabase, codaRows.map((r) => r.id), "sent", { skipped: true, reason: "coda_vuota" });
+      }
+      return new Response(
+        JSON.stringify({ ok: true, skipped: true, reason: "nessun_titolo", coda_flush: codaRows.length }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (!force) {
       const alreadyNotified = await getAlreadyNotifiedTitoloIds(supabase, titoloIds);
       const pendingIds = titoloIds.filter((id) => !alreadyNotified.has(id));
       if (pendingIds.length === 0) {
+        if (codaRows.length > 0) {
+          await markCoda(supabase, codaRows.map((r) => r.id), "sent", { skipped: true, reason: "already_sent" });
+        }
         return new Response(
-          JSON.stringify({ ok: true, skipped: true, reason: "already_sent" }),
+          JSON.stringify({ ok: true, skipped: true, reason: "already_sent", coda_flush: codaRows.length }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
@@ -504,6 +559,9 @@ serve(async (req) => {
     const titoliMap = new Map((titoliRaw || []).map((t: TitoloRow) => [t.id as string, t]));
     const titoli = titoloIds.map((id) => titoliMap.get(id)).filter(Boolean) as TitoloRow[];
     if (titoli.length === 0) {
+      if (codaRows.length > 0) {
+        await markCoda(supabase, codaRows.map((r) => r.id), "error", { error: "titoli non trovati" });
+      }
       return new Response(JSON.stringify({ error: "titoli non trovati" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -632,21 +690,33 @@ serve(async (req) => {
       });
     }
 
+    const resultPayload = {
+      ok: inviiOk > 0,
+      recipient: recipients[0] ?? null,
+      recipients,
+      invii: inviiOk,
+      invii_ok: inviiOk,
+      invii_ko: inviiKo,
+      agenzie: gruppi.length,
+      garantito: titoli.some(isGarantitoTitolo),
+      bulk: titoli.length > 1,
+      documenti_archiviati: documentiArchiviati,
+      archive_error: archiveErrors[0] ?? null,
+      dettaglio_invii: invii,
+      coda_flush: codaRows.length,
+    };
+
+    if (codaRows.length > 0) {
+      await markCoda(
+        supabase,
+        codaRows.map((r) => r.id),
+        inviiOk > 0 || inviiKo === 0 ? "sent" : "error",
+        resultPayload,
+      );
+    }
+
     return new Response(
-      JSON.stringify({
-        ok: inviiOk > 0,
-        recipient: recipients[0] ?? null,
-        recipients,
-        invii: inviiOk,
-        invii_ok: inviiOk,
-        invii_ko: inviiKo,
-        agenzie: gruppi.length,
-        garantito: titoli.some(isGarantitoTitolo),
-        bulk: titoli.length > 1,
-        documenti_archiviati: documentiArchiviati,
-        archive_error: archiveErrors[0] ?? null,
-        dettaglio_invii: invii,
-      }),
+      JSON.stringify(resultPayload),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {

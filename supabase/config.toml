@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.elabora-documento-polizza]
 verify_jwt = false
+
+[functions.flush-messa-cassa-serale]
+verify_jwt = false

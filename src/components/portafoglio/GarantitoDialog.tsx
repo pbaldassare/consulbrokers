@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Shield } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
-import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
+import { handleNotificaMessaCassaOutcome, scheduleOrInvokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
+import { MessaCassaSeraleCheckbox } from "@/components/portafoglio/MessaCassaSeraleCheckbox";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { buildGarantitoPayload } from "@/lib/garantitoTitolo";
 import { canHaveDataCopertura } from "@/lib/quietanze";
@@ -49,12 +50,14 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
   const [dataCopertura, setDataCopertura] = useState(today);
   const [dataDecorrenza, setDataDecorrenza] = useState(today);
   const [loading, setLoading] = useState(false);
+  const [messaCassaSerale, setMessaCassaSerale] = useState(false);
 
   useEffect(() => {
     if (open) {
       setAccettato(false);
       setDataCopertura(today);
       setDataDecorrenza(today);
+      setMessaCassaSerale(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -107,20 +110,11 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
     }
 
     if (notificaTitoloIds.length > 0) {
-      invokeNotificaMessaCassa(notificaTitoloIds)
-        .then(({ data, error }) => {
-          if (error || (data && data.ok === false && !data.skipped && !(data.invii_ok))) {
-            toast.warning("Notifica agenzia non inviata");
-          } else if (data?.invii_ko) {
-            toast.warning(`Notifiche: ${data.invii_ok} agenzie ok, ${data.invii_ko} con errore`);
-          } else if ((data?.agenzie ?? 0) > 1) {
-            toast.success(`Notifiche inviate a ${data.agenzie} agenzie (ognuna solo le proprie polizze)`);
-          } else if (data?.archive_error) {
-            toast.warning(`Email inviata ma archivio PDF fallito: ${data.archive_error}`);
-          }
-          if (data?.documenti_archiviati) {
+      scheduleOrInvokeNotificaMessaCassa(notificaTitoloIds, { serale: messaCassaSerale })
+        .then((outcome) => {
+          handleNotificaMessaCassaOutcome(outcome, () => {
             queryClient.invalidateQueries({ queryKey: ["documenti", "titolo"] });
-          }
+          });
         })
         .catch(() => toast.warning("Notifica agenzia non inviata"));
     }
@@ -144,7 +138,12 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+        <MessaCassaSeraleCheckbox
+          checked={messaCassaSerale}
+          onCheckedChange={setMessaCassaSerale}
+          id="messa-cassa-serale-garantito"
+        />
+        <DialogHeader className="pr-52">
           <DialogTitle className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-orange-500" /> Garantito
           </DialogTitle>
