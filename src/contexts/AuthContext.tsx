@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import { isSedeSistemaRole } from "@/lib/sistemaSede";
 
 export interface UserProfile {
   id: string;
@@ -121,7 +122,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Alias chiavi sidebar non sempre presenti in permessi_json
     if (key === "dashboard") return true;
     if (key === "portafoglio") return read("documentale") || read("titoli");
-    if (key === "impostazioni") return profile.ruolo === "ufficio" || read("impostazioni");
+    if (key === "impostazioni") {
+      return isSedeSistemaRole(profile.ruolo) || read("impostazioni") || read("tabelle_base") || read("template");
+    }
 
     if (profile.ruolo === "cfo") {
       if (perms && key in perms) return !!perms[key];

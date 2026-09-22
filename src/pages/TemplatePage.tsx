@@ -8,6 +8,15 @@ import { EmailBrandingTab } from "@/components/template/EmailBrandingTab";
 import { AssociazioniTemplateTab } from "@/components/template/AssociazioniTemplateTab";
 import { SedeTemplateSelect, type UfficioOption } from "@/components/template/SedeTemplateSelect";
 import { duplicateTemplateNome, labelSedeTemplate } from "@/lib/emailBrandingSede";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  canChangeTemplateSede,
+  canEditTemplate,
+  canManageTemplateCategorie,
+  filterTemplatesPerSede,
+  forceUfficioIdForSave,
+  lockedSedeUfficioId,
+} from "@/lib/sistemaSede";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -338,6 +347,10 @@ function PreviewDialog({ open, onOpenChange, template }: { open: boolean; onOpen
 }
 
 export default function TemplatePage() {
+  const { profile } = useAuth();
+  const scope = { ruolo: profile?.ruolo, ufficioId: profile?.ufficio_id };
+  const lockedUfficio = lockedSedeUfficioId(scope);
+  const sedeLocked = lockedUfficio !== undefined;
   const qc = useQueryClient();
   const [selectedCat, setSelectedCat] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -387,7 +400,14 @@ export default function TemplatePage() {
 
   const saveMut = useMutation({
     mutationFn: async (t: typeof form & { id?: string }) => {
-      const payload = { nome: t.nome, oggetto: t.oggetto, corpo: t.corpo, categoria_id: t.categoria_id, attivo: t.attivo, ufficio_id: t.ufficio_id };
+      const payload = {
+        nome: t.nome,
+        oggetto: t.oggetto,
+        corpo: t.corpo,
+        categoria_id: t.categoria_id,
+        attivo: t.attivo,
+        ufficio_id: forceUfficioIdForSave(t.ufficio_id, scope),
+      };
       if (t.id) {
         const { error } = await supabase.from("template_email").update(payload as any).eq("id", t.id);
         if (error) throw error;
@@ -402,6 +422,8 @@ export default function TemplatePage() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
+      const t = templates.find((x) => x.id === id);
+      if (!t || !canEditTemplate(t, scope)) throw new Error("Puoi eliminare solo i template della tua sede.");
       const { error } = await supabase.from("template_email").delete().eq("id", id);
       if (error) throw error;
     },
@@ -420,6 +442,8 @@ export default function TemplatePage() {
 
   const toggleMut = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
+      const t = templates.find((x) => x.id === id);
+      if (!t || !canEditTemplate(t, scope)) throw new Error("Puoi modificare solo i template della tua sede.");
       const { error } = await supabase.from("template_email").update({ attivo } as any).eq("id", id);
       if (error) throw error;
     },
@@ -434,7 +458,7 @@ export default function TemplatePage() {
         corpo: t.corpo,
         categoria_id: t.categoria_id,
         attivo: t.attivo,
-        ufficio_id: t.ufficio_id,
+        ufficio_id: forceUfficioIdForSave(t.ufficio_id, scope),
       } as any);
       if (error) throw error;
     },
@@ -447,6 +471,9 @@ export default function TemplatePage() {
 
   const changeSedeMut = useMutation({
     mutationFn: async ({ id, ufficio_id }: { id: string; ufficio_id: string | null }) => {
+      if (!canChangeTemplateSede(scope.ruolo)) {
+        throw new Error("Le sedi non possono spostare i template su un'altra sede.");
+      }
       const { error } = await supabase.from("template_email").update({ ufficio_id } as any).eq("id", id);
       if (error) throw error;
     },
@@ -457,12 +484,23 @@ export default function TemplatePage() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const filtered = selectedCat === "all" ? templates : templates.filter(t => t.categoria_id === selectedCat);
+  const templatesVisibili = filterTemplatesPerSede(templates, scope);
+  const filtered = selectedCat === "all" ? templatesVisibili : templatesVisibili.filter(t => t.categoria_id === selectedCat);
   const catMap = Object.fromEntries(categorie.map(c => [c.id, c.nome]));
+  const ufficiSede = sedeLocked && lockedUfficio
+    ? uffici.filter((u) => u.id === lockedUfficio)
+    : uffici;
 
   function openNew(ufficioId: string | null = null) {
     setEditTemplate(null);
-    setForm({ nome: "", oggetto: "", corpo: "", categoria_id: categorie[0]?.id || "", attivo: true, ufficio_id: ufficioId });
+    setForm({
+      nome: "",
+      oggetto: "",
+      corpo: "",
+      categoria_id: categorie[0]?.id || "",
+      attivo: true,
+      ufficio_id: forceUfficioIdForSave(ufficioId, scope),
+    });
     setDialogOpen(true);
   }
 
@@ -497,8 +535,10 @@ export default function TemplatePage() {
         </div>
         {(mainTab === "templates" || mainTab === "associazioni") && (
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setCatDialogOpen(true)}><Tag className="h-4 w-4 mr-1" /> Nuova Categoria</Button>
-            <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nuovo Template</Button>
+            {canManageTemplateCategorie(scope.ruolo) && (
+              <Button variant="outline" size="sm" onClick={() => setCatDialogOpen(true)}><Tag className="h-4 w-4 mr-1" /> Nuova Categoria</Button>
+            )}
+            <Button size="sm" onClick={() => openNew(lockedUfficio ?? null)}><Plus className="h-4 w-4 mr-1" /> Nuovo Template</Button>
           </div>
         )}
       </div>
@@ -516,20 +556,23 @@ export default function TemplatePage() {
 
         <TabsContent value="associazioni" className="mt-4">
           <AssociazioniTemplateTab
-            templates={templates}
-            uffici={uffici}
+            templates={templatesVisibili}
+            uffici={ufficiSede}
             categorie={catMap}
+            canChangeSede={canChangeTemplateSede(scope.ruolo)}
+            lockedUfficioId={lockedUfficio}
+            canEditTemplate={(t) => canEditTemplate(t, scope)}
             onNew={(ufficioId) => openNew(ufficioId)}
             onEdit={(id) => {
-              const t = templates.find((x) => x.id === id);
-              if (t) openEdit(t);
+              const t = templatesVisibili.find((x) => x.id === id);
+              if (t && canEditTemplate(t, scope)) openEdit(t);
             }}
             onPreview={(id) => {
-              const t = templates.find((x) => x.id === id);
+              const t = templatesVisibili.find((x) => x.id === id);
               if (t) { setPreviewTemplate(t); setPreviewOpen(true); }
             }}
             onDuplicate={(id) => {
-              const t = templates.find((x) => x.id === id);
+              const t = templatesVisibili.find((x) => x.id === id);
               if (t) duplicateMut.mutate(t);
             }}
             onChangeSede={(id, ufficioId) => changeSedeMut.mutate({ id, ufficio_id: ufficioId })}
@@ -567,7 +610,11 @@ export default function TemplatePage() {
                           <TableCell><Badge variant="outline">{labelSedeTemplate(t.ufficio_id, ufficiById)}</Badge></TableCell>
                           <TableCell className="text-muted-foreground text-sm max-w-[300px] truncate">{t.oggetto}</TableCell>
                           <TableCell className="text-center">
-                            <Switch checked={t.attivo} onCheckedChange={v => toggleMut.mutate({ id: t.id, attivo: v })} />
+                            <Switch
+                              checked={t.attivo}
+                              disabled={!canEditTemplate(t, scope)}
+                              onCheckedChange={v => toggleMut.mutate({ id: t.id, attivo: v })}
+                            />
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex gap-1 justify-end">
@@ -575,8 +622,12 @@ export default function TemplatePage() {
                                 <Button variant="ghost" size="icon" onClick={() => { setPreviewTemplate(t); setPreviewOpen(true); }}><Eye className="h-4 w-4" /></Button>
                               </TooltipTrigger><TooltipContent>Anteprima & invia test</TooltipContent></Tooltip></TooltipProvider>
                               <Button variant="ghost" size="icon" title="Duplica" onClick={() => duplicateMut.mutate(t)}><CopyPlus className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" onClick={() => openEdit(t)}><Edit2 className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => { if (confirm("Eliminare questo template?")) deleteMut.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>
+                              {canEditTemplate(t, scope) && (
+                                <>
+                                  <Button variant="ghost" size="icon" onClick={() => openEdit(t)}><Edit2 className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => { if (confirm("Eliminare questo template?")) deleteMut.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>
+                                </>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -610,12 +661,16 @@ export default function TemplatePage() {
               <div className="space-y-1.5 col-span-2">
                 <Label>Sede di default</Label>
                 <SedeTemplateSelect
-                  uffici={uffici}
+                  uffici={ufficiSede}
                   value={form.ufficio_id}
-                  onChange={(id) => setForm((f) => ({ ...f, ufficio_id: id }))}
+                  onChange={(id) => setForm((f) => ({ ...f, ufficio_id: forceUfficioIdForSave(id, scope) }))}
+                  allowGlobale={!sedeLocked}
+                  locked={sedeLocked}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Il branding email (logo, colore, firma, mittente) è quello di questa sede, con fallback al branding globale.
+                  {sedeLocked
+                    ? "I template della sede usano il branding della tua sede, con fallback al branding globale."
+                    : "Il branding email (logo, colore, firma, mittente) è quello di questa sede, con fallback al branding globale."}
                 </p>
               </div>
             </div>

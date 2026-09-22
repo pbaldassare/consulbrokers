@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Upload, Save, Image as ImageIcon, Palette, Loader2, Copy } from "lucide-react";
 import { ResendDomainStatus } from "./ResendDomainStatus";
 import { SedeTemplateSelect, type UfficioOption } from "./SedeTemplateSelect";
+import { useAuth } from "@/contexts/AuthContext";
+import { canEditGlobalBranding, lockedSedeUfficioId } from "@/lib/sistemaSede";
 
 interface Branding {
   id?: string;
@@ -31,10 +33,20 @@ const EMPTY_BRANDING: Branding = {
 
 export function EmailBrandingTab() {
   const qc = useQueryClient();
+  const { profile } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [sedeId, setSedeId] = useState<string | null>(null);
+  const lockedUfficio = lockedSedeUfficioId({
+    ruolo: profile?.ruolo,
+    ufficioId: profile?.ufficio_id,
+  });
+  const sedeLocked = lockedUfficio !== undefined;
+  const [sedeId, setSedeId] = useState<string | null>(sedeLocked ? lockedUfficio : null);
   const [form, setForm] = useState<Partial<Branding>>(EMPTY_BRANDING);
   const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    if (sedeLocked) setSedeId(lockedUfficio);
+  }, [sedeLocked, lockedUfficio]);
 
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici-branding"],
@@ -78,6 +90,12 @@ export function EmailBrandingTab() {
 
   const saveMut = useMutation({
     mutationFn: async () => {
+      if (sedeLocked && !sedeId) {
+        throw new Error("Associa un ufficio al tuo profilo per salvare il branding della sede.");
+      }
+      if (!canEditGlobalBranding(profile?.ruolo) && !sedeId) {
+        throw new Error("Le sedi possono modificare solo il proprio branding.");
+      }
       const payload = {
         logo_url: form.logo_url ?? null,
         colore_primario: form.colore_primario || "#0e7490",
@@ -139,7 +157,13 @@ export function EmailBrandingTab() {
       <div className="flex items-end gap-3 flex-wrap">
         <div className="space-y-1.5 w-[320px]">
           <Label>Sede branding</Label>
-          <SedeTemplateSelect uffici={uffici} value={sedeId} onChange={setSedeId} />
+          <SedeTemplateSelect
+            uffici={sedeLocked && lockedUfficio ? uffici.filter((u) => u.id === lockedUfficio) : uffici}
+            value={sedeId}
+            onChange={setSedeId}
+            allowGlobale={!sedeLocked}
+            locked={sedeLocked}
+          />
         </div>
         {sedeId && globale && (
           <Button

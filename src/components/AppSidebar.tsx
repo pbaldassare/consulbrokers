@@ -65,6 +65,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isSidebarToActive } from "@/lib/sidebarToActive";
+import { SISTEMA_SEDE_ALLOWED_ROLES } from "@/lib/sistemaSede";
 import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
 
 
@@ -72,7 +73,9 @@ interface SidebarItem {
   label: string;
   path: string;
   icon: LucideIcon;
+  adminOnly?: boolean;
   hideForRoles?: string[];
+  showForRoles?: string[];
 }
 
 interface SidebarGroupDef {
@@ -81,6 +84,7 @@ interface SidebarGroupDef {
   permissionKey: string;
   adminOnly?: boolean;
   hideForRoles?: string[];
+  showForRoles?: string[];
   children: SidebarItem[];
 }
 
@@ -270,13 +274,13 @@ const sidebarEntries: SidebarEntry[] = [
       label: "Sistema",
       icon: Settings,
       permissionKey: "impostazioni",
-      adminOnly: true,
+      showForRoles: [...SISTEMA_SEDE_ALLOWED_ROLES],
       children: [
-        { label: "Anomalie Sistema", path: "/anomalie-sistema", icon: AlertTriangle },
-        { label: "Backup & Export", path: "/backup-export", icon: HardDrive },
+        { label: "Anomalie Sistema", path: "/anomalie-sistema", icon: AlertTriangle, adminOnly: true },
+        { label: "Backup & Export", path: "/backup-export", icon: HardDrive, adminOnly: true },
         { label: "Tabelle di Base", path: "/tabelle-base", icon: Database },
         { label: "Template Email", path: "/template", icon: Mail },
-        { label: "Sitemap", path: "/sitemap", icon: Map },
+        { label: "Sitemap", path: "/sitemap", icon: Map, adminOnly: true },
       ],
     },
   },
@@ -420,12 +424,12 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
           const group = entry.group;
           if (isLegacyLabel(group.label)) return null;
-          if (!isVisible(group.permissionKey, group.adminOnly, group.hideForRoles)) return null;
+          if (!isVisible(group.permissionKey, group.adminOnly, group.hideForRoles, group.showForRoles)) return null;
           const visibleChildren = group.children.filter(
             (child) =>
               !isLegacyPath(child.path) &&
               !isLegacyLabel(child.label) &&
-              !(child.hideForRoles && currentRole && child.hideForRoles.includes(currentRole))
+              isVisible("dashboard", child.adminOnly, child.hideForRoles, child.showForRoles)
           );
           if (visibleChildren.length === 0) return null;
           const isOpen = openGroups.has(group.label);

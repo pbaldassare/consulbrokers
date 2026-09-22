@@ -276,9 +276,9 @@ const sezioni = [
     pagine: [
       { nome: "Anomalie Sistema", desc: "Monitoraggio anomalie, errori e incongruenze nei dati", ruoli: ["admin", "cfo", "ufficio"] },
       { nome: "Backup & Export", desc: "Esportazione dati e backup del database", ruoli: ["admin"] },
-      { nome: "Tabelle di Base", desc: "Gestione tabelle di lookup (rami, zone, indotti, settori, ecc.)", ruoli: ["admin"] },
+      { nome: "Tabelle di Base", desc: "Gestione tabelle di lookup (rami, zone, indotti, settori, ecc.)", ruoli: ["admin", "ufficio", "backoffice", "contabilita", "responsabile_sede"] },
       { nome: "Agenzie", desc: "Anagrafica agenzie assicurative con categorie e prodotti", ruoli: ["admin"] },
-      { nome: "Template Email", desc: "Modelli email personalizzabili per comunicazioni automatiche", ruoli: ["admin", "ufficio"] },
+      { nome: "Template Email", desc: "Modelli email personalizzabili per comunicazioni automatiche", ruoli: ["admin", "ufficio", "backoffice", "contabilita", "responsabile_sede"] },
       { nome: "Sitemap", desc: "Questa pagina — organigramma ruoli e mappa funzionale", ruoli: ["admin"] },
     ],
   },

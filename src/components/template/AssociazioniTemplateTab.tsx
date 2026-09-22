@@ -27,6 +27,9 @@ type Props = {
   onPreview: (id: string) => void;
   onDuplicate: (id: string) => void;
   onChangeSede: (id: string, ufficioId: string | null) => void;
+  canChangeSede?: boolean;
+  lockedUfficioId?: string | null;
+  canEditTemplate?: (t: TemplateAssociazione) => boolean;
 };
 
 export function AssociazioniTemplateTab({
@@ -38,7 +41,11 @@ export function AssociazioniTemplateTab({
   onPreview,
   onDuplicate,
   onChangeSede,
+  canChangeSede = true,
+  lockedUfficioId,
+  canEditTemplate,
 }: Props) {
+  const sedeLocked = lockedUfficioId !== undefined;
   const [filtroSede, setFiltroSede] = useState<string>("__tutte__");
   const [q, setQ] = useState("");
 
@@ -84,6 +91,7 @@ export function AssociazioniTemplateTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
+        {!sedeLocked && (
         <div className="w-[280px]">
           <SearchableSelect
             options={[
@@ -96,6 +104,7 @@ export function AssociazioniTemplateTab({
             searchPlaceholder="Cerca sede..."
           />
         </div>
+        )}
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -108,7 +117,15 @@ export function AssociazioniTemplateTab({
         <Button
           size="sm"
           className="ml-auto"
-          onClick={() => onNew(filtroSede === "__tutte__" ? null : sedeToUfficioId(filtroSede))}
+          onClick={() =>
+            onNew(
+              sedeLocked
+                ? lockedUfficioId ?? null
+                : filtroSede === "__tutte__"
+                  ? null
+                  : sedeToUfficioId(filtroSede),
+            )
+          }
         >
           <Plus className="h-4 w-4 mr-1" /> Nuovo template
         </Button>
@@ -128,9 +145,17 @@ export function AssociazioniTemplateTab({
                 <h3 className="text-sm font-medium">{g.label}</h3>
                 <Badge variant="secondary">{g.rows.length}</Badge>
               </div>
-              <Button size="sm" variant="outline" onClick={() => onNew(g.key === "__globale__" ? null : g.key)}>
-                <Plus className="h-4 w-4 mr-1" /> Aggiungi qui
-              </Button>
+              {(!sedeLocked || g.key !== "__globale__") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    onNew(sedeLocked ? lockedUfficioId ?? null : g.key === "__globale__" ? null : g.key)
+                  }
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Aggiungi qui
+                </Button>
+              )}
             </div>
             <Table>
               <TableHeader>
@@ -153,11 +178,15 @@ export function AssociazioniTemplateTab({
                       <Badge variant="secondary">{categorie[t.categoria_id] || "—"}</Badge>
                     </TableCell>
                     <TableCell>
-                      <SedeTemplateSelect
-                        uffici={uffici}
-                        value={t.ufficio_id}
-                        onChange={(id) => onChangeSede(t.id, id)}
-                      />
+                      {canChangeSede ? (
+                        <SedeTemplateSelect
+                          uffici={uffici}
+                          value={t.ufficio_id}
+                          onChange={(id) => onChangeSede(t.id, id)}
+                        />
+                      ) : (
+                        <Badge variant="outline">{labelSedeTemplate(t.ufficio_id, ufficiById)}</Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-center text-xs text-muted-foreground">
                       {t.attivo ? "Sì" : "No"}
@@ -170,9 +199,11 @@ export function AssociazioniTemplateTab({
                         <Button variant="ghost" size="icon" onClick={() => onDuplicate(t.id)} title="Duplica">
                           <CopyPlus className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => onEdit(t.id)} title="Modifica">
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
+                        {(!canEditTemplate || canEditTemplate(t)) && (
+                          <Button variant="ghost" size="icon" onClick={() => onEdit(t.id)} title="Modifica">
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
