@@ -38,6 +38,7 @@ import {
   Loader2,
   ArrowUp,
   ArrowDown,
+  ArrowLeft,
   Lock,
   Hash,
   FileClock,
@@ -122,7 +123,11 @@ const OPERAZIONI: Operazione[] = [
 
 const STATI_OPTIONS = ["", "attivo", "sospeso", "scaduto", "incassato", "annullato", "stornato"];
 
-const GestionePolizzePage = () => {
+const PICKER_HIDDEN_OPS = new Set<OperazioneKey>(["cig_temporanei", "regolazioni_attese"]);
+
+export type GestioneForcedOp = "cig_temporanei" | "regolazioni_attese";
+
+const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {}) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
@@ -130,7 +135,7 @@ const GestionePolizzePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [opKey, setOpKey] = useState<OperazioneKey | null>(
-    (searchParams.get("op") as OperazioneKey | null) || null,
+    forcedOp ?? ((searchParams.get("op") as OperazioneKey | null) || null),
   );
   const [search, setSearch] = useState(searchParams.get("q") || "");
   const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get("q") || "");
@@ -151,12 +156,26 @@ const GestionePolizzePage = () => {
 
   // Persist filters in URL (so back-navigation from /titoli/:id restores state)
   useEffect(() => {
+    if (forcedOp) return;
     const params: Record<string, string> = {};
     if (opKey) params.op = opKey;
     if (debouncedSearch) params.q = debouncedSearch;
     if (clienteId) params.cliente = clienteId;
     setSearchParams(params, { replace: true });
-  }, [opKey, debouncedSearch, clienteId, setSearchParams]);
+  }, [forcedOp, opKey, debouncedSearch, clienteId, setSearchParams]);
+
+  useEffect(() => {
+    if (forcedOp) {
+      setOpKey(forcedOp);
+      return;
+    }
+    const op = searchParams.get("op");
+    if (op === "cig_temporanei") {
+      navigate("/portafoglio/estrazioni/cig-temporanei", { replace: true });
+    } else if (op === "regolazioni_attese") {
+      navigate("/portafoglio/estrazioni/regolazioni-attese", { replace: true });
+    }
+  }, [forcedOp, searchParams, navigate]);
 
   // dialog state
   const [target, setTarget] = useState<{ id: string; numero: string } | null>(null);
@@ -478,23 +497,55 @@ const GestionePolizzePage = () => {
     }
   };
 
-  const visibleOps = OPERAZIONI.filter((o) => isAdmin || !o.adminOnly);
+  const visibleOps = OPERAZIONI.filter(
+    (o) => (isAdmin || !o.adminOnly) && !PICKER_HIDDEN_OPS.has(o.key),
+  );
 
   return (
     <TooltipProvider>
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Wand2 className="w-6 h-6 text-teal-600" />
-          Gestione Polizze
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Scegli l'operazione, filtra cliente/polizza ed esegui. Le azioni sono identiche a quelle disponibili
-          dalla scheda polizza.
-        </p>
+        {forcedOp && operazione ? (
+          <div className="flex items-start gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/portafoglio/estrazioni-stampe")}
+              aria-label="Torna a Estrazioni e Stampe"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <operazione.icon className="w-6 h-6 text-primary" />
+                {operazione.label}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                {operazione.descrizione}
+                {forcedOp === "cig_temporanei" && (
+                  <span data-testid="cig-count-badge">{cigCount > 0 ? ` · ${cigCount}` : <span className="sr-only">0</span>}</span>
+                )}
+                {forcedOp === "regolazioni_attese" && (
+                  <span data-testid="reg-count-badge">{regCount > 0 ? ` · ${regCount}` : <span className="sr-only">0</span>}</span>
+                )}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Wand2 className="w-6 h-6 text-teal-600" />
+              Gestione Polizze
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Scegli l'operazione, filtra cliente/polizza ed esegui. Le azioni sono identiche a quelle disponibili
+              dalla scheda polizza.
+            </p>
+          </>
+        )}
       </div>
 
-      <PolizzaSection title="1. Scegli operazione" icon={Wand2} defaultOpen>
+      {!forcedOp && <PolizzaSection title="1. Scegli operazione" icon={Wand2} defaultOpen>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
           {visibleOps.map((op) => {
             const Icon = op.icon;
@@ -532,24 +583,6 @@ const GestionePolizzePage = () => {
                 {op.adminOnly && (
                   <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" title="admin" />
                 )}
-                {op.key === "cig_temporanei" && cigCount > 0 && (
-                  <span
-                    className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center"
-                    title={`${cigCount} CIG temporanei`}
-                    data-testid="cig-count-badge"
-                  >
-                    {cigCount}
-                  </span>
-                )}
-                {op.key === "regolazioni_attese" && regCount > 0 && (
-                  <span
-                    className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center"
-                    title={`${regCount} polizze in attesa di regolazione`}
-                    data-testid="reg-count-badge"
-                  >
-                    {regCount}
-                  </span>
-                )}
                 {disabled && (
                   <Lock className="absolute top-1 right-1 w-3 h-3 text-muted-foreground" />
                 )}
@@ -573,11 +606,11 @@ const GestionePolizzePage = () => {
             );
           })}
         </div>
-      </PolizzaSection>
+      </PolizzaSection>}
 
       {operazione && (
         <>
-          <PolizzaSection title="2. Filtra polizza" icon={Filter} defaultOpen>
+          <PolizzaSection title={forcedOp ? "Filtra polizza" : "2. Filtra polizza"} icon={Filter} defaultOpen>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
@@ -608,7 +641,7 @@ const GestionePolizzePage = () => {
 
 
 
-          <PolizzaSection title={`3. Risultati — ${operazione.label}`} icon={operazione.icon} defaultOpen>
+          <PolizzaSection title={forcedOp ? `Risultati — ${operazione.label}` : `3. Risultati — ${operazione.label}`} icon={operazione.icon} defaultOpen>
             <div className="mb-3 text-sm text-muted-foreground bg-teal-50 border border-teal-200 rounded-md px-3 py-2">
               👉 Trova la polizza nella tabella e clicca <strong>"{operazione.key === "appendice" ? "Crea" : "Esegui"} {operazione.label}"</strong> sulla riga
               (colonna a destra, sempre visibile) per aprire il dialog e salvare l'operazione in database.
@@ -773,9 +806,11 @@ const GestionePolizzePage = () => {
             />
           </PolizzaSection>
 
-          <PolizzaSection title="4. Attività recenti" icon={Wand2} defaultOpen={false}>
-            <AttivitaRecentiPanel operationKey={opKey} operationLabel={operazione.label} />
-          </PolizzaSection>
+          {!forcedOp && (
+            <PolizzaSection title="4. Attività recenti" icon={Wand2} defaultOpen={false}>
+              <AttivitaRecentiPanel operationKey={opKey} operationLabel={operazione.label} />
+            </PolizzaSection>
+          )}
         </>
       )}
 

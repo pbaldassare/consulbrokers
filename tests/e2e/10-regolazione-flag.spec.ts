@@ -9,7 +9,7 @@ test.use({ storageState: STORAGE_STATE });
  *
  * Verifica il ciclo completo:
  *  1. attivazione flag e salvataggio campi (data presunta, fattore, note) da TitoloDetail
- *  2. aggiornamento del badge live sulla card "Regolazioni Attese" in /portafoglio/gestione
+ *  2. aggiornamento del conteggio live in /portafoglio/estrazioni/regolazioni-attese
  *  3. presenza della riga col badge giallo (in scadenza entro 30gg) nella tabella
  *  4. disattivazione del flag e azzeramento dei campi correlati
  */
@@ -57,16 +57,17 @@ test.describe.serial('Regolazione promemoria — ciclo completo', () => {
     await cleanupTestTitolo(POLIZZA_NUM, clienteAnagraficaId ?? undefined);
   });
 
-  test('1. cattura conteggio iniziale badge "Regolazioni Attese"', async ({ page }) => {
-    await page.goto('/portafoglio/gestione');
+  test('1. cattura conteggio iniziale in Estrazioni / Regolazioni attese', async ({ page }) => {
+    await page.goto('/portafoglio/estrazioni-stampe');
     await expectPageHealthy(page);
-
-    const card = page.locator('button[data-op="regolazioni_attese"]');
-    await expect(card).toBeVisible();
+    await expect(page.getByTestId('estrazione-card-regolazioni-attese')).toBeVisible();
+    await page.getByTestId('estrazione-card-regolazioni-attese').click();
+    await page.waitForURL('**/portafoglio/estrazioni/regolazioni-attese');
 
     const badge = page.locator('[data-testid="reg-count-badge"]');
     const visible = await badge.isVisible().catch(() => false);
-    countBefore = visible ? parseInt((await badge.textContent()) || '0', 10) : 0;
+    const raw = visible ? ((await badge.textContent()) || '').replace(/\D/g, '') : '';
+    countBefore = raw ? parseInt(raw, 10) : 0;
     expect(countBefore).toBeGreaterThanOrEqual(0);
   });
 
@@ -116,27 +117,23 @@ test.describe.serial('Regolazione promemoria — ciclo completo', () => {
     expect(reloaded?.regolazione_note).toBe('Test E2E promemoria');
   });
 
-  test('3. card "Regolazioni Attese" aggiorna badge e mostra la polizza con badge giallo', async ({ page }) => {
-    await page.goto('/portafoglio/gestione');
+  test('3. estrazione "Regolazioni attese" aggiorna conteggio e mostra la polizza con badge giallo', async ({ page }) => {
+    await page.goto('/portafoglio/estrazioni/regolazioni-attese');
     await expectPageHealthy(page);
 
-    // Badge live: countBefore + 1
     await expect
       .poll(
         async () => {
           const b = page.locator('[data-testid="reg-count-badge"]');
           if (!(await b.isVisible().catch(() => false))) return 0;
-          return parseInt((await b.textContent()) || '0', 10);
+          const raw = ((await b.textContent()) || '').replace(/\D/g, '');
+          return raw ? parseInt(raw, 10) : 0;
         },
-        { timeout: 8_000, message: 'badge regolazioni deve incrementarsi di 1' },
+        { timeout: 8_000, message: 'conteggio regolazioni deve incrementarsi di 1' },
       )
       .toBe(countBefore + 1);
 
-    // Attiva operazione "Regolazioni Attese"
-    await page.locator('button[data-op="regolazioni_attese"]').click();
-
-    // Cerca per numero polizza
-    await page.getByLabel(/N°\s*polizza\s*\/\s*ricerca libera/i).fill(POLIZZA_NUM);
+    await page.getByLabel(/ricerca-libera|N°\s*polizza/i).fill(POLIZZA_NUM);
 
     // Riga col numero polizza è presente
     const row = page.getByRole('row').filter({ hasText: POLIZZA_NUM });
@@ -148,7 +145,7 @@ test.describe.serial('Regolazione promemoria — ciclo completo', () => {
     await expect(regBadge).toHaveClass(/bg-yellow-100/);
 
     // Click "Esegui" naviga a /titoli/:id?section=regolazione
-    await row.getByRole('button', { name: /^Esegui$/ }).click();
+    await row.getByRole('button', { name: /Esegui/i }).click();
     await page.waitForURL((url) => url.pathname === `/titoli/${titoloId}`, { timeout: 10_000 });
     expect(page.url()).toContain('section=regolazione');
   });
@@ -179,13 +176,14 @@ test.describe.serial('Regolazione promemoria — ciclo completo', () => {
     expect(cleared?.regolazione_note).toBeNull();
 
     // Badge tornato al valore iniziale
-    await page.goto('/portafoglio/gestione');
+    await page.goto('/portafoglio/estrazioni/regolazioni-attese');
     await expect
       .poll(
         async () => {
           const b = page.locator('[data-testid="reg-count-badge"]');
           if (!(await b.isVisible().catch(() => false))) return 0;
-          return parseInt((await b.textContent()) || '0', 10);
+          const raw = ((await b.textContent()) || '').replace(/\D/g, '');
+          return raw ? parseInt(raw, 10) : 0;
         },
         { timeout: 8_000 },
       )

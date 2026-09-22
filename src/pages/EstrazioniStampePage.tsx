@@ -14,6 +14,8 @@ import {
   Wand2,
   GitBranch,
   BookOpen,
+  Hash,
+  FileClock,
   LucideIcon,
 } from "lucide-react";
 
@@ -24,7 +26,7 @@ interface ActionCard {
   path: string;
 }
 
-const actions: ActionCard[] = [
+export const ESTRAZIONI_ACTIONS: ActionCard[] = [
   { label: "Titoli da incassare", description: "Estrazione per competenza con Excel pivot e report PDF", icon: Wallet, path: "/portafoglio/estrazioni/titoli-da-incassare" },
   { label: "Nidificazione", description: "Albero clienti: incarichi, titoli familiari e rapporti societari", icon: GitBranch, path: "/portafoglio/estrazioni/nidificazione" },
   { label: "Portafoglio per Cliente", description: "Portafoglio per cliente con Excel pivot e report PDF", icon: Users, path: "/portafoglio/estrazioni/per-cliente" },
@@ -39,6 +41,8 @@ const actions: ActionCard[] = [
   { label: "Comunicazioni di incasso", description: "Avvisi email di incasso alle agenzie: filtri, stato e anteprima", icon: Inbox, path: "/portafoglio/estrazioni/comunicazioni-incasso" },
   { label: "Prima nota", description: "Polizze incassate nel periodo, per sede e agenzia, con export Excel", icon: BookOpen, path: "/portafoglio/estrazioni/prima-nota" },
   { label: "Tacito rinnovo", description: "Polizze con o senza tacito rinnovo, per sede e periodo di scadenza", icon: RefreshCw, path: "/portafoglio/estrazioni/tacito-rinnovo" },
+  { label: "CIG Temporanei", description: "Polizze con numero CIG provvisorio", icon: Hash, path: "/portafoglio/estrazioni/cig-temporanei" },
+  { label: "Regolazioni attese", description: "Polizze in attesa di regolazione", icon: FileClock, path: "/portafoglio/estrazioni/regolazioni-attese" },
   { label: "Elaborazioni", description: "Analisi IA dei documenti di polizza e generazione documenti da template", icon: Wand2, path: "/portafoglio/estrazioni/elaborazioni" },
   { label: "Registro Richieste Quietanza", description: "Storico invii email richiesta quietanza alle agenzie", icon: Archive, path: "/portafoglio/estrazioni/richiesta-quietanza/registro" },
 ];
@@ -56,10 +60,12 @@ const EstrazioniStampePage = () => {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {actions.map((action) => (
+        {ESTRAZIONI_ACTIONS.map((action) => (
           <button
             key={action.path}
+            type="button"
             onClick={() => navigate(action.path)}
+            data-testid={`estrazione-card-${action.path.split("/").pop()}`}
             className="flex flex-col items-center gap-3 p-5 rounded-xl border border-border bg-card hover:bg-accent/50 hover:border-primary/30 transition-all text-center group"
           >
             <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">

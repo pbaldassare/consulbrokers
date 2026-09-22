@@ -68,6 +68,8 @@ const ROUTE_LABELS: Record<string, string> = {
   "comunicazioni-incasso": "Comunicazioni di incasso",
   "prima-nota": "Prima nota",
   "tacito-rinnovo": "Tacito rinnovo",
+  "cig-temporanei": "CIG Temporanei",
+  "regolazioni-attese": "Regolazioni attese",
   "registro": "Registro",
   "regolazioni": "Regolazioni",
   "documentale": "Archivio Documentale",

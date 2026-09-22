@@ -52,6 +52,8 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/appendici" element={<AppendiciPolizzaPage />} />
     <Route path="/portafoglio/rinnovi" element={<RinnoviPolizzaPage />} />
     <Route path="/portafoglio/gestione" element={<GestionePolizzePage />} />
+    <Route path="/portafoglio/estrazioni/cig-temporanei" element={<GestionePolizzePage forcedOp="cig_temporanei" />} />
+    <Route path="/portafoglio/estrazioni/regolazioni-attese" element={<GestionePolizzePage forcedOp="regolazioni_attese" />} />
     <Route path="/portafoglio/rettifica-provvigioni" element={<PortafoglioRettificaProvvigioniPage />} />
 
     <Route path="/portafoglio/doc-precontrattuale" element={<DocPrecontrattualePage />} />

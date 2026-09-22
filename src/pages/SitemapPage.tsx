@@ -268,6 +268,8 @@ const sezioni = [
       { nome: "Comunicazioni di incasso", desc: "Registro avvisi email di incasso alle agenzie (sede solo le proprie; admin raggruppate per sede)", ruoli: ["admin", "cfo", "ufficio"] },
       { nome: "Prima nota", desc: "Polizze incassate nel periodo (sede solo le proprie; admin raggruppate per sede) con export Excel", ruoli: ["admin", "cfo", "ufficio"] },
       { nome: "Tacito rinnovo", desc: "Polizze con/senza tacito rinnovo per fine garanzia (sede solo le proprie; admin raggruppate per sede)", ruoli: ["admin", "cfo", "ufficio"] },
+      { nome: "CIG Temporanei", desc: "Elenco polizze con numero CIG provvisorio", ruoli: ["admin", "cfo", "ufficio", "backoffice"] },
+      { nome: "Regolazioni attese", desc: "Elenco polizze in attesa di regolazione", ruoli: ["admin", "cfo", "ufficio", "backoffice"] },
     ],
   },
   {
