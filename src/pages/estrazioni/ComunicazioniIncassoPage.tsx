@@ -20,6 +20,7 @@ import {
   fetchComunicazioniIncasso,
   filterComunicazioniByStato,
   groupComunicazioniBySede,
+  labelStatoComunicazione,
   normalizeDateRange,
   paginateComunicazioni,
   rangeForPreset,
@@ -90,8 +91,15 @@ const ComunicazioniIncassoTable = ({
                 <TableCell className="text-xs">{r.agenziaNome}</TableCell>
                 <TableCell className="text-xs whitespace-nowrap">{fmtDateTime(r.inviatoIl)}</TableCell>
                 <TableCell className="text-xs">
-                  <Badge variant={r.stato === "inviato" ? "default" : "secondary"}>
-                    {r.stato === "inviato" ? "Inviato" : "Non inviato"}
+                  <Badge
+                    variant={r.stato === "inviato" ? "default" : r.stato === "programmato" ? "outline" : "secondary"}
+                    className={
+                      r.stato === "programmato"
+                        ? "border-amber-400/70 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+                        : undefined
+                    }
+                  >
+                    {labelStatoComunicazione(r.stato)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center">
@@ -291,6 +299,9 @@ const ComunicazioniIncassoPage = () => {
                 </ToggleGroupItem>
                 <ToggleGroupItem value="non_inviato" className="h-9 px-3 text-xs">
                   Non inviato
+                </ToggleGroupItem>
+                <ToggleGroupItem value="programmato" className="h-9 px-3 text-xs">
+                  Programmato
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>

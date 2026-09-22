@@ -4,15 +4,20 @@ import {
   AZIONE_INCASSO_INVIATA,
   detectPresetPeriodo,
   endOfMonthISO,
+  applyStatoProgrammato,
+  codaScheduledInRange,
   filterComunicazioniByStato,
   formatAgenziaRiferimento,
   groupComunicazioniBySede,
+  isoToRomeDate,
+  labelStatoComunicazione,
   mapTitoloToComunicazione,
   normalizeDateRange,
   paginateComunicazioni,
   pickLogIncassoPreferito,
   rangeForPreset,
   resolveStatoIncasso,
+  scheduledForByTitolo,
   startOfMonthISO,
   todayISODate,
   unwrapOne,
@@ -156,12 +161,43 @@ describe("comunicazioniIncasso", () => {
       row({ titoloId: "1", stato: "inviato", ufficioId: "b", ufficioNome: "Belluno" }),
       row({ titoloId: "2", stato: "non_inviato", ufficioId: "s", ufficioNome: "Sandonà" }),
       row({ titoloId: "3", stato: "inviato", ufficioId: "s", ufficioNome: "Sandonà" }),
+      row({ titoloId: "4", stato: "programmato", ufficioId: "s", ufficioNome: "Sandonà" }),
     ];
     expect(filterComunicazioniByStato(rows, "inviato")).toHaveLength(2);
     expect(filterComunicazioniByStato(rows, "non_inviato")).toHaveLength(1);
+    expect(filterComunicazioniByStato(rows, "programmato")).toHaveLength(1);
     const gruppi = groupComunicazioniBySede(rows);
     expect(gruppi.map((g) => g.sedeNome)).toEqual(["Belluno", "Sandonà"]);
-    expect(gruppi[1].rows).toHaveLength(2);
+    expect(gruppi[1].rows).toHaveLength(3);
+  });
+
+  it("label stato include Programmato", () => {
+    expect(labelStatoComunicazione("inviato")).toBe("Inviato");
+    expect(labelStatoComunicazione("non_inviato")).toBe("Non inviato");
+    expect(labelStatoComunicazione("programmato")).toBe("Programmato");
+  });
+
+  it("coda serale: giorno civile italiano e mappa titolo → 19:30", () => {
+    expect(isoToRomeDate("2026-09-22T17:30:00.000Z")).toBe("2026-09-22");
+    expect(codaScheduledInRange("2026-09-22T17:30:00.000Z", "2026-09-22", "2026-09-22")).toBe(true);
+    expect(codaScheduledInRange("2026-09-22T17:30:00.000Z", "2026-09-01", "2026-09-21")).toBe(false);
+    const map = scheduledForByTitolo([
+      { id: "c1", titolo_ids: ["t-a", "t-b"], scheduled_for: "2026-09-22T17:30:00.000Z", status: "pending" },
+      { id: "c2", titolo_ids: ["t-a"], scheduled_for: "2026-09-22T17:35:00.000Z", status: "processing" },
+      { id: "c3", titolo_ids: ["t-c"], scheduled_for: "2026-09-22T17:30:00.000Z", status: "sent" },
+    ]);
+    expect(map.get("t-a")).toBe("2026-09-22T17:30:00.000Z");
+    expect(map.get("t-b")).toBe("2026-09-22T17:30:00.000Z");
+    expect(map.has("t-c")).toBe(false);
+  });
+
+  it("applyStatoProgrammato non sovrascrive un inviato", () => {
+    const inviato = row({ stato: "inviato", inviatoIl: "2026-09-22T10:00:00.000Z" });
+    expect(applyStatoProgrammato(inviato, "2026-09-22T17:30:00.000Z").stato).toBe("inviato");
+    const pending = applyStatoProgrammato(row({ stato: "non_inviato" }), "2026-09-22T17:30:00.000Z");
+    expect(pending.stato).toBe("programmato");
+    expect(pending.inviatoIl).toBe("2026-09-22T17:30:00.000Z");
+    expect(applyStatoProgrammato(row({ stato: "non_inviato" }), undefined).stato).toBe("non_inviato");
   });
 
   it("pagina le righe", () => {

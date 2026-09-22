@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { formatClienteEc } from "@/lib/ecAgenziaDisplay";
+import { romeDateParts } from "@/lib/messaCassaSerale";
 
 export const DOC_CATEGORIA_NOTIFICA_INCASSO = "notifica_messa_cassa";
 export const AZIONE_INCASSO_INVIATA = "notifica_messa_cassa_inviata";
@@ -8,8 +9,10 @@ const DOC_BUCKET_DEFAULT = "documenti_titoli";
 const IN_CHUNK = 200;
 const TITOLI_PAGE = 1000;
 
-export type StatoComunicazioneIncasso = "inviato" | "non_inviato";
+export type StatoComunicazioneIncasso = "inviato" | "non_inviato" | "programmato";
 export type FiltroStatoIncasso = "tutti" | StatoComunicazioneIncasso;
+
+export const CODA_STATUS_PROGRAMMATO = ["pending", "processing"] as const;
 
 export type DocumentoIncassoPreview = {
   id: string;
@@ -89,6 +92,13 @@ type LogIncassoRaw = {
   dettagli_json: Record<string, unknown> | null;
 };
 
+export type CodaIncassoRaw = {
+  id: string;
+  titolo_ids: string[] | null;
+  scheduled_for: string;
+  status: string;
+};
+
 type DocumentoRaw = {
   id: string;
   nome_file: string | null;
@@ -164,6 +174,49 @@ export function formatAgenziaRiferimento(
 
 export function resolveStatoIncasso(azione: string | null | undefined): StatoComunicazioneIncasso {
   return azione === AZIONE_INCASSO_INVIATA ? "inviato" : "non_inviato";
+}
+
+export function isCodaProgrammata(status: string | null | undefined): boolean {
+  return status === "pending" || status === "processing";
+}
+
+export function isoToRomeDate(iso: string): string | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const p = romeDateParts(d);
+  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+}
+
+export function codaScheduledInRange(scheduledFor: string, da: string, a: string): boolean {
+  const day = isoToRomeDate(scheduledFor);
+  return !!day && day >= da && day <= a;
+}
+
+export function scheduledForByTitolo(rows: CodaIncassoRaw[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    if (!isCodaProgrammata(row.status) || !row.scheduled_for) continue;
+    for (const id of row.titolo_ids || []) {
+      if (!id) continue;
+      const prev = map.get(id);
+      if (!prev || row.scheduled_for < prev) map.set(id, row.scheduled_for);
+    }
+  }
+  return map;
+}
+
+export function applyStatoProgrammato(
+  row: ComunicazioneIncassoRow,
+  scheduledFor: string | undefined,
+): ComunicazioneIncassoRow {
+  if (!scheduledFor || row.stato === "inviato") return row;
+  return { ...row, stato: "programmato", inviatoIl: scheduledFor };
+}
+
+export function labelStatoComunicazione(stato: StatoComunicazioneIncasso): string {
+  if (stato === "inviato") return "Inviato";
+  if (stato === "programmato") return "Programmato";
+  return "Non inviato";
 }
 
 export function pickLogIncassoPreferito(logs: LogIncassoRaw[]): LogIncassoRaw | null {
@@ -255,6 +308,29 @@ function docFromLog(dettagli: Record<string, unknown> | null): DocumentoIncassoP
   };
 }
 
+const TITOLI_INCASSO_SELECT = [
+  "id",
+  "numero_titolo",
+  "data_messa_cassa",
+  "compagnia_id",
+  "compagnia_rapporto_id",
+  "ufficio_id",
+  "clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)",
+  "compagnie:compagnie!titoli_compagnia_id_fkey(nome)",
+  "compagnia_rapporti:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(nome_rapporto, sede_denominazione)",
+  "uffici(nome_ufficio)",
+].join(", ");
+
+function applyTitoliFiltri<T extends { eq: (c: string, v: string) => T }>(
+  q: T,
+  params: FetchComunicazioniIncassoParams,
+): T {
+  let next = q;
+  if (params.ufficioId) next = next.eq("ufficio_id", params.ufficioId);
+  if (params.agenziaId) next = next.eq("compagnia_id", params.agenziaId);
+  return next;
+}
+
 async function fetchTitoliPeriodo(params: FetchComunicazioniIncassoParams): Promise<TitoloIncassoRaw[]> {
   const { da, a } = normalizeDateRange(params.dataDa, params.dataA);
   const out: TitoloIncassoRaw[] = [];
@@ -262,27 +338,13 @@ async function fetchTitoliPeriodo(params: FetchComunicazioniIncassoParams): Prom
   while (true) {
     let q = supabase
       .from("titoli")
-      .select(
-        [
-          "id",
-          "numero_titolo",
-          "data_messa_cassa",
-          "compagnia_id",
-          "compagnia_rapporto_id",
-          "ufficio_id",
-          "clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)",
-          "compagnie:compagnie!titoli_compagnia_id_fkey(nome)",
-          "compagnia_rapporti:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(nome_rapporto, sede_denominazione)",
-          "uffici(nome_ufficio)",
-        ].join(", "),
-      )
+      .select(TITOLI_INCASSO_SELECT)
       .gte("data_messa_cassa", da)
       .lte("data_messa_cassa", a)
       .order("numero_titolo", { ascending: true })
       .range(from, from + TITOLI_PAGE - 1);
 
-    if (params.ufficioId) q = q.eq("ufficio_id", params.ufficioId);
-    if (params.agenziaId) q = q.eq("compagnia_id", params.agenziaId);
+    q = applyTitoliFiltri(q, params);
 
     const { data, error } = await q;
     if (error) throw error;
@@ -292,6 +354,30 @@ async function fetchTitoliPeriodo(params: FetchComunicazioniIncassoParams): Prom
     from += TITOLI_PAGE;
   }
   return out;
+}
+
+async function fetchTitoliByIds(
+  ids: string[],
+  params: FetchComunicazioniIncassoParams,
+): Promise<TitoloIncassoRaw[]> {
+  const out: TitoloIncassoRaw[] = [];
+  for (let i = 0; i < ids.length; i += IN_CHUNK) {
+    const chunk = ids.slice(i, i + IN_CHUNK);
+    let q = supabase.from("titoli").select(TITOLI_INCASSO_SELECT).in("id", chunk);
+    q = applyTitoliFiltri(q, params);
+    const { data, error } = await q;
+    if (error) throw error;
+    out.push(...((data || []) as unknown as TitoloIncassoRaw[]));
+  }
+  return out;
+}
+
+async function fetchCodaProgrammata(): Promise<CodaIncassoRaw[]> {
+  const { data, error } = await (supabase.from("messa_cassa_notifiche_coda") as any)
+    .select("id, titolo_ids, scheduled_for, status")
+    .in("status", [...CODA_STATUS_PROGRAMMATO]);
+  if (error) throw error;
+  return (data || []) as CodaIncassoRaw[];
 }
 
 async function fetchLogsForTitoli(titoloIds: string[]): Promise<LogIncassoRaw[]> {
@@ -354,7 +440,19 @@ export async function fetchComunicazioniIncasso(
   const range = normalizeDateRange(params.dataDa, params.dataA);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(range.da) || !/^\d{4}-\d{2}-\d{2}$/.test(range.a)) return [];
 
-  const titoli = await fetchTitoliPeriodo({ ...params, dataDa: range.da, dataA: range.a });
+  const [titoliPeriodo, coda] = await Promise.all([
+    fetchTitoliPeriodo({ ...params, dataDa: range.da, dataA: range.a }),
+    fetchCodaProgrammata().catch(() => [] as CodaIncassoRaw[]),
+  ]);
+
+  const codaInRange = coda.filter((c) => codaScheduledInRange(c.scheduled_for, range.da, range.a));
+  const scheduledByTitolo = scheduledForByTitolo(coda);
+  const scheduledInRange = scheduledForByTitolo(codaInRange);
+
+  const knownIds = new Set(titoliPeriodo.map((t) => t.id));
+  const missingIds = [...scheduledInRange.keys()].filter((id) => !knownIds.has(id));
+  const extraTitoli = missingIds.length > 0 ? await fetchTitoliByIds(missingIds, params) : [];
+  const titoli = [...titoliPeriodo, ...extraTitoli];
   if (titoli.length === 0) return [];
 
   const titoloIds = titoli.map((t) => t.id);
@@ -384,17 +482,20 @@ export async function fetchComunicazioniIncasso(
     if (d.entita_id && !docByTitolo.has(d.entita_id)) docByTitolo.set(d.entita_id, d);
   }
 
-  return titoli.map((titolo) => {
-    const log = pickLogIncassoPreferito(logsByTitolo.get(titolo.id) || []);
-    const dettagli = log?.dettagli_json ?? null;
-    const ids = Array.isArray(dettagli?.documenti_ids) ? dettagli.documenti_ids : [];
-    const fromIds = ids
-      .map((id) => (typeof id === "string" ? docById.get(id) : undefined))
-      .find(Boolean);
-    const documento =
-      docFromRaw(fromIds) ||
-      docFromRaw(docByTitolo.get(titolo.id)) ||
-      docFromLog(dettagli);
-    return mapTitoloToComunicazione(titolo, log, documento);
-  });
+  return titoli
+    .map((titolo) => {
+      const log = pickLogIncassoPreferito(logsByTitolo.get(titolo.id) || []);
+      const dettagli = log?.dettagli_json ?? null;
+      const ids = Array.isArray(dettagli?.documenti_ids) ? dettagli.documenti_ids : [];
+      const fromIds = ids
+        .map((id) => (typeof id === "string" ? docById.get(id) : undefined))
+        .find(Boolean);
+      const documento =
+        docFromRaw(fromIds) ||
+        docFromRaw(docByTitolo.get(titolo.id)) ||
+        docFromLog(dettagli);
+      const mapped = mapTitoloToComunicazione(titolo, log, documento);
+      return applyStatoProgrammato(mapped, scheduledByTitolo.get(titolo.id));
+    })
+    .sort((a, b) => a.numeroPolizza.localeCompare(b.numeroPolizza, "it"));
 }
