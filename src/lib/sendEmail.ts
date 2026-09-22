@@ -16,6 +16,8 @@ export interface SendEmailParams {
   attachments?: EmailAttachment[];
   apply_branding?: boolean;
   template_id?: string;
+  /** Sede per risolvere il branding (se assente si usa la sede del template). */
+  ufficio_id?: string | null;
 }
 
 export interface SendEmailResult {

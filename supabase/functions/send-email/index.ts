@@ -27,6 +27,7 @@ const emailPayloadSchema = z.object({
   attachments: z.array(attachmentSchema).optional(),
   apply_branding: z.boolean().optional(),
   template_id: z.string().optional(),
+  ufficio_id: z.string().uuid().optional().nullable(),
 });
 
 function escapeHtml(s: string): string {
@@ -121,7 +122,7 @@ serve(async (req) => {
       });
     }
 
-    const { to, subject, html, from, reply_to, cc, bcc, attachments, apply_branding } = parsed.data;
+    const { to, subject, html, from, reply_to, cc, bcc, attachments, apply_branding, template_id, ufficio_id } = parsed.data;
 
     // Sandbox mode: con onboarding@resend.dev Resend permette invii SOLO al proprietario account.
     // Se il from è il sender di sandbox, dirottiamo TUTTI i destinatari verso SANDBOX_TO
@@ -141,11 +142,46 @@ serve(async (req) => {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const admin = createClient(supabaseUrl, serviceKey);
-        const { data: branding } = await admin
-          .from("email_branding")
-          .select("logo_url, colore_primario, firma_html, intestazione_html, mittente_default")
-          .limit(1)
-          .maybeSingle();
+        let resolvedUfficio = ufficio_id ?? null;
+        if (!resolvedUfficio && template_id) {
+          const { data: tpl } = await admin
+            .from("template_email")
+            .select("ufficio_id")
+            .eq("id", template_id)
+            .maybeSingle();
+          resolvedUfficio = tpl?.ufficio_id ?? null;
+        }
+        let branding: {
+          logo_url: string | null;
+          colore_primario: string | null;
+          firma_html: string | null;
+          intestazione_html: string | null;
+          mittente_default: string | null;
+        } | null = null;
+        if (resolvedUfficio) {
+          const { data } = await admin
+            .from("email_branding")
+            .select("logo_url, colore_primario, firma_html, intestazione_html, mittente_default")
+            .eq("ufficio_id", resolvedUfficio)
+            .maybeSingle();
+          branding = data;
+        }
+        if (!branding) {
+          const { data } = await admin
+            .from("email_branding")
+            .select("logo_url, colore_primario, firma_html, intestazione_html, mittente_default")
+            .is("ufficio_id", null)
+            .maybeSingle();
+          branding = data;
+        }
+        if (!branding) {
+          const { data } = await admin
+            .from("email_branding")
+            .select("logo_url, colore_primario, firma_html, intestazione_html, mittente_default")
+            .limit(1)
+            .maybeSingle();
+          branding = data;
+        }
 
         finalHtml = wrapHtml({
           bodyHtml: html,
