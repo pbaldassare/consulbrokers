@@ -231,9 +231,13 @@ export default function SinistroDetail() {
     : "—";
 
   return (
-    <div className="space-y-4">
-      {/* Header snello sticky */}
-      <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60">
+    <Tabs value={safeTab} onValueChange={setActiveTab} className="space-y-4">
+      {/*
+        Chrome sticky sotto topbar globale (Topbar h-14 → top-14, z-10 < topbar z-20).
+        Titolo + cambio stato + step condividono lo stesso wrapper: gli step restano
+        sempre sotto l'header (niente offset fisso — l'altezza varia con wrap/stato).
+      */}
+      <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 pt-3 bg-background border-b border-border/60">
         <div className="flex items-start gap-3">
           <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => navigate("/sinistri")}>
             <ArrowLeft className="h-5 w-5" />
@@ -362,32 +366,10 @@ export default function SinistroDetail() {
             </Button>
           </div>
         )}
-      </div>
 
-      <Dialog open={polizzaDialogOpen} onOpenChange={setPolizzaDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Modifica polizza e tipo di copertura</DialogTitle>
-          </DialogHeader>
-          <SinistroPolizzaSelector
-            sinistroId={id!}
-            clienteId={sinistro.cliente_anagrafica_id}
-            currentTitoloId={sinistro.titolo_id}
-            showTipoCopertura
-            currentTipoSinistro={sinistro.tipo_sinistro}
-            currentTipoPersonalizzato={sinistro.tipo_sinistro_personalizzato}
-            onSaved={() => {
-              setPolizzaDialogOpen(false);
-              invalidate();
-            }}
-          />
-        </DialogContent>
-      </Dialog>
-
-      <Tabs value={safeTab} onValueChange={setActiveTab} className="space-y-4">
-        {/* Stepper progressivo */}
-        <div className="overflow-x-auto -mx-1 px-1 pb-1">
-          <TabsList className="h-auto w-max min-w-full justify-start gap-0 bg-transparent p-0 border-b border-border/70 rounded-none">
+        {/* Stepper: overflow-x invariato; pin con il wrapper sticky sopra */}
+        <div className="overflow-x-auto -mx-1 px-1 mt-3 pb-1 bg-background">
+          <TabsList className="h-auto w-max min-w-full justify-start gap-0 bg-transparent p-0 border-b-0 rounded-none">
             {tabList.map((tab, idx) => {
               const meta = stepMeta[tab] || { label: tab };
               const isActive = safeTab === tab;
@@ -430,6 +412,27 @@ export default function SinistroDetail() {
             })}
           </TabsList>
         </div>
+      </div>
+
+      <Dialog open={polizzaDialogOpen} onOpenChange={setPolizzaDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Modifica polizza e tipo di copertura</DialogTitle>
+          </DialogHeader>
+          <SinistroPolizzaSelector
+            sinistroId={id!}
+            clienteId={sinistro.cliente_anagrafica_id}
+            currentTitoloId={sinistro.titolo_id}
+            showTipoCopertura
+            currentTipoSinistro={sinistro.tipo_sinistro}
+            currentTipoPersonalizzato={sinistro.tipo_sinistro_personalizzato}
+            onSaved={() => {
+              setPolizzaDialogOpen(false);
+              invalidate();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
         <TabsContent value="dati" className="space-y-4 mt-0">
           <SinistroDatiPraticaPanel
@@ -628,7 +631,6 @@ export default function SinistroDetail() {
         <TabsContent value="timeline">
           <TimelineTab entitaTipo="sinistro" entitaId={id!} />
         </TabsContent>
-      </Tabs>
-    </div>
+    </Tabs>
   );
 }
