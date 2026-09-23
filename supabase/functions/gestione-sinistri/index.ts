@@ -9,7 +9,7 @@ import {
   formatSinistroAperturaLuogo,
   formatSinistroAperturaTipo,
   resolveUfficioSinistriRecipient,
-} from "../_shared/sinistroAperturaEmail.ts";
+} from "./sinistroAperturaEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
