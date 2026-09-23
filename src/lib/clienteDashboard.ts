@@ -99,7 +99,7 @@ export function aggregaSinistriPerRamo(sinistri: ClienteDashSinistro[]): Sinistr
   for (const s of sinistri) {
     const name = (s.ramo || "Altro").trim() || "Altro";
     const cur = map.get(name) || { aperti: 0, chiusi: 0 };
-    const chiuso = ["chiuso", "respinto"].includes(String(s.stato || "").toLowerCase());
+    const chiuso = ["chiuso", "respinto", "archiviato"].includes(String(s.stato || "").toLowerCase());
     if (chiuso) cur.chiusi += 1;
     else cur.aperti += 1;
     map.set(name, cur);

@@ -174,7 +174,7 @@ const payloadSchema = z.discriminatedUnion("azione", [
   z.object({
     azione: z.literal("cambia_stato"),
     sinistro_id: z.string().uuid(),
-    nuovo_stato: z.enum(['in_valutazione','aperto','in_lavorazione','in_attesa_documenti','in_liquidazione','chiuso','respinto']),
+    nuovo_stato: z.enum(['bozza','in_valutazione','aperto','in_lavorazione','in_attesa_documenti','in_liquidazione','chiuso','respinto','archiviato']),
     user_id: z.string().uuid().optional(),
     note: z.string().optional(),
   }),

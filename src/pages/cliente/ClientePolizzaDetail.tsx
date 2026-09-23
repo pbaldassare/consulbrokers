@@ -58,7 +58,7 @@ const ClientePolizzaDetail = () => {
     Promise.all([
       supabase.from("titoli").select("*, compagnie(nome, codice), rami(codice, descrizione)").eq("id", id).maybeSingle(),
       supabase.from("documenti").select("*").eq("entita_tipo", "titolo").eq("entita_id", id).order("created_at", { ascending: false }),
-      supabase.from("sinistri").select("id, numero_sinistro, stato, data_evento, ramo_sinistro").eq("titolo_id", id).order("data_apertura", { ascending: false }),
+      supabase.from("sinistri").select("id, numero_sinistro, stato, data_evento, ramo_sinistro").eq("titolo_id", id).neq("stato", "archiviato").order("data_apertura", { ascending: false }),
       supabase.from("quietanze").select("id, numero_rata, numero_rate_totali, garanzia_da, garanzia_a, data_scadenza, premio_lordo, stato, data_incasso").eq("titolo_id", id).order("numero_rata", { ascending: true }),
     ]).then(([tRes, dRes, sRes, qRes]) => {
       setTitolo(tRes.data);

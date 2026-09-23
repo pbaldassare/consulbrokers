@@ -69,7 +69,7 @@ export default function UploadDocClienteDialog({ open, onOpenChange, fixedEntita
   useEffect(() => {
     if (!open || fixedEntita) return;
     supabase.from("titoli").select("id, numero_titolo, compagnie(nome)").eq("cliente_anagrafica_id", clienteAnagraficaId).order("created_at", { ascending: false }).then(({ data }) => setPolizze(data ?? []));
-    supabase.from("sinistri").select("id, numero_sinistro").eq("cliente_anagrafica_id", clienteAnagraficaId).order("created_at", { ascending: false }).then(({ data }) => setSinistri(data ?? []));
+    supabase.from("sinistri").select("id, numero_sinistro").eq("cliente_anagrafica_id", clienteAnagraficaId).neq("stato", "archiviato").order("created_at", { ascending: false }).then(({ data }) => setSinistri(data ?? []));
   }, [open, clienteAnagraficaId, fixedEntita]);
 
   useEffect(() => {

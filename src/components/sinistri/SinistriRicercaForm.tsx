@@ -4,19 +4,13 @@ import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { TIPI_SINISTRO } from "@/lib/tipiSinistro";
 import type { SinistriListFilters } from "@/lib/sinistriListSearch";
+import { labelStatoSinistro, SINISTRO_STATI } from "@/lib/sinistriStati";
 
 type ClienteOpt = { id: string; label: string; description?: string };
 
 const STATI = [
   { value: "tutti", label: "Tutti gli stati" },
-  { value: "bozza", label: "Bozza" },
-  { value: "in_valutazione", label: "in valutazione" },
-  { value: "aperto", label: "aperto" },
-  { value: "in_lavorazione", label: "in lavorazione" },
-  { value: "in_attesa_documenti", label: "in attesa documenti" },
-  { value: "in_liquidazione", label: "in liquidazione" },
-  { value: "chiuso", label: "chiuso" },
-  { value: "respinto", label: "respinto" },
+  ...SINISTRO_STATI.map((value) => ({ value, label: labelStatoSinistro(value) })),
 ];
 
 type Props = {

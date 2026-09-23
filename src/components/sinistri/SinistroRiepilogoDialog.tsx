@@ -18,6 +18,7 @@ import { SinistroPraticaReadOnly } from "@/components/sinistri/SinistroDatiPrati
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 import { labelAgenziaRiferimento } from "@/lib/compagniaDisplay";
 import { calcScadenzaPrescrizioneBiennale } from "@/lib/sinistroPrescrizioniReminder";
+import { labelStatoSinistro, SINISTRO_STATO_BADGE } from "@/lib/sinistriStati";
 
 interface Props {
   sinistroId: string | null;
@@ -25,15 +26,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-const statoBadge: Record<string, string> = {
-  in_valutazione: "bg-amber-100 text-amber-800",
-  aperto: "bg-blue-100 text-blue-800",
-  in_lavorazione: "bg-yellow-100 text-yellow-800",
-  in_attesa_documenti: "bg-orange-100 text-orange-800",
-  in_liquidazione: "bg-purple-100 text-purple-800",
-  chiuso: "bg-green-100 text-green-800",
-  respinto: "bg-red-100 text-red-800",
-};
+const statoBadge = SINISTRO_STATO_BADGE;
 
 function fmtDateSafe(value?: string | null) {
   if (!value) return "—";
@@ -89,7 +82,7 @@ export default function SinistroRiepilogoDialog({ sinistroId, open, onOpenChange
             {isLoading ? "Caricamento sinistro…" : `Sinistro ${sinistro?.numero_sinistro || "—"}`}
             {sinistro?.stato && (
               <Badge className={statoBadge[sinistro.stato] || "bg-muted text-muted-foreground"}>
-                {(sinistro.stato as string).replace(/_/g, " ")}
+                {labelStatoSinistro(sinistro.stato as string)}
               </Badge>
             )}
           </DialogTitle>

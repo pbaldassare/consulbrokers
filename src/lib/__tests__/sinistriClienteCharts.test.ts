@@ -9,10 +9,11 @@ const rows = [
 ];
 
 describe("sinistriClienteCharts", () => {
-  it("isSinistroAperto tratta chiuso/respinto come chiusi", () => {
+  it("isSinistroAperto tratta chiuso/respinto/archiviato come chiusi", () => {
     expect(isSinistroAperto("aperto")).toBe(true);
     expect(isSinistroAperto("chiuso")).toBe(false);
     expect(isSinistroAperto("respinto")).toBe(false);
+    expect(isSinistroAperto("archiviato")).toBe(false);
   });
 
   it("aggrega per tipo sinistro aperti vs chiusi", () => {

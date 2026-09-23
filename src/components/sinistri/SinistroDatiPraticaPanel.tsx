@@ -12,6 +12,8 @@ import SinistroAssegnazioniReminderSection from "@/components/sinistri/SinistroA
 import SinistroPolizzaSelector from "@/components/sinistri/SinistroPolizzaSelector";
 import AgenziaContattoInline from "@/components/sinistri/AgenziaContattoInline";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
+import { telefonoIdentitaSinistro } from "@/lib/compagniaDisplay";
+import { isSinistroTerminale } from "@/lib/sinistriStati";
 import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
 import {
   sinistroPraticaSchema,
@@ -155,6 +157,10 @@ export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow })
           </div>
           <div><span className="text-muted-foreground">Data denuncia</span><p className="font-semibold">{fmtDate(sinistro.data_denuncia)}</p></div>
           <div><span className="text-muted-foreground">Tipo sinistro</span><p className="font-semibold">{formatTipoSinistro(sinistro)}</p></div>
+          <div>
+            <span className="text-muted-foreground">Telefono</span>
+            <p className="font-semibold">{telefonoIdentitaSinistro(sinistro) || "—"}</p>
+          </div>
           <div><span className="text-muted-foreground">N. sinistro compagnia</span><p className="font-semibold">{sinistro.numero_sinistro_compagnia || "—"}</p></div>
           <div><span className="text-muted-foreground">Controparte</span><p className="font-semibold">{sinistro.controparte || "—"}</p></div>
           <div><span className="text-muted-foreground">Targa veicolo</span><p className="font-semibold">{sinistro.targa_veicolo || "—"}</p></div>
@@ -236,7 +242,7 @@ export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow })
 export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }: Props) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const isChiuso = sinistro.stato === "chiuso" || sinistro.stato === "respinto";
+  const isChiuso = isSinistroTerminale(sinistro.stato);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<SinistroPraticaValues>({
     resolver: zodResolver(sinistroPraticaSchema),

@@ -55,6 +55,7 @@ const ClienteDashboard = () => {
           .from("sinistri")
           .select("id, stato, importo_riserva, importo_liquidato, data_apertura, ramo_sinistro")
           .in("cliente_anagrafica_id", ids)
+          .neq("stato", "archiviato")
           .order("data_apertura", { ascending: false }),
       ]);
 
@@ -124,7 +125,7 @@ const ClienteDashboard = () => {
   const attive = useMemo(() => polizze.filter(isPolizzaDashAttiva), [polizze]);
   const premiTotali = useMemo(() => attive.reduce((s, p) => s + premioAnnuoDash(p), 0), [attive]);
   const sinAperti = useMemo(
-    () => sinistri.filter((s) => !["chiuso", "respinto"].includes(String(s.stato || "").toLowerCase())).length,
+    () => sinistri.filter((s) => !["chiuso", "respinto", "archiviato"].includes(String(s.stato || "").toLowerCase())).length,
     [sinistri],
   );
   const prossimeScadenze = useMemo(

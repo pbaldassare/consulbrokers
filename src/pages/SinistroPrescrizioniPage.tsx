@@ -20,8 +20,9 @@ import { Clock, FileSpreadsheet, ArrowLeft, Search, RefreshCw, X } from "lucide-
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 import { calcScadenzaPrescrizioneBiennale } from "@/lib/sinistroPrescrizioniReminder";
 import SinistroRiepilogoDialog from "@/components/sinistri/SinistroRiepilogoDialog";
+import { applyStatoFiltroOperativo, labelStatoSinistro, SINISTRO_STATI } from "@/lib/sinistriStati";
 
-const statiSinistro = ["aperto", "in_lavorazione", "in_attesa_documenti", "in_valutazione", "in_liquidazione", "chiuso", "respinto"];
+const statiSinistro = [...SINISTRO_STATI];
 
 export default function SinistroPrescrizioniPage() {
   const navigate = useNavigate();
@@ -76,7 +77,7 @@ export default function SinistroPrescrizioniPage() {
   const applyFilters = (q: any) => {
     if (filtroUffici.length > 0) q = q.in("ufficio_id", filtroUffici);
     if (filtroCompagnie.length > 0) q = q.in("compagnia_id", filtroCompagnie);
-    if (filtroStati.length > 0) q = q.in("stato", filtroStati);
+    q = applyStatoFiltroOperativo(q, filtroStati);
     if (filtroRami.length > 0) q = q.in("titoli.ramo_id", filtroRami);
     if (search) {
       q = q.or(`numero_sinistro.ilike.%${search}%,descrizione.ilike.%${search}%`);
@@ -415,7 +416,7 @@ export default function SinistroPrescrizioniPage() {
                   setFiltroStati(v);
                   setPage(0);
                 }}
-                options={statiSinistro.map((s) => ({ value: s, label: s.replace(/_/g, " ") }))}
+                options={statiSinistro.map((s) => ({ value: s, label: labelStatoSinistro(s) }))}
                 placeholder="Tutti gli stati"
                 allLabel="Tutti gli stati"
                 searchPlaceholder="Cerca stato…"

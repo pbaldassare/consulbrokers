@@ -31,6 +31,7 @@ import {
 import { it } from "date-fns/locale";
 import { CalendarCheck, List, Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle2, ArrowLeft, RefreshCw, X } from "lucide-react";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
+import { isArchiviato } from "@/lib/sinistriStati";
 
 type ScadenzaItem = {
   id: string;
@@ -81,6 +82,7 @@ export default function SinistroScadenzePage() {
         sinistri(
           id, 
           numero_sinistro, 
+          stato,
           data_apertura, 
           responsabile_id, 
           profiles!sinistri_responsabile_id_fkey(nome, cognome),
@@ -99,6 +101,7 @@ export default function SinistroScadenzePage() {
         sinistri(
           id, 
           numero_sinistro, 
+          stato,
           responsabile_id, 
           profiles!sinistri_responsabile_id_fkey(nome, cognome),
           clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
@@ -117,6 +120,7 @@ export default function SinistroScadenzePage() {
         sinistri(
           id,
           numero_sinistro,
+          stato,
           responsabile_id,
           profiles!sinistri_responsabile_id_fkey(nome, cognome),
           clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
@@ -129,7 +133,7 @@ export default function SinistroScadenzePage() {
 
       // Mappatura Checklist
       (checklistData || []).forEach((c: any) => {
-        if (!c.sinistri) return;
+        if (!c.sinistri || isArchiviato(c.sinistri.stato)) return;
         // La scadenza della checklist è calcolata come created_at + 15 giorni, o data_apertura + 15 giorni
         const baseDate = c.created_at ? parseISO(c.created_at) : parseISO(c.sinistri.data_apertura);
         const dataScadenza = addDays(baseDate, 15);
@@ -152,7 +156,7 @@ export default function SinistroScadenzePage() {
 
       // Mappatura Eventi
       (eventiData || []).forEach((e: any) => {
-        if (!e.sinistri) return;
+        if (!e.sinistri || isArchiviato(e.sinistri.stato)) return;
         const dataScadenza = parseISO(e.data_scadenza);
         const clienteNome = resolveClienteNome(e.sinistri.clienti);
 
@@ -173,7 +177,7 @@ export default function SinistroScadenzePage() {
 
       // Mappatura Prescrizioni
       (prescrizioniData || []).forEach((p: any) => {
-        if (!p.sinistri) return;
+        if (!p.sinistri || isArchiviato(p.sinistri.stato)) return;
         const dataScadenza = parseISO(p.data_scadenza_risposta);
         const clienteNome = resolveClienteNome(p.sinistri.clienti);
 

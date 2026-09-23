@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown, X, List, SlidersHorizontal } from "lucide-react";
+import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown, X, List, SlidersHorizontal, Archive } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ServerPagination from "@/components/ServerPagination";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -27,19 +27,15 @@ import {
   type SinistriListFilters,
   type SinistriSortField,
 } from "@/lib/sinistriListSearch";
+import {
+  applyStatoFiltroLista,
+  labelStatoSinistro,
+  SINISTRO_STATI,
+  SINISTRO_STATO_BADGE,
+} from "@/lib/sinistriStati";
 
-const statiSinistro = ["bozza", "in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
-
-const statoBadge: Record<string, string> = {
-  bozza: "bg-slate-100 text-slate-700 border border-slate-300",
-  in_valutazione: "bg-amber-100 text-amber-800",
-  aperto: "bg-blue-100 text-blue-800",
-  in_lavorazione: "bg-yellow-100 text-yellow-800",
-  in_attesa_documenti: "bg-orange-100 text-orange-800",
-  in_liquidazione: "bg-purple-100 text-purple-800",
-  chiuso: "bg-green-100 text-green-800",
-  respinto: "bg-red-100 text-red-800",
-};
+const statiSinistro = SINISTRO_STATI;
+const statoBadge = SINISTRO_STATO_BADGE;
 
 const NO_MATCH_ID = "00000000-0000-0000-0000-000000000000";
 
@@ -52,6 +48,7 @@ export default function SinistriList() {
   const [sortField, setSortField] = useState<SinistriSortField>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const { page, setPage, pageSize, range } = useServerPagination(25, [
+    tab,
     debounced,
     sortField,
     sortDirection,
@@ -138,7 +135,7 @@ export default function SinistriList() {
   });
 
   const { data: sinistriResult } = useQuery({
-    queryKey: ["sinistri", debounced, page, sortField, sortDirection],
+    queryKey: ["sinistri", tab, debounced, page, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("sinistri").select(
         `id, numero_sinistro, stato, descrizione, data_apertura, data_denuncia, data_evento, controparte, sinistro_terzi, titolo_id, compagnia_id,
@@ -150,7 +147,7 @@ export default function SinistriList() {
         { count: "exact" }
       );
 
-      if (debounced.stato !== "tutti") q = q.eq("stato", debounced.stato);
+      q = applyStatoFiltroLista(q, { tab, stato: debounced.stato });
       if (debounced.compagniaId !== "tutti") q = q.eq("compagnia_id", debounced.compagniaId);
       if (debounced.terzi === "terzi") q = q.eq("sinistro_terzi", true);
       if (debounced.terzi === "con_polizza") q = q.eq("sinistro_terzi", false).not("titolo_id", "is", null);
@@ -304,13 +301,16 @@ export default function SinistriList() {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="space-y-3">
+      <Tabs value={tab} onValueChange={(v) => { setTab(v); setPage(0); }} className="space-y-3">
         <TabsList>
           <TabsTrigger value="elenco" className="gap-1.5">
             <List className="h-4 w-4" /> Elenco
           </TabsTrigger>
           <TabsTrigger value="ricerca" className="gap-1.5">
             <SlidersHorizontal className="h-4 w-4" /> Ricerca
+          </TabsTrigger>
+          <TabsTrigger value="archiviati" className="gap-1.5">
+            <Archive className="h-4 w-4" /> Archiviati
           </TabsTrigger>
         </TabsList>
 
@@ -330,7 +330,7 @@ export default function SinistriList() {
               <SelectContent>
                 <SelectItem value="tutti">Tutti gli stati</SelectItem>
                 {statiSinistro.map((s) => (
-                  <SelectItem key={s} value={s}>{s === "bozza" ? "Bozza" : s.replace(/_/g, " ")}</SelectItem>
+                  <SelectItem key={s} value={s}>{labelStatoSinistro(s)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -392,6 +392,36 @@ export default function SinistriList() {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="archiviati" className="mt-0">
+          <div className="flex gap-3 flex-wrap items-center">
+            <p className="text-sm text-muted-foreground w-full">
+              Solo pratiche in stato Archiviato. Non comparono in Elenco, Ricerca, estrazioni o portale cliente.
+            </p>
+            <div className="relative flex-1 min-w-[16rem]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cerca tra gli archiviati: cliente, numero, polizza…"
+                value={filters.quickSearch}
+                onChange={(e) => patchFilters({ quickSearch: e.target.value })}
+                className="pl-9"
+              />
+            </div>
+            <Select
+              value={filters.compagniaId}
+              onValueChange={(id) => patchFilters({
+                compagniaId: id,
+                compagniaLabel: compagnie.find((c) => c.id === id)?.nome || "",
+              })}
+            >
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tutti">Tutte le compagnie</SelectItem>
+                {compagnie.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -470,7 +500,7 @@ export default function SinistriList() {
                 <TableCell>{formatTipoSinistro(s)}</TableCell>
                 <TableCell>
                   <Badge className={statoBadge[s.stato] || "bg-muted"}>
-                    {s.stato === "bozza" ? "Bozza" : s.stato.replace(/_/g, " ")}
+                    {labelStatoSinistro(s.stato)}
                   </Badge>
                 </TableCell>
                 <TableCell>{s.compagnie?.nome || "—"}</TableCell>

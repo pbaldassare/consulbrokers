@@ -67,7 +67,7 @@ Campi: id, titolo_id, numero_appendice, data_appendice, data_effetto, oggetto, t
 ### sinistri
 Campi: id, numero_sinistro, numero_sinistro_compagnia, titolo_id, cliente_id, compagnia_id,
 responsabile_id (FK profiles), perito_id, liquidatore_id, ufficio_id, ramo_sinistro,
-stato ('aperto'|'in_lavorazione'|'liquidato'|'chiuso'|'respinto'), tipo_sinistro,
+stato ('bozza'|'in_valutazione'|'aperto'|'in_lavorazione'|'in_attesa_documenti'|'in_liquidazione'|'chiuso'|'respinto'|'archiviato'), tipo_sinistro,
 data_apertura, data_chiusura, data_evento, data_denuncia, descrizione, dinamica,
 costo_preventivato, costo_effettivo, importo_liquidato, importo_riserva, franchigia,
 targa_veicolo, controparte, luogo_sinistro, citta_sinistro, provincia_sinistro.
@@ -158,7 +158,7 @@ Audit log. Campi: id, user_id, azione, entita_tipo, entita_id, dettagli_json, uf
 
 ## GLOSSARIO STATI
 - titoli.stato: 'attivo' | 'sospeso' | 'scaduto' | 'annullato'
-- sinistri.stato: 'aperto' | 'in_lavorazione' | 'liquidato' | 'chiuso' | 'respinto'
+- sinistri.stato: 'bozza' | 'in_valutazione' | 'aperto' | 'in_lavorazione' | 'in_attesa_documenti' | 'in_liquidazione' | 'chiuso' | 'respinto' | 'archiviato'
 - trattative.stato: 'aperta' | 'contatto' | 'preventivo' | 'in_negoziazione' | 'chiuso_vinto' | 'chiuso_perso'
 - clienti.stato_cliente / prospect.stato: testuale libero (filtra con ILIKE).
 

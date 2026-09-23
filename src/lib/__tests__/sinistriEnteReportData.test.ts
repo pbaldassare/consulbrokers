@@ -82,6 +82,16 @@ describe("computeKpis", () => {
     expect(kpis.riserve).toBe(150);
     expect(kpis.liquidato).toBe(250);
   });
+
+  it("esclude gli archiviati da KPI e aggregazioni", () => {
+    const kpis = computeKpis([
+      { stato: "aperto", importo_riserva: 100, importo_liquidato: 0 },
+      { stato: "archiviato", importo_riserva: 999, importo_liquidato: 50 },
+    ]);
+    expect(kpis.totale).toBe(1);
+    expect(kpis.aperti).toBe(1);
+    expect(kpis.riserve).toBe(100);
+  });
 });
 
 describe("mapSinistriToPdfRows", () => {

@@ -51,12 +51,20 @@ function ContattiRow({
   pecLabel?: string;
 }) {
   const { telefono, email, pec } = contatto;
+  const telNode = telefono ? (
+    <ContactItem label="Tel." value={telefono} />
+  ) : (
+    <span className="inline-flex items-center gap-1 text-xs">
+      <span className="text-muted-foreground">Tel.</span>
+      <span className="font-medium text-foreground">—</span>
+    </span>
+  );
   if (!telefono && !email && !pec) {
-    return <span className="text-xs text-muted-foreground">—</span>;
+    return <div className="flex flex-wrap items-center gap-x-3 gap-y-1">{telNode}</div>;
   }
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      {telefono ? <ContactItem label="Tel." value={telefono} /> : null}
+      {telNode}
       {email ? <ContactItem label="Email" value={email} /> : null}
       {pec ? <ContactItem label={pecLabel} value={pec} /> : null}
     </div>
@@ -86,10 +94,6 @@ function renderContatti(resolved: SinistroContattiPraticaResolved, className?: s
   const { agenzia, compagnia, sameEntity } = resolved;
 
   if (sameEntity) {
-    const hasAny = agenzia.telefono || agenzia.email || agenzia.pec;
-    if (!hasAny) {
-      return <span className={`text-xs text-muted-foreground ${className ?? ""}`}>—</span>;
-    }
     return (
       <ContattiGroup
         title="Agenzia riferimento"

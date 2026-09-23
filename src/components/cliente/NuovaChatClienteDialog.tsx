@@ -81,6 +81,7 @@ export default function NuovaChatClienteDialog({ open, onClose, onCreated }: Pro
         .from("sinistri")
         .select("id, numero_sinistro, tipo_sinistro, stato, data_evento, targa_veicolo")
         .in("cliente_anagrafica_id", clienteIds)
+        .neq("stato", "archiviato")
         .order("data_evento", { ascending: false });
       return data || [];
     },

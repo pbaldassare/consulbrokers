@@ -134,6 +134,7 @@ export default function SinistroReportSirPage() {
         )
       `)
       .in("tipo_sinistro", ["infortunio", "malattia"])
+      .neq("stato", "archiviato")
       .order("created_at", { ascending: false });
       return data || [];
     }
