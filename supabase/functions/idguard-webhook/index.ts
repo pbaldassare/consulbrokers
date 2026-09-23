@@ -7,7 +7,7 @@ import {
   verifyIdGuardWebhook,
   webhookEventTipo,
   webhookTarget,
-} from "../_shared/idGuard.ts";
+} from "./idGuard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {

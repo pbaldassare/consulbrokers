@@ -8,7 +8,7 @@ import {
   mapIdGuardResult,
   nextVerificaAtIso,
   type IdGuardCheckTipo,
-} from "../_shared/idGuard.ts";
+} from "./idGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
