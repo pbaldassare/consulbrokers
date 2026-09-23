@@ -791,36 +791,53 @@ export default function SinistroAperturaWizardPage() {
       </div>
 
 
-      {/* Barra di Progresso */}
-      <div className="relative">
-        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-muted -translate-y-1/2" />
-        <div 
-          className="absolute top-1/2 left-0 h-0.5 bg-primary -translate-y-1/2 transition-all duration-300"
-          style={{ width: `${((currentStep - 1) / 4) * 100}%` }}
-        />
-        <div className="relative flex justify-between">
-          {[1, 2, 3, 4, 5].map((stepIndex) => (
-            <div key={stepIndex} className="flex flex-col items-center">
-              <div 
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border-2 z-10 transition-all ${
-                  currentStep === stepIndex 
-                    ? "bg-primary border-primary text-primary-foreground shadow-md ring-4 ring-primary/20" 
-                    : currentStep > stepIndex 
-                      ? "bg-primary border-primary text-primary-foreground" 
-                      : "bg-background border-muted text-muted-foreground"
-                }`}
-              >
-                {stepIndex}
-              </div>
-              <span className={`text-[10px] font-medium mt-2 hidden sm:block ${currentStep === stepIndex ? "text-primary font-bold" : "text-muted-foreground"}`}>
-                {stepIndex === 1 && (watchSinistroTerzi ? "Cliente" : "Polizza")}
-                {stepIndex === 2 && "Dati Sinistro"}
-                {stepIndex === 3 && "Documenti"}
-                {stepIndex === 4 && "Assegnazione"}
-                {stepIndex === 5 && "Riepilogo"}
-              </span>
-            </div>
-          ))}
+      {/* Barra di Progresso — sticky sotto la topbar globale */}
+      <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 py-3 bg-background border-b border-border/60">
+        <div className="relative">
+          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-muted -translate-y-1/2" />
+          <div
+            className="absolute top-1/2 left-0 h-0.5 bg-primary -translate-y-1/2 transition-all duration-300"
+            style={{ width: `${((currentStep - 1) / 4) * 100}%` }}
+          />
+          <div className="relative flex justify-between">
+            {[1, 2, 3, 4, 5].map((stepIndex) => {
+              const reachable = stepIndex <= currentStep;
+              return (
+                <button
+                  key={stepIndex}
+                  type="button"
+                  disabled={!reachable}
+                  onClick={() => {
+                    if (stepIndex < currentStep) setCurrentStep(stepIndex as WizardStep);
+                  }}
+                  className={`flex flex-col items-center bg-transparent ${
+                    reachable && stepIndex < currentStep ? "cursor-pointer" : reachable ? "cursor-default" : "cursor-not-allowed"
+                  }`}
+                  aria-current={currentStep === stepIndex ? "step" : undefined}
+                  aria-label={`Step ${stepIndex}`}
+                >
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border-2 z-10 transition-all ${
+                      currentStep === stepIndex
+                        ? "bg-primary border-primary text-primary-foreground shadow-md ring-4 ring-primary/20"
+                        : currentStep > stepIndex
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : "bg-background border-muted text-muted-foreground"
+                    }`}
+                  >
+                    {stepIndex}
+                  </div>
+                  <span className={`text-[10px] font-medium mt-2 hidden sm:block ${currentStep === stepIndex ? "text-primary font-bold" : "text-muted-foreground"}`}>
+                    {stepIndex === 1 && (watchSinistroTerzi ? "Cliente" : "Polizza")}
+                    {stepIndex === 2 && "Dati Sinistro"}
+                    {stepIndex === 3 && "Documenti"}
+                    {stepIndex === 4 && "Assegnazione"}
+                    {stepIndex === 5 && "Riepilogo"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
