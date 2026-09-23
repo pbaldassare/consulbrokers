@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   formatDateTimeIT,
   isCooldownActive,
@@ -141,9 +142,7 @@ const IdGuardPage = () => {
     onError: (err: Error & { payload?: any }) => {
       queryClient.invalidateQueries({ queryKey: ["idguard-verifiche"] });
       if (err.payload?.code === "cooldown") {
-        toast.error(
-          `Prossima verifica alle ${formatDateTimeIT(err.payload.prossima_verifica_at)}`,
-        );
+        toast.error("Verifica già eseguita, ne potrai fare un'altra domani");
         return;
       }
       toast.error(err.message || "Verifica ID Guard non riuscita");
@@ -163,8 +162,8 @@ const IdGuardPage = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground">ID Guard</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Verifica email (privati) e dominio (aziende/enti) contro data breach. Un solo account ID Guard per
-              tutti i clienti CBnet. Le chiamate partono solo da Verifica, al massimo una ogni 24 ore per riga.
+              Verifica se le email (privati) e dominio (aziende/enti) sono finite in una fuga di dati. Premi su
+              verifica per controllare, limite massimo di una verifica al giorno.
             </p>
           </div>
         </div>
@@ -273,23 +272,34 @@ const IdGuardPage = () => {
                         </TableCell>
                         <TableCell>{formatDateTimeIT(verifica?.chiamata_at)}</TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={!canVerify}
-                            title={
-                              !target.ok
-                                ? target.missing === "email"
-                                  ? "Manca l'email del cliente"
-                                  : "Manca il dominio del cliente"
-                                : cooling
-                                  ? `Prossima verifica alle ${formatDateTimeIT(verifica?.prossima_verifica_at)}`
-                                  : "Avvia verifica ID Guard"
-                            }
-                            onClick={() => verificaMutation.mutate(c.id)}
-                          >
-                            {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verifica"}
-                          </Button>
+                          {cooling ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex">
+                                  <Button size="sm" variant="outline" disabled>
+                                    Verifica
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>Verifica già eseguita, ne potrai fare un'altra domani</TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={!canVerify}
+                              title={
+                                !target.ok
+                                  ? target.missing === "email"
+                                    ? "Manca l'email del cliente"
+                                    : "Manca il dominio del cliente"
+                                  : undefined
+                              }
+                              onClick={() => verificaMutation.mutate(c.id)}
+                            >
+                              {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verifica"}
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
