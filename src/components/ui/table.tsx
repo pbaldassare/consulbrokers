@@ -10,7 +10,7 @@ export type TableProps = React.HTMLAttributes<HTMLTableElement> & {
 const Table = React.forwardRef<HTMLTableElement, TableProps>(
   ({ className, containerClassName, ...props }, ref) => (
     <TableScrollArea className={containerClassName}>
-      <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
+      <table ref={ref} className={cn("w-full min-w-max caption-bottom text-sm", className)} {...props} />
     </TableScrollArea>
   ),
 );
