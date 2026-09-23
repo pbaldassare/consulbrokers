@@ -16,6 +16,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
+import {
+  buildUfficioSedeSavePayload,
+  emptyUfficioSedeForm,
+  ufficioToFormData,
+  type UfficioSedeFormInput,
+} from "@/lib/ufficioSedeForm";
 
 interface Ufficio {
   id: string;
@@ -26,6 +32,7 @@ interface Ufficio {
   citta: string | null;
   provincia: string | null;
   email: string | null;
+  email_ufficio_sinistri: string | null;
   telefono: string | null;
   attivo: boolean;
   created_at: string;
@@ -50,7 +57,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   const [selectedUfficio, setSelectedUfficio] = useState<Ufficio | null>(null);
   const [deleteUfficio, setDeleteUfficio] = useState<Ufficio | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [formData, setFormData] = useState<{ codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_bancario_id: string | null }>({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_bancario_id: null });
+  const [formData, setFormData] = useState<UfficioSedeFormInput>(emptyUfficioSedeForm());
   const [search, setSearch] = useState("");
 
   const { data: uffici = [], isLoading } = useQuery({
@@ -98,19 +105,8 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   });
 
   const upsertMutation = useMutation({
-    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_bancario_id: string | null }) => {
-      const payload = {
-        codice_ufficio: data.codice_ufficio,
-        nome_ufficio: data.nome_ufficio,
-        indirizzo: data.indirizzo || null,
-        cap: data.cap || null,
-        citta: data.citta || null,
-        provincia: data.provincia ? data.provincia.toUpperCase() : null,
-        email: data.email || null,
-        telefono: data.telefono || null,
-        attivo: data.attivo,
-        conto_bancario_id: data.conto_bancario_id,
-      };
+    mutationFn: async (data: UfficioSedeFormInput & { id?: string }) => {
+      const payload = buildUfficioSedeSavePayload(data);
       if (data.id) {
         const { error } = await supabase.from("uffici" as any).update(payload).eq("id", data.id);
         if (error) throw error;
@@ -138,6 +134,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
       u.citta,
       u.provincia,
       u.email,
+      u.email_ufficio_sinistri,
       u.telefono,
       composeIndirizzoFull(u),
     ]
@@ -149,24 +146,13 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
 
   const openCreateDialog = () => {
     setEditingUfficio(null);
-    setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_bancario_id: null });
+    setFormData(emptyUfficioSedeForm());
     setDialogOpen(true);
   };
 
   const openEditDialog = (u: Ufficio) => {
     setEditingUfficio(u);
-    setFormData({
-      codice_ufficio: u.codice_ufficio || "",
-      nome_ufficio: u.nome_ufficio || "",
-      indirizzo: u.indirizzo || "",
-      cap: u.cap || "",
-      citta: u.citta || "",
-      provincia: u.provincia || "",
-      email: u.email || "",
-      telefono: u.telefono || "",
-      attivo: u.attivo,
-      conto_bancario_id: u.conto_bancario_id || null,
-    });
+    setFormData(ufficioToFormData(u));
     setDialogOpen(true);
   };
 
@@ -293,7 +279,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
       {selectedUfficio && <UfficioDetail ufficio={selectedUfficio} uffici={uffici} />}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingUfficio ? "Modifica Sede" : "Nuova Sede"}</DialogTitle>
           </DialogHeader>
@@ -354,8 +340,18 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
               </div>
             </div>
             <div>
-              <Label className="flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
-              <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="es. sede-milano@azienda.it" />
+              <Label className="flex items-center gap-1"><Mail className="w-3 h-3" /> Email sede</Label>
+              <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="es. sandona@consulbrokers.it" />
+            </div>
+            <div>
+              <Label className="flex items-center gap-1"><Mail className="w-3 h-3" /> Email ufficio sinistri</Label>
+              <Input
+                type="email"
+                value={formData.email_ufficio_sinistri}
+                onChange={(e) => setFormData({ ...formData, email_ufficio_sinistri: e.target.value })}
+                placeholder="es. sinistri.sandona@consulbrokers.it"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Mail dedicata dell&apos;ufficio sinistri di questa sede. Se vuota non viene salvata.</p>
             </div>
             <div>
               <Label className="flex items-center gap-1"><Phone className="w-3 h-3" /> Telefono</Label>
@@ -483,10 +479,11 @@ const UfficioDetail = ({ ufficio, uffici }: { ufficio: Ufficio; uffici: Ufficio[
           <Building2 className="w-5 h-5" />
           Dettaglio: {ufficio.nome_ufficio} ({ufficio.codice_ufficio})
         </CardTitle>
-        {(ufficio.indirizzo || ufficio.email || ufficio.telefono) && (
+        {(ufficio.indirizzo || ufficio.email || ufficio.email_ufficio_sinistri || ufficio.telefono) && (
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mt-1">
             {composeIndirizzoFull(ufficio) && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{composeIndirizzoFull(ufficio)}</span>}
             {ufficio.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{ufficio.email}</span>}
+            {ufficio.email_ufficio_sinistri && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />Sinistri: {ufficio.email_ufficio_sinistri}</span>}
             {ufficio.telefono && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{ufficio.telefono}</span>}
           </div>
         )}
