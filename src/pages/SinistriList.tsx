@@ -11,18 +11,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown, X, List, SlidersHorizontal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { SinistriRicercaForm } from "@/components/sinistri/SinistriRicercaForm";
 import { formatTipoSinistro, getTipoSinistroLabel } from "@/lib/tipiSinistro";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
+import { formatDateIT } from "@/lib/formatDate";
 import {
   EMPTY_SINISTRI_FILTERS,
+  applySinistriOrder,
   hasSinistriFilters,
   sanitizePostgrestTerm,
   sinistriFilterChips,
+  sinistroPolizzaDisplay,
   type SinistriListFilters,
+  type SinistriSortField,
 } from "@/lib/sinistriListSearch";
 
 const statiSinistro = ["bozza", "in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
@@ -40,23 +43,13 @@ const statoBadge: Record<string, string> = {
 
 const NO_MATCH_ID = "00000000-0000-0000-0000-000000000000";
 
-type SortField =
-  | "numero_sinistro"
-  | "tipo_sinistro"
-  | "stato"
-  | "compagnia_id"
-  | "data_apertura"
-  | "data_denuncia"
-  | "controparte"
-  | "created_at";
-
 export default function SinistriList() {
   const navigate = useNavigate();
   const [tab, setTab] = useState("elenco");
   const [filters, setFilters] = useState<SinistriListFilters>(EMPTY_SINISTRI_FILTERS);
   const [debounced, setDebounced] = useState<SinistriListFilters>(EMPTY_SINISTRI_FILTERS);
   const [clientiSearch, setClientiSearch] = useState("");
-  const [sortField, setSortField] = useState<SortField>("created_at");
+  const [sortField, setSortField] = useState<SinistriSortField>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const { page, setPage, pageSize, range } = useServerPagination(25, [
     debounced,
@@ -148,7 +141,7 @@ export default function SinistriList() {
     queryKey: ["sinistri", debounced, page, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("sinistri").select(
-        `id, numero_sinistro, stato, descrizione, data_apertura, data_denuncia, controparte, sinistro_terzi, titolo_id, compagnia_id,
+        `id, numero_sinistro, stato, descrizione, data_apertura, data_denuncia, data_evento, controparte, sinistro_terzi, titolo_id, compagnia_id,
          numero_polizza, ramo_sinistro, prodotto_sinistro,
          tipo_sinistro, tipo_sinistro_personalizzato,
          compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome),
@@ -231,8 +224,7 @@ export default function SinistriList() {
         q = q.or(parts.join(","));
       }
 
-      const { data, error, count } = await q
-        .order(sortField, { ascending: sortDirection === "asc" })
+      const { data, error, count } = await applySinistriOrder(q, sortField, sortDirection)
         .range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], count: count || 0 };
@@ -250,7 +242,7 @@ export default function SinistriList() {
     },
   });
 
-  const handleSort = (field: SortField) => {
+  const handleSort = (field: SinistriSortField) => {
     if (sortField === field) {
       setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
     } else {
@@ -270,7 +262,7 @@ export default function SinistriList() {
     children,
     className,
   }: {
-    field: SortField;
+    field: SinistriSortField;
     children: React.ReactNode;
     className?: string;
   }) => {
@@ -431,8 +423,9 @@ export default function SinistriList() {
           <TableHeader>
             <TableRow>
               <SortableHeader field="numero_sinistro">N° Sinistro</SortableHeader>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Polizza</TableHead>
+              <SortableHeader field="cliente">Cliente</SortableHeader>
+              <SortableHeader field="polizza">Polizza</SortableHeader>
+              <SortableHeader field="data_evento">Data accadimento</SortableHeader>
               <SortableHeader field="controparte">Controparte</SortableHeader>
               <SortableHeader field="tipo_sinistro">Tipo</SortableHeader>
               <SortableHeader field="stato">Stato</SortableHeader>
@@ -471,7 +464,8 @@ export default function SinistriList() {
                   </div>
                 </TableCell>
                 <TableCell>{resolveClienteNome(s.clienti)}</TableCell>
-                <TableCell>{s.sinistro_terzi ? (s.numero_polizza || "—") : (s.titoli?.numero_titolo || "—")}</TableCell>
+                <TableCell>{sinistroPolizzaDisplay(s)}</TableCell>
+                <TableCell>{formatDateIT(s.data_evento)}</TableCell>
                 <TableCell className="max-w-[10rem] truncate">{s.controparte || "—"}</TableCell>
                 <TableCell>{formatTipoSinistro(s)}</TableCell>
                 <TableCell>
@@ -480,15 +474,15 @@ export default function SinistriList() {
                   </Badge>
                 </TableCell>
                 <TableCell>{s.compagnie?.nome || "—"}</TableCell>
-                <TableCell>{s.data_apertura ? format(new Date(s.data_apertura), "dd/MM/yyyy") : "—"}</TableCell>
-                <TableCell>{s.data_denuncia ? format(new Date(s.data_denuncia), "dd/MM/yyyy") : "—"}</TableCell>
+                <TableCell>{formatDateIT(s.data_apertura)}</TableCell>
+                <TableCell>{formatDateIT(s.data_denuncia)}</TableCell>
                 <TableCell className="min-w-[20rem] max-w-[40rem]">
                   <span className="line-clamp-4 whitespace-normal break-words">{s.descrizione || "—"}</span>
                 </TableCell>
               </TableRow>
             ))}
             {!sinistri.length && (
-              <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nessun sinistro trovato</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Nessun sinistro trovato</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

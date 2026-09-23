@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_SINISTRI_FILTERS,
+  applySinistriOrder,
   hasSinistriFilters,
+  isRelatedSinistriSort,
+  paginateSortedIds,
   sanitizePostgrestTerm,
   sinistriFilterChips,
+  sinistriOrderClauses,
+  sinistroClienteSortKey,
+  sinistroPolizzaDisplay,
+  sinistroPolizzaSortKey,
+  sortSinistriRelatedRows,
 } from "@/lib/sinistriListSearch";
 
 describe("sanitizePostgrestTerm", () => {
@@ -37,5 +45,94 @@ describe("sinistriFilterChips", () => {
       clienteId: "c1",
       clienteLabel: "Comune di Varese",
     })).toBe(true);
+  });
+});
+
+describe("sinistriOrderClauses", () => {
+  it("mappa Data accadimento su sinistri.data_evento", () => {
+    expect(sinistriOrderClauses("data_evento", "desc")).toEqual([
+      { column: "data_evento", ascending: false, nullsFirst: false },
+    ]);
+  });
+
+  it("ordina Cliente sulla relazione clienti (ragione sociale / cognome / nome)", () => {
+    expect(sinistriOrderClauses("cliente", "asc")).toEqual([
+      { column: "clienti(ragione_sociale)", ascending: true, nullsFirst: false },
+      { column: "clienti(cognome)", ascending: true, nullsFirst: false },
+      { column: "clienti(nome)", ascending: true, nullsFirst: false },
+    ]);
+    expect(isRelatedSinistriSort("cliente")).toBe(true);
+  });
+
+  it("ordina Polizza su titoli.numero_titolo e sinistri.numero_polizza", () => {
+    expect(sinistriOrderClauses("polizza", "desc")).toEqual([
+      { column: "titoli(numero_titolo)", ascending: false, nullsFirst: false },
+      { column: "numero_polizza", ascending: false, nullsFirst: false },
+    ]);
+    expect(isRelatedSinistriSort("polizza")).toBe(true);
+  });
+
+  it("lascia le colonne locali come campo DB", () => {
+    expect(sinistriOrderClauses("numero_sinistro", "asc")).toEqual([
+      { column: "numero_sinistro", ascending: true },
+    ]);
+    expect(isRelatedSinistriSort("numero_sinistro")).toBe(false);
+  });
+
+  it("applySinistriOrder applica le clause in sequenza", () => {
+    const calls: Array<{ column: string; ascending?: boolean; nullsFirst?: boolean }> = [];
+    const q = {
+      order(column: string, opts?: { ascending?: boolean; nullsFirst?: boolean }) {
+        calls.push({ column, ...opts });
+        return this;
+      },
+    };
+    applySinistriOrder(q, "cliente", "desc");
+    expect(calls.map((c) => c.column)).toEqual([
+      "clienti(ragione_sociale)",
+      "clienti(cognome)",
+      "clienti(nome)",
+    ]);
+    expect(calls.every((c) => c.ascending === false && c.nullsFirst === false)).toBe(true);
+  });
+});
+
+describe("sinistro sort keys / display", () => {
+  it("cliente: azienda da ragione sociale, privato da cognome+nome, vuoto → chiave vuota", () => {
+    expect(sinistroClienteSortKey({ tipo_cliente: "azienda", ragione_sociale: "ATMRC S.r.l." }))
+      .toBe("atmrc s.r.l.");
+    expect(sinistroClienteSortKey({ tipo_cliente: "privato", cognome: "Rossi", nome: "Mario" }))
+      .toBe("rossi mario");
+    expect(sinistroClienteSortKey(null)).toBe("");
+  });
+
+  it("polizza: titoli.numero_titolo se non terzi, altrimenti numero_polizza", () => {
+    expect(sinistroPolizzaDisplay({
+      sinistro_terzi: false,
+      numero_polizza: "IGNORAMI",
+      titoli: { numero_titolo: "61314025566" },
+    })).toBe("61314025566");
+    expect(sinistroPolizzaDisplay({
+      sinistro_terzi: true,
+      numero_polizza: "TERZI-99",
+      titoli: { numero_titolo: "61314025566" },
+    })).toBe("TERZI-99");
+    expect(sinistroPolizzaDisplay({ sinistro_terzi: false, titoli: null })).toBe("—");
+    expect(sinistroPolizzaSortKey({ sinistro_terzi: false, titoli: { numero_titolo: "AB-10" } }))
+      .toBe("ab-10");
+  });
+
+  it("sortSinistriRelatedRows + paginateSortedIds rispettano asc/desc e la pagina", () => {
+    const rows = [
+      { id: "2", clienti: { tipo_cliente: "azienda", ragione_sociale: "Zeta Spa" } },
+      { id: "1", clienti: { tipo_cliente: "azienda", ragione_sociale: "Alfa Srl" } },
+      { id: "3", clienti: { tipo_cliente: "azienda", ragione_sociale: "Beta Snc" } },
+    ];
+    const asc = sortSinistriRelatedRows(rows, "cliente", "asc").map((r) => r.id);
+    const desc = sortSinistriRelatedRows(rows, "cliente", "desc").map((r) => r.id);
+    expect(asc).toEqual(["1", "3", "2"]);
+    expect(desc).toEqual(["2", "3", "1"]);
+    expect(paginateSortedIds(asc, 0, 1)).toEqual(["1", "3"]);
+    expect(paginateSortedIds(asc, 2, 10)).toEqual(["2"]);
   });
 });
