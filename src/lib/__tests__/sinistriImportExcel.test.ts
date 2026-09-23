@@ -94,7 +94,7 @@ describe("sinistriImportExcel", () => {
       xlsxBuffer([
         ["DATA ACCADIMENTO", "DATA DENUNCIA", "CLIENTE", "N POLIZZA", "N SINISTRO COMPAGNIA", "DESCRIZIONE"],
         ["01/03/2026", "05/03/2026", "Comune Esempio", "ABC", "SX-1", LONG_DESC],
-        ["02/03/2026", "06/03/2026", "Altro Nome", "NOPE", "", "troppo corta"],
+        ["02/03/2026", "06/03/2026", "Altro Nome", "NOPE", "", "corta"],
       ]),
     );
     const preview = buildPreviewRows(raws, {
@@ -130,6 +130,28 @@ describe("sinistriImportExcel", () => {
     expect(res.status).toBe("blocked");
     expect(res.errors[0]).toMatch(/polizza CBnet/);
     expect(LONG_DESC.length).toBeGreaterThanOrEqual(DESCRIZIONE_MIN_CHARS);
+  });
+
+  it("descrizione accadimento — minimo 10 caratteri", () => {
+    expect(DESCRIZIONE_MIN_CHARS).toBe(10);
+    const base = {
+      data_evento: "2026-03-01",
+      data_denuncia: "2026-03-05",
+      sinistro_terzi: true,
+      titolo_id: null,
+      matchPolizza: "none" as const,
+      ramo_sinistro: "RCA",
+      numero_sinistro_compagnia: "",
+      clienteMismatch: false,
+      cliente_excel: "",
+      compagnia_id: null,
+      stato: "aperto" as const,
+    };
+    const shortRes = validateImportRow({ ...base, descrizione: "123456789" });
+    expect(shortRes.status).toBe("blocked");
+    expect(shortRes.errors.some((e) => e.includes("minimo 10"))).toBe(true);
+    const okRes = validateImportRow({ ...base, descrizione: "1234567890" });
+    expect(okRes.errors.some((e) => e.toLowerCase().includes("descrizione"))).toBe(false);
   });
 
   it("applica patch terzi / titolo e ricalcola lo stato", () => {
