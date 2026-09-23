@@ -109,6 +109,10 @@ function asNumber(value: unknown, fallback = 0): number {
 
 function countPasswordLeaks(leakedData: unknown): number {
   if (typeof leakedData === "number") return asNumber(leakedData);
+  const rec = asRecord(leakedData);
+  const fromCounts = asNumber(asRecord(rec.counts).passwords ?? rec.passwordCount ?? rec.password_count, -1);
+  if (fromCounts >= 0) return fromCounts;
+  if (Array.isArray(rec.passwords)) return rec.passwords.length;
   if (!Array.isArray(leakedData)) return 0;
   return leakedData.filter((item) => {
     const text =
@@ -119,6 +123,14 @@ function countPasswordLeaks(leakedData: unknown): number {
             .join(" ");
     return /password/i.test(String(text));
   }).length;
+}
+
+export function isVerifyBlocked(
+  prossimaVerificaAt: string | Date | null | undefined,
+  opts?: { isAdmin?: boolean; now?: Date },
+): boolean {
+  if (opts?.isAdmin) return false;
+  return isCooldownActive(prossimaVerificaAt, opts?.now);
 }
 
 function unwrapCheckPayload(payload: unknown): Record<string, unknown> {
