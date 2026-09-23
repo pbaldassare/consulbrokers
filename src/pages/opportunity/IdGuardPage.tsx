@@ -277,6 +277,7 @@ const IdGuardPage = () => {
                               <TooltipTrigger asChild>
                                 <span className="inline-flex">
                                   <Button size="sm" variant="outline" disabled>
+                                    <ShieldCheck className="h-4 w-4 mr-1.5" />
                                     Verifica
                                   </Button>
                                 </span>
@@ -297,7 +298,12 @@ const IdGuardPage = () => {
                               }
                               onClick={() => verificaMutation.mutate(c.id)}
                             >
-                              {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verifica"}
+                              {verifying ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <ShieldCheck className="h-4 w-4 mr-1.5" />
+                              )}
+                              Verifica
                             </Button>
                           )}
                         </TableCell>
