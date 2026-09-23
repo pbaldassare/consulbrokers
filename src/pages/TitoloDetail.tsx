@@ -39,7 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail, Truck } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail, Truck, PauseCircle, PlayCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DocumentiTab from "@/components/DocumentiTab";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
@@ -80,6 +80,8 @@ import { ripartoRowsFromDettaglio } from "@/lib/coassicurazione";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
+import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizzaDialog";
+import { RiattivazionePolizzaDialog } from "@/components/polizze/RiattivazionePolizzaDialog";
 import {
   LibroMatricolaDialog,
   assignProgressivi,
@@ -189,6 +191,8 @@ const TitoloDetail = () => {
   const [annullaLoading, setAnnullaLoading] = useState(false);
   const [sostituzioneOpen, setSostituzioneOpen] = useState(false);
   const [estinzioneOpen, setEstinzioneOpen] = useState(false);
+  const [sospensioneOpen, setSospensioneOpen] = useState(false);
+  const [riattivazioneOpen, setRiattivazioneOpen] = useState(false);
   // regolazioneOpen rimosso: ora navighiamo a /portafoglio/immissione?mode=regolazione
 
   // --- Rinnovo dialog state ---
@@ -2145,6 +2149,29 @@ const TitoloDetail = () => {
     !t.sostituisce_polizza &&
     !isAppendiceTitolo;
 
+  // Stato contratto: tabella `polizze` (attiva/sospesa) con fallback su `titoli.stato`.
+  // I dialog Gestione Polizze aggiornano titoli.stato; il badge header legge polizze.stato.
+  const isContrattoSospeso = polizzaStato === "sospesa" || t.stato === "sospeso";
+  const isContrattoAttivo =
+    !isContrattoSospeso &&
+    (polizzaStato === "attiva" || (!polizzaStato && t.stato === "attivo"));
+  const isContrattoAnnullato = polizzaStato === "annullata" || t.stato === "annullato";
+  const sospensioneDisabled = !isContrattoAttivo;
+  const riattivazioneDisabled = !isContrattoSospeso;
+  const sospensioneDisabledTitle = isContrattoSospeso
+    ? "La polizza è già sospesa: non si può sospendere di nuovo"
+    : isContrattoAnnullato
+      ? "Non si può sospendere una polizza annullata"
+      : "Sospensione disponibile solo per polizze attive";
+  const riattivazioneDisabledTitle = isContrattoAttivo
+    ? "La polizza è già attiva: non si può riattivare di nuovo"
+    : "Riattivazione disponibile solo per polizze sospese";
+  const refreshDopoOperazionePolizza = () => {
+    queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+    queryClient.invalidateQueries({ queryKey: ["polizza-stato"] });
+    queryClient.invalidateQueries({ queryKey: ["catena-titoli"] });
+  };
+
 
   return (
     <PageContainer variant="detail">
@@ -2347,7 +2374,7 @@ const TitoloDetail = () => {
         <Card className="border-l-4 border-l-teal-600 shadow-sm">
           <CardHeader className="pb-3 bg-teal-50/60 dark:bg-teal-950/20 border-b"><CardTitle className="text-sm sm:text-base font-semibold text-teal-900 dark:text-teal-100">Operazioni</CardTitle></CardHeader>
           <CardContent className="flex gap-2 flex-wrap">
-            {t.stato === "sospeso" && (
+            {isContrattoSospeso && (
               <div className="w-full -mt-1 mb-1 rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-3 py-2 text-xs text-yellow-900 dark:text-yellow-200">
                 Questa polizza è attualmente sospesa.
               </div>
@@ -2385,6 +2412,36 @@ const TitoloDetail = () => {
               </div>
             )}
             
+            {isPolizzaMadre && (
+              <span
+                className="inline-flex"
+                title={sospensioneDisabled ? sospensioneDisabledTitle : "Sospendi temporaneamente la copertura"}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={sospensioneDisabled}
+                  onClick={() => setSospensioneOpen(true)}
+                >
+                  <PauseCircle className="w-4 h-4 mr-1" /> Sospensione
+                </Button>
+              </span>
+            )}
+            {isPolizzaMadre && (
+              <span
+                className="inline-flex"
+                title={riattivazioneDisabled ? riattivazioneDisabledTitle : "Riattiva la polizza sospesa"}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={riattivazioneDisabled}
+                  onClick={() => setRiattivazioneOpen(true)}
+                >
+                  <PlayCircle className="w-4 h-4 mr-1" /> Riattivazione
+                </Button>
+              </span>
+            )}
             {!isTitoloDerivato && (
               <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
                 <Replace className="w-4 h-4 mr-1" /> Sostituzione
@@ -4646,6 +4703,22 @@ const TitoloDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SospensionePolizzaDialog
+        open={sospensioneOpen}
+        onOpenChange={setSospensioneOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={refreshDopoOperazionePolizza}
+      />
+
+      <RiattivazionePolizzaDialog
+        open={riattivazioneOpen}
+        onOpenChange={setRiattivazioneOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={refreshDopoOperazionePolizza}
+      />
 
       <SostituzionePolizzaDialog
         open={sostituzioneOpen}
