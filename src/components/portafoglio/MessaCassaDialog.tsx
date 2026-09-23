@@ -55,8 +55,8 @@ import {
   type BonificoCandidato,
 } from "@/lib/bonificoDaIncasso";
 import { isBonificoNameMatch } from "@/lib/bonificoMatch";
-import {
 import { TableScrollArea } from "@/components/shared/TableScrollArea";
+import {
   isCausaleAccontoCliente,
   isCausaleCompMessaCassaUi,
   isCausaleMessaCassaMenu,
