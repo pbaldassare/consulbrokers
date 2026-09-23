@@ -68,16 +68,25 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const apiKey = Deno.env.get("IDGUARD_API_KEY");
-  const clientId = Deno.env.get("IDGUARD_CLIENT_ID");
   if (!supabaseUrl || !serviceRoleKey) return json({ error: "Configurazione server mancante" }, 500);
-  if (!apiKey || !clientId) {
-    return json({ error: "ID Guard non configurato: mancano IDGUARD_API_KEY o IDGUARD_CLIENT_ID" }, 500);
-  }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+
+  const envKey = Deno.env.get("IDGUARD_API_KEY");
+  const envClient = Deno.env.get("IDGUARD_CLIENT_ID");
+  let apiKey = envKey || null;
+  let clientId = envClient || null;
+  if (!apiKey || !clientId) {
+    const { data: cfg } = await admin.rpc("idguard_config");
+    const row = cfg && typeof cfg === "object" ? cfg as Record<string, string | null> : {};
+    apiKey = apiKey || row.api_key || null;
+    clientId = clientId || row.client_id || null;
+  }
+  if (!apiKey || !clientId) {
+    return json({ error: "ID Guard non configurato: mancano IDGUARD_API_KEY o IDGUARD_CLIENT_ID" }, 500);
+  }
 
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   const { data: authData, error: authError } = await admin.auth.getUser(token);

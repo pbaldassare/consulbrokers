@@ -20,10 +20,25 @@ serve(async (req) => {
     });
   }
 
-  const secret = Deno.env.get("IDGUARD_WEBHOOK_SECRET");
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!secret || !supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !serviceRoleKey) {
+    return new Response(JSON.stringify({ error: "Configurazione webhook mancante" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  let secret = Deno.env.get("IDGUARD_WEBHOOK_SECRET") || null;
+  if (!secret) {
+    const { data: cfg } = await admin.rpc("idguard_config");
+    const row = cfg && typeof cfg === "object" ? cfg as Record<string, string | null> : {};
+    secret = row.webhook_secret || null;
+  }
+  if (!secret) {
     return new Response(JSON.stringify({ error: "Configurazione webhook mancante" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
@@ -76,10 +91,6 @@ serve(async (req) => {
   const eventoId = String(parsed.id || req.headers.get("X-IDGuard-Delivery") || "").trim() || null;
   const resultPayload = data.result ?? parsed;
   const esito = mapIdGuardResult(tipo, resultPayload);
-
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
 
   const update = {
     stato: "completata",
