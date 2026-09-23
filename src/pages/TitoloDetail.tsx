@@ -92,6 +92,7 @@ import { TitoloScopeBanners } from "@/components/titolo/sections/TitoloScopeBann
 import { TitoloQuietanzePanel } from "@/components/titolo/sections/TitoloQuietanzePanel";
 import { TitoloDataPersistenceInfo } from "@/components/titolo/sections/TitoloDataPersistenceInfo";
 import { PageContainer } from "@/components/shared/PageContainer";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza, getTotQuietanze, getQuietanzaRataIndex, isAppendice, baseNumeroPolizza, canHaveDataCopertura } from "@/lib/quietanze";
 import { aggiornaNumeroPolizza } from "@/lib/aggiornaNumeroPolizza";
@@ -2159,7 +2160,8 @@ const TitoloDetail = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
+            <TableScrollArea>
+            <table className="w-full min-w-max text-sm">
               <thead className="text-xs uppercase text-muted-foreground bg-muted/40">
                 <tr>
                   <th className="text-left px-3 py-2">Numero</th>
@@ -2196,6 +2198,7 @@ const TitoloDetail = () => {
                 ))}
               </tbody>
             </table>
+            </TableScrollArea>
           </CardContent>
         </Card>
       )}
@@ -2208,7 +2211,8 @@ const TitoloDetail = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
+            <TableScrollArea>
+            <table className="w-full min-w-max text-sm">
               <thead className="text-xs uppercase text-muted-foreground bg-muted/40">
                 <tr>
                   <th className="text-left px-3 py-2">Numero</th>
@@ -2245,6 +2249,7 @@ const TitoloDetail = () => {
                 ))}
               </tbody>
             </table>
+            </TableScrollArea>
           </CardContent>
         </Card>
       )}

@@ -10,6 +10,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
   GUIDA_AREE,
   GUIDA_PROCESSI,
   searchGuidaProcessi,
@@ -39,8 +40,8 @@ const ProcessoBlock = ({ p }: { p: GuidaProcesso }) => (
     {p.riepilogo && p.riepilogo.length > 0 && (
       <div className="space-y-2">
         <p className="text-sm font-medium text-foreground">In sintesi</p>
-        <div className="rounded-md border overflow-hidden text-sm">
-          <table className="w-full">
+        <TableScrollArea className="rounded-md border text-sm">
+          <table className="w-full min-w-max">
             <thead>
               <tr className="border-b bg-muted/50">
                 <th className="text-left p-2 font-medium">Situazione</th>
@@ -56,7 +57,7 @@ const ProcessoBlock = ({ p }: { p: GuidaProcesso }) => (
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScrollArea>
       </div>
     )}
     <div className="flex flex-wrap gap-1">

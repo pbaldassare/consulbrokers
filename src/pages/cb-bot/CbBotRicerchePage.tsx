@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 
 type Ricerca = {
   id: string;
@@ -81,8 +82,8 @@ const CbBotRicerchePage = () => {
           Nessuna ricerca salvata. Dalla chat, usa «Salva ricerca» o il segnalibro.
         </div>
       ) : (
-        <div className="rounded-lg border overflow-x-auto">
-          <table className="w-full text-sm">
+        <TableScrollArea className="rounded-lg border">
+          <table className="w-full min-w-max text-sm">
             <thead className="bg-muted/50 text-xs uppercase">
               <tr>
                 <th className="text-left p-3">Titolo</th>
@@ -116,7 +117,7 @@ const CbBotRicerchePage = () => {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScrollArea>
       )}
 
       {openId && (

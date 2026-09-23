@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Scale } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 
 /**
  * Pagina di dettaglio per le compensazioni contabili di un singolo titolo.
@@ -107,8 +108,8 @@ const CompensazioniTitoloDetail = () => {
           )}
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-border overflow-hidden">
-            <table className="w-full text-sm">
+          <TableScrollArea className="rounded-md border border-border">
+            <table className="w-full min-w-max text-sm">
               <thead className="bg-primary/10 text-primary">
                 <tr>
                   <th className="text-left px-3 py-2 font-semibold">Data</th>
@@ -135,7 +136,7 @@ const CompensazioniTitoloDetail = () => {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScrollArea>
         </CardContent>
       </Card>
 

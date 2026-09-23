@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, MessageSquare, Send, BookOpen } from "lucide-react";
 import { toast } from "sonner";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 
 type Props = { clienteId: string; readOnly?: boolean };
 
@@ -72,7 +73,8 @@ export default function PolizzeCgaSection({ clienteId, readOnly = false }: Props
             Nessuna polizza analizzata. {!readOnly && "Usa il pulsante \"Analizza Polizza CGA\" per iniziare."}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <TableScrollArea>
+          <table className="w-full min-w-max text-sm">
             <thead>
               <tr className="text-left text-muted-foreground border-b">
                 <th className="py-2">Prodotto</th>
@@ -94,6 +96,7 @@ export default function PolizzeCgaSection({ clienteId, readOnly = false }: Props
               ))}
             </tbody>
           </table>
+          </TableScrollArea>
         )}
 
         {!readOnly && approvate.length > 0 && (

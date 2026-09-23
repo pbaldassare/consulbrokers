@@ -12,6 +12,7 @@ import { Sparkles, Loader2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import EstrazioneTecnicaPreview from "@/components/cga/EstrazioneTecnicaPreview";
 import { persistEstrazioneTecnica, type EstrazioneTecnicaExtracted } from "@/lib/polizzaEstrazioneTecnica";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 
 type Props = {
   clienteId: string;
@@ -468,7 +469,8 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
                   {!!extracted.garanzie_prodotto?.length && (
                     <div>
                       <div className="font-medium mb-1">Garanzie standard</div>
-                      <table className="w-full text-xs">
+                      <TableScrollArea>
+                      <table className="w-full min-w-max text-xs">
                         <thead><tr className="text-left text-muted-foreground">
                           <th>Garanzia</th><th>Massimale</th><th>Franchigia</th><th>Scop.%</th>
                         </tr></thead>
@@ -483,6 +485,7 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
                           ))}
                         </tbody>
                       </table>
+                      </TableScrollArea>
                     </div>
                   )}
                   {!!extracted.condizioni_prodotto?.length && (
@@ -552,7 +555,8 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
                     {premioSott.length > 0 && (
                       <div>
                         <div className="font-medium text-xs mb-1">Rata alla sottoscrizione</div>
-                        <table className="w-full text-xs">
+                        <TableScrollArea>
+                        <table className="w-full min-w-max text-xs">
                           <thead><tr className="text-left text-muted-foreground">
                             <th>Garanzia</th><th>Imponibile</th><th>Imposte</th><th>Lordo</th>
                           </tr></thead>
@@ -564,12 +568,14 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
                             ))}
                           </tbody>
                         </table>
+                        </TableScrollArea>
                       </div>
                     )}
                     {premioSucc.length > 0 && (
                       <div>
                         <div className="font-medium text-xs mb-1">Rate successive</div>
-                        <table className="w-full text-xs">
+                        <TableScrollArea>
+                        <table className="w-full min-w-max text-xs">
                           <thead><tr className="text-left text-muted-foreground">
                             <th>Garanzia</th><th>Imponibile</th><th>Imposte</th><th>Lordo</th>
                           </tr></thead>
@@ -581,6 +587,7 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
                             ))}
                           </tbody>
                         </table>
+                        </TableScrollArea>
                       </div>
                     )}
                   </CardContent>
@@ -594,7 +601,8 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
                 <Card className="border-primary/40 bg-primary/5">
                   <CardHeader className="pb-3"><CardTitle className="text-base">Override garanzie personali</CardTitle></CardHeader>
                   <CardContent className="text-sm">
-                    <table className="w-full text-xs">
+                    <TableScrollArea>
+                    <table className="w-full min-w-max text-xs">
                       <thead><tr className="text-left text-muted-foreground">
                         <th>Garanzia</th><th>Massimale</th><th>Franchigia</th><th>Scop.%</th><th>Note</th>
                       </tr></thead>
@@ -610,6 +618,7 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
                         ))}
                       </tbody>
                     </table>
+                    </TableScrollArea>
                   </CardContent>
                 </Card>
               )}

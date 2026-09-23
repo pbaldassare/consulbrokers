@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { matchGaranzia, RCA_PRINCIPALE_CODE, type CatalogoVoce } from "@/lib/mapGaranzieRca";
 import { cn } from "@/lib/utils";
 import { fmtEuro as fmtEur } from "@/lib/formatCurrency";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 
 type AiVoce = {
   descrizione: string;
@@ -291,8 +292,8 @@ export function ImportPolizzaAiButton({
               )}
             </div>
 
-            <div className="overflow-x-auto border rounded-lg">
-              <table className="w-full text-sm">
+            <TableScrollArea className="border rounded-lg">
+          <table className="w-full min-w-max text-sm">
                 <thead className="bg-muted/50">
                   <tr className="text-left">
                     <th className="p-2 w-12">Inc.</th>
@@ -389,7 +390,7 @@ export function ImportPolizzaAiButton({
                   </tr>
                 </tfoot>
               </table>
-            </div>
+            </TableScrollArea>
 
             <p className="text-xs text-muted-foreground">
               Le voci verranno caricate nella card <strong>Firma</strong>. La <strong>Quietanza</strong>
