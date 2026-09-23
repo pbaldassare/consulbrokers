@@ -7,8 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, Lock, LockOpen } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import {
 import { TableScrollArea } from "@/components/shared/TableScrollArea";
+import {
   VEICOLO_EDITABLE_FIELDS,
   calcLordoGaranzia,
   type VeicoloEditableField,

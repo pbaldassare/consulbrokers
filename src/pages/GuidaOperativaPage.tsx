@@ -9,8 +9,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import {
 import { TableScrollArea } from "@/components/shared/TableScrollArea";
+import {
   GUIDA_AREE,
   GUIDA_PROCESSI,
   searchGuidaProcessi,
