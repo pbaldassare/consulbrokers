@@ -97,6 +97,7 @@ const statoBadge: Record<string, string> = {
   in_liquidazione: "bg-purple-100 text-purple-800",
   chiuso: "bg-green-100 text-green-800",
   respinto: "bg-red-100 text-red-800",
+  archiviato: "bg-gray-200 text-gray-700 border border-gray-300",
 };
 
 
