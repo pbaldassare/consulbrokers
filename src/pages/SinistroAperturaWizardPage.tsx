@@ -17,7 +17,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +69,7 @@ const wizardSchema = sinistroPraticaSchema.extend({
     z.object({
       nome_file: z.string(),
       path_temp: z.string().optional(),
-      categoria: z.string(),
+      categoria: z.string().optional(),
       descrizione: z.string().optional(),
       file_base64: z.string().optional(),
       saved: z.boolean().optional(),
@@ -344,15 +343,6 @@ export default function SinistroAperturaWizardPage() {
     }
   };
 
-  // Query per lookup tipo documento (Step 3)
-  const { data: lookupTipiDoc = [] } = useQuery({
-    queryKey: ["lookup-tipo-documento-wizard"],
-    queryFn: async () => {
-      const { data } = await supabase.from("lookup_tipo_documento").select("id, codice, descrizione").eq("attivo", true).order("descrizione");
-      return data || [];
-    }
-  });
-
   // Query per lookup responsabili interni: Specialist Sinistri se configurati, altrimenti tutti i profili attivi
   const { data: responsabiliList = [] } = useQuery({
     queryKey: ["profiles-responsabili-wizard"],
@@ -557,14 +547,9 @@ export default function SinistroAperturaWizardPage() {
     sinistroId: string,
     documenti: WizardDocumentEntry[] | undefined,
     userId: string,
-    opts?: { requireCategory?: boolean },
   ) => {
     for (const doc of documenti ?? []) {
       if (doc.saved) continue;
-      if (opts?.requireCategory && !doc.categoria?.trim()) {
-        throw new Error(`Seleziona il tipo documento per "${doc.nome_file}"`);
-      }
-      if (!doc.categoria?.trim()) continue;
 
       const pendingFile = doc.path_temp ? pendingFilesRef.current.get(doc.path_temp) : undefined;
       const blob = pendingFile ?? (doc.file_base64 ? base64ToBlob(doc.file_base64, doc.nome_file) : null);
@@ -587,7 +572,7 @@ export default function SinistroAperturaWizardPage() {
         entita_tipo: "sinistro",
         entita_id: sinistroId,
         caricato_da: userId,
-        categoria: doc.categoria,
+        categoria: doc.categoria?.trim() || null,
       });
       if (docDbErr) throw docDbErr;
 
@@ -709,14 +694,6 @@ export default function SinistroAperturaWizardPage() {
         }
       }
 
-      const docsConCategoriaMancante = (values.documenti ?? []).filter((d) => !d.saved && !d.categoria?.trim());
-      if (docsConCategoriaMancante.length > 0) {
-        toast.error("Seleziona il tipo documento per ogni file caricato prima di confermare");
-        setCurrentStep(3);
-        setSubmitting(false);
-        return;
-      }
-
       const praticaPayload = praticaValuesToDbPayload(values);
       const reminderIniziali = reminderDaSalvare();
       let newSinistro: { id: string; numero_sinistro: string };
@@ -767,7 +744,7 @@ export default function SinistroAperturaWizardPage() {
         newSinistro = invokeRes.sinistro as { id: string; numero_sinistro: string };
       }
 
-      await uploadPendingDocuments(newSinistro.id, values.documenti as WizardDocumentEntry[] | undefined, user.id, { requireCategory: true });
+      await uploadPendingDocuments(newSinistro.id, values.documenti as WizardDocumentEntry[] | undefined, user.id);
 
       clearDraft(LEGACY_LOCAL_DRAFT_KEY);
       qc.invalidateQueries({ queryKey: ["sinistri"] });
@@ -1140,24 +1117,6 @@ export default function SinistroAperturaWizardPage() {
                               <Badge variant="outline" className="text-[10px] px-1 py-0">Salvato</Badge>
                             )}
                           </div>
-                          <div className="w-full md:w-48 shrink-0">
-                            <Select 
-                              value={watch(`documenti.${idx}.categoria`)} 
-                              onValueChange={(val) => setValue(`documenti.${idx}.categoria`, val, { shouldValidate: true })}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue placeholder="Tipo documento..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {lookupTipiDoc.map((type: any) => (
-                                  <SelectItem key={type.id} value={type.codice}>{type.descrizione}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {errors.documenti?.[idx]?.categoria && (
-                              <p className="text-[10px] text-destructive mt-0.5">{errors.documenti[idx]?.categoria?.message}</p>
-                            )}
-                          </div>
                           <div className="w-full md:flex-1">
                             <Input 
                               placeholder="Breve descrizione..." 
@@ -1468,8 +1427,8 @@ export default function SinistroAperturaWizardPage() {
                         {watchDocumenti.map((doc, idx) => (
                           <div key={idx} className="flex justify-between py-1 border-b last:border-0">
                             <span className="font-medium">{doc.nome_file}</span>
-                            <span className="text-muted-foreground font-semibold">
-                              {lookupTipiDoc.find((t: any) => t.codice === doc.categoria)?.descrizione || doc.categoria}
+                            <span className="text-muted-foreground">
+                              {doc.descrizione?.trim() || "—"}
                             </span>
                           </div>
                         ))}
