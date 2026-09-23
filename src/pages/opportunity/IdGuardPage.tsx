@@ -161,7 +161,7 @@ const IdGuardPage = () => {
             <ShieldCheck className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">IID Guard</h1>
+            <h1 className="text-2xl font-bold text-foreground">ID Guard</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Verifica email (privati) e dominio (aziende/enti) contro data breach. Un solo account ID Guard per
               tutti i clienti CBnet. Le chiamate partono solo da Verifica, al massimo una ogni 24 ore per riga.
