@@ -27,6 +27,7 @@ import {
   applyPreviewPatch,
   buildPreviewRows,
   countByStatus,
+  DESCRIZIONE_MIN_CHARS,
   downloadModuloSxTemplate,
   parseModuloSxExcel,
   type CompagniaImportMatch,
@@ -562,7 +563,7 @@ function SinistriCaricamentoPageInner() {
 
       {step === 1 && (
         <p className="text-xs text-muted-foreground">
-          Campi obbligatori per ogni riga: data accadimento, data denuncia, descrizione (min. 20 caratteri)
+          Campi obbligatori per ogni riga: data accadimento, data denuncia, descrizione (min. {DESCRIZIONE_MIN_CHARS} caratteri)
           e collegamento a una polizza CBnet oppure pratica senza polizza CBnet.
         </p>
       )}

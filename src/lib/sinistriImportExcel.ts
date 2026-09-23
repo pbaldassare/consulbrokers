@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { safeId } from "@/lib/safeId";
+import { DESCRIZIONE_ACCADIMENTO_MIN } from "@/lib/sinistroPraticaSchema";
 
 /** Intestazioni canoniche del tracciato MODULO SX. */
 export const MODULO_SX_HEADERS = [
@@ -29,7 +30,7 @@ export const STATI_SINISTRO_IMPORT = [
 
 export type StatoSinistroImport = (typeof STATI_SINISTRO_IMPORT)[number];
 
-export const DESCRIZIONE_MIN_CHARS = 20;
+export const DESCRIZIONE_MIN_CHARS = DESCRIZIONE_ACCADIMENTO_MIN;
 
 export type SinistroImportField =
   | "data_evento"

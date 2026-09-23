@@ -2,6 +2,9 @@ import * as z from "zod";
 import { format } from "date-fns";
 import { TIPI_SINISTRO } from "@/lib/tipiSinistro";
 
+/** Lunghezza minima descrizione accadimento / dinamica (wizard, dettaglio, import). */
+export const DESCRIZIONE_ACCADIMENTO_MIN = 10;
+
 /** Data odierna in formato ISO locale (yyyy-MM-dd), per input type="date". */
 export const todayDateISO = () => format(new Date(), "yyyy-MM-dd");
 
@@ -17,7 +20,10 @@ export const sinistroPraticaSchema = z.object({
   tipo_sinistro: z.string().optional(),
   tipo_sinistro_personalizzato: z.string().optional(),
   numero_sinistro_compagnia: z.string().optional(),
-  descrizione: z.string().min(20, "La descrizione deve contenere almeno 20 caratteri"),
+  descrizione: z.string().min(
+    DESCRIZIONE_ACCADIMENTO_MIN,
+    `La descrizione deve contenere almeno ${DESCRIZIONE_ACCADIMENTO_MIN} caratteri`,
+  ),
   note_importanti: z.string().optional(),
   luogo_sinistro: z.string().optional(),
   indirizzo_sinistro: z.string().optional(),
