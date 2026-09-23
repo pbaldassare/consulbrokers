@@ -69,6 +69,14 @@ import TimelineTab from "@/components/TimelineTab";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
 import { toast } from "sonner";
+import { sendEmail, plainTextToEmailHtml } from "@/lib/sendEmail";
+import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
+import {
+  AREA_RISERVATA_PASSWORD,
+  buildAreaRiservataEmail,
+  areaRiservataEmailSubject,
+  type AreaRiservataEmailMode,
+} from "@/lib/areaRiservataEmail";
 import { parseCF } from "@/lib/parseCF";
 import { lookupComune, COMUNI_OPTIONS } from "@/lib/comuniItaliani";
 import { validatePIVA as validatePIVALib } from "@/lib/validatePIVA";
@@ -1001,50 +1009,54 @@ function AreaRiservataHeaderButton({ cliente, onUpdate }: { cliente: any; onUpda
 
   const currentTipo = cliente.area_riservata_tipo || "nessuna";
   const isActive = currentTipo !== "nessuna";
+  const emailMode: AreaRiservataEmailMode = isActive ? "reset" : "attivazione";
   const clienteName = cliente.ragione_sociale || `${cliente.nome || ""} ${cliente.cognome || ""}`.trim() || "Cliente";
-  const portalUrl = `${window.location.origin}/cliente`;
 
-  const buildDefaultEmail = (selectedTipo: string) => `Gentile ${clienteName},
-
-La sua area riservata è stata attivata. Può accedere al portale utilizzando le seguenti credenziali:
-
-Username: ${cliente.email || "—"}
-Password: Consul123!
-
-Tipo di accesso: ${selectedTipo === "completa" ? "Completo (lettura e caricamento documenti)" : "Solo Visualizzazione (consultazione e messaggi)"}
-
-Link al portale: ${portalUrl}
-
-Si consiglia di cambiare la password al primo accesso.
-
-Cordiali saluti,
-Consulbrokers S.r.l.`;
+  const buildDefaultEmail = (selectedTipo: string, mode: AreaRiservataEmailMode = emailMode) =>
+    buildAreaRiservataEmail({
+      mode,
+      clienteName,
+      email: cliente.email,
+      tipo: selectedTipo,
+    });
 
   const openDialog = () => {
     const t = isActive ? currentTipo : "sola_lettura";
     setTipo(t);
-    setEmailText(buildDefaultEmail(t));
+    setEmailText(buildDefaultEmail(t, isActive ? "reset" : "attivazione"));
     setDialogOpen(true);
   };
 
   const handleTipoChange = (newTipo: string) => {
     setTipo(newTipo);
-    setEmailText(buildDefaultEmail(newTipo));
+    setEmailText(buildDefaultEmail(newTipo, emailMode));
   };
 
   const handleActivate = async () => {
     setSaving(true);
     try {
-      if (!cliente.user_id) {
-        if (!cliente.email) {
-          toast.error("Email mancante — impossibile creare l'account");
-          setSaving(false);
-          return;
-        }
-        const { error } = await supabase.functions.invoke("create-cliente-user", {
+      if (!cliente.email) {
+        toast.error("Email mancante — impossibile creare l'account");
+        setSaving(false);
+        return;
+      }
+
+      let userId = cliente.user_id as string | null;
+      if (!userId) {
+        const { data, error } = await supabase.functions.invoke("create-cliente-user", {
           body: { cliente_id: cliente.id },
         });
-        if (error) throw error;
+        if (error || (data as { error?: string } | null)?.error) {
+          throw new Error(formatEdgeFunctionError(error, data as { error?: string } | null));
+        }
+        userId = (data as { user_id?: string } | null)?.user_id ?? null;
+      } else {
+        const { data, error } = await supabase.functions.invoke("reset-demo-password", {
+          body: { user_id: userId, password: AREA_RISERVATA_PASSWORD },
+        });
+        if (error || (data as { error?: string } | null)?.error) {
+          throw new Error(formatEdgeFunctionError(error, data as { error?: string } | null));
+        }
       }
 
       const { error: updErr } = await supabase
@@ -1053,20 +1065,23 @@ Consulbrokers S.r.l.`;
         .eq("id", cliente.id);
       if (updErr) throw updErr;
 
-      try {
-        await supabase.functions.invoke("send-transactional-email", {
-          body: {
-            templateName: "client-portal-activation",
-            recipientEmail: cliente.email,
-            idempotencyKey: `portal-activation-${cliente.id}-${Date.now()}`,
-            templateData: { name: clienteName, email: cliente.email, portalUrl, tipo, customText: emailText },
-          },
-        });
-      } catch {
-        // Email sending not configured yet
+      const mail = await sendEmail({
+        to: cliente.email,
+        subject: areaRiservataEmailSubject(emailMode),
+        html: plainTextToEmailHtml(emailText),
+        apply_branding: true,
+        ufficio_id: cliente.ufficio_id ?? null,
+      });
+      if (!mail.success) {
+        throw new Error(mail.error || "Invio email non riuscito");
       }
-
-      toast.success(isActive ? "Area riservata aggiornata" : "Area riservata attivata con successo");
+      if (mail.sandbox_redirect || mail.domain_not_verified) {
+        toast.warning("Area aggiornata, ma l'email è in modalità test Resend e non è arrivata al cliente.");
+      } else {
+        toast.success(
+          isActive ? "Password resettata e email inviata" : "Area riservata attivata e email inviata",
+        );
+      }
       setDialogOpen(false);
       onUpdate();
     } catch (err: any) {
@@ -1139,7 +1154,9 @@ Consulbrokers S.r.l.`;
             </div>
 
             <div>
-              <Label className="text-xs mb-2 block">Email di Attivazione (personalizzabile)</Label>
+              <Label className="text-xs mb-2 block">
+                {isActive ? "Email di reset password (personalizzabile)" : "Email di Attivazione (personalizzabile)"}
+              </Label>
               <Textarea
                 value={emailText}
                 onChange={(e) => setEmailText(e.target.value)}
@@ -1165,7 +1182,7 @@ Consulbrokers S.r.l.`;
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
             <Button onClick={handleActivate} disabled={saving} className="gap-1.5">
               <Key className="h-3.5 w-3.5" />
-              {saving ? "Invio..." : "Invia e Attiva"}
+              {saving ? "Invio..." : isActive ? "Invia reset password" : "Invia e Attiva"}
             </Button>
           </DialogFooter>
         </DialogContent>
