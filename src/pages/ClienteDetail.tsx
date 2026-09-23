@@ -1818,8 +1818,7 @@ function PolizzeClienteTable({
       </div>
 
 
-      <div className="max-h-[calc(100vh-14rem)] overflow-auto rounded-md border [&>div]:!overflow-visible">
-      <Table>
+      <Table containerClassName="max-h-[calc(100vh-14rem)] rounded-md border">
         <TableHeader className="[&_tr]:border-b sticky top-0 z-[5] bg-background shadow-sm">
           <TableRow className="hover:bg-background">
             <TableHead className="w-8 bg-background" onClick={(e) => e.stopPropagation()}>
@@ -2345,7 +2344,6 @@ function PolizzeClienteTable({
           )}
         </TableBody>
       </Table>
-      </div>
 
       <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open && !deleting) setDeleteConfirm(null); }}>
         <AlertDialogContent>
