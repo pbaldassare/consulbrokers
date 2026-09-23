@@ -8,6 +8,7 @@ import { Loader2, Plus, Trash2, Lock, LockOpen } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
   VEICOLO_EDITABLE_FIELDS,
   calcLordoGaranzia,
   type VeicoloEditableField,
@@ -585,8 +586,8 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
           {garanzie.length === 0 ? (
             <div className="text-xs text-muted-foreground italic py-2">Nessuna garanzia</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+            <TableScrollArea className="">
+          <table className="w-full min-w-max text-xs">
                 <thead className="text-muted-foreground">
                   <tr className="border-b">
                     <th className="text-left font-medium py-1 pr-2">Garanzia</th>
@@ -679,7 +680,7 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </TableScrollArea>
           )}
         </div>
       </div>

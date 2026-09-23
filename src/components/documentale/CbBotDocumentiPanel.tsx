@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileDropzone, formatFileSize } from "@/components/shared/FileDropzone";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import {
   CB_BOT_DOC_ACCEPT,
@@ -422,8 +423,8 @@ export default function CbBotDocumentiPanel({ consultazioneMode = false }: Props
           Nessun documento in libreria. Analizza un file e salvalo.
         </p>
       ) : (
-        <div className="rounded-lg border overflow-x-auto">
-          <table className="w-full text-sm">
+        <TableScrollArea className="rounded-lg border">
+          <table className="w-full min-w-max text-sm">
             <thead className="bg-muted/50 text-xs uppercase">
               <tr>
                 <th className="p-2 w-8" />
@@ -458,7 +459,7 @@ export default function CbBotDocumentiPanel({ consultazioneMode = false }: Props
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScrollArea>
       )}
 
       {openDoc?.analisi && (

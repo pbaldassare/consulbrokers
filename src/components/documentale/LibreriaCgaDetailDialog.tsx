@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCgaDettaglio } from "@/hooks/useLibreriaCga";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 
 interface Props {
   cgaId: string | null;
@@ -69,8 +70,8 @@ export default function LibreriaCgaDetailDialog({ cgaId, open, onOpenChange, onS
                 <AccordionItem value="massimali">
                   <AccordionTrigger>Massimali, franchigie e scoperti ({data.garanzie.length})</AccordionTrigger>
                   <AccordionContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                    <TableScrollArea className="">
+          <table className="w-full min-w-max text-sm">
                         <thead className="text-left text-xs uppercase text-muted-foreground border-b">
                           <tr>
                             <th className="py-2 pr-3">Garanzia</th>
@@ -94,7 +95,7 @@ export default function LibreriaCgaDetailDialog({ cgaId, open, onOpenChange, onS
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </TableScrollArea>
                   </AccordionContent>
                 </AccordionItem>
               )}

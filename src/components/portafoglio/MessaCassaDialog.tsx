@@ -56,6 +56,7 @@ import {
 } from "@/lib/bonificoDaIncasso";
 import { isBonificoNameMatch } from "@/lib/bonificoMatch";
 import {
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
   isCausaleAccontoCliente,
   isCausaleCompMessaCassaUi,
   isCausaleMessaCassaMenu,
@@ -2547,8 +2548,8 @@ export const MessaCassaDialog = ({
                               : "Nessun movimento aperto su questo conto. Puoi comunque incassare; poi importa da Caricamento Mov. Bancari e abbina in Incassi → Bonifici aperti."}
                           </p>
                         ) : (
-                          <div className="max-h-[320px] overflow-auto rounded border">
-                            <table className="w-full text-xs">
+                          <TableScrollArea className="max-h-[320px] rounded border">
+                            <table className="w-full min-w-max text-xs">
                               <thead className="sticky top-0 bg-muted/90 backdrop-blur z-10">
                                 <tr className="border-b text-left text-muted-foreground">
                                   <th className="w-8 p-2" />
@@ -2625,7 +2626,7 @@ export const MessaCassaDialog = ({
                                 })}
                               </tbody>
                             </table>
-                          </div>
+                          </TableScrollArea>
                         )}
                       </>
                     )}

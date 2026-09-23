@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import LibreriaCgaDetailDialog from "./LibreriaCgaDetailDialog";
 import {
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
   Select,
   SelectContent,
   SelectItem,
@@ -88,8 +89,8 @@ export default function LibreriaCgaSection() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border overflow-x-auto">
-        <table className="w-full text-sm">
+      <TableScrollArea className="rounded-lg border">
+          <table className="w-full min-w-max text-sm">
           <thead className="bg-muted/50 text-xs uppercase">
             <tr>
               <th className="text-left p-3">Compagnia</th>
@@ -139,7 +140,7 @@ export default function LibreriaCgaSection() {
             )}
           </tbody>
         </table>
-      </div>
+      </TableScrollArea>
 
       {/* Pagination */}
       {filtered.length > PAGE_SIZE && (

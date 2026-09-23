@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { normalizeFonteUrl } from "@/lib/cbBotFonti";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 
 export interface AiToolCall {
   tool?: string;
@@ -116,8 +117,8 @@ const RenderBlock = ({ block, kind }: { block: any; kind: string }) => {
     return (
       <div className="my-2 rounded-md border bg-card">
         {block.title && <div className="border-b px-3 py-2 text-xs font-semibold">{block.title}</div>}
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+        <TableScrollArea className="">
+          <table className="w-full min-w-max text-xs">
             <thead className="bg-muted/40">
               <tr>{columns.map((c: any) => <th key={c.key} className="px-3 py-1.5 text-left font-medium">{c.label}</th>)}
                 {link && <th className="w-8"></th>}
@@ -140,7 +141,7 @@ const RenderBlock = ({ block, kind }: { block: any; kind: string }) => {
               })}
             </tbody>
           </table>
-        </div>
+        </TableScrollArea>
       </div>
     );
   }

@@ -23,6 +23,7 @@ import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLi
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { fmtEuro as fmtEur } from "@/lib/formatCurrency";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 
 export type ParsedVeicolo = {
   targa?: string;
@@ -917,8 +918,8 @@ export function ImportNuovaPolizzaAIDialog({
 
               <div>
                 <div className="text-xs font-semibold mb-1">Garanzie estratte ({data.garanzie?.length || 0})</div>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full text-xs">
+                <TableScrollArea className="border rounded-lg">
+                  <table className="w-full min-w-max text-xs">
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-left p-2">Descrizione</th>
@@ -947,7 +948,7 @@ export function ImportNuovaPolizzaAIDialog({
                       )}
                     </tbody>
                   </table>
-                </div>
+                </TableScrollArea>
                 <p className="text-[11px] text-muted-foreground mt-1">
                   <strong>Match</strong>: <em>alta</em> = sottoramo certo (AI o regola sinonimo) · <em>media</em> = best-guess fuzzy, controlla nel form · <em>manuale</em> = scegli tu nel form.
                 </p>

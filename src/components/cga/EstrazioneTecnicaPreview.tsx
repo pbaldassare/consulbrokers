@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 import {
   FORMA_COPERTURA_LABEL,
   TIPO_BENE_LABEL,
@@ -44,7 +45,8 @@ export default function EstrazioneTecnicaPreview({ extracted }: Props) {
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Partite e somme assicurate</CardTitle></CardHeader>
           <CardContent>
-            <table className="w-full text-xs">
+            <TableScrollArea>
+            <table className="w-full min-w-max text-xs">
               <thead>
                 <tr className="text-left text-muted-foreground">
                   <th>N.</th><th>Descrizione</th><th>Tipo</th><th>Somma</th><th>Forma</th>
@@ -65,6 +67,7 @@ export default function EstrazioneTecnicaPreview({ extracted }: Props) {
                 ))}
               </tbody>
             </table>
+            </TableScrollArea>
           </CardContent>
         </Card>
       )}
@@ -104,7 +107,8 @@ export default function EstrazioneTecnicaPreview({ extracted }: Props) {
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Sottolimiti di indennizzo</CardTitle></CardHeader>
           <CardContent>
-            <table className="w-full text-xs">
+            <TableScrollArea>
+            <table className="w-full min-w-max text-xs">
               <thead>
                 <tr className="text-left text-muted-foreground">
                   <th>Voce</th><th>Importo</th><th>%</th><th>Per</th>
@@ -121,6 +125,7 @@ export default function EstrazioneTecnicaPreview({ extracted }: Props) {
                 ))}
               </tbody>
             </table>
+            </TableScrollArea>
           </CardContent>
         </Card>
       )}
@@ -129,7 +134,8 @@ export default function EstrazioneTecnicaPreview({ extracted }: Props) {
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Calcolo del premio</CardTitle></CardHeader>
           <CardContent>
-            <table className="w-full text-xs">
+            <TableScrollArea>
+            <table className="w-full min-w-max text-xs">
               <thead>
                 <tr className="text-left text-muted-foreground">
                   <th>Garanzia</th><th>Base</th><th>Tasso</th><th>Imponibile</th><th>Lordo</th>
@@ -150,6 +156,7 @@ export default function EstrazioneTecnicaPreview({ extracted }: Props) {
                 ))}
               </tbody>
             </table>
+            </TableScrollArea>
           </CardContent>
         </Card>
       )}

@@ -6,6 +6,7 @@ import {
   ClipboardList, Clock, Receipt, Lock, Map
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -458,8 +459,8 @@ export default function SitemapPage() {
         </h2>
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <TableScrollArea>
+              <table className="w-full min-w-max text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="text-left py-3 px-4 font-semibold text-foreground">Chiave</th>
@@ -479,7 +480,7 @@ export default function SitemapPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScrollArea>
           </CardContent>
         </Card>
       </section>

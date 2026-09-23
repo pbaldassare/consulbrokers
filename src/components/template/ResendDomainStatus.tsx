@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, ShieldCheck, ShieldAlert, ShieldX, RefreshCw, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 
 interface ResendRecord {
   record: string;
@@ -140,8 +141,8 @@ export function ResendDomainStatus() {
             )}
 
             {d.records && d.records.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
+              <TableScrollArea className="">
+          <table className="w-full min-w-max text-xs border-collapse">
                   <thead>
                     <tr className="border-b bg-muted/50">
                       <th className="text-left p-2 font-medium">Stato</th>
@@ -169,7 +170,7 @@ export function ResendDomainStatus() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </TableScrollArea>
             )}
 
             {d._detail_error && (
