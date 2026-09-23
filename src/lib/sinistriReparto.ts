@@ -72,7 +72,7 @@ export function aggregateSinPerReparto(sinistri: any[]): SinPerRepartoRow[] {
   const map = new Map<string, SinPerRepartoRow>();
   sinistri.forEach((s) => {
     const reparto = resolveReparto(s);
-    const isOpen = !["chiuso", "respinto"].includes(s.stato);
+    const isOpen = !["chiuso", "respinto", "archiviato"].includes(s.stato);
     const cur = map.get(reparto) || { reparto, aperti: 0, chiusi: 0, riserva: 0, liquidato: 0 };
     if (isOpen) cur.aperti++;
     else cur.chiusi++;

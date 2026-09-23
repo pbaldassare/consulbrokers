@@ -49,6 +49,7 @@ describe("sinistriImportExcel", () => {
   it("mappa stati sinonimi e default Aperto", () => {
     expect(mapStatoSinistro("In lavorazione").stato).toBe("in_lavorazione");
     expect(mapStatoSinistro("Chiuso").stato).toBe("chiuso");
+    expect(mapStatoSinistro("Archiviato").stato).toBe("archiviato");
     expect(mapStatoSinistro("").stato).toBe("aperto");
     expect(mapStatoSinistro("boh").stato).toBe("aperto");
     expect(mapStatoSinistro("boh").warning).toMatch(/non riconosciuto/);

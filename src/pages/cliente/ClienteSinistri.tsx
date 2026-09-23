@@ -154,6 +154,7 @@ export default function ClienteSinistri() {
         .from("sinistri")
         .select("*, compagnie(nome), titoli(id, numero_titolo), anagrafiche_professionali!sinistri_perito_id_fkey(nome, cognome, ragione_sociale)")
         .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
+        .neq("stato", "archiviato")
         .order("data_apertura", { ascending: false });
       if (error) throw error;
       return data || [];

@@ -150,3 +150,13 @@ export function resolveSinistroContattiPratica(sinistro: SinistroContattiLike): 
     sameEntity,
   };
 }
+
+/**
+ * Telefono del blocco Identità (stessa anagrafica di Email/PEC):
+ * agenzia di riferimento, poi compagnia se distinta.
+ */
+export function telefonoIdentitaSinistro(sinistro: SinistroContattiLike): string | null {
+  const { agenzia, compagnia, sameEntity } = resolveSinistroContattiPratica(sinistro);
+  if (sameEntity) return agenzia.telefono;
+  return agenzia.telefono || compagnia?.telefono || null;
+}

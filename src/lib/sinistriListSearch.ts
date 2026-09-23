@@ -52,7 +52,7 @@ export function sinistriFilterChips(
   if (filters.numero.trim()) chips.push({ key: "numero", label: `N. sinistro: ${filters.numero.trim()}` });
   if (filters.polizza.trim()) chips.push({ key: "polizza", label: `Polizza: ${filters.polizza.trim()}` });
   if (filters.stato && filters.stato !== "tutti") {
-    chips.push({ key: "stato", label: `Stato: ${filters.stato === "bozza" ? "Bozza" : filters.stato.replace(/_/g, " ")}` });
+    chips.push({ key: "stato", label: `Stato: ${filters.stato === "bozza" ? "Bozza" : filters.stato === "archiviato" ? "Archiviato" : filters.stato.replace(/_/g, " ")}` });
   }
   if (filters.compagniaId && filters.compagniaId !== "tutti") {
     chips.push({ key: "compagniaId", label: `Compagnia: ${filters.compagniaLabel || "selezionata"}` });

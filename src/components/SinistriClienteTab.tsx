@@ -42,6 +42,7 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
         .from("sinistri")
         .select("*, compagnie(nome), titoli(numero_titolo)")
         .eq("cliente_anagrafica_id", clienteId)
+        .neq("stato", "archiviato")
         .order("data_apertura", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -50,7 +51,7 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
 
   const totaleRiserva = sinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
   const totaleLiquidato = sinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
-  const aperti = sinistri.filter((s: any) => !["chiuso", "respinto"].includes(s.stato)).length;
+  const aperti = sinistri.filter((s: any) => !["chiuso", "respinto", "archiviato"].includes(s.stato)).length;
 
   return (
     <div className="space-y-4">

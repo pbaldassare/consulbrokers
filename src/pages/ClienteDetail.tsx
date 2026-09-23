@@ -2823,7 +2823,7 @@ export default function ClienteDetail() {
       ]);
       return {
         sinistri: (sin || []).map((s: any) => s.id),
-        sinistriAperti: (sin || []).filter((s: any) => !["chiuso", "respinto"].includes(s.stato)).length,
+        sinistriAperti: (sin || []).filter((s: any) => !["chiuso", "respinto", "archiviato"].includes(s.stato)).length,
         trattative: (tra || []).map((t: any) => t.id),
       };
     },

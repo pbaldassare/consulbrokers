@@ -24,6 +24,7 @@ export const STATI_SINISTRO_IMPORT = [
   "in_liquidazione",
   "chiuso",
   "respinto",
+  "archiviato",
 ] as const;
 
 export type StatoSinistroImport = (typeof STATI_SINISTRO_IMPORT)[number];
@@ -96,6 +97,9 @@ const STATO_ALIASES: Record<string, StatoSinistroImport> = {
   respinto: "respinto",
   respinta: "respinto",
   rejected: "respinto",
+  archiviato: "archiviato",
+  archiviata: "archiviato",
+  archived: "archiviato",
 };
 
 export type SinistroImportRaw = {

@@ -24,6 +24,7 @@ const statoLabel: Record<string, string> = {
   in_liquidazione: "In liquidazione",
   chiuso: "Chiuso",
   respinto: "Respinto",
+  archiviato: "Archiviato",
 };
 
 const statusBadge: Record<ImportRowStatus, string> = {

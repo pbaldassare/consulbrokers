@@ -1,10 +1,12 @@
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { excludeArchiviati } from "@/lib/sinistriStati";
 
 const fmtDate = (v: any) => (v ? format(new Date(v), "dd/MM/yyyy") : "");
 
 export async function exportSinistriXlsx(sinistri: any[]) {
+  sinistri = excludeArchiviati(sinistri);
   if (!sinistri.length) return;
 
   // Fetch full policy data for linked titoli

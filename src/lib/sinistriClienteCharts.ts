@@ -1,4 +1,7 @@
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
+import { isSinistroAperto as isAperto } from "@/lib/sinistriStati";
+
+export { isSinistroAperto } from "@/lib/sinistriStati";
 
 export type SinistroChartRow = {
   stato?: string | null;
@@ -20,16 +23,12 @@ export type VeicoloChartRow = {
   riserve: number;
 };
 
-export function isSinistroAperto(stato?: string | null): boolean {
-  return !["chiuso", "respinto"].includes(String(stato || "").toLowerCase());
-}
-
 export function aggregateSinPerTipo(sinistri: SinistroChartRow[]): StackApertiChiusi[] {
   const map = new Map<string, StackApertiChiusi>();
   for (const s of sinistri) {
     const name = formatTipoSinistro(s);
     const cur = map.get(name) || { name, aperti: 0, chiusi: 0 };
-    if (isSinistroAperto(s.stato)) cur.aperti += 1;
+    if (isAperto(s.stato)) cur.aperti += 1;
     else cur.chiusi += 1;
     map.set(name, cur);
   }

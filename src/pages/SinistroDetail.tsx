@@ -28,20 +28,17 @@ import SinistroPrescrizioniPanel from "@/components/sinistri/SinistroPrescrizion
 import SinistroNoteInternePanel from "@/components/sinistri/SinistroNoteInternePanel";
 import SinistroPolizzaSelector from "@/components/sinistri/SinistroPolizzaSelector";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  isSinistroTerminale,
+  labelStatoSinistro,
+  SINISTRO_STATI,
+  SINISTRO_STATO_BADGE,
+} from "@/lib/sinistriStati";
 
 const SINISTRO_TABS_BASE = ["dati", "checklist", "eventi", "prescrizioni", "documenti", "chat", "note_interne", "timeline"] as const;
 
-const statiSinistro = ["bozza", "in_valutazione", "aperto", "in_lavorazione", "in_attesa_documenti", "in_liquidazione", "chiuso", "respinto"];
-const statoBadge: Record<string, string> = {
-  bozza: "bg-slate-100 text-slate-700",
-  in_valutazione: "bg-amber-100 text-amber-800",
-  aperto: "bg-blue-100 text-blue-800",
-  in_lavorazione: "bg-yellow-100 text-yellow-800",
-  in_attesa_documenti: "bg-orange-100 text-orange-800",
-  in_liquidazione: "bg-purple-100 text-purple-800",
-  chiuso: "bg-green-100 text-green-800",
-  respinto: "bg-red-100 text-red-800",
-};
+const statiSinistro = SINISTRO_STATI;
+const statoBadge = SINISTRO_STATO_BADGE;
 const eventoStatoBadge: Record<string, string> = {
   attivo: "bg-blue-100 text-blue-800",
   completato: "bg-green-100 text-green-800",
@@ -176,7 +173,7 @@ export default function SinistroDetail() {
       });
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
-      toast.success(`Stato aggiornato a "${nuovo.replace(/_/g, " ")}"`);
+      toast.success(`Stato aggiornato a "${labelStatoSinistro(nuovo)}"`);
       setStatoTarget("");
       setStatoNote("");
       invalidate();
@@ -187,7 +184,7 @@ export default function SinistroDetail() {
 
   if (!sinistro) return null;
 
-  const isChiuso = sinistro.stato === "chiuso" || sinistro.stato === "respinto";
+  const isChiuso = isSinistroTerminale(sinistro.stato);
 
   const clienteNome = resolveClienteNome(sinistro.clienti);
 
@@ -245,7 +242,7 @@ export default function SinistroDetail() {
                 Sinistro {sinistro.numero_sinistro || "—"}
               </h1>
               <Badge className={`text-xs px-2.5 py-0.5 ${statoBadge[sinistro.stato] || "bg-muted text-muted-foreground"}`}>
-                {(sinistro.stato || "—").replace(/_/g, " ")}
+                {labelStatoSinistro(sinistro.stato)}
               </Badge>
               {sinistro.sinistro_terzi && (
                 <Badge variant="outline" className="text-xs border-amber-400 text-amber-800 bg-amber-50 font-medium">
@@ -329,7 +326,7 @@ export default function SinistroDetail() {
           <div className="mt-3 ml-12 flex flex-col sm:flex-row gap-2 sm:items-end">
             {isChiuso && isAdmin && (
               <p className="text-[11px] text-amber-700 sm:w-full basis-full">
-                Pratica chiusa: solo admin può riaprire/modificare lo stato.
+                Pratica chiusa o archiviata: solo admin può riaprire/modificare lo stato.
               </p>
             )}
             <div className="flex-1 min-w-[140px]">
@@ -338,7 +335,7 @@ export default function SinistroDetail() {
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleziona…" /></SelectTrigger>
                 <SelectContent>
                   {statiSinistro.filter((s) => s !== sinistro.stato).map((s) => (
-                    <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>
+                    <SelectItem key={s} value={s}>{labelStatoSinistro(s)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

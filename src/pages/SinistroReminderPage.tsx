@@ -44,8 +44,9 @@ import {
 } from "@/lib/sinistroPrescrizioniReminder";
 import SinistroRiepilogoDialog from "@/components/sinistri/SinistroRiepilogoDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { applyStatoFiltroOperativo, labelStatoSinistro, SINISTRO_STATI } from "@/lib/sinistriStati";
 
-const statiSinistro = ["aperto", "in_lavorazione", "in_attesa_documenti", "in_valutazione", "in_liquidazione", "chiuso", "respinto"];
+const statiSinistro = [...SINISTRO_STATI];
 const statiReminder: SinistroReminderStato[] = ["attivo", "completato", "annullato"];
 
 const fmtDate = (d?: string | null) => {
@@ -159,7 +160,7 @@ export default function SinistroReminderPage() {
       q = q.in("sinistri.ufficio_id", filtroUffici);
     }
     if (filtroCompagnie.length > 0) q = q.in("sinistri.compagnia_id", filtroCompagnie);
-    if (filtroStatiSinistro.length > 0) q = q.in("sinistri.stato", filtroStatiSinistro);
+    q = applyStatoFiltroOperativo(q, filtroStatiSinistro, "sinistri.stato");
     if (filtroRami.length > 0) q = q.in("sinistri.titoli.ramo_id", filtroRami);
     if (search) {
       q = q.or(`testo.ilike.%${search}%,sinistri.numero_sinistro.ilike.%${search}%`);
@@ -483,7 +484,7 @@ export default function SinistroReminderPage() {
             </div>
             <div className="space-y-1 w-48">
               <Label className="text-xs">Stato sinistro</Label>
-              <FilterMultiSelect value={filtroStatiSinistro} onChange={(v) => { setFiltroStatiSinistro(v); setPage(0); }} options={statiSinistro.map((s) => ({ value: s, label: s.replace(/_/g, " ") }))} placeholder="Tutti" allLabel="Tutti gli stati" searchPlaceholder="Cerca…" />
+              <FilterMultiSelect value={filtroStatiSinistro} onChange={(v) => { setFiltroStatiSinistro(v); setPage(0); }} options={statiSinistro.map((s) => ({ value: s, label: labelStatoSinistro(s) }))} placeholder="Tutti" allLabel="Tutti gli stati" searchPlaceholder="Cerca…" />
             </div>
             <div className="space-y-1 w-44">
               <Label className="text-xs">Categoria</Label>

@@ -9,6 +9,7 @@ import {
   type SinistroGeo,
 } from "./sinistriMapUtils";
 import { resolveReparto } from "./sinistriReparto";
+import { excludeArchiviati, isSinistroAperto, labelStatoSinistro } from "./sinistriStati";
 
 const GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY ||
   import.meta.env.VITE_GOOGLE_MAPS_API_KEY) as string | undefined;
@@ -72,7 +73,7 @@ const fmtEur = (n: number) =>
   (n || 0).toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
 export function formatStatoLabel(stato?: string | null): string {
-  return stato ? stato.replace(/_/g, " ") : "—";
+  return labelStatoSinistro(stato);
 }
 
 export function buildFilterSummary(
@@ -100,18 +101,19 @@ export function buildFilterSummary(
 }
 
 export function computeKpis(sinistri: any[]): SinistriReportKpis {
-  const aperti = sinistri.filter((s) => !["chiuso", "respinto"].includes(s.stato)).length;
-  const chiusi = sinistri.length - aperti;
-  const riserve = sinistri.reduce((sum, s) => sum + (s.importo_riserva || 0), 0);
-  const liquidato = sinistri.reduce((sum, s) => sum + (s.importo_liquidato || 0), 0);
-  return { totale: sinistri.length, aperti, chiusi, riserve, liquidato };
+  const visibili = excludeArchiviati(sinistri);
+  const aperti = visibili.filter((s) => isSinistroAperto(s.stato)).length;
+  const chiusi = visibili.length - aperti;
+  const riserve = visibili.reduce((sum, s) => sum + (s.importo_riserva || 0), 0);
+  const liquidato = visibili.reduce((sum, s) => sum + (s.importo_liquidato || 0), 0);
+  return { totale: visibili.length, aperti, chiusi, riserve, liquidato };
 }
 
 export function aggregateSinPerRamo(sinistri: any[]): SinPerRamoRow[] {
   const map = new Map<string, SinPerRamoRow>();
-  sinistri.forEach((s) => {
+  excludeArchiviati(sinistri).forEach((s) => {
     const ramo = s.ramo_sinistro || "Altro";
-    const isOpen = !["chiuso", "respinto"].includes(s.stato);
+    const isOpen = isSinistroAperto(s.stato);
     const cur = map.get(ramo) || { ramo, aperti: 0, chiusi: 0, riserva: 0, liquidato: 0 };
     if (isOpen) cur.aperti++;
     else cur.chiusi++;
@@ -124,7 +126,7 @@ export function aggregateSinPerRamo(sinistri: any[]): SinPerRamoRow[] {
 
 /** Righe tabella PDF — stessi campi essenziali di exportSinistriXlsx. */
 export function mapSinistriToPdfRows(sinistri: any[], opts?: { includeReparto?: boolean }): SinistroPdfRow[] {
-  return sinistri.map((s) => ({
+  return excludeArchiviati(sinistri).map((s) => ({
     numeroSinistro: s.numero_sinistro || "—",
     garanzia: s.ramo_sinistro || "—",
     polizza: s.titoli?.numero_titolo || "—",
