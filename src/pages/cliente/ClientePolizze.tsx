@@ -388,6 +388,7 @@ const ClientePolizze = () => {
                                         ))}
                                       </TableBody>
                                     </Table>
+                                  </div>
                                 )}
                               </div>
                             )}
@@ -447,7 +448,6 @@ const ClientePolizze = () => {
               </TableFooter>
 
             </Table>
-          </div>
         </div>
       )}
     </div>

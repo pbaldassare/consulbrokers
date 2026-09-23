@@ -458,7 +458,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
         }
       >
         <div className="-mx-1 px-1">
-          <PolizzaEditorInline>
+          <PolizzaEditorInline
             key={editorTitoloId}
             ref={editorRef}
             titoloId={editorTitoloId}
