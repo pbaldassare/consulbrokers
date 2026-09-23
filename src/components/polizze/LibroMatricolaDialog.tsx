@@ -201,7 +201,7 @@ export function LibroMatricolaDialog({
               </div>
             )}
 
-            <div className="border rounded-md overflow-x-auto">
+            <div className="border rounded-md">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/40">
@@ -364,8 +364,7 @@ export function LibroMatricolaDialog({
             {koCount > 0 && <Badge variant="destructive">{koCount} con errori</Badge>}
           </div>
 
-          <div className="border rounded-md overflow-x-auto max-h-[50vh]">
-            <Table>
+          <Table containerClassName="border rounded-md max-h-[50vh]">
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="text-xs">Riga</TableHead>
@@ -395,7 +394,6 @@ export function LibroMatricolaDialog({
                 ))}
               </TableBody>
             </Table>
-          </div>
 
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={() => setPreviewOpen(false)}>

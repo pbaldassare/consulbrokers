@@ -544,8 +544,7 @@ export default function ClienteSinistri() {
           {filteredSinistri.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">Nessun sinistro corrisponde ai filtri</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-8 px-2">
@@ -677,7 +676,6 @@ export default function ClienteSinistri() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
           )}
         </CardContent>
       </Card>

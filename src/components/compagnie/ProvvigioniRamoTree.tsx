@@ -48,8 +48,7 @@ export default function ProvvigioniRamoTree({
   onRemoveRamo,
 }: Props) {
   return (
-    <div className="overflow-x-auto">
-      <Table>
+    <Table>
         <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
             <TableHead className="w-10 h-9 px-2" />
@@ -84,7 +83,6 @@ export default function ProvvigioniRamoTree({
           })}
         </TableBody>
       </Table>
-    </div>
   );
 }
 

@@ -404,8 +404,7 @@ export function CfoReportPanel({ embedded = true, initialFiltri }: CfoReportPane
       {risultati !== null && (
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
+            <Table>
                 <TableHeader>
                   <TableRow>
                     {config.colonne.map((c) => (
@@ -442,7 +441,6 @@ export function CfoReportPanel({ embedded = true, initialFiltri }: CfoReportPane
                   )}
                 </TableBody>
               </Table>
-            </div>
           </CardContent>
         </Card>
       )}

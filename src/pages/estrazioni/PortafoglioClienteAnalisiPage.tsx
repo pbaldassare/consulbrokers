@@ -655,7 +655,7 @@ const PortafoglioClienteAnalisiPage = () => {
         </CardContent>
       </Card>
 
-      <div className="border rounded-md overflow-x-auto">
+      <div className="border rounded-md">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
@@ -745,7 +745,7 @@ const PortafoglioClienteAnalisiPage = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Dettaglio garanzie gestionali</CardTitle>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
+          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>

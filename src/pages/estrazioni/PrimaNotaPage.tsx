@@ -68,7 +68,7 @@ const PrimaNotaTable = ({
   );
 
   return (
-    <div className="border rounded-md overflow-x-auto">
+    <div className="border rounded-md">
       <Table>
         {!hideHeader && (
           <TableHeader>

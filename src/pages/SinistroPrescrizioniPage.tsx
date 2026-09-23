@@ -451,8 +451,7 @@ export default function SinistroPrescrizioniPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <Table>
               <TableHeader className="table-header-colored">
                 <TableRow>
                   <TableHead className="w-10">
@@ -533,7 +532,6 @@ export default function SinistroPrescrizioniPage() {
                 )}
               </TableBody>
             </Table>
-          </div>
           <div className="p-4 border-t">
             <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
           </div>

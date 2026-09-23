@@ -438,8 +438,7 @@ export default function SinistroScadenzePage() {
       {viewMode === "lista" && (
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
+            <Table>
                 <TableHeader className="table-header-colored">
                   <TableRow>
                     <TableHead className="w-12 text-center">Stato</TableHead>
@@ -513,7 +512,6 @@ export default function SinistroScadenzePage() {
                   )}
                 </TableBody>
               </Table>
-            </div>
           </CardContent>
         </Card>
       )}

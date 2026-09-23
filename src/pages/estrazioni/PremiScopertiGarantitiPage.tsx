@@ -343,7 +343,7 @@ const PremiScopertiGarantitiPage = () => {
         </Select>
       </div>
 
-      <div className="border rounded-lg overflow-x-auto">
+      <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>

@@ -4346,8 +4346,7 @@ const TitoloDetail = () => {
 
       {/* DETTAGLIO MOVIMENTI */}
       <SectionCollapsible title="Dettaglio Movimenti" icon={List}>
-        <div className="overflow-x-auto">
-          <Table>
+        <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Data Mov.</TableHead>
@@ -4388,7 +4387,6 @@ const TitoloDetail = () => {
               )}
             </TableBody>
           </Table>
-        </div>
       </SectionCollapsible>
 
       {/* === SEZIONE DATI VEICOLO / RCA AUTO ===

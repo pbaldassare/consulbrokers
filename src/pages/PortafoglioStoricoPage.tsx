@@ -191,8 +191,7 @@ const PortafoglioStoricoPage = () => {
         <div className="text-center py-10 text-muted-foreground">Nessuna polizza trovata nello storico</div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <Table>
+          <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>N° Polizza</TableHead>
@@ -274,7 +273,6 @@ const PortafoglioStoricoPage = () => {
                 })}
               </TableBody>
             </Table>
-          </div>
           <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}

@@ -626,7 +626,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         </CardHeader>
         <CardContent className="p-0">
           {/* Desktop / tablet table */}
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">

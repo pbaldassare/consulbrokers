@@ -41,7 +41,7 @@ const PolizzeTacitoTable = ({
   const navigate = useNavigate();
 
   return (
-    <div className="border rounded-md overflow-x-auto">
+    <div className="border rounded-md">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40">

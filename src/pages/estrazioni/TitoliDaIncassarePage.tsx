@@ -163,7 +163,7 @@ const TitoliDaIncassarePage = () => {
         </CardContent>
       </Card>
 
-      <div className="border rounded-lg overflow-x-auto">
+      <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>

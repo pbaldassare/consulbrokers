@@ -265,8 +265,7 @@ const ClientePolizze = () => {
         <p className="text-muted-foreground text-center py-12">Nessuna polizza trovata.</p>
       ) : (
         <div className="rounded-lg border overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <Table>
+          <Table>
               <TableHeader>
                 <TableRow className="bg-teal-700 hover:bg-teal-700">
                   <TableHead className="text-white w-10"></TableHead>
@@ -389,7 +388,6 @@ const ClientePolizze = () => {
                                         ))}
                                       </TableBody>
                                     </Table>
-                                  </div>
                                 )}
                               </div>
                             )}

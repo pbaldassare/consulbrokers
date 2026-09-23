@@ -190,8 +190,7 @@ const ReportIVA = () => {
           ) : !movimenti?.length ? (
             <p className="text-muted-foreground text-sm py-8 text-center">Nessun movimento con IVA per questo periodo</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Data</TableHead>
@@ -223,7 +222,6 @@ const ReportIVA = () => {
                   ))}
                 </TableBody>
               </Table>
-            </div>
           )}
         </CardContent>
       </Card>

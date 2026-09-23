@@ -205,7 +205,6 @@ export default function PolizzaDetail() {
               ) : quietanze.length === 0 ? (
                 <div className="p-6 text-center text-muted-foreground text-sm">Nessuna quietanza generata</div>
               ) : (
-                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="h-9">
@@ -251,7 +250,6 @@ export default function PolizzaDetail() {
                     })}
                   </TableBody>
                 </Table>
-                </div>
               )}
             </CardContent>
           </Card>

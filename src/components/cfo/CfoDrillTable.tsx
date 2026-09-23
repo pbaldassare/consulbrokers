@@ -67,8 +67,7 @@ export function CfoDrillTable({ drill, onClose }: CfoDrillTableProps) {
         </Button>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-x-auto max-h-[420px]">
-          <Table>
+        <Table containerClassName="max-h-[420px]">
             <TableHeader>
               <TableRow>
                 <TableHead>N. Titolo</TableHead>
@@ -114,7 +113,6 @@ export function CfoDrillTable({ drill, onClose }: CfoDrillTableProps) {
               ))}
             </TableBody>
           </Table>
-        </div>
         {!isLoading && rows.length > 0 && (
           <p className="text-xs text-muted-foreground px-4 py-2 border-t">
             {rows.length} titoli · max 500 righe

@@ -444,8 +444,7 @@ const PortafoglioAttivePage = () => {
         <div className="text-center py-10 text-muted-foreground">{EMPTY_LABELS[filtroTipo]}</div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <Table>
+          <Table>
               <TableHeader>
                 <TableRow>
                   {showChevronCol && <TableHead className="w-8" />}
@@ -475,7 +474,6 @@ const PortafoglioAttivePage = () => {
                   : polizze.map((p: PortafoglioRow) => renderQuietanzaRow(p))}
               </TableBody>
             </Table>
-          </div>
           <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}

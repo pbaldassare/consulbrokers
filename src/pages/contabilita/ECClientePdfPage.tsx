@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { ecClienteDefaultSelected, ecClienteTitoloEligible } from "@/lib/ecClienteTitoli";
 import { uint8ToBase64 } from "@/lib/documentiEcCliente";
+import { TableScrollArea } from "@/components/shared/TableScrollArea";
 import {
   RAGIONE_SOCIALE_CONSULBROKERS,
   resolveClienteEmail,
@@ -499,8 +500,8 @@ const ECClientePdfPage = () => {
               Ripristina selezione default
             </Button>
           </div>
-          <div className="rounded-md border border-border overflow-hidden">
-            <table className="w-full text-sm">
+          <TableScrollArea className="rounded-md border border-border">
+            <table className="w-full min-w-max text-sm">
               <thead className="bg-primary/10 text-primary">
                 <tr>
                   <th className="w-10 px-2 py-2" />
@@ -557,7 +558,7 @@ const ECClientePdfPage = () => {
                 </tfoot>
               )}
             </table>
-          </div>
+          </TableScrollArea>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

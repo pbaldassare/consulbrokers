@@ -221,8 +221,7 @@ const AppendiciPolizzaPage = () => {
             </Button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
+          <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">N°</TableHead>
@@ -303,7 +302,6 @@ const AppendiciPolizzaPage = () => {
                 })}
               </TableBody>
             </Table>
-          </div>
         )}
       </PolizzaSection>
 

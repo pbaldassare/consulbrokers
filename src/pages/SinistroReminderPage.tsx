@@ -516,8 +516,7 @@ export default function SinistroReminderPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <Table>
               <TableHeader className="table-header-colored">
                 <TableRow>
                   <TableHead className="w-10"><Checkbox checked={allPageSelected} onCheckedChange={toggleSelectAllPage} aria-label="Seleziona tutti" /></TableHead>
@@ -577,7 +576,6 @@ export default function SinistroReminderPage() {
                 )}
               </TableBody>
             </Table>
-          </div>
           <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </CardContent>
       </Card>

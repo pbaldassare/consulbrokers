@@ -623,8 +623,7 @@ export function PremiGaranziaCardShell({
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <Table>
+        <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="w-[30%]">Voce</TableHead>
@@ -910,7 +909,6 @@ export function PremiGaranziaCardShell({
               })}
             </TableBody>
           </Table>
-        </div>
 
         {!readOnly && (
         <div className="px-3 py-2 border-t">

@@ -154,8 +154,7 @@ export default function ClienteParcoVeicoli() {
         <p className="text-muted-foreground text-center py-12">Nessun mezzo trovato.</p>
       ) : (
         <div className="rounded-lg border overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <Table>
+          <Table>
               <TableHeader>
                 <TableRow className="bg-teal-700 hover:bg-teal-700">
                   <TableHead className="text-white font-bold text-xs uppercase">#</TableHead>
@@ -193,7 +192,6 @@ export default function ClienteParcoVeicoli() {
                 ))}
               </TableBody>
             </Table>
-          </div>
         </div>
       )}
     </div>

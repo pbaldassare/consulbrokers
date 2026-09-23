@@ -451,7 +451,7 @@ export default function ProvvigioniRapportiTab({ fixedRapportoId }: Props = {}) 
               </span>
             </AccordionTrigger>
             <AccordionContent>
-              <div className="pb-2 overflow-x-auto">
+              <div className="pb-2">
                 <Table>
                   <TableHeader>
                     <TableRow>

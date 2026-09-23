@@ -207,7 +207,7 @@ export function CoassicurazioneContrattoPanel({
             Ripartisci il premio tra più compagnie/agenzie. La prima riga è il <strong>leader</strong> (compagnia principale del titolo).
             Le quote devono sommare esattamente <strong>100%</strong> (max 100% per riga).
           </p>
-          <div className="overflow-x-auto rounded-md border bg-card">
+          <div className="rounded-md border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">

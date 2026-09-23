@@ -216,7 +216,7 @@ export function RegolazioneFattoriImportiGrid({
           </p>
         </div>
       ) : (
-        <div className="rounded-md border bg-background/60 overflow-x-auto">
+        <div className="rounded-md border bg-background/60">
           <Table>
             <TableHeader>
               <TableRow>

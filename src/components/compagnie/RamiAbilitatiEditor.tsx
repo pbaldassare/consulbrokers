@@ -162,7 +162,7 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
           Nessun Ramo abilitato. Clicca "Aggiungi Ramo" oppure "Tutti i Rami" per iniziare, poi salva.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border">
+        <div className="rounded-md border">
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>

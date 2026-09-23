@@ -1126,8 +1126,7 @@ const TipoDocumentoTab = () => {
         <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
+        <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-24">Codice</TableHead>
@@ -1166,7 +1165,6 @@ const TipoDocumentoTab = () => {
               ))}
             </TableBody>
           </Table>
-        </div>
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="max-w-lg">

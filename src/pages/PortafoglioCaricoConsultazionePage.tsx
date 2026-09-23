@@ -746,7 +746,7 @@ const PortafoglioCaricoConsultazionePage = () => {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-md border">
+          <div className="rounded-md border">
             <Table>
               <TableHeader className="[&_tr]:border-b sticky top-0 z-[5] bg-background shadow-sm">
                 <TableRow className="hover:bg-background">

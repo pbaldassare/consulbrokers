@@ -457,8 +457,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
           ) : null
         }
       >
-        <div className="overflow-x-auto -mx-1 px-1">
-          <PolizzaEditorInline
+        <div className="-mx-1 px-1">
+          <PolizzaEditorInline>
             key={editorTitoloId}
             ref={editorRef}
             titoloId={editorTitoloId}
