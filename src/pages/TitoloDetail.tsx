@@ -33,7 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail, Truck } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail, Truck, PauseCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DocumentiTab from "@/components/DocumentiTab";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
@@ -74,6 +74,7 @@ import { ripartoRowsFromDettaglio } from "@/lib/coassicurazione";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
+import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizzaDialog";
 import {
   LibroMatricolaDialog,
   assignProgressivi,
@@ -182,6 +183,7 @@ const TitoloDetail = () => {
   const [annullaLoading, setAnnullaLoading] = useState(false);
   const [sostituzioneOpen, setSostituzioneOpen] = useState(false);
   const [estinzioneOpen, setEstinzioneOpen] = useState(false);
+  const [sospensioneOpen, setSospensioneOpen] = useState(false);
   // regolazioneOpen rimosso: ora navighiamo a /portafoglio/immissione?mode=regolazione
 
   // --- Rinnovo dialog state ---
@@ -2331,6 +2333,11 @@ const TitoloDetail = () => {
               </div>
             )}
             
+            {!isTitoloDerivato && t.stato === "attivo" && (
+              <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
+                <PauseCircle className="w-4 h-4 mr-1" /> Sospensione
+              </Button>
+            )}
             {!isTitoloDerivato && (
               <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
                 <Replace className="w-4 h-4 mr-1" /> Sostituzione
@@ -4594,6 +4601,14 @@ const TitoloDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SospensionePolizzaDialog
+        open={sospensioneOpen}
+        onOpenChange={setSospensioneOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
+      />
 
       <SostituzionePolizzaDialog
         open={sostituzioneOpen}
