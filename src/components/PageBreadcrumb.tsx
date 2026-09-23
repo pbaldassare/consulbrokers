@@ -55,7 +55,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "ricerche": "Ricerche salvate",
   "opportunity": "Opportunity",
   "rui-search": "RUI Search",
-  "iid-guard": "IID Guard",
+  "iid-guard": "ID Guard",
   "rna-aiuti-bandi": "RNA Aiuti di stato e bandi",
   "estrazioni": "Estrazioni",
   "per-cliente": "Per Cliente",

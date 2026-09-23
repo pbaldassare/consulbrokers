@@ -16,8 +16,8 @@ const actions: ActionCard[] = [
     path: "/opportunity/rui-search",
   },
   {
-    label: "IID Guard",
-    description: "Controlli identità e verifica IID per prospect e clienti",
+    label: "ID Guard",
+    description: "Verifica email e domini clienti contro data breach (ID Guard)",
     icon: ShieldCheck,
     path: "/opportunity/iid-guard",
   },

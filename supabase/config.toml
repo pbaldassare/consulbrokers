@@ -122,3 +122,9 @@ verify_jwt = false
 
 [functions.flush-messa-cassa-serale]
 verify_jwt = false
+
+[functions.idguard-check]
+verify_jwt = false
+
+[functions.idguard-webhook]
+verify_jwt = false
