@@ -12,9 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   formatDateTimeIT,
-  isCooldownActive,
+  isVerifyBlocked,
   resolveClienteDisplayName,
   resolveIdGuardTarget,
   type IdGuardClienteInput,
@@ -48,6 +49,7 @@ function escapeIlike(term: string): string {
 const IdGuardPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>("tutti");
@@ -162,8 +164,9 @@ const IdGuardPage = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground">ID Guard</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Verifica se le email (privati) e dominio (aziende/enti) sono finite in una fuga di dati. Premi su
-              verifica per controllare, limite massimo di una verifica al giorno.
+              {isAdmin
+                ? "Verifica se le email (privati) e dominio (aziende/enti) sono finite in una fuga di dati. Come amministratore puoi ripetere le verifiche senza limite giornaliero."
+                : "Verifica se le email (privati) e dominio (aziende/enti) sono finite in una fuga di dati. Premi su verifica per controllare, limite massimo di una verifica al giorno."}
             </p>
           </div>
         </div>
@@ -231,7 +234,7 @@ const IdGuardPage = () => {
                   {clienti.map((c) => {
                     const target = resolveIdGuardTarget(c);
                     const verifica = verificheMap[c.id];
-                    const cooling = isCooldownActive(verifica?.prossima_verifica_at);
+                    const cooling = isVerifyBlocked(verifica?.prossima_verifica_at, { isAdmin });
                     const verifying = verificaMutation.isPending && verificaMutation.variables === c.id;
                     const canVerify = target.ok && !cooling && !verifying;
                     return (

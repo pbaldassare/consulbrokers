@@ -137,7 +137,8 @@ serve(async (req) => {
     .eq("target", target.target)
     .maybeSingle();
 
-  if (existing && isCooldownActive(existing.prossima_verifica_at)) {
+  const isAdmin = String(profile.ruolo) === "admin";
+  if (existing && !isAdmin && isCooldownActive(existing.prossima_verifica_at)) {
     return json({
       error: "Verifica già richiesta nelle ultime 24 ore",
       code: "cooldown",

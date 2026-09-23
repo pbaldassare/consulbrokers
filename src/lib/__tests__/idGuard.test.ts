@@ -5,6 +5,7 @@ import {
   formatDateTimeIT,
   isCooldownActive,
   isPrivatoCliente,
+  isVerifyBlocked,
   mapIdGuardDomainResult,
   mapIdGuardEmailResult,
   nextVerificaAt,
@@ -102,6 +103,27 @@ describe("idGuard", () => {
       breach_count: 3,
       explanation: "3 breach",
     });
+  });
+
+  it("conta le password da leakedData.counts (formato ID Guard)", () => {
+    expect(
+      mapIdGuardEmailResult({
+        data: {
+          isPwned: true,
+          breachCount: 21,
+          leakedData: {
+            counts: { passwords: 5, usernames: 3, names: 2, addresses: 1, phones: 0 },
+            passwords: ["a", "b", "c", "d", "e"],
+          },
+        },
+      }).password_esposte,
+    ).toBe(5);
+  });
+
+  it("l'admin non ha cooldown", () => {
+    const next = nextVerificaAt(new Date("2026-09-23T08:00:00.000Z"));
+    expect(isVerifyBlocked(next, { isAdmin: true, now: new Date("2026-09-23T08:00:00.000Z") })).toBe(false);
+    expect(isVerifyBlocked(next, { isAdmin: false, now: new Date("2026-09-23T08:00:00.000Z") })).toBe(true);
   });
 
   it("mappa esito dominio", () => {
