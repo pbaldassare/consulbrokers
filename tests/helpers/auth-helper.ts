@@ -201,14 +201,13 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'E/C Produttori', path: '/contabilita/ec-produttori' },
   { label: 'Storico E/C Produttori', path: '/contabilita/ec-produttore/storico' },
   { label: 'Storico Rimesse', path: '/contabilita/storico-rimesse' },
+  { label: 'Provvigioni Maturate', path: '/provvigioni-maturate' },
+  { label: 'Clientela RCA', path: '/rca/clientela' },
   { label: 'Riepilogo Acconti', path: '/contabilita/anticipi-clienti' },
   { label: 'Caricamento Mov. Bancari', path: '/contabilita/caricamento-mov-bancari' },
   { label: 'Bonifici (Incassi)', path: '/portafoglio/incassi?tab=bonifici' },
   { label: 'Storico bonifici', path: '/contabilita/ricongiungimento-bancario?tab=storico' },
   { label: 'Report IVA', path: '/report-iva' },
-
-  // Provvigioni
-  { label: 'Provvigioni Maturate', path: '/provvigioni-maturate' },
   { label: 'Pagamenti Provvigioni', path: '/pagamenti-provvigioni' },
 
   // Sistema / Admin

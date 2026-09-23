@@ -3,7 +3,7 @@ import {
   Shield, Users, Building2, Calculator, Briefcase, Headphones, UserCircle,
   ChevronDown, ChevronRight, LayoutDashboard, FileText, AlertTriangle,
   BarChart3, Settings, Send, FolderOpen, Landmark, Bell, Package,
-  ClipboardList, Clock, Receipt, Lock, Map
+  ClipboardList, Clock, Lock, Map, Car
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TableScrollArea } from "@/components/shared/TableScrollArea";
@@ -220,13 +220,6 @@ const sezioni = [
     ],
   },
   {
-    area: "Provvigioni",
-    icon: Receipt,
-    pagine: [
-      { nome: "Provvigioni Maturate", desc: "Provvigioni maturate per produttore con dettaglio, pagamento e distinta PDF", ruoli: ["admin", "ufficio"] },
-    ],
-  },
-  {
     area: "Sinistri",
     icon: AlertTriangle,
     pagine: [
@@ -248,11 +241,19 @@ const sezioni = [
       { nome: "E/C Clienti", desc: "Estratto conto per singolo cliente con saldo e movimenti", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "E/C Agenzie", desc: "Estratto conto verso agenzie/plurimandatarie con premi e provvigioni da rimettere", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "E/C Produttori", desc: "Estratto conto produttore con provvigioni maturate e liquidate", ruoli: ["admin", "ufficio", "contabilita"] },
+      { nome: "Provvigioni Maturate", desc: "Provvigioni maturate per produttore con dettaglio, pagamento e distinta PDF", ruoli: ["admin", "ufficio"] },
       { nome: "Import Provvigioni", desc: "Importazione file provvigioni da agenzie (PDF/Excel)", ruoli: ["admin", "ufficio"] },
       { nome: "Diff. Provvigioni", desc: "Analisi differenze tra provvigioni attese e ricevute", ruoli: ["admin", "ufficio"] },
       { nome: "Report IVA", desc: "Report IVA periodico per adempimenti fiscali", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "Caricamento Mov. Bancari", desc: "Import estratti conto (sede solo sui propri conti); i movimenti aperti si collegano da Incassi", ruoli: ["admin", "cfo", "ufficio", "backoffice", "contabilita"] },
       { nome: "Bonifici e Mov. Bancari", desc: "Da ricongiungere → Ricongiunti → Importazioni → Storico importazioni", ruoli: ["admin", "cfo", "ufficio", "contabilita"] },
+    ],
+  },
+  {
+    area: "Progetto RCA",
+    icon: Car,
+    pagine: [
+      { nome: "Clientela", desc: "Clienti con auto o autocarro: targa, nominativo e scadenza polizza", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
     ],
   },
   {
@@ -332,7 +333,7 @@ const sezioni = [
 /* ─── PERMESSI JSON ─── */
 const permessiJson = [
   { chiave: "dashboard", descrizione: "Accesso alla dashboard principale e KPI", sezioni: "Dashboard, Notifiche" },
-  { chiave: "titoli", descrizione: "Gestione titoli e portafoglio polizze", sezioni: "Portafoglio, Titoli, Gestione Polizze" },
+  { chiave: "titoli", descrizione: "Gestione titoli e portafoglio polizze", sezioni: "Portafoglio, Titoli, Gestione Polizze, Progetto RCA" },
   { chiave: "sinistri", descrizione: "Accesso alla gestione sinistri", sezioni: "Sinistri (lista e dettaglio)" },
   { chiave: "contabilita", descrizione: "Operazioni contabili dell'ufficio", sezioni: "Contabilità Ufficio, Distinta, Quadratura, Chiusura, E/C" },
   

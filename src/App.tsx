@@ -20,6 +20,7 @@ import { archiviRoutes } from "./routes/archivi";
 import { portafoglioRoutes } from "./routes/portafoglio";
 import { sinistriRoutes } from "./routes/sinistri";
 import { contabilitaRoutes } from "./routes/contabilita";
+import { rcaRoutes } from "./routes/rca";
 import { sistemaRoutes } from "./routes/sistema";
 import { clienteRoutes } from "./routes/cliente";
 import { prospectRoutes } from "./routes/prospect";
@@ -67,6 +68,9 @@ const App = () => (
                   </Route>
                   <Route element={<AppErrorBoundary section="Contabilità"><Outlet /></AppErrorBoundary>}>
                     {contabilitaRoutes}
+                  </Route>
+                  <Route element={<AppErrorBoundary section="Progetto RCA"><Outlet /></AppErrorBoundary>}>
+                    {rcaRoutes}
                   </Route>
                   <Route element={<AppErrorBoundary section="Sistema"><Outlet /></AppErrorBoundary>}>
                     {sistemaRoutes}

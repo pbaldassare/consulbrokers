@@ -62,6 +62,7 @@ import {
   Target,
   Bot,
   Heart,
+  Car,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isSidebarToActive } from "@/lib/sidebarToActive";
@@ -265,6 +266,18 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Storico Rimesse", path: "/contabilita/storico-rimesse", icon: Send },
         { label: "E/C Produttori", path: "/contabilita/ec-produttori", icon: Percent },
         { label: "Storico E/C Produttori", path: "/contabilita/ec-produttore/storico", icon: Archive },
+        { label: "Provvigioni Maturate", path: "/provvigioni-maturate", icon: TrendingUp },
+      ],
+    },
+  },
+  {
+    type: "group",
+    group: {
+      label: "Progetto RCA",
+      icon: Car,
+      permissionKey: "titoli",
+      children: [
+        { label: "Clientela", path: "/rca/clientela", icon: Users },
       ],
     },
   },
@@ -283,10 +296,6 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Sitemap", path: "/sitemap", icon: Map, adminOnly: true },
       ],
     },
-  },
-  {
-    type: "single",
-    item: { label: "Provvigioni Maturate", path: "/provvigioni-maturate", icon: TrendingUp, permissionKey: "provvigioni" },
   },
   { type: "single", item: { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Guida Operativa", path: "/guida-operativa", icon: BookOpen, permissionKey: "dashboard" } },
