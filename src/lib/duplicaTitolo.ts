@@ -32,6 +32,7 @@ export const TITOLI_DUPLICA_DROP_KEYS = new Set<string>([
   "conferimento_gestito",
   "cig",
   "codice_cig",
+  "polizza_id",
 ]);
 
 /**

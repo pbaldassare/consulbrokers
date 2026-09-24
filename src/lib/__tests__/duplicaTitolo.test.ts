@@ -16,6 +16,7 @@ describe("buildDuplicaTitoloPayload", () => {
     cliente_anagrafica_id: "cli-1",
     compagnia_id: "comp-1",
     premio_lordo: 1000,
+    polizza_id: "pol-origine",
   };
 
   it("non scrive data_decorrenza (colonna inesistente su titoli)", () => {
@@ -36,6 +37,7 @@ describe("buildDuplicaTitoloPayload", () => {
     expect(payload.id).toBeUndefined();
     expect(payload.cig).toBeUndefined();
     expect(payload.data_messa_cassa).toBeUndefined();
+    expect(payload.polizza_id).toBeUndefined();
   });
 });
 

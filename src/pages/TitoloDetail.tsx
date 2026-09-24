@@ -9,6 +9,7 @@ import { MessaCassaSeraleCheckbox } from "@/components/portafoglio/MessaCassaSer
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { buildGarantitoPayload, buildIncassoDateFields, isInCoperturaGarantita, isGarantitoAperto } from "@/lib/garantitoTitolo";
 import { annullaPolizza } from "@/lib/annullaPolizza";
+import { resolveStatoContrattoTitolo } from "@/lib/statoContrattoTitolo";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
 import {
   lordoFirmaDaVoci,
@@ -187,6 +188,7 @@ const TitoloDetail = () => {
 
   // --- Annulla Incasso dialog state ---
   const [annullaDialogOpen, setAnnullaDialogOpen] = useState(false);
+  const [annullaContrattoOpen, setAnnullaContrattoOpen] = useState(false);
   const [annullaPassword, setAnnullaPassword] = useState("");
   const [annullaLoading, setAnnullaLoading] = useState(false);
   const [sostituzioneOpen, setSostituzioneOpen] = useState(false);
@@ -2151,11 +2153,10 @@ const TitoloDetail = () => {
 
   // Stato contratto: tabella `polizze` (attiva/sospesa) con fallback su `titoli.stato`.
   // I dialog Gestione Polizze aggiornano titoli.stato; il badge header legge polizze.stato.
-  const isContrattoSospeso = polizzaStato === "sospesa" || t.stato === "sospeso";
-  const isContrattoAttivo =
-    !isContrattoSospeso &&
-    (polizzaStato === "attiva" || (!polizzaStato && t.stato === "attivo"));
-  const isContrattoAnnullato = polizzaStato === "annullata" || t.stato === "annullato";
+  const statoContratto = resolveStatoContrattoTitolo(t.stato, polizzaStato);
+  const isContrattoSospeso = statoContratto.isSospeso;
+  const isContrattoAttivo = statoContratto.isAttivo;
+  const isContrattoAnnullato = statoContratto.isAnnullato;
   const sospensioneDisabled = !isContrattoAttivo;
   const riattivazioneDisabled = !isContrattoSospeso;
   const sospensioneDisabledTitle = isContrattoSospeso
@@ -2178,7 +2179,7 @@ const TitoloDetail = () => {
       {/* Header — sticky sotto la topbar globale */}
       <TitoloHeaderBar
         t={t}
-        polizzaStato={polizzaStato ?? null}
+        polizzaStato={statoContratto.polizzaStatoDisplay}
         rataIndex={rataIndex}
         totRate={totRate}
         isQuietanzaCorrente={isQuietanzaCorrente}
@@ -2492,15 +2493,15 @@ const TitoloDetail = () => {
               </Button>
             )}
             {!isQuietanzaCorrente && (
-            <AlertDialog>
+            <AlertDialog open={annullaContrattoOpen} onOpenChange={setAnnullaContrattoOpen}>
               <AlertDialogTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
                   className="text-destructive border-destructive/50 hover:bg-destructive/10"
-                  disabled={t.stato === "annullato"}
+                  disabled={isContrattoAnnullato}
                   title={
-                    t.stato === "annullato"
+                    isContrattoAnnullato
                       ? (isAppendiceTitolo ? "Appendice già annullata" : "Polizza già annullata")
                       : undefined
                   }
@@ -2530,7 +2531,8 @@ const TitoloDetail = () => {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Annulla</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={async () => {
+                    onClick={async (e) => {
+                      e.preventDefault();
                       const res = await annullaPolizza(id!);
                       if (!res.ok) { toast.error(res.error || "Errore annullamento"); return; }
                       const entitaLabel = isAppendiceTitolo ? "Appendice" : "Polizza";
@@ -2538,7 +2540,10 @@ const TitoloDetail = () => {
                         `${entitaLabel} annullata — eliminati: ${res.quietanzeEliminate ?? 0} quietanze, ${res.provvigioniEliminate ?? 0} provvigioni (${res.pagamentiRigheEliminate ?? 0} righe pagamento), ${res.rimessaDettagliEliminati ?? 0} righe rimessa, ${res.rimesseTestateEliminate ?? 0} testate rimessa, ${res.movimentiEliminati ?? 0} movimenti contabili, ${res.movimentiPolizzaEliminati ?? 0} movimenti polizza, ${res.splitsEliminati ?? 0} split${res.includevaProvvigioniPagate ? " (incluse provvigioni già pagate)" : ""}.`,
                         { duration: 8000 }
                       );
-                      queryClient.invalidateQueries();
+                      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+                      queryClient.invalidateQueries({ queryKey: ["polizza-stato"] });
+                      queryClient.invalidateQueries({ queryKey: ["catena-titoli"] });
+                      setAnnullaContrattoOpen(false);
                     }}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
