@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   deriveStatoPreventivoDaOfferte,
   extractPremioOfferta,
+  genderFromCf,
+  labelStatoOfferta,
   selectedCvtsFromGaranzie,
 } from "@/lib/rca/assicurapp";
 
@@ -20,6 +22,17 @@ describe("Assicurapp mapping", () => {
     expect(deriveStatoPreventivoDaOfferte([], "q1")).toBe("in_quotazione");
     expect(deriveStatoPreventivoDaOfferte([{ status: "pending" }], "q1")).toBe("in_quotazione");
     expect(deriveStatoPreventivoDaOfferte([{ status: "completed" }], "q1")).toBe("quotato");
+  });
+
+  it("ricava sesso dal codice fiscale se manca M/F", () => {
+    expect(genderFromCf("SMNDTL62A52H823F", "na")).toBe("F");
+    expect(genderFromCf("RSSMRA80A01H501U", "")).toBe("M");
+    expect(genderFromCf("SMNDTL62A52H823F", "M")).toBe("M");
+  });
+
+  it("etichetta stato offerta Assicurapp", () => {
+    expect(labelStatoOfferta("not_quotable")).toBe("Non quotabile");
+    expect(labelStatoOfferta("completed")).toBe("Completata");
   });
 
   it("estrae premio da prices", () => {

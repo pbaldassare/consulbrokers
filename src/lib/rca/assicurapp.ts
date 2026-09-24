@@ -10,6 +10,16 @@ export type AssicurappOffer = {
   origin?: string;
 };
 
+export function genderFromCf(cf?: string | null, fallback?: string | null): string {
+  const g = String(fallback || "").trim().toUpperCase();
+  if (g === "M" || g === "F") return g;
+  const raw = String(cf || "").toUpperCase();
+  if (raw.length < 11) return "";
+  const day = parseInt(raw.substring(9, 11), 10);
+  if (Number.isNaN(day)) return "";
+  return day > 40 ? "F" : "M";
+}
+
 export function selectedCvtsFromGaranzie(garanzie: string[] | null | undefined): string[] {
   const g = new Set(garanzie || []);
   const cvts: string[] = [];
@@ -70,6 +80,7 @@ export function labelStatoOfferta(status?: string | null): string {
   if (s === "pending" || s === "in_progress" || s === "running" || s === "processing") return "In corso";
   if (s === "failed" || s === "error") return "Errore";
   if (s === "declined" || s === "refused") return "Rifiutata";
+  if (s === "not_quotable") return "Non quotabile";
   return status || "—";
 }
 

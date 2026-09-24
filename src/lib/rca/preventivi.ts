@@ -1,4 +1,5 @@
 import { resolveClienteIndirizzo, resolveClienteNome, type ClienteEcAnagrafica } from "@/lib/ecClienteAnagrafica";
+import { genderFromCf } from "@/lib/rca/assicurapp";
 import type { TipoClientelaRca } from "@/lib/rca/clientela";
 import {
   mapGaranziePolizzaToAssicurapp,
@@ -196,7 +197,7 @@ export function formFromClienteCBnet(
       ? (cliente.ragione_sociale || "").toUpperCase()
       : (cliente.cognome || "").toUpperCase(),
     cf: (cliente.codice_fiscale || cliente.partita_iva || "").toUpperCase(),
-    gender: azienda ? "" : (cliente.sesso === "F" ? "F" : cliente.sesso === "M" ? "M" : ""),
+    gender: azienda ? "" : genderFromCf(cliente.codice_fiscale, cliente.sesso),
     phone: (cliente.cellulare || cliente.telefono || "").replace(/\s+/g, ""),
     email: (cliente.email || cliente.pec || "").trim(),
     address: split.address,

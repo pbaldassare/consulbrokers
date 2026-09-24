@@ -95,6 +95,16 @@ async function assicurAppFetch<T>(
   return data;
 }
 
+function genderFromCf(cf?: string, fallback?: string): string {
+  const g = String(fallback || "").trim().toUpperCase();
+  if (g === "M" || g === "F") return g;
+  const raw = String(cf || "").toUpperCase();
+  if (raw.length < 11) return "";
+  const day = parseInt(raw.substring(9, 11), 10);
+  if (Number.isNaN(day)) return "";
+  return day > 40 ? "F" : "M";
+}
+
 function selectedCvtsFromGaranzie(garanzie: string[] | null | undefined): string[] {
   const g = new Set(garanzie || []);
   const cvts: string[] = [];
@@ -208,8 +218,8 @@ Deno.serve(async (req) => {
         name: client.name || "",
         surname: client.surname || "",
         cf: String(client.cf || "").toUpperCase(),
-        gender: client.gender || "",
-        phone: client.phone || "",
+        gender: genderFromCf(client.cf, client.gender),
+        phone: String(client.phone || "").replace(/\s+/g, ""),
         email: client.email || "",
         address: client.address || {
           full_address: "",
