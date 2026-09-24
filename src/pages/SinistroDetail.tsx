@@ -27,10 +27,12 @@ import SinistroDatiPraticaPanel from "@/components/sinistri/SinistroDatiPraticaP
 import SinistroPrescrizioniPanel from "@/components/sinistri/SinistroPrescrizioniPanel";
 import SinistroNoteInternePanel from "@/components/sinistri/SinistroNoteInternePanel";
 import SinistroPolizzaSelector from "@/components/sinistri/SinistroPolizzaSelector";
+import SinistroCompagniaHeaderField from "@/components/sinistri/SinistroCompagniaHeaderField";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   isSinistroTerminale,
   labelStatoSinistro,
+  puoModificareCompagniaSinistro,
   SINISTRO_STATI,
   SINISTRO_STATO_BADGE,
 } from "@/lib/sinistriStati";
@@ -309,11 +311,21 @@ export default function SinistroDetail() {
               )}
               <span className="text-border">·</span>
               <span>{formatTipoSinistro(sinistro)}</span>
-              {sinistro.compagnie?.nome && (
-                <>
-                  <span className="text-border">·</span>
-                  <span className="truncate max-w-[160px]">{sinistro.compagnie.nome}</span>
-                </>
+              <span className="text-border">·</span>
+              <span className="uppercase tracking-wide text-[10px] font-medium text-muted-foreground/80">
+                Compagnia
+              </span>
+              {canManage && puoModificareCompagniaSinistro(sinistro.stato) ? (
+                <SinistroCompagniaHeaderField
+                  sinistroId={id!}
+                  compagniaId={sinistro.compagnia_id}
+                  compagniaNome={sinistro.compagnie?.nome}
+                  onSaved={invalidate}
+                />
+              ) : (
+                <span className="truncate max-w-[160px]" title={sinistro.compagnie?.nome || undefined}>
+                  {sinistro.compagnie?.nome || "—"}
+                </span>
               )}
               <span className="text-border">·</span>
               <span>

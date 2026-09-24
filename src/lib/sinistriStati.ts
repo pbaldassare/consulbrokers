@@ -48,6 +48,23 @@ export function isSinistroAperto(stato?: string | null): boolean {
   return !isSinistroTerminale(stato);
 }
 
+/** Normalizza lo stato pratica per confronti (case, spazi, trattini). */
+function normalizzaStatoSinistro(stato?: string | null): string {
+  return String(stato || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+/**
+ * Compagnia assicurativa modificabile in testata: sì per tutti gli stati
+ * tranne `chiuso` e `archiviato` (e varianti di casing/spaziatura).
+ */
+export function puoModificareCompagniaSinistro(stato?: string | null): boolean {
+  const s = normalizzaStatoSinistro(stato);
+  return s !== "chiuso" && s !== "archiviato";
+}
+
 export function labelStatoSinistro(stato?: string | null): string {
   const s = String(stato || "").toLowerCase();
   if (!s) return "—";

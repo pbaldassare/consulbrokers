@@ -8,6 +8,7 @@ import {
   isSinistroAperto,
   isSinistroTerminale,
   labelStatoSinistro,
+  puoModificareCompagniaSinistro,
   resolveStatoFiltroLista,
   SINISTRO_STATO_ARCHIVIATO,
   SINISTRO_STATI_OPERATIVI,
@@ -28,6 +29,29 @@ describe("isArchiviato / aperti", () => {
     expect(isSinistroAperto("aperto")).toBe(true);
     expect(isSinistroAperto("chiuso")).toBe(false);
     expect(isSinistroAperto("respinto")).toBe(false);
+  });
+});
+
+describe("puoModificareCompagniaSinistro", () => {
+  it("blocca solo chiuso e archiviato, con varianti di casing/spazi", () => {
+    expect(puoModificareCompagniaSinistro("chiuso")).toBe(false);
+    expect(puoModificareCompagniaSinistro("Chiuso")).toBe(false);
+    expect(puoModificareCompagniaSinistro(" CHIUSO ")).toBe(false);
+    expect(puoModificareCompagniaSinistro("archiviato")).toBe(false);
+    expect(puoModificareCompagniaSinistro("Archiviato")).toBe(false);
+    expect(puoModificareCompagniaSinistro(" archiviato ")).toBe(false);
+  });
+
+  it("consente la modifica su tutti gli altri stati, incluso respinto", () => {
+    expect(puoModificareCompagniaSinistro("in_attesa_documenti")).toBe(true);
+    expect(puoModificareCompagniaSinistro("aperto")).toBe(true);
+    expect(puoModificareCompagniaSinistro("in_lavorazione")).toBe(true);
+    expect(puoModificareCompagniaSinistro("in_liquidazione")).toBe(true);
+    expect(puoModificareCompagniaSinistro("in_valutazione")).toBe(true);
+    expect(puoModificareCompagniaSinistro("bozza")).toBe(true);
+    expect(puoModificareCompagniaSinistro("respinto")).toBe(true);
+    expect(puoModificareCompagniaSinistro(null)).toBe(true);
+    expect(puoModificareCompagniaSinistro("")).toBe(true);
   });
 });
 
