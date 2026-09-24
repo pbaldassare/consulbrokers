@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ClienteSearchSelect } from "@/components/clienti/ClienteSearchSelect";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import ElaborazioniSommarioPanel from "@/components/estrazioni/ElaborazioniSommarioPanel";
 import { ELAB_TIPO_SINGOLA } from "@/lib/elaborazioni/sommarioBatch";
@@ -110,8 +111,6 @@ const ElaborazioniPage = () => {
   const queryClient = useQueryClient();
   const { profile } = useAuth() as { profile?: { id?: string; ufficio_id?: string | null } | null };
 
-  const [clienteSearch, setClienteSearch] = useState("");
-  const [clienteSearchDeb, setClienteSearchDeb] = useState("");
   const [clienteId, setClienteId] = useState("");
   const [gruppoRamoIds, setGruppoRamoIds] = useState<string[]>([]);
   const [titoloIds, setTitoloIds] = useState<string[]>([]);
@@ -125,32 +124,7 @@ const ElaborazioniPage = () => {
   const [nomeTemplate, setNomeTemplate] = useState("");
   const [salvando, setSalvando] = useState(false);
 
-  useEffect(() => {
-    const t = setTimeout(() => setClienteSearchDeb(clienteSearch), 350);
-    return () => clearTimeout(t);
-  }, [clienteSearch]);
-
   /* ------------------------------------------------------------------ dati */
-
-  const { data: clienti = [] } = useQuery({
-    queryKey: ["elab-clienti", clienteSearchDeb],
-    queryFn: async () => {
-      let q = supabase
-        .from("clienti")
-        .select("id, ragione_sociale, nome, cognome, codice_fiscale, partita_iva")
-        .order("ragione_sociale", { nullsFirst: false })
-        .limit(30);
-      const s = clienteSearchDeb.trim();
-      if (s) {
-        q = q.or(
-          `ragione_sociale.ilike.%${s}%,cognome.ilike.%${s}%,nome.ilike.%${s}%,codice_fiscale.ilike.%${s}%,partita_iva.ilike.%${s}%`,
-        );
-      }
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as ClienteRow[];
-    },
-  });
 
   const { data: titoli = [], isLoading: loadingTitoli } = useQuery({
     queryKey: ["elab-titoli", clienteId],
@@ -317,7 +291,7 @@ const ElaborazioniPage = () => {
     },
   });
 
-  const clienteSel = clienti.find((c) => c.id === clienteId) ?? clienteById ?? null;
+  const clienteSel = clienteById ?? null;
   const campiScelti = useMemo(
     () => catalogo.filter((c) => campiSelezionati.includes(c.chiave)),
     [catalogo, campiSelezionati],
@@ -539,19 +513,11 @@ const ElaborazioniPage = () => {
         <CardContent className="space-y-4">
           <div className="space-y-1.5 max-w-xl">
             <Label>Cliente</Label>
-            <SearchableSelect
-              options={clienti.map((c) => ({
-                value: c.id,
-                label: nomeCliente(c),
-                description: c.partita_iva || c.codice_fiscale || undefined,
-              }))}
+            <ClienteSearchSelect
               value={clienteId}
               onValueChange={setClienteId}
-              searchValue={clienteSearch}
-              onSearchChange={setClienteSearch}
-              serverSideSearch
               placeholder="Seleziona cliente..."
-              searchPlaceholder="Cerca per nome, CF o P.IVA..."
+              searchPlaceholder="Nome, più nomi, indirizzo, CF…"
             />
           </div>
           {clienteId && clienteSel && (

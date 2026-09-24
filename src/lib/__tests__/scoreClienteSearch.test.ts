@@ -39,4 +39,13 @@ describe("scoreClienteSearch", () => {
     // token non contigui → token AND = contains-like
     expect(scoreClienteSearch(cliente, "gobbi de")).toBe(4);
   });
+
+  it("match indirizzo come contains-like", () => {
+    expect(
+      scoreClienteSearch(
+        { cognome: "Abate", nome: "Alexander", indirizzo_residenza: "Via Roma 12", citta_residenza: "Milano" },
+        "via roma",
+      ),
+    ).toBe(4);
+  });
 });

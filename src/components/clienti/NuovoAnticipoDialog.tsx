@@ -186,8 +186,9 @@ export default function NuovoAnticipoDialog({ open, onOpenChange, clienteId }: P
                 onValueChange={setClienteSel}
                 searchValue={clienteSearch}
                 onSearchChange={setClienteSearch}
-                searchPlaceholder="Cerca per nome, ragione sociale, CF, P.IVA…"
+                searchPlaceholder="Nome, più nomi, indirizzo, CF…"
                 placeholder="Seleziona cliente…"
+                serverSideSearch
                 emptyText={clienteSearch.length < 2 ? "Digita almeno 2 caratteri" : "Nessun cliente"}
                 options={clientiOpts.map((c: any) => ({
                   value: c.id,

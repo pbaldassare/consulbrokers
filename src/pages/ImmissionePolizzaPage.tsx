@@ -41,6 +41,7 @@ import {
 import { provvigioniImportoFromPct, provvigioniPctFromImporto } from "@/lib/provvigioniManual";
 
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ClienteSearchSelect } from "@/components/clienti/ClienteSearchSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 
 
@@ -353,12 +354,6 @@ const ImmissionePolizzaPage = () => {
 
   // Form state — Cliente
   const [aiCfLookup, setAiCfLookup] = useState(""); // CF/P.IVA arrivato da import AI per auto-selezione
-  const [clienteSearch, setClienteSearch] = useState("");
-  const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedClienteSearch(clienteSearch), 350);
-    return () => clearTimeout(t);
-  }, [clienteSearch]);
   const [selectedAE, setSelectedAE] = useState("");
   const [selectedAccountExecutiveId, setSelectedAccountExecutiveId] = useState("");
   const [selectedClienteId, setSelectedClienteId] = useState(() => preselectedClienteId || "");
@@ -830,51 +825,7 @@ const ImmissionePolizzaPage = () => {
     enabled: aiCfLookup.length >= 2,
   });
 
-  // Ricerca server-side per il SearchableSelect cliente (multi-token, sanitizzata, debounced)
-  const { data: clientiSearchResults } = useQuery({
-    queryKey: ["clienti-search-immissione", debouncedClienteSearch],
-    queryFn: async () => {
-      const raw = (debouncedClienteSearch || "").replace(/[%,()]/g, " ").trim();
-      if (raw.length < 2) {
-        const { data, error } = await supabase
-          .from("clienti")
-          .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, tipo_cliente, ufficio_id")
-          .eq("attivo", true)
-          .order("ragione_sociale", { nullsFirst: false })
-          .limit(50);
-        if (error) { console.error("[clienti-search]", error); return []; }
-        return data || [];
-      }
-      const tokens = raw.split(/\s+/).filter(Boolean);
-      const first = tokens[0];
-      const term = `%${first}%`;
-      const { data, error } = await supabase
-        .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, codice_ricerca, tipo_cliente, ufficio_id")
-        .eq("attivo", true)
-        .or(
-          `ragione_sociale.ilike.${term},cognome.ilike.${term},nome.ilike.${term},codice_fiscale.ilike.${term},partita_iva.ilike.${term},codice_ricerca.ilike.${term}`
-        )
-        .order("ragione_sociale", { nullsFirst: false })
-        .limit(100);
-      if (error) { console.error("[clienti-search]", error); return []; }
-      const rest = tokens.slice(1).map((t) => t.toLowerCase());
-      const filtered = (data || []).filter((c: any) => {
-        if (rest.length === 0) return true;
-        const hay = [
-          c.ragione_sociale,
-          c.cognome,
-          c.nome,
-          c.codice_fiscale,
-          c.partita_iva,
-          c.codice_ricerca,
-        ].filter(Boolean).join(" ").toLowerCase();
-        return rest.every((t) => hay.includes(t));
-      });
-      return filtered.slice(0, 50);
-    },
-    staleTime: 300000 * 30,
-  });
+  // Ricerca cliente: token AND su più nomi + indirizzo (RPC search_clienti_ranked)
 
   // Dettaglio cliente selezionato (per eredità ufficio)
   const { data: clienteDettaglio } = useQuery({
@@ -2622,21 +2573,12 @@ const ImmissionePolizzaPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 md:gap-5 items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">Cliente esistente</Label>
-            <SearchableSelect
+            <ClienteSearchSelect
               className="h-8 text-xs"
               value={selectedClienteId}
               onValueChange={(v) => setSelectedClienteId(v)}
-              placeholder="— Cerca cliente per nome, CF o P.IVA —"
-              searchValue={clienteSearch}
-              onSearchChange={setClienteSearch}
-              searchPlaceholder="Cerca per nome, CF o P.IVA…"
-              emptyText={clienteSearch.length < 2 ? "Digita almeno 2 caratteri" : "Nessun cliente trovato"}
-              options={(clientiSearchResults || []).map((c: any) => ({
-                value: c.id,
-                label: c.ragione_sociale
-                  ? `${c.ragione_sociale}${c.partita_iva ? ` — P.IVA ${c.partita_iva}` : ""}`
-                  : `${c.cognome || ""} ${c.nome || ""}${c.codice_fiscale ? ` — CF ${c.codice_fiscale}` : ""}`.trim(),
-              }))}
+              placeholder="— Cerca cliente per nome, più nomi, indirizzo, CF o P.IVA —"
+              searchPlaceholder="Nome, più nomi, indirizzo, CF…"
             />
           </div>
           <NuovoClienteDialog
@@ -2653,9 +2595,8 @@ const ImmissionePolizzaPage = () => {
               if (!o) setAiClientePrefill(null);
             }}
             initialData={aiClientePrefill ?? undefined}
-            onCreated={(id, label) => {
+            onCreated={(id) => {
               setSelectedClienteId(id);
-              setClienteSearch(label);
               setAiClientePrefill(null);
               setNuovoClienteOpen(false);
             }}

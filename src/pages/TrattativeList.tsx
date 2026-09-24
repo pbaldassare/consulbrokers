@@ -20,6 +20,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import { TrattativaDetailDialog } from "@/components/trattative/TrattativaDetailDialog";
 import { NuovoClienteDialog } from "@/components/clienti/NuovoClienteDialog";
+import { ClienteSearchSelect } from "@/components/clienti/ClienteSearchSelect";
 import { STATI_TRATTATIVA_FULL, getStatoLabel, getStatoColor } from "@/components/trattative/StatoPipeline";
 import { toast } from "sonner";
 import { FileText, Search, Plus, Landmark, Archive, Download, RotateCcw, TrendingUp, TrendingDown, UserPlus } from "lucide-react";
@@ -152,17 +153,6 @@ const TrattativeList = () => {
       return (data || []).map((t) => ({
         ...t,
         bandi_collegati: bandiMap[t.id] || [],
-      }));
-    },
-  });
-
-  const { data: clienti = [], refetch: refetchClienti } = useQuery({
-    queryKey: ["clienti_lookup"],
-    queryFn: async () => {
-      const { data } = await supabase.from("clienti").select("id, nome, cognome, ragione_sociale, tipo_cliente").eq("attivo", true).order("cognome");
-      return (data || []).map((c) => ({
-        value: c.id,
-        label: c.tipo_cliente === "privato" ? `${c.cognome || ""} ${c.nome || ""}`.trim() : c.ragione_sociale || "—",
       }));
     },
   });
@@ -358,7 +348,6 @@ const TrattativeList = () => {
   };
 
   const handleClienteCreated = async (clienteId: string) => {
-    await refetchClienti();
     setForm((f) => ({ ...f, cliente_id: clienteId }));
     setNuovoClienteOpen(false);
     toast.success("Cliente creato — selezionato per la trattativa");
@@ -413,11 +402,11 @@ const TrattativeList = () => {
                       <UserPlus className="w-3.5 h-3.5" />Crea cliente in anagrafica
                     </Button>
                   </div>
-                  <SearchableSelect
-                    options={clienti}
+                  <ClienteSearchSelect
                     value={form.cliente_id}
                     onValueChange={(v) => setForm({ ...form, cliente_id: v })}
                     placeholder="Cerca cliente..."
+                    searchPlaceholder="Nome, più nomi, indirizzo, CF…"
                   />
                   <p className="text-xs text-muted-foreground">I nuovi contatti vanno creati come clienti in Anagrafiche (anche senza polizze).</p>
                 </div>

@@ -10,6 +10,7 @@ import { CalendarIcon, Check, ChevronsUpDown, Filter, RotateCcw } from "lucide-r
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { ClienteSearchSelect } from "@/components/clienti/ClienteSearchSelect";
 
 export interface EstrazioniFiltersState {
   period: string;
@@ -168,15 +169,6 @@ const EstrazioniFilters = ({
     enabled: showCompagnia,
   });
 
-  const { data: clienti } = useQuery({
-    queryKey: ["clienti-filter"],
-    queryFn: async () => {
-      const { data } = await supabase.from("clienti").select("id, cognome, nome, ragione_sociale").eq("attivo", true).order("cognome");
-      return data || [];
-    },
-    enabled: showCliente,
-  });
-
   const handlePeriodChange = (val: string) => {
     if (val === "custom") {
       onChange({ ...filters, period: val });
@@ -312,12 +304,13 @@ const EstrazioniFilters = ({
 
         {/* Cliente */}
         {showCliente && (
-          <SearchableSelect
-            value={filters.cliente_id}
-            onValueChange={(v) => onChange({ ...filters, cliente_id: v })}
-            options={(clienti || []).map((c) => ({ value: c.id, label: c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim() }))}
+          <ClienteSearchSelect
+            value={filters.cliente_id || ""}
+            onValueChange={(v) => onChange({ ...filters, cliente_id: v || null })}
             placeholder="Cliente"
-            allLabel="Tutti i clienti"
+            searchPlaceholder="Nome, più nomi, indirizzo…"
+            clearable
+            clearLabel="Tutti i clienti"
             className="w-[240px]"
           />
         )}

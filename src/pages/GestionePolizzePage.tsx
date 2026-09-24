@@ -61,6 +61,7 @@ import { DuplicaPolizzaDialog } from "@/components/polizze/azioni/DuplicaPolizza
 import { AppendiceDialog } from "@/components/polizze/azioni/AppendiceDialog";
 import { CaricaDocDialog } from "@/components/polizze/azioni/CaricaDocDialog";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/SearchableSelect";
+import { ClienteSearchSelect } from "@/components/clienti/ClienteSearchSelect";
 import ServerPagination from "@/components/ServerPagination";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { AttivitaRecentiPanel } from "@/components/polizze/azioni/AttivitaRecentiPanel";
@@ -235,26 +236,6 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
         .eq("regolazione", true)
         .in("stato", ["attivo", "sospeso", "incassato"]);
       return count ?? 0;
-    },
-  });
-
-  // Opzioni Cliente / Compagnia per SearchableSelect
-  const { data: clientiOpts = [] } = useQuery({
-    queryKey: ["gestione-polizze-clienti-opts"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("clienti")
-        .select("id, nome, cognome, ragione_sociale")
-        .eq("attivo", true)
-        .order("cognome", { ascending: true })
-        .limit(500);
-      return ((data || []) as any[]).map<SearchableSelectOption>((c) => ({
-        value: c.id,
-        label:
-          c.ragione_sociale ||
-          `${c.cognome ?? ""} ${c.nome ?? ""}`.trim() ||
-          c.id.slice(0, 8),
-      }));
     },
   });
 
@@ -614,11 +595,11 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
-                <SearchableSelect
-                  options={clientiOpts}
+                <ClienteSearchSelect
                   value={clienteId}
                   onValueChange={setClienteId}
                   placeholder="Tutti i clienti"
+                  searchPlaceholder="Nome, più nomi, indirizzo, CF…"
                   clearable
                   clearLabel="— Tutti —"
                 />

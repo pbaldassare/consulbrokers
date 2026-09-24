@@ -10,28 +10,13 @@ import { Download, FileText, Search } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
-import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
+import { ClienteSearchSelect } from "@/components/clienti/ClienteSearchSelect";
 const ECClientiStoricoPage = () => {
   const [q, setQ] = useState("");
   const [numeroPolizza, setNumeroPolizza] = useState("");
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-
-  const { data: clientiOpts = [] } = useQuery({
-    queryKey: ["ec-clienti-storico-clienti"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("clienti")
-        .select("id, nome, cognome, ragione_sociale")
-        .order("cognome", { ascending: true })
-        .limit(2000);
-      return (data || []).map((c: any) => ({
-        value: c.id,
-        label: c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim() || "—",
-      }));
-    },
-  });
 
   // Se filtro per numero polizza: trova prima i clienti che hanno quella polizza
   const { data: clientiConPolizza } = useQuery({
@@ -133,12 +118,14 @@ const ECClientiStoricoPage = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca nome file..." className="pl-9" />
           </div>
-          <FilterSearchableSelect
-            value={clienteId}
-            onValueChange={setClienteId}
-            options={clientiOpts}
+          <ClienteSearchSelect
+            value={clienteId || ""}
+            onValueChange={(v) => setClienteId(v || null)}
             placeholder="Cliente"
-            allLabel="Tutti i clienti"
+            searchPlaceholder="Nome, più nomi, indirizzo…"
+            clearable
+            clearLabel="Tutti i clienti"
+            onlyAttivi={false}
           />
           <div>
             <label className="text-xs text-muted-foreground">N. Polizza</label>

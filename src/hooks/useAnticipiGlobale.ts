@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchClientiSearch } from "@/hooks/useClienteSearch";
 
 export interface AnticipoGlobaleRow {
   id: string;
@@ -91,18 +92,6 @@ export function useAnticipiGlobale(filters: AnticipiGlobaleFilters) {
 export function useClientiSearch(query: string) {
   return useQuery({
     queryKey: ["clienti-search-anticipi", query],
-    enabled: query.length >= 2,
-    queryFn: async () => {
-      const s = `%${query}%`;
-      const { data, error } = await supabase
-        .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva")
-        .or(
-          `ragione_sociale.ilike.${s},cognome.ilike.${s},nome.ilike.${s},codice_fiscale.ilike.${s},partita_iva.ilike.${s}`
-        )
-        .limit(30);
-      if (error) throw error;
-      return data || [];
-    },
+    queryFn: () => fetchClientiSearch(query, { onlyAttivi: true, limit: 30 }),
   });
 }

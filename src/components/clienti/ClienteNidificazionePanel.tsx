@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchClientiSearch } from "@/hooks/useClienteSearch";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -137,14 +138,18 @@ export default function ClienteNidificazionePanel({ clienteId, cliente, compact,
     queryFn: async () => {
       const q = search.replace(/[,()]/g, " ").trim();
       if (q.length < 2) return [];
-      const { data, error } = await supabase
-        .from("clienti")
-        .select("id, tipo_cliente, nome, cognome, ragione_sociale, codice_fiscale, gruppo_statistico")
-        .neq("id", clienteId)
-        .or(`cognome.ilike.%${q}%,nome.ilike.%${q}%,ragione_sociale.ilike.%${q}%,codice_fiscale.ilike.%${q}%`)
-        .limit(25);
-      if (error) throw error;
-      return (data || []) as ClienteNidificazioneLite[];
+      const rows = await fetchClientiSearch(q, { onlyAttivi: false, limit: 25 });
+      return rows
+        .filter((c) => c.id !== clienteId)
+        .map((c) => ({
+          id: c.id,
+          tipo_cliente: c.tipo_cliente,
+          nome: c.nome,
+          cognome: c.cognome,
+          ragione_sociale: c.ragione_sociale,
+          codice_fiscale: c.codice_fiscale,
+          gruppo_statistico: c.gruppo_statistico ?? null,
+        })) as ClienteNidificazioneLite[];
     },
     enabled: search.trim().length >= 2,
   });

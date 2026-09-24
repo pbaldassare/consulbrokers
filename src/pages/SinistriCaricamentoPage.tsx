@@ -21,6 +21,7 @@ import {
   Upload,
 } from "lucide-react";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
+import { fetchClientiSearch } from "@/hooks/useClienteSearch";
 import { fetchPolizzeForCliente } from "@/lib/polizzeSearch";
 import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
 import {
@@ -121,12 +122,13 @@ function SinistriCaricamentoPageInner() {
     }
     setClientiLoading(true);
     const t = setTimeout(async () => {
-      const { data, error } = await supabase
-        .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva")
-        .or(`cognome.ilike.%${q}%,nome.ilike.%${q}%,ragione_sociale.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
-        .order("cognome", { ascending: true, nullsFirst: false })
-        .limit(25);
+      let data: Awaited<ReturnType<typeof fetchClientiSearch>> = [];
+      let error: unknown = null;
+      try {
+        data = await fetchClientiSearch(q, { onlyAttivi: false, limit: 25 });
+      } catch (e) {
+        error = e;
+      }
       if (error) console.error("Ricerca clienti error:", error);
       setClientiList((data || []) as ClienteLite[]);
       setClientiLoading(false);

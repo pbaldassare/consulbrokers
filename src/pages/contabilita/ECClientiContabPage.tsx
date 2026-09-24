@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
+import { ClienteSearchSelect } from "@/components/clienti/ClienteSearchSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 
 interface Filters {
@@ -38,13 +39,6 @@ const ECClientiContabPage = () => {
   const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
   const set = (partial: Partial<Filters>) => setFilters((f) => ({ ...f, ...partial }));
 
-  const { data: clienti } = useQuery({
-    queryKey: ["clienti-filter-contab"],
-    queryFn: async () => {
-      const { data } = await supabase.from("clienti").select("id, cognome, nome, ragione_sociale").eq("attivo", true).order("cognome");
-      return data || [];
-    },
-  });
   const { data: uffici } = useQuery({
     queryKey: ["uffici-filter-contab"],
     queryFn: async () => {
@@ -237,9 +231,15 @@ const ECClientiContabPage = () => {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <FilterSearchableSelect value={filters.cliente_id} onValueChange={(v) => set({ cliente_id: v })}
-            options={(clienti || []).map((c) => ({ value: c.id, label: c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim() }))}
-            placeholder="Cliente" allLabel="Tutti i clienti" className="w-[240px]" />
+          <ClienteSearchSelect
+            value={filters.cliente_id || ""}
+            onValueChange={(v) => set({ cliente_id: v || null })}
+            placeholder="Cliente"
+            searchPlaceholder="Nome, più nomi, indirizzo…"
+            clearable
+            clearLabel="Tutti i clienti"
+            className="w-[240px]"
+          />
           <FilterSearchableSelect value={filters.ufficio_id} onValueChange={(v) => set({ ufficio_id: v })}
             options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))}
             placeholder="Sede" allLabel="Tutte le sedi" className="w-[200px]" />

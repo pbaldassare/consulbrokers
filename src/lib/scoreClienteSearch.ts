@@ -5,6 +5,20 @@ export type ClienteSearchFields = {
   ragione_sociale?: string | null;
   citta_residenza?: string | null;
   citta_sede?: string | null;
+  citta_fiscale?: string | null;
+  citta_alternativa?: string | null;
+  indirizzo_residenza?: string | null;
+  indirizzo_sede?: string | null;
+  indirizzo_fiscale?: string | null;
+  indirizzo_alternativo?: string | null;
+  cap_residenza?: string | null;
+  cap_sede?: string | null;
+  cap_fiscale?: string | null;
+  cap_alternativo?: string | null;
+  provincia_residenza?: string | null;
+  provincia_sede?: string | null;
+  provincia_fiscale?: string | null;
+  provincia_alternativa?: string | null;
 };
 
 function norm(s: string | null | undefined): string {
@@ -28,14 +42,44 @@ export function scoreClienteSearch(c: ClienteSearchFields, term: string): number
 
   const cittaRes = norm(c.citta_residenza);
   const cittaSede = norm(c.citta_sede);
-  if (cittaRes === t || cittaSede === t) return 1;
+  const cittaFisc = norm(c.citta_fiscale);
+  const cittaAlt = norm(c.citta_alternativa);
+  const indirizzi = [
+    c.indirizzo_residenza,
+    c.indirizzo_sede,
+    c.indirizzo_fiscale,
+    c.indirizzo_alternativo,
+  ].map(norm);
+  if (cittaRes === t || cittaSede === t || cittaFisc === t || cittaAlt === t || indirizzi.includes(t)) return 1;
 
   const rs = norm(c.ragione_sociale);
   const cognome = norm(c.cognome);
   const nome = norm(c.nome);
   const displayCn = collapseSpaces(`${cognome} ${nome}`);
   const displayNc = collapseSpaces(`${nome} ${cognome}`);
-  const anagraficaBlob = collapseSpaces(`${cognome} ${nome} ${rs}`);
+  const indirizzoBlob = collapseSpaces(
+    [
+      c.indirizzo_residenza,
+      c.indirizzo_sede,
+      c.indirizzo_fiscale,
+      c.indirizzo_alternativo,
+      c.cap_residenza,
+      c.cap_sede,
+      c.cap_fiscale,
+      c.cap_alternativo,
+      cittaRes,
+      cittaSede,
+      cittaFisc,
+      cittaAlt,
+      c.provincia_residenza,
+      c.provincia_sede,
+      c.provincia_fiscale,
+      c.provincia_alternativa,
+    ]
+      .map(norm)
+      .join(" "),
+  );
+  const anagraficaBlob = collapseSpaces(`${cognome} ${nome} ${rs} ${indirizzoBlob}`);
 
   if (rs === t || cognome === t || nome === t || displayCn === t || displayNc === t) return 2;
 
@@ -55,6 +99,7 @@ export function scoreClienteSearch(c: ClienteSearchFields, term: string): number
     nome.includes(t) ||
     displayCn.includes(t) ||
     displayNc.includes(t) ||
+    indirizzoBlob.includes(t) ||
     tokensAndMatch(anagraficaBlob, tokens)
   ) {
     return 4;

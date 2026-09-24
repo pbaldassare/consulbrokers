@@ -16,6 +16,8 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { SinistriRicercaForm } from "@/components/sinistri/SinistriRicercaForm";
 import { formatTipoSinistro, getTipoSinistroLabel } from "@/lib/tipiSinistro";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
+import { fetchClientiSearch, useClienteSearch } from "@/hooks/useClienteSearch";
+import { clienteSearchDescription, clienteSearchLabel } from "@/lib/clienteSearch";
 import { formatDateIT } from "@/lib/formatDate";
 import { formatPolizzaRamo } from "@/lib/titoliDisplay";
 import {
@@ -141,25 +143,16 @@ export default function SinistriList() {
     },
   });
 
-  const clientiQ = sanitizePostgrestTerm(clientiSearch);
-  const { data: clientiHits = [], isFetching: clientiLoading } = useQuery({
-    queryKey: ["sinistri-list-clienti", clientiQ],
-    enabled: clientiQ.length >= 2,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva")
-        .or(`cognome.ilike.%${clientiQ}%,nome.ilike.%${clientiQ}%,ragione_sociale.ilike.%${clientiQ}%,codice_fiscale.ilike.%${clientiQ}%,partita_iva.ilike.%${clientiQ}%`)
-        .order("cognome", { ascending: true, nullsFirst: false })
-        .limit(25);
-      if (error) throw error;
-      return (data || []).map((c) => ({
-        id: c.id,
-        label: resolveClienteNome(c) || "(senza nome)",
-        description: [c.codice_fiscale || c.partita_iva, c.tipo_cliente].filter(Boolean).join(" · ") || undefined,
-      }));
-    },
+  const { rows: clientiRows = [], isFetching: clientiLoading } = useClienteSearch(clientiSearch, {
+    selectedId: filters.clienteId,
+    onlyAttivi: false,
+    enabled: clientiSearch.trim().length >= 2 || !!filters.clienteId,
   });
+  const clientiHits = clientiRows.map((c) => ({
+    id: c.id,
+    label: clienteSearchLabel(c) || "(senza nome)",
+    description: clienteSearchDescription(c),
+  }));
 
   const { data: sinistriResult } = useQuery({
     queryKey: ["sinistri", tab, debounced, page, sortField, sortDirection],
@@ -244,12 +237,8 @@ export default function SinistriList() {
 
       const term = sanitizePostgrestTerm(debounced.quickSearch);
       if (term) {
-        const [{ data: clientiMatch }, { data: profilesMatch }, { data: titoliMatch }] = await Promise.all([
-          supabase
-            .from("clienti")
-            .select("id")
-            .or(`cognome.ilike.%${term}%,nome.ilike.%${term}%,ragione_sociale.ilike.%${term}%`)
-            .limit(500),
+        const [clientiMatch, { data: profilesMatch }, { data: titoliMatch }] = await Promise.all([
+          fetchClientiSearch(term, { limit: 200, onlyAttivi: false }),
           supabase
             .from("profiles")
             .select("id")

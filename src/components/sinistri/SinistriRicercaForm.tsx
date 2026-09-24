@@ -69,7 +69,7 @@ export function SinistriRicercaForm({
               onChange({ clienteId: id, clienteLabel: hit?.label || "" });
             }}
             placeholder="Cerca cliente…"
-            searchPlaceholder="Digita almeno 2 caratteri…"
+            searchPlaceholder="Nome, più nomi, indirizzo, CF…"
             searchValue={clientiSearch}
             onSearchChange={onClientiSearch}
             serverSideSearch

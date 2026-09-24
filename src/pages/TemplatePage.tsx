@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchClientiSearch } from "@/hooks/useClienteSearch";
 import { toast } from "sonner";
 import { Plus, Edit2, Trash2, Eye, Tag, Mail, Copy, CopyPlus, Search, User, FileText, Send, Palette, Link2 } from "lucide-react";
 import { SendTestEmailDialog } from "@/components/template/SendTestEmailDialog";
@@ -108,14 +109,7 @@ function useClienteSearch(searchTerm: string) {
     queryKey: ["search_clienti", searchTerm],
     queryFn: async () => {
       if (!searchTerm || searchTerm.length < 2) return [];
-      const term = `%${searchTerm}%`;
-      const { data, error } = await supabase
-        .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, codice_fiscale, email, tipo_cliente")
-        .or(`nome.ilike.${term},cognome.ilike.${term},ragione_sociale.ilike.${term},codice_fiscale.ilike.${term}`)
-        .limit(15);
-      if (error) throw error;
-      return (data || []) as ClienteResult[];
+      return (await fetchClientiSearch(searchTerm, { onlyAttivi: false, limit: 15 })) as ClienteResult[];
     },
     enabled: searchTerm.length >= 2,
   });
