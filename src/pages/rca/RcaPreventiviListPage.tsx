@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import ServerPagination from "@/components/ServerPagination";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RcaPageHeader, RcaTableCard, RcaToolbar } from "@/components/rca/RcaPageChrome";
 import { formatScadenzaRca } from "@/lib/rca/clientela";
 import { labelGaranziaAssicurapp } from "@/lib/rca/garanzie";
 import { prodottoLabel, statoPreventivoLabel, type RcaPreventivoRow } from "@/lib/rca/preventivi";
@@ -47,66 +45,74 @@ export default function RcaPreventiviListPage() {
   const pageRows = filtered.slice(range.from, range.to + 1);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Preventivi RCA</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Preventivi preparati in CBnet. Le quotazioni compagnie arriveranno con l’integrazione Assicurapp.
-        </p>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-5">
+      <RcaPageHeader
+        title="Preventivi RCA"
+        subtitle="Preventivi preparati in CBnet. Le quotazioni compagnie arriveranno con l’integrazione Assicurapp."
+      />
 
-      <div className="relative w-full max-w-sm">
-        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Cerca targa, cliente o codice…"
-          className="pl-8"
-        />
-      </div>
+      <RcaToolbar
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder="Cerca targa, cliente o codice…"
+        count={filtered.length}
+        countLabel="preventivi"
+      />
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
+      <RcaTableCard>
+        <Table className="w-full min-w-0 table-fixed" containerClassName="overflow-x-hidden">
+          <colgroup>
+            <col className="w-[14%]" />
+            <col className="w-[24%]" />
+            <col className="w-[14%]" />
+            <col className="w-[26%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="px-3">Targa</TableHead>
+              <TableHead className="px-3">Cliente</TableHead>
+              <TableHead className="px-3">Prodotto</TableHead>
+              <TableHead className="px-3">Garanzie</TableHead>
+              <TableHead className="px-3">Stato</TableHead>
+              <TableHead className="px-3">Creato</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
               <TableRow>
-                <TableHead>Targa</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Prodotto</TableHead>
-                <TableHead>Garanzie</TableHead>
-                <TableHead>Stato</TableHead>
-                <TableHead>Creato</TableHead>
+                <TableCell colSpan={6} className="px-3 py-10 text-center text-muted-foreground">
+                  Caricamento…
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Caricamento…</TableCell>
-                </TableRow>
-              ) : pageRows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                    Nessun preventivo salvato
+            ) : pageRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="px-3 py-10 text-center text-muted-foreground">
+                  Nessun preventivo salvato
+                </TableCell>
+              </TableRow>
+            ) : (
+              pageRows.map((r) => (
+                <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/rca/preventivi/${r.id}`)}>
+                  <TableCell className="px-3 py-2.5 font-mono font-medium">{r.targa}</TableCell>
+                  <TableCell className="truncate px-3 py-2.5">
+                    {String((r.client_snapshot as { display_name?: string })?.display_name || "—")}
                   </TableCell>
+                  <TableCell className="px-3 py-2.5">{prodottoLabel(r.prodotto_code)}</TableCell>
+                  <TableCell className="truncate px-3 py-2.5 text-muted-foreground">
+                    {(r.garanzie_richieste || []).map(labelGaranziaAssicurapp).join(", ") || "—"}
+                  </TableCell>
+                  <TableCell className="px-3 py-2.5">
+                    <Badge variant="secondary">{statoPreventivoLabel(r.stato)}</Badge>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap px-3 py-2.5">{formatScadenzaRca(r.created_at)}</TableCell>
                 </TableRow>
-              ) : (
-                pageRows.map((r) => (
-                  <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/rca/preventivi/${r.id}`)}>
-                    <TableCell className="font-mono font-medium">{r.targa}</TableCell>
-                    <TableCell>{String((r.client_snapshot as { display_name?: string })?.display_name || "—")}</TableCell>
-                    <TableCell>{prodottoLabel(r.prodotto_code)}</TableCell>
-                    <TableCell className="max-w-[280px] truncate text-muted-foreground">
-                      {(r.garanzie_richieste || []).map(labelGaranziaAssicurapp).join(", ") || "—"}
-                    </TableCell>
-                    <TableCell><Badge variant="secondary">{statoPreventivoLabel(r.stato)}</Badge></TableCell>
-                    <TableCell>{formatScadenzaRca(r.created_at)}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </RcaTableCard>
 
       <ServerPagination page={page} pageSize={pageSize} totalCount={filtered.length} onPageChange={setPage} />
     </div>

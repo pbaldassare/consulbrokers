@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RcaPageHeader } from "@/components/rca/RcaPageChrome";
 import { fetchRcaAnalisiContesto } from "@/lib/rca/fetchAnalisi";
 import { GARANZIE_ASSICURAPP, type CodiceGaranziaAssicurapp } from "@/lib/rca/garanzie";
 import {
@@ -38,6 +39,31 @@ function Field({
     <div className={className}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <Input value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: string | number;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <select
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {children}
+      </select>
     </div>
   );
 }
@@ -123,115 +149,168 @@ export default function RcaPreventivoAnalisiPage() {
   });
 
   const needsBersani = form.insuranceType !== "continuita_assicurativa" && form.insuranceType !== "cu14";
+  const actions = (
+    <>
+      <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+        Indietro
+      </Button>
+      <Button type="button" disabled={save.isPending || !form.targa.trim()} onClick={() => save.mutate()}>
+        {save.isPending ? "Salvataggio…" : "Salva e vai alle offerte"}
+      </Button>
+    </>
+  );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Analisi preventivazione</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Dati CBnet del cliente e della polizza. Completa i campi mancanti prima di lanciare le quotazioni.
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{prodottoLabel(form.prodottoCode)}</Badge>
-          {ctx?.numeroPolizza && <Badge variant="outline">Polizza {ctx.numeroPolizza}</Badge>}
-          {form.targa && <Badge variant="outline" className="font-mono">{form.targa}</Badge>}
-        </div>
+    <div className="mx-auto max-w-6xl space-y-5">
+      <RcaPageHeader
+        title="Analisi preventivazione"
+        subtitle="Dati CBnet del cliente e della polizza. Completa i campi mancanti prima di lanciare le quotazioni."
+        actions={actions}
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary">{prodottoLabel(form.prodottoCode)}</Badge>
+        {ctx?.numeroPolizza && <Badge variant="outline">Polizza {ctx.numeroPolizza}</Badge>}
+        {form.targa && (
+          <Badge variant="outline" className="font-mono">
+            {form.targa}
+          </Badge>
+        )}
+        {isLoading && <span className="text-sm text-muted-foreground">Caricamento dati CBnet…</span>}
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Caricamento dati CBnet…</p>}
-
       {missing.length > 0 && (
-        <p className="text-sm text-amber-700">
-          Campi da completare: {missing.join(", ")}. Servono per le compagnie; non aggiorniamo l’anagrafica cliente.
-        </p>
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">Campi da completare</p>
+          <p className="mt-1">{missing.join(", ")}. Servono per le compagnie; non aggiorniamo l’anagrafica cliente.</p>
+        </div>
       )}
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Cliente</CardTitle></CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          <Field label="Nome" value={form.name} onChange={(v) => patch({ name: v.toUpperCase() })} />
-          <Field label="Cognome / Ragione sociale" value={form.surname} onChange={(v) => patch({ surname: v.toUpperCase() })} />
-          <Field label="Codice fiscale / P.IVA" value={form.cf} onChange={(v) => patch({ cf: v.toUpperCase() })} />
-          <Field label="Sesso (M/F)" value={form.gender} onChange={(v) => patch({ gender: v.toUpperCase() })} />
-          <Field label="Cellulare" value={form.phone} onChange={(v) => patch({ phone: v })} />
-          <Field label="Email" value={form.email} onChange={(v) => patch({ email: v })} />
-          <Field label="Via" value={form.address} onChange={(v) => patch({ address: v.toUpperCase() })} className="md:col-span-2" />
-          <Field label="Civico" value={form.houseNum} onChange={(v) => patch({ houseNum: v.toUpperCase() })} />
-          <Field label="CAP" value={form.zip} onChange={(v) => patch({ zip: v })} />
-          <Field label="Comune" value={form.city} onChange={(v) => patch({ city: v })} />
-          <Field label="Provincia" value={form.province} onChange={(v) => patch({ province: v.toUpperCase() })} />
-        </CardContent>
-      </Card>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Cliente</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            <Field label="Nome" value={form.name} onChange={(v) => patch({ name: v.toUpperCase() })} />
+            <Field
+              label="Cognome / Ragione sociale"
+              value={form.surname}
+              onChange={(v) => patch({ surname: v.toUpperCase() })}
+            />
+            <Field
+              label="Codice fiscale / P.IVA"
+              value={form.cf}
+              onChange={(v) => patch({ cf: v.toUpperCase() })}
+            />
+            <Field label="Sesso (M/F)" value={form.gender} onChange={(v) => patch({ gender: v.toUpperCase() })} />
+            <Field label="Cellulare" value={form.phone} onChange={(v) => patch({ phone: v })} />
+            <Field label="Email" value={form.email} onChange={(v) => patch({ email: v })} />
+            <Field
+              label="Via"
+              value={form.address}
+              onChange={(v) => patch({ address: v.toUpperCase() })}
+              className="sm:col-span-2"
+            />
+            <Field label="Civico" value={form.houseNum} onChange={(v) => patch({ houseNum: v.toUpperCase() })} />
+            <Field label="CAP" value={form.zip} onChange={(v) => patch({ zip: v })} />
+            <Field label="Comune" value={form.city} onChange={(v) => patch({ city: v })} />
+            <Field
+              label="Provincia"
+              value={form.province}
+              onChange={(v) => patch({ province: v.toUpperCase() })}
+            />
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Veicolo</CardTitle></CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          <Field label="Targa" value={form.targa} onChange={(v) => patch({ targa: v.toUpperCase() })} />
-          <Field label="Marca" value={form.brand} onChange={(v) => patch({ brand: v.toUpperCase() })} />
-          <Field label="Modello" value={form.model} onChange={(v) => patch({ model: v.toUpperCase() })} />
-          <Field label="Valore veicolo €" value={form.value} onChange={(v) => patch({ value: v })} />
-          <div className="flex items-center gap-2 pt-6">
-            <Checkbox checked={form.sat} onCheckedChange={(v) => patch({ sat: !!v })} id="sat" />
-            <Label htmlFor="sat">Antifurto satellitare</Label>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="space-y-5">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Veicolo</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <Field label="Targa" value={form.targa} onChange={(v) => patch({ targa: v.toUpperCase() })} />
+              <Field label="Valore veicolo €" value={form.value} onChange={(v) => patch({ value: v })} />
+              <Field label="Marca" value={form.brand} onChange={(v) => patch({ brand: v.toUpperCase() })} />
+              <Field label="Modello" value={form.model} onChange={(v) => patch({ model: v.toUpperCase() })} />
+              <label className="flex items-center gap-2 pt-6 text-sm sm:col-span-2">
+                <Checkbox checked={form.sat} onCheckedChange={(v) => patch({ sat: !!v })} id="sat" />
+                Antifurto satellitare
+              </label>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Situazione assicurativa</CardTitle></CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          <div>
-            <Label className="text-xs text-muted-foreground">Tipo</Label>
-            <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={form.insuranceType}
-              onChange={(e) => patch({ insuranceType: e.target.value as RcaPreventivoForm["insuranceType"] })}
-            >
-              {INSURANCE_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Guida</Label>
-            <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={form.drivingType}
-              onChange={(e) => patch({ drivingType: e.target.value as "Esperta" | "Libera" })}
-            >
-              <option value="Esperta">Esperta</option>
-              <option value="Libera">Libera</option>
-            </select>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Frazionamento</Label>
-            <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={form.fractionation}
-              onChange={(e) => patch({ fractionation: Number(e.target.value) as 1 | 2 })}
-            >
-              <option value={1}>Annuale</option>
-              <option value={2}>Semestrale</option>
-            </select>
-          </div>
-          <Field label="Compagnia attuale" value={form.currentProvider} onChange={(v) => patch({ currentProvider: v })} />
-          <Field label="Scadenza polizza (GG/MM/AAAA)" value={form.insuranceExpire} onChange={(v) => patch({ insuranceExpire: v })} />
-          {needsBersani && (
-            <>
-              <Field label="Targa agevolante" value={form.bersaniPlate} onChange={(v) => patch({ bersaniPlate: v.toUpperCase() })} />
-              {form.insuranceType === "bersani_familiare" && (
-                <Field label="CF familiare" value={form.bersaniCf} onChange={(v) => patch({ bersaniCf: v.toUpperCase() })} />
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Situazione assicurativa</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <SelectField
+                label="Tipo"
+                value={form.insuranceType}
+                onChange={(v) => patch({ insuranceType: v as RcaPreventivoForm["insuranceType"] })}
+              >
+                {INSURANCE_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField
+                label="Guida"
+                value={form.drivingType}
+                onChange={(v) => patch({ drivingType: v as "Esperta" | "Libera" })}
+              >
+                <option value="Esperta">Esperta</option>
+                <option value="Libera">Libera</option>
+              </SelectField>
+              <SelectField
+                label="Frazionamento"
+                value={form.fractionation}
+                onChange={(v) => patch({ fractionation: Number(v) as 1 | 2 })}
+              >
+                <option value={1}>Annuale</option>
+                <option value={2}>Semestrale</option>
+              </SelectField>
+              <Field
+                label="Compagnia attuale"
+                value={form.currentProvider}
+                onChange={(v) => patch({ currentProvider: v })}
+              />
+              <Field
+                label="Scadenza polizza (GG/MM/AAAA)"
+                value={form.insuranceExpire}
+                onChange={(v) => patch({ insuranceExpire: v })}
+              />
+              {needsBersani && (
+                <Field
+                  label="Targa agevolante"
+                  value={form.bersaniPlate}
+                  onChange={(v) => patch({ bersaniPlate: v.toUpperCase() })}
+                />
               )}
-            </>
-          )}
-          <Field label="Note interne" value={form.note} onChange={(v) => patch({ note: v })} className="md:col-span-3" />
-        </CardContent>
-      </Card>
+              {form.insuranceType === "bersani_familiare" && (
+                <Field
+                  label="CF familiare"
+                  value={form.bersaniCf}
+                  onChange={(v) => patch({ bersaniCf: v.toUpperCase() })}
+                />
+              )}
+              <Field
+                label="Note interne"
+                value={form.note}
+                onChange={(v) => patch({ note: v })}
+                className="sm:col-span-2"
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Garanzie richieste</CardTitle>
-          <p className="text-sm text-muted-foreground font-normal">
+          <p className="text-sm font-normal text-muted-foreground">
             Precompilate dalla polizza CBnet. Puoi aggiungere o togliere prima della quotazione.
           </p>
         </CardHeader>
@@ -248,11 +327,8 @@ export default function RcaPreventivoAnalisiPage() {
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" onClick={() => navigate(-1)}>Indietro</Button>
-        <Button type="button" disabled={save.isPending || !form.targa.trim()} onClick={() => save.mutate()}>
-          {save.isPending ? "Salvataggio…" : "Salva e vai alle offerte"}
-        </Button>
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 border-t bg-background/95 py-3 backdrop-blur">
+        {actions}
       </div>
     </div>
   );
