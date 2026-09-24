@@ -58,6 +58,7 @@ import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePoli
 import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
 import { DuplicaPolizzaDialog } from "@/components/polizze/azioni/DuplicaPolizzaDialog";
+import { isDuplicaSorgentePolizza } from "@/lib/duplicaTitolo";
 import { AppendiceDialog } from "@/components/polizze/azioni/AppendiceDialog";
 import { CaricaDocDialog } from "@/components/polizze/azioni/CaricaDocDialog";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/SearchableSelect";
@@ -108,7 +109,7 @@ const OPERAZIONI: Operazione[] = [
   { key: "appendice", label: "Appendice", icon: FileEdit, descrizione: "Aggiungi un'appendice", statiFiltro: ["attivo"] },
   { key: "storno", label: "Storno", icon: Ban, descrizione: "Storna premio e quietanze", statiFiltro: ["attivo"] },
   // { key: "rinnovo", ... } — nascosta su richiesta utente (i rinnovi si gestiscono da pagina dedicata)
-  { key: "duplica", label: "Duplica", icon: Copy, descrizione: "Copia dati tecnici", statiFiltro: [] },
+  { key: "duplica", label: "Duplica", icon: Copy, descrizione: "Copia una polizza (non le quietanze)", statiFiltro: [] },
   { key: "sostituzione", label: "Sostituzione", icon: Replace, descrizione: "Sostituisci polizza/numero", statiFiltro: ["attivo"] },
   { key: "sospensione", label: "Sospensione", icon: PauseCircle, descrizione: "Sospendi temporaneamente", statiFiltro: ["attivo"] },
   { key: "riattivazione", label: "Riattivazione", icon: PlayCircle, descrizione: "Riattiva polizza sospesa", statiFiltro: ["sospeso"] },
@@ -318,7 +319,12 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
         q = q.or(`cliente_id.eq.${clienteId},cliente_anagrafica_id.eq.${clienteId}`);
       }
       if (compagniaId) q = q.eq("compagnia_id", compagniaId);
-      if (debouncedSearch) {
+      // Duplica: solo polizze madre, mai quietanze/regolazioni
+      if (opKey === "duplica") {
+        q = q.is("sostituisce_polizza", null);
+        q = q.eq("is_regolazione", false);
+      }
+      if (debouncedSearch && opKey !== "duplica") {
         const s = debouncedSearch;
         q = q.or(
           `numero_titolo.ilike.%${s}%,cliente_nome_display.ilike.%${s}%,compagnia_nome.ilike.%${s}%`,
@@ -352,7 +358,11 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
     },
   });
 
-  const polizze = result?.rows ?? [];
+  const polizze = useMemo(() => {
+    const rows = result?.rows ?? [];
+    if (opKey !== "duplica") return rows;
+    return rows.filter((p: any) => isDuplicaSorgentePolizza(p));
+  }, [result?.rows, opKey]);
   const totalCount = result?.count ?? 0;
   const cigMap = result?.cigMap ?? {};
   const regMap = (result as any)?.regMap ?? {};
@@ -391,6 +401,10 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
     }
     if (!canTitoli) {
       toast.error("Permesso 'titoli' mancante");
+      return;
+    }
+    if (operazione.key === "duplica" && !isDuplicaSorgentePolizza(row)) {
+      toast.error("La duplica riguarda solo le polizze, non le quietanze");
       return;
     }
     const t = { id: row.id, numero: row.numero_titolo || row.id.slice(0, 8) };
@@ -592,7 +606,7 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
       {operazione && (
         <>
           <PolizzaSection title={forcedOp ? "Filtra polizza" : "2. Filtra polizza"} icon={Filter} defaultOpen>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className={`grid grid-cols-1 ${opKey === "duplica" ? "" : "md:grid-cols-2"} gap-3`}>
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
                 <ClienteSearchSelect
@@ -604,6 +618,7 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
                   clearLabel="— Tutti —"
                 />
               </div>
+              {opKey !== "duplica" && (
               <div className="space-y-1.5">
                 <Label>N° polizza</Label>
                 <div className="relative">
@@ -617,6 +632,7 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
                   />
                 </div>
               </div>
+              )}
             </div>
           </PolizzaSection>
 
@@ -624,8 +640,14 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
 
           <PolizzaSection title={forcedOp ? `Risultati — ${operazione.label}` : `3. Risultati — ${operazione.label}`} icon={operazione.icon} defaultOpen>
             <div className="mb-3 text-sm text-muted-foreground bg-teal-50 border border-teal-200 rounded-md px-3 py-2">
+              {opKey === "duplica" ? (
+                <>👉 Solo polizze (non quietanze). Clicca <strong>"Esegui Duplica"</strong> sulla riga per copiare i dati tecnici.</>
+              ) : (
+                <>
               👉 Trova la polizza nella tabella e clicca <strong>"{operazione.key === "appendice" ? "Crea" : "Esegui"} {operazione.label}"</strong> sulla riga
               (colonna a destra, sempre visibile) per aprire il dialog e salvare l'operazione in database.
+                </>
+              )}
             </div>
             <Card>
               <CardContent className="p-0">
@@ -714,7 +736,7 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
                             >
                               {p.numero_titolo || p.id.slice(0, 8)}
                             </button>
-                            {p.is_regolazione ? (
+                            {opKey !== "duplica" && (p.is_regolazione ? (
                               <Badge className="ml-1 text-[10px] bg-orange-500 hover:bg-orange-600 text-white">
                                 regolazione
                               </Badge>
@@ -722,7 +744,7 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
                               <Badge variant="outline" className="ml-1 text-[10px]">
                                 quietanza
                               </Badge>
-                            )}
+                            ))}
                           </TableCell>
                           <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                           <TableCell>{p.compagnia_nome || "—"}</TableCell>

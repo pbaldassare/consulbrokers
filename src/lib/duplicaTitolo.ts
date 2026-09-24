@@ -1,3 +1,11 @@
+/** True se il titolo è una polizza duplicabile (non quietanza, non regolazione). */
+export function isDuplicaSorgentePolizza(src: {
+  sostituisce_polizza?: unknown;
+  is_regolazione?: unknown;
+}): boolean {
+  return !src.sostituisce_polizza && !src.is_regolazione;
+}
+
 /** Colonne `titoli` da non clonare in Duplica (identificativi, date da reinserire, stati). */
 export const TITOLI_DUPLICA_DROP_KEYS = new Set<string>([
   "id",

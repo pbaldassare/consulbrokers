@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDuplicaTitoloPayload } from "../duplicaTitolo";
+import { buildDuplicaTitoloPayload, isDuplicaSorgentePolizza } from "../duplicaTitolo";
 
 describe("buildDuplicaTitoloPayload", () => {
   const src = {
@@ -36,5 +36,17 @@ describe("buildDuplicaTitoloPayload", () => {
     expect(payload.id).toBeUndefined();
     expect(payload.cig).toBeUndefined();
     expect(payload.data_messa_cassa).toBeUndefined();
+  });
+});
+
+describe("isDuplicaSorgentePolizza", () => {
+  it("accetta solo polizze madre", () => {
+    expect(isDuplicaSorgentePolizza({ sostituisce_polizza: null, is_regolazione: false })).toBe(true);
+    expect(isDuplicaSorgentePolizza({})).toBe(true);
+  });
+
+  it("rifiuta quietanze e regolazioni", () => {
+    expect(isDuplicaSorgentePolizza({ sostituisce_polizza: "weewww" })).toBe(false);
+    expect(isDuplicaSorgentePolizza({ is_regolazione: true })).toBe(false);
   });
 });

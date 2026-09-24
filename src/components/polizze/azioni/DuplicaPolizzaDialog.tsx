@@ -9,7 +9,7 @@ import { Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { logAttivita } from "@/lib/logAttivita";
-import { buildDuplicaTitoloPayload } from "@/lib/duplicaTitolo";
+import { buildDuplicaTitoloPayload, isDuplicaSorgentePolizza } from "@/lib/duplicaTitolo";
 
 interface Props {
   open: boolean;
@@ -54,6 +54,9 @@ export const DuplicaPolizzaDialog = ({ open, onOpenChange, titoloId, numeroPoliz
         .eq("id", titoloId)
         .maybeSingle();
       if (errSrc || !src) throw errSrc || new Error("Polizza sorgente non trovata");
+      if (!isDuplicaSorgentePolizza(src as { sostituisce_polizza?: unknown; is_regolazione?: unknown })) {
+        throw new Error("Si possono duplicare solo le polizze, non le quietanze");
+      }
 
       const payload = buildDuplicaTitoloPayload(src as Record<string, unknown>, {
         numero,
