@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.idguard-webhook]
 verify_jwt = false
+
+[functions.assicurapp-rca]
+verify_jwt = false

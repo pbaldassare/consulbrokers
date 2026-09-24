@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { RcaPageHeader } from "@/components/rca/RcaPageChrome";
 import { fetchRcaAnalisiContesto } from "@/lib/rca/fetchAnalisi";
 import { GARANZIE_ASSICURAPP, type CodiceGaranziaAssicurapp } from "@/lib/rca/garanzie";
+import { selectedCvtsFromGaranzie } from "@/lib/rca/assicurapp";
 import {
   INSURANCE_TYPES,
   applyVeicoloEGaranzie,
@@ -124,7 +125,7 @@ export default function RcaPreventivoAnalisiPage() {
         driving_type: form.drivingType,
         fractionation: form.fractionation,
         garanzie_richieste: form.garanzie,
-        selected_cvts: [],
+        selected_cvts: selectedCvtsFromGaranzie(form.garanzie),
         bersani_plate: form.bersaniPlate.trim().toUpperCase() || null,
         bersani_cf: form.bersaniCf.trim().toUpperCase() || null,
         client_snapshot: snaps.client_snapshot,
@@ -142,7 +143,7 @@ export default function RcaPreventivoAnalisiPage() {
       return data.id as string;
     },
     onSuccess: (id) => {
-      toast.success("Preventivo salvato. La quotazione Assicurapp arriverà nel passo successivo.");
+      toast.success("Preventivo salvato. Avvio le quotazioni compagnie.");
       navigate(`/rca/preventivi/${id}`);
     },
     onError: (err: Error) => toast.error(err.message || "Errore salvataggio preventivo"),

@@ -1,11 +1,21 @@
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RcaPageHeader } from "@/components/rca/RcaPageChrome";
+import {
+  extractPremioOfferta,
+  formatEuroPremio,
+  hasPendingAssicurappOffers,
+  labelStatoOfferta,
+  type AssicurappOffer,
+} from "@/lib/rca/assicurapp";
+import { invokeAssicurappRca } from "@/lib/rca/invokeAssicurapp";
 import { labelGaranziaAssicurapp } from "@/lib/rca/garanzie";
 import {
   INSURANCE_TYPES,
@@ -13,6 +23,9 @@ import {
   statoPreventivoLabel,
   type RcaPreventivoRow,
 } from "@/lib/rca/preventivi";
+
+const POLL_MS = 18_000;
+const POLL_MAX = 100;
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -26,6 +39,9 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 export default function RcaPreventivoDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [pollCount, setPollCount] = useState(0);
+  const startedRef = useRef(false);
 
   const { data: row, isLoading, error } = useQuery({
     queryKey: ["rca-preventivo", id],
@@ -40,6 +56,46 @@ export default function RcaPreventivoDetailPage() {
       return data as RcaPreventivoRow;
     },
   });
+
+  const refresh = (next: RcaPreventivoRow) => {
+    queryClient.setQueryData(["rca-preventivo", id], next);
+    queryClient.invalidateQueries({ queryKey: ["rca-preventivi"] });
+  };
+
+  const quota = useMutation({
+    mutationFn: async (azione: "quota" | "poll") => {
+      if (!id) throw new Error("Preventivo assente");
+      return invokeAssicurappRca(azione, id);
+    },
+    onSuccess: (res) => {
+      if (res.preventivo) refresh(res.preventivo);
+      if (res.pending) {
+        toast.message("Quotazioni in corso: le compagnie rispondono in 15–20 secondi, fino a 30 minuti.");
+      } else if ((res.offerte || []).length > 0) {
+        toast.success("Offerte aggiornate");
+      }
+    },
+    onError: (err: Error) => toast.error(err.message || "Errore quotazione Assicurapp"),
+  });
+
+  useEffect(() => {
+    if (!id || !row || startedRef.current) return;
+    if (row.stato === "salvato") return;
+    startedRef.current = true;
+    quota.mutate(row.quote_uid ? "poll" : "quota");
+  }, [id, row]);
+
+  useEffect(() => {
+    if (!row?.quote_uid) return;
+    const offerte = (Array.isArray(row.offerte_snapshot) ? row.offerte_snapshot : []) as AssicurappOffer[];
+    const pending = hasPendingAssicurappOffers(offerte) || row.stato === "in_quotazione";
+    if (!pending || pollCount >= POLL_MAX) return;
+    const t = window.setTimeout(() => {
+      setPollCount((n) => n + 1);
+      quota.mutate("poll");
+    }, POLL_MS);
+    return () => window.clearTimeout(t);
+  }, [row?.quote_uid, row?.stato, row?.offerte_snapshot, pollCount]);
 
   if (isLoading) {
     return (
@@ -62,8 +118,9 @@ export default function RcaPreventivoDetailPage() {
   const client = row.client_snapshot as Record<string, any>;
   const vehicle = row.vehicle_snapshot as Record<string, any>;
   const quote = row.quote_snapshot as Record<string, any>;
-  const offerte = Array.isArray(row.offerte_snapshot) ? row.offerte_snapshot : [];
+  const offerte = (Array.isArray(row.offerte_snapshot) ? row.offerte_snapshot : []) as AssicurappOffer[];
   const tipoLabel = INSURANCE_TYPES.find((t) => t.value === row.insurance_type)?.label || row.insurance_type;
+  const pending = hasPendingAssicurappOffers(offerte) || row.stato === "in_quotazione";
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -80,6 +137,17 @@ export default function RcaPreventivoDetailPage() {
                 Apri polizza
               </Button>
             )}
+            <Button
+              type="button"
+              disabled={quota.isPending}
+              onClick={() => quota.mutate(row.quote_uid ? "poll" : "quota")}
+            >
+              {quota.isPending
+                ? "Aggiorno…"
+                : row.quote_uid
+                  ? "Aggiorna offerte"
+                  : "Lancia quotazioni"}
+            </Button>
           </>
         }
       />
@@ -88,6 +156,7 @@ export default function RcaPreventivoDetailPage() {
         <Badge variant="secondary">{statoPreventivoLabel(row.stato)}</Badge>
         <Badge variant="outline">{tipoLabel}</Badge>
         {row.quote_uid && <Badge variant="outline">UID {row.quote_uid}</Badge>}
+        {pending && <Badge variant="outline">Polling ogni 18s</Badge>}
       </div>
 
       <div className="grid gap-5 md:grid-cols-2">
@@ -130,47 +199,48 @@ export default function RcaPreventivoDetailPage() {
         <CardHeader>
           <CardTitle className="text-base">Offerte compagnie</CardTitle>
           <p className="text-sm font-normal text-muted-foreground">
-            Le quotazioni non partono ancora: il passo Assicurapp lo colleghiamo dopo. I dati di questa scheda
-            sono già pronti per quella chiamata.
+            {pending
+              ? "Le compagnie stanno rispondendo. Mostriamo subito quelle pronte e aggiorniamo il resto."
+              : offerte.length === 0
+                ? "Nessuna offerta ancora. Premi «Lancia quotazioni» se il preventivo è pronto."
+                : "Quotazioni ricevute. Puoi aggiornare se una compagnia era ancora in corso."}
           </p>
         </CardHeader>
         <CardContent className="p-0">
-            <Table className="w-full min-w-0 table-fixed" containerClassName="overflow-x-hidden">
-              <colgroup>
-                <col className="w-[28%]" />
-                <col className="w-[18%]" />
-                <col className="w-[18%]" />
-                <col className="w-[36%]" />
-              </colgroup>
-              <TableHeader>
+          <Table className="w-full min-w-0 table-fixed" containerClassName="overflow-x-hidden">
+            <colgroup>
+              <col className="w-[28%]" />
+              <col className="w-[18%]" />
+              <col className="w-[18%]" />
+              <col className="w-[36%]" />
+            </colgroup>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="px-3">Compagnia</TableHead>
+                <TableHead className="px-3">Stato</TableHead>
+                <TableHead className="px-3">Premio rata</TableHead>
+                <TableHead className="px-3">Note</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {offerte.length === 0 ? (
                 <TableRow>
-                  <TableHead className="px-3">Compagnia</TableHead>
-                  <TableHead className="px-3">Stato</TableHead>
-                  <TableHead className="px-3">Premio rata</TableHead>
-                  <TableHead className="px-3">Note</TableHead>
+                  <TableCell colSpan={4} className="px-3 py-10 text-center text-muted-foreground">
+                    {quota.isPending ? "Avvio quotazione Assicurapp…" : "Nessuna offerta."}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {offerte.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="px-3 py-10 text-center text-muted-foreground">
-                      Nessuna offerta. Quando collegheremo l’API compariranno qui.
-                    </TableCell>
+              ) : (
+                offerte.map((o, i) => (
+                  <TableRow key={String(o.id || o.company_slug || i)}>
+                    <TableCell className="px-3 py-2.5">{o.label || o.company_slug || "—"}</TableCell>
+                    <TableCell className="px-3 py-2.5">{labelStatoOfferta(o.status)}</TableCell>
+                    <TableCell className="px-3 py-2.5">{formatEuroPremio(extractPremioOfferta(o.prices))}</TableCell>
+                    <TableCell className="px-3 py-2.5 text-muted-foreground">{o.notes || "—"}</TableCell>
                   </TableRow>
-                ) : (
-                  offerte.map((o: any, i: number) => (
-                    <TableRow key={o.id || i}>
-                      <TableCell className="px-3 py-2.5">{o.label || o.company_slug || "—"}</TableCell>
-                      <TableCell className="px-3 py-2.5">{o.status || "—"}</TableCell>
-                      <TableCell className="px-3 py-2.5">
-                        {o.prices?.total_gross != null ? `€ ${o.prices.total_gross}` : "—"}
-                      </TableCell>
-                      <TableCell className="px-3 py-2.5 text-muted-foreground">{o.notes || "—"}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>
