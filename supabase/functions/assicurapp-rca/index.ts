@@ -306,7 +306,7 @@ Deno.serve(async (req) => {
       { token: cfg.token, baseUrl: cfg.baseUrl },
     );
     const offerte = offersRes.quotes || [];
-    const stato = deriveStato(offerte, quoteUid);
+    const stato = row.stato === "salvato" ? "salvato" : deriveStato(offerte, quoteUid);
     const cvts = Array.isArray(row.selected_cvts) && row.selected_cvts.length
       ? row.selected_cvts
       : selectedCvtsFromGaranzie(row.garanzie_richieste);
