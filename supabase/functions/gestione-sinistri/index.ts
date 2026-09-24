@@ -485,12 +485,14 @@ Deno.serve(async (req) => {
       if (error) throw error;
 
       if (prev.stato !== "bozza") {
-        await supabase.from("sinistro_eventi").insert({
+        const { error: evErr } = await supabase.from("sinistro_eventi").insert({
           sinistro_id,
           tipo_evento: "modifica_dati",
+          data_scadenza: new Date().toISOString().split("T")[0],
           stato: "completato",
           note: `Aggiornamento dati pratica${prev.numero_sinistro ? ` — ${prev.numero_sinistro}` : ""}`,
         });
+        if (evErr) throw evErr;
       }
 
       if (user_id) {
@@ -725,49 +727,25 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const stato_precedente = prev?.stato ?? null;
 
-      if (nuovo_stato === "chiuso") {
-        const { data: checklistPending } = await supabase
-          .from("sinistro_checklist")
-          .select("id")
-          .eq("sinistro_id", sinistro_id)
-          .eq("obbligatorio", true)
-          .eq("completato", false);
-
-        if (checklistPending && checklistPending.length > 0) {
-          return new Response(JSON.stringify({
-            success: false,
-            error: `Impossibile chiudere: ${checklistPending.length} checklist obbligatorie non completate`,
-          }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-
-        const { data: eventiAttivi } = await supabase
-          .from("sinistro_eventi")
-          .select("id")
-          .eq("sinistro_id", sinistro_id)
-          .eq("stato", "attivo");
-
-        if (eventiAttivi && eventiAttivi.length > 0) {
-          return new Response(JSON.stringify({
-            success: false,
-            error: `Impossibile chiudere: ${eventiAttivi.length} eventi ancora attivi`,
-          }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-      }
-
+      // La chiusura è una decisione di pratica: non bloccare su checklist/eventi
+      // (le voci default restano spesso incomplete; il gate produceva 400 e toast generico).
+      const oggi = new Date().toISOString().split("T")[0];
       const updateData: Record<string, unknown> = { stato: nuovo_stato, updated_at: new Date().toISOString() };
-      if (nuovo_stato === "chiuso") updateData.data_chiusura = new Date().toISOString().split("T")[0];
+      if (nuovo_stato === "chiuso") updateData.data_chiusura = oggi;
       else updateData.data_chiusura = null;
 
       const { error } = await supabase.from("sinistri").update(updateData).eq("id", sinistro_id);
       if (error) throw error;
 
-      // Evento timeline
-      await supabase.from("sinistro_eventi").insert({
+      // Evento timeline — data_scadenza è NOT NULL su sinistro_eventi
+      const { error: evErr } = await supabase.from("sinistro_eventi").insert({
         sinistro_id,
         tipo_evento: "cambio_stato",
+        data_scadenza: oggi,
         stato: "completato",
         note: `Stato ${stato_precedente ?? "—"} → ${nuovo_stato}${note ? ` · ${note}` : ""}`,
       });
+      if (evErr) throw evErr;
 
       // Log attività
       await supabase.from("log_attivita").insert({

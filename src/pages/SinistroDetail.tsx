@@ -34,6 +34,7 @@ import {
   SINISTRO_STATI,
   SINISTRO_STATO_BADGE,
 } from "@/lib/sinistriStati";
+import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
 
 const SINISTRO_TABS_BASE = ["dati", "checklist", "eventi", "prescrizioni", "documenti", "chat", "note_interne", "timeline"] as const;
 
@@ -171,8 +172,10 @@ export default function SinistroDetail() {
       const { data, error } = await supabase.functions.invoke("gestione-sinistri", {
         body: { azione: "cambia_stato", sinistro_id: id, nuovo_stato: nuovo, user_id: user?.id, note: note || undefined },
       });
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+      const payload = data as { success?: boolean; error?: string } | null;
+      if (error || payload?.success === false || payload?.error) {
+        throw new Error(formatEdgeFunctionError(error, payload));
+      }
       toast.success(`Stato aggiornato a "${labelStatoSinistro(nuovo)}"`);
       setStatoTarget("");
       setStatoNote("");
