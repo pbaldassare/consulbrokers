@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import { resolveProfileAfterFetch, shouldRefetchProfileOnAuthEvent } from "@/lib/authProfile";
 import { isSedeSistemaRole } from "@/lib/sistemaSede";
 
 export interface UserProfile {
@@ -20,6 +21,8 @@ export interface UserProfile {
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
+  /** true solo se la riga `profiles` manca davvero (non su errore rete). */
+  profileMissing: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
   hasPermission: (key: string) => boolean;
@@ -29,6 +32,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
+  profileMissing: false,
   loading: true,
   signOut: async () => {},
   hasPermission: () => false,
@@ -40,6 +44,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileMissing, setProfileMissing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -49,12 +54,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .eq("id", userId)
       .maybeSingle();
 
-    if (!error && data) {
-      setProfile(data as UserProfile);
-    } else {
-      if (error) console.error("[AuthContext] fetchProfile error:", error);
-      setProfile(null);
-    }
+    if (error) console.error("[AuthContext] fetchProfile error:", error);
+    setProfile((current) => {
+      const next = resolveProfileAfterFetch(current, data as UserProfile | null, error);
+      setProfileMissing(next.confirmedMissing);
+      return next.profile;
+    });
     setLoading(false);
   };
 
@@ -64,18 +69,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (_event === "SIGNED_OUT") {
           setUser(null);
           setProfile(null);
+          setProfileMissing(false);
           setLoading(false);
           return;
         }
         const currentUser = session?.user ?? null;
         setUser(currentUser);
-        if (currentUser) {
-          // Defer to avoid deadlock with Supabase auth callbacks
-          setTimeout(() => fetchProfile(currentUser.id), 0);
-        } else {
+        if (!currentUser) {
           setProfile(null);
+          setProfileMissing(false);
           setLoading(false);
+          return;
         }
+        // TOKEN_REFRESHED (anche da getUser/upload) non deve rifetchare il profilo:
+        // un errore transitorio azzerava profile e AuthGuard faceva signOut.
+        if (!shouldRefetchProfileOnAuthEvent(_event)) return;
+        setTimeout(() => fetchProfile(currentUser.id), 0);
       }
     );
 
@@ -86,6 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           supabase.auth.signOut().finally(() => {
             setUser(null);
             setProfile(null);
+            setProfileMissing(false);
             setLoading(false);
           });
           return;
@@ -134,7 +144,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, hasPermission, isAdmin }}>
+    <AuthContext.Provider value={{ user, profile, profileMissing, loading, signOut, hasPermission, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

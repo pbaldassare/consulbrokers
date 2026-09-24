@@ -8,7 +8,8 @@ export const logAttivita = async (params: {
   severity?: "info" | "warning" | "critical";
   ufficio_id?: string;
 }) => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return;
 
   // Auto-resolve ufficio_id from profile if not provided

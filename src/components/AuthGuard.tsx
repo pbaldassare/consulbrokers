@@ -7,17 +7,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { getDefaultRoute } from "@/lib/getDefaultRoute";
 
 const AuthGuard = ({ children }: { children: ReactNode }) => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, profileMissing, loading } = useAuth();
   const location = useLocation();
 
-  // Profilo zombie (utente loggato ma profilo non recuperabile) → forza signOut
+  // Solo se la riga profiles manca davvero. Un fetch fallito (es. durante upload)
+  // non deve buttare fuori l'utente.
   useEffect(() => {
-    if (!loading && user && !profile) {
+    if (!loading && user && profileMissing) {
       console.warn("[AuthGuard] User without profile, signing out");
       toast.error("Sessione non valida", { description: "Effettua nuovamente l'accesso." });
       supabase.auth.signOut();
     }
-  }, [loading, user, profile]);
+  }, [loading, user, profileMissing]);
 
   if (loading) {
     return (
@@ -28,7 +29,13 @@ const AuthGuard = ({ children }: { children: ReactNode }) => {
   }
 
   if (!user) return <Navigate to="/login" replace />;
-  if (!profile) return <Navigate to="/login" replace />;
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   // Redirect clients to portal if trying to access gestionale
   if (profile.ruolo === "cliente" && !location.pathname.startsWith("/cliente")) {

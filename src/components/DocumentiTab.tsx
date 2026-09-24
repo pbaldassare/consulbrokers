@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -131,6 +132,7 @@ export default function DocumentiTab({
   appendiciAllegati,
 }: DocumentiTabProps) {
   const qc = useQueryClient();
+  const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingDocumentFile[]>([]);
@@ -309,7 +311,13 @@ export default function DocumentiTab({
     let ok = 0;
     let fail = 0;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id
+        ?? (await supabase.auth.getSession()).data.session?.user?.id
+        ?? null;
+      if (!userId) {
+        toast.error("Sessione scaduta: effettua di nuovo l'accesso");
+        return;
+      }
       for (const item of pendingFiles) {
         setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "uploading", error: undefined }));
         try {
@@ -323,7 +331,7 @@ export default function DocumentiTab({
             bucket_name: bucket,
             entita_tipo: entitaTipo,
             entita_id: uploadEntitaId,
-            caricato_da: user?.id,
+            caricato_da: userId,
             visibile_al_cliente: item.visibileAlCliente,
           });
           if (insertErr) throw insertErr;

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown, X, List, SlidersHorizontal, Archive, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown, X, List, SlidersHorizontal, Archive } from "lucide-react";
 import { toast } from "sonner";
 import { exportSinistriXlsx } from "@/lib/exportSinistriXlsx";
 import { fetchTitoloIdsByTarga } from "@/lib/sinistriTargaLookup";
@@ -47,11 +47,71 @@ const EXPORT_PAGE = 1000;
 
 type RamoRicerca = { id: string; label: string; descrizione?: string | null; codice?: string | null; gruppo?: string | null };
 
-async function applySinistriListFilters<T>(
+type SinistriFilterLookups = {
+  polizzaTitoloIds: string[] | null;
+  targaTitoloIds: string[] | null;
+  ramoTitoloIds: string[] | null;
+  quickClienteIds: string[];
+  quickResponsabileIds: string[];
+  quickTitoloIds: string[];
+};
+
+/** Lookup async: NON restituire mai il query builder da una funzione async (è thenable e `await` lo esegue). */
+async function loadSinistriFilterLookups(
+  filters: SinistriListFilters,
+): Promise<SinistriFilterLookups> {
+  const lookups: SinistriFilterLookups = {
+    polizzaTitoloIds: null,
+    targaTitoloIds: null,
+    ramoTitoloIds: null,
+    quickClienteIds: [],
+    quickResponsabileIds: [],
+    quickTitoloIds: [],
+  };
+
+  const polizza = sanitizePostgrestTerm(filters.polizza);
+  if (polizza) {
+    const { data } = await supabase
+      .from("titoli")
+      .select("id")
+      .ilike("numero_titolo", `%${polizza}%`)
+      .limit(200);
+    lookups.polizzaTitoloIds = (data || []).map((t) => t.id);
+  }
+
+  if (filters.targa.trim()) {
+    lookups.targaTitoloIds = await fetchTitoloIdsByTarga(filters.targa);
+  }
+
+  if (filters.ramoId) {
+    const { data } = await supabase
+      .from("titoli")
+      .select("id")
+      .eq("ramo_id", filters.ramoId)
+      .limit(500);
+    lookups.ramoTitoloIds = (data || []).map((t) => t.id);
+  }
+
+  const term = sanitizePostgrestTerm(filters.quickSearch);
+  if (term) {
+    const [clientiMatch, { data: profilesMatch }, { data: titoliMatch }] = await Promise.all([
+      fetchClientiSearch(term, { limit: 200, onlyAttivi: false }),
+      supabase.from("profiles").select("id").or(`cognome.ilike.%${term}%,nome.ilike.%${term}%`).limit(100),
+      supabase.from("titoli").select("id").ilike("numero_titolo", `%${term}%`).limit(200),
+    ]);
+    lookups.quickClienteIds = (clientiMatch || []).map((c) => c.id);
+    lookups.quickResponsabileIds = (profilesMatch || []).map((p) => p.id);
+    lookups.quickTitoloIds = (titoliMatch || []).map((t) => t.id);
+  }
+
+  return lookups;
+}
+
+function applySinistriListFilters<T>(
   q: T,
-  args: { tab: string; filters: SinistriListFilters; rami: RamoRicerca[] },
-): Promise<T> {
-  const { tab, filters, rami } = args;
+  args: { tab: string; filters: SinistriListFilters; rami: RamoRicerca[]; lookups: SinistriFilterLookups },
+): T {
+  const { tab, filters, rami, lookups } = args;
   let next = q as any;
   next = applyStatoFiltroLista(next, { tab, stato: filters.stato });
   if (filters.compagniaId !== "tutti") next = next.eq("compagnia_id", filters.compagniaId);
@@ -77,15 +137,8 @@ async function applySinistriListFilters<T>(
     next = next.or(`numero_sinistro.ilike.%${numero}%,numero_sinistro_compagnia.ilike.%${numero}%`);
   }
 
-  const polizza = sanitizePostgrestTerm(filters.polizza);
-  if (polizza) {
-    const { data: titoliMatch } = await supabase
-      .from("titoli")
-      .select("id")
-      .ilike("numero_titolo", `%${polizza}%`)
-      .limit(200);
-    const titoloIds = (titoliMatch || []).map((t) => t.id);
-    next = next.in("titolo_id", titoloIds.length ? titoloIds : [NO_MATCH_ID]);
+  if (lookups.polizzaTitoloIds) {
+    next = next.in("titolo_id", lookups.polizzaTitoloIds.length ? lookups.polizzaTitoloIds : [NO_MATCH_ID]);
   }
 
   if (filters.dataDa) next = next.gte("data_apertura", filters.dataDa);
@@ -94,23 +147,13 @@ async function applySinistriListFilters<T>(
   if (filters.eventoA) next = next.lte("data_evento", filters.eventoA);
 
   if (filters.targa.trim()) {
-    const titoloIdsTarga = await fetchTitoloIdsByTarga(filters.targa);
-    const targaClause = targaSinistriOrClause(filters.targa, titoloIdsTarga);
+    const targaClause = targaSinistriOrClause(filters.targa, lookups.targaTitoloIds || []);
     if (targaClause) next = next.or(targaClause);
     else next = next.in("id", [NO_MATCH_ID]);
   }
 
   if (filters.ramoId || filters.ramoLabel.trim()) {
     const ramo = rami.find((r) => r.id === filters.ramoId);
-    let titoloIds: string[] = [];
-    if (filters.ramoId) {
-      const { data: titoliRamo } = await supabase
-        .from("titoli")
-        .select("id")
-        .eq("ramo_id", filters.ramoId)
-        .limit(500);
-      titoloIds = (titoliRamo || []).map((t) => t.id);
-    }
     const ramoClause = sinistriRamoOrClause(
       {
         id: filters.ramoId,
@@ -119,7 +162,7 @@ async function applySinistriListFilters<T>(
         codice: ramo?.codice,
         gruppo: ramo?.gruppo,
       },
-      titoloIds,
+      lookups.ramoTitoloIds || [],
     );
     if (ramoClause) next = next.or(ramoClause);
     else next = next.in("titolo_id", [NO_MATCH_ID]);
@@ -127,20 +170,6 @@ async function applySinistriListFilters<T>(
 
   const term = sanitizePostgrestTerm(filters.quickSearch);
   if (term) {
-    const [clientiMatch, { data: profilesMatch }, { data: titoliMatch }] = await Promise.all([
-      fetchClientiSearch(term, { limit: 200, onlyAttivi: false }),
-      supabase
-        .from("profiles")
-        .select("id")
-        .or(`cognome.ilike.%${term}%,nome.ilike.%${term}%`)
-        .limit(100),
-      supabase
-        .from("titoli")
-        .select("id")
-        .ilike("numero_titolo", `%${term}%`)
-        .limit(200),
-    ]);
-
     const parts = [
       `numero_sinistro.ilike.%${term}%`,
       `numero_sinistro_compagnia.ilike.%${term}%`,
@@ -149,12 +178,15 @@ async function applySinistriListFilters<T>(
       `controparte.ilike.%${term}%`,
       `targa_veicolo.ilike.%${term}%`,
     ];
-    const clienteIds = (clientiMatch || []).map((c) => c.id);
-    if (clienteIds.length > 0) parts.push(`cliente_anagrafica_id.in.(${clienteIds.join(",")})`);
-    const responsabileIds = (profilesMatch || []).map((p) => p.id);
-    if (responsabileIds.length > 0) parts.push(`responsabile_id.in.(${responsabileIds.join(",")})`);
-    const titoloIds = (titoliMatch || []).map((t) => t.id);
-    if (titoloIds.length > 0) parts.push(`titolo_id.in.(${titoloIds.join(",")})`);
+    if (lookups.quickClienteIds.length > 0) {
+      parts.push(`cliente_anagrafica_id.in.(${lookups.quickClienteIds.join(",")})`);
+    }
+    if (lookups.quickResponsabileIds.length > 0) {
+      parts.push(`responsabile_id.in.(${lookups.quickResponsabileIds.join(",")})`);
+    }
+    if (lookups.quickTitoloIds.length > 0) {
+      parts.push(`titolo_id.in.(${lookups.quickTitoloIds.join(",")})`);
+    }
     next = next.or(parts.join(","));
   }
 
@@ -275,9 +307,10 @@ export default function SinistriList() {
     description: clienteSearchDescription(c),
   }));
 
-  const { data: sinistriResult } = useQuery({
+  const { data: sinistriResult, isError: sinistriError, error: sinistriQueryError } = useQuery({
     queryKey: ["sinistri", tab, debounced, page, sortField, sortDirection],
     queryFn: async () => {
+      const lookups = await loadSinistriFilterLookups(debounced);
       let q = supabase.from("sinistri").select(
         `id, numero_sinistro, stato, descrizione, data_apertura, data_denuncia, data_evento, controparte, sinistro_terzi, titolo_id, compagnia_id,
          numero_polizza, ramo_sinistro, prodotto_sinistro,
@@ -288,7 +321,7 @@ export default function SinistriList() {
         { count: "exact" }
       );
 
-      q = await applySinistriListFilters(q, { tab, filters: debounced, rami });
+      q = applySinistriListFilters(q, { tab, filters: debounced, rami, lookups });
 
       const { data, error, count } = await applySinistriOrder(q, sortField, sortDirection)
         .range(range.from, range.to);
@@ -308,11 +341,12 @@ export default function SinistriList() {
     setExporting(true);
     try {
       const rows: any[] = [];
+      const lookups = await loadSinistriFilterLookups(debounced);
       for (let from = 0; from < totalCount; from += EXPORT_PAGE) {
         let q = supabase.from("sinistri").select(
           `*, compagnie(nome), titoli(numero_titolo)`,
         );
-        q = await applySinistriListFilters(q, { tab: "ricerca", filters: debounced, rami });
+        q = applySinistriListFilters(q, { tab: "ricerca", filters: debounced, rami, lookups });
         const { data, error } = await applySinistriOrder(q, sortField, sortDirection)
           .range(from, from + EXPORT_PAGE - 1);
         if (error) throw error;
@@ -617,8 +651,20 @@ export default function SinistriList() {
                 </TableCell>
               </TableRow>
             ))}
-            {!sinistri.length && (
-              <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Nessun sinistro trovato</TableCell></TableRow>
+            {sinistriError && (
+              <TableRow>
+                <TableCell colSpan={11} className="text-center py-8 text-destructive">
+                  Errore nel caricamento dei sinistri:{" "}
+                  {sinistriQueryError instanceof Error ? sinistriQueryError.message : "riprova"}
+                </TableCell>
+              </TableRow>
+            )}
+            {!sinistriError && !sinistri.length && (
+              <TableRow>
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  Nessun sinistro trovato
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
