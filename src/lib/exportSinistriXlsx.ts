@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { excludeArchiviati } from "@/lib/sinistriStati";
+import { excludeArchiviati, labelStatoSinistro } from "@/lib/sinistriStati";
 
 const fmtDate = (v: any) => (v ? format(new Date(v), "dd/MM/yyyy") : "");
 
@@ -26,7 +26,7 @@ export async function exportSinistriXlsx(sinistri: any[]) {
     return {
       "N° Sinistro": s.numero_sinistro || "",
       "N° Sinistro Compagnia": s.numero_sinistro_compagnia || "",
-      Stato: s.stato || "",
+      Stato: labelStatoSinistro(s.stato),
       "Ramo Sinistro": s.ramo_sinistro || "",
       "Data Evento": fmtDate(s.data_evento),
       "Data Denuncia": fmtDate(s.data_denuncia),

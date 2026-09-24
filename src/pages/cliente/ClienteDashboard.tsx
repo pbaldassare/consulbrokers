@@ -22,6 +22,7 @@ import {
   type ClienteDashPolizza,
   type ClienteDashSinistro,
 } from "@/lib/clienteDashboard";
+import { isSinistroAperto } from "@/lib/sinistriStati";
 
 const COLORS = ["#0d9488", "#f59e0b", "#6366f1", "#ef4444", "#10b981", "#8b5cf6", "#ec4899", "#06b6d4"];
 
@@ -125,7 +126,7 @@ const ClienteDashboard = () => {
   const attive = useMemo(() => polizze.filter(isPolizzaDashAttiva), [polizze]);
   const premiTotali = useMemo(() => attive.reduce((s, p) => s + premioAnnuoDash(p), 0), [attive]);
   const sinAperti = useMemo(
-    () => sinistri.filter((s) => !["chiuso", "respinto", "archiviato"].includes(String(s.stato || "").toLowerCase())).length,
+    () => sinistri.filter((s) => isSinistroAperto(s.stato)).length,
     [sinistri],
   );
   const prossimeScadenze = useMemo(

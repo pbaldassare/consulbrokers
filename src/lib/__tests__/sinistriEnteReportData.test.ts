@@ -9,7 +9,7 @@ import {
 
 describe("formatStatoLabel", () => {
   it("sostituisce underscore con spazi", () => {
-    expect(formatStatoLabel("in_lavorazione")).toBe("in lavorazione");
+    expect(formatStatoLabel("in_lavorazione")).toBe("IN LAVORAZIONE");
     expect(formatStatoLabel("")).toBe("—");
   });
 });
@@ -114,7 +114,7 @@ describe("mapSinistriToPdfRows", () => {
     expect(rows[0].garanzia).toBe("RC Auto");
     expect(rows[0].polizza).toBe("POL-123");
     expect(rows[0].compagnia).toBe("Unipol");
-    expect(rows[0].stato).toBe("aperto");
+    expect(rows[0].stato).toBe("APERTO");
     expect(rows[0].luogo).toBe("Varese");
     expect(rows[0].dataEvento).toBe("15/03/2026");
     expect(rows[0].dataDenuncia).toBe("20/03/2026");

@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Plus, CheckCircle, AlertTriangle, Check, Pencil } from "lucide-react";
@@ -30,17 +31,17 @@ import SinistroPolizzaSelector from "@/components/sinistri/SinistroPolizzaSelect
 import SinistroCompagniaHeaderField from "@/components/sinistri/SinistroCompagniaHeaderField";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  isSinistroTerminale,
+  badgeClassStatoSinistro,
+  isStatoChiusuraArchivio,
   labelStatoSinistro,
+  optionsStatoSinistro,
   puoModificareCompagniaSinistro,
-  SINISTRO_STATI,
-  SINISTRO_STATO_BADGE,
+  puoRiaprireSinistro,
+  statiSelezionabiliPerCambio,
 } from "@/lib/sinistriStati";
 
 const SINISTRO_TABS_BASE = ["dati", "checklist", "eventi", "prescrizioni", "documenti", "chat", "note_interne", "timeline"] as const;
 
-const statiSinistro = SINISTRO_STATI;
-const statoBadge = SINISTRO_STATO_BADGE;
 const eventoStatoBadge: Record<string, string> = {
   attivo: "bg-blue-100 text-blue-800",
   completato: "bg-green-100 text-green-800",
@@ -57,7 +58,7 @@ export default function SinistroDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { isAdmin, hasPermission, user } = useAuth();
+  const { isAdmin, hasPermission, user, profile } = useAuth();
   const canManage = isAdmin || hasPermission("sinistri");
   const [checklistDialog, setChecklistDialog] = useState(false);
   const [eventoDialog, setEventoDialog] = useState(false);
@@ -168,6 +169,10 @@ export default function SinistroDetail() {
   };
 
   const cambiaStato = async (nuovo: string, note?: string) => {
+    if (!puoRiaprireSinistro(isAdmin ? "admin" : profile?.ruolo, sinistro?.stato, nuovo)) {
+      toast.error("Solo un amministratore può riaprire una pratica chiusa o archiviata.");
+      return;
+    }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase.functions.invoke("gestione-sinistri", {
@@ -186,7 +191,8 @@ export default function SinistroDetail() {
 
   if (!sinistro) return null;
 
-  const isChiuso = isSinistroTerminale(sinistro.stato);
+  const isChiuso = isStatoChiusuraArchivio(sinistro.stato);
+  const statiCambio = statiSelezionabiliPerCambio(sinistro.stato, isAdmin);
 
   const clienteNome = resolveClienteNome(sinistro.clienti);
 
@@ -247,7 +253,7 @@ export default function SinistroDetail() {
               <h1 className="text-xl font-bold truncate">
                 Sinistro {sinistro.numero_sinistro || "—"}
               </h1>
-              <Badge className={`text-xs px-2.5 py-0.5 ${statoBadge[sinistro.stato] || "bg-muted text-muted-foreground"}`}>
+              <Badge className={`text-xs px-2.5 py-0.5 ${badgeClassStatoSinistro(sinistro.stato)}`}>
                 {labelStatoSinistro(sinistro.stato)}
               </Badge>
               {sinistro.sinistro_terzi && (
@@ -338,23 +344,26 @@ export default function SinistroDetail() {
         </div>
 
         {/* Cambio stato compatto */}
-        {((canManage && !isChiuso) || isAdmin) && (
+        {canManage && (
           <div className="mt-3 ml-12 flex flex-col sm:flex-row gap-2 sm:items-end">
-            {isChiuso && isAdmin && (
+            {isChiuso && (
               <p className="text-[11px] text-amber-700 sm:w-full basis-full">
-                Pratica chiusa o archiviata: solo admin può riaprire/modificare lo stato.
+                {isAdmin
+                  ? "Pratica chiusa o archiviata: solo admin può riaprire/modificare lo stato."
+                  : "Pratica chiusa o archiviata: la tendina non offre la riapertura. Solo un amministratore può riaprire."}
               </p>
             )}
-            <div className="flex-1 min-w-[140px]">
+            <div className="flex-1 min-w-[220px]">
               <Label className="text-[10px] uppercase text-muted-foreground">Nuovo stato</Label>
-              <Select value={statoTarget} onValueChange={setStatoTarget}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleziona…" /></SelectTrigger>
-                <SelectContent>
-                  {statiSinistro.filter((s) => s !== sinistro.stato).map((s) => (
-                    <SelectItem key={s} value={s}>{labelStatoSinistro(s)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={optionsStatoSinistro(statiCambio)}
+                value={statoTarget}
+                onValueChange={setStatoTarget}
+                placeholder="Seleziona…"
+                searchPlaceholder="Cerca stato…"
+                emptyText="Nessuno stato disponibile."
+                className="h-8 text-xs"
+              />
             </div>
             <div className="flex-[2]">
               <Label className="text-[10px] uppercase text-muted-foreground">Note</Label>

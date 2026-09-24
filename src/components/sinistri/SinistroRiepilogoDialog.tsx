@@ -18,15 +18,13 @@ import { SinistroPraticaReadOnly } from "@/components/sinistri/SinistroDatiPrati
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 import { labelAgenziaRiferimento } from "@/lib/compagniaDisplay";
 import { calcScadenzaPrescrizioneBiennale } from "@/lib/sinistroPrescrizioniReminder";
-import { labelStatoSinistro, SINISTRO_STATO_BADGE } from "@/lib/sinistriStati";
+import { badgeClassStatoSinistro, labelStatoSinistro } from "@/lib/sinistriStati";
 
 interface Props {
   sinistroId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const statoBadge = SINISTRO_STATO_BADGE;
 
 function fmtDateSafe(value?: string | null) {
   if (!value) return "—";
@@ -81,7 +79,7 @@ export default function SinistroRiepilogoDialog({ sinistroId, open, onOpenChange
           <DialogTitle className="flex flex-wrap items-center gap-2 pr-6">
             {isLoading ? "Caricamento sinistro…" : `Sinistro ${sinistro?.numero_sinistro || "—"}`}
             {sinistro?.stato && (
-              <Badge className={statoBadge[sinistro.stato] || "bg-muted text-muted-foreground"}>
+              <Badge className={badgeClassStatoSinistro(sinistro.stato as string)}>
                 {labelStatoSinistro(sinistro.stato as string)}
               </Badge>
             )}

@@ -7,16 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { getTipoSinistroLabel } from "@/lib/tipiSinistro";
-
-const statoBadge: Record<string, string> = {
-  in_valutazione: "bg-amber-100 text-amber-800",
-  aperto: "bg-blue-100 text-blue-800",
-  in_lavorazione: "bg-yellow-100 text-yellow-800",
-  in_attesa_documenti: "bg-orange-100 text-orange-800",
-  in_liquidazione: "bg-purple-100 text-purple-800",
-  chiuso: "bg-green-100 text-green-800",
-  respinto: "bg-red-100 text-red-800",
-};
+import { badgeClassStatoSinistro, isSinistroAperto, labelStatoSinistro } from "@/lib/sinistriStati";
 
 export default function SinistriClienteTab({ clienteId }: { clienteId: string }) {
   const navigate = useNavigate();
@@ -51,7 +42,7 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
 
   const totaleRiserva = sinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
   const totaleLiquidato = sinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
-  const aperti = sinistri.filter((s: any) => !["chiuso", "respinto", "archiviato"].includes(s.stato)).length;
+  const aperti = sinistri.filter((s: any) => isSinistroAperto(s.stato)).length;
 
   return (
     <div className="space-y-4">
@@ -100,7 +91,7 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
                     <TableCell>{getTipoSinistroLabel(s.tipo_sinistro)}</TableCell>
                     <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
                     <TableCell>{s.compagnie?.nome || "—"}</TableCell>
-                    <TableCell><Badge className={statoBadge[s.stato] || ""}>{s.stato?.replace(/_/g, " ")}</Badge></TableCell>
+                    <TableCell><Badge className={badgeClassStatoSinistro(s.stato)}>{labelStatoSinistro(s.stato)}</Badge></TableCell>
                     <TableCell className="max-w-[200px] truncate">{s.citta_sinistro || s.luogo_sinistro || "—"}</TableCell>
                     <TableCell className="font-mono text-right">{s.importo_riserva ? s.importo_riserva.toLocaleString("it-IT", { minimumFractionDigits: 2 }) : "—"}</TableCell>
                     <TableCell className="font-mono text-right text-emerald-700">{s.importo_liquidato ? s.importo_liquidato.toLocaleString("it-IT", { minimumFractionDigits: 2 }) : "—"}</TableCell>

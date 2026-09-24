@@ -107,15 +107,15 @@ test.describe.skip('Sinistri — Apertura e Cambio Stato (legacy dialog rimosso,
     // 8. Verifica che la navigazione sia andata sulla pagina di dettaglio sinistro
     await expect(page).toHaveURL(/\/sinistri\/.+/);
 
-    // 9. Cambia lo stato in "in lavorazione"
-    const inLavorazioneButton = page.locator('button:has-text("in lavorazione")');
+    // 9. Cambia lo stato in "IN LAVORAZIONE"
+    const inLavorazioneButton = page.locator('button:has-text("IN LAVORAZIONE")');
     await expect(inLavorazioneButton).toBeVisible();
     await inLavorazioneButton.click();
 
     // 10. Verifica la notifica di aggiornamento stato
-    await expect(page.locator('text=Stato aggiornato a "in lavorazione"').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('text=Stato aggiornato a "IN LAVORAZIONE"').first()).toBeVisible({ timeout: 15000 });
 
-    // 11. Verifica il badge dello stato aggiornato a "in lavorazione"
-    await expect(page.locator('text=in lavorazione').first()).toBeVisible();
+    // 11. Verifica il badge dello stato aggiornato a "IN LAVORAZIONE"
+    await expect(page.locator('text=IN LAVORAZIONE').first()).toBeVisible();
   });
 });

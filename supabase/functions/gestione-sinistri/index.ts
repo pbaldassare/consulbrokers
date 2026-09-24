@@ -26,6 +26,65 @@ function sanitizeEdgePayload(body: unknown): unknown {
   return o;
 }
 
+/** Allineato a src/lib/sinistriStati.ts — slug persistiti in sinistri.stato. */
+const SINISTRO_STATI_NOTI = new Set([
+  "apertura_cautelativa", "apertura_sinistro", "archiviato", "atto_di_citazione",
+  "card_attivo", "card_passivo", "chiuso", "chiuso_card_passivo",
+  "chiuso_senza_responsabilita", "chiuso_senza_seguito",
+  "chiuso_senza_seguito_fuori_garanzia", "chiuso_senza_seguito_in_franchigia",
+  "chiuso_senza_seguito_prescritto", "contenzioso",
+  "i_sollecito_doc_cliente", "ii_sollecito_doc_cliente",
+  "in_attesa_di_perizia", "in_attesa_di_sviluppi",
+  "in_attesa_documentazione_da_cliente", "in_attesa_documentazione_da_ctp",
+  "in_attesa_documentazione_fiscale_per_iva", "in_attesa_liquidazione_franchigia_rct",
+  "in_attesa_nomina_perito", "in_attesa_pagamento_da_compagnia",
+  "in_attesa_quietanza_da_cliente", "in_attesa_quietanza_da_compagnia",
+  "inviata_relazione_tecnica_a_compagnia",
+  "invio_atto_liquidazione_amichevole_cliente",
+  "invio_atto_liquidazione_amichevole_compagnia",
+  "invio_atto_liquidazione_amichevole_perito",
+  "invio_citazione_in_compagnia_causa", "invio_documentazione_a_compagnia",
+  "invio_quietanza_a_compagnia", "invio_quietanza_al_cliente",
+  "liquidato", "liquidato_parziale", "liquidazione_transattiva",
+  "mediazione", "non_denunciato_a_compagnia", "operazioni_peritali_in_corso",
+  "passaggio_ad_altro_broker", "procedimento_giudizio_concluso",
+  "bozza", "in_valutazione", "aperto", "in_lavorazione",
+  "in_attesa_documenti", "in_liquidazione", "respinto",
+]);
+
+const SINISTRO_STATI_CHIUSURA = new Set([
+  "archiviato", "chiuso", "chiuso_card_passivo", "chiuso_senza_responsabilita",
+  "chiuso_senza_seguito", "chiuso_senza_seguito_fuori_garanzia",
+  "chiuso_senza_seguito_in_franchigia", "chiuso_senza_seguito_prescritto",
+  "liquidato", "passaggio_ad_altro_broker", "procedimento_giudizio_concluso",
+  "respinto",
+]);
+
+function normalizzaStatoEdge(stato?: string | null): string {
+  return String(stato || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[''`´’]/g, "")
+    .replace(/[\s\-–—/]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+function isStatoChiusuraArchivio(stato?: string | null): boolean {
+  const s = normalizzaStatoEdge(stato);
+  if (!s) return false;
+  if (SINISTRO_STATI_CHIUSURA.has(s)) return true;
+  return s === "chiuso" || s.startsWith("chiuso_");
+}
+
+function puoRiaprireSinistro(ruolo: string | null | undefined, from?: string | null, to?: string | null): boolean {
+  if (!isStatoChiusuraArchivio(from)) return true;
+  if (isStatoChiusuraArchivio(to)) return true;
+  return String(ruolo || "").toLowerCase() === "admin";
+}
+
 const payloadSchema = z.discriminatedUnion("azione", [
   z.object({
     azione: z.literal("crea"),
@@ -174,7 +233,7 @@ const payloadSchema = z.discriminatedUnion("azione", [
   z.object({
     azione: z.literal("cambia_stato"),
     sinistro_id: z.string().uuid(),
-    nuovo_stato: z.enum(['bozza','in_valutazione','aperto','in_lavorazione','in_attesa_documenti','in_liquidazione','chiuso','respinto','archiviato']),
+    nuovo_stato: z.string().min(1),
     user_id: z.string().uuid().optional(),
     note: z.string().optional(),
   }),
@@ -716,6 +775,12 @@ Deno.serve(async (req) => {
 
     if (azione === "cambia_stato") {
       const { sinistro_id, nuovo_stato, user_id, note } = parsed.data;
+      const nuovoNorm = normalizzaStatoEdge(nuovo_stato);
+      if (!SINISTRO_STATI_NOTI.has(nuovoNorm)) {
+        return new Response(JSON.stringify({ success: false, error: "Stato non valido" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // Stato precedente per log
       const { data: prev } = await supabase
@@ -724,6 +789,18 @@ Deno.serve(async (req) => {
         .eq("id", sinistro_id)
         .maybeSingle();
       const stato_precedente = prev?.stato ?? null;
+
+      let ruolo: string | null = null;
+      if (user_id) {
+        const { data: prof } = await supabase.from("profiles").select("ruolo").eq("id", user_id).maybeSingle();
+        ruolo = (prof as { ruolo?: string } | null)?.ruolo ?? null;
+      }
+      if (!puoRiaprireSinistro(ruolo, stato_precedente, nuovoNorm)) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Solo un amministratore può riaprire una pratica chiusa o archiviata.",
+        }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       if (nuovo_stato === "chiuso") {
         const { data: checklistPending } = await supabase
@@ -754,8 +831,8 @@ Deno.serve(async (req) => {
         }
       }
 
-      const updateData: Record<string, unknown> = { stato: nuovo_stato, updated_at: new Date().toISOString() };
-      if (nuovo_stato === "chiuso") updateData.data_chiusura = new Date().toISOString().split("T")[0];
+      const updateData: Record<string, unknown> = { stato: nuovoNorm, updated_at: new Date().toISOString() };
+      if (isStatoChiusuraArchivio(nuovoNorm)) updateData.data_chiusura = new Date().toISOString().split("T")[0];
       else updateData.data_chiusura = null;
 
       const { error } = await supabase.from("sinistri").update(updateData).eq("id", sinistro_id);
@@ -766,17 +843,19 @@ Deno.serve(async (req) => {
         sinistro_id,
         tipo_evento: "cambio_stato",
         stato: "completato",
-        note: `Stato ${stato_precedente ?? "—"} → ${nuovo_stato}${note ? ` · ${note}` : ""}`,
+        note: `Stato ${stato_precedente ?? "—"} → ${nuovoNorm}${note ? ` · ${note}` : ""}`,
       });
 
       // Log attività
       await supabase.from("log_attivita").insert({
         user_id: user_id ?? null,
-        azione: nuovo_stato === "chiuso" ? "chiusura_sinistro" : "cambio_stato_sinistro",
+        azione: isStatoChiusuraArchivio(nuovoNorm) && !isStatoChiusuraArchivio(stato_precedente)
+          ? "chiusura_sinistro"
+          : "cambio_stato_sinistro",
         entita_tipo: "sinistro",
         entita_id: sinistro_id,
         ufficio_id: prev?.ufficio_id ?? null,
-        dettagli_json: { stato_precedente, nuovo_stato, note: note ?? null },
+        dettagli_json: { stato_precedente, nuovo_stato: nuovoNorm, note: note ?? null },
         severity: "info",
       });
 

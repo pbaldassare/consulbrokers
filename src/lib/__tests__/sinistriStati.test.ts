@@ -7,13 +7,51 @@ import {
   isArchiviato,
   isSinistroAperto,
   isSinistroTerminale,
+  isStatoChiusuraArchivio,
   labelStatoSinistro,
   puoModificareCompagniaSinistro,
+  puoRiaprireSinistro,
   resolveStatoFiltroLista,
+  SINISTRO_STATI,
+  SINISTRO_STATI_CATALOGO,
   SINISTRO_STATO_ARCHIVIATO,
   SINISTRO_STATI_OPERATIVI,
+  statiSelezionabiliPerCambio,
   statiVisibiliDefault,
 } from "../sinistriStati";
+
+describe("catalogo stati", () => {
+  it("non ha slug duplicati e una sola CHIUSO SENZA SEGUITO", () => {
+    const values = SINISTRO_STATI_CATALOGO.map((s) => s.value);
+    expect(new Set(values).size).toBe(values.length);
+    expect(values.filter((v) => v === "chiuso_senza_seguito")).toHaveLength(1);
+    expect(SINISTRO_STATI_CATALOGO.filter((s) => s.label === "CHIUSO SENZA SEGUITO")).toHaveLength(1);
+  });
+
+  it("riusa gli slug storici e tiene i vecchi stati", () => {
+    for (const slug of [
+      "bozza",
+      "in_valutazione",
+      "aperto",
+      "in_lavorazione",
+      "in_attesa_documenti",
+      "in_liquidazione",
+      "chiuso",
+      "respinto",
+      "archiviato",
+    ]) {
+      expect(SINISTRO_STATI).toContain(slug);
+    }
+  });
+
+  it("include le nuove voci richieste", () => {
+    expect(SINISTRO_STATI).toContain("apertura_cautelativa");
+    expect(SINISTRO_STATI).toContain("apertura_sinistro");
+    expect(SINISTRO_STATI).toContain("chiuso_senza_seguito");
+    expect(SINISTRO_STATI).toContain("procedimento_giudizio_concluso");
+    expect(SINISTRO_STATI).toContain("i_sollecito_doc_cliente");
+  });
+});
 
 describe("isArchiviato / aperti", () => {
   it("riconosce archiviato in modo case-insensitive", () => {
@@ -29,6 +67,76 @@ describe("isArchiviato / aperti", () => {
     expect(isSinistroAperto("aperto")).toBe(true);
     expect(isSinistroAperto("chiuso")).toBe(false);
     expect(isSinistroAperto("respinto")).toBe(false);
+  });
+});
+
+describe("isStatoChiusuraArchivio", () => {
+  it("riconosce CHIUSO*, ARCHIVIATO e analoghi terminali", () => {
+    for (const s of [
+      "chiuso",
+      "CHIUSO",
+      "chiuso_senza_seguito",
+      "chiuso_senza_seguito_fuori_garanzia",
+      "chiuso_senza_seguito_in_franchigia",
+      "chiuso_senza_seguito_prescritto",
+      "chiuso_card_passivo",
+      "chiuso_senza_responsabilita",
+      "archiviato",
+      "procedimento_giudizio_concluso",
+      "passaggio_ad_altro_broker",
+      "liquidato",
+      "respinto",
+    ]) {
+      expect(isStatoChiusuraArchivio(s)).toBe(true);
+    }
+  });
+
+  it("non tratta come chiusura gli stati operativi", () => {
+    for (const s of [
+      "aperto",
+      "apertura_sinistro",
+      "in_lavorazione",
+      "in_attesa_documenti",
+      "liquidato_parziale",
+      "liquidazione_transattiva",
+      "contenzioso",
+      "card_attivo",
+    ]) {
+      expect(isStatoChiusuraArchivio(s)).toBe(false);
+    }
+  });
+});
+
+describe("puoRiaprireSinistro", () => {
+  it("solo admin può passare da chiusura a non-chiusura", () => {
+    expect(puoRiaprireSinistro("admin", "chiuso", "aperto")).toBe(true);
+    expect(puoRiaprireSinistro("admin", "archiviato", "in_lavorazione")).toBe(true);
+    expect(puoRiaprireSinistro("ufficio", "chiuso", "aperto")).toBe(false);
+    expect(puoRiaprireSinistro("contabilita", "chiuso_senza_seguito", "apertura_sinistro")).toBe(false);
+    expect(puoRiaprireSinistro(null, "chiuso", "aperto")).toBe(false);
+  });
+
+  it("consente i passaggi tra stati di chiusura e da non-chiuso", () => {
+    expect(puoRiaprireSinistro("ufficio", "chiuso", "archiviato")).toBe(true);
+    expect(puoRiaprireSinistro("ufficio", "aperto", "chiuso")).toBe(true);
+    expect(puoRiaprireSinistro("ufficio", "in_lavorazione", "in_liquidazione")).toBe(true);
+    expect(puoRiaprireSinistro("admin", "chiuso", "respinto")).toBe(true);
+  });
+});
+
+describe("statiSelezionabiliPerCambio", () => {
+  it("nasconde la riapertura ai non-admin", () => {
+    const opts = statiSelezionabiliPerCambio("chiuso", false);
+    expect(opts.every((s) => isStatoChiusuraArchivio(s))).toBe(true);
+    expect(opts).not.toContain("aperto");
+    expect(opts).toContain("archiviato");
+  });
+
+  it("admin vede anche gli stati non-chiusi", () => {
+    const opts = statiSelezionabiliPerCambio("chiuso", true);
+    expect(opts).toContain("aperto");
+    expect(opts).toContain("archiviato");
+    expect(opts).not.toContain("chiuso");
   });
 });
 
@@ -61,14 +169,17 @@ describe("statiVisibiliDefault", () => {
     expect(statiVisibiliDefault()).not.toContain(SINISTRO_STATO_ARCHIVIATO);
     expect(statiVisibiliDefault()).toContain("bozza");
     expect(statiVisibiliDefault()).toContain("respinto");
+    expect(statiVisibiliDefault()).toContain("apertura_sinistro");
   });
 });
 
 describe("labelStatoSinistro", () => {
-  it("usa label UI Archiviato", () => {
-    expect(labelStatoSinistro("archiviato")).toBe("Archiviato");
-    expect(labelStatoSinistro("bozza")).toBe("Bozza");
-    expect(labelStatoSinistro("in_valutazione")).toBe("In valutazione");
+  it("usa sempre label CAPS, anche sui vecchi slug", () => {
+    expect(labelStatoSinistro("archiviato")).toBe("ARCHIVIATO");
+    expect(labelStatoSinistro("bozza")).toBe("BOZZA");
+    expect(labelStatoSinistro("in_valutazione")).toBe("IN VALUTAZIONE");
+    expect(labelStatoSinistro("aperto")).toBe("APERTO");
+    expect(labelStatoSinistro("chiuso_senza_seguito")).toBe("CHIUSO SENZA SEGUITO");
     expect(labelStatoSinistro("")).toBe("—");
   });
 });

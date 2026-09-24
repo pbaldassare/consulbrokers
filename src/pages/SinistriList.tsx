@@ -32,13 +32,10 @@ import {
 } from "@/lib/sinistriListSearch";
 import {
   applyStatoFiltroLista,
+  badgeClassStatoSinistro,
   labelStatoSinistro,
-  SINISTRO_STATI,
-  SINISTRO_STATO_BADGE,
+  optionsStatoSinistro,
 } from "@/lib/sinistriStati";
-
-const statiSinistro = SINISTRO_STATI;
-const statoBadge = SINISTRO_STATO_BADGE;
 
 const NO_MATCH_ID = "00000000-0000-0000-0000-000000000000";
 
@@ -385,15 +382,16 @@ export default function SinistriList() {
                 className="pl-9"
               />
             </div>
-            <Select value={filters.stato} onValueChange={(stato) => patchFilters({ stato })}>
-              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tutti">Tutti gli stati</SelectItem>
-                {statiSinistro.map((s) => (
-                  <SelectItem key={s} value={s}>{labelStatoSinistro(s)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={optionsStatoSinistro()}
+              value={filters.stato === "tutti" ? "" : filters.stato}
+              onValueChange={(stato) => patchFilters({ stato: stato || "tutti" })}
+              placeholder="Tutti gli stati"
+              searchPlaceholder="Cerca stato…"
+              clearable
+              clearLabel="Tutti gli stati"
+              className="w-64"
+            />
             <Select
               value={filters.compagniaId}
               onValueChange={(id) => patchFilters({
@@ -560,7 +558,7 @@ export default function SinistriList() {
                 <TableCell className="max-w-[10rem] truncate">{s.controparte || "—"}</TableCell>
                 <TableCell>{formatTipoSinistro(s)}</TableCell>
                 <TableCell>
-                  <Badge className={statoBadge[s.stato] || "bg-muted"}>
+                  <Badge className={badgeClassStatoSinistro(s.stato)}>
                     {labelStatoSinistro(s.stato)}
                   </Badge>
                 </TableCell>

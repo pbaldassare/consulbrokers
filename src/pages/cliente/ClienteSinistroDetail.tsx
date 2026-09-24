@@ -11,16 +11,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, User, FileText, Shield, A
 import { format } from "date-fns";
 import SinistroDocumentiCliente from "@/components/cliente/SinistroDocumentiCliente";
 import { fmtEuro0 as fmt } from "@/lib/formatCurrency";
-
-const statoBadge: Record<string, string> = {
-  in_valutazione: "bg-amber-100 text-amber-800",
-  aperto: "bg-blue-100 text-blue-800",
-  in_lavorazione: "bg-yellow-100 text-yellow-800",
-  in_attesa_documenti: "bg-orange-100 text-orange-800",
-  in_liquidazione: "bg-purple-100 text-purple-800",
-  chiuso: "bg-green-100 text-green-800",
-  respinto: "bg-red-100 text-red-800",
-};
+import { badgeClassStatoSinistro, labelStatoSinistro } from "@/lib/sinistriStati";
 
 export default function ClienteSinistroDetail() {
   const { id } = useParams();
@@ -121,8 +112,8 @@ export default function ClienteSinistroDetail() {
                 <p className="text-sm text-teal-700 font-medium mt-1">{s.ramo_sinistro || "—"}</p>
               </div>
             </div>
-            <Badge className={`text-sm px-4 py-1.5 ${statoBadge[s.stato] || "bg-muted"}`}>
-              {s.stato?.replace(/_/g, " ")}
+            <Badge className={`text-sm px-4 py-1.5 ${badgeClassStatoSinistro(s.stato)}`}>
+              {labelStatoSinistro(s.stato)}
             </Badge>
           </div>
         </CardContent>

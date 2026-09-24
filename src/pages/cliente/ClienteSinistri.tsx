@@ -85,20 +85,10 @@ import SinistriMap from "@/components/cliente/SinistriMap";
 import SinistriPerRepartoChart from "@/components/cliente/SinistriPerRepartoChart";
 import { isClienteSanitario, resolveReparto } from "@/lib/sinistriReparto";
 import { aggregateSinPerTipo, aggregateSinPerVeicolo } from "@/lib/sinistriClienteCharts";
+import { badgeClassStatoSinistro, isStatoChiusuraArchivio, labelStatoSinistro } from "@/lib/sinistriStati";
 
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
 const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
-
-const statoBadge: Record<string, string> = {
-  in_valutazione: "bg-amber-100 text-amber-800",
-  aperto: "bg-blue-100 text-blue-800",
-  in_lavorazione: "bg-yellow-100 text-yellow-800",
-  in_attesa_documenti: "bg-orange-100 text-orange-800",
-  in_liquidazione: "bg-purple-100 text-purple-800",
-  chiuso: "bg-green-100 text-green-800",
-  respinto: "bg-red-100 text-red-800",
-  archiviato: "bg-gray-200 text-gray-700 border border-gray-300",
-};
 
 
 
@@ -200,7 +190,7 @@ export default function ClienteSinistri() {
   };
 
 
-  const aperti = filteredSinistri.filter((s: any) => !["chiuso", "respinto"].includes(s.stato)).length;
+  const aperti = filteredSinistri.filter((s: any) => !isStatoChiusuraArchivio(s.stato)).length;
   const chiusi = filteredSinistri.length - aperti;
   const riserve = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
   const liquidato = filteredSinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
@@ -463,7 +453,7 @@ export default function ClienteSinistri() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <Input placeholder="Cerca: n°, controparte, targa…" value={fSearch} onChange={(e) => setFSearch(e.target.value)} />
-            <MultiSelectFilter label="Tutti gli stati" values={fStati} options={optStati} onChange={setFStati} formatOption={(v) => v.replace(/_/g, " ")} />
+            <MultiSelectFilter label="Tutti gli stati" values={fStati} options={optStati} onChange={setFStati} formatOption={labelStatoSinistro} />
             <MultiSelectFilter label="Tutte le garanzie" values={fRami} options={optRami} onChange={setFRami} />
             <MultiSelectFilter label="Tutte le compagnie" values={fCompagnie} options={optCompagnie} onChange={setFCompagnie} />
             <MultiSelectFilter label="Tutte le polizze" values={fPolizze} options={optPolizze} onChange={setFPolizze} />
@@ -588,7 +578,7 @@ export default function ClienteSinistri() {
                             </Link>
                           ) : "—"}
                         </TableCell>
-                        <TableCell><Badge className={statoBadge[s.stato] || ""}>{s.stato?.replace(/_/g, " ")}</Badge></TableCell>
+                        <TableCell><Badge className={badgeClassStatoSinistro(s.stato)}>{labelStatoSinistro(s.stato)}</Badge></TableCell>
                         <TableCell className="max-w-[200px] truncate">
                           {isSanitario ? resolveReparto(s) : (s.citta_sinistro || s.luogo_sinistro || "—")}
                         </TableCell>

@@ -2,7 +2,6 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { buildPolizzaSelectOption } from "@/lib/titoliDisplay";
@@ -13,19 +12,8 @@ import {
   type PolizzaImportMatch,
   type SinistroImportPreviewRow,
 } from "@/lib/sinistriImportExcel";
+import { labelStatoSinistro, optionsStatoSinistro } from "@/lib/sinistriStati";
 import { AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
-
-const statoLabel: Record<string, string> = {
-  bozza: "Bozza",
-  in_valutazione: "In valutazione",
-  aperto: "Aperto",
-  in_lavorazione: "In lavorazione",
-  in_attesa_documenti: "In attesa documenti",
-  in_liquidazione: "In liquidazione",
-  chiuso: "Chiuso",
-  respinto: "Respinto",
-  archiviato: "Archiviato",
-};
 
 const statusBadge: Record<ImportRowStatus, string> = {
   ok: "bg-green-100 text-green-800 border-green-200",
@@ -162,18 +150,14 @@ export default function SinistriImportPreviewTable({
                 />
               </TableCell>
               <TableCell className="align-top">
-                <Select
+                <SearchableSelect
+                  options={optionsStatoSinistro(STATI_SINISTRO_IMPORT.filter((s) => s !== "bozza"))}
                   value={row.stato}
                   disabled={disabled}
                   onValueChange={(val) => onChange(row.id, { stato: val as SinistroImportPreviewRow["stato"] })}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {STATI_SINISTRO_IMPORT.filter((s) => s !== "bozza").map((s) => (
-                      <SelectItem key={s} value={s}>{statoLabel[s] || s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder={labelStatoSinistro(row.stato)}
+                  searchPlaceholder="Cerca stato…"
+                />
               </TableCell>
               <TableCell className="align-top">
                 <Textarea

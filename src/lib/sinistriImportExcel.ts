@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { DESCRIZIONE_MIN_CHARS } from "@/lib/sinistroPraticaSchema";
 import { safeId } from "@/lib/safeId";
+import { labelStatoSinistro, SINISTRO_STATI, SINISTRO_STATI_CATALOGO, type SinistroStato } from "@/lib/sinistriStati";
 
 /** Intestazioni canoniche del tracciato MODULO SX. */
 export const MODULO_SX_HEADERS = [
@@ -16,19 +17,9 @@ export const MODULO_SX_HEADERS = [
   "DESCRIZIONE",
 ] as const;
 
-export const STATI_SINISTRO_IMPORT = [
-  "bozza",
-  "in_valutazione",
-  "aperto",
-  "in_lavorazione",
-  "in_attesa_documenti",
-  "in_liquidazione",
-  "chiuso",
-  "respinto",
-  "archiviato",
-] as const;
+export const STATI_SINISTRO_IMPORT = SINISTRO_STATI;
 
-export type StatoSinistroImport = (typeof STATI_SINISTRO_IMPORT)[number];
+export type StatoSinistroImport = SinistroStato;
 
 export { DESCRIZIONE_MIN_CHARS };
 
@@ -73,35 +64,33 @@ const HEADER_MAP: Record<string, SinistroImportField> = {
   dinamica: "descrizione",
 };
 
-const STATO_ALIASES: Record<string, StatoSinistroImport> = {
-  bozza: "bozza",
+const STATO_ALIASES_EXTRA: Record<string, StatoSinistroImport> = {
   draft: "bozza",
-  "in valutazione": "in_valutazione",
-  in_valutazione: "in_valutazione",
   valutazione: "in_valutazione",
-  aperto: "aperto",
   aperta: "aperto",
   open: "aperto",
-  "in lavorazione": "in_lavorazione",
-  in_lavorazione: "in_lavorazione",
   lavorazione: "in_lavorazione",
-  "in attesa documenti": "in_attesa_documenti",
-  in_attesa_documenti: "in_attesa_documenti",
   "attesa documenti": "in_attesa_documenti",
-  "in liquidazione": "in_liquidazione",
-  in_liquidazione: "in_liquidazione",
   liquidazione: "in_liquidazione",
-  chiuso: "chiuso",
   chiusa: "chiuso",
   closed: "chiuso",
   evaso: "chiuso",
-  respinto: "respinto",
   respinta: "respinto",
   rejected: "respinto",
-  archiviato: "archiviato",
   archiviata: "archiviato",
   archived: "archiviato",
 };
+
+function buildStatoAliases(): Record<string, StatoSinistroImport> {
+  const aliases: Record<string, StatoSinistroImport> = { ...STATO_ALIASES_EXTRA };
+  for (const def of SINISTRO_STATI_CATALOGO) {
+    aliases[normalizeText(def.value)] = def.value;
+    aliases[normalizeText(def.label)] = def.value;
+  }
+  return aliases;
+}
+
+const STATO_ALIASES = buildStatoAliases();
 
 export type SinistroImportRaw = {
   excelRow: number;
@@ -223,7 +212,7 @@ export function mapStatoSinistro(raw: string): { stato: StatoSinistroImport; war
   if (!n) return { stato: "aperto" };
   const mapped = STATO_ALIASES[n];
   if (mapped) return { stato: mapped };
-  return { stato: "aperto", warning: `Stato "${raw}" non riconosciuto: impostato Aperto` };
+  return { stato: "aperto", warning: `Stato "${raw}" non riconosciuto: impostato ${labelStatoSinistro("aperto")}` };
 }
 
 export function namesLooselyMatch(a: string, b: string): boolean {
