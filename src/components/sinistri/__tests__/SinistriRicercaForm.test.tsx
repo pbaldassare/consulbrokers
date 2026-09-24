@@ -17,9 +17,12 @@ describe("SinistriRicercaForm", () => {
         compagnie={[]}
         responsabili={[]}
         rami={[{ id: "r1", label: "RC Auto · RCA" }]}
+        onExport={vi.fn()}
+        exportCount={3}
       />,
     );
 
+    expect(screen.getByText("Esporta Excel (3)")).toBeInTheDocument();
     expect(screen.getByText("Accadimento dal")).toBeInTheDocument();
     expect(screen.getByText("Accadimento al")).toBeInTheDocument();
     expect(screen.getByText("Ramo del sinistro")).toBeInTheDocument();

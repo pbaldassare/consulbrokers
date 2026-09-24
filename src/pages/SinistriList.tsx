@@ -9,7 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown, X, List, SlidersHorizontal, Archive } from "lucide-react";
+import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown, X, List, SlidersHorizontal, Archive, FileSpreadsheet, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { exportSinistriXlsx } from "@/lib/exportSinistriXlsx";
+import { fetchTitoloIdsByTarga } from "@/lib/sinistriTargaLookup";
 import { useNavigate } from "react-router-dom";
 import ServerPagination from "@/components/ServerPagination";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -28,7 +31,7 @@ import {
   sinistriFilterChips,
   sinistriRamoOrClause,
   sinistroPolizzaDisplay,
-  targaOrClause,
+  targaSinistriOrClause,
   type SinistriListFilters,
   type SinistriSortField,
 } from "@/lib/sinistriListSearch";
@@ -40,6 +43,123 @@ import {
 } from "@/lib/sinistriStati";
 
 const NO_MATCH_ID = "00000000-0000-0000-0000-000000000000";
+const EXPORT_PAGE = 1000;
+
+type RamoRicerca = { id: string; label: string; descrizione?: string | null; codice?: string | null; gruppo?: string | null };
+
+async function applySinistriListFilters<T>(
+  q: T,
+  args: { tab: string; filters: SinistriListFilters; rami: RamoRicerca[] },
+): Promise<T> {
+  const { tab, filters, rami } = args;
+  let next = q as any;
+  next = applyStatoFiltroLista(next, { tab, stato: filters.stato });
+  if (filters.compagniaId !== "tutti") next = next.eq("compagnia_id", filters.compagniaId);
+  if (filters.terzi === "terzi") next = next.eq("sinistro_terzi", true);
+  if (filters.terzi === "con_polizza") next = next.eq("sinistro_terzi", false).not("titolo_id", "is", null);
+  if (filters.responsabileId !== "tutti") next = next.eq("responsabile_id", filters.responsabileId);
+  if (filters.clienteId) next = next.eq("cliente_anagrafica_id", filters.clienteId);
+
+  const controparte = sanitizePostgrestTerm(filters.controparte);
+  if (controparte) next = next.ilike("controparte", `%${controparte}%`);
+
+  if (filters.tipo) {
+    const tipoLabel = sanitizePostgrestTerm(getTipoSinistroLabel(filters.tipo));
+    next = next.or(
+      [`tipo_sinistro.eq.${filters.tipo}`, tipoLabel ? `tipo_sinistro_personalizzato.ilike.%${tipoLabel}%` : ""]
+        .filter(Boolean)
+        .join(","),
+    );
+  }
+
+  const numero = sanitizePostgrestTerm(filters.numero);
+  if (numero) {
+    next = next.or(`numero_sinistro.ilike.%${numero}%,numero_sinistro_compagnia.ilike.%${numero}%`);
+  }
+
+  const polizza = sanitizePostgrestTerm(filters.polizza);
+  if (polizza) {
+    const { data: titoliMatch } = await supabase
+      .from("titoli")
+      .select("id")
+      .ilike("numero_titolo", `%${polizza}%`)
+      .limit(200);
+    const titoloIds = (titoliMatch || []).map((t) => t.id);
+    next = next.in("titolo_id", titoloIds.length ? titoloIds : [NO_MATCH_ID]);
+  }
+
+  if (filters.dataDa) next = next.gte("data_apertura", filters.dataDa);
+  if (filters.dataA) next = next.lte("data_apertura", filters.dataA);
+  if (filters.eventoDa) next = next.gte("data_evento", filters.eventoDa);
+  if (filters.eventoA) next = next.lte("data_evento", filters.eventoA);
+
+  if (filters.targa.trim()) {
+    const titoloIdsTarga = await fetchTitoloIdsByTarga(filters.targa);
+    const targaClause = targaSinistriOrClause(filters.targa, titoloIdsTarga);
+    if (targaClause) next = next.or(targaClause);
+    else next = next.in("id", [NO_MATCH_ID]);
+  }
+
+  if (filters.ramoId || filters.ramoLabel.trim()) {
+    const ramo = rami.find((r) => r.id === filters.ramoId);
+    let titoloIds: string[] = [];
+    if (filters.ramoId) {
+      const { data: titoliRamo } = await supabase
+        .from("titoli")
+        .select("id")
+        .eq("ramo_id", filters.ramoId)
+        .limit(500);
+      titoloIds = (titoliRamo || []).map((t) => t.id);
+    }
+    const ramoClause = sinistriRamoOrClause(
+      {
+        id: filters.ramoId,
+        label: filters.ramoLabel,
+        descrizione: ramo?.descrizione,
+        codice: ramo?.codice,
+        gruppo: ramo?.gruppo,
+      },
+      titoloIds,
+    );
+    if (ramoClause) next = next.or(ramoClause);
+    else next = next.in("titolo_id", [NO_MATCH_ID]);
+  }
+
+  const term = sanitizePostgrestTerm(filters.quickSearch);
+  if (term) {
+    const [clientiMatch, { data: profilesMatch }, { data: titoliMatch }] = await Promise.all([
+      fetchClientiSearch(term, { limit: 200, onlyAttivi: false }),
+      supabase
+        .from("profiles")
+        .select("id")
+        .or(`cognome.ilike.%${term}%,nome.ilike.%${term}%`)
+        .limit(100),
+      supabase
+        .from("titoli")
+        .select("id")
+        .ilike("numero_titolo", `%${term}%`)
+        .limit(200),
+    ]);
+
+    const parts = [
+      `numero_sinistro.ilike.%${term}%`,
+      `numero_sinistro_compagnia.ilike.%${term}%`,
+      `numero_polizza.ilike.%${term}%`,
+      `descrizione.ilike.%${term}%`,
+      `controparte.ilike.%${term}%`,
+      `targa_veicolo.ilike.%${term}%`,
+    ];
+    const clienteIds = (clientiMatch || []).map((c) => c.id);
+    if (clienteIds.length > 0) parts.push(`cliente_anagrafica_id.in.(${clienteIds.join(",")})`);
+    const responsabileIds = (profilesMatch || []).map((p) => p.id);
+    if (responsabileIds.length > 0) parts.push(`responsabile_id.in.(${responsabileIds.join(",")})`);
+    const titoloIds = (titoliMatch || []).map((t) => t.id);
+    if (titoloIds.length > 0) parts.push(`titolo_id.in.(${titoloIds.join(",")})`);
+    next = next.or(parts.join(","));
+  }
+
+  return next as T;
+}
 
 export default function SinistriList() {
   const navigate = useNavigate();
@@ -47,6 +167,7 @@ export default function SinistriList() {
   const [filters, setFilters] = useState<SinistriListFilters>(EMPTY_SINISTRI_FILTERS);
   const [debounced, setDebounced] = useState<SinistriListFilters>(EMPTY_SINISTRI_FILTERS);
   const [clientiSearch, setClientiSearch] = useState("");
+  const [exporting, setExporting] = useState(false);
   const [sortField, setSortField] = useState<SinistriSortField>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const { page, setPage, pageSize, range } = useServerPagination(25, [
@@ -167,105 +288,7 @@ export default function SinistriList() {
         { count: "exact" }
       );
 
-      q = applyStatoFiltroLista(q, { tab, stato: debounced.stato });
-      if (debounced.compagniaId !== "tutti") q = q.eq("compagnia_id", debounced.compagniaId);
-      if (debounced.terzi === "terzi") q = q.eq("sinistro_terzi", true);
-      if (debounced.terzi === "con_polizza") q = q.eq("sinistro_terzi", false).not("titolo_id", "is", null);
-      if (debounced.responsabileId !== "tutti") q = q.eq("responsabile_id", debounced.responsabileId);
-      if (debounced.clienteId) q = q.eq("cliente_anagrafica_id", debounced.clienteId);
-
-      const controparte = sanitizePostgrestTerm(debounced.controparte);
-      if (controparte) q = q.ilike("controparte", `%${controparte}%`);
-
-      if (debounced.tipo) {
-        const tipoLabel = sanitizePostgrestTerm(getTipoSinistroLabel(debounced.tipo));
-        q = q.or(
-          [`tipo_sinistro.eq.${debounced.tipo}`, tipoLabel ? `tipo_sinistro_personalizzato.ilike.%${tipoLabel}%` : ""]
-            .filter(Boolean)
-            .join(","),
-        );
-      }
-
-      const numero = sanitizePostgrestTerm(debounced.numero);
-      if (numero) {
-        q = q.or(`numero_sinistro.ilike.%${numero}%,numero_sinistro_compagnia.ilike.%${numero}%`);
-      }
-
-      const polizza = sanitizePostgrestTerm(debounced.polizza);
-      if (polizza) {
-        const { data: titoliMatch } = await supabase
-          .from("titoli")
-          .select("id")
-          .ilike("numero_titolo", `%${polizza}%`)
-          .limit(200);
-        const titoloIds = (titoliMatch || []).map((t) => t.id);
-        q = q.in("titolo_id", titoloIds.length ? titoloIds : [NO_MATCH_ID]);
-      }
-
-      if (debounced.dataDa) q = q.gte("data_apertura", debounced.dataDa);
-      if (debounced.dataA) q = q.lte("data_apertura", debounced.dataA);
-      if (debounced.eventoDa) q = q.gte("data_evento", debounced.eventoDa);
-      if (debounced.eventoA) q = q.lte("data_evento", debounced.eventoA);
-
-      const targaClause = targaOrClause(debounced.targa);
-      if (targaClause) q = q.or(targaClause);
-
-      if (debounced.ramoId || debounced.ramoLabel.trim()) {
-        const ramo = rami.find((r) => r.id === debounced.ramoId);
-        let titoloIds: string[] = [];
-        if (debounced.ramoId) {
-          const { data: titoliRamo } = await supabase
-            .from("titoli")
-            .select("id")
-            .eq("ramo_id", debounced.ramoId)
-            .limit(500);
-          titoloIds = (titoliRamo || []).map((t) => t.id);
-        }
-        const ramoClause = sinistriRamoOrClause(
-          {
-            id: debounced.ramoId,
-            label: debounced.ramoLabel,
-            descrizione: ramo?.descrizione,
-            codice: ramo?.codice,
-            gruppo: ramo?.gruppo,
-          },
-          titoloIds,
-        );
-        if (ramoClause) q = q.or(ramoClause);
-        else q = q.in("titolo_id", [NO_MATCH_ID]);
-      }
-
-      const term = sanitizePostgrestTerm(debounced.quickSearch);
-      if (term) {
-        const [clientiMatch, { data: profilesMatch }, { data: titoliMatch }] = await Promise.all([
-          fetchClientiSearch(term, { limit: 200, onlyAttivi: false }),
-          supabase
-            .from("profiles")
-            .select("id")
-            .or(`cognome.ilike.%${term}%,nome.ilike.%${term}%`)
-            .limit(100),
-          supabase
-            .from("titoli")
-            .select("id")
-            .ilike("numero_titolo", `%${term}%`)
-            .limit(200),
-        ]);
-
-        const parts = [
-          `numero_sinistro.ilike.%${term}%`,
-          `numero_sinistro_compagnia.ilike.%${term}%`,
-          `numero_polizza.ilike.%${term}%`,
-          `descrizione.ilike.%${term}%`,
-          `controparte.ilike.%${term}%`,
-        ];
-        const clienteIds = (clientiMatch || []).map((c) => c.id);
-        if (clienteIds.length > 0) parts.push(`cliente_anagrafica_id.in.(${clienteIds.join(",")})`);
-        const responsabileIds = (profilesMatch || []).map((p) => p.id);
-        if (responsabileIds.length > 0) parts.push(`responsabile_id.in.(${responsabileIds.join(",")})`);
-        const titoloIds = (titoliMatch || []).map((t) => t.id);
-        if (titoloIds.length > 0) parts.push(`titolo_id.in.(${titoloIds.join(",")})`);
-        q = q.or(parts.join(","));
-      }
+      q = await applySinistriListFilters(q, { tab, filters: debounced, rami });
 
       const { data, error, count } = await applySinistriOrder(q, sortField, sortDirection)
         .range(range.from, range.to);
@@ -276,6 +299,38 @@ export default function SinistriList() {
 
   const sinistri = sinistriResult?.data || [];
   const totalCount = sinistriResult?.count || 0;
+
+  const handleExportRicerca = async () => {
+    if (!totalCount) {
+      toast.error("Nessun sinistro da esportare");
+      return;
+    }
+    setExporting(true);
+    try {
+      const rows: any[] = [];
+      for (let from = 0; from < totalCount; from += EXPORT_PAGE) {
+        let q = supabase.from("sinistri").select(
+          `*, compagnie(nome), titoli(numero_titolo)`,
+        );
+        q = await applySinistriListFilters(q, { tab: "ricerca", filters: debounced, rami });
+        const { data, error } = await applySinistriOrder(q, sortField, sortDirection)
+          .range(from, from + EXPORT_PAGE - 1);
+        if (error) throw error;
+        rows.push(...(data || []));
+        if ((data || []).length < EXPORT_PAGE) break;
+      }
+      if (!rows.length) {
+        toast.error("Nessun sinistro da esportare");
+        return;
+      }
+      await exportSinistriXlsx(rows);
+      toast.success(`Esportati ${rows.length} sinistri`);
+    } catch (e: any) {
+      toast.error("Errore export: " + (e?.message || e));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const { data: eventiScaduti } = useQuery({
     queryKey: ["eventi-scaduti"],
@@ -437,6 +492,9 @@ export default function SinistriList() {
                 compagnie={compagnie}
                 responsabili={responsabili}
                 rami={rami}
+                onExport={handleExportRicerca}
+                exporting={exporting}
+                exportCount={totalCount}
               />
             </CardContent>
           </Card>
@@ -547,7 +605,7 @@ export default function SinistriList() {
                 <TableCell className="max-w-[10rem] truncate">{s.controparte || "—"}</TableCell>
                 <TableCell>{formatTipoSinistro(s)}</TableCell>
                 <TableCell>
-                  <Badge className={badgeClassStatoSinistro(s.stato)}>
+                  <Badge className={`text-[10px] px-2 py-0 ${badgeClassStatoSinistro(s.stato)}`}>
                     {labelStatoSinistro(s.stato)}
                   </Badge>
                 </TableCell>

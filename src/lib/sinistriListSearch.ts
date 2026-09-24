@@ -96,22 +96,41 @@ export function hasSinistriFilters(filters: SinistriListFilters): boolean {
   return sinistriFilterChips(filters).length > 0;
 }
 
-/** Targa: toglie spazi e caratteri PostgREST; ilike è già case-insensitive. */
+/** Targa: toglie spazi/separatori e caratteri PostgREST; ilike è già case-insensitive. */
 export function normalizeTargaFilter(raw: string): string {
-  return sanitizePostgrestTerm(raw).replace(/\s+/g, "");
+  return sanitizePostgrestTerm(raw).replace(/[\s\-./]/g, "");
 }
 
-/** Varianti per matchare sia "AB123CD" sia "AB 123 CD" in `targa_veicolo`. */
+/** Varianti per matchare "AB123CD", "AB 123 CD", "AB-123-CD" e targa su polizza. */
 export function targaFilterVariants(raw: string): string[] {
   const collapsed = sanitizePostgrestTerm(raw);
-  const compact = collapsed.replace(/\s+/g, "");
-  return [...new Set([collapsed, compact].filter(Boolean))];
+  const compact = collapsed.replace(/[\s\-./]/g, "");
+  const variants = [collapsed, compact];
+  const plate = compact.match(/^([A-Za-z]{2})(\d{3})([A-Za-z]{2})$/);
+  if (plate) {
+    variants.push(`${plate[1]} ${plate[2]} ${plate[3]}`, `${plate[1]}-${plate[2]}-${plate[3]}`);
+  }
+  return [...new Set(variants.filter(Boolean))];
+}
+
+export function targaColumnOrClause(column: string, raw: string): string | null {
+  const variants = targaFilterVariants(raw);
+  if (variants.length === 0) return null;
+  return variants.map((v) => `${column}.ilike.%${v}%`).join(",");
 }
 
 export function targaOrClause(raw: string): string | null {
-  const variants = targaFilterVariants(raw);
-  if (variants.length === 0) return null;
-  return variants.map((v) => `targa_veicolo.ilike.%${v}%`).join(",");
+  return targaColumnOrClause("targa_veicolo", raw);
+}
+
+/** Filtro sinistri: targa sul sinistro e/o titoli collegati (veicolo/polizza). */
+export function targaSinistriOrClause(raw: string, titoloIds: string[]): string | null {
+  const direct = targaOrClause(raw);
+  const parts = [
+    direct,
+    titoloIds.length > 0 ? `titolo_id.in.(${titoloIds.join(",")})` : "",
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(",") : null;
 }
 
 export type SinistriRamoLookup = {

@@ -15,8 +15,10 @@ import {
   sinistroPolizzaDisplay,
   sinistroPolizzaSortKey,
   sortSinistriRelatedRows,
+  targaColumnOrClause,
   targaFilterVariants,
   targaOrClause,
+  targaSinistriOrClause,
 } from "@/lib/sinistriListSearch";
 
 describe("sanitizePostgrestTerm", () => {
@@ -73,11 +75,15 @@ describe("sinistriFilterChips", () => {
 describe("targa / ramo filter mapping", () => {
   it("normalizza spazi sulla targa e produce varianti ilike", () => {
     expect(normalizeTargaFilter("  AB 123 CD  ")).toBe("AB123CD");
-    expect(targaFilterVariants("  AB 123 CD  ")).toEqual(["AB 123 CD", "AB123CD"]);
+    expect(normalizeTargaFilter("ab-123-cd")).toBe("ab123cd");
+    expect(targaFilterVariants("  AB 123 CD  ")).toEqual(["AB 123 CD", "AB123CD", "AB-123-CD"]);
     expect(targaOrClause("ab 123 cd")).toBe(
-      "targa_veicolo.ilike.%ab 123 cd%,targa_veicolo.ilike.%ab123cd%",
+      "targa_veicolo.ilike.%ab 123 cd%,targa_veicolo.ilike.%ab123cd%,targa_veicolo.ilike.%ab-123-cd%",
     );
+    expect(targaColumnOrClause("targa", "AB123CD")).toContain("targa.ilike.%AB123CD%");
+    expect(targaSinistriOrClause("AB123CD", ["t1", "t2"])).toContain("titolo_id.in.(t1,t2)");
     expect(targaOrClause("   ")).toBeNull();
+    expect(targaSinistriOrClause("   ", [])).toBeNull();
   });
 
   it("estrae termini ilike da ramo catalogo + testo libero import", () => {

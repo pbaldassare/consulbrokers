@@ -91,7 +91,7 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
                     <TableCell>{getTipoSinistroLabel(s.tipo_sinistro)}</TableCell>
                     <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
                     <TableCell>{s.compagnie?.nome || "—"}</TableCell>
-                    <TableCell><Badge className={badgeClassStatoSinistro(s.stato)}>{labelStatoSinistro(s.stato)}</Badge></TableCell>
+                    <TableCell><Badge className={`text-[10px] px-2 py-0 ${badgeClassStatoSinistro(s.stato)}`}>{labelStatoSinistro(s.stato)}</Badge></TableCell>
                     <TableCell className="max-w-[200px] truncate">{s.citta_sinistro || s.luogo_sinistro || "—"}</TableCell>
                     <TableCell className="font-mono text-right">{s.importo_riserva ? s.importo_riserva.toLocaleString("it-IT", { minimumFractionDigits: 2 }) : "—"}</TableCell>
                     <TableCell className="font-mono text-right text-emerald-700">{s.importo_liquidato ? s.importo_liquidato.toLocaleString("it-IT", { minimumFractionDigits: 2 }) : "—"}</TableCell>

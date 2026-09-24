@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { FileSpreadsheet, Loader2 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { TIPI_SINISTRO } from "@/lib/tipiSinistro";
 import type { SinistriListFilters } from "@/lib/sinistriListSearch";
@@ -25,6 +26,9 @@ type Props = {
   compagnie: { id: string; nome: string }[];
   responsabili: { id: string; nome: string | null; cognome: string | null }[];
   rami: RamoOpt[];
+  onExport?: () => void;
+  exporting?: boolean;
+  exportCount?: number;
 };
 
 export function SinistriRicercaForm({
@@ -38,6 +42,9 @@ export function SinistriRicercaForm({
   compagnie,
   responsabili,
   rami,
+  onExport,
+  exporting = false,
+  exportCount = 0,
 }: Props) {
   const clienteOptions = clientiOptions.map((c) => ({
     value: c.id,
@@ -222,10 +229,23 @@ export function SinistriRicercaForm({
           />
         </div>
       </div>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onReset}>
           Azzera filtri
         </Button>
+        {onExport && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            disabled={exporting || exportCount === 0}
+            className="gap-1.5"
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 text-green-700" />}
+            Esporta Excel{exportCount > 0 ? ` (${exportCount})` : ""}
+          </Button>
+        )}
       </div>
     </div>
   );
