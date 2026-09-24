@@ -10,6 +10,9 @@ const optionalNumber = z.preprocess(
   z.number().min(0, "L'importo non può essere negativo").optional()
 );
 
+/** Minimo caratteri per la descrizione accadimento (apertura, dettaglio, import). */
+export const DESCRIZIONE_MIN_CHARS = 10;
+
 /** Campi anagrafici/pratica condivisi tra wizard apertura e modifica dettaglio */
 export const sinistroPraticaSchema = z.object({
   data_evento: z.string().min(1, "La data accadimento è obbligatoria"),
@@ -17,7 +20,10 @@ export const sinistroPraticaSchema = z.object({
   tipo_sinistro: z.string().optional(),
   tipo_sinistro_personalizzato: z.string().optional(),
   numero_sinistro_compagnia: z.string().optional(),
-  descrizione: z.string().min(20, "La descrizione deve contenere almeno 20 caratteri"),
+  descrizione: z.string().min(
+    DESCRIZIONE_MIN_CHARS,
+    `La descrizione deve contenere almeno ${DESCRIZIONE_MIN_CHARS} caratteri`,
+  ),
   note_importanti: z.string().optional(),
   luogo_sinistro: z.string().optional(),
   indirizzo_sinistro: z.string().optional(),

@@ -2,11 +2,24 @@ import { describe, expect, it } from "vitest";
 import {
   asOptionalNumber,
   asOptionalUuid,
+  DESCRIZIONE_MIN_CHARS,
   praticaValuesToDbPayload,
   sinistroPraticaDefaultValues,
+  sinistroPraticaSchema,
 } from "@/lib/sinistroPraticaSchema";
 
 describe("sinistroPraticaSchema payload edge", () => {
+  it("accetta descrizione di 10 caratteri e rifiuta 9", () => {
+    const base = {
+      ...sinistroPraticaDefaultValues,
+      data_evento: "2026-08-28",
+      data_denuncia: "2026-08-28",
+    };
+    expect(DESCRIZIONE_MIN_CHARS).toBe(10);
+    expect(sinistroPraticaSchema.safeParse({ ...base, descrizione: "1234567890" }).success).toBe(true);
+    expect(sinistroPraticaSchema.safeParse({ ...base, descrizione: "123456789" }).success).toBe(false);
+  });
+
   it("asOptionalNumber — omette stringa vuota e NaN", () => {
     expect(asOptionalNumber("")).toBeUndefined();
     expect(asOptionalNumber(undefined)).toBeUndefined();

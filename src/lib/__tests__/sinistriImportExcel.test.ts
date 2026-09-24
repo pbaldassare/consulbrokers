@@ -94,7 +94,7 @@ describe("sinistriImportExcel", () => {
       xlsxBuffer([
         ["DATA ACCADIMENTO", "DATA DENUNCIA", "CLIENTE", "N POLIZZA", "N SINISTRO COMPAGNIA", "DESCRIZIONE"],
         ["01/03/2026", "05/03/2026", "Comune Esempio", "ABC", "SX-1", LONG_DESC],
-        ["02/03/2026", "06/03/2026", "Altro Nome", "NOPE", "", "troppo corta"],
+        ["02/03/2026", "06/03/2026", "Altro Nome", "NOPE", "", "corta"],
       ]),
     );
     const preview = buildPreviewRows(raws, {

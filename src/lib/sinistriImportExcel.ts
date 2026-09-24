@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { DESCRIZIONE_MIN_CHARS } from "@/lib/sinistroPraticaSchema";
 import { safeId } from "@/lib/safeId";
 
 /** Intestazioni canoniche del tracciato MODULO SX. */
@@ -29,7 +30,7 @@ export const STATI_SINISTRO_IMPORT = [
 
 export type StatoSinistroImport = (typeof STATI_SINISTRO_IMPORT)[number];
 
-export const DESCRIZIONE_MIN_CHARS = 20;
+export { DESCRIZIONE_MIN_CHARS };
 
 export type SinistroImportField =
   | "data_evento"

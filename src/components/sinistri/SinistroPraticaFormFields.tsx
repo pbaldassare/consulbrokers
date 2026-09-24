@@ -6,7 +6,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { TIPI_SINISTRO } from "@/lib/tipiSinistro";
-import { isTipoSinistroVeicolo, type SinistroPraticaValues } from "@/lib/sinistroPraticaSchema";
+import {
+  DESCRIZIONE_MIN_CHARS,
+  isTipoSinistroVeicolo,
+  type SinistroPraticaValues,
+} from "@/lib/sinistroPraticaSchema";
 
 interface LookupPerson {
   id: string;
@@ -167,7 +171,7 @@ export default function SinistroPraticaFormFields({
       {showNoteImportanti ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="descrizione">Descrizione Accadimento (min 20 caratteri) *</Label>
+            <Label htmlFor="descrizione">Descrizione Accadimento (min {DESCRIZIONE_MIN_CHARS} caratteri) *</Label>
             <Textarea
               id="descrizione"
               placeholder="Descrivi dettagliatamente come e cosa è accaduto..."
@@ -175,7 +179,7 @@ export default function SinistroPraticaFormFields({
               {...register("descrizione")}
             />
             <p className="text-[10px] text-muted-foreground text-right">
-              {(watch("descrizione") || "").length}/20 caratteri minimi
+              {(watch("descrizione") || "").length}/{DESCRIZIONE_MIN_CHARS} caratteri minimi
             </p>
             {errors.descrizione && <p className="text-xs text-destructive">{errors.descrizione.message}</p>}
           </div>
@@ -191,7 +195,7 @@ export default function SinistroPraticaFormFields({
         </div>
       ) : (
         <div className="space-y-2">
-          <Label htmlFor="descrizione">Descrizione Accadimento (min 20 caratteri) *</Label>
+          <Label htmlFor="descrizione">Descrizione Accadimento (min {DESCRIZIONE_MIN_CHARS} caratteri) *</Label>
           <Textarea
             id="descrizione"
             placeholder="Descrivi dettagliatamente come e cosa è accaduto..."
@@ -199,7 +203,7 @@ export default function SinistroPraticaFormFields({
             {...register("descrizione")}
           />
           <p className="text-[10px] text-muted-foreground text-right">
-            {(watch("descrizione") || "").length}/20 caratteri minimi
+            {(watch("descrizione") || "").length}/{DESCRIZIONE_MIN_CHARS} caratteri minimi
           </p>
           {errors.descrizione && <p className="text-xs text-destructive">{errors.descrizione.message}</p>}
         </div>
