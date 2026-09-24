@@ -203,6 +203,8 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Storico Rimesse', path: '/contabilita/storico-rimesse' },
   { label: 'Provvigioni Maturate', path: '/provvigioni-maturate' },
   { label: 'Clientela RCA', path: '/rca/clientela' },
+  { label: 'Scadenze RCA', path: '/rca/scadenze' },
+  { label: 'Preventivi RCA', path: '/rca/preventivi' },
   { label: 'Riepilogo Acconti', path: '/contabilita/anticipi-clienti' },
   { label: 'Caricamento Mov. Bancari', path: '/contabilita/caricamento-mov-bancari' },
   { label: 'Bonifici (Incassi)', path: '/portafoglio/incassi?tab=bonifici' },

@@ -278,6 +278,8 @@ const sidebarEntries: SidebarEntry[] = [
       permissionKey: "titoli",
       children: [
         { label: "Clientela", path: "/rca/clientela", icon: Users },
+        { label: "Scadenze", path: "/rca/scadenze", icon: CalendarDays },
+        { label: "Preventivi", path: "/rca/preventivi", icon: FileText },
       ],
     },
   },

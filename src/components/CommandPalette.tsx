@@ -60,6 +60,8 @@ const QUICK_ACTIONS: QuickAction[] = [
   { id: "go-rettifica-provv", label: "Rettifica Provvigioni", icon: Percent, link: "/portafoglio/rettifica-provvigioni", keywords: "rettifica provvigioni quietanza cassa correzione" },
   { id: "go-provvigioni", label: "Provvigioni Maturate", icon: Banknote, link: "/provvigioni-maturate", keywords: "provvigioni maturate produttori" },
   { id: "go-rca-clientela", label: "Clientela RCA", icon: Users, link: "/rca/clientela", keywords: "rca progetto clientela auto autocarro targa" },
+  { id: "go-rca-scadenze", label: "Scadenze RCA", icon: FileText, link: "/rca/scadenze", keywords: "rca scadenze rinnovi preventivazione" },
+  { id: "go-rca-preventivi", label: "Preventivi RCA", icon: FileText, link: "/rca/preventivi", keywords: "rca preventivi quotazioni offerte" },
   { id: "go-clienti", label: "Lista Clienti", icon: Users, link: "/clienti", keywords: "clienti anagrafica lista" },
   { id: "go-sinistri", label: "Lista Sinistri", icon: AlertTriangle, link: "/sinistri", keywords: "sinistri lista" },
   { id: "go-nidificazione", label: "Nidificazione", icon: Users, link: "/portafoglio/estrazioni/nidificazione", keywords: "nidificazione clienti gruppo statistico famiglia sindaco" },

@@ -254,6 +254,9 @@ const sezioni = [
     icon: Car,
     pagine: [
       { nome: "Clientela", desc: "Clienti con auto o autocarro: targa, nominativo e scadenza polizza", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
+      { nome: "Scadenze", desc: "Coda rinnovi RCA ordinata per scadenza, con avvio preventivazione", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
+      { nome: "Analisi preventivo", desc: "Dati CBnet e garanzie richieste prima della quotazione compagnie", ruoli: ["admin", "ufficio", "produttore", "backoffice"] },
+      { nome: "Preventivi", desc: "Elenco e dettaglio preventivi RCA salvati in CBnet", ruoli: ["admin", "ufficio", "produttore", "backoffice"] },
     ],
   },
   {
