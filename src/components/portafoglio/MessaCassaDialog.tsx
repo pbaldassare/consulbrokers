@@ -35,6 +35,7 @@ import {
   type ModalitaIncasso,
 } from "@/lib/modalitaIncasso";
 import { buildIncassoDateFields, PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
+import { filterQuietanzeClienteDaIncassare } from "@/lib/messaCassaQuietanzeCliente";
 import { canHaveDataCopertura } from "@/lib/quietanze";
 import {
   isPagamentoDirettoCompagnia,
@@ -418,17 +419,21 @@ export const MessaCassaDialog = ({
         .limit(200);
 
       const raw = (data as any[]) || [];
-      const already = new Set(titoli.map((t) => t.id));
-
-      // Numeri titolo che compaiono come "padre" di almeno un'altra rata nel set
-      const numeriPadre = new Set(
-        raw.filter((r) => r.sostituisce_polizza).map((r) => r.sostituisce_polizza as string),
+      const alreadyIds = new Set(titoli.map((t) => t.id));
+      const alreadyNumeri = new Set(
+        titoli.map((t) => t.numero_titolo).filter((n): n is string => !!n),
       );
-
-      return raw
-        .filter((r) => !already.has(r.id))
-        // Escludi polizza madre se ha già rate figlie presenti nel set
-        .filter((r) => !(r.sostituisce_polizza === null && numeriPadre.has(r.numero_titolo)));
+      const ids = raw.map((r) => r.id).filter(Boolean);
+      const lordoByTitoloId: Record<string, number> = {};
+      if (ids.length > 0) {
+        const { data: titoliLordo } = await (supabase.from("titoli") as any)
+          .select("id, premio_lordo")
+          .in("id", ids);
+        for (const t of (titoliLordo as any[]) || []) {
+          if (t?.id) lordoByTitoloId[t.id] = Number(t.premio_lordo) || 0;
+        }
+      }
+      return filterQuietanzeClienteDaIncassare(raw, alreadyIds, alreadyNumeri, lordoByTitoloId);
     },
   });
 
