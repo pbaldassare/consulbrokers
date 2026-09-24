@@ -35,6 +35,7 @@ import PrimaNotaPage from "@/pages/estrazioni/PrimaNotaPage";
 import PolizzeTacitoRinnovoPage from "@/pages/estrazioni/PolizzeTacitoRinnovoPage";
 import ElaborazioniPage from "@/pages/estrazioni/ElaborazioniPage";
 import NidificazionePage from "@/pages/estrazioni/NidificazionePage";
+import RestituzioneOriginaliPage from "@/pages/estrazioni/RestituzioneOriginaliPage";
 import PortafoglioRettificaProvvigioniPage from "@/pages/PortafoglioRettificaProvvigioniPage";
 
 export const portafoglioRoutes = (
@@ -72,6 +73,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/estrazioni/tacito-rinnovo" element={<PolizzeTacitoRinnovoPage />} />
     <Route path="/portafoglio/estrazioni/elaborazioni" element={<ElaborazioniPage />} />
     <Route path="/portafoglio/estrazioni/nidificazione" element={<NidificazionePage />} />
+    <Route path="/portafoglio/estrazioni/restituzione-originali" element={<RestituzioneOriginaliPage />} />
     <Route path="/portafoglio/collettive" element={<Navigate to="/portafoglio/attive" replace />} />
     <Route path="/portafoglio/documentale" element={<DocumentalePage />} />
     <Route path="/portafoglio/:id/compensazioni" element={<CompensazioniTitoloDetail />} />

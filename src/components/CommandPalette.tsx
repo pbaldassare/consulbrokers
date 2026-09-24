@@ -65,6 +65,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   { id: "go-clienti", label: "Lista Clienti", icon: Users, link: "/clienti", keywords: "clienti anagrafica lista" },
   { id: "go-sinistri", label: "Lista Sinistri", icon: AlertTriangle, link: "/sinistri", keywords: "sinistri lista" },
   { id: "go-nidificazione", label: "Nidificazione", icon: Users, link: "/portafoglio/estrazioni/nidificazione", keywords: "nidificazione clienti gruppo statistico famiglia sindaco" },
+  { id: "go-restituzione-originali", label: "Restituzione originali", icon: FileText, link: "/portafoglio/estrazioni/restituzione-originali", keywords: "restituzione originali distinte spedizione compagnie agenzie documenti" },
   { id: "go-dashboard", label: "Dashboard", icon: LayoutDashboard, link: "/", keywords: "dashboard home" },
   { id: "go-impostazioni", label: "Impostazioni", icon: Settings, link: "/impostazioni", keywords: "impostazioni settings configurazione" },
 ];

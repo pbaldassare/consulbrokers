@@ -275,6 +275,7 @@ const sezioni = [
       { nome: "Tacito rinnovo", desc: "Polizze con/senza tacito rinnovo per fine garanzia (sede solo le proprie; admin raggruppate per sede)", ruoli: ["admin", "cfo", "ufficio"] },
       { nome: "CIG Temporanei", desc: "Elenco polizze con numero CIG provvisorio", ruoli: ["admin", "cfo", "ufficio", "backoffice"] },
       { nome: "Regolazioni attese", desc: "Elenco polizze in attesa di regolazione", ruoli: ["admin", "cfo", "ufficio", "backoffice"] },
+      { nome: "Restituzione originali", desc: "Documenti di polizza e quietanza da restituire alle compagnie, con distinta PDF per agenzia", ruoli: ["admin", "cfo", "ufficio"] },
     ],
   },
   {

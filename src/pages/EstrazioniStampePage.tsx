@@ -16,6 +16,7 @@ import {
   BookOpen,
   Hash,
   FileClock,
+  FileOutput,
   LucideIcon,
 } from "lucide-react";
 
@@ -44,6 +45,7 @@ export const ESTRAZIONI_ACTIONS: ActionCard[] = [
   { label: "CIG Temporanei", description: "Polizze con numero CIG provvisorio", icon: Hash, path: "/portafoglio/estrazioni/cig-temporanei" },
   { label: "Regolazioni attese", description: "Polizze in attesa di regolazione", icon: FileClock, path: "/portafoglio/estrazioni/regolazioni-attese" },
   { label: "Elaborazioni", description: "Analisi IA dei documenti di polizza e generazione documenti da template", icon: Wand2, path: "/portafoglio/estrazioni/elaborazioni" },
+  { label: "Restituzione originali", description: "Documenti di polizza e quietanza da restituire alle compagnie, distinta PDF per agenzia", icon: FileOutput, path: "/portafoglio/estrazioni/restituzione-originali" },
   { label: "Registro Richieste Quietanza", description: "Storico invii email richiesta quietanza alle agenzie", icon: Archive, path: "/portafoglio/estrazioni/richiesta-quietanza/registro" },
 ];
 

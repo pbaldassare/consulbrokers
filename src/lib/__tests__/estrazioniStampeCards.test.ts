@@ -9,6 +9,11 @@ describe("Estrazioni e Stampe — card spostate da Gestione Polizze", () => {
     expect(reg?.label).toBe("Regolazioni attese");
   });
 
+  it("include Restituzione originali", () => {
+    const card = ESTRAZIONI_ACTIONS.find((a) => a.path === "/portafoglio/estrazioni/restituzione-originali");
+    expect(card?.label).toBe("Restituzione originali");
+  });
+
   it("usa lo stesso layout delle altre card (label + description + path)", () => {
     for (const a of ESTRAZIONI_ACTIONS) {
       expect(a.label.length).toBeGreaterThan(2);
