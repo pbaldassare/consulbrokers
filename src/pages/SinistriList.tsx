@@ -17,13 +17,16 @@ import { SinistriRicercaForm } from "@/components/sinistri/SinistriRicercaForm";
 import { formatTipoSinistro, getTipoSinistroLabel } from "@/lib/tipiSinistro";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 import { formatDateIT } from "@/lib/formatDate";
+import { formatPolizzaRamo } from "@/lib/titoliDisplay";
 import {
   EMPTY_SINISTRI_FILTERS,
   applySinistriOrder,
   hasSinistriFilters,
   sanitizePostgrestTerm,
   sinistriFilterChips,
+  sinistriRamoOrClause,
   sinistroPolizzaDisplay,
+  targaOrClause,
   type SinistriListFilters,
   type SinistriSortField,
 } from "@/lib/sinistriListSearch";
@@ -83,6 +86,8 @@ export default function SinistriList() {
   const clearChip = (key: string) => {
     if (key === "cliente") patchFilters({ clienteId: "", clienteLabel: "" });
     else if (key === "date") patchFilters({ dataDa: "", dataA: "" });
+    else if (key === "evento") patchFilters({ eventoDa: "", eventoA: "" });
+    else if (key === "ramo") patchFilters({ ramoId: "", ramoLabel: "" });
     else if (key === "compagniaId") patchFilters({ compagniaId: "tutti", compagniaLabel: "" });
     else if (key === "responsabileId") patchFilters({ responsabileId: "tutti", responsabileLabel: "" });
     else if (key === "stato") patchFilters({ stato: "tutti" });
@@ -98,6 +103,31 @@ export default function SinistriList() {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
       return data || [];
     },
+  });
+
+  const { data: rami = [] } = useQuery({
+    queryKey: ["rami-sinistri-ricerca"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("rami")
+        .select("id, codice, descrizione, gruppo_ramo:gruppi_ramo(descrizione)")
+        .eq("attivo", true)
+        .order("descrizione")
+        .limit(1000);
+      if (error) throw error;
+      return (data || []).map((r) => {
+        const gruppo = Array.isArray(r.gruppo_ramo) ? r.gruppo_ramo[0] : r.gruppo_ramo;
+        const label = formatPolizzaRamo({ ramo: { descrizione: r.descrizione, gruppo_ramo: gruppo } });
+        return {
+          id: r.id,
+          label: label === "—" ? (r.descrizione || r.codice || r.id) : label,
+          descrizione: r.descrizione || "",
+          codice: r.codice || "",
+          gruppo: gruppo?.descrizione || "",
+        };
+      });
+    },
+    staleTime: 300_000,
   });
 
   const { data: responsabili = [] } = useQuery({
@@ -184,6 +214,36 @@ export default function SinistriList() {
 
       if (debounced.dataDa) q = q.gte("data_apertura", debounced.dataDa);
       if (debounced.dataA) q = q.lte("data_apertura", debounced.dataA);
+      if (debounced.eventoDa) q = q.gte("data_evento", debounced.eventoDa);
+      if (debounced.eventoA) q = q.lte("data_evento", debounced.eventoA);
+
+      const targaClause = targaOrClause(debounced.targa);
+      if (targaClause) q = q.or(targaClause);
+
+      if (debounced.ramoId || debounced.ramoLabel.trim()) {
+        const ramo = rami.find((r) => r.id === debounced.ramoId);
+        let titoloIds: string[] = [];
+        if (debounced.ramoId) {
+          const { data: titoliRamo } = await supabase
+            .from("titoli")
+            .select("id")
+            .eq("ramo_id", debounced.ramoId)
+            .limit(500);
+          titoloIds = (titoliRamo || []).map((t) => t.id);
+        }
+        const ramoClause = sinistriRamoOrClause(
+          {
+            id: debounced.ramoId,
+            label: debounced.ramoLabel,
+            descrizione: ramo?.descrizione,
+            codice: ramo?.codice,
+            gruppo: ramo?.gruppo,
+          },
+          titoloIds,
+        );
+        if (ramoClause) q = q.or(ramoClause);
+        else q = q.in("titolo_id", [NO_MATCH_ID]);
+      }
 
       const term = sanitizePostgrestTerm(debounced.quickSearch);
       if (term) {
@@ -389,6 +449,7 @@ export default function SinistriList() {
                 clientiLoading={clientiLoading}
                 compagnie={compagnie}
                 responsabili={responsabili}
+                rami={rami}
               />
             </CardContent>
           </Card>

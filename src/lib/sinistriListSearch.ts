@@ -16,6 +16,11 @@ export type SinistriListFilters = {
   responsabileLabel: string;
   dataDa: string;
   dataA: string;
+  eventoDa: string;
+  eventoA: string;
+  ramoId: string;
+  ramoLabel: string;
+  targa: string;
 };
 
 export const EMPTY_SINISTRI_FILTERS: SinistriListFilters = {
@@ -34,13 +39,21 @@ export const EMPTY_SINISTRI_FILTERS: SinistriListFilters = {
   responsabileLabel: "",
   dataDa: "",
   dataA: "",
+  eventoDa: "",
+  eventoA: "",
+  ramoId: "",
+  ramoLabel: "",
+  targa: "",
 };
 
 export function sanitizePostgrestTerm(raw: string): string {
   return raw.replace(/[,()]/g, " ").replace(/%/g, "").replace(/\s+/g, " ").trim();
 }
 
-export type SinistriFilterChip = { key: keyof SinistriListFilters | "cliente" | "date"; label: string };
+export type SinistriFilterChip = {
+  key: keyof SinistriListFilters | "cliente" | "date" | "evento" | "ramo";
+  label: string;
+};
 
 export function sinistriFilterChips(
   filters: SinistriListFilters,
@@ -68,11 +81,75 @@ export function sinistriFilterChips(
     const range = [filters.dataDa || "…", filters.dataA || "…"].join(" → ");
     chips.push({ key: "date", label: `Apertura: ${range}` });
   }
+  if (filters.eventoDa || filters.eventoA) {
+    const range = [filters.eventoDa || "…", filters.eventoA || "…"].join(" → ");
+    chips.push({ key: "evento", label: `Accadimento: ${range}` });
+  }
+  if (filters.ramoId || filters.ramoLabel.trim()) {
+    chips.push({ key: "ramo", label: `Ramo: ${filters.ramoLabel.trim() || "selezionato"}` });
+  }
+  if (filters.targa.trim()) chips.push({ key: "targa", label: `Targa: ${filters.targa.trim()}` });
   return chips;
 }
 
 export function hasSinistriFilters(filters: SinistriListFilters): boolean {
   return sinistriFilterChips(filters).length > 0;
+}
+
+/** Targa: toglie spazi e caratteri PostgREST; ilike è già case-insensitive. */
+export function normalizeTargaFilter(raw: string): string {
+  return sanitizePostgrestTerm(raw).replace(/\s+/g, "");
+}
+
+/** Varianti per matchare sia "AB123CD" sia "AB 123 CD" in `targa_veicolo`. */
+export function targaFilterVariants(raw: string): string[] {
+  const collapsed = sanitizePostgrestTerm(raw);
+  const compact = collapsed.replace(/\s+/g, "");
+  return [...new Set([collapsed, compact].filter(Boolean))];
+}
+
+export function targaOrClause(raw: string): string | null {
+  const variants = targaFilterVariants(raw);
+  if (variants.length === 0) return null;
+  return variants.map((v) => `targa_veicolo.ilike.%${v}%`).join(",");
+}
+
+export type SinistriRamoLookup = {
+  id?: string | null;
+  descrizione?: string | null;
+  codice?: string | null;
+  gruppo?: string | null;
+  label?: string | null;
+};
+
+/** Termini ilike su `ramo_sinistro` (testo libero import + label wizard/polizza). */
+export function ramoSinistroIlikeTerms(ramo: SinistriRamoLookup): string[] {
+  const fromLabel = sanitizePostgrestTerm(ramo.label || "");
+  const labelParts = fromLabel
+    .split(/\s*[·/|]\s*/)
+    .map((p) => sanitizePostgrestTerm(p))
+    .filter((p) => p.length >= 2);
+  const candidates = [
+    fromLabel,
+    ...labelParts,
+    sanitizePostgrestTerm(ramo.descrizione || ""),
+    sanitizePostgrestTerm(ramo.codice || ""),
+    sanitizePostgrestTerm(ramo.gruppo || ""),
+  ].filter((t) => t.length >= 2);
+  return [...new Set(candidates)];
+}
+
+/**
+ * OR PostgREST: testo su `ramo_sinistro` e/o titoli con `ramo_id`.
+ * Combinato in AND con gli altri filtri della lista.
+ */
+export function sinistriRamoOrClause(ramo: SinistriRamoLookup, titoloIds: string[]): string | null {
+  const terms = ramoSinistroIlikeTerms(ramo);
+  const parts = [
+    ...terms.map((t) => `ramo_sinistro.ilike.%${t}%`),
+    titoloIds.length > 0 ? `titolo_id.in.(${titoloIds.join(",")})` : "",
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(",") : null;
 }
 
 /** Campi ordinabili nella lista `/sinistri` (Elenco/Ricerca). */

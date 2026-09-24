@@ -7,6 +7,7 @@ import type { SinistriListFilters } from "@/lib/sinistriListSearch";
 import { labelStatoSinistro, SINISTRO_STATI } from "@/lib/sinistriStati";
 
 type ClienteOpt = { id: string; label: string; description?: string };
+type RamoOpt = { id: string; label: string };
 
 const STATI = [
   { value: "tutti", label: "Tutti gli stati" },
@@ -23,6 +24,7 @@ type Props = {
   clientiLoading: boolean;
   compagnie: { id: string; nome: string }[];
   responsabili: { id: string; nome: string | null; cognome: string | null }[];
+  rami: RamoOpt[];
 };
 
 export function SinistriRicercaForm({
@@ -35,6 +37,7 @@ export function SinistriRicercaForm({
   clientiLoading,
   compagnie,
   responsabili,
+  rami,
 }: Props) {
   const clienteOptions = clientiOptions.map((c) => ({
     value: c.id,
@@ -43,6 +46,11 @@ export function SinistriRicercaForm({
   }));
   if (filters.clienteId && !clienteOptions.some((o) => o.value === filters.clienteId)) {
     clienteOptions.unshift({ value: filters.clienteId, label: filters.clienteLabel || "Cliente selezionato" });
+  }
+
+  const ramoOptions = rami.map((r) => ({ value: r.id, label: r.label }));
+  if (filters.ramoId && !ramoOptions.some((o) => o.value === filters.ramoId)) {
+    ramoOptions.unshift({ value: filters.ramoId, label: filters.ramoLabel || "Ramo selezionato" });
   }
 
   return (
@@ -179,6 +187,39 @@ export function SinistriRicercaForm({
         <div className="space-y-1">
           <Label className="text-xs">Apertura al</Label>
           <Input type="date" value={filters.dataA} onChange={(e) => onChange({ dataA: e.target.value })} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Accadimento dal</Label>
+          <Input type="date" value={filters.eventoDa} onChange={(e) => onChange({ eventoDa: e.target.value })} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Accadimento al</Label>
+          <Input type="date" value={filters.eventoA} onChange={(e) => onChange({ eventoA: e.target.value })} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Ramo del sinistro</Label>
+          <SearchableSelect
+            options={ramoOptions}
+            value={filters.ramoId}
+            onValueChange={(id) => {
+              const hit = rami.find((r) => r.id === id);
+              onChange({ ramoId: id, ramoLabel: hit?.label || (id ? filters.ramoLabel : "") });
+            }}
+            placeholder="Tutti i rami"
+            searchPlaceholder="Cerca ramo…"
+            clearable
+            clearLabel="Tutti i rami"
+            className="w-full"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Targa</Label>
+          <Input
+            value={filters.targa}
+            onChange={(e) => onChange({ targa: e.target.value })}
+            placeholder="Targa veicolo…"
+            autoCapitalize="characters"
+          />
         </div>
       </div>
       <div className="flex justify-end">

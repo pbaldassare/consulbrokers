@@ -4,14 +4,19 @@ import {
   applySinistriOrder,
   hasSinistriFilters,
   isRelatedSinistriSort,
+  normalizeTargaFilter,
   paginateSortedIds,
+  ramoSinistroIlikeTerms,
   sanitizePostgrestTerm,
   sinistriFilterChips,
   sinistriOrderClauses,
+  sinistriRamoOrClause,
   sinistroClienteSortKey,
   sinistroPolizzaDisplay,
   sinistroPolizzaSortKey,
   sortSinistriRelatedRows,
+  targaFilterVariants,
+  targaOrClause,
 } from "@/lib/sinistriListSearch";
 
 describe("sanitizePostgrestTerm", () => {
@@ -45,6 +50,53 @@ describe("sinistriFilterChips", () => {
       clienteId: "c1",
       clienteLabel: "Comune di Varese",
     })).toBe(true);
+  });
+
+  it("compone chip combinabili per accadimento, ramo e targa", () => {
+    const chips = sinistriFilterChips({
+      ...EMPTY_SINISTRI_FILTERS,
+      eventoDa: "2026-01-01",
+      eventoA: "2026-01-31",
+      ramoId: "r1",
+      ramoLabel: "RC Auto · RCA",
+      targa: "AB 123 CD",
+    });
+    expect(chips.map((c) => c.label)).toEqual([
+      "Accadimento: 2026-01-01 → 2026-01-31",
+      "Ramo: RC Auto · RCA",
+      "Targa: AB 123 CD",
+    ]);
+    expect(chips.map((c) => c.key)).toEqual(["evento", "ramo", "targa"]);
+  });
+});
+
+describe("targa / ramo filter mapping", () => {
+  it("normalizza spazi sulla targa e produce varianti ilike", () => {
+    expect(normalizeTargaFilter("  AB 123 CD  ")).toBe("AB123CD");
+    expect(targaFilterVariants("  AB 123 CD  ")).toEqual(["AB 123 CD", "AB123CD"]);
+    expect(targaOrClause("ab 123 cd")).toBe(
+      "targa_veicolo.ilike.%ab 123 cd%,targa_veicolo.ilike.%ab123cd%",
+    );
+    expect(targaOrClause("   ")).toBeNull();
+  });
+
+  it("estrae termini ilike da ramo catalogo + testo libero import", () => {
+    expect(ramoSinistroIlikeTerms({
+      label: "RC Auto · RCA",
+      descrizione: "RCA",
+      codice: "10",
+      gruppo: "RC Auto",
+    })).toEqual(["RC Auto · RCA", "RC Auto", "RCA", "10"]);
+    expect(ramoSinistroIlikeTerms({ label: "Furto" })).toEqual(["Furto"]);
+  });
+
+  it("OR ramo_sinistro ilike + titoli con ramo_id", () => {
+    const clause = sinistriRamoOrClause(
+      { label: "RCA", descrizione: "RCA" },
+      ["t1", "t2"],
+    );
+    expect(clause).toBe("ramo_sinistro.ilike.%RCA%,titolo_id.in.(t1,t2)");
+    expect(sinistriRamoOrClause({}, [])).toBeNull();
   });
 });
 
