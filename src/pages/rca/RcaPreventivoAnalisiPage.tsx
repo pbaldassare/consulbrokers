@@ -327,7 +327,7 @@ export default function RcaPreventivoAnalisiPage() {
         </CardContent>
       </Card>
 
-      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 border-t bg-background/95 py-3 backdrop-blur">
+      <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-4">
         {actions}
       </div>
     </div>
