@@ -1,5 +1,11 @@
 import { resolveClienteIndirizzo, resolveClienteNome, type ClienteEcAnagrafica } from "@/lib/ecClienteAnagrafica";
 import { genderFromCf } from "@/lib/rca/assicurapp";
+import {
+  danniPacchettoFromGaranzie,
+  resolveSelectedCvts,
+  type CvtPacchettoValue,
+  type RcaQuoteKind,
+} from "@/lib/rca/cvt";
 import type { TipoClientelaRca } from "@/lib/rca/clientela";
 import {
   mapGaranziePolizzaToAssicurapp,
@@ -73,6 +79,8 @@ export type RcaPreventivoForm = {
   currentProvider: string;
   insuranceExpire: string;
   garanzie: CodiceGaranziaAssicurapp[];
+  quoteKind: RcaQuoteKind;
+  cvtPacchetto: CvtPacchettoValue;
   note: string;
 };
 
@@ -80,7 +88,8 @@ export function prodottoFromTipo(tipo: TipoClientelaRca | null | undefined): "rc
   return tipo === "autocarro" ? "rca_autocarri" : "rca_auto";
 }
 
-export function prodottoLabel(code: string): string {
+export function prodottoLabel(code: string, quoteKind?: string | null): string {
+  if (quoteKind === "cvt" || code === "cvt_standalone") return "CVT standalone";
   if (code === "rca_autocarri") return "RCA Autocarri";
   return "RCA Auto";
 }
@@ -118,6 +127,10 @@ export function missingPreventivoFields(form: RcaPreventivoForm): string[] {
   }
   if (form.insuranceType === "bersani_familiare" && !form.bersaniCf.trim()) {
     missing.push("CF familiare");
+  }
+  if (form.quoteKind === "cvt" && !form.cvtPacchetto) missing.push("Pacchetto CVT");
+  if ((form.quoteKind === "cvt" || form.cvtPacchetto) && !(Number(form.value) > 0)) {
+    missing.push("Valore veicolo");
   }
   return missing;
 }
@@ -167,6 +180,8 @@ export function emptyPreventivoForm(): RcaPreventivoForm {
     currentProvider: "",
     insuranceExpire: "",
     garanzie: [],
+    quoteKind: "rca",
+    cvtPacchetto: "",
     note: "",
   };
 }
@@ -231,6 +246,9 @@ export function applyVeicoloEGaranzie(opts: {
     currentProvider: opts.compagnia || opts.form.currentProvider,
     insuranceExpire: isoToGgMmAaaa(opts.scadenzaIso) || opts.form.insuranceExpire,
     garanzie: opts.garanzie ? mapGaranziePolizzaToAssicurapp(opts.garanzie) : opts.form.garanzie,
+    cvtPacchetto: opts.garanzie
+      ? danniPacchettoFromGaranzie(mapGaranziePolizzaToAssicurapp(opts.garanzie))
+      : opts.form.cvtPacchetto,
   };
 }
 
@@ -268,7 +286,13 @@ export function snapshotsFromForm(form: RcaPreventivoForm) {
     driving_type: form.drivingType,
     fractionation: form.fractionation,
     guarantees: form.garanzie,
-    selected_CVTs: [],
+    selected_CVTs: resolveSelectedCvts({
+      quoteKind: form.quoteKind,
+      garanzie: form.garanzie,
+      cvtPacchetto: form.cvtPacchetto,
+    }),
+    quote_kind: form.quoteKind,
+    cvt_pacchetto: form.cvtPacchetto,
     insurance: {
       current_insurance_provider: form.currentProvider,
       insurance_expire: form.insuranceExpire,
@@ -312,6 +336,8 @@ export function formFromPreventivoRow(row: RcaPreventivoRow): RcaPreventivoForm 
     currentProvider: q.insurance?.current_insurance_provider || "",
     insuranceExpire: q.insurance?.insurance_expire || "",
     garanzie: (row.garanzie_richieste || []) as CodiceGaranziaAssicurapp[],
+    quoteKind: q.quote_kind === "cvt" ? "cvt" : "rca",
+    cvtPacchetto: (q.cvt_pacchetto as CvtPacchettoValue) || danniPacchettoFromGaranzie(row.garanzie_richieste),
     note: row.note || "",
   };
 }

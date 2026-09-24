@@ -10,10 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RcaGaranziePicker } from "@/components/rca/RcaGaranziePicker";
 import { RcaPageHeader } from "@/components/rca/RcaPageChrome";
 import { fetchRcaAnalisiContesto } from "@/lib/rca/fetchAnalisi";
-import { GARANZIE_ASSICURAPP, type CodiceGaranziaAssicurapp } from "@/lib/rca/garanzie";
-import { selectedCvtsFromGaranzie } from "@/lib/rca/assicurapp";
+import { applyDanniPacchetto, resolveSelectedCvts, type CvtPacchettoValue, type RcaQuoteKind } from "@/lib/rca/cvt";
+import type { CodiceGaranziaAssicurapp } from "@/lib/rca/garanzie";
 import {
   INSURANCE_TYPES,
   applyVeicoloEGaranzie,
@@ -110,6 +111,20 @@ export default function RcaPreventivoAnalisiPage() {
       garanzie: on ? [...new Set([...f.garanzie, code])] : f.garanzie.filter((g) => g !== code),
     }));
   };
+  const setQuoteKind = (quoteKind: RcaQuoteKind) => {
+    setForm((f) => ({
+      ...f,
+      quoteKind,
+      cvtPacchetto: quoteKind === "cvt" && !f.cvtPacchetto ? "IFE" : f.cvtPacchetto,
+    }));
+  };
+  const setCvtPacchetto = (cvtPacchetto: CvtPacchettoValue) => {
+    setForm((f) => ({
+      ...f,
+      cvtPacchetto,
+      garanzie: applyDanniPacchetto(f.garanzie, cvtPacchetto),
+    }));
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -125,7 +140,11 @@ export default function RcaPreventivoAnalisiPage() {
         driving_type: form.drivingType,
         fractionation: form.fractionation,
         garanzie_richieste: form.garanzie,
-        selected_cvts: selectedCvtsFromGaranzie(form.garanzie),
+        selected_cvts: resolveSelectedCvts({
+          quoteKind: form.quoteKind,
+          garanzie: form.garanzie,
+          cvtPacchetto: form.cvtPacchetto,
+        }),
         bersani_plate: form.bersaniPlate.trim().toUpperCase() || null,
         bersani_cf: form.bersaniCf.trim().toUpperCase() || null,
         client_snapshot: snaps.client_snapshot,
@@ -155,7 +174,7 @@ export default function RcaPreventivoAnalisiPage() {
       <Button type="button" variant="outline" onClick={() => navigate(-1)}>
         Indietro
       </Button>
-      <Button type="button" disabled={save.isPending || !form.targa.trim()} onClick={() => save.mutate()}>
+      <Button type="button" disabled={save.isPending || missing.length > 0} onClick={() => save.mutate()}>
         {save.isPending ? "Salvataggio…" : "Salva e vai alle offerte"}
       </Button>
     </>
@@ -165,12 +184,12 @@ export default function RcaPreventivoAnalisiPage() {
     <div className="mx-auto max-w-6xl space-y-5">
       <RcaPageHeader
         title="Analisi preventivazione"
-        subtitle="Dati CBnet del cliente e della polizza. Completa i campi mancanti prima di lanciare le quotazioni."
+        subtitle="Scegli prima RCA + accessori oppure un CVT standalone. I dati restano sul preventivo, non sull’anagrafica cliente."
         actions={actions}
       />
 
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary">{prodottoLabel(form.prodottoCode)}</Badge>
+        <Badge variant="secondary">{prodottoLabel(form.prodottoCode, form.quoteKind)}</Badge>
         {ctx?.numeroPolizza && <Badge variant="outline">Polizza {ctx.numeroPolizza}</Badge>}
         {form.targa && (
           <Badge variant="outline" className="font-mono">
@@ -310,21 +329,20 @@ export default function RcaPreventivoAnalisiPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Garanzie richieste</CardTitle>
+          <CardTitle className="text-base">Cosa quotare</CardTitle>
           <p className="text-sm font-normal text-muted-foreground">
-            Precompilate dalla polizza CBnet. Puoi aggiungere o togliere prima della quotazione.
+            Le compagnie ricevono già queste scelte. Precompilate dalla polizza CBnet, le puoi cambiare prima di lanciare.
           </p>
         </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {GARANZIE_ASSICURAPP.map((g) => (
-            <label key={g.code} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={form.garanzie.includes(g.code)}
-                onCheckedChange={(v) => toggleGaranzia(g.code, !!v)}
-              />
-              {g.label}
-            </label>
-          ))}
+        <CardContent>
+          <RcaGaranziePicker
+            quoteKind={form.quoteKind}
+            onQuoteKind={setQuoteKind}
+            garanzie={form.garanzie}
+            onToggleAccessorio={toggleGaranzia}
+            cvtPacchetto={form.cvtPacchetto}
+            onCvtPacchetto={setCvtPacchetto}
+          />
         </CardContent>
       </Card>
 

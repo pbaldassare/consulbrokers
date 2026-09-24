@@ -5,9 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import ServerPagination from "@/components/ServerPagination";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RcaCompagniaLogo } from "@/components/rca/RcaCompagniaLogo";
 import { RcaPageHeader, RcaTableCard, RcaToolbar } from "@/components/rca/RcaPageChrome";
+import { formatEuroPremio } from "@/lib/rca/assicurapp";
 import { formatScadenzaRca } from "@/lib/rca/clientela";
+import { quoteKindLabel } from "@/lib/rca/cvt";
+import { selectedOfferFromSnapshot } from "@/lib/rca/offerteUi";
 import { labelGaranziaAssicurapp } from "@/lib/rca/garanzie";
 import { prodottoLabel, statoPreventivoLabel, type RcaPreventivoRow } from "@/lib/rca/preventivi";
 
@@ -48,7 +53,10 @@ export default function RcaPreventiviListPage() {
     <div className="mx-auto max-w-6xl space-y-5">
       <RcaPageHeader
         title="Preventivi RCA"
-        subtitle="Preventivi preparati in CBnet. Le quotazioni compagnie arriveranno con l’integrazione Assicurapp."
+        subtitle="Preventivi salvati in CBnet, con offerte Assicurapp e compagnia scelta."
+        actions={
+          <Button onClick={() => navigate("/rca/preventivi/nuovo")}>Nuovo preventivo</Button>
+        }
       />
 
       <RcaToolbar
@@ -62,19 +70,19 @@ export default function RcaPreventiviListPage() {
       <RcaTableCard>
         <Table className="w-full min-w-0 table-fixed" containerClassName="overflow-x-hidden">
           <colgroup>
-            <col className="w-[14%]" />
-            <col className="w-[24%]" />
-            <col className="w-[14%]" />
-            <col className="w-[26%]" />
             <col className="w-[12%]" />
-            <col className="w-[10%]" />
+            <col className="w-[20%]" />
+            <col className="w-[14%]" />
+            <col className="w-[22%]" />
+            <col className="w-[18%]" />
+            <col className="w-[14%]" />
           </colgroup>
           <TableHeader>
             <TableRow>
               <TableHead className="px-3">Targa</TableHead>
               <TableHead className="px-3">Cliente</TableHead>
-              <TableHead className="px-3">Prodotto</TableHead>
-              <TableHead className="px-3">Garanzie</TableHead>
+              <TableHead className="px-3">Tipo</TableHead>
+              <TableHead className="px-3">Offerta salvata</TableHead>
               <TableHead className="px-3">Stato</TableHead>
               <TableHead className="px-3">Creato</TableHead>
             </TableRow>
@@ -93,22 +101,44 @@ export default function RcaPreventiviListPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              pageRows.map((r) => (
+              pageRows.map((r) => {
+                const kind = String((r.quote_snapshot as { quote_kind?: string })?.quote_kind || "rca");
+                const saved = selectedOfferFromSnapshot(r.quote_snapshot);
+                return (
                 <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/rca/preventivi/${r.id}`)}>
                   <TableCell className="px-3 py-2.5 font-mono font-medium">{r.targa}</TableCell>
                   <TableCell className="truncate px-3 py-2.5">
                     {String((r.client_snapshot as { display_name?: string })?.display_name || "—")}
                   </TableCell>
-                  <TableCell className="px-3 py-2.5">{prodottoLabel(r.prodotto_code)}</TableCell>
-                  <TableCell className="truncate px-3 py-2.5 text-muted-foreground">
-                    {(r.garanzie_richieste || []).map(labelGaranziaAssicurapp).join(", ") || "—"}
+                  <TableCell className="px-3 py-2.5">
+                    {prodottoLabel(r.prodotto_code, kind)}
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      {quoteKindLabel(kind)}
+                      {(r.garanzie_richieste || []).length
+                        ? ` · ${(r.garanzie_richieste || []).map(labelGaranziaAssicurapp).slice(0, 2).join(", ")}`
+                        : ""}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-3 py-2.5">
+                    {saved ? (
+                      <div className="flex items-center gap-2">
+                        <RcaCompagniaLogo slug={saved.company_slug} label={saved.label} className="h-9 w-9 rounded-lg" />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{saved.label}</p>
+                          <p className="text-xs text-muted-foreground">{formatEuroPremio(saved.premio)}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">In quotazione</span>
+                    )}
                   </TableCell>
                   <TableCell className="px-3 py-2.5">
                     <Badge variant="secondary">{statoPreventivoLabel(r.stato)}</Badge>
                   </TableCell>
                   <TableCell className="whitespace-nowrap px-3 py-2.5">{formatScadenzaRca(r.created_at)}</TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>

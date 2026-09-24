@@ -200,7 +200,13 @@ Deno.serve(async (req) => {
         "/api/products/list?checkConfig=true",
         { token: cfg.token, baseUrl: cfg.baseUrl },
       );
-      const productCode = row.prodotto_code === "rca_autocarri" ? "rca_autocarri" : "rca_auto";
+      const quoteKind = String((row.quote_snapshot as { quote_kind?: string } | null)?.quote_kind || "");
+      const productCode =
+        quoteKind === "cvt"
+          ? "cvt_standalone"
+          : row.prodotto_code === "rca_autocarri"
+            ? "rca_autocarri"
+            : "rca_auto";
       const product = (productsRes.products || []).find((p) => p.code === productCode);
       if (!product) {
         throw new Error(`Prodotto ${productCode} non configurato per questa agenzia`);
@@ -210,7 +216,8 @@ Deno.serve(async (req) => {
       const vehicle = (row.vehicle_snapshot || {}) as Record<string, any>;
       const quote = (row.quote_snapshot || {}) as Record<string, any>;
       const garanzie = Array.isArray(row.garanzie_richieste) ? row.garanzie_richieste : [];
-      const cvts = selectedCvtsFromGaranzie(garanzie);
+      const savedCvts = Array.isArray(row.selected_cvts) ? row.selected_cvts.filter(Boolean) : [];
+      const cvts = savedCvts.length > 0 ? savedCvts : selectedCvtsFromGaranzie(garanzie);
       const userUid = cfg.userUid;
       const plate = String(row.targa || vehicle.plate || "").toUpperCase().replace(/[\s-]/g, "");
 
@@ -300,7 +307,9 @@ Deno.serve(async (req) => {
     );
     const offerte = offersRes.quotes || [];
     const stato = deriveStato(offerte, quoteUid);
-    const cvts = selectedCvtsFromGaranzie(row.garanzie_richieste);
+    const cvts = Array.isArray(row.selected_cvts) && row.selected_cvts.length
+      ? row.selected_cvts
+      : selectedCvtsFromGaranzie(row.garanzie_richieste);
 
     const { data: updated, error: updErr } = await supabase
       .from("rca_preventivi")
