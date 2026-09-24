@@ -53,7 +53,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   { id: "new-trattativa", label: "Nuova trattativa", icon: Plus, link: "/trattative?new=1", keywords: "nuova trattativa preventivo" },
   { id: "go-portafoglio", label: "Portafoglio Attive", icon: FileText, link: "/portafoglio/attive", keywords: "polizze attive portafoglio" },
   { id: "go-incassi", label: "Incassi", icon: FileText, link: "/portafoglio/incassi", keywords: "avvisi incasso incassi coperture mese scadenze messa cassa bonifici" },
-  { id: "go-carico", label: "Carico", icon: FileText, link: "/portafoglio/carico", keywords: "carico portafoglio consultazione estrazione export excel pdf" },
+  { id: "go-carico", label: "Carico del mese", icon: FileText, link: "/portafoglio/carico", keywords: "carico del mese portafoglio consultazione estrazione export excel pdf" },
   { id: "go-bonifici", label: "Bonifici", icon: Banknote, link: "/contabilita/caricamento-mov-bancari?tab=da-ricongiungere", keywords: "bonifici ricongiungimento bancario ordinante movimenti" },
   { id: "go-ec-clienti", label: "E/C Clienti", icon: Receipt, link: "/contabilita/ec-clienti", keywords: "estratto conto cliente contabilita" },
   { id: "go-ec-produttori", label: "E/C Produttori", icon: Receipt, link: "/contabilita/ec-produttori", keywords: "estratto conto produttore provvigioni" },

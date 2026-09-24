@@ -21,7 +21,7 @@ test.describe('Portafoglio · Carico — filtri', () => {
   });
 
   test('carico senza parametri: default Tutte', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Carico' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Carico del mese' })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Tutte' })).toHaveAttribute('data-state', 'on');
     await expect(page).not.toHaveURL(/[?&]periodo=/);
   });

@@ -45,7 +45,7 @@ export function removeTempFile(filePath: string) {
 
 /** Attende che Portafoglio Carico (consultazione) abbia finito il caricamento iniziale. */
 export async function waitForPortafoglioCarico(page: Page) {
-  await expect(page.getByRole('heading', { name: 'Carico' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('heading', { name: 'Carico del mese' })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Totale titoli')).toBeVisible({ timeout: 20_000 });
   const loading = page.getByText('Caricamento...');
   if (await loading.count()) {

@@ -519,7 +519,7 @@ const PortafoglioCaricoConsultazionePage = () => {
       <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 pt-1 pb-3 space-y-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Carico</h1>
+            <h1 className="text-2xl font-bold text-foreground">Carico del mese</h1>
             <p className="text-sm text-muted-foreground">
               Polizze e quietanze del carico — consultazione ed estrazione
               {isVistaIncassati ? " · vista incassati" : " · vista pendenti"}

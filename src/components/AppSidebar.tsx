@@ -179,7 +179,7 @@ const sidebarEntries: SidebarEntry[] = [
       children: [
         { label: "Clienti", path: "/archivi/clienti", icon: Users },
         { label: "Polizze Attive", path: "/portafoglio/attive", icon: Shield },
-        { label: "Carico", path: "/portafoglio/carico", icon: Clock },
+        { label: "Carico del mese", path: "/portafoglio/carico", icon: Clock },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
         { label: "Gestione Polizze", path: "/portafoglio/gestione", icon: Wand2 },
         { label: "Rettifica Provvigioni", path: "/portafoglio/rettifica-provvigioni", icon: Percent, hideForRoles: ["manager", "produttore", "corrispondente", "backoffice", "cliente", "prospect", "executive"] },

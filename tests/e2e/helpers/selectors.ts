@@ -1,7 +1,7 @@
 /** Selettori UI italiani per la suite e2e canonica. */
 export const SEL = {
   portafoglio: {
-    caricoHeading: 'Carico',
+    caricoHeading: 'Carico del mese',
     incassiHeading: 'Incassi',
     totaleTitoli: 'Totale titoli',
     quietanze: 'Quietanze e appendici',
