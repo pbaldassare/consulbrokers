@@ -9,6 +9,7 @@ import { Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { logAttivita } from "@/lib/logAttivita";
+import { buildDuplicaTitoloPayload } from "@/lib/duplicaTitolo";
 
 interface Props {
   open: boolean;
@@ -54,44 +55,11 @@ export const DuplicaPolizzaDialog = ({ open, onOpenChange, titoloId, numeroPoliz
         .maybeSingle();
       if (errSrc || !src) throw errSrc || new Error("Polizza sorgente non trovata");
 
-      // 2) costruisci payload nuovo: rimuovi colonne che NON devono essere clonate
-      const dropKeys = new Set<string>([
-        "id",
-        "created_at",
-        "updated_at",
-        "numero_titolo",
-        "garanzia_da",
-        "garanzia_a",
-        "data_decorrenza",
-        "data_scadenza",
-        "data_competenza",
-        "data_messa_cassa",
-        "data_pagamento",
-        "data_incasso",
-        "importo_incassato",
-        "data_decorrenza_rinnovo",
-        "stato",
-        "sostituisce_polizza",
-        "sostituita_da",
-        "annullata_il",
-        "stornata_il",
-        "sospesa_il",
-        "fondi_ricevuti",
-        "conferimento_gestito",
-        "cig",
-        "codice_cig",
-      ]);
-      const payload: Record<string, any> = {};
-      for (const [k, v] of Object.entries(src as Record<string, any>)) {
-        if (!dropKeys.has(k)) payload[k] = v;
-      }
-      payload.numero_titolo = numero.trim();
-      payload.garanzia_da = decorrenza;
-      payload.data_decorrenza = decorrenza;
-      payload.garanzia_a = scadenza;
-      payload.data_scadenza = scadenza;
-      payload.data_competenza = decorrenza;
-      payload.stato = "attivo";
+      const payload = buildDuplicaTitoloPayload(src as Record<string, unknown>, {
+        numero,
+        decorrenza,
+        scadenza,
+      });
 
       const { data: nuovo, error: errIns } = await supabase
         .from("titoli")
