@@ -1,5 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import {
+  PORTALE_CBNET_URL,
+  buildSinistroAperturaEmail,
+  formatClienteSinistroNome,
+  formatPersonaNome,
+  formatSinistroAperturaData,
+  formatSinistroAperturaLuogo,
+  formatSinistroAperturaTipo,
+  resolveUfficioSinistriRecipient,
+} from "./sinistroAperturaEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,6 +34,199 @@ function sanitizeEdgePayload(body: unknown): unknown {
     if (o[k] === "") o[k] = undefined;
   }
   return o;
+}
+
+type SinistroNotificaRow = {
+  id?: string;
+  numero_sinistro?: string | null;
+  ufficio_id?: string | null;
+  cliente_id?: string | null;
+  cliente_anagrafica_id?: string | null;
+  data_evento?: string | null;
+  tipo_sinistro?: string | null;
+  tipo_sinistro_personalizzato?: string | null;
+  numero_polizza?: string | null;
+  targa_veicolo?: string | null;
+  luogo_sinistro?: string | null;
+  indirizzo_sinistro?: string | null;
+  citta_sinistro?: string | null;
+  cap_sinistro?: string | null;
+  provincia_sinistro?: string | null;
+  controparte?: string | null;
+  descrizione?: string | null;
+  dinamica?: string | null;
+  aperto_da_user_id?: string | null;
+};
+
+export type NotificaUfficioSinistriResult = {
+  inviata: boolean;
+  destinatario: string | null;
+  fonte: "email_ufficio_sinistri" | "email_sede" | null;
+  motivo?: string;
+};
+
+async function notificaAperturaUfficioSinistri(
+  supabase: ReturnType<typeof createClient>,
+  sinistro: SinistroNotificaRow,
+  userId?: string,
+): Promise<NotificaUfficioSinistriResult> {
+  try {
+    const clienteId = sinistro.cliente_anagrafica_id || sinistro.cliente_id || null;
+    let ufficioId = sinistro.ufficio_id || null;
+    let clienteNome: string | null = null;
+
+    if (clienteId) {
+      const { data: cliente } = await supabase
+        .from("clienti")
+        .select("id, ufficio_id, ragione_sociale, nome, cognome")
+        .eq("id", clienteId)
+        .maybeSingle();
+      clienteNome = formatClienteSinistroNome(cliente);
+      if (!ufficioId) ufficioId = cliente?.ufficio_id ?? null;
+    }
+
+    if (!ufficioId) {
+      console.warn("[gestione-sinistri] notifica apertura: ufficio_id assente", sinistro.id);
+      return { inviata: false, destinatario: null, fonte: null, motivo: "ufficio_assente" };
+    }
+
+    let ufficio: { id: string; email?: string | null; email_ufficio_sinistri?: string | null; nome_ufficio?: string | null } | null = null;
+    const withSinistri = await supabase
+      .from("uffici")
+      .select("id, nome_ufficio, email, email_ufficio_sinistri")
+      .eq("id", ufficioId)
+      .maybeSingle();
+    if (withSinistri.error) {
+      console.warn("[gestione-sinistri] select email_ufficio_sinistri fallita, fallback email sede:", withSinistri.error.message);
+      const fallback = await supabase
+        .from("uffici")
+        .select("id, nome_ufficio, email")
+        .eq("id", ufficioId)
+        .maybeSingle();
+      ufficio = fallback.data;
+    } else {
+      ufficio = withSinistri.data;
+    }
+
+    const recipient = resolveUfficioSinistriRecipient(
+      ufficio?.email_ufficio_sinistri,
+      ufficio?.email,
+    );
+    if (!recipient.to) {
+      console.warn("[gestione-sinistri] notifica apertura: nessuna email sede/ufficio sinistri", {
+        sinistro_id: sinistro.id,
+        ufficio_id: ufficioId,
+        sede: ufficio?.nome_ufficio ?? null,
+      });
+      if (userId) {
+        await supabase.from("log_attivita").insert({
+          user_id: userId,
+          azione: "notifica_apertura_sinistro_skip",
+          entita_tipo: "sinistro",
+          entita_id: sinistro.id ?? null,
+          ufficio_id: ufficioId,
+          dettagli_json: { motivo: "email_sede_assente", sede: ufficio?.nome_ufficio ?? null },
+          severity: "warning",
+        });
+      }
+      return { inviata: false, destinatario: null, fonte: null, motivo: "email_sede_assente" };
+    }
+
+    let apertoDa: string | null = null;
+    const openerId = userId || sinistro.aperto_da_user_id || null;
+    if (openerId) {
+      const { data: profilo } = await supabase
+        .from("profiles")
+        .select("nome, cognome, email")
+        .eq("id", openerId)
+        .maybeSingle();
+      apertoDa = formatPersonaNome(profilo);
+    }
+
+    const { subject, html } = buildSinistroAperturaEmail({
+      numeroSinistro: sinistro.numero_sinistro || "",
+      cliente: clienteNome,
+      dataEvento: formatSinistroAperturaData(sinistro.data_evento),
+      tipo: formatSinistroAperturaTipo(sinistro.tipo_sinistro, sinistro.tipo_sinistro_personalizzato),
+      numeroPolizza: sinistro.numero_polizza ?? null,
+      targa: sinistro.targa_veicolo ?? null,
+      luogo: formatSinistroAperturaLuogo({
+        luogo: sinistro.luogo_sinistro,
+        indirizzo: sinistro.indirizzo_sinistro,
+        citta: sinistro.citta_sinistro,
+        cap: sinistro.cap_sinistro,
+        provincia: sinistro.provincia_sinistro,
+      }),
+      controparte: sinistro.controparte ?? null,
+      descrizione: sinistro.descrizione || sinistro.dinamica || null,
+      apertoDa,
+      portaleUrl: sinistro.id ? `${PORTALE_CBNET_URL}/sinistri/${sinistro.id}` : PORTALE_CBNET_URL,
+    });
+
+    const { data: sendRes, error: sendErr } = await supabase.functions.invoke("send-email", {
+      body: {
+        to: recipient.to,
+        subject,
+        html,
+        apply_branding: true,
+        ufficio_id: ufficioId,
+      },
+    });
+
+    if (sendErr || (sendRes && (sendRes as { error?: string }).error)) {
+      const errMsg = (sendErr as { message?: string })?.message
+        ?? (sendRes as { error?: string })?.error
+        ?? "send-email failed";
+      console.error("[gestione-sinistri] notifica apertura: send-email fallita", errMsg);
+      if (userId) {
+        await supabase.from("log_attivita").insert({
+          user_id: userId,
+          azione: "notifica_apertura_sinistro_errore",
+          entita_tipo: "sinistro",
+          entita_id: sinistro.id ?? null,
+          ufficio_id: ufficioId,
+          dettagli_json: {
+            destinatario: recipient.to,
+            fonte: recipient.source,
+            oggetto: subject,
+            errore: errMsg,
+          },
+          severity: "warning",
+        });
+      }
+      return {
+        inviata: false,
+        destinatario: recipient.to,
+        fonte: recipient.source,
+        motivo: "errore_invio",
+      };
+    }
+
+    if (userId) {
+      await supabase.from("log_attivita").insert({
+        user_id: userId,
+        azione: "notifica_apertura_sinistro",
+        entita_tipo: "sinistro",
+        entita_id: sinistro.id ?? null,
+        ufficio_id: ufficioId,
+        dettagli_json: {
+          destinatario: recipient.to,
+          fonte: recipient.source,
+          oggetto: subject,
+        },
+        severity: "info",
+      });
+    }
+
+    return {
+      inviata: true,
+      destinatario: recipient.to,
+      fonte: recipient.source,
+    };
+  } catch (err) {
+    console.error("[gestione-sinistri] notifica apertura: eccezione", err);
+    return { inviata: false, destinatario: null, fonte: null, motivo: "errore_invio" };
+  }
 }
 
 const payloadSchema = z.discriminatedUnion("azione", [
@@ -394,7 +597,8 @@ Deno.serve(async (req) => {
         if (remErr) throw remErr;
       }
 
-      return new Response(JSON.stringify({ success: true, sinistro }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const notifica_ufficio = await notificaAperturaUfficioSinistri(supabase, sinistro, user_id);
+      return new Response(JSON.stringify({ success: true, sinistro, notifica_ufficio }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (azione === "aggiorna") {
@@ -709,7 +913,8 @@ Deno.serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({ success: true, sinistro }), {
+      const notifica_ufficio = await notificaAperturaUfficioSinistri(supabase, sinistro, user_id);
+      return new Response(JSON.stringify({ success: true, sinistro, notifica_ufficio }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

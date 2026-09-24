@@ -697,6 +697,7 @@ export default function SinistroAperturaWizardPage() {
       const praticaPayload = praticaValuesToDbPayload(values);
       const reminderIniziali = reminderDaSalvare();
       let newSinistro: { id: string; numero_sinistro: string };
+      let notificaUfficio: { inviata?: boolean; motivo?: string } | undefined;
 
       if (dbBozzaId) {
         const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
@@ -720,6 +721,7 @@ export default function SinistroAperturaWizardPage() {
           throw new Error(formatEdgeFunctionError(invokeErr, invokeRes));
         }
         newSinistro = invokeRes.sinistro as { id: string; numero_sinistro: string };
+        notificaUfficio = invokeRes.notifica_ufficio;
       } else {
         const { data: invokeRes, error: invokeErr } = await supabase.functions.invoke("gestione-sinistri", {
           body: {
@@ -742,6 +744,7 @@ export default function SinistroAperturaWizardPage() {
           throw new Error(formatEdgeFunctionError(invokeErr, invokeRes));
         }
         newSinistro = invokeRes.sinistro as { id: string; numero_sinistro: string };
+        notificaUfficio = invokeRes.notifica_ufficio;
       }
 
       await uploadPendingDocuments(newSinistro.id, values.documenti as WizardDocumentEntry[] | undefined, user.id);
@@ -749,6 +752,13 @@ export default function SinistroAperturaWizardPage() {
       clearDraft(LEGACY_LOCAL_DRAFT_KEY);
       qc.invalidateQueries({ queryKey: ["sinistri"] });
       toast.success(`Sinistro ${newSinistro.numero_sinistro} aperto con successo!`);
+      if (notificaUfficio && notificaUfficio.inviata === false) {
+        if (notificaUfficio.motivo === "email_sede_assente" || notificaUfficio.motivo === "ufficio_assente") {
+          toast.warning("Notifica email all'ufficio sinistri non inviata: manca l'indirizzo della sede.");
+        } else {
+          toast.warning("Sinistro aperto. La notifica email all'ufficio sinistri non è partita.");
+        }
+      }
       navigate(`/sinistri/${newSinistro.id}`);
     } catch (err: unknown) {
       toast.error("Errore durante l'apertura del sinistro: " + (err instanceof Error ? err.message : String(err)));
