@@ -49,18 +49,16 @@ async function getConfig(supabase: ReturnType<typeof createClient>) {
   const envUser = (Deno.env.get("ASSICURAPP_USER_UID") || "").trim();
   let token = envToken;
   let baseUrl = envBase || "https://assicurapp-api.lucadaniele.it";
-  let userUid = envUser || "b355df2d32724932b4c31e1b54e98db5";
-  if (!token) {
-    const { data } = await supabase
-      .from("impostazioni_sistema")
-      .select("chiave, valore_json")
-      .in("chiave", ["assicurapp_api_token", "assicurapp_base_url", "assicurapp_user_uid"]);
-    for (const row of data || []) {
-      const raw = readSetting(row.valore_json);
-      if (row.chiave === "assicurapp_api_token" && raw) token = raw;
-      if (row.chiave === "assicurapp_base_url" && raw) baseUrl = raw;
-      if (row.chiave === "assicurapp_user_uid" && raw) userUid = raw;
-    }
+  let userUid = envUser || "f759e35e9411472cb51231a1ff97d12a";
+  const { data } = await supabase
+    .from("impostazioni_sistema")
+    .select("chiave, valore_json")
+    .in("chiave", ["assicurapp_api_token", "assicurapp_base_url", "assicurapp_user_uid"]);
+  for (const row of data || []) {
+    const raw = readSetting(row.valore_json);
+    if (row.chiave === "assicurapp_api_token" && !token && raw) token = raw;
+    if (row.chiave === "assicurapp_base_url" && !envBase && raw) baseUrl = raw;
+    if (row.chiave === "assicurapp_user_uid" && !envUser && raw) userUid = raw;
   }
   if (!token) throw new Error("ASSICURAPP_API_TOKEN non configurato");
   return { baseUrl: baseUrl.replace(/\/$/, ""), token, userUid };
@@ -311,6 +309,10 @@ Deno.serve(async (req) => {
       ? row.selected_cvts
       : selectedCvtsFromGaranzie(row.garanzie_richieste);
 
+    const quoteSnapshot = {
+      ...((row.quote_snapshot || {}) as Record<string, unknown>),
+      assicurapp_user_uid: cfg.userUid,
+    };
     const { data: updated, error: updErr } = await supabase
       .from("rca_preventivi")
       .update({
@@ -318,6 +320,7 @@ Deno.serve(async (req) => {
         stato,
         selected_cvts: cvts,
         offerte_snapshot: offerte,
+        quote_snapshot: quoteSnapshot,
       })
       .eq("id", preventivoId)
       .select("*")
