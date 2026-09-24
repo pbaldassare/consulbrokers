@@ -35,16 +35,44 @@ function json(body: Record<string, unknown>, status = 200) {
   });
 }
 
-function getConfig() {
-  const baseUrl = (Deno.env.get("ASSICURAPP_BASE_URL") || "https://assicurapp-api.lucadaniele.it").replace(/\/$/, "");
-  const token = Deno.env.get("ASSICURAPP_API_TOKEN");
-  const userUid = Deno.env.get("ASSICURAPP_USER_UID") || "b355df2d32724932b4c31e1b54e98db5";
-  if (!token) throw new Error("ASSICURAPP_API_TOKEN non configurato");
-  return { baseUrl, token, userUid };
+function readSetting(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (value && typeof value === "object" && "token" in (value as Record<string, unknown>)) {
+    return String((value as { token?: unknown }).token || "").trim();
+  }
+  return "";
 }
 
-async function assicurAppFetch<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
-  const { baseUrl, token } = getConfig();
+async function getConfig(supabase: ReturnType<typeof createClient>) {
+  const envToken = (Deno.env.get("ASSICURAPP_API_TOKEN") || "").trim();
+  const envBase = (Deno.env.get("ASSICURAPP_BASE_URL") || "").trim();
+  const envUser = (Deno.env.get("ASSICURAPP_USER_UID") || "").trim();
+  let token = envToken;
+  let baseUrl = envBase || "https://assicurapp-api.lucadaniele.it";
+  let userUid = envUser || "b355df2d32724932b4c31e1b54e98db5";
+  if (!token) {
+    const { data } = await supabase
+      .from("impostazioni_sistema")
+      .select("chiave, valore_json")
+      .in("chiave", ["assicurapp_api_token", "assicurapp_base_url", "assicurapp_user_uid"]);
+    for (const row of data || []) {
+      const raw = readSetting(row.valore_json);
+      if (row.chiave === "assicurapp_api_token" && raw) token = raw;
+      if (row.chiave === "assicurapp_base_url" && raw) baseUrl = raw;
+      if (row.chiave === "assicurapp_user_uid" && raw) userUid = raw;
+    }
+  }
+  if (!token) throw new Error("ASSICURAPP_API_TOKEN non configurato");
+  return { baseUrl: baseUrl.replace(/\/$/, ""), token, userUid };
+}
+
+async function assicurAppFetch<T>(
+  path: string,
+  options: { method?: string; body?: unknown; token?: string; baseUrl?: string } = {},
+): Promise<T> {
+  const baseUrl = options.baseUrl || (Deno.env.get("ASSICURAPP_BASE_URL") || "https://assicurapp-api.lucadaniele.it").replace(/\/$/, "");
+  const token = options.token || Deno.env.get("ASSICURAPP_API_TOKEN");
+  if (!token) throw new Error("ASSICURAPP_API_TOKEN non configurato");
   const response = await fetch(`${baseUrl}${path}`, {
     method: options.method || "GET",
     headers: {
@@ -155,10 +183,12 @@ Deno.serve(async (req) => {
     if (!row) return json({ ok: false, error: "Preventivo non trovato" }, 404);
 
     let quoteUid = row.quote_uid as string | null;
+    const cfg = await getConfig(supabase);
 
     if (azione === "quota" && !quoteUid) {
       const productsRes = await assicurAppFetch<{ status: string; products: AssicurappProduct[] }>(
         "/api/products/list?checkConfig=true",
+        { token: cfg.token, baseUrl: cfg.baseUrl },
       );
       const productCode = row.prodotto_code === "rca_autocarri" ? "rca_autocarri" : "rca_auto";
       const product = (productsRes.products || []).find((p) => p.code === productCode);
@@ -171,7 +201,7 @@ Deno.serve(async (req) => {
       const quote = (row.quote_snapshot || {}) as Record<string, any>;
       const garanzie = Array.isArray(row.garanzie_richieste) ? row.garanzie_richieste : [];
       const cvts = selectedCvtsFromGaranzie(garanzie);
-      const { userUid } = getConfig();
+      const userUid = cfg.userUid;
       const plate = String(row.targa || vehicle.plate || "").toUpperCase().replace(/[\s-]/g, "");
 
       const clientData = {
@@ -231,6 +261,8 @@ Deno.serve(async (req) => {
       const saved = await assicurAppFetch<{ status: string; quoteUID?: string }>(
         "/api/quotes/save",
         {
+          token: cfg.token,
+          baseUrl: cfg.baseUrl,
           method: "POST",
           body: {
             action: "add",
@@ -254,6 +286,7 @@ Deno.serve(async (req) => {
 
     const offersRes = await assicurAppFetch<{ status: string; quotes?: AssicurappOffer[] }>(
       `/api/quotes/quote_offers?quoteUID=${encodeURIComponent(quoteUid)}`,
+      { token: cfg.token, baseUrl: cfg.baseUrl },
     );
     const offerte = offersRes.quotes || [];
     const stato = deriveStato(offerte, quoteUid);
