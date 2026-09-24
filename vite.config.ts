@@ -76,6 +76,8 @@ export default defineConfig(({ mode }) => {
     host: "::",
     port: devPort,
     strictPort: true,
+    // Accesso dalla macchina virtuale per IP / hostname (altrimenti Vite risponde 403)
+    allowedHosts: true,
     headers: {
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
       Pragma: "no-cache",
