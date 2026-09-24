@@ -2,6 +2,7 @@ import { format, parseISO } from "date-fns";
 import { displayStatoPolizza, isPolizzaMadreRow, isQuietanzaRow } from "@/lib/polizzeDisplay";
 import { datePeriodoPolizzaGaranzia } from "@/lib/datePolizzaGaranzia";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
+import { provvigioneProduttoreForRow } from "@/lib/provvigioneProduttore";
 import type { CaricoExportRow } from "./columns";
 
 export type CaricoRawRow = {
@@ -69,6 +70,7 @@ function tipoLabel(p: CaricoRawRow): string {
 export function mapCaricoExportRow(
   p: CaricoRawRow,
   ufficiById?: Map<string, string>,
+  provvProdLookup?: import("@/lib/provvigioneProduttore").ProvvigioneProduttoreLookup | null,
 ): CaricoExportRow {
   const polizza = p.titolo_derivato_numero || p.numero_titolo || "";
   const sede = (p.ufficio_id && ufficiById?.get(p.ufficio_id)) || "";
@@ -89,6 +91,10 @@ export function mapCaricoExportRow(
     frazionamento: frazLabel(p.rate),
     premio: Number(p.premio_lordo) || 0,
     provvigione: getProvvigioneEC(p),
+    provvigioneProduttore: (() => {
+      const n = provvigioneProduttoreForRow(p, provvProdLookup);
+      return n == null ? "" : n;
+    })(),
     ae: p.ae_nome || "",
     produttore: p.produttori_display || p.produttore_nome || "",
     stato: displayStatoPolizza(p),
@@ -100,6 +106,7 @@ export function mapCaricoExportRow(
 export function mapCaricoExportRows(
   rows: CaricoRawRow[],
   ufficiById?: Map<string, string>,
+  provvProdLookup?: import("@/lib/provvigioneProduttore").ProvvigioneProduttoreLookup | null,
 ): CaricoExportRow[] {
-  return rows.map((r) => mapCaricoExportRow(r, ufficiById));
+  return rows.map((r) => mapCaricoExportRow(r, ufficiById, provvProdLookup));
 }

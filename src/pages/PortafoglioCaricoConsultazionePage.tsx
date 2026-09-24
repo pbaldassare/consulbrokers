@@ -39,6 +39,8 @@ import {
 import { isInCoperturaGarantita } from "@/lib/garantitoTitolo";
 import { UfficiFilterMultiSelect } from "@/components/portafoglio/UfficiFilterMultiSelect";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
+import { provvigioneProduttoreForRow } from "@/lib/provvigioneProduttore";
+import { useProvvigioniProduttoreLookup } from "@/hooks/useProvvigioniProduttoreLookup";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { mapCaricoExportRows } from "@/lib/portafoglioCarico/mapRow";
 import { exportCaricoXlsx } from "@/lib/portafoglioCarico/exportXlsx";
@@ -288,6 +290,9 @@ const PortafoglioCaricoConsultazionePage = () => {
 
   const polizze = result?.data || [];
   const totalCount = result?.count || 0;
+  const titoloIdsRiga = useMemo(() => polizze.map((p: any) => p.id), [polizze]);
+  const { data: compensazioniMap } = useCompensazioniByTitoli(titoloIdsRiga);
+  const { data: provvProdLookup } = useProvvigioniProduttoreLookup(titoloIdsRiga);
 
   const { data: ufficiList = [] } = useQuery({
     queryKey: ["uffici-filter-multi"],
@@ -358,7 +363,7 @@ const PortafoglioCaricoConsultazionePage = () => {
   const handleExportXlsx = useCallback(() => {
     if (!exportSourceRows.length) return;
     try {
-      const rows = mapCaricoExportRows(exportSourceRows, ufficiById);
+      const rows = mapCaricoExportRows(exportSourceRows, ufficiById, provvProdLookup);
       exportCaricoXlsx(rows, exportMeta);
       if (exportMeta.scope === "pagina" && totalCount > exportSourceRows.length) {
         toast.message("Export pagina corrente", {
@@ -370,13 +375,13 @@ const PortafoglioCaricoConsultazionePage = () => {
     } catch (e: any) {
       toast.error(e?.message || "Errore generazione Excel");
     }
-  }, [exportSourceRows, ufficiById, exportMeta, totalCount]);
+  }, [exportSourceRows, ufficiById, exportMeta, totalCount, provvProdLookup]);
 
   const handleExportPdf = useCallback(async () => {
     if (!exportSourceRows.length) return;
     try {
       setExportingPdf(true);
-      const rows = mapCaricoExportRows(exportSourceRows, ufficiById);
+      const rows = mapCaricoExportRows(exportSourceRows, ufficiById, provvProdLookup);
       const bytes = await buildCaricoPdf(rows, exportMeta);
       downloadCaricoPdf(bytes, exportMeta);
       if (exportMeta.scope === "pagina" && totalCount > exportSourceRows.length) {
@@ -391,13 +396,13 @@ const PortafoglioCaricoConsultazionePage = () => {
     } finally {
       setExportingPdf(false);
     }
-  }, [exportSourceRows, ufficiById, exportMeta, totalCount]);
+  }, [exportSourceRows, ufficiById, exportMeta, totalCount, provvProdLookup]);
 
   const handleExportDocx = useCallback(async () => {
     if (!exportSourceRows.length) return;
     try {
       setExportingDocx(true);
-      const rows = mapCaricoExportRows(exportSourceRows, ufficiById);
+      const rows = mapCaricoExportRows(exportSourceRows, ufficiById, provvProdLookup);
       const blob = await buildCaricoDocx(rows, exportMeta);
       downloadCaricoDocx(blob, exportMeta);
       if (exportMeta.scope === "pagina" && totalCount > exportSourceRows.length) {
@@ -412,10 +417,7 @@ const PortafoglioCaricoConsultazionePage = () => {
     } finally {
       setExportingDocx(false);
     }
-  }, [exportSourceRows, ufficiById, exportMeta, totalCount]);
-
-  const titoloIdsRiga = useMemo(() => polizze.map((p: any) => p.id), [polizze]);
-  const { data: compensazioniMap } = useCompensazioniByTitoli(titoloIdsRiga);
+  }, [exportSourceRows, ufficiById, exportMeta, totalCount, provvProdLookup]);
 
   const { data: totaleData } = useQuery({
     queryKey: [
@@ -562,7 +564,7 @@ const PortafoglioCaricoConsultazionePage = () => {
                 <p className="text-xl font-bold text-foreground">{totalCount}</p>
                 <p className="text-xs text-muted-foreground">Premi {fmtCurrency(totalePremio)}</p>
                 <p className="text-xs font-medium text-foreground/80">
-                  Provvigioni {fmtCurrency(totaleProvvigioni)}
+                  Provvigioni totali {fmtCurrency(totaleProvvigioni)}
                 </p>
               </div>
             </CardContent>
@@ -778,6 +780,8 @@ const PortafoglioCaricoConsultazionePage = () => {
                   <SortableHeader field="premio_lordo" className="text-right">
                     Lordo
                   </SortableHeader>
+                  <TableHead className="text-right bg-background">Provv. totali</TableHead>
+                  <TableHead className="text-right bg-background">Provv. produttore</TableHead>
                   <SortableHeader field="ae_nome">AE</SortableHeader>
                   <SortableHeader field="produttore_nome">Produttore</SortableHeader>
                   <SortableHeader field="stato">Stato</SortableHeader>
@@ -876,6 +880,13 @@ const PortafoglioCaricoConsultazionePage = () => {
                       <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
                       <TableCell>{frazLabel(p.rate)}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
+                      <TableCell className="text-right">{fmtCurrency(provvigioneRiga(p))}</TableCell>
+                      <TableCell className="text-right">
+                        {(() => {
+                          const n = provvigioneProduttoreForRow(p, provvProdLookup);
+                          return n == null ? "—" : fmtCurrency(n);
+                        })()}
+                      </TableCell>
                       <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
                       <TableCell
                         className="text-sm max-w-[200px] truncate"
