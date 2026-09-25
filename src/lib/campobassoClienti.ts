@@ -180,7 +180,8 @@ export function resolveEmail(raw: string | null | undefined, sedeEmail = CAMPOBA
   pec: string | null;
 } {
   const v = trimTxt(raw).toLowerCase();
-  if (!v) return { email: sedeEmail, pec: null };
+  const looksMail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  if (!looksMail) return { email: sedeEmail, pec: null };
   if (isPecAddress(v)) return { email: sedeEmail, pec: v };
   return { email: v, pec: null };
 }

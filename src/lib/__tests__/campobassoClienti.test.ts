@@ -52,6 +52,8 @@ describe("email e ruoli", () => {
       pec: "comuneisernia@pec.it",
     });
     expect(resolveEmail("mario@gmail.com")).toEqual({ email: "mario@gmail.com", pec: null });
+    expect(resolveEmail("coll. di melanitto")).toEqual({ email: CAMPOBASSO_SEDE_EMAIL, pec: null });
+    expect(resolveEmail("0874745588")).toEqual({ email: CAMPOBASSO_SEDE_EMAIL, pec: null });
   });
 
   it("Melanitto non è backoffice; sede Unit non è persona", () => {
