@@ -5,7 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { popoverMatchTriggerWidthClass } from "@/components/SearchableSelect";
+import {
+  popoverMatchTriggerWidthClass,
+  searchPopoverContentProps,
+  searchableSelectItemClass,
+  searchableSelectListClass,
+} from "@/components/SearchableSelect";
 import { fetchOrdinantiSuggeriti } from "@/lib/ordinantiBancari";
 
 type Props = {
@@ -61,14 +66,14 @@ export function OrdinanteCombobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={popoverMatchTriggerWidthClass} align="start">
+      <PopoverContent className={popoverMatchTriggerWidthClass} {...searchPopoverContentProps}>
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Filtra lista o digita nuovo…"
             value={search}
             onValueChange={setSearch}
           />
-          <CommandList>
+          <CommandList className={searchableSelectListClass}>
             <CommandEmpty>
               {trimmed.length < 2
                 ? "Digita almeno 2 caratteri o scegli dalla lista."
@@ -78,6 +83,7 @@ export function OrdinanteCombobox({
               {value && (
                 <CommandItem
                   value="__clear__"
+                  className={searchableSelectItemClass}
                   onSelect={() => {
                     onChange("");
                     setSearch("");
@@ -91,6 +97,7 @@ export function OrdinanteCombobox({
               {showCreate && (
                 <CommandItem
                   value={`__create__${trimmed}`}
+                  className={searchableSelectItemClass}
                   onSelect={() => {
                     onChange(trimmed);
                     setOpen(false);
@@ -106,6 +113,7 @@ export function OrdinanteCombobox({
                 <CommandItem
                   key={o}
                   value={o}
+                  className={searchableSelectItemClass}
                   onSelect={() => {
                     onChange(o);
                     setSearch("");
