@@ -9,6 +9,8 @@
  * - PI+PQ: madre dal PI, quietanze solo dalle PQ (niente rate inventate).
  * - AM / PR / DP / PS: riga appendice (`is_appendice_modifica`, numero `/AM n`).
  * - 014414 / 016841 / 008325 e i 432 orfani già in sede: non in questo carico.
+ * - Su `titoli`: `cliente_anagrafica_id` = clienti.id; `cliente_id` resta NULL
+ *   (FK verso profiles, non verso clienti).
  */
 
 import { derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";

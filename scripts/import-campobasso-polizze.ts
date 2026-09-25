@@ -18,7 +18,7 @@ const EXCEL =
   process.argv.find((a) => a.endsWith(".xlsx")) ||
   "/root/.local/share/cursor-agent-cbnet/projects/home-ubuntu-cursor-projects-cbnet/uploads/polizze_sede_Campobasso_9669.xlsx";
 const OUT = "/tmp/campobasso-polizze-sql";
-const CHUNK = 8;
+const CHUNK = 20;
 
 function sqlStr(v: string | null | undefined): string {
   if (v == null || v === "") return "NULL";
@@ -47,7 +47,7 @@ function titoloValues(r: CampobassoTitoloPianificato & { newId: string; madreId?
     sqlStr(r.numeroTitolo),
     r.riga,
     sqlStr(r.stato),
-    sqlIdent(r.clienteId),
+    "NULL",
     sqlIdent(r.clienteId),
     sqlIdent(r.compagniaId),
     sqlIdent(r.ramoId),
