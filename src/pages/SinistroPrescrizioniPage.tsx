@@ -18,7 +18,10 @@ import { format, differenceInDays, addYears, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { Clock, FileSpreadsheet, ArrowLeft, Search, RefreshCw, X } from "lucide-react";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
-import { calcScadenzaPrescrizioneBiennale } from "@/lib/sinistroPrescrizioniReminder";
+import {
+  calcScadenzaPrescrizione,
+  resolveDataAccadimentoPrescrizione,
+} from "@/lib/sinistroPrescrizioniReminder";
 import SinistroRiepilogoDialog from "@/components/sinistri/SinistroRiepilogoDialog";
 import { applyStatoFiltroOperativo, labelStatoSinistro, SINISTRO_STATI } from "@/lib/sinistriStati";
 
@@ -83,12 +86,11 @@ export default function SinistroPrescrizioniPage() {
       q = q.or(`numero_sinistro.ilike.%${search}%,descrizione.ilike.%${search}%`);
     }
     if (dataPrescrizioneDal) {
-      const denunciaDal = format(addYears(parseISO(dataPrescrizioneDal), -2), "yyyy-MM-dd");
-      q = q.gte("data_denuncia", denunciaDal);
+      const eventoDal = format(addYears(parseISO(dataPrescrizioneDal), -10), "yyyy-MM-dd");
+      q = q.gte("data_evento", eventoDal);
     }
     if (dataPrescrizioneAl) {
-      const denunciaAl = format(addYears(parseISO(dataPrescrizioneAl), -2), "yyyy-MM-dd");
-      q = q.lte("data_denuncia", denunciaAl);
+      q = q.lte("data_evento", dataPrescrizioneAl);
     }
     return q;
   };
@@ -130,23 +132,42 @@ export default function SinistroPrescrizioniPage() {
       let q = supabase.from("sinistri").select(baseSelect, { count: "exact" });
       q = applyFilters(q);
       const { data, count, error } = await q
-        .order("data_denuncia", { ascending: true, nullsFirst: false })
+        .order("data_evento", { ascending: true, nullsFirst: false })
         .range(range.from, range.to);
       if (error) throw error;
-      return { data: (data || []) as unknown as any[], count: count || 0 };
+      const rows = (data || []) as unknown as any[];
+      const ids = rows.map((s) => s.id).filter(Boolean);
+      const scadenzeBySinistro: Record<string, string> = {};
+      if (ids.length > 0) {
+        const { data: prescRows } = await supabase
+          .from("sinistro_prescrizioni")
+          .select("sinistro_id, data_scadenza_risposta, oggetto")
+          .in("sinistro_id", ids);
+        for (const p of prescRows || []) {
+          if (!p.sinistro_id || !p.data_scadenza_risposta) continue;
+          if (p.oggetto && !String(p.oggetto).includes("prescrizione")) continue;
+          const prev = scadenzeBySinistro[p.sinistro_id];
+          if (!prev || p.data_scadenza_risposta < prev) {
+            scadenzeBySinistro[p.sinistro_id] = p.data_scadenza_risposta;
+          }
+        }
+      }
+      return { data: rows, count: count || 0, scadenzeBySinistro };
     },
   });
 
   const sinistri: any[] = result?.data || [];
   const totalCount = result?.count || 0;
+  const scadenzeBySinistro = result?.scadenzeBySinistro || {};
 
   const getPrescrizioneInfo = (
     dataDenunciaStr: string | null,
     dataEventoStr: string | null,
     dataAperturaStr: string,
+    storedScadenza?: string | null,
   ) => {
-    const baseStr = dataDenunciaStr || dataEventoStr || dataAperturaStr;
-    const scadenzaStr = calcScadenzaPrescrizioneBiennale(baseStr);
+    const baseStr = resolveDataAccadimentoPrescrizione(dataEventoStr, dataDenunciaStr, dataAperturaStr);
+    const scadenzaStr = storedScadenza || calcScadenzaPrescrizione(baseStr);
     const dataPrescrizione = scadenzaStr ? parseISO(scadenzaStr) : addYears(parseISO(dataAperturaStr), 2);
     const oggi = new Date();
     const giorniMancanti = differenceInDays(dataPrescrizione, oggi);
@@ -188,7 +209,7 @@ export default function SinistroPrescrizioniPage() {
   };
 
   const mapSinistroToExportRow = (s: any) => {
-    const info = getPrescrizioneInfo(s.data_denuncia, s.data_evento, s.data_apertura);
+    const info = getPrescrizioneInfo(s.data_denuncia, s.data_evento, s.data_apertura, scadenzeBySinistro[s.id]);
     return {
       "Numero Sinistro": s.numero_sinistro || "",
       Cliente: resolveClienteNome(s.clienti),
@@ -488,7 +509,7 @@ export default function SinistroPrescrizioniPage() {
                   </TableRow>
                 ) : (
                   sinistri.map((s: any) => {
-                    const info = getPrescrizioneInfo(s.data_denuncia, s.data_evento, s.data_apertura);
+                    const info = getPrescrizioneInfo(s.data_denuncia, s.data_evento, s.data_apertura, scadenzeBySinistro[s.id]);
                     return (
                       <TableRow
                         key={s.id}

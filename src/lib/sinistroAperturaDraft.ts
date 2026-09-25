@@ -1,4 +1,10 @@
-import type { SinistroPrescrizioneDraft, SinistroReminderDraft } from "@/lib/sinistroPrescrizioniReminder";
+import {
+  normalizePrescrizioneAnni,
+  PRESCRIZIONE_ANNI_DEFAULT,
+  type PrescrizioneAnni,
+  type SinistroPrescrizioneDraft,
+  type SinistroReminderDraft,
+} from "@/lib/sinistroPrescrizioniReminder";
 import {
   sinistroPraticaDefaultValues,
   sinistroRowToPraticaValues,
@@ -29,6 +35,7 @@ export type SinistroBozzaWizardJson = {
   soloMadri?: boolean;
   prescrizioniDrafts?: SinistroPrescrizioneDraft[];
   reminderDrafts?: SinistroReminderDraft[];
+  anniPrescrizione?: PrescrizioneAnni;
 };
 
 export type WizardUiState = {
@@ -38,6 +45,7 @@ export type WizardUiState = {
   soloMadri: boolean;
   prescrizioniDrafts: SinistroPrescrizioneDraft[];
   reminderDrafts: SinistroReminderDraft[];
+  anniPrescrizione: PrescrizioneAnni;
 };
 
 export const createEmptyWizardUiState = (): WizardUiState => ({
@@ -47,6 +55,7 @@ export const createEmptyWizardUiState = (): WizardUiState => ({
   soloMadri: true,
   prescrizioniDrafts: [],
   reminderDrafts: [],
+  anniPrescrizione: PRESCRIZIONE_ANNI_DEFAULT,
 });
 
 export const createWizardFormDefaults = () => ({
@@ -76,6 +85,7 @@ export const parseBozzaWizardJson = (raw: unknown): SinistroBozzaWizardJson | nu
     soloMadri: o.soloMadri !== false,
     prescrizioniDrafts: Array.isArray(o.prescrizioniDrafts) ? o.prescrizioniDrafts : [],
     reminderDrafts: Array.isArray(o.reminderDrafts) ? o.reminderDrafts : [],
+    anniPrescrizione: normalizePrescrizioneAnni(o.anniPrescrizione),
   };
 };
 
@@ -85,6 +95,7 @@ export const serializeBozzaWizardJson = (input: {
   soloMadri: boolean;
   prescrizioniDrafts: SinistroPrescrizioneDraft[];
   reminderDrafts: SinistroReminderDraft[];
+  anniPrescrizione?: PrescrizioneAnni;
 }): SinistroBozzaWizardJson => ({
   v: 1,
   currentStep: input.currentStep,
@@ -92,6 +103,7 @@ export const serializeBozzaWizardJson = (input: {
   soloMadri: input.soloMadri,
   prescrizioniDrafts: input.prescrizioniDrafts,
   reminderDrafts: input.reminderDrafts,
+  anniPrescrizione: normalizePrescrizioneAnni(input.anniPrescrizione),
 });
 
 /** Mappa riga sinistro bozza → valori form + UI state. */
@@ -126,6 +138,7 @@ export const hydrateWizardFromSinistroBozza = (
       soloMadri: wizardMeta?.soloMadri !== false,
       prescrizioniDrafts: wizardMeta?.prescrizioniDrafts ?? [],
       reminderDrafts: wizardMeta?.reminderDrafts ?? [],
+      anniPrescrizione: wizardMeta?.anniPrescrizione ?? PRESCRIZIONE_ANNI_DEFAULT,
     },
   };
 };
@@ -133,7 +146,7 @@ export const hydrateWizardFromSinistroBozza = (
 /** Payload parziale per salvataggio bozza (validazione minima lato client). */
 export const buildBozzaDbPayload = (
   values: Record<string, unknown>,
-  ui: Pick<WizardUiState, "currentStep" | "soloMadri" | "prescrizioniDrafts" | "reminderDrafts">,
+  ui: Pick<WizardUiState, "currentStep" | "soloMadri" | "prescrizioniDrafts" | "reminderDrafts" | "anniPrescrizione">,
   selectedClienteId: string | null,
 ) => {
   const isTerzi = values.sinistro_terzi === true;
@@ -147,6 +160,7 @@ export const buildBozzaDbPayload = (
       soloMadri: ui.soloMadri,
       prescrizioniDrafts: ui.prescrizioniDrafts,
       reminderDrafts: ui.reminderDrafts,
+      anniPrescrizione: ui.anniPrescrizione,
     }),
   };
 };

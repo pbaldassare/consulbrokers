@@ -7,29 +7,83 @@ export type PrescrizioneDestinatario = "cliente" | "compagnia" | "perito" | "con
 /** Destinatario obbligatorio per le prescrizioni perentorie verso l'agenzia assicurativa. */
 export const PRESCRIZIONE_DESTINATARIO_AGENZIA: PrescrizioneDestinatario = "compagnia";
 
+export const PRESCRIZIONE_ANNI_OPTIONS = [1, 2, 5, 10] as const;
+export type PrescrizioneAnni = (typeof PRESCRIZIONE_ANNI_OPTIONS)[number];
+export const PRESCRIZIONE_ANNI_DEFAULT: PrescrizioneAnni = 2;
+
 export const PRESCRIZIONE_BIENNALE_OGGETTO =
   "Termine di prescrizione biennale (art. 2952 c.c.)";
 
-/** Scadenza risposta = data denuncia + 2 anni (termine prescrizione ordinario). */
-export function calcScadenzaPrescrizioneBiennale(dataDenuncia: string | null | undefined): string {
-  if (!dataDenuncia) return "";
-  const base = parseISO(dataDenuncia);
+export function isPrescrizioneAnni(value: unknown): value is PrescrizioneAnni {
+  return PRESCRIZIONE_ANNI_OPTIONS.includes(value as PrescrizioneAnni);
+}
+
+export function normalizePrescrizioneAnni(value: unknown): PrescrizioneAnni {
+  const n = typeof value === "string" ? Number(value) : value;
+  return isPrescrizioneAnni(n) ? n : PRESCRIZIONE_ANNI_DEFAULT;
+}
+
+/** Data base del termine legale: accadimento (`data_evento`), poi denuncia, poi apertura. */
+export function resolveDataAccadimentoPrescrizione(
+  dataEvento?: string | null,
+  dataDenuncia?: string | null,
+  dataApertura?: string | null,
+): string {
+  return (dataEvento || dataDenuncia || dataApertura || "").trim();
+}
+
+export function labelTerminePrescrizione(anni: PrescrizioneAnni): string {
+  if (anni === 1) return "annuale";
+  if (anni === 5) return "quinquennale";
+  if (anni === 10) return "decennale";
+  return "biennale";
+}
+
+export function testoPrescrizioneLegale(anni: PrescrizioneAnni): { oggetto: string; corpo: string } {
+  if (anni === 2) {
+    return {
+      oggetto: PRESCRIZIONE_BIENNALE_OGGETTO,
+      corpo: "Prescrizione biennale dalla data di accadimento del sinistro.",
+    };
+  }
+  const label = labelTerminePrescrizione(anni);
+  return {
+    oggetto: `Termine di prescrizione ${label} (${anni} ${anni === 1 ? "anno" : "anni"})`,
+    corpo: `Prescrizione ${label} dalla data di accadimento del sinistro.`,
+  };
+}
+
+/** Scadenza legale = data accadimento + N anni (default 2). */
+export function calcScadenzaPrescrizione(
+  dataAccadimento: string | null | undefined,
+  anni: unknown = PRESCRIZIONE_ANNI_DEFAULT,
+): string {
+  if (!dataAccadimento) return "";
+  const base = parseISO(dataAccadimento);
   if (Number.isNaN(base.getTime())) return "";
-  return format(addYears(base, 2), "yyyy-MM-dd");
+  return format(addYears(base, normalizePrescrizioneAnni(anni)), "yyyy-MM-dd");
+}
+
+/** Compat: scadenza biennale da una data già scelta (ora = accadimento). */
+export function calcScadenzaPrescrizioneBiennale(dataAccadimento: string | null | undefined): string {
+  return calcScadenzaPrescrizione(dataAccadimento, PRESCRIZIONE_ANNI_DEFAULT);
 }
 
 export function buildPrescrizioneBiennaleAgenzia(
-  dataDenuncia: string | null | undefined,
+  dataAccadimento: string | null | undefined,
   agenziaRiferimento?: string | null,
+  anni: unknown = PRESCRIZIONE_ANNI_DEFAULT,
 ): SinistroPrescrizioneDraft | null {
-  const scadenza = calcScadenzaPrescrizioneBiennale(dataDenuncia);
+  const anniNorm = normalizePrescrizioneAnni(anni);
+  const scadenza = calcScadenzaPrescrizione(dataAccadimento, anniNorm);
   if (!scadenza) return null;
   const label = (agenziaRiferimento || "").trim() || undefined;
+  const testi = testoPrescrizioneLegale(anniNorm);
   return {
     destinatario_tipo: PRESCRIZIONE_DESTINATARIO_AGENZIA,
     ...(label ? { destinatario_label: label } : {}),
-    oggetto: PRESCRIZIONE_BIENNALE_OGGETTO,
-    corpo: "Prescrizione biennale dalla data di denuncia del sinistro.",
+    oggetto: testi.oggetto,
+    corpo: testi.corpo,
     data_scadenza_risposta: scadenza,
   };
 }

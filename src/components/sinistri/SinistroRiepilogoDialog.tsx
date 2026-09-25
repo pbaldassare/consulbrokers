@@ -17,7 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { SinistroPraticaReadOnly } from "@/components/sinistri/SinistroDatiPraticaPanel";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 import { labelAgenziaRiferimento } from "@/lib/compagniaDisplay";
-import { calcScadenzaPrescrizioneBiennale } from "@/lib/sinistroPrescrizioniReminder";
+import {
+  calcScadenzaPrescrizione,
+  resolveDataAccadimentoPrescrizione,
+} from "@/lib/sinistroPrescrizioniReminder";
 import { badgeClassStatoSinistro, labelStatoSinistro } from "@/lib/sinistriStati";
 
 interface Props {
@@ -63,7 +66,9 @@ export default function SinistroRiepilogoDialog({ sinistroId, open, onOpenChange
   });
 
   const scadenzaPrescrizione = sinistro
-    ? calcScadenzaPrescrizioneBiennale(sinistro.data_denuncia)
+    ? calcScadenzaPrescrizione(
+        resolveDataAccadimentoPrescrizione(sinistro.data_evento, sinistro.data_denuncia, sinistro.data_apertura),
+      )
     : "";
 
   const apriScheda = () => {
@@ -130,7 +135,7 @@ export default function SinistroRiepilogoDialog({ sinistroId, open, onOpenChange
                 <p className="font-medium">{fmtDateSafe(sinistro.data_denuncia)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Prescrizione biennale</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">Prescrizione (accadimento + 2 anni)</span>
                 <p className="font-medium text-primary">{fmtDateSafe(scadenzaPrescrizione)}</p>
               </div>
               <div>

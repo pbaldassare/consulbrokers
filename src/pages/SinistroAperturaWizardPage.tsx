@@ -39,8 +39,15 @@ import { terziPolizzaToDbPayload, validateSinistroTerziObbligatori } from "@/lib
 import type { SinistroPrescrizioneDraft, SinistroReminderDraft } from "@/lib/sinistroPrescrizioniReminder";
 import {
   DESTINATARIO_LABEL,
+  PRESCRIZIONE_ANNI_DEFAULT,
+  PRESCRIZIONE_ANNI_OPTIONS,
   PRESCRIZIONE_DESTINATARIO_AGENZIA,
+  calcScadenzaPrescrizione,
+  labelTerminePrescrizione,
+  normalizePrescrizioneAnni,
+  type PrescrizioneAnni,
 } from "@/lib/sinistroPrescrizioniReminder";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { resolveClienteNome } from "@/lib/ecClienteAnagrafica";
 import { fetchClientiSearch } from "@/hooks/useClienteSearch";
 import {
@@ -114,6 +121,7 @@ export default function SinistroAperturaWizardPage() {
 
   // Bozze prescrizioni/reminder opzionali (Step 4)
   const [prescrizioniDrafts, setPrescrizioniDrafts] = useState<SinistroPrescrizioneDraft[]>([]);
+  const [anniPrescrizione, setAnniPrescrizione] = useState<PrescrizioneAnni>(PRESCRIZIONE_ANNI_DEFAULT);
   const [reminderDrafts, setReminderDrafts] = useState<SinistroReminderDraft[]>([]);
   const [prescDraftForm, setPrescDraftForm] = useState<SinistroPrescrizioneDraft>({
     destinatario_tipo: PRESCRIZIONE_DESTINATARIO_AGENZIA,
@@ -148,6 +156,7 @@ export default function SinistroAperturaWizardPage() {
     setClientiList([]);
     setClientiLoading(false);
     setPrescrizioniDrafts([]);
+    setAnniPrescrizione(PRESCRIZIONE_ANNI_DEFAULT);
     setReminderDrafts([]);
     setPrescDraftForm({
       destinatario_tipo: PRESCRIZIONE_DESTINATARIO_AGENZIA,
@@ -267,6 +276,7 @@ export default function SinistroAperturaWizardPage() {
     setCurrentStep(hydrated.ui.currentStep);
     setSoloMadri(hydrated.ui.soloMadri);
     setPrescrizioniDrafts(hydrated.ui.prescrizioniDrafts);
+    setAnniPrescrizione(hydrated.ui.anniPrescrizione);
     setReminderDrafts(hydrated.ui.reminderDrafts);
     setDbBozzaId(row.id);
     setDbBozzaNumero(row.numero_sinistro);
@@ -541,6 +551,7 @@ export default function SinistroAperturaWizardPage() {
       soloMadri,
       prescrizioniDrafts,
       reminderDrafts: reminderDaSalvare(),
+      anniPrescrizione,
     });
 
   const uploadPendingDocuments = async (
@@ -712,6 +723,7 @@ export default function SinistroAperturaWizardPage() {
               ...(ufficioId ? { ufficio_id: ufficioId } : {}),
             }),
             ...praticaPayload,
+            anni_prescrizione: anniPrescrizione,
             ...(prescrizioniDrafts.length > 0 ? { prescrizioni_iniziali: prescrizioniDrafts } : {}),
             ...(reminderIniziali.length > 0 ? { reminder_iniziali: reminderIniziali } : {}),
           },
@@ -734,6 +746,7 @@ export default function SinistroAperturaWizardPage() {
             ...praticaPayload,
             user_id: user.id,
             stato_iniziale: "aperto",
+            anni_prescrizione: anniPrescrizione,
             ...(prescrizioniDrafts.length > 0 ? { prescrizioni_iniziali: prescrizioniDrafts } : {}),
             ...(reminderIniziali.length > 0 ? { reminder_iniziali: reminderIniziali } : {}),
           },
@@ -1173,12 +1186,48 @@ export default function SinistroAperturaWizardPage() {
                   showNoteInterne
                 />
 
-                {/* Prescrizioni perentorie opzionali (oltre a quella biennale automatica verso agenzia) */}
+                {/* Prescrizione legale automatica + extra opzionali */}
                 <div className="border rounded-lg p-4 space-y-3">
                   <h4 className="text-sm font-semibold text-primary">Prescrizioni perentorie (opzionale)</h4>
                   <p className="text-xs text-muted-foreground">
-                    All&apos;apertura viene creata automaticamente la prescrizione biennale verso l&apos;agenzia di riferimento
-                    della polizza (scadenza = data denuncia + 2 anni). Qui puoi aggiungere altre comunicazioni con scadenza.
+                    All&apos;apertura viene creata automaticamente la prescrizione verso l&apos;agenzia di riferimento
+                    della polizza. La scadenza è la data di accadimento più gli anni scelti (default 2).
+                    Qui puoi aggiungere altre comunicazioni con scadenza.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Termine di prescrizione</Label>
+                      <Select
+                        value={String(anniPrescrizione)}
+                        onValueChange={(v) => setAnniPrescrizione(normalizePrescrizioneAnni(v))}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Anni" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRESCRIZIONE_ANNI_OPTIONS.map((anni) => (
+                            <SelectItem key={anni} value={String(anni)}>
+                              {anni} {anni === 1 ? "anno" : "anni"}
+                              {anni === PRESCRIZIONE_ANNI_DEFAULT ? " (default)" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Data di prescrizione</Label>
+                      <div className="h-9 px-3 flex items-center text-sm rounded-md border bg-muted/30">
+                        {(() => {
+                          const scadenza = calcScadenzaPrescrizione(watch("data_evento"), anniPrescrizione);
+                          return scadenza
+                            ? format(new Date(scadenza), "dd/MM/yyyy")
+                            : "Inserisci prima la data di accadimento";
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Termine {labelTerminePrescrizione(anniPrescrizione)} dalla data di accadimento.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     <div className="h-9 px-3 flex items-center text-sm rounded-md border bg-muted/30">
@@ -1487,6 +1536,16 @@ export default function SinistroAperturaWizardPage() {
                         <p className="mt-1 text-muted-foreground italic bg-muted/10 p-2 border rounded">{watch("note_interne")}</p>
                       </div>
                     )}
+                    <div className="col-span-1 md:col-span-2 space-y-1 pt-2 border-t">
+                      <span className="text-muted-foreground">Prescrizione legale</span>
+                      <p className="font-semibold mt-0.5">
+                        {anniPrescrizione} {anniPrescrizione === 1 ? "anno" : "anni"} dalla data di accadimento
+                        {(() => {
+                          const scadenza = calcScadenzaPrescrizione(watch("data_evento"), anniPrescrizione);
+                          return scadenza ? ` · ${format(new Date(scadenza), "dd/MM/yyyy")}` : "";
+                        })()}
+                      </p>
+                    </div>
                     {(prescrizioniDrafts.length > 0 || reminderDaSalvare().length > 0) && (
                       <div className="col-span-1 md:col-span-2 space-y-2 pt-2 border-t">
                         {prescrizioniDrafts.length > 0 && (

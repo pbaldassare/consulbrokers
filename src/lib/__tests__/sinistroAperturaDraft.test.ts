@@ -47,6 +47,7 @@ describe("sinistroAperturaDraft", () => {
     expect(parsed?.currentStep).toBe(3);
     expect(parsed?.sinistro_terzi).toBe(true);
     expect(parsed?.prescrizioniDrafts).toHaveLength(1);
+    expect(parsed?.anniPrescrizione).toBe(2);
   });
 
   it("serializeBozzaWizardJson — roundtrip", () => {
@@ -93,6 +94,7 @@ describe("sinistroAperturaDraft", () => {
     expect(ui.currentStep).toBe(4);
     expect(ui.selectedClienteId).toBe("c1");
     expect(ui.soloMadri).toBe(false);
+    expect(ui.anniPrescrizione).toBe(2);
     expect(formValues.titolo_id).toBe("t1");
     expect(formValues.numero_polizza).toBe("1602/1");
     expect(formValues.ramo_sinistro).toBe("RCA");

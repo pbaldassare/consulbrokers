@@ -35,13 +35,13 @@ type FormState = {
   stato: PrescrizioneStato;
 };
 
-function emptyForm(dataDenuncia?: string | null, agenziaRiferimento?: string | null): FormState {
-  const auto = buildPrescrizioneBiennaleAgenzia(dataDenuncia, agenziaRiferimento);
+function emptyForm(dataAccadimento?: string | null, agenziaRiferimento?: string | null): FormState {
+  const auto = buildPrescrizioneBiennaleAgenzia(dataAccadimento, agenziaRiferimento);
   return {
     destinatario_label: (agenziaRiferimento || "").trim() || auto?.destinatario_label || "",
     oggetto: auto?.oggetto || PRESCRIZIONE_BIENNALE_OGGETTO,
     corpo: auto?.corpo || "",
-    data_scadenza_risposta: auto?.data_scadenza_risposta || calcScadenzaPrescrizioneBiennale(dataDenuncia),
+    data_scadenza_risposta: auto?.data_scadenza_risposta || calcScadenzaPrescrizioneBiennale(dataAccadimento),
     data_invio: "",
     canale: "",
     note: "",
@@ -58,6 +58,7 @@ function fmtDateSafe(value?: string | null): string {
 
 interface Props {
   sinistroId: string;
+  /** Data accadimento (`data_evento`); fallback denuncia se assente. */
   dataDenuncia?: string | null;
   /** Nome agenzia di riferimento della polizza (non la compagnia assicurativa). */
   agenziaRiferimento?: string | null;

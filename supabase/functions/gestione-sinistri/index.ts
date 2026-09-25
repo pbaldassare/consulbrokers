@@ -16,6 +16,7 @@ function sanitizeEdgePayload(body: unknown): unknown {
   ];
   const numberKeys = [
     "importo_riserva", "costo_preventivato", "costo_effettivo", "franchigia", "importo_liquidato",
+    "anni_prescrizione",
   ];
   for (const k of uuidKeys) {
     if (o[k] === "") o[k] = undefined;
@@ -85,6 +86,82 @@ function puoRiaprireSinistro(ruolo: string | null | undefined, from?: string | n
   return String(ruolo || "").toLowerCase() === "admin";
 }
 
+const PRESCRIZIONE_ANNI = [1, 2, 5, 10] as const;
+type PrescrizioneAnni = (typeof PRESCRIZIONE_ANNI)[number];
+
+function normalizeAnniPrescrizione(value: unknown): PrescrizioneAnni {
+  const n = typeof value === "string" ? Number(value) : value;
+  return PRESCRIZIONE_ANNI.includes(n as PrescrizioneAnni) ? (n as PrescrizioneAnni) : 2;
+}
+
+function testoPrescrizioneLegale(anni: PrescrizioneAnni): { oggetto: string; corpo: string } {
+  if (anni === 2) {
+    return {
+      oggetto: "Termine di prescrizione biennale (art. 2952 c.c.)",
+      corpo: "Prescrizione biennale dalla data di accadimento del sinistro.",
+    };
+  }
+  const label = anni === 1 ? "annuale" : anni === 5 ? "quinquennale" : "decennale";
+  return {
+    oggetto: `Termine di prescrizione ${label} (${anni} ${anni === 1 ? "anno" : "anni"})`,
+    corpo: `Prescrizione ${label} dalla data di accadimento del sinistro.`,
+  };
+}
+
+function calcScadenzaPrescrizioneIso(dataIso: string, anni: number): string {
+  const d = new Date(dataIso);
+  d.setFullYear(d.getFullYear() + anni);
+  return d.toISOString().split("T")[0];
+}
+
+async function insertPrescrizioneLegaleAgenzia(opts: {
+  supabase: ReturnType<typeof createClient>;
+  sinistroId: string;
+  userId: string;
+  dataEvento?: string | null;
+  dataDenuncia?: string | null;
+  fallbackOggi: string;
+  anni: unknown;
+  titoloId?: string | null;
+  compagniaId?: string | null;
+}) {
+  const anni = normalizeAnniPrescrizione(opts.anni);
+  const base = String(opts.dataEvento || opts.dataDenuncia || opts.fallbackOggi).trim();
+  const scadenza = calcScadenzaPrescrizioneIso(base, anni);
+  const testi = testoPrescrizioneLegale(anni);
+
+  let agenziaLabel: string | null = null;
+  if (opts.titoloId) {
+    const { data: titoloRow } = await opts.supabase
+      .from("titoli")
+      .select("compagnia_id, compagnie:compagnia_id(nome)")
+      .eq("id", opts.titoloId)
+      .maybeSingle();
+    const nome = (titoloRow as { compagnie?: { nome?: string } } | null)?.compagnie?.nome;
+    if (nome && String(nome).trim()) agenziaLabel = String(nome).trim();
+  }
+  if (!agenziaLabel && opts.compagniaId) {
+    const { data: ag } = await opts.supabase
+      .from("compagnie")
+      .select("nome")
+      .eq("id", opts.compagniaId)
+      .maybeSingle();
+    if (ag?.nome?.trim()) agenziaLabel = ag.nome.trim();
+  }
+
+  const { error } = await opts.supabase.from("sinistro_prescrizioni").insert({
+    sinistro_id: opts.sinistroId,
+    creato_da: opts.userId,
+    destinatario_tipo: "compagnia",
+    destinatario_label: agenziaLabel,
+    oggetto: testi.oggetto,
+    corpo: testi.corpo,
+    data_scadenza_risposta: scadenza,
+    stato: "bozza",
+  });
+  if (error) throw error;
+}
+
 const payloadSchema = z.discriminatedUnion("azione", [
   z.object({
     azione: z.literal("crea"),
@@ -125,6 +202,7 @@ const payloadSchema = z.discriminatedUnion("azione", [
     bozza_wizard_json: z.record(z.unknown()).optional().nullable(),
     priorita: z.string().optional(),
     note_interne: z.string().optional().nullable(),
+    anni_prescrizione: z.number().int().optional(),
     prescrizioni_iniziali: z.array(z.object({
       destinatario_tipo: z.enum(['cliente', 'compagnia', 'perito', 'controparte', 'altro']).optional(),
       destinatario_label: z.string().optional().nullable(),
@@ -213,6 +291,7 @@ const payloadSchema = z.discriminatedUnion("azione", [
     liquidatore_id: z.string().uuid().nullable().optional(),
     note_interne: z.string().optional().nullable(),
     priorita: z.string().optional(),
+    anni_prescrizione: z.number().int().optional(),
     prescrizioni_iniziali: z.array(z.object({
       destinatario_tipo: z.enum(['cliente', 'compagnia', 'perito', 'controparte', 'altro']).optional(),
       destinatario_label: z.string().optional().nullable(),
@@ -282,7 +361,7 @@ Deno.serve(async (req) => {
         controparte, targa_veicolo, dinamica, indirizzo_sinistro, citta_sinistro, cap_sinistro, provincia_sinistro,
         costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
         stato_iniziale, priorita, note_interne, bozza_wizard_json,
-        prescrizioni_iniziali, reminder_iniziali,
+        anni_prescrizione, prescrizioni_iniziali, reminder_iniziali,
       } = parsed.data;
 
       const isBozza = stato_iniziale === "bozza";
@@ -368,47 +447,20 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Prescrizione biennale automatica verso l'agenzia di riferimento (non la compagnia assicurativa)
-      const dataDenunciaEff = data_denuncia ?? oggi;
+      // Prescrizione legale automatica verso l'agenzia di riferimento (data accadimento + N anni)
       if (user_id) {
-        const scadenzaBiennale = (() => {
-          const d = new Date(dataDenunciaEff);
-          d.setFullYear(d.getFullYear() + 2);
-          return d.toISOString().split("T")[0];
-        })();
-
-        // Agenzia di riferimento = anagrafica compagnie sulla polizza (titoli.compagnia_id)
-        let agenziaLabel: string | null = null;
         const titoloIdEff = isTerzi ? null : (titolo_id ?? null);
-        if (titoloIdEff) {
-          const { data: titoloRow } = await supabase
-            .from("titoli")
-            .select("compagnia_id, compagnie:compagnia_id(nome)")
-            .eq("id", titoloIdEff)
-            .maybeSingle();
-          const nome = (titoloRow as any)?.compagnie?.nome;
-          if (nome && String(nome).trim()) agenziaLabel = String(nome).trim();
-        }
-        if (!agenziaLabel && compagnia_id) {
-          const { data: ag } = await supabase
-            .from("compagnie")
-            .select("nome")
-            .eq("id", compagnia_id)
-            .maybeSingle();
-          if (ag?.nome?.trim()) agenziaLabel = ag.nome.trim();
-        }
-
-        const { error: autoPrescErr } = await supabase.from("sinistro_prescrizioni").insert({
-          sinistro_id: sinistro.id,
-          creato_da: user_id,
-          destinatario_tipo: "compagnia",
-          destinatario_label: agenziaLabel,
-          oggetto: "Termine di prescrizione biennale (art. 2952 c.c.)",
-          corpo: "Prescrizione biennale dalla data di denuncia del sinistro.",
-          data_scadenza_risposta: scadenzaBiennale,
-          stato: "bozza",
+        await insertPrescrizioneLegaleAgenzia({
+          supabase,
+          sinistroId: sinistro.id,
+          userId: user_id,
+          dataEvento: data_evento,
+          dataDenuncia: data_denuncia,
+          fallbackOggi: oggi,
+          anni: anni_prescrizione,
+          titoloId: titoloIdEff,
+          compagniaId: compagnia_id,
         });
-        if (autoPrescErr) throw autoPrescErr;
       }
 
       // Prescrizioni perentorie aggiuntive (opzionali dal wizard)
@@ -578,7 +630,7 @@ Deno.serve(async (req) => {
         indirizzo_sinistro, citta_sinistro, cap_sinistro, provincia_sinistro,
         costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
         responsabile_id, liquidatore_id, note_interne, priorita,
-        prescrizioni_iniziali, reminder_iniziali,
+        anni_prescrizione, prescrizioni_iniziali, reminder_iniziali,
       } = parsed.data;
 
       const { data: prev, error: prevErr } = await supabase
@@ -676,43 +728,18 @@ Deno.serve(async (req) => {
         note: `Apertura sinistro ${numeroFinale}${priorita ? ` · Priorità: ${priorita}` : ""}${note_interne ? ` · ${note_interne}` : ""}`,
       });
 
-      const dataDenunciaEff = data_denuncia ?? oggi;
       const titoloIdEff = isTerzi ? null : (titolo_id ?? null);
       if (user_id) {
-        const scadenzaBiennale = (() => {
-          const d = new Date(dataDenunciaEff);
-          d.setFullYear(d.getFullYear() + 2);
-          return d.toISOString().split("T")[0];
-        })();
-
-        let agenziaLabel: string | null = null;
-        if (titoloIdEff) {
-          const { data: titoloRow } = await supabase
-            .from("titoli")
-            .select("compagnia_id, compagnie:compagnia_id(nome)")
-            .eq("id", titoloIdEff)
-            .maybeSingle();
-          const nome = (titoloRow as any)?.compagnie?.nome;
-          if (nome && String(nome).trim()) agenziaLabel = String(nome).trim();
-        }
-        if (!agenziaLabel && compagnia_id) {
-          const { data: ag } = await supabase
-            .from("compagnie")
-            .select("nome")
-            .eq("id", compagnia_id)
-            .maybeSingle();
-          if (ag?.nome?.trim()) agenziaLabel = ag.nome.trim();
-        }
-
-        await supabase.from("sinistro_prescrizioni").insert({
-          sinistro_id,
-          creato_da: user_id,
-          destinatario_tipo: "compagnia",
-          destinatario_label: agenziaLabel,
-          oggetto: "Termine di prescrizione biennale (art. 2952 c.c.)",
-          corpo: "Prescrizione biennale dalla data di denuncia del sinistro.",
-          data_scadenza_risposta: scadenzaBiennale,
-          stato: "bozza",
+        await insertPrescrizioneLegaleAgenzia({
+          supabase,
+          sinistroId: sinistro_id,
+          userId: user_id,
+          dataEvento: data_evento,
+          dataDenuncia: data_denuncia,
+          fallbackOggi: oggi,
+          anni: anni_prescrizione,
+          titoloId: titoloIdEff,
+          compagniaId: compagnia_id,
         });
       }
 

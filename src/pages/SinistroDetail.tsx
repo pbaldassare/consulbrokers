@@ -561,7 +561,7 @@ export default function SinistroDetail() {
           {safeTab === "prescrizioni" && (
             <SinistroPrescrizioniPanel
               sinistroId={id!}
-              dataDenuncia={sinistro.data_denuncia}
+              dataDenuncia={sinistro.data_evento || sinistro.data_denuncia}
               agenziaRiferimento={
                 labelAgenziaRiferimento(sinistro.titoli as any) ||
                 null
