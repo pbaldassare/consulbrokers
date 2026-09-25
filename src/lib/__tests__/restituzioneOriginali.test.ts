@@ -4,7 +4,9 @@ import {
   clientiOrFilter,
   filenameDistintaRestituzione,
   groupRestituzioneByCompagnia,
+  gruppiPerDistinta,
   slugAgenziaFilename,
+  wrapTestoPdf,
   tipoTitoloRestituzione,
   type RestituzioneDocRiga,
 } from "../restituzioneOriginali";
@@ -69,9 +71,27 @@ describe("filename e filtri", () => {
     const groups = groupRestituzioneByCompagnia([
       riga({ documentoId: "a", nomeFile: "orig.pdf", numeroTitolo: "weewww" }),
     ]);
-    const bytes = await buildDistintaRestituzionePdf(groups[0], new Date(2026, 8, 24));
+    const bytes = await buildDistintaRestituzionePdf(groups[0], new Date(2026, 8, 24), {
+      note: "Restituire gli originali in raccomandata.",
+    });
     expect(bytes.byteLength).toBeGreaterThan(200);
     expect(String.fromCharCode(...bytes.slice(0, 4))).toBe("%PDF");
+  });
+
+  it("genera PDF anche senza documenti selezionati", async () => {
+    const groups = gruppiPerDistinta([], { compagniaNome: "Allianz Napoli" });
+    expect(groups).toHaveLength(1);
+    expect(groups[0].rows).toHaveLength(0);
+    const bytes = await buildDistintaRestituzionePdf(groups[0], new Date(2026, 8, 25), {
+      note: "Lettera di restituzione senza allegati.",
+      clientiLabel: "Lima Giuseppe",
+    });
+    expect(String.fromCharCode(...bytes.slice(0, 4))).toBe("%PDF");
+  });
+
+  it("wrap note e fallback gruppo vuoto", () => {
+    expect(wrapTestoPdf("ciao mondo", 5)).toEqual(["ciao", "mondo"]);
+    expect(gruppiPerDistinta([]).at(0)?.compagniaNome).toBe("Restituzione originali");
   });
 
   it("chunk e or filter clienti", () => {

@@ -36,6 +36,48 @@ export function labelTipoTitoloRestituzione(tipo: TipoTitoloRestituzione): strin
   return "Polizza";
 }
 
+export function wrapTestoPdf(text: string, maxChars: number): string[] {
+  const raw = (text || "").replace(/\r\n/g, "\n").trim();
+  if (!raw) return [];
+  const out: string[] = [];
+  for (const paragraph of raw.split("\n")) {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      out.push("");
+      continue;
+    }
+    let line = "";
+    for (const w of words) {
+      const next = line ? `${line} ${w}` : w;
+      if (next.length > maxChars && line) {
+        out.push(line);
+        line = w;
+      } else {
+        line = next;
+      }
+    }
+    if (line) out.push(line);
+  }
+  return out;
+}
+
+/** Con documenti: un gruppo per agenzia. Senza documenti: un solo gruppo (note-only). */
+export function gruppiPerDistinta(
+  rows: RestituzioneDocRiga[],
+  fallback?: { compagniaId?: string | null; compagniaNome?: string | null },
+): RestituzioneGruppoCompagnia[] {
+  if (rows.length > 0) return groupRestituzioneByCompagnia(rows);
+  const nome = (fallback?.compagniaNome || "").trim() || "Restituzione originali";
+  return [
+    {
+      key: "_note",
+      compagniaId: fallback?.compagniaId ?? null,
+      compagniaNome: nome,
+      rows: [],
+    },
+  ];
+}
+
 export function groupRestituzioneByCompagnia(rows: RestituzioneDocRiga[]): RestituzioneGruppoCompagnia[] {
   const map = new Map<string, RestituzioneGruppoCompagnia>();
   for (const r of rows) {

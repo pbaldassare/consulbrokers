@@ -12,6 +12,7 @@ import {
   clientiOrFilter,
   filenameDistintaRestituzione,
   groupRestituzioneByCompagnia,
+  gruppiPerDistinta,
   labelTipoTitoloRestituzione,
   tipoTitoloRestituzione,
   type RestituzioneDocRiga,
@@ -25,6 +26,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type ClienteChip = { id: string; label: string };
 type VistaFiltro = "tutti" | "da_restituire" | "inviati";
@@ -50,6 +55,8 @@ type DistintaSalvata = {
   pdf_path: string | null;
   bucket_name: string | null;
   created_at: string;
+  data_invio: string | null;
+  note: string | null;
 };
 
 const fmtDate = (iso: string | null | undefined) => {
@@ -83,6 +90,9 @@ const RestituzioneOriginaliPage = () => {
   const [vista, setVista] = useState<VistaFiltro>("da_restituire");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [noteCompagnia, setNoteCompagnia] = useState("");
 
   const clienteIds = useMemo(() => clienti.map((c) => c.id), [clienti]);
 
@@ -163,7 +173,7 @@ const RestituzioneOriginaliPage = () => {
     enabled: tab === "storico",
     queryFn: async (): Promise<DistintaSalvata[]> => {
       const { data, error } = await (supabase.from("distinte_restituzione_originali") as any)
-        .select("id, compagnia_nome, num_documenti, num_titoli, pdf_path, bucket_name, created_at")
+        .select("id, compagnia_nome, num_documenti, num_titoli, pdf_path, bucket_name, created_at, data_invio, note")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -201,19 +211,30 @@ const RestituzioneOriginaliPage = () => {
   );
   const gruppiPreview = useMemo(() => groupRestituzioneByCompagnia(picked), [picked]);
 
+  const clientiLabel = clienti.map((c) => c.label).filter(Boolean).join(", ");
+
+  const apriNoteDialog = () => {
+    setNoteDialogOpen(true);
+  };
+
   const generaESalva = async () => {
-    if (picked.length === 0) {
-      toast.error("Seleziona almeno un documento da restituire");
+    const note = noteText.trim();
+    if (picked.length === 0 && !note) {
+      toast.error("Scrivi le note oppure seleziona almeno un documento");
       return;
     }
-    const gruppi = groupRestituzioneByCompagnia(picked);
+    const gruppi = gruppiPerDistinta(picked, { compagniaNome: noteCompagnia });
     setSaving(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const userId = sessionData.session?.user?.id ?? null;
       const now = new Date();
+      const dataInvio = now.toISOString();
       for (const gruppo of gruppi) {
-        const bytes = await buildDistintaRestituzionePdf(gruppo, now);
+        const bytes = await buildDistintaRestituzionePdf(gruppo, now, {
+          note: note || undefined,
+          clientiLabel: clientiLabel || undefined,
+        });
         const name = filenameDistintaRestituzione(gruppo.compagniaNome, now);
         const path = `distinte-restituzione/${now.getFullYear()}/${gruppo.compagniaId || "senza"}/${Date.now()}_${name}`;
         const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
@@ -232,6 +253,8 @@ const RestituzioneOriginaliPage = () => {
             pdf_path: path,
             bucket_name: "documenti_generali",
             stato: "salvata",
+            note: note || null,
+            data_invio: dataInvio,
             created_by: userId,
             ufficio_id: profile?.ufficio_id || null,
           })
@@ -239,19 +262,21 @@ const RestituzioneOriginaliPage = () => {
           .single();
         if (hErr || !header?.id) throw hErr || new Error("Salvataggio distinta fallito");
 
-        const { error: rErr } = await (supabase.from("distinte_restituzione_originali_righe") as any).insert(
-          gruppo.rows.map((r) => ({
-            distinta_id: header.id,
-            documento_id: r.documentoId,
-            titolo_id: r.titoloId,
-            cliente_id: r.clienteId,
-            cliente_nome: r.clienteNome,
-            numero_titolo: r.numeroTitolo,
-            tipo_titolo: r.tipoTitolo,
-            nome_file: r.nomeFile,
-          })),
-        );
-        if (rErr) throw rErr;
+        if (gruppo.rows.length > 0) {
+          const { error: rErr } = await (supabase.from("distinte_restituzione_originali_righe") as any).insert(
+            gruppo.rows.map((r) => ({
+              distinta_id: header.id,
+              documento_id: r.documentoId,
+              titolo_id: r.titoloId,
+              cliente_id: r.clienteId,
+              cliente_nome: r.clienteNome,
+              numero_titolo: r.numeroTitolo,
+              tipo_titolo: r.tipoTitolo,
+              nome_file: r.nomeFile,
+            })),
+          );
+          if (rErr) throw rErr;
+        }
 
         await logAttivita({
           azione: "distinta_restituzione_originali",
@@ -263,10 +288,13 @@ const RestituzioneOriginaliPage = () => {
       }
       toast.success(
         gruppi.length === 1
-          ? "Distinta salvata e documenti flaggati come inviati"
-          : `${gruppi.length} distinte salvate (una per compagnia)`,
+          ? "PDF salvato in Distinte salvate (data e invio)"
+          : `${gruppi.length} PDF salvati in Distinte salvate`,
       );
       setSelectedIds(new Set());
+      setNoteText("");
+      setNoteCompagnia("");
+      setNoteDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["restituzione-originali-docs"] });
       queryClient.invalidateQueries({ queryKey: ["distinte-restituzione-originali"] });
     } catch (e: any) {
@@ -306,8 +334,8 @@ const RestituzioneOriginaliPage = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Restituzione originali</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Cerca i clienti, seleziona i documenti di polizza e quietanza da restituire, genera una distinta PDF per
-              compagnia e marca i documenti come inviati.
+              Cerca i clienti, opzionalmente seleziona i documenti da restituire, scrivi le note nel popup e genera il
+              PDF. Ogni distinta viene salvata con data e invio.
             </p>
           </div>
         </div>
@@ -382,9 +410,9 @@ const RestituzioneOriginaliPage = () => {
                 ? "Aggiungi almeno un cliente per vedere i documenti."
                 : `${visibili.length} documenti · ${picked.length} da spedire · ${gruppiPreview.length} compagnie`}
             </p>
-            <Button size="sm" onClick={generaESalva} disabled={saving || picked.length === 0}>
+            <Button size="sm" onClick={apriNoteDialog} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileOutput className="h-4 w-4 mr-1" />}
-              Genera distinte PDF ({picked.length})
+              Genera PDF{picked.length > 0 ? ` (${picked.length})` : ""}
             </Button>
           </div>
 
@@ -470,7 +498,9 @@ const RestituzioneOriginaliPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
+                  <TableHead>Invio</TableHead>
                   <TableHead>Agenzia / compagnia</TableHead>
+                  <TableHead>Note</TableHead>
                   <TableHead>Documenti</TableHead>
                   <TableHead>Titoli</TableHead>
                   <TableHead className="text-right">PDF</TableHead>
@@ -479,7 +509,7 @@ const RestituzioneOriginaliPage = () => {
               <TableBody>
                 {loadingStorico && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-6">
+                    <TableCell colSpan={7} className="text-center py-6">
                       <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
                       Caricamento...
                     </TableCell>
@@ -487,7 +517,7 @@ const RestituzioneOriginaliPage = () => {
                 )}
                 {!loadingStorico && storico.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-6 text-sm text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-6 text-sm text-muted-foreground">
                       Nessuna distinta salvata.
                     </TableCell>
                   </TableRow>
@@ -495,7 +525,11 @@ const RestituzioneOriginaliPage = () => {
                 {storico.map((d) => (
                   <TableRow key={d.id}>
                     <TableCell className="text-xs">{fmtDate(d.created_at)}</TableCell>
+                    <TableCell className="text-xs">{fmtDate(d.data_invio || d.created_at)}</TableCell>
                     <TableCell>{d.compagnia_nome}</TableCell>
+                    <TableCell className="text-xs max-w-[220px] truncate" title={d.note || ""}>
+                      {d.note?.trim() || "—"}
+                    </TableCell>
                     <TableCell>{d.num_documenti}</TableCell>
                     <TableCell>{d.num_titoli}</TableCell>
                     <TableCell className="text-right">
@@ -510,6 +544,51 @@ const RestituzioneOriginaliPage = () => {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Note della distinta</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {picked.length > 0
+                ? `Le note diventano parte del PDF (${picked.length} documenti, ${gruppiPreview.length} compagnie).`
+                : "Nessun documento selezionato: il PDF conterrà solo le note (e i clienti aggiunti, se presenti)."}
+            </p>
+            {picked.length === 0 && (
+              <div className="space-y-1.5">
+                <Label htmlFor="restituzione-agenzia">Agenzia / compagnia (opzionale)</Label>
+                <Input
+                  id="restituzione-agenzia"
+                  value={noteCompagnia}
+                  onChange={(e) => setNoteCompagnia(e.target.value)}
+                  placeholder="Es. Allianz — sede Napoli"
+                />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="restituzione-note">Note</Label>
+              <Textarea
+                id="restituzione-note"
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="Testo da includere nel PDF (destinatario, riferimenti, istruzioni di restituzione…)"
+                rows={7}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNoteDialogOpen(false)} disabled={saving}>
+              Annulla
+            </Button>
+            <Button onClick={() => void generaESalva()} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileOutput className="h-4 w-4 mr-1" />}
+              Genera e salva PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
