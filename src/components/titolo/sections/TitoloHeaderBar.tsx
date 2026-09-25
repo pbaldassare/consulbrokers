@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, RefreshCw, Clock, FilePen, Pencil } from "lucide-react";
@@ -34,6 +35,8 @@ interface Props {
   totRate?: number;
   /** Apre la modifica dell'importo firma (solo polizza originale). */
   onEditImportoFirma?: () => void;
+  /** Pulsante Documenti (popup) in alto a destra. */
+  documentiAction?: ReactNode;
 }
 
 /**
@@ -50,6 +53,7 @@ export function TitoloHeaderBar({
   rataIndex,
   totRate,
   onEditImportoFirma,
+  documentiAction,
 }: Props) {
   const isRegolazione = !!t.is_regolazione;
   const isProroga = !!t.is_proroga;
@@ -239,11 +243,15 @@ export function TitoloHeaderBar({
           </div>
         </div>
         {t.stato === "in_attesa_rinnovo" ? (
-          <Badge className="text-sm bg-orange-500 hover:bg-orange-600 text-white shrink-0" title="Diventerà attivo quando la polizza precedente sarà messa a cassa">
-            In attesa rinnovo
-          </Badge>
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            {documentiAction}
+            <Badge className="text-sm bg-orange-500 hover:bg-orange-600 text-white" title="Diventerà attivo quando la polizza precedente sarà messa a cassa">
+              In attesa rinnovo
+            </Badge>
+          </div>
         ) : (
-          <div className="flex flex-col items-end gap-1 shrink-0">
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            {documentiAction}
             {polizzaStato && (
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{statoContrattoLabel}</span>

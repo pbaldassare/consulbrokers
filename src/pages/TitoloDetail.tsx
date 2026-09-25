@@ -42,7 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail, Truck, PauseCircle, PlayCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import DocumentiTab from "@/components/DocumentiTab";
+import { TitoloDocumentiTrigger } from "@/components/titolo/TitoloDocumentiDialog";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
 import CompensazioniBox from "@/components/titolo/CompensazioniBox";
 import ModalitaIncassoBox from "@/components/titolo/ModalitaIncassoBox";
@@ -2184,6 +2184,14 @@ const TitoloDetail = () => {
         totRate={totRate}
         isQuietanzaCorrente={isQuietanzaCorrente}
         onEditImportoFirma={!isLocked && isPolizzaMadre ? openImportoFirma : undefined}
+        documentiAction={
+          <TitoloDocumentiTrigger
+            titoloId={id!}
+            chainIds={isAppendiceTitolo ? [t.id] : chainIds}
+            appendiciPolizza={appendiciPolizza}
+            isAppendiceView={isAppendiceTitolo}
+          />
+        }
         polizzaMadre={(isQuietanzaCorrente || isAppendiceTitolo) && madre ? {
           id: madre.id,
           numero_titolo: madre.numero_titolo,

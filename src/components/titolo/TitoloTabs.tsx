@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import { FileText, Percent, Clock, List, Users, ShieldCheck, StickyNote, Pencil, Eye, Download, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { supabase } from "@/integrations/supabase/client";
-import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
 import { fmtEuro } from "@/lib/formatCurrency";
@@ -37,10 +34,6 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
   const isAppendiceView = variant === "appendice";
   const madreId = chainIds?.[0] ?? id;
   const isMadreView = !isAppendiceView && id === madreId;
-  /** Polizza madre: tutta la catena; quietanza: solo documenti della rata corrente. */
-  const documentiIdsForRead = isMadreView
-    ? (chainIds && chainIds.length > 0 ? chainIds : [id])
-    : [id];
 
   /** Appendici: visibili sulla polizza madre (intera catena); sulla quietanza solo quelle agganciate alla rata. */
   const appendiciVisibili = useMemo(() => {
@@ -55,31 +48,10 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
     );
   }, [appendiciPolizza, id, isMadreView]);
 
-  const appendiciAllegati = useMemo(
-    () => (isMadreView ? appendiciVisibili.filter((a) => a.file_path && a.nome_file) : []),
-    [appendiciVisibili, isMadreView],
-  );
-
-  // Stessa queryKey di DocumentiTab: cache condivisa + invalidazione su upload/delete.
-  const documentiIdsKey = [...documentiIdsForRead].sort().join(",");
-  const { data: documentiList } = useQuery({
-    queryKey: ["documenti", "titolo", documentiIdsKey, "", ""],
-    queryFn: async () => {
-      const { data: main } = await supabase
-        .from("documenti")
-        .select("*, profiles:caricato_da(nome, cognome)")
-        .eq("entita_tipo", "titolo")
-        .in("entita_id", documentiIdsForRead)
-        .order("created_at", { ascending: false });
-      return main ?? [];
-    },
-  });
-  const documentiCount = (documentiList?.length ?? 0) + appendiciAllegati.length;
-
   // Lazy mount: ogni tab si monta solo la prima volta che viene aperto, poi resta in cache.
-  const [tab, setTab] = useState<string>(isAppendiceView ? "documenti" : "movimenti");
+  const [tab, setTab] = useState<string>(isAppendiceView ? "provvigioni" : "movimenti");
   const [mounted, setMounted] = useState<Record<string, boolean>>(
-    isAppendiceView ? { documenti: true } : { movimenti: true },
+    isAppendiceView ? { provvigioni: true } : { movimenti: true },
   );
   const open = (v: string) => {
     setTab(v);
@@ -106,7 +78,6 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
         {!isAppendiceView && (
           <TabsTrigger value="note"><StickyNote className="w-4 h-4 mr-1" />Note</TabsTrigger>
         )}
-        <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti ({documentiCount})</TabsTrigger>
         <TabsTrigger value="chat">Chat</TabsTrigger>
         <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Log Attività</TabsTrigger>
       </TabsList>
@@ -193,10 +164,6 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
       </TabsContent>
       <TabsContent value="note">
         <Card><CardContent className="pt-6"><p className="text-sm whitespace-pre-wrap">{t.note || "Nessuna nota."}</p></CardContent></Card>
-      </TabsContent>
-      <TabsContent value="documenti">
-        <Card><CardContent className="pt-6">{mounted.documenti ? <DocumentiTab entitaTipo="titolo" entitaId={id} entitaIds={documentiIdsForRead} bucketName="documenti_titoli" showPreview={false} appendiciAllegati={appendiciAllegati} /> : null}</CardContent></Card>
-
       </TabsContent>
       <TabsContent value="chat">
         <Card><CardContent className="pt-6">{mounted.chat ? <ChatTab entitaTipo="titolo" entitaId={id} /> : null}</CardContent></Card>
