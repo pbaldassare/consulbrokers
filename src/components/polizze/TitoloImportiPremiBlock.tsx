@@ -38,6 +38,7 @@ import {
   premioRigaDbImporto,
 } from "@/lib/calcProvvigioniGaranzia";
 import { logAttivita } from "@/lib/logAttivita";
+import { copiaDatiPolizzaInQuietanza } from "@/lib/copiaDatiQuietanzaDb";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -100,6 +101,8 @@ export type TitoloImportiPremiBlockHandle = {
   /** Annulla bozza locale e forza ricarico da DB. */
   revertDraft: () => Promise<void>;
   hasPendingChanges: () => boolean;
+  /** Copia frontespizio → quietanza figlia (crea se manca, aggiorna se esiste). */
+  copiaInQuietanza: () => Promise<void>;
 };
 
 /** Totali calcolati dalle righe garanzia (per riepilogo Importi e liste). */
@@ -174,6 +177,7 @@ function TitoloImportiPremiBlock({
   const qc = useQueryClient();
   const reconcileDoneRef = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [copiaBusy, setCopiaBusy] = useState(false);
   const [saveStatus, setSaveStatus] = useState<TitoloImportiPremiSaveStatus>("idle");
   const savingRef = useRef(false);
   const tasseRettificaSupportedRef = useRef<boolean | null>(null);
@@ -200,7 +204,7 @@ function TitoloImportiPremiBlock({
       const { data } = await supabase
         .from("titoli")
         .select(
-          "compagnia_rapporto_id, ramo_id, premio_netto, premio_netto_quietanza, tasse, tasse_quietanza, ssn_firma, ssn_quietanza, addizionali, addizionali_quietanza, provvigioni_firma, provvigioni_quietanza, premio_lordo, sostituisce_polizza, polizza_rateo, numero_titolo",
+          "compagnia_rapporto_id, ramo_id, premio_netto, premio_netto_quietanza, tasse, tasse_quietanza, ssn_firma, ssn_quietanza, addizionali, addizionali_quietanza, provvigioni_firma, provvigioni_quietanza, premio_lordo, sostituisce_polizza, polizza_rateo, numero_titolo, stato",
         )
         .eq("id", titoloId)
         .maybeSingle();
@@ -857,14 +861,6 @@ function TitoloImportiPremiBlock({
 
   const hasPendingChanges = () => isDirty;
 
-  useImperativeHandle(ref, () => ({ saveDraft, revertDraft, hasPendingChanges }), [
-    isLocked,
-    draftMode,
-    hideFirma,
-    showQuietanza,
-    isDirty,
-  ]);
-
   const onFirmaChange = (next: GaranziaRow[]) => {
     if (!draftMode || isLocked) return;
     setFirmaRows(next);
@@ -896,6 +892,51 @@ function TitoloImportiPremiBlock({
     const updated = resetQuietanzaRow(firmaRows, quietanzaRows, idx);
     setQuietanzaRows(updated);
   };
+
+  const isMadreTitolo = !titoloMeta?.sostituisce_polizza && !appendiceMode;
+  const madreStornata = String(titoloMeta?.stato || "").toLowerCase() === "stornato";
+
+  const handleCopiaInQuietanza = async () => {
+    if (draftMode && !isLocked) {
+      resyncAllFromFirma();
+    }
+    if (!isMadreTitolo) {
+      if (draftMode && !isLocked) toast.success("Quietanza riallineata alla Firma");
+      return;
+    }
+    setCopiaBusy(true);
+    try {
+      if (draftMode && !isLocked) {
+        await saveDraft();
+      }
+      const res = await copiaDatiPolizzaInQuietanza(titoloId);
+      toast.success(
+        res.action === "create"
+          ? "Quietanza creata dai dati della polizza"
+          : "Quietanza aggiornata dai dati della polizza",
+      );
+      await qc.invalidateQueries({ queryKey: ["catena-titoli"] });
+      await qc.invalidateQueries({ queryKey: ["polizze_cliente"] });
+      await qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
+      await qc.invalidateQueries({ queryKey: ["titolo-meta-premi", titoloId] });
+      await qc.invalidateQueries({ queryKey: ["premi-garanzia-import", titoloId] });
+    } catch (e: any) {
+      toast.error(e?.message || "Copia in quietanza non riuscita");
+      throw e;
+    } finally {
+      setCopiaBusy(false);
+    }
+  };
+
+  useImperativeHandle(ref, () => ({ saveDraft, revertDraft, hasPendingChanges, copiaInQuietanza: handleCopiaInQuietanza }), [
+    isLocked,
+    draftMode,
+    hideFirma,
+    showQuietanza,
+    isDirty,
+    titoloId,
+    isMadreTitolo,
+  ]);
 
   const accessoriFirmaNum = firmaRows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
   const accessoriQuietanzaNum = quietanzaRows.reduce((s, r) => s + (parseFloat(r.accessori || "0") || 0), 0);
@@ -1315,6 +1356,7 @@ function TitoloImportiPremiBlock({
   })();
 
   const garanzieReadOnly = isLocked || !draftMode;
+  const copiaDisabled = copiaBusy || madreStornata || (!isMadreTitolo && garanzieReadOnly);
 
   return (
     <div className="space-y-4">
@@ -1377,20 +1419,21 @@ function TitoloImportiPremiBlock({
         percentualeAgenziaAuto={provvFirmaAuto}
         onResetAuto={() => { resetProvvigioniAuto("firma"); }}
         headerExtra={
-          showQuietanza ? (
+          showQuietanza || isMadreTitolo ? (
           <Button
             type="button"
             variant="default"
             size="sm"
             className="h-7 text-xs"
-            disabled={garanzieReadOnly}
-            onClick={() => {
-              resyncAllFromFirma();
-              toast.success("Quietanza riallineata alla Firma");
-            }}
-            title="Riallinea l'intera Quietanza alla Firma, azzerando le personalizzazioni"
+            disabled={copiaDisabled}
+            onClick={() => { void handleCopiaInQuietanza(); }}
+            title={
+              isMadreTitolo
+                ? "Copia i dati della polizza nella quietanza figlia (crea se manca, aggiorna se esiste e non è a cassa)"
+                : "Riallinea l'intera Quietanza alla Firma, azzerando le personalizzazioni"
+            }
           >
-            Copia in Quietanza
+            {copiaBusy ? "Copia…" : "Copia in Quietanza"}
           </Button>
           ) : undefined
         }

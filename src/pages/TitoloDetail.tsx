@@ -2105,9 +2105,8 @@ const TitoloDetail = () => {
   const garantitoAperto = isGarantitoAperto(t);
   const showMessaACassa = !t.data_messa_cassa || garantitoAperto || (isPoliennale && t.stato === "attivo");
 
-  // Lock generale: una polizza messa a cassa o stornata non è più una "bozza"
-  // di creazione e non si può modificare inline. Operazioni dedicate
-  // (Annulla Messa a Cassa, Storno, Rinnovo) restano disponibili.
+  // Lock generale: una quietanza messa a cassa o stornata non è più una "bozza".
+  // La polizza madre è un frontespizio: non si mette a cassa.
   const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
   const isEmittenda = !!(t as any).emittenda;
   const isRegolazione = !!(t as any).is_regolazione;
@@ -2150,6 +2149,7 @@ const TitoloDetail = () => {
   const isPolizzaMadre =
     !t.sostituisce_polizza &&
     !isAppendiceTitolo;
+  const importiLocked = isPolizzaMadre ? t.stato === "stornato" : isLocked;
 
   // Stato contratto: tabella `polizze` (attiva/sospesa) con fallback su `titoli.stato`.
   // I dialog Gestione Polizze aggiornano titoli.stato; il badge header legge polizze.stato.
@@ -4120,9 +4120,20 @@ const TitoloDetail = () => {
           ) : (
             <span />
           )}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {isPolizzaMadre && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={importiLocked}
+                onClick={() => { void premiBlockRef.current?.copiaInQuietanza(); }}
+                title="Copia i dati della polizza nella quietanza figlia anche dopo la creazione"
+              >
+                Copia in Quietanza
+              </Button>
+            )}
             {!editingImporti ? (
-              <Button variant="ghost" size="sm" onClick={startEditImporti} disabled={isLocked} title={isLocked ? "Quietanza messa a cassa: modifiche bloccate" : undefined}>
+              <Button variant="ghost" size="sm" onClick={startEditImporti} disabled={importiLocked} title={importiLocked ? (isPolizzaMadre ? "Polizza stornata: modifiche bloccate" : "Quietanza messa a cassa: modifiche bloccate") : undefined}>
                 <Pencil className="w-4 h-4 mr-1" /> Modifica
               </Button>
             ) : (
@@ -4293,7 +4304,7 @@ const TitoloDetail = () => {
             titoloId={t.id}
             gruppoRamoId={t.ramo?.gruppo_ramo_id || null}
             ramoDescrizione={t.ramo?.descrizione || null}
-            isLocked={isLocked}
+            isLocked={importiLocked}
             draftMode={editingImporti}
             showQuietanza={!nascondiPremioQuietanza}
             hideFirma={isQuietanzaCorrente && rataIndex > 1}
