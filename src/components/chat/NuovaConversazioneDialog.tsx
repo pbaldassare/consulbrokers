@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserCheck, Briefcase, FileText, AlertTriangle, Users, Loader2, X, Search, Plus } from "lucide-react";
 import { findAllRelatedUsers, type RelatedUser } from "@/lib/findRelatedUsers";
+import { matchesSearchFields } from "@/lib/searchNoEmail";
 
 interface NuovaConversazioneDialogProps {
   open: boolean;
@@ -277,28 +278,22 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     setVisibileCliente(false);
   };
 
-  // Manual add participant search (nome, cognome, email, telefono, note)
+  // Manual add participant search (nome, cognome, telefono, note — mai email)
   const filteredAddProfiles = (allProfiles || []).filter((u: any) => {
     if (selectedUsers.includes(u.id)) return false;
     if (!addPartecipanteRicerca || addPartecipanteRicerca.length < 2) return false;
-    const q = addPartecipanteRicerca.toLowerCase();
-    const haystack = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""} ${u.telefono || ""} ${u.note || ""}`.toLowerCase();
-    return haystack.includes(q);
+    return matchesSearchFields(addPartecipanteRicerca, [u.nome, u.cognome, u.telefono, u.note]);
   }).slice(0, 8);
 
   const removeUser = (id: string) => {
     setSelectedUsers(prev => prev.filter(x => x !== id));
   };
 
-  // For internal mode (search across nome, cognome, email, telefono, note)
+  // For internal mode (search across nome, cognome, telefono, note — mai email)
   const utentiFiltrati = (utentiStaff || []).filter((u: any) => {
     if (filtroRuolo !== "tutti" && u.ruolo !== filtroRuolo) return false;
     if (filtroUfficio !== "tutti" && u.ufficio_id !== filtroUfficio) return false;
-    if (ricerca) {
-      const q = ricerca.toLowerCase();
-      const haystack = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""} ${u.telefono || ""} ${u.note || ""}`.toLowerCase();
-      if (!haystack.includes(q)) return false;
-    }
+    if (ricerca && !matchesSearchFields(ricerca, [u.nome, u.cognome, u.telefono, u.note])) return false;
     return true;
   });
 
@@ -641,7 +636,7 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
                     <Input
                       value={addPartecipanteRicerca}
                       onChange={(e) => setAddPartecipanteRicerca(e.target.value)}
-                      placeholder="Cerca utente per nome, email..."
+                      placeholder="Cerca utente per nome..."
                       className="h-8 text-xs pl-7"
                       autoFocus
                     />

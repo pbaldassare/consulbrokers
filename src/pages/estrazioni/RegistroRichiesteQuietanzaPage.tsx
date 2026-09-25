@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
+import { buildIlikeOr, RICHIESTE_QUIETANZA_SEARCH_COLUMNS } from "@/lib/searchNoEmail";
 
 const fmtDateTime = (iso: string | null | undefined) => {
   if (!iso) return "—";
@@ -136,12 +137,8 @@ const RegistroRichiesteQuietanzaPage = () => {
       if (dateDa) q = q.gte("inviato_at", `${dateDa}T00:00:00`);
       if (dateA) q = q.lte("inviato_at", `${dateA}T23:59:59.999`);
       if (richiestaIdsFilter) q = q.in("id", richiestaIdsFilter);
-      if (search.trim()) {
-        const s = search.trim();
-        q = q.or(
-          `destinatario_email.ilike.%${s}%,oggetto.ilike.%${s}%,compagnia_nome.ilike.%${s}%`,
-        );
-      }
+      const searchOr = buildIlikeOr([...RICHIESTE_QUIETANZA_SEARCH_COLUMNS], search);
+      if (searchOr) q = q.or(searchOr);
 
       const { data: rows, error, count } = await q
         .order("inviato_at", { ascending: false })
@@ -215,7 +212,7 @@ const RegistroRichiesteQuietanzaPage = () => {
             <div className="relative flex-1 min-w-[200px]">
               <Input
                 className="h-9"
-                placeholder="Cerca destinatario, oggetto, agenzia…"
+                placeholder="Cerca oggetto, agenzia…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />

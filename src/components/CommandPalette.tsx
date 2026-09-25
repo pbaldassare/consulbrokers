@@ -27,6 +27,12 @@ import {
   Loader2,
 } from "lucide-react";
 import { logAttivita } from "@/lib/logAttivita";
+import {
+  clienteSearchDescription,
+  clienteSearchLabel,
+  parseSearchClientiRankedPayload,
+} from "@/lib/clienteSearch";
+import { sanitizeSearchTerm } from "@/lib/searchNoEmail";
 
 interface PaletteResult {
   id: string;
@@ -116,14 +122,13 @@ export default function CommandPalette() {
     setLoading(true);
     const t0 = performance.now();
     const useFts = q.length >= 3;
-    const like = `%${q}%`;
-    const tsQuery = q.trim().split(/\s+/).filter(Boolean).join(" & ");
+    const term = sanitizeSearchTerm(q);
+    const like = `%${term}%`;
+    const tsQuery = term.split(/\s+/).filter(Boolean).join(" & ");
     const all: PaletteResult[] = [];
 
-    const [clienti, titoli, sinistri, compagnie, trattative] = await Promise.all([
-      useFts
-        ? supabase.from("profiles").select("id, nome, cognome, email, ruolo").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
-        : supabase.from("profiles").select("id, nome, cognome, email, ruolo").or(`nome.ilike.${like},cognome.ilike.${like},email.ilike.${like}`).limit(5),
+    const [clientiRpc, titoli, sinistri, compagnie, trattative] = await Promise.all([
+      supabase.rpc("search_clienti_ranked", { p_search: term, p_limit: 5, p_offset: 0 }),
       useFts
         ? supabase.from("titoli").select("id, numero_titolo, stato, premio_lordo").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
         : supabase.from("titoli").select("id, numero_titolo, stato, premio_lordo").or(`numero_titolo.ilike.${like},stato.ilike.${like}`).limit(5),
@@ -134,8 +139,14 @@ export default function CommandPalette() {
       supabase.from("trattative").select("id, prodotto, agenzia, stato").or(`prodotto.ilike.${like}`).limit(5),
     ]);
 
-    clienti.data?.forEach((c: any) =>
-      all.push({ id: c.id, titolo: `${c.nome || ""} ${c.cognome || ""}`.trim() || c.email, sottotitolo: `${c.email || ""} · ${c.ruolo || ""}`, categoria: "clienti", link: `/prospect/${c.id}` })
+    parseSearchClientiRankedPayload(clientiRpc.data).forEach((c) =>
+      all.push({
+        id: c.id,
+        titolo: clienteSearchLabel(c) || "(senza nome)",
+        sottotitolo: clienteSearchDescription(c) || "",
+        categoria: "clienti",
+        link: `/archivi/clienti/${c.id}`,
+      }),
     );
     titoli.data?.forEach((t: any) =>
       all.push({ id: t.id, titolo: `Polizza ${t.numero_titolo || "—"}`, sottotitolo: `${t.stato} · €${t.premio_lordo || 0}`, categoria: "titoli", link: `/titoli/${t.id}` })
@@ -163,7 +174,7 @@ export default function CommandPalette() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => search(query), 250);
+    debounceRef.current = setTimeout(() => search(query), 350);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };

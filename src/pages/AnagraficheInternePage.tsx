@@ -27,6 +27,7 @@ import SpecialistSinistriList from "@/components/anagrafiche/SpecialistSinistriL
 import ProduttoreProvvigioniRamoTab from "@/components/anagrafiche/ProduttoreProvvigioniRamoTab";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { ValidatedInput } from "@/components/ui/validated-input";
+import { matchesAnagraficaListSearch } from "@/lib/searchNoEmail";
 
 /** value ISO yyyy-MM-dd o "" */
 const DateField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
@@ -419,21 +420,7 @@ const AnagraficheInternePage = () => {
     },
   });
 
-  const filtered = items.filter((item) => {
-    if (!search) return true;
-    const s = search.toLowerCase();
-    return (
-      (item.codice?.toLowerCase().includes(s)) ||
-      (item.cognome?.toLowerCase().includes(s)) ||
-      (item.nome?.toLowerCase().includes(s)) ||
-      (item.nome_breve?.toLowerCase().includes(s)) ||
-      (item.ragione_sociale?.toLowerCase().includes(s)) ||
-      (item.email?.toLowerCase().includes(s)) ||
-      (item.citta?.toLowerCase().includes(s)) ||
-      (item.referente_nome?.toLowerCase().includes(s)) ||
-      (item.sigla?.toLowerCase().includes(s))
-    );
-  });
+  const filtered = items.filter((item) => matchesAnagraficaListSearch(item, search));
 
   const tipoLabel = TIPI.find((t) => t.value === activeTab)?.label || "";
   const isPeritiLegali = false;
@@ -891,7 +878,7 @@ const AnagraficheInternePage = () => {
           <div className="mt-4 flex items-center gap-3">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Cerca per nome, codice, email, città..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+              <Input placeholder="Cerca per nome, codice, città..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
             </div>
             <Badge variant="secondary">{filtered.length} risultati</Badge>
           </div>

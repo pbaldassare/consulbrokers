@@ -16,6 +16,7 @@ import { Shield, Plus, FileText, Users, CheckCircle, XCircle, Search } from "luc
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
+import { matchesSearchFields } from "@/lib/searchNoEmail";
 
 const tipiConsenso = ["obbligatorio", "marketing", "profilazione", "comunicazioni"];
 const fontiConsenso = ["digitale", "cartaceo", "legacy"];
@@ -111,7 +112,7 @@ export default function PrivacyConsensi() {
   };
 
   const filteredClienti = clienti?.filter((c: any) =>
-    !searchClienti || `${c.nome} ${c.cognome} ${c.email}`.toLowerCase().includes(searchClienti.toLowerCase())
+    matchesSearchFields(searchClienti, [c.nome, c.cognome]),
   );
 
   return (

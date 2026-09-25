@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Search, Pencil, ShieldAlert, UserPlus, Trash2, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEVELS, ROLE_LABELS } from "@/lib/userLevels";
+import { matchesSearchFields } from "@/lib/searchNoEmail";
 import SediMultiSelect, { type SedeAssegnata } from "@/components/anagrafiche/SediMultiSelect";
 import {
   fetchSediSpecialistSinistri,
@@ -242,16 +243,13 @@ const SpecialistSinistriList = () => {
     setDialogOpen(true);
   };
 
-  const filtered = items.filter((p) => {
-    if (!search) return true;
-    const s = search.toLowerCase();
-    return (
-      p.nome?.toLowerCase().includes(s) ||
-      p.cognome?.toLowerCase().includes(s) ||
-      p.email?.toLowerCase().includes(s) ||
-      (p.ruolo && (ROLE_LABELS[p.ruolo] || p.ruolo).toLowerCase().includes(s))
-    );
-  });
+  const filtered = items.filter((p) =>
+    matchesSearchFields(search, [
+      p.nome,
+      p.cognome,
+      p.ruolo ? ROLE_LABELS[p.ruolo] || p.ruolo : null,
+    ]),
+  );
 
   return (
     <div className="space-y-4">
@@ -259,7 +257,7 @@ const SpecialistSinistriList = () => {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Cerca per nome, email..."
+            placeholder="Cerca per nome..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"

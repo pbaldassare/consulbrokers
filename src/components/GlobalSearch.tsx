@@ -4,6 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Search, User, FileText, AlertTriangle, Building2, Package, Banknote, X, Loader2 } from "lucide-react";
 import { logAttivita } from "@/lib/logAttivita";
+import {
+  clienteSearchDescription,
+  clienteSearchLabel,
+  parseSearchClientiRankedPayload,
+} from "@/lib/clienteSearch";
+import { buildIlikeOr, PROSPECT_SEARCH_COLUMNS, sanitizeSearchTerm } from "@/lib/searchNoEmail";
 
 interface SearchResult {
   id: string;
@@ -85,20 +91,22 @@ export default function GlobalSearch() {
     }
 
     const useFts = q.length >= 3;
-    const like = `%${q}%`;
+    const term = sanitizeSearchTerm(q);
+    const like = `%${term}%`;
     const allResults: SearchResult[] = [];
 
     // Build FTS query string (simple: join words with &)
-    const tsQuery = q.trim().split(/\s+/).filter(Boolean).join(" & ");
+    const tsQuery = term.split(/\s+/).filter(Boolean).join(" & ");
+    const prospectOr = buildIlikeOr([...PROSPECT_SEARCH_COLUMNS], term);
 
-    // Parallel queries — use FTS where available, fallback to LIKE
-    const [clienti, prospect, titoli, sinistri, compagnie, prodotti, trattative] = await Promise.all([
+    // Parallel queries — clienti via RPC (stessa query della lista, senza email)
+    const [clientiRpc, prospect, titoli, sinistri, compagnie, prodotti, trattative] = await Promise.all([
+      supabase.rpc("search_clienti_ranked", { p_search: term, p_limit: 5, p_offset: 0 }),
       useFts
-        ? supabase.from("profiles").select("id, nome, cognome, email, ruolo").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
-        : supabase.from("profiles").select("id, nome, cognome, email, ruolo").or(`nome.ilike.${like},cognome.ilike.${like},email.ilike.${like}`).limit(5),
-      useFts
-        ? supabase.from("prospect").select("id, nome, cognome, email, stato").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
-        : supabase.from("prospect").select("id, nome, cognome, email, stato").or(`nome.ilike.${like},cognome.ilike.${like},email.ilike.${like}`).limit(5),
+        ? supabase.from("prospect").select("id, nome, cognome, ragione_sociale, stato").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
+        : prospectOr
+          ? supabase.from("prospect").select("id, nome, cognome, ragione_sociale, stato").or(prospectOr).limit(5)
+          : Promise.resolve({ data: [] as any[] }),
       useFts
         ? supabase.from("titoli").select("id, numero_titolo, stato, premio_lordo").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
         : supabase.from("titoli").select("id, numero_titolo, stato, premio_lordo").or(`numero_titolo.ilike.${like},stato.ilike.${like}`).limit(5),
@@ -110,8 +118,22 @@ export default function GlobalSearch() {
       supabase.from("trattative").select("id, prodotto, agenzia, stato").or(`prodotto.ilike.${like},compagnia.ilike.${like}`).limit(5),
     ]);
 
-    clienti.data?.forEach((c: any) => allResults.push({ id: c.id, titolo: `${c.nome || ""} ${c.cognome || ""}`.trim(), sottotitolo: `${c.email || ""} · ${c.ruolo || ""}`, categoria: "clienti", link: `/prospect/${c.id}` }));
-    prospect.data?.forEach((p: any) => allResults.push({ id: p.id, titolo: `${p.nome || ""} ${p.cognome || ""}`.trim(), sottotitolo: `${p.stato} · ${p.email || ""}`, categoria: "prospect", link: `/prospect/${p.id}` }));
+    parseSearchClientiRankedPayload(clientiRpc.data).forEach((c) =>
+      allResults.push({
+        id: c.id,
+        titolo: clienteSearchLabel(c) || "(senza nome)",
+        sottotitolo: clienteSearchDescription(c) || "",
+        categoria: "clienti",
+        link: `/archivi/clienti/${c.id}`,
+      }),
+    );
+    prospect.data?.forEach((p: any) => allResults.push({
+      id: p.id,
+      titolo: p.ragione_sociale || `${p.nome || ""} ${p.cognome || ""}`.trim(),
+      sottotitolo: p.stato || "",
+      categoria: "prospect",
+      link: `/archivi/prospect/${p.id}`,
+    }));
     titoli.data?.forEach((t: any) => allResults.push({ id: t.id, titolo: `Titolo ${t.numero_titolo || "—"}`, sottotitolo: `${t.stato} · €${t.premio_lordo || 0}`, categoria: "titoli", link: `/titoli/${t.id}` }));
     sinistri.data?.forEach((s: any) => allResults.push({ id: s.id, titolo: `Sinistro ${s.numero_sinistro || "—"}`, sottotitolo: `${s.stato} · ${s.descrizione?.slice(0, 40) || ""}`, categoria: "sinistri", link: `/sinistri/${s.id}` }));
     compagnie.data?.forEach((c: any) => allResults.push({ id: c.id, titolo: c.nome, sottotitolo: c.codice || "—", categoria: "agenzie", link: `/compagnie` }));
@@ -128,7 +150,7 @@ export default function GlobalSearch() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => search(query), 300);
+    debounceRef.current = setTimeout(() => search(query), 350);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, search]);
 

@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
+import { matchesSearchFields } from "@/lib/searchNoEmail";
 
 interface Ufficio {
   id: string;
@@ -127,25 +128,18 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
     onError: (err: any) => toast.error(err.message),
   });
 
-  const filteredUffici = uffici.filter((u) => {
-    if (!search.trim()) return true;
-    const s = search.toLowerCase();
-    const haystack = [
+  const filteredUffici = uffici.filter((u) =>
+    matchesSearchFields(search, [
       u.codice_ufficio,
       u.nome_ufficio,
       u.indirizzo,
       u.cap,
       u.citta,
       u.provincia,
-      u.email,
       u.telefono,
       composeIndirizzoFull(u),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(s);
-  });
+    ]),
+  );
 
   const openCreateDialog = () => {
     setEditingUfficio(null);
@@ -223,7 +217,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
             <div className="relative flex-1 sm:min-w-[280px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Cerca per codice, nome, indirizzo, email..."
+                placeholder="Cerca per codice, nome, indirizzo..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"

@@ -16,6 +16,7 @@ import CreateUserWizard from "@/components/utenti/CreateUserWizard";
 import UserPermissionsSheet from "@/components/utenti/UserPermissionsSheet";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { toast } from "sonner";
+import { matchesProfileNameSearch } from "@/lib/searchNoEmail";
 
 const GestioneUtentiPrivilegi = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -70,11 +71,7 @@ const GestioneUtentiPrivilegi = () => {
       }
       if (statusFilter === "active" && !u.attivo) return false;
       if (statusFilter === "suspended" && u.attivo) return false;
-      if (search) {
-        const s = search.toLowerCase();
-        const hay = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""}`.toLowerCase();
-        if (!hay.includes(s)) return false;
-      }
+      if (search && !matchesProfileNameSearch(u, search)) return false;
       return true;
     });
   }, [users, filterLevel, statusFilter, search]);
@@ -172,7 +169,7 @@ const GestioneUtentiPrivilegi = () => {
         <CardContent className="p-3 flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Cerca per nome, cognome o email…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input className="pl-9" placeholder="Cerca per nome o cognome…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
             <TabsList className="h-9">

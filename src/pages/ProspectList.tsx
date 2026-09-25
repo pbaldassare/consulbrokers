@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,7 @@ import { lookupComune } from "@/lib/comuniItaliani";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
 import { assertFiscalValid } from "@/lib/assertFiscalValid";
+import { buildIlikeOr, PROSPECT_SEARCH_COLUMNS } from "@/lib/searchNoEmail";
 const STATI_PROSPECT = [
   { value: "nuovo", label: "Nuovo", color: "bg-kpi-blue-bg text-kpi-blue-text border-kpi-blue-border" },
   { value: "in_trattativa", label: "In Trattativa", color: "bg-kpi-yellow-bg text-kpi-yellow-text border-kpi-yellow-border" },
@@ -62,7 +63,16 @@ const ProspectList = () => {
   const [open, setOpen] = useState(false);
   const [filtroStato, setFiltroStato] = useState("tutti");
   const [filtroSearch, setFiltroSearch] = useState("");
-  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato, filtroSearch]);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato, debouncedSearch]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(filtroSearch);
+      setPage(0);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [filtroSearch, setPage]);
   const [form, setForm] = useState(initialForm);
   const scannedFilesRef = useRef<{ file: File; documentType: string }[]>([]);
 
@@ -101,14 +111,15 @@ const ProspectList = () => {
   const { data: gruppiStatOpts = [] } = useGruppiStatistici();
 
   const { data: prospectResult, isLoading } = useQuery({
-    queryKey: ["prospect", page, filtroStato, filtroSearch],
+    queryKey: ["prospect", page, filtroStato, debouncedSearch],
     queryFn: async () => {
       let q = supabase
         .from("prospect")
         .select("*, profiles:assegnato_a(nome, cognome), uffici:ufficio_id(nome_ufficio)", { count: "exact" });
 
       if (filtroStato !== "tutti") q = q.eq("stato", filtroStato);
-      if (filtroSearch) q = q.or(`nome.ilike.%${filtroSearch}%,cognome.ilike.%${filtroSearch}%,email.ilike.%${filtroSearch}%,ragione_sociale.ilike.%${filtroSearch}%`);
+      const searchOr = buildIlikeOr([...PROSPECT_SEARCH_COLUMNS], debouncedSearch);
+      if (searchOr) q = q.or(searchOr);
 
       const { data, error, count } = await q
         .order("created_at", { ascending: false })
@@ -527,7 +538,7 @@ const ProspectList = () => {
       <div className="flex flex-wrap gap-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9 w-64" placeholder="Cerca per nome, email o ragione sociale..." value={filtroSearch} onChange={(e) => { setFiltroSearch(e.target.value); setPage(0); }} />
+          <Input className="pl-9 w-64" placeholder="Cerca per nome, ragione sociale, CF, P.IVA..." value={filtroSearch} onChange={(e) => setFiltroSearch(e.target.value)} />
         </div>
         <Select value={filtroStato} onValueChange={(v) => { setFiltroStato(v); setPage(0); }}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>

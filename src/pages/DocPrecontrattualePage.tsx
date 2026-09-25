@@ -347,21 +347,21 @@ const DocPrecontrattualePage = () => {
       value: `ae:${a.id}`,
       label: `${a.cognome || ""} ${a.nome || ""}`.trim() || a.sigla || a.codice || "—",
       description: a.email || "",
-      searchText: `${a.sigla || ""} ${a.codice || ""} ${a.email || ""} ${a.numero_rui || ""}`,
+      searchText: `${a.sigla || ""} ${a.codice || ""} ${a.cognome || ""} ${a.nome || ""} ${a.numero_rui || ""}`,
       _sortKey: (a.cognome || "").toLowerCase(),
     }));
     const sp = (specialistList || []).map((s: any) => ({
       value: `sp:${s.id}`,
       label: `${s.cognome || ""} ${s.nome || ""}`.trim() || s.email || "—",
       description: s.email || "",
-      searchText: `${s.email || ""} ${s.numero_rui || ""}`,
+      searchText: `${s.cognome || ""} ${s.nome || ""} ${s.numero_rui || ""}`,
       _sortKey: (s.cognome || "").toLowerCase(),
     }));
     const pr = (produttoreList || []).map((p: any) => ({
       value: `pr:${p.id}`,
       label: `${p.cognome || ""} ${p.nome || ""}`.trim() || p.sigla || p.codice || "—",
       description: p.email || "",
-      searchText: `${p.sigla || ""} ${p.codice || ""} ${p.email || ""} ${p.numero_rui || ""}`,
+      searchText: `${p.sigla || ""} ${p.codice || ""} ${p.cognome || ""} ${p.nome || ""} ${p.numero_rui || ""}`,
       _sortKey: (p.cognome || "").toLowerCase(),
     }));
     return [...ae, ...sp, ...pr]

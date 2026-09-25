@@ -53,7 +53,7 @@ export function clienteSearchDescription(c: ClienteSearchRow | null | undefined)
   return parts.length ? parts.join(" · ") : undefined;
 }
 
-/** Blob ricercabile: anagrafica + più nomi + indirizzi. */
+/** Blob ricercabile: anagrafica + più nomi + indirizzi. Mai email/pec. */
 export function clienteSearchBlob(c: ClienteSearchRow): string {
   const nominativi = (c.nominativi ?? [])
     .map((n) => `${n.cognome ?? ""} ${n.nome ?? ""}`.trim())
@@ -67,8 +67,6 @@ export function clienteSearchBlob(c: ClienteSearchRow): string {
     c.partita_iva,
     c.codice_ricerca,
     c.codice_cliente,
-    c.email,
-    c.pec,
     c.telefono,
     c.cellulare,
     c.indirizzo_residenza,

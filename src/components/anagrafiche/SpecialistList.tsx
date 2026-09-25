@@ -24,6 +24,7 @@ import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { ValidatedInput } from "@/components/ui/validated-input";
 import SediMultiSelect, { type SedeAssegnata } from "@/components/anagrafiche/SediMultiSelect";
 import { fetchSediProfilo, saveSediProfilo } from "@/lib/profiloSedi";
+import { matchesSearchFields } from "@/lib/searchNoEmail";
 
 interface SpecialistRow {
   id: string;
@@ -391,17 +392,9 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId, items]);
 
-  const filtered = items.filter((p) => {
-    if (!search) return true;
-    const s = search.toLowerCase();
-    return (
-      (p.nome?.toLowerCase().includes(s)) ||
-      (p.cognome?.toLowerCase().includes(s)) ||
-      (p.email?.toLowerCase().includes(s)) ||
-      (p.codice_contabile?.toLowerCase().includes(s)) ||
-      (p.codice_fiscale?.toLowerCase().includes(s))
-    );
-  });
+  const filtered = items.filter((p) =>
+    matchesSearchFields(search, [p.nome, p.cognome, p.codice_contabile, p.codice_fiscale]),
+  );
 
   return (
     <div className="space-y-4">
@@ -409,7 +402,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Cerca per nome, cognome, email, codice..."
+            placeholder="Cerca per nome, cognome, codice..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"

@@ -64,4 +64,31 @@ describe("clienteSearch", () => {
     expect(opt.description).toContain("Via Dante 10");
     expect(opt.searchText).toContain("via dante 10");
   });
+
+  it("non matcha email/pec anche se presenti in anagrafica", () => {
+    const conEmail: ClienteSearchRow = {
+      ...abatangelo,
+      email: "cosimo.damiano@agenzia.it",
+      pec: "abatangelo@pec.it",
+    };
+    expect(matchesClienteSearch(conEmail, "cosimo.damiano@agenzia.it")).toBe(false);
+    expect(matchesClienteSearch(conEmail, "abatangelo@pec.it")).toBe(false);
+    expect(clienteSearchBlob(conEmail)).not.toContain("@");
+    expect(matchesClienteSearch(conEmail, "abatangelo")).toBe(true);
+    expect(matchesClienteSearch(conEmail, "BTNCMD635P09F100")).toBe(false);
+  });
+
+  it("trova ancora per CF e P.IVA", () => {
+    const fiscale: ClienteSearchRow = {
+      id: "3",
+      cognome: "ABATANGELO",
+      nome: "COSIMO DAMIANO",
+      codice_fiscale: "BTNCMD635P09F100",
+      partita_iva: "01234567890",
+      email: "x@y.it",
+    };
+    expect(matchesClienteSearch(fiscale, "BTNCMD635P09F100")).toBe(true);
+    expect(matchesClienteSearch(fiscale, "01234567890")).toBe(true);
+    expect(matchesClienteSearch(fiscale, "x@y.it")).toBe(false);
+  });
 });

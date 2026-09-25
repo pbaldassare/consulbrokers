@@ -20,6 +20,7 @@ import {
   resolveIdGuardTarget,
   type IdGuardClienteInput,
 } from "@/lib/idGuard";
+import { buildIlikeOr, IDGUARD_CLIENTI_SEARCH_COLUMNS } from "@/lib/searchNoEmail";
 
 type TipoFiltro = "tutti" | "privato" | "azienda";
 
@@ -41,10 +42,6 @@ type VerificaRow = {
   password_esposte: number | null;
   error_message: string | null;
 };
-
-function escapeIlike(term: string): string {
-  return term.replace(/[%_,()]/g, " ").replace(/\s+/g, " ").trim();
-}
 
 const IdGuardPage = () => {
   const navigate = useNavigate();
@@ -74,12 +71,8 @@ const IdGuardPage = () => {
       if (tipoFiltro === "privato") q = q.eq("tipo_cliente", "privato");
       if (tipoFiltro === "azienda") q = q.in("tipo_cliente", ["azienda", "ente"]);
 
-      const term = escapeIlike(debouncedSearch);
-      if (term) {
-        q = q.or(
-          `nome.ilike.%${term}%,cognome.ilike.%${term}%,ragione_sociale.ilike.%${term}%,email.ilike.%${term}%`,
-        );
-      }
+      const searchOr = buildIlikeOr([...IDGUARD_CLIENTI_SEARCH_COLUMNS], debouncedSearch);
+      if (searchOr) q = q.or(searchOr);
 
       const { data, error, count } = await q
         .order("cognome", { ascending: true, nullsFirst: false })
@@ -203,7 +196,7 @@ const IdGuardPage = () => {
               <div className="relative w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Cerca nome, ragione sociale, email..."
+                  placeholder="Cerca per nome, ragione sociale, CF, P.IVA..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9"
