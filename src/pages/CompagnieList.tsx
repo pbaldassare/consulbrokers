@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,11 @@ import ProvvigioniCompagniaDialog from "@/components/compagnie/ProvvigioniCompag
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import {
+  filterAgenzieList,
+  filterCompagnieAssicurativeList,
+  matchesAgenziaSearch,
+} from "@/lib/compagnieSearch";
 
 // ── Constants ──
 
@@ -890,16 +895,7 @@ function AgenzieCollegateDialog({
     enabled: !!gruppoId && open,
   });
 
-  const filtered = compagnie.filter((a: any) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      a.nome?.toLowerCase().includes(q) ||
-      a.nome_sede?.toLowerCase().includes(q) ||
-      a.codice?.toLowerCase().includes(q) ||
-      a.comune?.toLowerCase().includes(q)
-    );
-  });
+  const filtered = compagnie.filter((a: any) => matchesAgenziaSearch(a, search));
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setSearch(""); onClose(); } }}>
@@ -927,7 +923,7 @@ function AgenzieCollegateDialog({
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Cerca per nome, sede, codice o comune..."
+              placeholder="Cerca per nome o codice..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -1068,12 +1064,18 @@ function AgenzieCollegateDialog({
 function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: string) => void } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<GruppoForm>(emptyGruppo);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; descrizione: string; count: number } | null>(null);
   const [agenzieDialog, setAgenzieDialog] = useState<{ gruppoId: string; gruppoDescrizione: string } | null>(null);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search), 350);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   const { data: gruppi = [], isLoading } = useQuery({
     queryKey: ["agenzie-madri-list"],
@@ -1218,8 +1220,9 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
     setDeleteTarget({ id: g.id, descrizione: g.descrizione, count: g.agenzie_count });
   };
 
-  const filtered = gruppi.filter((g: any) =>
-    !search || g.descrizione?.toLowerCase().includes(search.toLowerCase()) || g.codice?.toLowerCase().includes(search.toLowerCase())
+  const filtered = useMemo(
+    () => filterCompagnieAssicurativeList(gruppi, debouncedSearch),
+    [gruppi, debouncedSearch],
   );
 
   const renderForm = () => (
@@ -1245,13 +1248,13 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
         <CardContent className="pt-6">
           <div className="flex items-end gap-4">
             <div className="flex-1 space-y-1">
-              <Label className="text-xs text-muted-foreground">Cerca per descrizione o codice</Label>
+              <Label className="text-xs text-muted-foreground">Cerca per nome o codice</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Cerca compagnia assicurativa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+                <Input placeholder="Cerca per nome o codice..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
               </div>
             </div>
-            <Button variant="secondary" onClick={() => setSearch("")}>Reset</Button>
+            <Button variant="secondary" onClick={() => { setSearch(""); setDebouncedSearch(""); }}>Reset</Button>
             <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyGruppo); }}>
               <DialogTrigger asChild>
                 <Button><Plus className="w-4 h-4 mr-2" />Nuova Compagnia Assicurativa</Button>
@@ -1392,15 +1395,19 @@ const CompagnieList = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<CompagniaForm>(emptyForm);
 
-  const [searchNome, setSearchNome] = useState("");
-  const [searchCodice, setSearchCodice] = useState("");
-  
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [onlyPluri, setOnlyPluri] = useState(false);
   const [filterTipo, setFilterTipo] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("agenzie");
   const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
   const [provvigioniTarget, setProvvigioniTarget] = useState<{ id: string; nome: string } | null>(null);
   const [deleteCompagnia, setDeleteCompagnia] = useState<{ id: string; nome: string; attiva: boolean } | null>(null);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search), 350);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["agenzie"],
@@ -1548,13 +1555,15 @@ const CompagnieList = () => {
     }
   };
 
-  const filteredAnagrafica = compagnie.filter((c: any) => {
-    const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase()) || c.nome_sede?.toLowerCase().includes(searchNome.toLowerCase());
-    const matchCodice = !searchCodice || c.codice?.toLowerCase().startsWith(searchCodice.toLowerCase());
-    const matchPluri = !onlyPluri || (c.gruppo_compagnia_id && gruppiMap[c.gruppo_compagnia_id]?.is_pluri);
-    const matchTipo = filterTipo === "all" || c.tipo === filterTipo;
-    return matchNome && matchCodice && matchPluri && matchTipo;
-  });
+  const filteredAnagrafica = useMemo(
+    () => filterAgenzieList(compagnie, {
+      search: debouncedSearch,
+      tipo: filterTipo,
+      onlyPluri,
+      gruppiMap,
+    }),
+    [compagnie, debouncedSearch, filterTipo, onlyPluri, gruppiMap],
+  );
 
   const pluriCount = compagnie.filter((c: any) => gruppiMap[c.gruppo_compagnia_id]?.is_pluri).length;
 
@@ -1622,15 +1631,16 @@ const CompagnieList = () => {
             <CardContent className="pt-6">
               <div className="flex items-end gap-4">
                 <div className="flex-1 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Cerca per nome, sede o codice</Label>
+                  <Label className="text-xs text-muted-foreground">Cerca per nome o codice</Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Cerca agenzia..." value={searchNome} onChange={(e) => setSearchNome(e.target.value)} className="pl-9" />
+                    <Input
+                      placeholder="Cerca per nome o codice..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="pl-9"
+                    />
                   </div>
-                </div>
-                <div className="w-40 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Codice iniziale</Label>
-                  <Input placeholder="es. MED" value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
                 </div>
                 <div className="space-y-1 w-52">
                   <Label className="text-xs text-muted-foreground">Tipo</Label>
@@ -1647,7 +1657,7 @@ const CompagnieList = () => {
                     placeholder="Filtra per tipo..."
                   />
                 </div>
-                <Button variant="secondary" onClick={() => { setSearchNome(""); setSearchCodice(""); setFilterTipo("all"); setOnlyPluri(false); }}>Reset</Button>
+                <Button variant="secondary" onClick={() => { setSearch(""); setDebouncedSearch(""); setFilterTipo("all"); setOnlyPluri(false); }}>Reset</Button>
               </div>
             </CardContent>
           </Card>
