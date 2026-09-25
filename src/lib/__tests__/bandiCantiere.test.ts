@@ -10,15 +10,18 @@ import {
   matchStoricoPerEnte,
   matchesFiltroCantiere,
   normalizeEnteNome,
+  storicoGarePath,
 } from "@/lib/bandiCantiere";
 
 describe("bandiCantiere", () => {
-  it("mette in cantiere i partecipati e gli archiviati", () => {
+  it("mette in cantiere i partecipati, non gli archiviati", () => {
     expect(isBandoInCantiere("voglio_partecipare", "da_approfondire")).toBe(true);
     expect(isBandoInCantiere("in_trattativa", "in_trattativa")).toBe(true);
     expect(isBandoInCantiere("non_partecipo", null)).toBe(false);
-    expect(isBandoInCantiere(null, "archiviato_storico")).toBe(true);
+    expect(isBandoInCantiere(null, "archiviato_storico")).toBe(false);
+    expect(isBandoInCantiere("voglio_partecipare", "da_approfondire", 0, "sg1")).toBe(false);
     expect(isBandoInCantiere(null, null, 1)).toBe(true);
+    expect(storicoGarePath("abc")).toBe("/trattative/storico-gare?id=abc");
   });
 
   it("deriva lo stato cantiere senza toccare lo stato gara", () => {

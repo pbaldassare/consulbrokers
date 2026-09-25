@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw, FolderOpen } from "lucide-react";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, Plus, Zap, Tag, AlertTriangle, Ban, Heart, RotateCcw, Archive, RefreshCw, FolderOpen, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -97,11 +97,13 @@ import {
   labelCantiereStato,
   matchStoricoPerEnte,
   matchesFiltroCantiere,
+  storicoGarePath,
   type FiltroCantiere,
   type StoricoGaraMatch,
 } from "@/lib/bandiCantiere";
 import {
   buildHarvestNote,
+  buildPortaleRefreshNote,
   countNovitaDocumenti,
   documentiVisibili,
   inferTipoDocumentoBando,
@@ -115,6 +117,7 @@ import {
   isBandoMonitorabile,
   isMonitorDue,
 } from "@/lib/bandiMonitor";
+import { BANDI_CRON_KEYWORD_LABEL, mapBandoToUpsertRow } from "@/lib/bandiCronMattina";
 import { BandiFascicoloArchivio } from "@/components/bandi/BandiFascicoloArchivio";
 import {
   dettaglioUpdatePayload,
@@ -185,42 +188,10 @@ const statoLabel = (stato: string) => {
 
 // Upsert bandi into DB with keyword
 async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
+  const harvestedAt = new Date().toISOString();
   const rows = bandi
-    .filter((b) => b.scheda_id)
-    .map((b) => {
-      const scadenzaDate = toIsoDate(b.scadenza);
-      const aggiudicato = !!b.aggiudicato;
-      return {
-        scheda_id: b.scheda_id!,
-        titolo: b.titolo || null,
-        oggetto: b.titolo || null,
-        ente: b.ente || null,
-        ente_tipo: b.ente_tipo || null,
-        tipologia: b.categoria || null,
-        importo: b.importo ?? null,
-        scadenza: scadenzaDate,
-        cig: b.cig || null,
-        link: b.link || null,
-        localita: b.localita || null,
-        regione: b.regione || null,
-        stato: aggiudicato ? "scaduto" : (b.stato || "aperto"),
-        pdf_url: b.pdf_url || null,
-        keyword: b.keyword || b.categoria || keyword,
-        fonte: resolveFonteBando(b.fonte, b.link),
-        tipo_avviso: b.tipo_avviso || (aggiudicato ? "esito" : "gara"),
-        notice_type: b.notice_type || null,
-        form_type: b.form_type || null,
-        aggiudicato,
-        aggiudicatario: b.aggiudicatario || null,
-        data_decisione: toIsoDate(b.data_decisione),
-        data_contratto: toIsoDate(b.data_contratto),
-        servizio_da: toIsoDate(b.servizio_da),
-        servizio_a: toIsoDate(b.servizio_a),
-        tipo_procedura: b.tipo_procedura || null,
-        data_pubblicazione: toIsoDate(b.dataPublicazione || b.data_pubblicazione),
-        last_harvest_at: new Date().toISOString(),
-      };
-    });
+    .map((b) => mapBandoToUpsertRow(b, keyword, harvestedAt))
+    .filter((row): row is NonNullable<typeof row> => !!row);
 
   if (rows.length === 0) return { salvati: 0, nuovi: 0, giaInArchivio: 0 };
 
@@ -358,11 +329,11 @@ export default function BandiPubbliciPage() {
   const [filtroPipeline, setFiltroPipeline] = useState<FiltroPipelineBando>(
     isPartecipati ? "voglio_partecipare" : "nuovi",
   );
-  const [filtroCantiere, setFiltroCantiere] = useState<FiltroCantiere>("da_approfondire");
+  const [filtroCantiere, setFiltroCantiere] = useState<FiltroCantiere>("tutti");
 
   useEffect(() => {
     setFiltroPipeline(isPartecipati ? "voglio_partecipare" : "nuovi");
-    setFiltroCantiere("da_approfondire");
+    setFiltroCantiere("tutti");
   }, [isPartecipati]);
   const [regioniOpen, setRegioniOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -886,12 +857,12 @@ export default function BandiPubbliciPage() {
         storico_gara_id: storicoId,
         snapshot_json: buildBandoSnapshot(archivioBando),
       });
-      toast.success("Bando archiviato in Storico Gare");
+      toast.success("Bando spostato in Storico Gare");
       setArchivioOpen(false);
       setArchivioBando(null);
-      refetchBandi();
       queryClient.invalidateQueries({ queryKey: ["storico_gare"] });
       queryClient.invalidateQueries({ queryKey: ["storico_match_bandi"] });
+      navigate(storicoGarePath(storicoId));
     } catch (err: any) {
       console.error("Errore archivio storico:", err);
       toast.error(err.message || "Impossibile scrivere lo Storico Gare");
@@ -900,7 +871,7 @@ export default function BandiPubbliciPage() {
     }
   };
 
-  const handleAggiornaPortale = async (bando: any, opts?: { generate?: boolean }) => {
+  const handleAggiornaPortale = async (bando: any, opts?: { generate?: boolean; metadataOnly?: boolean }) => {
     setHarvestingId(bando.id);
     const motore = resolveFonteBando(bando.fonte, bando.link);
     const { data: run, error: runErr } = await (supabase as any)
@@ -960,28 +931,44 @@ export default function BandiPubbliciPage() {
         extraUrls,
         limit: HARVEST_URL_LIMIT,
       });
-      for (const pdfUrl of urls) {
-        const meta = metaByUrl.get(pdfUrl);
-        const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("scarica-bando-pdf", {
-          body: {
-            bando_id: bando.id,
-            pdf_url: pdfUrl,
-            harvest_run_id: run.id,
-            tipo: meta?.tipo || inferTipoDocumentoBando(meta?.nome, pdfUrl),
-            nome: meta?.nome,
-            primario: pdfUrl === primaryUrl,
-          },
-        });
-        if (pdfErr) {
-          errore = [errore, pdfErr.message].filter(Boolean).join(" · ");
-        } else if (pdfData?.stato === "nuovo") {
-          nuovi += 1;
-        } else if (pdfData?.stato === "aggiornato") {
-          aggiornati += 1;
+      if (opts?.metadataOnly) {
+        const { data: existingDocs } = await (supabase as any)
+          .from("bandi_documenti")
+          .select("url_origine")
+          .eq("bando_id", bando.id)
+          .neq("stato", "rimosso");
+        const already = new Set(
+          ((existingDocs || []) as { url_origine?: string | null }[])
+            .map((d) => (d.url_origine || "").split("#")[0])
+            .filter(Boolean),
+        );
+        nuovi = urls.filter((u) => !already.has(u.split("#")[0])).length;
+      } else {
+        for (const pdfUrl of urls) {
+          const meta = metaByUrl.get(pdfUrl);
+          const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("scarica-bando-pdf", {
+            body: {
+              bando_id: bando.id,
+              pdf_url: pdfUrl,
+              harvest_run_id: run.id,
+              tipo: meta?.tipo || inferTipoDocumentoBando(meta?.nome, pdfUrl),
+              nome: meta?.nome,
+              primario: pdfUrl === primaryUrl,
+            },
+          });
+          if (pdfErr) {
+            errore = [errore, pdfErr.message].filter(Boolean).join(" · ");
+          } else if (pdfData?.stato === "nuovo") {
+            nuovi += 1;
+          } else if (pdfData?.stato === "aggiornato") {
+            aggiornati += 1;
+          }
         }
       }
 
-      const note = buildHarvestNote({ arricchito, nuovi, aggiornati, errore });
+      const note = opts?.metadataOnly
+        ? buildPortaleRefreshNote({ arricchito, nuoviUrl: nuovi, errore })
+        : buildHarvestNote({ arricchito, nuovi, aggiornati, errore });
       await (supabase as any)
         .from("bandi_harvest_run")
         .update({
@@ -990,7 +977,12 @@ export default function BandiPubbliciPage() {
           documenti_nuovi: nuovi,
           documenti_aggiornati: aggiornati,
           errore,
-          novita_json: { arricchito, nuovi, aggiornati },
+          novita_json: {
+            azione: opts?.metadataOnly ? "scheda" : "documenti",
+            arricchito,
+            nuovi,
+            aggiornati,
+          },
         })
         .eq("id", run.id);
 
@@ -1053,6 +1045,7 @@ export default function BandiPubbliciPage() {
       effectiveEsitoBando(b.interesse, b.trattative_count),
       b.interesse?.cantiere_stato,
       b.trattative_count,
+      b.interesse?.storico_gara_id,
     )),
     [bandiByFonte],
   );
@@ -1091,7 +1084,6 @@ export default function BandiPubbliciPage() {
       in_monitoraggio: 0,
       pronto_trattativa: 0,
       in_trattativa: 0,
-      archiviato_storico: 0,
       tutti: cantiereBandi.length,
     };
     for (const b of cantiereBandi as {
@@ -1105,7 +1097,9 @@ export default function BandiPubbliciPage() {
         storicoGaraId: b.interesse?.storico_gara_id,
         trattativeCount: b.trattative_count,
       });
-      if (cantiere && cantiere !== "abbandonato") counts[cantiere] += 1;
+      if (cantiere && cantiere !== "abbandonato" && cantiere !== "archiviato_storico") {
+        counts[cantiere] += 1;
+      }
     }
     return counts;
   }, [cantiereBandi]);
@@ -1235,7 +1229,7 @@ export default function BandiPubbliciPage() {
         title: cantiereBandi.length === 0 ? "Nessun bando partecipato" : `Nessun bando in «${label}»`,
         hint: cantiereBandi.length === 0
           ? "Dalla lista Bandi Pubblici clicca «Voglio partecipare» per spostarlo qui."
-          : "Cambia tab del cantiere o manda un bando in Storico Gare / trattativa.",
+          : "Cambia tab del cantiere o crea una trattativa. Le gare archiviate sono in Storico Gare.",
       };
     }
     if (bandiDB.length === 0) {
@@ -1286,7 +1280,7 @@ export default function BandiPubbliciPage() {
           <h1 className="text-3xl font-bold">{isPartecipati ? "Bandi partecipati" : "Bandi Pubblici"}</h1>
           <p className="text-muted-foreground">
             {isPartecipati
-              ? "Cantiere: approfondisci, monitora i documenti, crea trattativa o manda in Storico Gare"
+              ? "Cantiere: approfondisci, monitora i documenti o crea trattativa. «Manda in Storico Gare» apre la pagina Storico Gare."
               : `Nuovi e già visti restano in archivio. Poi decidi se partecipare — ${labelKeywordRicerca(keywordRicerca)}`}
           </p>
         </div>
@@ -1398,6 +1392,14 @@ export default function BandiPubbliciPage() {
               </Button>
             )}
           </div>
+          {!isPartecipati && (
+            <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+              <Clock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              Ogni mattina feriale alle 07:00 (ora italiana) il sistema cerca automaticamente
+              su tutte le fonti con keyword «{BANDI_CRON_KEYWORD_LABEL}» e mette in storico
+              i bandi partecipati già scaduti.
+            </p>
+          )}
 
           {showFilters && (
             <div className="space-y-4 pt-4 border-t">
@@ -1812,7 +1814,7 @@ export default function BandiPubbliciPage() {
                     </div>
                   )}
                   <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
-                    {esito !== "non_partecipo" && esito !== "in_trattativa" && (
+                    {!isPartecipati && esito !== "non_partecipo" && esito !== "in_trattativa" && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -1866,32 +1868,6 @@ export default function BandiPubbliciPage() {
                     )}
                     {isPartecipati && cantiere && cantiere !== "archiviato_storico" && (
                       <>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="gap-1 h-7 text-xs"
-                          disabled={busy}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleScaricaTuttiDocumenti(bando);
-                          }}
-                        >
-                          {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
-                          Scarica tutti i documenti
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="gap-1 h-7 text-xs"
-                          disabled={busy}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleAggiornaPortale(bando);
-                          }}
-                        >
-                          {harvestingId === bando.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                          Aggiorna dal portale
-                        </Button>
                         {CANTIERE_AZIONI.filter((a) => a.value !== cantiere).map((a) => (
                           <Button
                             key={a.value}
@@ -1922,30 +1898,7 @@ export default function BandiPubbliciPage() {
                         </Button>
                       </>
                     )}
-                    {isPartecipati && cantiere === "archiviato_storico" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 h-7 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate("/trattative/storico-gare");
-                        }}
-                      >
-                        <Archive className="h-3 w-3" /> Apri Storico Gare
-                      </Button>
-                    )}
-                    {esito === "voglio_partecipare" && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="gap-1 h-7 text-xs"
-                        onClick={() => openCreaTrattativaDialog(bando)}
-                      >
-                        <Plus className="h-3 w-3" /> Crea Trattativa
-                      </Button>
-                    )}
-                    {esito !== "voglio_partecipare" && (
+                    {isPartecipati && (
                       <Button
                         variant={esito === "in_trattativa" ? "outline" : "default"}
                         size="sm"
@@ -1955,40 +1908,6 @@ export default function BandiPubbliciPage() {
                         <Plus className="h-3 w-3" /> Crea Trattativa
                       </Button>
                     )}
-                    {bando.pdf_path ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 h-7 text-xs"
-                        onClick={async () => {
-                          const { data } = await supabase.storage.from("documenti_generali").createSignedUrl(bando.pdf_path!, 3600);
-                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-                          else toast.error("Errore apertura PDF");
-                        }}
-                      >
-                        <FileText className="h-3 w-3" /> Apri PDF
-                      </Button>
-                    ) : bando.pdf_url ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 h-7 text-xs"
-                        onClick={async () => {
-                          toast.info("Download PDF in corso...");
-                          const { error } = await supabase.functions.invoke("scarica-bando-pdf", {
-                            body: { bando_id: bando.id, pdf_url: bando.pdf_url },
-                          });
-                          if (error) {
-                            toast.error("Errore download PDF: " + error.message);
-                          } else {
-                            toast.success("PDF scaricato e salvato");
-                            refetchBandi();
-                          }
-                        }}
-                      >
-                        <FileDown className="h-3 w-3" /> Scarica PDF
-                      </Button>
-                    ) : null}
                     {bando.link && (
                       <a href={bando.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-sm">
                         Vedi bando <ExternalLink className="h-3 w-3" />
@@ -2027,7 +1946,7 @@ export default function BandiPubbliciPage() {
               Manda in Storico Gare
             </DialogTitle>
             <DialogDescription>
-              Crea una riga di intelligence in Storico Gare. Non apre una trattativa e non cambia i KPI commerciali.
+              Sposta la gara nella pagina Storico Gare. Esce dal cantiere Bandi partecipati. Non apre una trattativa.
             </DialogDescription>
           </DialogHeader>
           {archivioBando && (
@@ -2062,9 +1981,16 @@ export default function BandiPubbliciPage() {
         documenti={fascicoloBando
           ? documentiVisibili(documentiCantiere.filter((d) => d.bando_id === fascicoloBando.id))
           : []}
+        harvestRuns={fascicoloBando
+          ? harvestRuns.filter((r) => r.bando_id === fascicoloBando.id)
+          : []}
+        harvestAt={fascicoloBando?.interesse?.harvest_at ?? null}
         downloading={!!fascicoloBando && harvestingId === fascicoloBando.id}
         onScaricaTutti={fascicoloBando && fascicoloBando.interesse?.cantiere_stato !== "archiviato_storico"
           ? () => void handleScaricaTuttiDocumenti(fascicoloBando)
+          : undefined}
+        onAggiornaBando={fascicoloBando && fascicoloBando.interesse?.cantiere_stato !== "archiviato_storico"
+          ? () => void handleAggiornaPortale(fascicoloBando, { metadataOnly: true })
           : undefined}
         onRefresh={() => {
           queryClient.invalidateQueries({ queryKey: ["bandi_documenti"] });

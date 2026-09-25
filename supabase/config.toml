@@ -60,6 +60,9 @@ verify_jwt = false
 [functions.cerca-bandi]
 verify_jwt = false
 
+[functions.bandi-cron-mattina]
+verify_jwt = false
+
 [functions.scarica-bando-pdf]
 verify_jwt = false
 
