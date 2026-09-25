@@ -23,3 +23,24 @@ export async function invokeAssicurappRca(
   if (payload.error && !payload.ok) throw new Error(payload.error);
   return payload;
 }
+
+export type AssicurappDatiResponse = {
+  ok: boolean;
+  dati?: Record<string, unknown> | null;
+  fonte?: string;
+  error?: string;
+  tentativi?: string[];
+};
+
+export async function invokeAssicurappDatiEsterni(args: {
+  targa: string;
+  cf?: string;
+}): Promise<AssicurappDatiResponse> {
+  const { data, error } = await supabase.functions.invoke("assicurapp-rca", {
+    body: { azione: "dati", targa: args.targa, cf: args.cf || "" },
+  });
+  if (error) throw new Error(error.message || "Errore interrogazione Euroherc / ANIA");
+  const payload = (data || {}) as AssicurappDatiResponse;
+  if (payload.error && !payload.ok) throw new Error(payload.error);
+  return payload;
+}
