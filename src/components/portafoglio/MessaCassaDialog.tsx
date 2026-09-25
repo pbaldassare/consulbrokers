@@ -64,6 +64,8 @@ import {
   isDifferenzaBonificoClassificata,
   rettificaDovutoQuietanza,
 } from "@/lib/compensazioniMessaCassa";
+import { sumMessaCassaProvvigioni } from "@/lib/messaCassaProvvigioni";
+import { MessaCassaProvvigioniDisplay } from "@/components/portafoglio/MessaCassaProvvigioniDisplay";
 /**
  * Input importo per riga di compensazione contabile.
  *
@@ -463,17 +465,50 @@ export const MessaCassaDialog = ({
     enabled: open && titoloIds.length > 0,
     queryFn: async () => {
       const { data, error } = await (supabase.from("titoli") as any)
-        .select("id, anagrafica_commerciale_id, provvigioni_quietanza, percentuale_commerciale")
+        .select("id, anagrafica_commerciale_id, produttore_id, provvigioni_quietanza, provvigioni_firma, sostituisce_polizza, percentuale_commerciale")
         .in("id", titoloIds);
       if (error) throw error;
       return data as Array<{
         id: string;
         anagrafica_commerciale_id: string | null;
+        produttore_id: string | null;
         provvigioni_quietanza: number | null;
+        provvigioni_firma: number | null;
+        sostituisce_polizza: string | null;
         percentuale_commerciale: number | null;
       }>;
     },
   });
+
+  const { data: splitCommerciali = [] } = useQuery({
+    queryKey: ["messa-cassa-split-commerciali", titoloIds],
+    enabled: open && titoloIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("titoli_split_commerciali") as any)
+        .select("titolo_id, percentuale")
+        .in("titolo_id", titoloIds);
+      if (error) throw error;
+      return (data || []) as Array<{ titolo_id: string; percentuale: number | null }>;
+    },
+  });
+
+  const splitsByTitolo = useMemo(() => {
+    const m = new Map<string, number[]>();
+    for (const s of splitCommerciali) {
+      const arr = m.get(s.titolo_id) || [];
+      arr.push(Number(s.percentuale) || 0);
+      m.set(s.titolo_id, arr);
+    }
+    return m;
+  }, [splitCommerciali]);
+
+  const provvigioniDisplay = useMemo(() => {
+    const ids = new Set(titoloIds);
+    return sumMessaCassaProvvigioni(
+      titoliTrattenutaDet.filter((t) => ids.has(t.id)),
+      splitsByTitolo,
+    );
+  }, [titoliTrattenutaDet, splitsByTitolo, titoloIds]);
 
   const prodIdsTrattenuta = useMemo(
     () => Array.from(new Set(titoliTrattenutaDet.map((t) => t.anagrafica_commerciale_id).filter(Boolean))) as string[],
@@ -1166,6 +1201,8 @@ export const MessaCassaDialog = ({
     const t = titoli[0];
     const rows: string[] = [];
     rows.push(`<tr><td>Premio lordo</td><td style="text-align:right">${fmtEuro(totaleLordo)}</td></tr>`);
+    rows.push(`<tr><td>Provvigioni attive</td><td style="text-align:right">${fmtEuro(provvigioniDisplay.attive)}</td></tr>`);
+    rows.push(`<tr><td>Provvigioni passive</td><td style="text-align:right">${fmtEuro(provvigioniDisplay.passive)}</td></tr>`);
     compensazioniCliente.forEach((c) => {
       rows.push(`<tr><td>${c.segno} ${c.causale_codice} — ${c.causale_descrizione}${c.note ? " (" + c.note + ")" : ""}</td><td style="text-align:right">${c.segno === "+" ? "− " : "+ "}${fmtEuro(c.importo)}</td></tr>`);
     });
@@ -2305,6 +2342,12 @@ export const MessaCassaDialog = ({
                     <Calculator className="w-3.5 h-3.5" />
                   </Button>
                 </div>
+                <div className="mt-2">
+                  <MessaCassaProvvigioniDisplay
+                    attive={provvigioniDisplay.attive}
+                    passive={provvigioniDisplay.passive}
+                  />
+                </div>
               </div>
               <div>
                 <Label className="text-xs">
@@ -2370,6 +2413,13 @@ export const MessaCassaDialog = ({
                 </SelectContent>
               </Select>
             </div>
+          )}
+
+          {(isMulti || cashEffettivo < 0) && titoli.length > 0 && (
+            <MessaCassaProvvigioniDisplay
+              attive={provvigioniDisplay.attive}
+              passive={provvigioniDisplay.passive}
+            />
           )}
 
           {showBonificoPanel && (
