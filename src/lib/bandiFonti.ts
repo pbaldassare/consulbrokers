@@ -119,10 +119,85 @@ export function schedaIdFromUrl(url: string): string {
   }
 }
 
+export const REGIONI_ITALIANE = [
+  "Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna",
+  "Friuli Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche",
+  "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia",
+  "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto",
+] as const;
+
+/** Varianti di scrittura + capoluoghi/province usati nei bandi TED/portali. */
+const REGIONE_ALIAS: Record<string, string[]> = {
+  Abruzzo: ["abruzzo", "l'aquila", "laquila", "pescara", "chieti", "teramo"],
+  Basilicata: ["basilicata", "potenza", "matera"],
+  Calabria: ["calabria", "catanzaro", "cosenza", "reggio calabria", "crotone", "vibo valentia"],
+  Campania: ["campania", "napoli", "salerno", "caserta", "avellino", "benevento"],
+  "Emilia-Romagna": ["emilia-romagna", "emilia romagna", "bologna", "modena", "parma", "reggio emilia", "ravenna", "ferrara", "forli", "forlì", "rimini", "piacenza"],
+  "Friuli Venezia Giulia": ["friuli venezia giulia", "friuli-venezia giulia", "trieste", "udine", "pordenone", "gorizia"],
+  Lazio: ["lazio", "roma", "latina", "frosinone", "viterbo", "rieti"],
+  Liguria: ["liguria", "genova", "savona", "la spezia", "imperia"],
+  Lombardia: ["lombardia", "milano", "bergamo", "brescia", "monza", "pavia", "como", "varese", "mantova", "cremona", "lecco", "sondrio", "lodi"],
+  Marche: ["marche", "ancona", "pesaro", "urbino", "macerata", "ascoli piceno", "fermo"],
+  Molise: ["molise", "campobasso", "isernia"],
+  Piemonte: ["piemonte", "torino", "alessandria", "cuneo", "novara", "asti", "vercelli", "biella", "verbania"],
+  Puglia: ["puglia", "bari", "taranto", "lecce", "foggia", "brindisi", "barletta", "andria", "trani"],
+  Sardegna: ["sardegna", "cagliari", "sassari", "nuoro", "oristano", "olbia"],
+  Sicilia: ["sicilia", "palermo", "catania", "messina", "siracusa", "trapani", "agrigento", "ragusa", "enna", "caltanissetta"],
+  Toscana: ["toscana", "firenze", "pisa", "siena", "livorno", "arezzo", "prato", "lucca", "pistoia", "grosseto", "massa", "carrara"],
+  "Trentino-Alto Adige": ["trentino-alto adige", "trentino alto adige", "trentino", "alto adige", "sudtirol", "südtirol", "trento", "bolzano"],
+  Umbria: ["umbria", "perugia", "terni"],
+  "Valle d'Aosta": ["valle d'aosta", "valle d aosta", "val d'aosta", "val d aosta", "aosta"],
+  Veneto: ["veneto", "venezia", "verona", "padova", "vicenza", "treviso", "rovigo", "belluno"],
+};
+
+export function normalizeRegioneKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[''`´]/g, " ")
+    .replace(/[-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function containsRegioneToken(hay: string, token: string): boolean {
+  const needle = normalizeRegioneKey(token);
+  if (!needle) return false;
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+");
+  return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`).test(hay);
+}
+
+export function matchesFiltroRegione(
+  bando: {
+    regione?: string | null;
+    localita?: string | null;
+    titolo?: string | null;
+    ente?: string | null;
+    oggetto?: string | null;
+  },
+  regioni: readonly string[],
+): boolean {
+  if (!regioni.length || regioni.length === REGIONI_ITALIANE.length) return true;
+
+  const hayNorm = normalizeRegioneKey(
+    [bando.regione, bando.localita, bando.titolo, bando.ente, bando.oggetto]
+      .filter(Boolean)
+      .join(" "),
+  );
+
+  return regioni.some((regione) => {
+    const nome = normalizeRegioneKey(regione);
+    if (bando.regione && normalizeRegioneKey(bando.regione) === nome) return true;
+    const aliases = REGIONE_ALIAS[regione] ?? [regione];
+    return aliases.some((alias) => containsRegioneToken(hayNorm, alias));
+  });
+}
+
 export function regioneFromText(text: string, regioni: string[]): string | null {
-  const hay = text.toLowerCase();
+  const hay = normalizeRegioneKey(text);
   for (const r of regioni) {
-    if (hay.includes(r.toLowerCase())) return r;
+    if (containsRegioneToken(hay, r)) return r;
   }
   return null;
 }

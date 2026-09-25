@@ -47,10 +47,12 @@ import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import {
   FILTRI_FONTE_LISTA,
   FONTI_RICERCA,
+  REGIONI_ITALIANE,
   isEnteBandoGenerico,
   labelFonteBando,
   labelFonteRicerca,
   matchesFiltroFonte,
+  matchesFiltroRegione,
   progressMsgRicerca,
   resolveFonteBando,
   type FiltroFonteLista,
@@ -157,13 +159,6 @@ interface BandoResult {
   tipo_procedura?: string | null;
   data_pubblicazione?: string | null;
 }
-
-const regioniItaliane = [
-  "Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna",
-  "Friuli Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche",
-  "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia",
-  "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto",
-];
 
 const statoBadgeVariant = (stato: string) => {
   switch (stato) {
@@ -461,10 +456,10 @@ export default function BandiPubbliciPage() {
   };
 
   const toggleTutte = () => {
-    if (regioniSelezionate.length === regioniItaliane.length) {
+    if (regioniSelezionate.length === REGIONI_ITALIANE.length) {
       setRegioniSelezionate([]);
     } else {
-      setRegioniSelezionate([...regioniItaliane]);
+      setRegioniSelezionate([...REGIONI_ITALIANE]);
     }
   };
 
@@ -725,29 +720,6 @@ export default function BandiPubbliciPage() {
       storico_gara_id: extra.storico_gara_id ?? bando.interesse?.storico_gara_id ?? null,
     }, { onConflict: "bando_id" });
     if (error) throw error;
-  };
-
-  const markBandoVisto = async (bando: any) => {
-    if (!bando?.id || bando.visto_il) return;
-    const vistoIl = new Date().toISOString();
-    const { error } = await (supabase as any)
-      .from("bandi_pubblici")
-      .update({
-        visto_il: vistoIl,
-        visto_da: profile?.id || null,
-      })
-      .eq("id", bando.id)
-      .is("visto_il", null);
-    if (error) {
-      console.warn("Impossibile segnare il bando come visto:", error);
-      return;
-    }
-    queryClient.setQueriesData({ queryKey: ["bandi_pubblici"] }, (old: unknown) => {
-      if (!Array.isArray(old)) return old;
-      return old.map((row: { id: string; visto_il?: string | null }) =>
-        row.id === bando.id ? { ...row, visto_il: vistoIl, visto_da: profile?.id || null } : row,
-      );
-    });
   };
 
   const handleVoglioPartecipare = async (bando: any) => {
@@ -1028,7 +1000,7 @@ export default function BandiPubbliciPage() {
 
   const regioniLabel = regioniSelezionate.length === 0
     ? "Tutte le regioni"
-    : regioniSelezionate.length === regioniItaliane.length
+    : regioniSelezionate.length === REGIONI_ITALIANE.length
       ? "Tutte le regioni selezionate"
       : `${regioniSelezionate.length} region${regioniSelezionate.length === 1 ? 'e' : 'i'}`;
 
@@ -1038,11 +1010,16 @@ export default function BandiPubbliciPage() {
       link?: string | null;
       keyword?: string | null;
       titolo?: string | null;
+      ente?: string | null;
+      oggetto?: string | null;
+      regione?: string | null;
+      localita?: string | null;
     }) =>
       matchesFiltroFonte(b.fonte, b.link, filtroFonte) &&
-      matchesFiltroKeyword(b.keyword, b.titolo, filtroKeyword),
+      matchesFiltroKeyword(b.keyword, b.titolo, filtroKeyword) &&
+      matchesFiltroRegione(b, regioniSelezionate),
     ),
-    [bandiDB, filtroFonte, filtroKeyword],
+    [bandiDB, filtroFonte, filtroKeyword, regioniSelezionate],
   );
 
   const cantiereBandi = useMemo(
@@ -1243,14 +1220,24 @@ export default function BandiPubbliciPage() {
         ? { title: "Nessun bando trovato", hint: "Prova ad allargare i filtri o un'altra regione." }
         : { title: "Nessun bando in archivio", hint: "Clicca \"Cerca Bandi\" per cercare su TED Europa, Mondo Appalti e Infordat." };
     }
+    if (
+      regioniSelezionate.length > 0 &&
+      regioniSelezionate.length < REGIONI_ITALIANE.length &&
+      bandiByFonte.length === 0
+    ) {
+      return {
+        title: "Nessun bando per le regioni selezionate",
+        hint: "Togli o cambia il filtro Regioni per vedere di nuovo l'archivio.",
+      };
+    }
     const label = FILTRI_PIPELINE_BANDI.find((f) => f.value === filtroPipeline)?.label ?? "questa lista";
     return {
       title: `Nessun bando in «${label}»`,
       hint: filtroPipeline === "nuovi"
-        ? "I bandi già aperti sono in Già visti. Quelli su cui vuoi partecipare sono in Bandi partecipati."
+        ? "Il click sul titolo apre la scheda senza togliere il bando da qui. Poi decidi se partecipare."
         : filtroPipeline === "gia_visti"
-          ? "Apri un bando nuovo per spostarlo qui. Poi decidi se partecipare o scartarlo."
-        : "Cambia lista o fonte per vedere altri bandi.",
+          ? "Qui restano i bandi già aperti in passato. I nuovi restano in Nuovi finché non decidi."
+          : "Cambia lista o fonte per vedere altri bandi.",
     };
   })();
 
@@ -1413,12 +1400,12 @@ export default function BandiPubbliciPage() {
                   <PopoverContent className="w-[350px] p-0" align="start">
                     <div className="p-3 border-b">
                       <div className="flex items-center space-x-2">
-                        <Checkbox id="tutte-regioni" checked={regioniSelezionate.length === regioniItaliane.length} onCheckedChange={toggleTutte} />
+                        <Checkbox id="tutte-regioni" checked={regioniSelezionate.length === REGIONI_ITALIANE.length} onCheckedChange={toggleTutte} />
                         <label htmlFor="tutte-regioni" className="text-sm font-medium cursor-pointer">Seleziona tutte</label>
                       </div>
                     </div>
                     <div className="max-h-[250px] overflow-y-auto p-2 space-y-1">
-                      {regioniItaliane.map((regione) => (
+                      {REGIONI_ITALIANE.map((regione) => (
                         <div key={regione} className="flex items-center space-x-2 py-1 px-1 rounded hover:bg-accent cursor-pointer" onClick={() => toggleRegione(regione)}>
                           <Checkbox id={`regione-${regione}`} checked={regioniSelezionate.includes(regione)} onCheckedChange={() => toggleRegione(regione)} />
                           <label htmlFor={`regione-${regione}`} className="text-sm cursor-pointer flex-1">{regione}</label>
@@ -1654,13 +1641,25 @@ export default function BandiPubbliciPage() {
             return (
             <Card
               key={bando.id}
-              className="hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => { void markBandoVisto(bando); }}
+              className="hover:shadow-md transition-shadow"
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <CardTitle className="text-lg">{bando.titolo || bando.oggetto}</CardTitle>
+                    <CardTitle className="text-lg">
+                      {bando.link ? (
+                        <a
+                          href={bando.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {bando.titolo || bando.oggetto}
+                        </a>
+                      ) : (
+                        bando.titolo || bando.oggetto
+                      )}
+                    </CardTitle>
                     <div className="flex items-center gap-2 mt-1.5">
                       <Building className="h-4 w-4 text-primary shrink-0" />
                       <span className="text-sm font-medium text-foreground">{bando.ente}</span>

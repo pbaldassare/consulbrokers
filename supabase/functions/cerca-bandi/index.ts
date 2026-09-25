@@ -664,7 +664,13 @@ function applyFiltri(bandi: Bando[], filtri: Filtri): Bando[] {
     if (min != null && Number.isFinite(min) && (b.importo == null || b.importo < min)) return false;
     if (max != null && Number.isFinite(max) && (b.importo == null || b.importo > max)) return false;
     if (filtri.regioni.length) {
-      if (b.regione && !filtri.regioni.includes(b.regione)) return false;
+      const hay = `${b.regione || ""} ${b.localita || ""} ${b.titolo || ""} ${b.ente || ""}`.toLowerCase();
+      const match = filtri.regioni.some((r) => {
+        const nome = r.toLowerCase();
+        if (b.regione && b.regione.toLowerCase().replace(/-/g, " ") === nome.replace(/-/g, " ")) return true;
+        return hay.includes(nome);
+      });
+      if (!match) return false;
     }
     if (filtri.dataDa && b.dataPublicazione && b.dataPublicazione < filtri.dataDa) return false;
     if (filtri.dataA && b.dataPublicazione && b.dataPublicazione > filtri.dataA) return false;

@@ -11,7 +11,9 @@ import {
   labelFonteBando,
   labelFonteRicerca,
   mapMondoHitToBando,
+  REGIONI_ITALIANE,
   matchesFiltroFonte,
+  matchesFiltroRegione,
   progressMsgRicerca,
   regioneFromText,
   resolveFonteBando,
@@ -108,6 +110,41 @@ describe("regioneFromText", () => {
   it("riconosce la regione nel testo", () => {
     expect(regioneFromText("Comune di Bari — Puglia", ["Lazio", "Puglia"])).toBe("Puglia");
     expect(regioneFromText("nessuna", ["Lazio"])).toBeNull();
+  });
+});
+
+describe("matchesFiltroRegione", () => {
+  it("senza selezione o con tutte le regioni non filtra", () => {
+    const bando = { titolo: "Brokeraggio Comune di Bari", regione: "Puglia" };
+    expect(matchesFiltroRegione(bando, [])).toBe(true);
+    expect(matchesFiltroRegione(bando, [...REGIONI_ITALIANE])).toBe(true);
+  });
+
+  it("filtra sul campo regione anche con trattini diversi", () => {
+    expect(matchesFiltroRegione({ regione: "Emilia Romagna" }, ["Emilia-Romagna"])).toBe(true);
+    expect(matchesFiltroRegione({ regione: "Lazio" }, ["Lombardia"])).toBe(false);
+  });
+
+  it("riconosce capoluogo e località se manca la regione", () => {
+    expect(matchesFiltroRegione({
+      regione: null,
+      localita: "Milano",
+      titolo: "Servizio brokeraggio assicurativo",
+      ente: "Comune di Milano",
+    }, ["Lombardia"])).toBe(true);
+    expect(matchesFiltroRegione({
+      regione: null,
+      localita: "Roma",
+      titolo: "Gara broker",
+      ente: "Roma Capitale",
+    }, ["Lombardia"])).toBe(false);
+  });
+
+  it("non fa match su sottostringhe casuali", () => {
+    expect(matchesFiltroRegione({
+      titolo: "Gara penna e cancelleria",
+      ente: "Comune di Penna",
+    }, ["Sicilia"])).toBe(false);
   });
 });
 
