@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,6 +15,14 @@ import { RcaPageHeader } from "@/components/rca/RcaPageChrome";
 import { fetchRcaAnalisiContesto } from "@/lib/rca/fetchAnalisi";
 import { applyDanniPacchetto, resolveSelectedCvts, type CvtPacchettoValue, type RcaQuoteKind } from "@/lib/rca/cvt";
 import type { CodiceGaranziaAssicurapp } from "@/lib/rca/garanzie";
+import {
+  hasDatiEsterniUtili,
+  labelFonteDatiEsterni,
+  mergeDatiEsterniNelForm,
+  normalizeDatiRcaEsterni,
+  riepilogoAttestato,
+} from "@/lib/rca/datiEsterni";
+import { invokeAssicurappDatiEsterni } from "@/lib/rca/invokeAssicurapp";
 import {
   INSURANCE_TYPES,
   applyVeicoloEGaranzie,
@@ -78,6 +86,16 @@ export default function RcaPreventivoAnalisiPage() {
   const clienteQ = params.get("cliente");
   const titoloQ = params.get("titolo");
   const [form, setForm] = useState<RcaPreventivoForm>(emptyPreventivoForm());
+  const targaIniziale = (targaQ || "").trim().toUpperCase();
+  const [interrStato, setInterrStato] = useState<"idle" | "corsa" | "ok" | "errore">(
+    targaIniziale ? "corsa" : "idle",
+  );
+  const [interrMsg, setInterrMsg] = useState(
+    targaIniziale
+      ? `Interrogazione Euroherc / ANIA in corso per la targa ${targaIniziale}… I dati serviranno alla preventivazione.`
+      : "Inserisci la targa: interroghiamo automaticamente Euroherc / ANIA per attestato di rischio e dati veicolo. Restano sul preventivo, non sull’anagrafica cliente.",
+  );
+  const interrogatoRef = useRef<string | null>(null);
 
   const { data: ctx, isLoading } = useQuery({
     queryKey: ["rca-analisi", targaQ, clienteQ, titoloQ],
@@ -98,10 +116,54 @@ export default function RcaPreventivoAnalisiPage() {
       veicoloId: ctx.veicoloId,
       compagnia: ctx.compagnia,
       scadenzaIso: ctx.scadenzaIso,
+      classeBm: ctx.classeBm,
       garanzie: ctx.garanzie,
     });
     setForm(next);
   }, [ctx, targaQ]);
+
+  const lanciaInterrogazione = async (targa: string, cf?: string) => {
+    const plate = targa.trim().toUpperCase();
+    if (!plate) {
+      setInterrStato("errore");
+      setInterrMsg("Manca la targa: non posso interrogare Euroherc / ANIA.");
+      return;
+    }
+    setInterrStato("corsa");
+    setInterrMsg(`Interrogazione Euroherc / ANIA in corso per la targa ${plate}… I dati serviranno alla preventivazione.`);
+    try {
+      const res = await invokeAssicurappDatiEsterni({ targa: plate, cf });
+      const dati = normalizeDatiRcaEsterni(res.dati, { fonte: res.fonte || "Euroherc / ANIA" });
+      if (!hasDatiEsterniUtili(dati)) {
+        setInterrStato("errore");
+        setInterrMsg(res.error || "Euroherc / ANIA non ha restituito dati. Completa i campi a mano: non aggiorniamo l’anagrafica cliente.");
+        return;
+      }
+      setForm((f) => mergeDatiEsterniNelForm(f, dati));
+      setInterrStato("ok");
+      setInterrMsg(
+        `Dati ricevuti da ${labelFonteDatiEsterni(dati?.fonte)}. Attestato e veicolo restano sul preventivo, non sull’anagrafica cliente.`,
+      );
+    } catch (err) {
+      setInterrStato("errore");
+      setInterrMsg((err as Error).message || "Interrogazione Euroherc / ANIA non riuscita. Completa i campi a mano.");
+    }
+  };
+
+  useEffect(() => {
+    if (isLoading) return;
+    const targa = (form.targa || ctx?.targa || targaQ || "").trim().toUpperCase();
+    if (targa.length < 6) return;
+    if (interrogatoRef.current === targa) return;
+    const fromUrl = !!(targaQ || ctx?.targa);
+    const delay = fromUrl ? 0 : 700;
+    const timer = window.setTimeout(() => {
+      if (interrogatoRef.current === targa) return;
+      interrogatoRef.current = targa;
+      void lanciaInterrogazione(targa, form.cf || ctx?.cliente?.codice_fiscale || "");
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [form.targa, form.cf, ctx, targaQ, isLoading]);
 
   const missing = useMemo(() => missingPreventivoFields(form), [form]);
   const patch = (p: Partial<RcaPreventivoForm>) => setForm((f) => ({ ...f, ...p }));
@@ -197,6 +259,46 @@ export default function RcaPreventivoAnalisiPage() {
           </Badge>
         )}
         {isLoading && <span className="text-sm text-muted-foreground">Caricamento dati CBnet…</span>}
+        {form.cu && <Badge variant="outline">CU {form.cu}</Badge>}
+      </div>
+
+      <div
+        className={
+          interrStato === "corsa"
+            ? "rounded-lg border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-950"
+            : interrStato === "ok"
+              ? "rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"
+              : interrStato === "errore"
+                ? "rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+                : "rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"
+        }
+        role="status"
+        aria-live="polite"
+      >
+        <p className="font-medium">
+          {interrStato === "corsa"
+            ? "Interrogazione Euroherc / ANIA in corso"
+            : interrStato === "ok"
+              ? "Dati Euroherc / ANIA ricevuti"
+              : interrStato === "errore"
+                ? "Interrogazione Euroherc / ANIA non completata"
+                : "Euroherc / ANIA"}
+        </p>
+        <p className="mt-1">{interrMsg}</p>
+        {interrStato !== "corsa" && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => {
+              interrogatoRef.current = null;
+              void lanciaInterrogazione(form.targa || targaQ || "", form.cf);
+            }}
+          >
+            Richiama Euroherc / ANIA
+          </Button>
+        )}
       </div>
 
       {missing.length > 0 && (
@@ -302,6 +404,19 @@ export default function RcaPreventivoAnalisiPage() {
                 value={form.insuranceExpire}
                 onChange={(v) => patch({ insuranceExpire: v })}
               />
+              <Field label="Classe di merito (CU)" value={form.cu} onChange={(v) => patch({ cu: v })} />
+              <div className="sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">Attestato di rischio</Label>
+                <p className="mt-1 text-sm">
+                  {riepilogoAttestato(form.atr, form.cu) || "Non ancora interrogato o non disponibile."}
+                </p>
+                {form.fonteDati && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Fonte: {labelFonteDatiEsterni(form.fonteDati)}
+                    {form.datiEsterniIl ? ` · ${new Date(form.datiEsterniIl).toLocaleString("it-IT")}` : ""}
+                  </p>
+                )}
+              </div>
               {needsBersani && (
                 <Field
                   label="Targa agevolante"

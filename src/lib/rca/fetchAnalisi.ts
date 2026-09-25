@@ -17,6 +17,7 @@ export type RcaAnalisiContesto = {
   tipo: TipoClientelaRca | null;
   marca: string | null;
   modello: string | null;
+  classeBm: string | null;
   garanzie: VoceGaranziaPolizza[];
 };
 
@@ -36,6 +37,7 @@ export async function fetchRcaAnalisiContesto(args: {
     tipo: null,
     marca: null,
     modello: null,
+    classeBm: null,
     garanzie: [],
   };
 
@@ -47,12 +49,13 @@ export async function fetchRcaAnalisiContesto(args: {
     marca: string | null;
     modello: string | null;
     titolo_id: string;
+    classe_bm?: string | null;
   } | null = null;
 
   if (titoloId) {
     const { data } = await supabase
       .from("veicoli_polizza")
-      .select("id, targa, tipo_veicolo, marca, modello, titolo_id")
+      .select("id, targa, tipo_veicolo, marca, modello, titolo_id, classe_bm")
       .eq("titolo_id", titoloId)
       .maybeSingle();
     veicolo = data;
@@ -60,7 +63,7 @@ export async function fetchRcaAnalisiContesto(args: {
   if (!veicolo && args.targa) {
     const { data } = await supabase
       .from("veicoli_polizza")
-      .select("id, targa, tipo_veicolo, marca, modello, titolo_id")
+      .select("id, targa, tipo_veicolo, marca, modello, titolo_id, classe_bm")
       .ilike("targa", args.targa.trim())
       .limit(1)
       .maybeSingle();
@@ -111,6 +114,7 @@ export async function fetchRcaAnalisiContesto(args: {
     tipo: classifyTipoVeicoloClientela(veicolo?.tipo_veicolo),
     marca: veicolo?.marca || null,
     modello: veicolo?.modello || null,
+    classeBm: veicolo?.classe_bm || null,
     garanzie: empty.garanzie,
   };
 }
