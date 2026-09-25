@@ -3,9 +3,12 @@ import {
   chunkIds,
   clientiOrFilter,
   agenzieDaTitoliClienti,
+  buildDistintaRestituzioneModel,
   filenameDistintaRestituzione,
+  formatCapCitta,
   groupRestituzioneByCompagnia,
   gruppiPerDistinta,
+  protocolloDistinta,
   slugAgenziaFilename,
   wrapTestoPdf,
   tipoTitoloRestituzione,
@@ -68,6 +71,25 @@ describe("filename e filtri", () => {
     );
   });
 
+  it("costruisce il modello lettera (protocollo, destinatario, note)", () => {
+    const groups = groupRestituzioneByCompagnia([
+      riga({ documentoId: "a", nomeFile: "polizza_originale_lunga.pdf", numeroTitolo: "204366651" }),
+    ]);
+    const model = buildDistintaRestituzioneModel(groups[0], new Date(2026, 8, 25), {
+      note: "Raccomandata A/R.",
+      clientiLabel: "Rossi Mario",
+      generatoDa: "Anna Rossi",
+      destinatario: { nome: "Generali", indirizzo: "Via Roma 1", capCitta: "20100 Milano (MI)" },
+    });
+    expect(model.protocollo).toBe(protocolloDistinta("Generali", new Date(2026, 8, 25)));
+    expect(model.destinatario.nome).toBe("Generali");
+    expect(model.destinatario.capCitta).toContain("Milano");
+    expect(model.rows[0].documento).toBe("polizza_originale_lunga.pdf");
+    expect(model.note).toBe("Raccomandata A/R.");
+    expect(model.oggetto).toContain("Rossi Mario");
+    expect(formatCapCitta("20100", "Milano", "MI")).toBe("20100 Milano (MI)");
+  });
+
   it("genera un PDF distinta per compagnia", async () => {
     const groups = groupRestituzioneByCompagnia([
       riga({ documentoId: "a", nomeFile: "orig.pdf", numeroTitolo: "weewww" }),
@@ -75,7 +97,7 @@ describe("filename e filtri", () => {
     const bytes = await buildDistintaRestituzionePdf(groups[0], new Date(2026, 8, 24), {
       note: "Restituire gli originali in raccomandata.",
     });
-    expect(bytes.byteLength).toBeGreaterThan(200);
+    expect(bytes.byteLength).toBeGreaterThan(400);
     expect(String.fromCharCode(...bytes.slice(0, 4))).toBe("%PDF");
   });
 
