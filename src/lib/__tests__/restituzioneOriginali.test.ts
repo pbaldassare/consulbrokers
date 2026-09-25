@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   chunkIds,
   clientiOrFilter,
+  agenzieDaTitoliClienti,
   filenameDistintaRestituzione,
   groupRestituzioneByCompagnia,
   gruppiPerDistinta,
@@ -92,6 +93,17 @@ describe("filename e filtri", () => {
   it("wrap note e fallback gruppo vuoto", () => {
     expect(wrapTestoPdf("ciao mondo", 5)).toEqual(["ciao", "mondo"]);
     expect(gruppiPerDistinta([]).at(0)?.compagniaNome).toBe("Restituzione originali");
+  });
+
+  it("prende l'agenzia dalle polizze del cliente", () => {
+    const agenzie = agenzieDaTitoliClienti([
+      { id: "t1", compagnia_id: "ag1", compagnia_nome: "Allianz", numero_titolo: "P1", cliente_nome_display: "Lima" },
+      { id: "t2", compagnia_id: "ag1", compagnia_nome: "Allianz", numero_titolo: "P2" },
+      { id: "t3", compagnia_id: "ag2", compagnia_nome: "Unipol" },
+    ]);
+    expect(agenzie).toHaveLength(2);
+    expect(agenzie.map((a) => a.compagniaNome)).toEqual(["Allianz", "Unipol"]);
+    expect(gruppiPerDistinta([], agenzie)).toHaveLength(2);
   });
 
   it("chunk e or filter clienti", () => {

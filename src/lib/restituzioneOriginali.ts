@@ -61,12 +61,61 @@ export function wrapTestoPdf(text: string, maxChars: number): string[] {
   return out;
 }
 
-/** Con documenti: un gruppo per agenzia. Senza documenti: un solo gruppo (note-only). */
+export type AgenziaDaCliente = {
+  compagniaId: string | null;
+  compagniaNome: string;
+  titoloId: string | null;
+  numeroTitolo: string | null;
+  clienteId: string | null;
+  clienteNome: string;
+};
+
+export const CATEGORIA_DISTINTA_RESTITUZIONE = "distinta_restituzione";
+
+/** Agenzie uniche dalle polizze del cliente (compagnia del titolo). */
+export function agenzieDaTitoliClienti(
+  titoli: Array<{
+    id?: string | null;
+    numero_titolo?: string | null;
+    compagnia_id?: string | null;
+    compagnia_nome?: string | null;
+    cliente_anagrafica_id?: string | null;
+    cliente_id?: string | null;
+    cliente_nome_display?: string | null;
+  }>,
+): AgenziaDaCliente[] {
+  const map = new Map<string, AgenziaDaCliente>();
+  for (const t of titoli) {
+    const nome = (t.compagnia_nome || "").trim();
+    if (!t.compagnia_id && !nome) continue;
+    const key = t.compagnia_id || `nome:${nome.toLowerCase()}`;
+    if (map.has(key)) continue;
+    map.set(key, {
+      compagniaId: t.compagnia_id ?? null,
+      compagniaNome: nome || "Agenzia non indicata",
+      titoloId: t.id ?? null,
+      numeroTitolo: t.numero_titolo ?? null,
+      clienteId: t.cliente_anagrafica_id || t.cliente_id || null,
+      clienteNome: t.cliente_nome_display || "",
+    });
+  }
+  return [...map.values()].sort((a, b) => a.compagniaNome.localeCompare(b.compagniaNome, "it"));
+}
+
+/** Con documenti: un gruppo per agenzia. Senza documenti: gruppi dalle agenzie del cliente. */
 export function gruppiPerDistinta(
   rows: RestituzioneDocRiga[],
-  fallback?: { compagniaId?: string | null; compagniaNome?: string | null },
+  fallback?: { compagniaId?: string | null; compagniaNome?: string | null } | AgenziaDaCliente[],
 ): RestituzioneGruppoCompagnia[] {
   if (rows.length > 0) return groupRestituzioneByCompagnia(rows);
+  if (Array.isArray(fallback)) {
+    return fallback.map((a) => ({
+      key: a.compagniaId || `nome:${a.compagniaNome.toLowerCase()}`,
+      compagniaId: a.compagniaId,
+      compagniaNome: a.compagniaNome,
+      rows: [],
+    }));
+  }
   const nome = (fallback?.compagniaNome || "").trim() || "Restituzione originali";
   return [
     {

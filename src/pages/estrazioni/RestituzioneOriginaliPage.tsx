@@ -12,6 +12,8 @@ import {
   clientiOrFilter,
   filenameDistintaRestituzione,
   groupRestituzioneByCompagnia,
+  agenzieDaTitoliClienti,
+  CATEGORIA_DISTINTA_RESTITUZIONE,
   gruppiPerDistinta,
   labelTipoTitoloRestituzione,
   tipoTitoloRestituzione,
@@ -28,7 +30,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type ClienteChip = { id: string; label: string };
@@ -92,7 +93,6 @@ const RestituzioneOriginaliPage = () => {
   const [saving, setSaving] = useState(false);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
-  const [noteCompagnia, setNoteCompagnia] = useState("");
 
   const clienteIds = useMemo(() => clienti.map((c) => c.id), [clienti]);
 
@@ -103,10 +103,10 @@ const RestituzioneOriginaliPage = () => {
     setClientePick("");
   };
 
-  const { data: rawRows = [], isFetching } = useQuery({
+  const { data: restituzioneData, isFetching } = useQuery({
     queryKey: ["restituzione-originali-docs", clienteIds],
     enabled: clienteIds.length > 0,
-    queryFn: async (): Promise<RestituzioneDocRiga[]> => {
+    queryFn: async (): Promise<{ rows: RestituzioneDocRiga[]; titoli: TitoloLite[] }> => {
       const { data: titoli, error: tErr } = await supabase
         .from("v_portafoglio_titoli")
         .select(
@@ -116,7 +116,7 @@ const RestituzioneOriginaliPage = () => {
         .limit(1000);
       if (tErr) throw tErr;
       const titoloRows = (titoli || []) as TitoloLite[];
-      if (titoloRows.length === 0) return [];
+      if (titoloRows.length === 0) return { rows: [], titoli: [] };
 
       const titoloById = new Map(titoloRows.map((t) => [t.id, t]));
       const titoloIds = titoloRows.map((t) => t.id);
@@ -149,7 +149,7 @@ const RestituzioneOriginaliPage = () => {
         }
       }
 
-      return documenti.map((d) => {
+      const rows = documenti.map((d) => {
         const t = titoloById.get(d.entita_id);
         return {
           documentoId: d.id,
@@ -165,8 +165,12 @@ const RestituzioneOriginaliPage = () => {
           inviato: inviato.has(d.id),
         };
       });
+      return { rows, titoli: titoloRows };
     },
   });
+  const rawRows = restituzioneData?.rows ?? [];
+  const titoliClienti = restituzioneData?.titoli ?? [];
+  const agenzieCliente = useMemo(() => agenzieDaTitoliClienti(titoliClienti), [titoliClienti]);
 
   const { data: storico = [], isFetching: loadingStorico } = useQuery({
     queryKey: ["distinte-restituzione-originali"],
@@ -219,11 +223,19 @@ const RestituzioneOriginaliPage = () => {
 
   const generaESalva = async () => {
     const note = noteText.trim();
+    if (clienti.length === 0) {
+      toast.error("Aggiungi almeno un cliente");
+      return;
+    }
     if (picked.length === 0 && !note) {
       toast.error("Scrivi le note oppure seleziona almeno un documento");
       return;
     }
-    const gruppi = gruppiPerDistinta(picked, { compagniaNome: noteCompagnia });
+    const gruppi = gruppiPerDistinta(picked, agenzieCliente);
+    if (gruppi.length === 0) {
+      toast.error("Nessuna agenzia sulle polizze del cliente");
+      return;
+    }
     setSaving(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -243,12 +255,26 @@ const RestituzioneOriginaliPage = () => {
           .upload(path, blob, { contentType: "application/pdf", upsert: false });
         if (upErr) throw upErr;
 
-        const titoliUnici = new Set(gruppo.rows.map((r) => r.titoloId));
+        const agenziaMatch =
+          agenzieCliente.find(
+            (a) =>
+              (gruppo.compagniaId && a.compagniaId === gruppo.compagniaId) ||
+              a.compagniaNome === gruppo.compagniaNome,
+          ) ?? agenzieCliente[0] ?? null;
+        const titoloIdPdf = gruppo.rows[0]?.titoloId || agenziaMatch?.titoloId || titoliClienti[0]?.id || null;
+        const clienteIdPdf = gruppo.rows[0]?.clienteId || agenziaMatch?.clienteId || clienti[0]?.id || null;
+        const clienteNomePdf = gruppo.rows[0]?.clienteNome || agenziaMatch?.clienteNome || clienti[0]?.label || "—";
+        const numeroTitoloPdf =
+          gruppo.rows[0]?.numeroTitolo || agenziaMatch?.numeroTitolo || titoliClienti[0]?.numero_titolo || null;
+
+        const titoliUnici = new Set(
+          [...gruppo.rows.map((r) => r.titoloId), titoloIdPdf].filter(Boolean) as string[],
+        );
         const { data: header, error: hErr } = await (supabase.from("distinte_restituzione_originali") as any)
           .insert({
             compagnia_id: gruppo.compagniaId,
             compagnia_nome: gruppo.compagniaNome,
-            num_documenti: gruppo.rows.length,
+            num_documenti: gruppo.rows.length + 1,
             num_titoli: titoliUnici.size,
             pdf_path: path,
             bucket_name: "documenti_generali",
@@ -262,19 +288,54 @@ const RestituzioneOriginaliPage = () => {
           .single();
         if (hErr || !header?.id) throw hErr || new Error("Salvataggio distinta fallito");
 
-        if (gruppo.rows.length > 0) {
-          const { error: rErr } = await (supabase.from("distinte_restituzione_originali_righe") as any).insert(
-            gruppo.rows.map((r) => ({
-              distinta_id: header.id,
-              documento_id: r.documentoId,
-              titolo_id: r.titoloId,
-              cliente_id: r.clienteId,
-              cliente_nome: r.clienteNome,
-              numero_titolo: r.numeroTitolo,
-              tipo_titolo: r.tipoTitolo,
-              nome_file: r.nomeFile,
-            })),
-          );
+        let pdfDocId: string | null = null;
+        if (titoloIdPdf || clienteIdPdf) {
+          const { data: pdfDoc, error: dErr } = await supabase
+            .from("documenti")
+            .insert({
+              nome_file: name,
+              path_storage: path,
+              bucket_name: "documenti_generali",
+              entita_tipo: titoloIdPdf ? "titolo" : "cliente",
+              entita_id: titoloIdPdf || clienteIdPdf!,
+              caricato_da: userId,
+              categoria: CATEGORIA_DISTINTA_RESTITUZIONE,
+              visibile_al_cliente: false,
+            })
+            .select("id")
+            .single();
+          if (dErr) throw dErr;
+          pdfDocId = pdfDoc?.id ?? null;
+        }
+
+        const righe = [
+          ...gruppo.rows.map((r) => ({
+            distinta_id: header.id,
+            documento_id: r.documentoId,
+            titolo_id: r.titoloId,
+            cliente_id: r.clienteId,
+            cliente_nome: r.clienteNome,
+            numero_titolo: r.numeroTitolo,
+            tipo_titolo: r.tipoTitolo,
+            nome_file: r.nomeFile,
+          })),
+          ...(pdfDocId
+            ? [
+                {
+                  distinta_id: header.id,
+                  documento_id: pdfDocId,
+                  titolo_id: titoloIdPdf,
+                  cliente_id: clienteIdPdf,
+                  cliente_nome: clienteNomePdf,
+                  numero_titolo: numeroTitoloPdf,
+                  tipo_titolo: "polizza",
+                  nome_file: name,
+                },
+              ]
+            : []),
+        ];
+        if (righe.length > 0) {
+          const { error: rErr } = await (supabase.from("distinte_restituzione_originali_righe") as any).insert(righe);
           if (rErr) throw rErr;
         }
 
@@ -288,13 +349,13 @@ const RestituzioneOriginaliPage = () => {
       }
       toast.success(
         gruppi.length === 1
-          ? "PDF salvato in Distinte salvate (data e invio)"
-          : `${gruppi.length} PDF salvati in Distinte salvate`,
+          ? "PDF salvato negli inviati"
+          : `${gruppi.length} PDF salvati negli inviati`,
       );
       setSelectedIds(new Set());
       setNoteText("");
-      setNoteCompagnia("");
       setNoteDialogOpen(false);
+      setVista("inviati");
       queryClient.invalidateQueries({ queryKey: ["restituzione-originali-docs"] });
       queryClient.invalidateQueries({ queryKey: ["distinte-restituzione-originali"] });
     } catch (e: any) {
@@ -553,20 +614,19 @@ const RestituzioneOriginaliPage = () => {
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               {picked.length > 0
-                ? `Le note diventano parte del PDF (${picked.length} documenti, ${gruppiPreview.length} compagnie).`
-                : "Nessun documento selezionato: il PDF conterrà solo le note (e i clienti aggiunti, se presenti)."}
+                ? `Le note diventano parte del PDF (${picked.length} documenti). L'agenzia è quella delle polizze del cliente.`
+                : "Nessun documento selezionato: il PDF conterrà le note. L'agenzia è presa dalle polizze del cliente."}
             </p>
-            {picked.length === 0 && (
-              <div className="space-y-1.5">
-                <Label htmlFor="restituzione-agenzia">Agenzia / compagnia (opzionale)</Label>
-                <Input
-                  id="restituzione-agenzia"
-                  value={noteCompagnia}
-                  onChange={(e) => setNoteCompagnia(e.target.value)}
-                  placeholder="Es. Allianz — sede Napoli"
-                />
-              </div>
-            )}
+            <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Agenzia dal cliente</p>
+              <p className="font-medium">
+                {agenzieCliente.length > 0
+                  ? agenzieCliente.map((a) => a.compagniaNome).join(" · ")
+                  : clienti.length === 0
+                    ? "Aggiungi un cliente"
+                    : "Nessuna agenzia sulle polizze del cliente"}
+              </p>
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="restituzione-note">Note</Label>
               <Textarea
