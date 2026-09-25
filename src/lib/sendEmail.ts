@@ -24,6 +24,8 @@ export interface SendEmailResult {
   success: boolean;
   id?: string;
   error?: string;
+  sandbox_redirect?: boolean;
+  domain_not_verified?: boolean;
 }
 
 /**
@@ -80,5 +82,10 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
     return { success: false, error: data.error };
   }
 
-  return { success: true, id: data?.id };
+  return {
+    success: true,
+    id: data?.id,
+    sandbox_redirect: Boolean(data?.sandbox_redirect || data?.auto_fallback_used),
+    domain_not_verified: Boolean(data?.domain_not_verified),
+  };
 }
