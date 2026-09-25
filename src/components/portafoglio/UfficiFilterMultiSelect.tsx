@@ -8,6 +8,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  searchPopoverContentProps,
+  searchableSelectItemClass,
+  searchableSelectListClass,
+} from "@/components/SearchableSelect";
 
 type UfficioOpt = { id: string; codice_ufficio: string; nome_ufficio: string };
 
@@ -71,16 +76,16 @@ export function UfficiFilterMultiSelect({ value, onChange, className }: Props) {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="start">
+      <PopoverContent className="w-[300px] p-0" {...searchPopoverContentProps}>
         <Command>
           <CommandInput placeholder="Cerca sede..." />
-          <CommandList>
+          <CommandList className={searchableSelectListClass}>
             <CommandEmpty>Nessuna sede trovata</CommandEmpty>
             <CommandGroup>
               <CommandItem
                 value="__tutte__"
                 onSelect={() => onChange([])}
-                className="gap-2"
+                className={cn(searchableSelectItemClass, "gap-2")}
               >
                 <Check className={cn("h-4 w-4", value.length === 0 ? "opacity-100" : "opacity-0")} />
                 Tutte le sedi
@@ -93,7 +98,7 @@ export function UfficiFilterMultiSelect({ value, onChange, className }: Props) {
                     key={u.id}
                     value={search}
                     onSelect={() => toggle(u.id)}
-                    className="gap-2"
+                    className={cn(searchableSelectItemClass, "gap-2")}
                   >
                     <Checkbox
                       checked={checked}

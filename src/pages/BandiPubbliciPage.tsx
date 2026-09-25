@@ -39,6 +39,7 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { searchPopoverContentProps } from "@/components/SearchableSelect";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1397,7 +1398,7 @@ export default function BandiPubbliciPage() {
                       <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[350px] p-0" align="start">
+                  <PopoverContent className="w-[350px] p-0" {...searchPopoverContentProps}>
                     <div className="p-3 border-b">
                       <div className="flex items-center space-x-2">
                         <Checkbox id="tutte-regioni" checked={regioniSelezionate.length === REGIONI_ITALIANE.length} onCheckedChange={toggleTutte} />

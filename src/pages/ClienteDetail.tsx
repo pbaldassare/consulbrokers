@@ -58,7 +58,12 @@ import { SortableTableHead, nextSort } from "@/components/shared/SortableTableHe
 import { isTipoPagamentoAliasBonificoEsterno } from "@/lib/incassoTipoPagamento";
 import { importoAnnualitaDaRata } from "@/lib/frazionamento";
 import { ModificaVeicoloDialog } from "@/components/polizze/ModificaVeicoloDialog";
-import { SearchableSelect } from "@/components/SearchableSelect";
+import {
+  SearchableSelect,
+  searchPopoverContentProps,
+  searchableSelectItemClass,
+  searchableSelectListClass,
+} from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab, { type DocumentiAggregateSource } from "@/components/DocumentiTab";
 import { DeleteWithImpactDialog } from "@/components/common/DeleteWithImpactDialog";
@@ -417,10 +422,13 @@ function FieldComuneItaliano({
             <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <PopoverContent
+          className="w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0"
+          {...searchPopoverContentProps}
+        >
           <Command shouldFilter={false}>
             <CommandInput placeholder="Cerca comune o digita libero..." value={search} onValueChange={setSearch} />
-            <CommandList>
+            <CommandList className={searchableSelectListClass}>
               <CommandEmpty>
                 <button
                   type="button"
@@ -440,6 +448,7 @@ function FieldComuneItaliano({
                 <CommandGroup heading="Testo libero">
                   <CommandItem
                     value={`__free_${search}`}
+                    className={searchableSelectItemClass}
                     onSelect={() => {
                       updateField(field, search.trim());
                       setOpen(false);
@@ -455,6 +464,7 @@ function FieldComuneItaliano({
                   <CommandItem
                     key={o.value}
                     value={o.label}
+                    className={searchableSelectItemClass}
                     onSelect={() => {
                       updateField(field, o.value);
                       setOpen(false);

@@ -9,6 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
+  searchPopoverContentProps,
+  searchableSelectItemClass,
+  searchableSelectListClass,
+} from "@/components/SearchableSelect";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -1054,14 +1059,19 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   <Plus className="h-4 w-4" /> Aggiungi voce
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="p-0 w-80" align="start">
+              <PopoverContent className="p-0 w-80" {...searchPopoverContentProps}>
                 <Command>
                   <CommandInput placeholder="Cerca garanzia…" />
-                  <CommandList>
+                  <CommandList className={searchableSelectListClass}>
                     <CommandEmpty>Nessuna voce disponibile</CommandEmpty>
                     <CommandGroup>
                       {catalogoDisponibile.map((g: any) => (
-                        <CommandItem key={g.codice} value={`${g.codice} ${g.descrizione}`} onSelect={() => addMut.mutate(g)}>
+                        <CommandItem
+                          key={g.codice}
+                          value={`${g.codice} ${g.descrizione}`}
+                          className={searchableSelectItemClass}
+                          onSelect={() => addMut.mutate(g)}
+                        >
                           <span className="font-mono text-xs text-muted-foreground mr-2">{g.codice}</span>
                           {g.descrizione}
                           {g.aliquota_tasse && <span className="ml-auto text-xs text-muted-foreground">{g.aliquota_tasse}%</span>}

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { searchPopoverContentProps } from "@/components/SearchableSelect";
 import { Calendar } from "@/components/ui/calendar";
 import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus, ExternalLink, Filter, Download, X, CalendarIcon, Check, FileDown, Building2, Truck } from "lucide-react";
 
@@ -37,7 +38,10 @@ function MultiSelectFilter({ label, values, options, onChange, formatOption }: {
           <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="p-1 w-[var(--radix-popover-trigger-width)] max-h-72 overflow-auto" align="start">
+      <PopoverContent
+        className="p-1 w-[var(--radix-popover-trigger-width)] max-h-[20rem] overflow-auto"
+        {...searchPopoverContentProps}
+      >
         {options.length === 0 ? (
           <div className="px-2 py-1.5 text-sm text-muted-foreground">Nessuna opzione</div>
         ) : (

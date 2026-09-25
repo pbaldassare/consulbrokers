@@ -2,6 +2,7 @@ import { useState } from "react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { useClienteSearch } from "@/hooks/useClienteSearch";
 import { CLIENTE_SEARCH_MIN_CHARS, type ClienteSearchRow } from "@/lib/clienteSearch";
+import { cn } from "@/lib/utils";
 
 type Props = {
   value: string;
@@ -65,7 +66,7 @@ export function ClienteSearchSelect({
       emptyText={resolvedEmpty}
       clearable={clearable}
       clearLabel={clearLabel}
-      className={className}
+      className={cn("min-w-[20rem]", className)}
       disabled={disabled}
     />
   );
