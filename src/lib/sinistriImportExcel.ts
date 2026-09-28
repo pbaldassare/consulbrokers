@@ -14,6 +14,7 @@ export const MODULO_SX_HEADERS = [
   "COMPAGNIA",
   "AGENZIA",
   "RAMO",
+  "CONTROPARTE",
   "STATO SINISTRO",
   "DESCRIZIONE",
 ] as const;
@@ -33,6 +34,7 @@ export type SinistroImportField =
   | "compagnia_excel"
   | "agenzia_excel"
   | "ramo_sinistro"
+  | "controparte"
   | "stato"
   | "descrizione";
 
@@ -59,6 +61,7 @@ const HEADER_MAP: Record<string, SinistroImportField> = {
   agenzia: "agenzia_excel",
   ramo: "ramo_sinistro",
   "ramo sinistro": "ramo_sinistro",
+  controparte: "controparte",
   "stato sinistro": "stato",
   stato: "stato",
   descrizione: "descrizione",
@@ -103,6 +106,7 @@ export type SinistroImportRaw = {
   compagnia_excel: string;
   agenzia_excel: string;
   ramo_sinistro: string;
+  controparte: string;
   stato: string;
   descrizione: string;
 };
@@ -139,6 +143,7 @@ export type SinistroImportPreviewRow = {
   compagnia_excel: string;
   agenzia_excel: string;
   ramo_sinistro: string;
+  controparte: string;
   stato: StatoSinistroImport;
   descrizione: string;
   sinistro_terzi: boolean;
@@ -276,6 +281,7 @@ function emptyRaw(excelRow: number): SinistroImportRaw {
     compagnia_excel: "",
     agenzia_excel: "",
     ramo_sinistro: "",
+    controparte: "",
     stato: "",
     descrizione: "",
   };
@@ -291,6 +297,7 @@ function isEmptyRaw(row: SinistroImportRaw): boolean {
     !row.compagnia_excel &&
     !row.agenzia_excel &&
     !row.ramo_sinistro &&
+    !row.controparte &&
     !row.stato &&
     !row.descrizione
   );
@@ -319,6 +326,7 @@ export function parseModuloSxExcel(buffer: ArrayBuffer | Uint8Array): SinistroIm
     "compagnia_excel",
     "agenzia_excel",
     "ramo_sinistro",
+    "controparte",
     "stato",
     "descrizione",
   ];
@@ -458,6 +466,7 @@ export function buildPreviewRows(
       compagnia_excel: raw.compagnia_excel,
       agenzia_excel: raw.agenzia_excel,
       ramo_sinistro: ramoSinistroFromPolizza(uniqueTitolo) || raw.ramo_sinistro,
+      controparte: raw.controparte,
       stato: statoMapped.stato,
       descrizione: raw.descrizione,
       sinistro_terzi,

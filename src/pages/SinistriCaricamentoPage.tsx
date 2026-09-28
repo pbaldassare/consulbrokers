@@ -255,6 +255,7 @@ function SinistriCaricamentoPageInner() {
               ...(row.numero_sinistro_compagnia.trim()
                 ? { numero_sinistro_compagnia: row.numero_sinistro_compagnia.trim() }
                 : {}),
+              ...(row.controparte.trim() ? { controparte: row.controparte.trim() } : {}),
               user_id: user.id,
               stato_iniziale: statoIniziale,
             },

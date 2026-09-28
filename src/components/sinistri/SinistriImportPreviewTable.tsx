@@ -87,6 +87,7 @@ export default function SinistriImportPreviewTable({
             <TableHead className="min-w-[140px]">N. SX compagnia</TableHead>
             <TableHead className="min-w-[180px]">Compagnia</TableHead>
             <TableHead className="min-w-[240px]">Ramo</TableHead>
+            <TableHead className="min-w-[200px]">Controparte</TableHead>
             <TableHead className="min-w-[260px]">Stato</TableHead>
             <TableHead className="min-w-[260px]">Descrizione *</TableHead>
             <TableHead className="min-w-[160px]">Esito</TableHead>
@@ -182,6 +183,14 @@ export default function SinistriImportPreviewTable({
                   disabled={disabled}
                   className="w-full min-w-[14rem]"
                   popoverClassName="min-w-[20rem]"
+                />
+              </TableCell>
+              <TableCell className="align-top">
+                <Input
+                  value={row.controparte}
+                  disabled={disabled}
+                  placeholder="Nome controparte…"
+                  onChange={(e) => onChange(row.id, { controparte: e.target.value })}
                 />
               </TableCell>
               <TableCell className="align-top">
