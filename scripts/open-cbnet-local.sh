@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PORT="$(grep -E '^VITE_DEV_PORT=' "$ROOT/.env" 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '"[:space:]')"
+PORT="$(grep -E '^VITE_DEV_PORT=' "$ROOT/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"' || true)"
 PORT="${PORT:-5175}"
 URL="http://localhost:${PORT}/login"
 
@@ -39,11 +39,8 @@ if command -v code >/dev/null 2>&1; then
 fi
 
 launch() {
-  if [[ -t 1 ]]; then
-    exec "$@"
-  fi
   nohup "$@" >/tmp/cbnet-browser.log 2>&1 &
-  echo "Browser avviato (pid $!)"
+  echo "Browser avviato (pid $!) → $URL"
 }
 
 if [[ -n "${DISPLAY:-}" && -n "$chrome" ]]; then
