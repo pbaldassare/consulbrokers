@@ -38,8 +38,8 @@ describe("sinistriImportExcel", () => {
     expect(mapHeader("N° Polizza")).toBe("n_polizza");
     expect(mapHeader("N SINISTRO COMPAGNIA")).toBe("numero_sinistro_compagnia");
     expect(mapHeader("STATO SINISTRO")).toBe("stato");
+    expect(mapHeader("CONTROPARTE")).toBe("controparte");
     expect(mapHeader("Colonna sconosciuta")).toBeNull();
-    expect(mapHeader("CONTROPARTE")).toBeNull();
   });
 
   it("legge il modello ufficiale MODULO SX (con CONTROPARTE) senza perdere le colonne", () => {
@@ -99,14 +99,15 @@ describe("sinistriImportExcel", () => {
 
   it("legge un Excel MODULO SX e salta le righe vuote", () => {
     const buf = xlsxBuffer([
-      ["DATA ACCADIMENTO", "DATA DENUNCIA", "CLIENTE", "N POLIZZA", "N SINISTRO COMPAGNIA", "COMPAGNIA", "AGENZIA", "RAMO", "STATO SINISTRO", "DESCRIZIONE"],
-      ["01/03/2026", "05/03/2026", "Comune Esempio", "123456", "SX-1", "Unipol", "Ag. MI", "RCA", "Aperto", LONG_DESC],
-      ["", "", "", "", "", "", "", "", "", ""],
+      ["DATA ACCADIMENTO", "DATA DENUNCIA", "CLIENTE", "N POLIZZA", "N SINISTRO COMPAGNIA", "COMPAGNIA", "AGENZIA", "RAMO", "CONTROPARTE", "STATO SINISTRO", "DESCRIZIONE"],
+      ["01/03/2026", "05/03/2026", "Comune Esempio", "123456", "SX-1", "Unipol", "Ag. MI", "RCA", "Rossi Mario", "Aperto", LONG_DESC],
+      ["", "", "", "", "", "", "", "", "", "", ""],
     ]);
     const rows = parseModuloSxExcel(buf);
     expect(rows).toHaveLength(1);
     expect(rows[0].n_polizza).toBe("123456");
     expect(rows[0].cliente_excel).toBe("Comune Esempio");
+    expect(rows[0].controparte).toBe("Rossi Mario");
     expect(rows[0].descrizione).toBe(LONG_DESC);
   });
 
@@ -173,6 +174,7 @@ describe("sinistriImportExcel", () => {
           compagnia_excel: "",
           agenzia_excel: "",
           ramo_sinistro: "RCA",
+          controparte: "Ignoti",
           stato: "Aperto",
           descrizione: LONG_DESC,
         },
@@ -180,6 +182,7 @@ describe("sinistriImportExcel", () => {
       { clienteNome: "Comune Esempio", polizze: [{ id: "tit-9", numero_titolo: "ALTRO" }], compagnie: [] },
     );
     expect(preview[0].sinistro_terzi).toBe(true);
+    expect(preview[0].controparte).toBe("Ignoti");
     const linked = applyPreviewPatch(
       preview[0],
       { titolo_id: "tit-9" },

@@ -86,8 +86,9 @@ export default function SinistriImportPreviewTable({
             <TableHead className="min-w-[220px]">Collegamento</TableHead>
             <TableHead className="min-w-[140px]">N. SX compagnia</TableHead>
             <TableHead className="min-w-[180px]">Compagnia</TableHead>
-            <TableHead className="min-w-[120px]">Ramo</TableHead>
-            <TableHead className="min-w-[150px]">Stato</TableHead>
+            <TableHead className="min-w-[240px]">Ramo</TableHead>
+            <TableHead className="min-w-[200px]">Controparte</TableHead>
+            <TableHead className="min-w-[260px]">Stato</TableHead>
             <TableHead className="min-w-[260px]">Descrizione *</TableHead>
             <TableHead className="min-w-[160px]">Esito</TableHead>
           </TableRow>
@@ -180,7 +181,16 @@ export default function SinistriImportPreviewTable({
                   clearable
                   clearLabel="— Nessun ramo —"
                   disabled={disabled}
-                  className="w-full"
+                  className="w-full min-w-[14rem]"
+                  popoverClassName="min-w-[20rem]"
+                />
+              </TableCell>
+              <TableCell className="align-top">
+                <Input
+                  value={row.controparte}
+                  disabled={disabled}
+                  placeholder="Nome controparte…"
+                  onChange={(e) => onChange(row.id, { controparte: e.target.value })}
                 />
               </TableCell>
               <TableCell className="align-top">
@@ -191,6 +201,8 @@ export default function SinistriImportPreviewTable({
                   onValueChange={(val) => onChange(row.id, { stato: val as SinistroImportPreviewRow["stato"] })}
                   placeholder={labelStatoSinistro(row.stato)}
                   searchPlaceholder="Cerca stato…"
+                  className="w-full min-w-[16rem]"
+                  popoverClassName="min-w-[24rem]"
                 />
               </TableCell>
               <TableCell className="align-top">

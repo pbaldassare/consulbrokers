@@ -28,6 +28,8 @@ interface SearchableSelectProps {
   placeholder?: string;
   emptyText?: string;
   className?: string;
+  /** Classi extra sul popover (es. min-w più larga del trigger in tabella). */
+  popoverClassName?: string;
   disabled?: boolean;
   searchValue?: string;
   onSearchChange?: (q: string) => void;
@@ -75,6 +77,7 @@ export function SearchableSelect({
   placeholder = "Seleziona...",
   emptyText = "Nessun risultato.",
   className,
+  popoverClassName,
   disabled = false,
   searchValue,
   onSearchChange,
@@ -130,7 +133,7 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className={popoverMatchTriggerWidthClass}
+        className={cn(popoverMatchTriggerWidthClass, popoverClassName)}
         align="start"
         side="bottom"
         {...(popoverCollisionBoundary ? { collisionBoundary: popoverCollisionBoundary, collisionPadding: 12 } : {})}
