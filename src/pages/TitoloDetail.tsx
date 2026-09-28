@@ -40,7 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail, Truck, PauseCircle, PlayCircle } from "lucide-react";
+import { FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail, Truck, PauseCircle, PlayCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { TitoloDocumentiTrigger } from "@/components/titolo/TitoloDocumentiDialog";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
@@ -1973,7 +1973,7 @@ const TitoloDetail = () => {
       updateMadre: boolean;
     }) => {
       if (!canHaveDataCopertura(titolo as any)) {
-        throw new Error("La polizza madre non può avere copertura — apri la quietanza");
+        throw new Error("Questo titolo non può avere copertura");
       }
       const ente = isClienteEnte((titolo as any)?.cliente_anagrafica);
       if (ente && isCigFormatoInvalido(form.cig_rif, form.cig_temporaneo)) {
@@ -2070,7 +2070,7 @@ const TitoloDetail = () => {
   const updateDateMutation = useMutation({
     mutationFn: async ({ field, value }: { field: "data_messa_cassa" | "data_pagamento" | "data_decorrenza_rinnovo" | "data_copertura"; value: string | null }) => {
       if (field === "data_copertura" && !canHaveDataCopertura(titolo as any)) {
-        throw new Error("La polizza madre non può avere data copertura");
+        throw new Error("Questo titolo non può avere data copertura");
       }
       const { error } = await supabase.from("titoli").update({ [field]: value || null, updated_at: new Date().toISOString() }).eq("id", id!);
       if (error) throw error;
@@ -2105,8 +2105,7 @@ const TitoloDetail = () => {
   const garantitoAperto = isGarantitoAperto(t);
   const showMessaACassa = !t.data_messa_cassa || garantitoAperto || (isPoliennale && t.stato === "attivo");
 
-  // Lock generale: una quietanza messa a cassa o stornata non è più una "bozza".
-  // La polizza madre è un frontespizio: non si mette a cassa.
+  // Lock generale: titolo messo a cassa o stornato non è più una "bozza".
   const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
   const isEmittenda = !!(t as any).emittenda;
   const isRegolazione = !!(t as any).is_regolazione;
@@ -2138,14 +2137,8 @@ const TitoloDetail = () => {
       ]
     : [t.id];
 
-  // "Polizza madre" con rate successive: l'incasso si fa solo sulle singole quietanze, NON qui.
-  const isMadreConRate = !!catenaCorrente && !!madre && madre.id === t.id && totRate > 0;
-  const primaRataDaIncassare = isMadreConRate
-    ? (catenaCorrente!.rate.find((x: any) => x.stato === "attivo" && !x.data_messa_cassa) || null)
-    : null;
-
-  // Polizza originale (madre): sostituisce_polizza === null, non è appendice/regolazione/proroga.
-  // Su queste l'incasso NON si fa mai — solo sulle quietanze, regolazioni e appendici.
+  // Polizza originale: sostituisce_polizza === null, non è appendice/regolazione/proroga.
+  // È incassabile (prima rata). Le quietanze successive restano titoli collegati.
   const isPolizzaMadre =
     !t.sostituisce_polizza &&
     !isAppendiceTitolo;
@@ -2487,7 +2480,7 @@ const TitoloDetail = () => {
                 Libro Matricola ({mezziMatricolaDb.length} mezzi)
               </Button>
             )}
-            {isAdmin && !isMadreConRate && (t.stato === "incassato" || !!t.data_messa_cassa || (!!t.conferimento_gestito && !!t.data_copertura)) && (
+            {isAdmin && (t.stato === "incassato" || !!t.data_messa_cassa || (!!t.conferimento_gestito && !!t.data_copertura)) && (
               <Button
                 variant="outline"
                 size="sm"
@@ -2586,33 +2579,8 @@ const TitoloDetail = () => {
               </Button>
             )}
 
-            {/* ===== Callout: sulla Polizza madre l'incasso si fa sulle singole quietanze ===== */}
-            {(isMadreConRate || isPolizzaMadre) && (
-              <div className="w-full mt-2 pt-4 border-t">
-                <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-900 flex items-start gap-2">
-                  <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <strong>L'incasso si effettua sulla singola quietanza/rata.</strong>{" "}
-                    Apri la rata da incassare dalla lista <em>Quietanze di questa polizza</em> qui sopra. La polizza madre non si mette a cassa.
-                    <div className="mt-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                        disabled={!primaRataDaIncassare}
-                        onClick={() => primaRataDaIncassare && navigate(`/titoli/${(primaRataDaIncassare as any).id}`)}
-                      >
-                        <ArrowLeft className="w-4 h-4 mr-1 rotate-180" />
-                        {primaRataDaIncassare ? "Vai alla prima rata da incassare" : "Nessuna rata da incassare"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* ===== Sotto-sezione Messa a Cassa unificata ===== */}
-            {!isMadreConRate && !isPolizzaMadre && (t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
+            {(t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
               <div className="w-full mt-2 pt-4 border-t">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold flex items-center gap-2 text-teal-900 dark:text-teal-100">

@@ -1,8 +1,7 @@
 import { isAppendice, isPolizzaMadre, isQuietanza, type TitoloLike } from "@/lib/quietanze";
 
 /**
- * Copia frontespizio (polizza madre) → quietanza figlia.
- * La madre non si mette a cassa: la quietanza è la riga cassabile.
+ * Copia dati della polizza (prima rata) → quietanza successiva.
  * Non inventa rate extra: crea 1 figlia se manca, altrimenti aggiorna
  * la prima figlia ancora modificabile.
  */

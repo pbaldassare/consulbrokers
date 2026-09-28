@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TITOLI_DA_INCASSARE_COLUMNS } from "@/lib/titoliDaIncassare/columns";
 import { mapTitoloDaIncassareRow } from "@/lib/titoliDaIncassare/mapRow";
 import { buildPivotCommentary, pivotPerCompagnia, totaliPivot } from "@/lib/titoliDaIncassare/pivot";
+import { dedupeTitoliMadreQuietanza } from "@/lib/titoliDaIncassare";
 
 describe("titoliDaIncassare", () => {
   it("esclude colonne codice legacy (33 campi descrittivi)", () => {
@@ -33,6 +34,14 @@ describe("titoliDaIncassare", () => {
     expect(row.competenza).toBe("01/06/2026");
     expect(row.tipoTitolo).toBe("PQ");
     expect(row.premio).toBe(1862.45);
+  });
+
+  it("mantiene polizza e quietanze dello stesso numero (periodi distinti)", () => {
+    const rows = [
+      { id: "m", numero_titolo: "POL-1", sostituisce_polizza: null as string | null },
+      { id: "q", numero_titolo: "POL-1", sostituisce_polizza: "POL-1" },
+    ];
+    expect(dedupeTitoliMadreQuietanza(rows).map((r) => r.id)).toEqual(["m", "q"]);
   });
 
   it("genera pivot e commento", () => {

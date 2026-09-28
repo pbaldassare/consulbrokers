@@ -16,7 +16,7 @@ import {
 test.use({ storageState: STORAGE_STATE });
 
 /**
- * Scenario 2: polizza temporanea → esattamente 1 quietanza (oltre al contratto madre).
+ * Scenario 2: polizza temporanea → solo la polizza (nessuna quietanza successiva).
  */
 test.describe.serial('Polizza temporanea — una sola quietanza', () => {
   const POLIZZA_NUM = `TMP-E2E-${Date.now()}`;
@@ -35,7 +35,7 @@ test.describe.serial('Polizza temporanea — una sola quietanza', () => {
     await cleanupPolizzaChain(POLIZZA_NUM);
   });
 
-  test('polizza temporanea genera 1 sola quietanza sul periodo indicato', async ({ page }) => {
+  test('polizza temporanea è la prima (e unica) rata incassabile', async ({ page }) => {
     expect(fixtures).not.toBeNull();
 
     await fillImmissionePolizzaForm(page, {
@@ -58,19 +58,17 @@ test.describe.serial('Polizza temporanea — una sola quietanza', () => {
       dataCompetenza: GAR_DA,
     });
 
-    expect(quietanzaIds).toHaveLength(1);
+    expect(quietanzaIds).toHaveLength(0);
 
     const chain = await fetchTitoliChain(POLIZZA_NUM);
-    expect(chain).toHaveLength(2);
+    expect(chain).toHaveLength(1);
 
     const madre = chain.find((t) => !t.sostituisce_polizza);
-    const quietanza = chain.find((t) => !!t.sostituisce_polizza);
     expect(madre?.polizza_temporanea).toBe(true);
-    expect(quietanza?.garanzia_da).toBe(GAR_DA);
-    expect(quietanza?.garanzia_a).toBe(GAR_A);
-    expect(quietanza?.frazionamento).toBeNull();
+    expect(madre?.garanzia_da).toBe(GAR_DA);
+    expect(madre?.garanzia_a).toBe(GAR_A);
 
-    quietanzaId = quietanza?.id ?? null;
+    quietanzaId = madre?.id ?? null;
     expect(quietanzaId).toBeTruthy();
   });
 
@@ -80,10 +78,10 @@ test.describe.serial('Polizza temporanea — una sola quietanza', () => {
     await performMessaACassa(page, quietanzaId!);
 
     const chain = await fetchTitoliChain(POLIZZA_NUM);
-    expect(chain).toHaveLength(2);
+    expect(chain).toHaveLength(1);
 
-    const rate = chain.filter((t) => !!t.sostituisce_polizza);
-    expect(rate).toHaveLength(1);
-    expect(rate[0].stato).toBe('incassato');
+    const madre = chain.find((t) => !t.sostituisce_polizza);
+    expect(madre?.stato).toBe('incassato');
+    expect(chain.filter((t) => !!t.sostituisce_polizza)).toHaveLength(0);
   });
 });

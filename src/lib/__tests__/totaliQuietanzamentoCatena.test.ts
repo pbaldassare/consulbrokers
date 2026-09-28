@@ -2,10 +2,11 @@ import { describe, it, expect } from "vitest";
 import { totaliQuietanzamentoCatena } from "../totaliQuietanzamentoCatena";
 
 describe("totaliQuietanzamentoCatena", () => {
-  it("annuale 1y: somma solo la quietanza, non la madre (no doppio conteggio)", () => {
+  it("vecchio modello annuale 1y: somma solo la quietanza, non la madre duplicata", () => {
     const madre = {
       premio_lordo: 1000,
       sostituisce_polizza: null as string | null,
+      garanzia_da: "2026-01-01",
       provvigioni_firma: 100,
       provvigioni_quietanza: 0,
     };
@@ -13,6 +14,7 @@ describe("totaliQuietanzamentoCatena", () => {
       {
         premio_lordo: 1000,
         sostituisce_polizza: "POL-1",
+        garanzia_da: "2026-01-01",
         provvigioni_quietanza: 100,
         provvigioni_firma: 100, // getProvvigioneEC usa solo quietanza
       },
@@ -24,7 +26,29 @@ describe("totaliQuietanzamentoCatena", () => {
     });
   });
 
-  it("semestrale: somma entrambe le quietanze, ignora madre e appendici", () => {
+  it("nuovo modello semestrale: somma polizza + quietanza successiva", () => {
+    const madre = {
+      premio_lordo: 500,
+      sostituisce_polizza: null as string | null,
+      garanzia_da: "2026-01-01",
+      provvigioni_firma: 50,
+    };
+    const rate = [
+      {
+        premio_lordo: 500,
+        sostituisce_polizza: "POL-2",
+        garanzia_da: "2026-07-01",
+        provvigioni_quietanza: 50,
+      },
+    ];
+    expect(totaliQuietanzamentoCatena(madre, rate)).toEqual({
+      premio: 1000,
+      provvigioni: 100,
+      count: 2,
+    });
+  });
+
+  it("semestrale vecchio modello: somma entrambe le quietanze, ignora madre e appendici", () => {
     const madre = {
       premio_lordo: 500,
       sostituisce_polizza: null as string | null,
