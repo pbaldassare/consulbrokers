@@ -1,10 +1,12 @@
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { buildPolizzaSelectOption } from "@/lib/titoliDisplay";
+import { supabase } from "@/integrations/supabase/client";
+import { buildPolizzaSelectOption, formatPolizzaRamo } from "@/lib/titoliDisplay";
 import {
   STATI_SINISTRO_IMPORT,
   type CompagniaImportMatch,
@@ -45,6 +47,28 @@ export default function SinistriImportPreviewTable({
     label: c.nome,
     searchText: `${c.nome} ${c.codice || ""} ${c.tipo || ""}`,
   }));
+
+  const { data: rami = [] } = useQuery({
+    queryKey: ["rami-sinistro-import"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("rami")
+        .select("id, descrizione, gruppo_ramo:gruppi_ramo(descrizione)")
+        .order("descrizione")
+        .limit(1000);
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const ramoOptions = rami
+    .map((r) => {
+      const gruppo = Array.isArray(r.gruppo_ramo) ? r.gruppo_ramo[0] : r.gruppo_ramo;
+      const label = formatPolizzaRamo({ ramo: { descrizione: r.descrizione, gruppo_ramo: gruppo } });
+      return { value: label, label, searchText: label };
+    })
+    .filter((o) => o.value && o.value !== "—");
 
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground p-4">Nessuna riga da mostrare.</p>;
@@ -143,10 +167,20 @@ export default function SinistriImportPreviewTable({
                 />
               </TableCell>
               <TableCell className="align-top">
-                <Input
+                <SearchableSelect
+                  options={
+                    row.ramo_sinistro && !ramoOptions.some((o) => o.value === row.ramo_sinistro)
+                      ? [{ value: row.ramo_sinistro, label: row.ramo_sinistro }, ...ramoOptions]
+                      : ramoOptions
+                  }
                   value={row.ramo_sinistro}
+                  onValueChange={(val) => onChange(row.id, { ramo_sinistro: val || "" })}
+                  placeholder="Seleziona ramo…"
+                  searchPlaceholder="Cerca ramo…"
+                  clearable
+                  clearLabel="— Nessun ramo —"
                   disabled={disabled}
-                  onChange={(e) => onChange(row.id, { ramo_sinistro: e.target.value })}
+                  className="w-full"
                 />
               </TableCell>
               <TableCell className="align-top">

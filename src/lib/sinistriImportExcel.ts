@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import { DESCRIZIONE_MIN_CHARS } from "@/lib/sinistroPraticaSchema";
 import { safeId } from "@/lib/safeId";
 import { labelStatoSinistro, SINISTRO_STATI, SINISTRO_STATI_CATALOGO, type SinistroStato } from "@/lib/sinistriStati";
+import { formatPolizzaRamo } from "@/lib/titoliDisplay";
 
 /** Intestazioni canoniche del tracciato MODULO SX. */
 export const MODULO_SX_HEADERS = [
@@ -345,26 +346,24 @@ export function parseModuloSxExcel(buffer: ArrayBuffer | Uint8Array): SinistroIm
   return out;
 }
 
+/** File ufficiale in `public/modelli` (include anche CONTROPARTE). */
+export const MODULO_SX_TEMPLATE_URL = "/modelli/MODULO_SX.xlsx";
+
 export function downloadModuloSxTemplate(): void {
-  const ws = XLSX.utils.aoa_to_sheet([
-    [...MODULO_SX_HEADERS],
-    [
-      "01/03/2026",
-      "05/03/2026",
-      "Comune Esempio",
-      "123456789",
-      "SX-001",
-      "UnipolSai",
-      "Agenzia Milano",
-      "RC Auto",
-      "Aperto",
-      "Descrizione del sinistro sufficientemente lunga",
-    ],
-  ]);
-  ws["!cols"] = MODULO_SX_HEADERS.map((h) => ({ wch: Math.max(18, h.length + 2) }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Foglio1");
-  XLSX.writeFile(wb, "MODULO_SX.xlsx");
+  const a = document.createElement("a");
+  a.href = MODULO_SX_TEMPLATE_URL;
+  a.download = "MODULO_SX.xlsx";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/** Ramo/garanzia da titolo CBnet (stessa etichetta del wizard sinistri). */
+export function ramoSinistroFromPolizza(p: PolizzaImportMatch | null | undefined): string {
+  if (!p) return "";
+  const label = formatPolizzaRamo(p);
+  return label && label !== "—" ? label : "";
 }
 
 export function validateImportRow(row: Pick<
@@ -458,7 +457,7 @@ export function buildPreviewRows(
       numero_sinistro_compagnia: raw.numero_sinistro_compagnia,
       compagnia_excel: raw.compagnia_excel,
       agenzia_excel: raw.agenzia_excel,
-      ramo_sinistro: raw.ramo_sinistro,
+      ramo_sinistro: ramoSinistroFromPolizza(uniqueTitolo) || raw.ramo_sinistro,
       stato: statoMapped.stato,
       descrizione: raw.descrizione,
       sinistro_terzi,
@@ -539,6 +538,8 @@ export function applyPreviewPatch(
         next.compagnia_label = c?.nome || next.compagnia_label;
         next.matchCompagnia = "from_polizza";
       }
+      const ramoAuto = ramoSinistroFromPolizza(p);
+      if (ramoAuto) next.ramo_sinistro = ramoAuto;
     }
   }
 
