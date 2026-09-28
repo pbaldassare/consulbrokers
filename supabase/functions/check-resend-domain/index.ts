@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -141,13 +142,31 @@ async function removeFromSuppression(RESEND_API_KEY: string, email: string) {
   };
 }
 
+async function resolveResendApiKey(): Promise<string | null> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (supabaseUrl && serviceKey) {
+    try {
+      const admin = createClient(supabaseUrl, serviceKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { data } = await admin.rpc("resend_config");
+      const vaultKey = data && typeof data === "object" ? (data as { api_key?: string | null }).api_key : null;
+      if (typeof vaultKey === "string" && vaultKey.trim()) return vaultKey.trim();
+    } catch (e) {
+      console.warn("[check-resend-domain] vault RESEND_API_KEY non disponibile:", e);
+    }
+  }
+  return Deno.env.get("RESEND_API_KEY") || null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    const RESEND_API_KEY = await resolveResendApiKey();
     if (!RESEND_API_KEY) {
       return new Response(
         JSON.stringify({ error: "RESEND_API_KEY non configurata" }),
