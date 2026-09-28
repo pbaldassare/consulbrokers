@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { SearchableSelect } from "@/components/SearchableSelect";
+import {
+  SearchableSelect,
+  searchPopoverContentProps,
+  searchableSelectItemClass,
+  searchableSelectListClass,
+} from "@/components/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -1312,7 +1317,7 @@ function SottoramiMultiSelect({
           <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0" align="start">
+      <PopoverContent className="w-[320px] p-0" {...searchPopoverContentProps}>
         <Command>
           <CommandInput placeholder="Cerca sottoramo..." className="h-9" />
           <div className="flex items-center justify-between gap-2 border-b px-2 py-1.5 text-xs">
@@ -1334,10 +1339,10 @@ function SottoramiMultiSelect({
               {value.length}/{sottorami.length}
             </span>
           </div>
-          <CommandList>
+          <CommandList className={searchableSelectListClass}>
             <CommandEmpty>Nessun sottoramo</CommandEmpty>
             <CommandGroup>
-              <CommandItem value="__default__" onSelect={() => onChange([])}>
+              <CommandItem value="__default__" className={searchableSelectItemClass} onSelect={() => onChange([])}>
                 <Check className={`mr-2 h-4 w-4 ${value.length === 0 ? "opacity-100" : "opacity-0"}`} />
                 <span className="italic text-muted-foreground">— Default ramo (nessun sottoramo) —</span>
               </CommandItem>
@@ -1347,6 +1352,7 @@ function SottoramiMultiSelect({
                   <CommandItem
                     key={s.id}
                     value={`${s.codice} ${s.descrizione}`}
+                    className={searchableSelectItemClass}
                     onSelect={() => toggle(s.id)}
                   >
                     <Checkbox checked={checked} className="mr-2 pointer-events-none" />

@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import {
+  searchPopoverContentProps,
+  searchableSelectItemClass,
+  searchableSelectListClass,
+} from "@/components/SearchableSelect";
 import { toast } from "sonner";
 import {
   useVehicleMakes,
@@ -72,7 +77,10 @@ function VehicleCombobox({
           <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0" align="start">
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0"
+        {...searchPopoverContentProps}
+      >
         <Command shouldFilter={true}>
           <CommandInput
             placeholder="Cerca o digita per aggiungere..."
@@ -80,7 +88,7 @@ function VehicleCombobox({
             onValueChange={setSearch}
             className="h-9"
           />
-          <CommandList>
+          <CommandList className={searchableSelectListClass}>
             {isLoading ? (
               <div className="py-6 flex justify-center">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -93,6 +101,7 @@ function VehicleCombobox({
                     <CommandItem
                       key={opt.value}
                       value={opt.value}
+                      className={searchableSelectItemClass}
                       onSelect={() => {
                         onValueChange(opt.value);
                         setOpen(false);

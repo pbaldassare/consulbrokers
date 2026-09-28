@@ -40,15 +40,27 @@ interface SearchableSelectProps {
   popoverCollisionBoundary?: Element | Element[];
   /** Mostra la description anche nel trigger quando un valore è selezionato. */
   showSelectedDescription?: boolean;
+  loading?: boolean;
 }
 
 /** Larghezza popover allineata al trigger (Radix CSS var). */
 export const popoverMatchTriggerWidthClass =
   "w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0";
 
-/** Evidenziazione tenue per voci selezionate/hover nel dropdown (override del verde accent). */
+/** Sempre sotto il campo: niente flip verso l’alto. */
+export const searchPopoverContentProps = {
+  side: "bottom" as const,
+  align: "start" as const,
+  sideOffset: 8,
+  avoidCollisions: false,
+};
+
+/** Lista scrollabile, altezza stabile così il menu non “salta” in alto. */
+export const searchableSelectListClass = "max-h-[20rem]";
+
+/** Evidenziazione tenue + padding uniforme per le voci. */
 export const searchableSelectItemClass =
-  "data-[selected=true]:bg-kpi-teal-bg data-[selected=true]:text-foreground";
+  "py-2 data-[selected=true]:bg-kpi-teal-bg data-[selected=true]:text-foreground";
 
 function OptionDetails({ details }: { details: SearchableSelectOptionDetail[] }) {
   return (
@@ -84,6 +96,7 @@ export function SearchableSelect({
   serverSideSearch = false,
   popoverCollisionBoundary,
   showSelectedDescription = false,
+  loading = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -92,7 +105,6 @@ export function SearchableSelect({
   const selectedDetails = selectedOption?.details?.length ? selectedOption.details : undefined;
   const showTriggerDescription =
     showSelectedDescription && (!!selectedDetails || !!selectedOption?.description);
-  const hasRichOptions = options.some((o) => o.details?.length);
   const trimmedSearch = (searchValue ?? "").trim();
   const serverEmptyMessage = trimmedSearch.length === 0
     ? "Digita per cercare…"
@@ -106,15 +118,17 @@ export function SearchableSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          disabled={disabled}
+          disabled={disabled || loading}
           className={cn(
             "w-full justify-between font-normal",
-            !selectedLabel && "text-muted-foreground",
+            !selectedLabel && !loading && "text-muted-foreground",
             showTriggerDescription && "h-auto py-2",
             className,
           )}
         >
-          {showTriggerDescription ? (
+          {loading ? (
+            <span className="truncate text-muted-foreground/70">Caricamento…</span>
+          ) : showTriggerDescription ? (
             <span className="flex flex-col items-start min-w-0 text-left w-full">
               <span className="truncate w-full font-medium">{selectedLabel}</span>
               {selectedDetails ? (
@@ -131,8 +145,7 @@ export function SearchableSelect({
       </PopoverTrigger>
       <PopoverContent
         className={popoverMatchTriggerWidthClass}
-        align="start"
-        side="bottom"
+        {...searchPopoverContentProps}
         {...(popoverCollisionBoundary ? { collisionBoundary: popoverCollisionBoundary, collisionPadding: 12 } : {})}
       >
         <Command shouldFilter={!serverSideSearch}>
@@ -143,7 +156,7 @@ export function SearchableSelect({
               if (onSearchChange) onSearchChange(q);
             }}
           />
-          <CommandList className={hasRichOptions ? "max-h-[min(28rem,70vh)]" : undefined}>
+          <CommandList className={searchableSelectListClass}>
             <CommandEmpty>{serverSideSearch ? serverEmptyMessage : emptyText}</CommandEmpty>
             <CommandGroup>
               {clearable && value && (
@@ -164,19 +177,22 @@ export function SearchableSelect({
                 <CommandItem
                   key={option.value}
                   value={optionSearchValue(option)}
-                  className={cn(searchableSelectItemClass, option.details?.length && "items-start py-2.5")}
+                  className={cn(
+                    searchableSelectItemClass,
+                    (option.details?.length || option.description) && "items-start py-2.5",
+                  )}
                   onSelect={() => {
                     onValueChange(option.value === value ? "" : option.value);
                     setOpen(false);
                   }}
                 >
                   <Check className={cn("mr-2 h-4 w-4 mt-0.5 shrink-0", value === option.value ? "opacity-100" : "opacity-0")} />
-                  <div className="flex flex-col min-w-0 w-full">
+                  <div className="flex flex-col min-w-0 w-full gap-0.5">
                     <span className="truncate font-medium">{option.label}</span>
                     {option.details?.length ? (
                       <OptionDetails details={option.details} />
                     ) : option.description ? (
-                      <span className="text-[10px] text-muted-foreground truncate">{option.description}</span>
+                      <span className="text-[11px] text-muted-foreground truncate">{option.description}</span>
                     ) : null}
                   </div>
                 </CommandItem>

@@ -4,7 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { SearchableSelect } from "@/components/SearchableSelect";
+import {
+  SearchableSelect,
+  searchPopoverContentProps,
+  searchableSelectItemClass,
+  searchableSelectListClass,
+} from "@/components/SearchableSelect";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
@@ -225,14 +230,18 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
                             <ChevronsUpDown className="w-4 h-4 opacity-50 ml-2 shrink-0" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <PopoverContent
+                          className="w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0"
+                          {...searchPopoverContentProps}
+                        >
                           <Command>
                             <CommandInput placeholder="Cerca sottoramo..." />
-                            <CommandList>
+                            <CommandList className={searchableSelectListClass}>
                               <CommandEmpty>Nessun sottoramo trovato.</CommandEmpty>
                               <CommandGroup>
                                 <CommandItem
                                   value="__all__"
+                                  className={searchableSelectItemClass}
                                   onSelect={() =>
                                     update(
                                       rows.map((r, i) => (i === idx ? { ...r, all: !r.all, ramo_ids: [] } : r)),
@@ -251,6 +260,7 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
                                       <CommandItem
                                         key={rr.value}
                                         value={`${rr.descrizione} ${rr.codice || ""}`}
+                                        className={searchableSelectItemClass}
                                         onSelect={() =>
                                           update(
                                             rows.map((r, i) =>

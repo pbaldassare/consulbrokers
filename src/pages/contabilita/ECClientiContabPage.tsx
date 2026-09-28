@@ -238,7 +238,7 @@ const ECClientiContabPage = () => {
             searchPlaceholder="Nome, più nomi, indirizzo…"
             clearable
             clearLabel="Tutti i clienti"
-            className="w-[240px]"
+            className="w-[20rem]"
           />
           <FilterSearchableSelect value={filters.ufficio_id} onValueChange={(v) => set({ ufficio_id: v })}
             options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))}

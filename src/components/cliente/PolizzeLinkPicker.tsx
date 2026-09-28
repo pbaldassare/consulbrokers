@@ -6,6 +6,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { Link2, Car } from "lucide-react";
+import {
+  searchPopoverContentProps,
+  searchableSelectItemClass,
+  searchableSelectListClass,
+} from "@/components/SearchableSelect";
+import { cn } from "@/lib/utils";
 
 interface Props {
   clienteIds: string[];
@@ -39,10 +45,10 @@ export default function PolizzeLinkPicker({ clienteIds, onPick }: Props) {
           Collega polizza
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[340px] p-0" align="start">
+      <PopoverContent className="w-[340px] p-0" {...searchPopoverContentProps}>
         <Command>
           <CommandInput placeholder="Cerca per numero, targa, prodotto..." />
-          <CommandList>
+          <CommandList className={searchableSelectListClass}>
             <CommandEmpty>Nessuna polizza trovata</CommandEmpty>
             <CommandGroup heading="Le tue polizze">
               {(polizze || []).map((p: any) => (
@@ -53,7 +59,7 @@ export default function PolizzeLinkPicker({ clienteIds, onPick }: Props) {
                     onPick(p);
                     setOpen(false);
                   }}
-                  className="flex flex-col items-start gap-0.5"
+                  className={cn(searchableSelectItemClass, "flex flex-col items-start gap-0.5 py-2.5")}
                 >
                   <div className="flex items-center gap-2 flex-wrap w-full">
                     <span className="font-mono text-xs font-medium">{p.numero_titolo || "—"}</span>

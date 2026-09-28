@@ -8,7 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { SearchableSelect } from "@/components/SearchableSelect";
+import {
+  SearchableSelect,
+  searchPopoverContentProps,
+  searchableSelectItemClass,
+  searchableSelectListClass,
+} from "@/components/SearchableSelect";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -851,14 +856,18 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                               <ChevronsUpDown className="w-4 h-4 opacity-50 ml-2 shrink-0" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                          <PopoverContent
+                            className="w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] p-0"
+                            {...searchPopoverContentProps}
+                          >
                             <Command>
                               <CommandInput placeholder="Cerca sottoramo..." />
-                              <CommandList>
+                              <CommandList className={searchableSelectListClass}>
                                 <CommandEmpty>Nessun sottoramo trovato.</CommandEmpty>
                                 <CommandGroup>
                                   <CommandItem
                                     value="__all__"
+                                    className={searchableSelectItemClass}
                                     onSelect={() =>
                                       setRamiRows((p) => p.map((r, i) => (i === idx ? { ...r, all: !r.all, ramo_ids: [] } : r)))
                                     }
@@ -875,6 +884,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                                         <CommandItem
                                           key={rr.id}
                                           value={`${rr.descrizione} ${rr.codice || ""}`}
+                                          className={searchableSelectItemClass}
                                           onSelect={() =>
                                             setRamiRows((p) =>
                                               p.map((r, i) =>
