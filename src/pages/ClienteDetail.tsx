@@ -1846,6 +1846,16 @@ function PolizzeClienteTable({
             >
               Garanzia
             </SortableTableHead>
+            <TableHead
+              className="bg-background"
+              title={
+                isCateneView
+                  ? "Premio annuo = premio rata × rate/anno dal frazionamento"
+                  : undefined
+              }
+            >
+              {isCateneView ? "Premio annualità" : "Premio €"}
+            </TableHead>
             <SortableTableHead
               field="inizioPolizza"
               sortField={sortField}
@@ -1883,16 +1893,6 @@ function PolizzeClienteTable({
               Fine Garanzia
             </SortableTableHead>
             <TableHead className="bg-background">Compagnia / Agenzia</TableHead>
-            <TableHead
-              className="bg-background"
-              title={
-                isCateneView
-                  ? "Premio annuo = premio rata × rate/anno dal frazionamento"
-                  : undefined
-              }
-            >
-              {isCateneView ? "Premio annualità" : "Premio €"}
-            </TableHead>
             <TableHead
               className="bg-background"
               title={
@@ -1943,6 +1943,9 @@ function PolizzeClienteTable({
                   </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
+                  <TableCell className="font-mono">
+                    {r.sostituisce_polizza || isAppendice(r) ? fmtNum(r.premio_lordo) : "—"}
+                  </TableCell>
                   <TableCell className="text-xs">
                     {r.sostituisce_polizza || isAppendice(r) ? "—" : fmtDate(d.inizioPolizza)}
                   </TableCell>
@@ -1956,9 +1959,6 @@ function PolizzeClienteTable({
                     {r.sostituisce_polizza && !isAppendice(r) ? fmtDate(r.garanzia_a) : "—"}
                   </TableCell>
                   <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
-                  <TableCell className="font-mono">
-                    {r.sostituisce_polizza || isAppendice(r) ? fmtNum(r.premio_lordo) : "—"}
-                  </TableCell>
                   <TableCell className="font-mono">
                     {r.sostituisce_polizza || isAppendice(r) ? fmtNum(getProvvigioneEC(r)) : "—"}
                   </TableCell>
@@ -2008,17 +2008,17 @@ function PolizzeClienteTable({
                   </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
-                  <TableCell className="text-xs">—</TableCell>
-                  <TableCell className="text-xs">—</TableCell>
-                  <TableCell className="text-xs">{isAppendice(r) ? "—" : fmtDate(r.garanzia_da)}</TableCell>
-                  <TableCell className="text-xs">{isAppendice(r) ? "—" : fmtDate(r.garanzia_a)}</TableCell>
-                  <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
                   <TableCell className="font-mono">
                     <div className="flex flex-col items-start gap-0.5">
                       <span>{fmtNum(r.premio_lordo)}</span>
                       <CompensazioneBadge summary={compensazioniMap?.get(r.id)} titoloId={r.id} />
                     </div>
                   </TableCell>
+                  <TableCell className="text-xs">—</TableCell>
+                  <TableCell className="text-xs">—</TableCell>
+                  <TableCell className="text-xs">{isAppendice(r) ? "—" : fmtDate(r.garanzia_da)}</TableCell>
+                  <TableCell className="text-xs">{isAppendice(r) ? "—" : fmtDate(r.garanzia_a)}</TableCell>
+                  <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
                   <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
                   <TableCell className="text-xs">
                     {r.data_copertura ? (
@@ -2135,11 +2135,6 @@ function PolizzeClienteTable({
                     </TableCell>
                     <TableCell>{gruppoRamo}</TableCell>
                     <TableCell>{ramo}</TableCell>
-                    <TableCell className="text-xs">{fmtDate(dateCatena.inizioPolizza)}</TableCell>
-                    <TableCell className="text-xs">{fmtDate(dateCatena.finePolizza)}</TableCell>
-                    <TableCell className="text-xs">—</TableCell>
-                    <TableCell className="text-xs">—</TableCell>
-                    <TableCell>{agenzia}</TableCell>
                     <TableCell className="font-mono" title={isPolizzaMadre(head) ? tooltipPremioAnnualita : undefined}>
                       {isAppendice(head)
                         ? fmtNum(head.premio_lordo)
@@ -2147,6 +2142,11 @@ function PolizzeClienteTable({
                           ? (premioAnnualita > 0 ? fmtNum(premioAnnualita) : "—")
                           : "—"}
                     </TableCell>
+                    <TableCell className="text-xs">{fmtDate(dateCatena.inizioPolizza)}</TableCell>
+                    <TableCell className="text-xs">{fmtDate(dateCatena.finePolizza)}</TableCell>
+                    <TableCell className="text-xs">—</TableCell>
+                    <TableCell className="text-xs">—</TableCell>
+                    <TableCell>{agenzia}</TableCell>
                     <TableCell className="font-mono" title={isPolizzaMadre(head) ? tooltipProvvAnnualita : undefined}>
                       {isAppendice(head)
                         ? fmtNum(getProvvigioneEC(head))
@@ -2252,12 +2252,12 @@ function PolizzeClienteTable({
                       </TableCell>
                       <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                       <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
+                      <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                       <TableCell className="text-xs">—</TableCell>
                       <TableCell className="text-xs">—</TableCell>
                       <TableCell className="text-xs">{fmtDate(r.garanzia_da)}</TableCell>
                       <TableCell className="text-xs">{fmtDate(r.garanzia_a)}</TableCell>
                       <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
-                      <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                       <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
                       <TableCell className="text-xs">
                         {r.data_copertura ? (
@@ -2306,12 +2306,12 @@ function PolizzeClienteTable({
                       </TableCell>
                       <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                       <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
+                      <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                       <TableCell className="text-xs">—</TableCell>
                       <TableCell className="text-xs">—</TableCell>
                       <TableCell className="text-xs">—</TableCell>
                       <TableCell className="text-xs">—</TableCell>
                       <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
-                      <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                       <TableCell className="font-mono">{fmtNum(getProvvigioneEC(r))}</TableCell>
                       <TableCell className="text-xs">
                         {r.data_copertura ? (

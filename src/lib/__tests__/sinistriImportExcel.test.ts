@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 import {
@@ -12,6 +14,7 @@ import {
   namesLooselyMatch,
   normalizeNumeroPolizza,
   parseModuloSxExcel,
+  ramoSinistroFromPolizza,
   validateImportRow,
 } from "@/lib/sinistriImportExcel";
 
@@ -36,6 +39,22 @@ describe("sinistriImportExcel", () => {
     expect(mapHeader("N SINISTRO COMPAGNIA")).toBe("numero_sinistro_compagnia");
     expect(mapHeader("STATO SINISTRO")).toBe("stato");
     expect(mapHeader("Colonna sconosciuta")).toBeNull();
+    expect(mapHeader("CONTROPARTE")).toBeNull();
+  });
+
+  it("legge il modello ufficiale MODULO SX (con CONTROPARTE) senza perdere le colonne", () => {
+    const buf = readFileSync(resolve(process.cwd(), "public/modelli/MODULO_SX.xlsx"));
+    const rows = parseModuloSxExcel(buf);
+    expect(Array.isArray(rows)).toBe(true);
+  });
+
+  it("deriva il ramo dalla polizza CBnet", () => {
+    expect(ramoSinistroFromPolizza({
+      id: "t1",
+      numero_titolo: "ABC",
+      ramo: { descrizione: "RCA", gruppo_ramo: { descrizione: "Auto" } },
+    })).toBe("Auto · RCA");
+    expect(ramoSinistroFromPolizza({ id: "t2", numero_titolo: "X" })).toBe("");
   });
 
   it("normalizza date IT, ISO e serial Excel", () => {
@@ -101,12 +120,19 @@ describe("sinistriImportExcel", () => {
     );
     const preview = buildPreviewRows(raws, {
       clienteNome: "Comune Esempio",
-      polizze: [{ id: "tit-1", numero_titolo: "ABC", compagnia_id: "c1", ufficio_id: "u1" }],
+      polizze: [{
+        id: "tit-1",
+        numero_titolo: "ABC",
+        compagnia_id: "c1",
+        ufficio_id: "u1",
+        ramo: { descrizione: "RCA", gruppo_ramo: { descrizione: "Auto" } },
+      }],
       compagnie: [{ id: "c1", nome: "UnipolSai" }],
     });
     expect(preview).toHaveLength(2);
     expect(preview[0].sinistro_terzi).toBe(false);
     expect(preview[0].titolo_id).toBe("tit-1");
+    expect(preview[0].ramo_sinistro).toBe("Auto · RCA");
     expect(preview[0].status).toBe("ok");
     expect(preview[1].sinistro_terzi).toBe(true);
     expect(preview[1].clienteMismatch).toBe(true);
@@ -157,10 +183,18 @@ describe("sinistriImportExcel", () => {
     const linked = applyPreviewPatch(
       preview[0],
       { titolo_id: "tit-9" },
-      { polizze: [{ id: "tit-9", numero_titolo: "ALTRO" }], compagnie: [] },
+      {
+        polizze: [{
+          id: "tit-9",
+          numero_titolo: "ALTRO",
+          ramo: { descrizione: "Incendio", gruppo_ramo: { descrizione: "Incendio" } },
+        }],
+        compagnie: [],
+      },
     );
     expect(linked.sinistro_terzi).toBe(false);
     expect(linked.titolo_id).toBe("tit-9");
+    expect(linked.ramo_sinistro).toBe("Incendio");
     expect(linked.status).toBe("warning");
     const counts = countByStatus([linked]);
     expect(counts.warning).toBe(1);

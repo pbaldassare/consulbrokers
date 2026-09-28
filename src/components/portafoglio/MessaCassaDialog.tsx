@@ -345,7 +345,7 @@ export const MessaCassaDialog = ({
 
       // Prima cerca per numero titolo
       let byNumQ = (supabase.from("titoli") as any)
-        .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)")
+        .select("id, numero_titolo, premio_lordo, cig_rif, cig_temporaneo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome, tipo_cliente, gruppi_finanziari(tipo_soggetto))")
         .ilike("numero_titolo", `%${q}%`)
         .or(PENDENTI_OR_GARANTITO_APERTO_FILTER)
         .in("stato", ["attivo", "sospeso"])
@@ -366,7 +366,7 @@ export const MessaCassaDialog = ({
       let byCliente: any[] = [];
       if (clienteIds.length > 0) {
         let titoliCliQ = (supabase.from("titoli") as any)
-          .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome)")
+          .select("id, numero_titolo, premio_lordo, cig_rif, cig_temporaneo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, clienti:clienti!titoli_cliente_anagrafica_id_fkey(ragione_sociale, cognome, nome, tipo_cliente, gruppi_finanziari(tipo_soggetto))")
           .in("cliente_anagrafica_id", clienteIds)
           .or(PENDENTI_OR_GARANTITO_APERTO_FILTER)
           .in("stato", ["attivo", "sospeso"])
@@ -427,15 +427,42 @@ export const MessaCassaDialog = ({
       );
       const ids = raw.map((r) => r.id).filter(Boolean);
       const lordoByTitoloId: Record<string, number> = {};
+      let titoliExtra: { id: string; premio_lordo?: number; cig_rif?: string | null; cig_temporaneo?: boolean }[] = [];
       if (ids.length > 0) {
         const { data: titoliLordo } = await (supabase.from("titoli") as any)
-          .select("id, premio_lordo")
+          .select("id, premio_lordo, cig_rif, cig_temporaneo")
           .in("id", ids);
-        for (const t of (titoliLordo as any[]) || []) {
+        titoliExtra = (titoliLordo as any[]) || [];
+        for (const t of titoliExtra) {
           if (t?.id) lordoByTitoloId[t.id] = Number(t.premio_lordo) || 0;
         }
       }
-      return filterQuietanzeClienteDaIncassare(raw, alreadyIds, alreadyNumeri, lordoByTitoloId);
+      const filtered = filterQuietanzeClienteDaIncassare(raw, alreadyIds, alreadyNumeri, lordoByTitoloId);
+      const cigByTitolo = new Map(
+        titoliExtra.map((t) => [t.id, { cig_rif: t.cig_rif, cig_temporaneo: t.cig_temporaneo }]),
+      );
+      return filtered.map((r) => ({
+        ...r,
+        cig_rif: cigByTitolo.get(r.id)?.cig_rif ?? (r as any).cig_rif ?? null,
+        cig_temporaneo: cigByTitolo.get(r.id)?.cig_temporaneo ?? (r as any).cig_temporaneo ?? false,
+      }));
+    },
+  });
+
+  const { data: clienteQuietanzeIsEnte = false } = useQuery({
+    queryKey: ["messa-cassa-cliente-ente", clienteQuietanze?.id],
+    enabled: open && !!clienteQuietanze?.id,
+    queryFn: async () => {
+      const q1 = await (supabase.from("clienti") as any)
+        .select("id, tipo_cliente, gruppi_finanziari(tipo_soggetto)")
+        .eq("id", clienteQuietanze!.id)
+        .maybeSingle();
+      if (!q1.error && q1.data) return isClienteEnte(q1.data);
+      const q2 = await (supabase.from("clienti") as any)
+        .select("id, tipo_cliente")
+        .eq("id", clienteQuietanze!.id)
+        .maybeSingle();
+      return isClienteEnte(q2.data);
     },
   });
 
@@ -2157,11 +2184,14 @@ export const MessaCassaDialog = ({
                             checked={!!quietanzeSel[r.id]}
                             onCheckedChange={() => toggleQuietanzaSel(r.id)}
                           />
-                          <span className="font-mono font-medium">{r.numero_titolo || r.id.slice(0, 8)}</span>
-                          <span className="text-muted-foreground truncate flex-1">
+                          <span className="font-mono font-medium shrink-0">{r.numero_titolo || r.id.slice(0, 8)}</span>
+                          <span className="font-mono shrink-0">{fmtEuro(Number(r.premio_lordo) || 0)}</span>
+                          <span className="text-muted-foreground truncate min-w-0">
                             {r.data_scadenza ? `scad. ${new Date(r.data_scadenza).toLocaleDateString("it-IT")}` : "—"}
+                            {clienteQuietanzeIsEnte
+                              ? ` · ${formatCigBadge(r.cig_rif, r.cig_temporaneo)}`
+                              : ""}
                           </span>
-                          <span className="font-mono">{fmtEuro(Number(r.premio_lordo) || 0)}</span>
                         </label>
                       ))}
                     </div>
@@ -2186,11 +2216,15 @@ export const MessaCassaDialog = ({
                 <Plus className="w-3 h-3" /> Oppure cerca per numero titolo
               </Label>
               <SearchableSelect
-                options={(titoliSearchResults as any[]).map((r) => ({
-                  value: r.id,
-                  label: r.numero_titolo || r.id.slice(0, 8),
-                  description: `${nomeCliente(r.clienti)} — ${fmtEuro(Number(r.premio_lordo) || 0)}`,
-                }))}
+                options={(titoliSearchResults as any[]).map((r) => {
+                  const ente = isClienteEnte(r.clienti);
+                  const cig = ente ? ` · ${formatCigBadge(r.cig_rif, r.cig_temporaneo)}` : "";
+                  return {
+                    value: r.id,
+                    label: `${r.numero_titolo || r.id.slice(0, 8)}  ${fmtEuro(Number(r.premio_lordo) || 0)}`,
+                    description: `${nomeCliente(r.clienti)}${cig}`,
+                  };
+                })}
                 value=""
                 onValueChange={(id) => {
                   const row = (titoliSearchResults as any[]).find((r) => r.id === id);
@@ -2208,12 +2242,12 @@ export const MessaCassaDialog = ({
             <div className="space-y-1 pt-1">
               {titoli.map((t) => (
                 <div key={t.id} className="flex items-center gap-2 bg-background/70 rounded px-2 py-1.5 text-xs">
-                  <span className="font-mono font-medium">{t.numero_titolo || t.id.slice(0, 8)}</span>
-                  <span className="text-muted-foreground truncate flex-1">
+                  <span className="font-mono font-medium shrink-0">{t.numero_titolo || t.id.slice(0, 8)}</span>
+                  <span className="font-mono shrink-0">{fmtEuro(Number(t.premio_lordo) || 0)}</span>
+                  <span className="text-muted-foreground truncate min-w-0 flex-1">
                     {t.cliente_anagrafica_id ? clienteNomeById.get(t.cliente_anagrafica_id) || "…" : "—"}
                     {cigById[t.id]?.isEnte ? ` · ${formatCigBadge(cigById[t.id].cig, cigById[t.id].temporaneo)}` : ""}
                   </span>
-                  <span className="font-mono">{fmtEuro(Number(t.premio_lordo) || 0)}</span>
                   <Button
                     size="icon"
                     variant="ghost"
