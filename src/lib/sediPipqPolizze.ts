@@ -17,58 +17,39 @@ import {
   normalizeNumeroPolizza,
   trimTxt,
 } from "@/lib/campobassoPolizze";
+import {
+  SEDI_CLIENTE_ALIAS,
+  SEDI_COMPAGNIA_ALIAS,
+  SEDI_TIPI_PIPQ,
+  SEDI_UFFICI,
+  buildClienteNameIndex,
+  denominazioneKeys,
+  fileClienteKey,
+  isTipoPipq,
+  lookupProduttoreId,
+  mapCompagniaCodiceSede,
+  matchClienteByNome,
+  normalizeDenominazione,
+  normalizeProduttoreKey,
+  yearsBetween,
+} from "@/lib/sediImportShared";
 
-export const SEDI_PIPQ = {
-  MI: {
-    codice: "MI",
-    filiale: "MI",
-    ufficioId: "193e0821-4105-4ad6-a72e-0ebb6c116797",
-    email: "gestionemilano@consulbrokers.it",
-    label: "Milano",
-  },
-  PZ: {
-    codice: "PZ",
-    filiale: "PZ",
-    ufficioId: "e4f0d1f5-e344-4920-b178-d8754904a108",
-    email: "potenza@consulbrokers.it",
-    label: "Potenza",
-  },
-  PR: {
-    codice: "PR",
-    filiale: "PR",
-    ufficioId: "a0d09b81-777d-43be-9615-e9d051786e2c",
-    email: "parma@consulbrokers.it",
-    label: "Parma",
-  },
-} as const;
-
+export const SEDI_PIPQ = SEDI_UFFICI;
 export type SedePipqCodice = keyof typeof SEDI_PIPQ;
+export const SEDI_PIPQ_TIPI = SEDI_TIPI_PIPQ;
+export const SEDI_PIPQ_COMPAGNIA_ALIAS = SEDI_COMPAGNIA_ALIAS;
+export const SEDI_PIPQ_CLIENTE_ALIAS = SEDI_CLIENTE_ALIAS;
 
-export const SEDI_PIPQ_TIPI = new Set(["PI", "PQ"]);
-
-export const SEDI_PIPQ_COMPAGNIA_ALIAS: Record<string, string> = {
-  VIT000: "VIT104",
-  REA100: "REAPZ0",
-  REAASL: "REAPZ0",
-  UNIASL: "FON105",
-  COFSOL: "SOL",
-  BALCIA: "B0699",
-  XLKRM: "B0715",
-  AIB000: "AIB",
+export {
+  buildClienteNameIndex,
+  denominazioneKeys,
+  fileClienteKey,
+  lookupProduttoreId,
+  mapCompagniaCodiceSede,
+  matchClienteByNome,
+  normalizeDenominazione,
+  normalizeProduttoreKey,
 };
-
-/** Codice file gestionale → codice_ricerca già in CBnet (stesso soggetto). */
-export const SEDI_PIPQ_CLIENTE_ALIAS: Record<string, string> = {
-  "006881": "000909",
-  "011023": "002591",
-  "015924": "D02885",
-};
-
-const STOPWORDS = new Set([
-  "DI", "DEL", "DELLA", "DELLE", "DEI", "DEGLI", "E", "C", "SAS", "SRL", "SRLS",
-  "SPA", "SNC", "SS", "SOC", "COOP", "COOPERATIVA", "SOCIETA", "SOCIETÀ", "&",
-  "THE", "DA", "IN",
-]);
 
 export type SediPipqRiga = {
   ID?: string | number | null;
@@ -189,101 +170,7 @@ export type SediPipqGruppo = {
 };
 
 export function isTipoCaricabile(tipoTit: unknown): boolean {
-  return SEDI_PIPQ_TIPI.has(trimTxt(tipoTit).toUpperCase());
-}
-
-export function mapCompagniaCodiceSede(cdComp: unknown): string {
-  const raw = trimTxt(cdComp).toUpperCase();
-  if (!raw) return "";
-  return SEDI_PIPQ_COMPAGNIA_ALIAS[raw] ?? raw;
-}
-
-export function fileClienteKey(cdClie: unknown): string {
-  return trimTxt(cdClie).toUpperCase();
-}
-
-export function normalizeDenominazione(raw: unknown): string {
-  return trimTxt(raw)
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^A-Z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-export function denominazioneKeys(raw: unknown): string[] {
-  const n = normalizeDenominazione(raw);
-  if (!n) return [];
-  const tokens = n.split(" ").filter((w) => w.length > 1 && !STOPWORDS.has(w));
-  const meaningful = tokens.length ? tokens : n.split(" ").filter(Boolean);
-  const sorted = [...meaningful].sort().join(" ");
-  const keys = new Set<string>([n, sorted, meaningful.join(" ")]);
-  return [...keys].filter(Boolean);
-}
-
-export function normalizeProduttoreKey(raw: unknown): string {
-  const first = trimTxt(raw).split("/")[0];
-  return first
-    .toUpperCase()
-    .replace(/[.'’]/g, "")
-    .replace(/\bSRLS?\b/g, "")
-    .replace(/\bSPA\b/g, "")
-    .replace(/\bSAS\b/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-export function lookupProduttoreId(nome: unknown, catalog: Record<string, string>): string | null {
-  const key = normalizeProduttoreKey(nome);
-  if (!key) return null;
-  if (catalog[key]) return catalog[key];
-  const compact = key.replace(/\s+/g, "");
-  if (catalog[compact]) return catalog[compact];
-  for (const [k, id] of Object.entries(catalog)) {
-    if (k.includes(key) || key.includes(k)) return id;
-  }
-  return null;
-}
-
-export function buildClienteNameIndex(
-  rows: Array<{ id: string; ragione?: string | null; nome?: string | null; cognome?: string | null }>,
-): Map<string, string> {
-  const counts = new Map<string, Set<string>>();
-  const add = (key: string, id: string) => {
-    if (!key) return;
-    const set = counts.get(key) ?? new Set<string>();
-    set.add(id);
-    counts.set(key, set);
-  };
-  for (const r of rows) {
-    for (const key of denominazioneKeys(r.ragione)) add(key, r.id);
-    const nc = `${trimTxt(r.nome)} ${trimTxt(r.cognome)}`;
-    const cn = `${trimTxt(r.cognome)} ${trimTxt(r.nome)}`;
-    for (const key of denominazioneKeys(nc)) add(key, r.id);
-    for (const key of denominazioneKeys(cn)) add(key, r.id);
-  }
-  const index = new Map<string, string>();
-  for (const [key, ids] of counts) {
-    if (ids.size === 1) index.set(key, [...ids][0]);
-  }
-  return index;
-}
-
-export function matchClienteByNome(nomeFile: unknown, index: Map<string, string>): string | null {
-  for (const key of denominazioneKeys(nomeFile)) {
-    const id = index.get(key);
-    if (id) return id;
-  }
-  return null;
-}
-
-function yearsBetween(from: string | null, to: string | null): number {
-  if (!from || !to) return 1;
-  const a = new Date(`${from}T00:00:00Z`);
-  const b = new Date(`${to}T00:00:00Z`);
-  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime()) || b <= a) return 1;
-  return Math.max(1, Math.round((b.getTime() - a.getTime()) / 86400000 / 365));
+  return isTipoPipq(tipoTit);
 }
 
 function noteParts(parts: Array<string | null | undefined>): string | null {
