@@ -6,7 +6,7 @@ type: feature
 
 ## Logica filtro
 
-- Distinzione via `titoli.sostituisce_polizza`: NULL = polizza madre, valorizzato = quietanza.
+- Distinzione via `titoli.sostituisce_polizza`: NULL = polizza (prima rata incassabile), valorizzato = quietanza successiva.
 - Tab unico "Polizze (n) · Quietanze (n)" con filtro `tutti | polizze | quietanze`:
   - **tutti**: madri come righe principali, quietanze espandibili (chevron) sotto la madre.
   - **polizze**: solo madri, niente chevron.

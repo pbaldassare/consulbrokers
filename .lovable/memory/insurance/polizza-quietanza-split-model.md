@@ -6,11 +6,13 @@ type: feature
 
 # Separazione Polizza ↔ Quietanza — stato Fase 1
 
+> **Operativo su `titoli` (28/09/2026):** la riga `titoli` con `sostituisce_polizza IS NULL` è la polizza **e** la prima rata: si mette a cassa lei. Le tabelle `polizze`/`quietanze` restano il modello parallelo Fase 1; non reintrodurre «madre titoli = solo contratto».
+
 ## Modello
 
-- **`polizze`** = il **contratto assicurativo**. Dura quanto il contratto, NON si mette mai a cassa, NON ha `data_messa_cassa`/`data_incasso`. Stati: `attiva | sospesa | annullata | scaduta | sostituita`.
-- **`quietanze`** = la **rata pagabile**. È questa che si incassa, finisce in rimesse/EC/provvigioni maturate. Stati: `da_incassare | incassato | sospesa | annullata | stornata`. UNIQUE `(polizza_id, numero_rata)`.
-- 1 polizza → N quietanze. Frazionamento (Mensile..Poliennale) determina N e date delle rate.
+- **`polizze`** = anagrafica contratto (stati: `attiva | sospesa | annullata | scaduta | sostituita`).
+- **`quietanze`** = rate nella tabella parallela. UNIQUE `(polizza_id, numero_rata)`.
+- Su **`titoli`** (fonte portafoglio/cassa): la polizza è incassabile; le figlie sono solo rate successive.
 
 ## Sync legacy bidirezionale (Fase 1)
 

@@ -1,10 +1,8 @@
 import { isAppendice, isPolizzaMadre, isQuietanza, type TitoloLike } from "@/lib/quietanze";
 
 /**
- * Copia frontespizio (polizza madre) → quietanza figlia.
- * La madre non si mette a cassa: la quietanza è la riga cassabile.
- * Non inventa rate extra: crea 1 figlia se manca, altrimenti aggiorna
- * la prima figlia ancora modificabile.
+ * Copia dati della polizza → quietanze successive già esistenti (2..N).
+ * Non crea mai una figlia 1/1: la polizza è la prima rata.
  */
 
 export type CopiaDatiQuietanzaMadre = TitoloLike & {
@@ -114,7 +112,7 @@ export function canCopiaDatiInQuietanza(madre: CopiaDatiQuietanzaMadre): {
   reason?: string;
 } {
   if (!isPolizzaMadre(madre)) {
-    return { ok: false, reason: "Si possono copiare i dati solo dalla polizza (frontespizio)." };
+    return { ok: false, reason: "Si possono copiare i dati solo dalla polizza (prima rata)." };
   }
   if (!String(madre.numero_titolo || "").trim()) {
     return { ok: false, reason: "Manca il numero polizza." };
@@ -147,7 +145,12 @@ export function decideCopiaDatiInQuietanza(
   if (!gate.ok) return { action: "blocked", reason: gate.reason || "Copia non disponibile." };
 
   const rate = filterQuietanzeFiglie(madre, figlie);
-  if (rate.length === 0) return { action: "create" };
+  if (rate.length === 0) {
+    return {
+      action: "blocked",
+      reason: "La polizza è la prima rata: non si crea una quietanza 1/1. Firma e Quietanza stanno sulla stessa riga.",
+    };
+  }
 
   const sbloccata = rate.find((q) => !isQuietanzaFigliaBloccata(q));
   if (!sbloccata) {

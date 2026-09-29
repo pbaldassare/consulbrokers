@@ -48,14 +48,16 @@ describe("canCopiaDatiInQuietanza", () => {
 });
 
 describe("decideCopiaDatiInQuietanza", () => {
-  it("crea se manca la figlia", () => {
-    expect(decideCopiaDatiInQuietanza(madre(), [])).toEqual({ action: "create" });
+  it("non crea una figlia 1/1: la polizza è la prima rata", () => {
+    const decision = decideCopiaDatiInQuietanza(madre(), []);
+    expect(decision.action).toBe("blocked");
+    expect(decision).toMatchObject({ action: "blocked" });
   });
-  it("ignora appendici e crea se non ci sono quietanze", () => {
+  it("ignora appendici e non inventa una quietanza clone", () => {
     const decision = decideCopiaDatiInQuietanza(madre(), [
       { id: "am", sostituisce_polizza: "POL-1", is_appendice_modifica: true, riga: 1 },
     ]);
-    expect(decision.action).toBe("create");
+    expect(decision.action).toBe("blocked");
   });
   it("aggiorna la prima figlia non a cassa e non ne crea un'altra", () => {
     const decision = decideCopiaDatiInQuietanza(madre(), [

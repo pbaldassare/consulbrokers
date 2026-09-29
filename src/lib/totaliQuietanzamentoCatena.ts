@@ -1,12 +1,12 @@
 import { getProvvigioneEC, type TitoloProvvigioneEC } from "@/lib/getProvvigioneEC";
+import { isCatenaModelloVecchio } from "@/lib/promuoviPrimaQuietanza";
 
 /**
  * Totali premio/provvigioni del quietanzamento di una catena polizza.
  *
- * Regola: somma solo le quietanze (`rate` = titoli con `sostituisce_polizza`, non appendici).
- * La madre non si somma: in CBnet ripete spesso il premio della prima rata (annuale 1y → 1 madre + 1 quietanza)
- * e sommarla raddoppierebbe. Appendici escluse (titoli da incassare a parte).
- * Se non ci sono rate (legacy/incompleto), fallback sugli importi della madre.
+ * Nuovo modello: la polizza è la prima rata — si somma madre + quietanze successive.
+ * Vecchio modello (madre duplica la prima quietanza sullo stesso periodo): somma solo le rate.
+ * Appendici escluse (titoli da incassare a parte).
  */
 export type TitoloQuietanzamentoLike = TitoloProvvigioneEC & {
   premio_lordo?: number | null;
@@ -19,13 +19,21 @@ export function totaliQuietanzamentoCatena(
 ): { premio: number; provvigioni: number; count: number } {
   void _appendici; // esplicitamente fuori dal totale quietanzamento
   if (rate.length > 0) {
+    const skipMadre = isCatenaModelloVecchio(madre ?? null, rate);
     let premio = 0;
     let provvigioni = 0;
+    let count = 0;
+    if (madre && !skipMadre) {
+      premio += Number(madre.premio_lordo) || 0;
+      provvigioni += getProvvigioneEC(madre);
+      count += 1;
+    }
     for (const t of rate) {
       premio += Number(t.premio_lordo) || 0;
       provvigioni += getProvvigioneEC(t);
+      count += 1;
     }
-    return { premio, provvigioni, count: rate.length };
+    return { premio, provvigioni, count };
   }
   if (madre) {
     const premio = Number(madre.premio_lordo) || 0;

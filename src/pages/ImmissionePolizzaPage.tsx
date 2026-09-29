@@ -27,6 +27,7 @@ import {
   mirrorAllFromFirma,
   resetQuietanzaRow,
   isQuietanzaSincronizzata,
+  shouldAutoMirrorQuietanza,
 } from "@/components/polizze/premiSync";
 import {
   calcProvvigioniGaranzia,
@@ -1382,10 +1383,16 @@ const ImmissionePolizzaPage = () => {
   const ssnFirmaNum = sumNum(premiFirmaRows, "ssn");
   const premioNetto = premioNettoNum ? String(premioNettoNum) : "";
   const tasse = tasseNum ? String(tasseNum) : "";
-  const premioNettoQNum = sumNum(premiQuietanzaRows, "netto");
-  const accessoriQuietanzaNum = sumNum(premiQuietanzaRows, "accessori");
-  const tasseQNum = (premiQuietanzaRows || []).reduce((s, r) => s + calcTasseEffettiveRiga(r), 0);
-  const ssnQuietanzaNum = sumNum(premiQuietanzaRows, "ssn");
+  const premiQuietanzaEffective =
+    polizzaTemporanea
+      ? []
+      : shouldAutoMirrorQuietanza(premiQuietanzaRows)
+        ? mirrorAllFromFirma(Array.isArray(premiFirmaRows) ? premiFirmaRows : [])
+        : (Array.isArray(premiQuietanzaRows) ? premiQuietanzaRows : []);
+  const premioNettoQNum = sumNum(premiQuietanzaEffective, "netto");
+  const accessoriQuietanzaNum = sumNum(premiQuietanzaEffective, "accessori");
+  const tasseQNum = (premiQuietanzaEffective || []).reduce((s, r) => s + calcTasseEffettiveRiga(r), 0);
+  const ssnQuietanzaNum = sumNum(premiQuietanzaEffective, "ssn");
   const premioNettoQuietanza = premioNettoQNum ? String(premioNettoQNum) : "";
   const tasseQuietanza = tasseQNum ? String(tasseQNum) : "";
 
@@ -2240,7 +2247,7 @@ const ImmissionePolizzaPage = () => {
           }));
       const premiPayload = [
         ...buildPremiInsert(premiFirmaRows, "firma"),
-        ...(polizzaTemporanea ? [] : buildPremiInsert(premiQuietanzaRows, "quietanza")),
+        ...(polizzaTemporanea ? [] : buildPremiInsert(premiQuietanzaEffective, "quietanza")),
       ];
       if (premiPayload.length > 0) {
         await supabase.from("premi_garanzia_polizza").insert(premiPayload);
@@ -3494,23 +3501,7 @@ const ImmissionePolizzaPage = () => {
                   rowPctAccessori={rowPctAccessoriFn}
                   rowPctNetto={rowPctNettoFn}
                   {...provvPropsFirma}
-                  headerExtra={
-                    polizzaTemporanea ? undefined : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => {
-                          setPremiQuietanzaRows(mirrorAllFromFirma(premiFirmaRows));
-                          toast.success("Quietanza riallineata alla Firma");
-                        }}
-                        title="Riallinea l'intera Quietanza alla Firma, azzerando le personalizzazioni"
-                      >
-                        Copia in Quietanza
-                      </Button>
-                    )
-                  }
+                  headerExtra={undefined}
                   coassicurazioneBreakdown={
                     coassicurazione ? (
                       <>

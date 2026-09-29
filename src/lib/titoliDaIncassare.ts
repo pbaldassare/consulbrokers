@@ -1,17 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
 
-/** Stessa logica di Incassi (view v_portafoglio_quietanze). */
-export const applyExcludeMadreConRate = (q: any) =>
-  q.or(
-    "is_regolazione.eq.true,is_proroga.eq.true,is_appendice_modifica.eq.true,numero_rata.gt.1,numero_rate_totali.lte.1,numero_rate_totali.is.null",
-  );
+/** Polizza + quietanze + appendici restano tutte in lista (la polizza è la prima rata incassabile). */
+export const applyExcludeMadreConRate = (q: any) => q;
 
-/** Su tabella titoli: appendici RG/PR/AM, quietanze (figlie) e madri mono-rata; dedupe esclude madre se presente figlia. */
-export const applyExcludeMadreConRateTitoli = (q: any) =>
-  q.or(
-    "is_regolazione.eq.true,is_proroga.eq.true,is_appendice_modifica.eq.true,sostituisce_polizza.not.is.null,and(sostituisce_polizza.is.null,is_regolazione.is.null,is_regolazione.eq.false,is_proroga.is.null,is_proroga.eq.false,is_appendice_modifica.is.null,is_appendice_modifica.eq.false)",
-  );
+/** Su tabella titoli: nessun filtro extra — polizza, quietanza e appendice sono incassabili. */
+export const applyExcludeMadreConRateTitoli = (q: any) => q;
 
 export type TitoloDaIncassareRow = {
   id: string;
@@ -25,27 +19,11 @@ export type TitoloDaIncassareRow = {
   compagnia?: { nome?: string | null } | null;
 };
 
-/** Se madre e quietanza condividono numero_titolo, tiene solo la quietanza/rata. */
+/** Identità: polizza e quietanze dello stesso numero sono periodi distinti, si tengono tutte. */
 export function dedupeTitoliMadreQuietanza<T extends { id: string; numero_titolo?: string | null; sostituisce_polizza?: string | null }>(
   rows: T[],
 ): T[] {
-  const byNumero = new Map<string, T[]>();
-  for (const r of rows) {
-    const key = (r.numero_titolo || r.id).trim();
-    const list = byNumero.get(key) ?? [];
-    list.push(r);
-    byNumero.set(key, list);
-  }
-  const out: T[] = [];
-  for (const group of byNumero.values()) {
-    if (group.length === 1) {
-      out.push(group[0]);
-      continue;
-    }
-    const figlie = group.filter((t) => t.sostituisce_polizza);
-    out.push(...(figlie.length > 0 ? figlie : group));
-  }
-  return out;
+  return rows;
 }
 
 /** Titoli eleggibili per collegamento bonifico / messa a cassa (allineato a Incassi). */

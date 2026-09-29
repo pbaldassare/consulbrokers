@@ -73,7 +73,7 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
     const notificaTitoloIds: string[] = [];
 
     for (const t of titoli) {
-      // La polizza madre non può andare in copertura: solo quietanze/appendici.
+      // Polizza, quietanza e appendice possono andare in copertura.
       let row = t;
       if (t.sostituisce_polizza === undefined) {
         const { data } = await (supabase.from("titoli") as any)
@@ -84,7 +84,7 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
       }
       if (!canHaveDataCopertura(row)) {
         toast.error(
-          `La polizza madre ${t.numero_titolo || ""} non può avere copertura — usa la quietanza`,
+          `Impossibile impostare la copertura sul titolo ${t.numero_titolo || t.id}`,
         );
         ko++;
         continue;
