@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Users, Search } from "lucide-react";
 import ServerPagination from "@/components/ServerPagination";
 import { NuovoClienteDialog } from "@/components/clienti/NuovoClienteDialog";
+import { CLIENTE_SEARCH_MIN_CHARS } from "@/lib/clienteSearch";
 
 const ClientiList = () => {
   const navigate = useNavigate();
@@ -28,35 +29,21 @@ const ClientiList = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data: clientiResult, isLoading } = useQuery({
+  const { data: clientiResult, isLoading, isError, refetch } = useQuery({
     queryKey: ["clienti", debouncedSearch, page, pageSize],
     queryFn: async () => {
       const term = debouncedSearch.trim();
-
-      // Con ricerca: ranking per rilevanza (RPC) prima della paginazione
-      if (term) {
-        const { data, error } = await supabase.rpc("search_clienti_ranked", {
-          p_search: term,
-          p_limit: pageSize,
-          p_offset: range.from,
-        });
-        if (error) throw error;
-        const payload = data as { data?: any[]; total_count?: number } | null;
-        return {
-          data: payload?.data ?? [],
-          totalCount: Number(payload?.total_count ?? 0),
-        };
-      }
-
-      const { data, error, count } = await supabase
-        .from("clienti")
-        .select("*", { count: "exact" })
-        .is("merged_into", null)
-        .order("cognome", { ascending: true, nullsFirst: false })
-        .order("ragione_sociale", { ascending: true, nullsFirst: false })
-        .range(range.from, range.to);
+      const { data, error } = await supabase.rpc("search_clienti_ranked", {
+        p_search: term.length >= CLIENTE_SEARCH_MIN_CHARS ? term : "",
+        p_limit: pageSize,
+        p_offset: range.from,
+      });
       if (error) throw error;
-      return { data: data || [], totalCount: count || 0 };
+      const payload = data as { data?: any[]; total_count?: number } | null;
+      return {
+        data: payload?.data ?? [],
+        totalCount: Number(payload?.total_count ?? 0),
+      };
     },
   });
 
@@ -112,7 +99,12 @@ const ClientiList = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isError ? (
+            <div className="py-4 space-y-2">
+              <p className="text-destructive">Impossibile caricare i clienti.</p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>Riprova</Button>
+            </div>
+          ) : isLoading ? (
             <p className="text-muted-foreground py-4">Caricamento...</p>
           ) : (
             <>

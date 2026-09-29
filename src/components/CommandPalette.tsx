@@ -121,6 +121,7 @@ export default function CommandPalette() {
     }
     setLoading(true);
     const t0 = performance.now();
+    try {
     const useFts = q.length >= 3;
     const term = sanitizeSearchTerm(q);
     const like = `%${term}%`;
@@ -162,7 +163,6 @@ export default function CommandPalette() {
     );
 
     setResults(all);
-    setLoading(false);
 
     logAttivita({
       azione: "ricerca_palette",
@@ -170,6 +170,11 @@ export default function CommandPalette() {
       entita_id: "palette",
       dettagli_json: { query: q, risultati: all.length, durata_ms: Math.round(performance.now() - t0) },
     });
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {

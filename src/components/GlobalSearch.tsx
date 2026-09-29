@@ -79,13 +79,13 @@ export default function GlobalSearch() {
     setLoading(true);
     const t0 = performance.now();
 
+    try {
     // Check NLP mappings first
     const lowerQ = q.toLowerCase().trim();
     for (const mapping of NLP_MAPPINGS) {
       if (mapping.keywords.some(k => lowerQ.includes(k))) {
         const nlpResults = await mapping.query();
         setResults(nlpResults);
-        setLoading(false);
         return;
       }
     }
@@ -141,11 +141,15 @@ export default function GlobalSearch() {
     trattative.data?.forEach((t: any) => allResults.push({ id: t.id, titolo: `${t.prodotto || "Trattativa"}`, sottotitolo: `${t.stato} · ${t.compagnia || ""}`, categoria: "trattative", link: `/trattative` }));
 
     setResults(allResults);
-    setLoading(false);
 
     const durata = Math.round(performance.now() - t0);
     // Fire-and-forget perf log
     logAttivita({ azione: "ricerca_globale", entita_tipo: "ricerca", entita_id: "global", dettagli_json: { query: q, risultati: allResults.length, durata_ms: durata, fts: useFts } });
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {

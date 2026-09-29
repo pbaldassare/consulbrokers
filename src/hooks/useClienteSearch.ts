@@ -60,28 +60,16 @@ export async function fetchClientiSearch(
   const limit = opts.limit ?? CLIENTE_SEARCH_LIMIT;
   let rows: ClienteSearchRow[] = [];
 
-  if (term.length >= CLIENTE_SEARCH_MIN_CHARS) {
-    const { data, error } = await supabase.rpc("search_clienti_ranked", {
-      p_search: term,
-      p_limit: limit,
-      p_offset: 0,
-    });
-    if (error) throw error;
-    rows = parseSearchClientiRankedPayload(data);
-    if (opts.onlyAttivi) rows = rows.filter((r) => r.attivo !== false);
-  } else {
-    let q = supabase
-      .from("clienti")
-      .select(CLIENTE_SEARCH_SELECT)
-      .is("merged_into", null)
-      .order("cognome", { ascending: true, nullsFirst: false })
-      .order("ragione_sociale", { ascending: true, nullsFirst: false })
-      .limit(opts.limit ?? CLIENTE_SEARCH_BROWSE_LIMIT);
-    if (opts.onlyAttivi) q = q.eq("attivo", true);
-    const { data, error } = await q;
-    if (error) throw error;
-    rows = (data || []) as ClienteSearchRow[];
-  }
+  const { data, error } = await supabase.rpc("search_clienti_ranked", {
+    p_search: term.length >= CLIENTE_SEARCH_MIN_CHARS ? term : "",
+    p_limit: term.length >= CLIENTE_SEARCH_MIN_CHARS
+      ? limit
+      : (opts.limit ?? CLIENTE_SEARCH_BROWSE_LIMIT),
+    p_offset: 0,
+  });
+  if (error) throw error;
+  rows = parseSearchClientiRankedPayload(data);
+  if (opts.onlyAttivi) rows = rows.filter((r) => r.attivo !== false);
 
   if (opts.selectedId && !rows.some((r) => r.id === opts.selectedId)) {
     const selected = await fetchClienteById(opts.selectedId);
