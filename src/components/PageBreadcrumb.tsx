@@ -29,6 +29,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "archivi": "Archivi",
   "clienti": "Clienti",
   "anagrafiche": "Anagrafiche Professionali",
+  "anagrafiche-agenzie": "Anagrafiche Liquidatori Periti e Legali",
   "agenzie": "Agenzie / Agenzie",
   "categorie": "Categorie",
   "prodotti": "Prodotti",
