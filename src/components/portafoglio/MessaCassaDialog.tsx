@@ -1333,9 +1333,7 @@ export const MessaCassaDialog = ({
         return;
       }
       if (row && !canHaveDataCopertura(row as any)) {
-        toast.error(
-          `La polizza madre ${row.numero_titolo ?? t.id} non si mette a cassa — apri la quietanza`,
-        );
+        toast.error(`Impossibile incassare il titolo ${row.numero_titolo ?? t.id}`);
         return;
       }
       if (row?.sostituisce_polizza && row.numero_titolo) {

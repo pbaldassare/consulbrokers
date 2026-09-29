@@ -6,7 +6,7 @@ type: feature
 
 # Isolamento per quietanza
 
-Ogni rata di una polizza è una riga `titoli` distinta (chiave `numero_titolo` + `riga`, link via `sostituisce_polizza`).
+La polizza (`sostituisce_polizza` NULL) è la prima rata. Ogni quietanza successiva è una riga `titoli` distinta (chiave `numero_titolo` + `riga`, link via `sostituisce_polizza`).
 
 ## Garanzie
 

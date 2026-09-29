@@ -132,7 +132,7 @@ describe("isInCoperturaGarantita / isGarantitoDaIncassare", () => {
     ).toBe(false);
   });
 
-  it("polizza madre non è in copertura garantita", () => {
+  it("polizza può essere in copertura garantita", () => {
     expect(
       isInCoperturaGarantita({
         sostituisce_polizza: null,
@@ -140,6 +140,6 @@ describe("isInCoperturaGarantita / isGarantitoDaIncassare", () => {
         data_copertura: "2026-07-30",
         fondi_ricevuti: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 });

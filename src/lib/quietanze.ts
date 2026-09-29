@@ -1,6 +1,6 @@
-// Helpers per distinguere Polizza (madre) vs Quietanze successive (rate).
+// Helpers per distinguere Polizza (prima rata incassabile) vs Quietanze successive.
 // Convenzione: titoli con stesso numero_titolo formano una "catena polizza".
-// La madre è il titolo con sostituisce_polizza == null.
+// La polizza è il titolo con sostituisce_polizza == null.
 // Le quietanze sono i titoli con sostituisce_polizza valorizzato.
 
 export type TitoloLike = {
@@ -32,9 +32,9 @@ export function isAppendice(t: TitoloLike): boolean {
 }
 
 /**
- * Polizza madre (contenitore): senza sostituisce_polizza e senza flag appendice.
- * La madre NON ha data_copertura / messa a cassa — solo quietanze e appendici.
- * Se `sostituisce_polizza` non è nel payload (undefined), non si assume madre.
+ * Polizza (prima rata / titolo originario): senza sostituisce_polizza e senza flag appendice.
+ * La polizza È incassabile (stesso periodo della prima rata).
+ * Se `sostituisce_polizza` non è nel payload (undefined), non si assume polizza.
  */
 export function isPolizzaMadre(t: TitoloLike): boolean {
   if (isAppendice(t)) return false;
@@ -42,14 +42,16 @@ export function isPolizzaMadre(t: TitoloLike): boolean {
   return !t.sostituisce_polizza;
 }
 
-/** True se il titolo può avere data_copertura (quietanza o appendice). */
-export function canHaveDataCopertura(t: TitoloLike): boolean {
-  return !isPolizzaMadre(t);
+/**
+ * True se il titolo può avere data_copertura / messa a cassa.
+ * Polizza, quietanza e appendice sono tutte incassabili.
+ */
+export function canHaveDataCopertura(_t: TitoloLike): boolean {
+  return true;
 }
 
 /**
- * Copertura dell'ultima quietanza nella catena (MAX data ISO).
- * Mai dalla polizza madre.
+ * Copertura più recente nella catena (MAX data ISO su polizza + quietanze).
  */
 export function dataCoperturaUltimaQuietanza<T extends TitoloCoperturaLike>(
   rate: T[],

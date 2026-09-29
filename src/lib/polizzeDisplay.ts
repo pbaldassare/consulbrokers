@@ -1,7 +1,5 @@
 // Helper di presentazione condivisi per le tabelle del portafoglio (Attive/Carico/Storico).
-// Regola di dominio (UI-only): SOLO quietanze e regolazioni possono mostrare lo stato "incassato".
-// Una polizza madre (titolo non sostitutivo, non di regolazione) non deve mai apparire come "incassata":
-// quel concetto appartiene alle sue rate, non al contenitore.
+// La polizza è la prima rata incassabile: può mostrare "incassato" come le quietanze successive.
 
 export type PolizzaRow = {
   stato?: string | null;
@@ -22,15 +20,9 @@ export function messaCassaRowBgClass(p: PolizzaRow): string {
   return "bg-quietanza-soft/40 hover:bg-quietanza-soft/80 hover:ring-1 hover:ring-inset hover:ring-quietanza/40";
 }
 
-/**
- * Stato da visualizzare in tabella. Per le polizze madre mascheriamo "incassato" → "attivo".
- * Per quietanze, regolazioni e proroghe restituisce lo stato originale.
- */
+/** Stato da visualizzare in tabella. La polizza (prima rata) mostra "incassato" come le altre. */
 export function displayStatoPolizza(p: PolizzaRow): string {
-  const stato = p?.stato || "";
-  const isMadre = !p?.sostituisce_polizza && !p?.is_regolazione && !p?.is_proroga;
-  if (isMadre && stato === "incassato") return "attivo";
-  return stato;
+  return p?.stato || "";
 }
 
 /** True se la riga è una quietanza (rata sostitutiva). */

@@ -225,7 +225,7 @@ export async function assertQuietanzeChain(
   const onlySuccessive = computeQuietanzeOnly(planInput);
 
   if (planInput.polizzaTemporanea) {
-    expect(catena.rate).toHaveLength(1);
+    expect(catena.rate).toHaveLength(0);
     expect(plan).toHaveLength(1);
   } else {
     expect(catena.all.length).toBe(plan.length);
@@ -238,12 +238,13 @@ export async function assertQuietanzeChain(
   };
 }
 
-/** Prima quietanza incassabile (non madre contratto). */
+/** Primo titolo incassabile: polizza (prima rata) oppure quietanza successiva ancora aperta. */
 export async function getFirstQuietanzaId(numeroPolizza: string): Promise<string> {
   const titoli = await fetchTitoliChain(numeroPolizza);
   const catena = groupTitoliByPolizza(titoli)[0];
-  const target = catena.rate.find((r) => r.stato === 'attivo' && !r.data_messa_cassa) || catena.rate[0];
-  if (!target) throw new Error(`Nessuna quietanza trovata per ${numeroPolizza}`);
+  const pool = [catena.madre, ...catena.rate].filter(Boolean) as typeof catena.rate;
+  const target = pool.find((r) => r.stato === 'attivo' && !r.data_messa_cassa) || pool[0];
+  if (!target) throw new Error(`Nessun titolo incassabile trovato per ${numeroPolizza}`);
   return target.id;
 }
 

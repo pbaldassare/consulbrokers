@@ -1402,7 +1402,7 @@ function PolizzeClienteTable({
 
   const quietanzeVisibili = useMemo(
     () => (filtroTipo === "quietanze"
-      ? filteredTitoli.filter((p) => !!p.sostituisce_polizza && !isAppendice(p) && isQuietanzaDaMostrare(p))
+      ? filteredTitoli.filter((p) => isQuietanzaDaMostrare(p))
       : []),
     [filteredTitoli, filtroTipo],
   );
@@ -1456,6 +1456,9 @@ function PolizzeClienteTable({
       const madreId = head?.id || null;
       const totale = c.rate.length;
       const datePolizza = datesForCatena(c);
+      if (c.madre && matchTitolo(c.madre) && isQuietanzaDaMostrare(c.madre)) {
+        out.push({ rata: c.madre, madreNum, madreId, idx: 0, totale, datePolizza });
+      }
       c.rate.forEach((r: any, i: number) => {
         if (matchTitolo(r) && isQuietanzaDaMostrare(r)) {
           out.push({ rata: r, madreNum, madreId, idx: i + 1, totale, datePolizza });
@@ -1490,8 +1493,7 @@ function PolizzeClienteTable({
     });
   }, [allGarant, sortField, sortDirection]);
 
-  const isTitoloIncassabile = (t: any) =>
-    isDaChiudereIncasso(t) && (!!t.sostituisce_polizza || isAppendice(t));
+  const isTitoloIncassabile = (t: any) => isDaChiudereIncasso(t);
 
   const quietanzeIncassabili = useMemo(
     () => flatQuietanze.map((x) => x.rata).filter(isTitoloIncassabile),
@@ -1944,7 +1946,7 @@ function PolizzeClienteTable({
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
                   <TableCell>{r.ramo?.descrizione || "—"}</TableCell>
                   <TableCell className="font-mono">
-                    {r.sostituisce_polizza || isAppendice(r) ? fmtNum(r.premio_lordo) : "—"}
+                    {fmtNum(r.premio_lordo)}
                   </TableCell>
                   <TableCell className="text-xs">
                     {r.sostituisce_polizza || isAppendice(r) ? "—" : fmtDate(d.inizioPolizza)}
@@ -1953,14 +1955,14 @@ function PolizzeClienteTable({
                     {r.sostituisce_polizza || isAppendice(r) ? "—" : fmtDate(d.finePolizza)}
                   </TableCell>
                   <TableCell className="text-xs">
-                    {r.sostituisce_polizza && !isAppendice(r) ? fmtDate(r.garanzia_da) : "—"}
+                    {isAppendice(r) ? "—" : fmtDate(r.garanzia_da)}
                   </TableCell>
                   <TableCell className="text-xs">
-                    {r.sostituisce_polizza && !isAppendice(r) ? fmtDate(r.garanzia_a) : "—"}
+                    {isAppendice(r) ? "—" : fmtDate(r.garanzia_a)}
                   </TableCell>
                   <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
                   <TableCell className="font-mono">
-                    {r.sostituisce_polizza || isAppendice(r) ? fmtNum(getProvvigioneEC(r)) : "—"}
+                    {fmtNum(getProvvigioneEC(r))}
                   </TableCell>
                   <TableCell className="text-xs">{fmtDate(r.data_copertura)}</TableCell>
                   <TableCell className="text-xs">{fmtDataIncasso(r)}</TableCell>
@@ -2003,7 +2005,10 @@ function PolizzeClienteTable({
                     {isAppendice(r) ? (
                       <TipoPolizzaBadge tipo="appendice" appendiceLabel={appendiceTipoLabel(r)} messaACassa={isMessaACassa(r)} />
                     ) : (
-                      <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(r)} />
+                      <TipoPolizzaBadge
+                        tipo={r.sostituisce_polizza ? "quietanza" : "polizza"}
+                        messaACassa={isMessaACassa(r)}
+                      />
                     )}
                   </TableCell>
                   <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
@@ -2156,10 +2161,10 @@ function PolizzeClienteTable({
                     </TableCell>
                     <TableCell className="text-xs">
                       {(() => {
-                        // Polizza madre: nessuna copertura propria — mostra ultima quietanza.
+                        // Copertura più recente della catena (polizza + quietanze).
                         if (isPolizzaMadre(head)) {
-                          const d = dataCoperturaUltimaQuietanza(c.rate);
-                          const qUltima = quietanzaUltimaCopertura(c.rate);
+                          const d = dataCoperturaUltimaQuietanza([head, ...c.rate]);
+                          const qUltima = quietanzaUltimaCopertura([head, ...c.rate]);
                           if (!d) return "—";
                           return (
                             <span

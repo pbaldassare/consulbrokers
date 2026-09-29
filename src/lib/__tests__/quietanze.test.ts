@@ -52,11 +52,11 @@ describe("getTotQuietanze / getQuietanzaRataIndex", () => {
 });
 
 describe("copertura polizza madre", () => {
-  it("madre non può avere data_copertura; quietanze sì", () => {
+  it("polizza e quietanze possono avere data_copertura", () => {
     const madre = { id: "m", sostituisce_polizza: null as string | null };
     const q = { id: "q", sostituisce_polizza: "POL-A" };
     expect(isPolizzaMadre(madre)).toBe(true);
-    expect(canHaveDataCopertura(madre)).toBe(false);
+    expect(canHaveDataCopertura(madre)).toBe(true);
     expect(canHaveDataCopertura(q)).toBe(true);
   });
 

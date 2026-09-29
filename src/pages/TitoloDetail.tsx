@@ -9,6 +9,7 @@ import { MessaCassaSeraleCheckbox } from "@/components/portafoglio/MessaCassaSer
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { buildGarantitoPayload, buildIncassoDateFields, isInCoperturaGarantita, isGarantitoAperto } from "@/lib/garantitoTitolo";
 import { annullaPolizza } from "@/lib/annullaPolizza";
+import { puoAprireIncasso, ripristinaPolizzaPerIncasso } from "@/lib/ripristinaPolizzaPerIncasso";
 import { resolveStatoContrattoTitolo } from "@/lib/statoContrattoTitolo";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
 import {
@@ -40,7 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail, Truck, PauseCircle, PlayCircle } from "lucide-react";
+import { FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail, Truck, PauseCircle, PlayCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { TitoloDocumentiTrigger } from "@/components/titolo/TitoloDocumentiDialog";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
@@ -1973,7 +1974,7 @@ const TitoloDetail = () => {
       updateMadre: boolean;
     }) => {
       if (!canHaveDataCopertura(titolo as any)) {
-        throw new Error("La polizza madre non può avere copertura — apri la quietanza");
+        throw new Error("Questo titolo non può avere copertura");
       }
       const ente = isClienteEnte((titolo as any)?.cliente_anagrafica);
       if (ente && isCigFormatoInvalido(form.cig_rif, form.cig_temporaneo)) {
@@ -2070,7 +2071,7 @@ const TitoloDetail = () => {
   const updateDateMutation = useMutation({
     mutationFn: async ({ field, value }: { field: "data_messa_cassa" | "data_pagamento" | "data_decorrenza_rinnovo" | "data_copertura"; value: string | null }) => {
       if (field === "data_copertura" && !canHaveDataCopertura(titolo as any)) {
-        throw new Error("La polizza madre non può avere data copertura");
+        throw new Error("Questo titolo non può avere data copertura");
       }
       const { error } = await supabase.from("titoli").update({ [field]: value || null, updated_at: new Date().toISOString() }).eq("id", id!);
       if (error) throw error;
@@ -2105,8 +2106,7 @@ const TitoloDetail = () => {
   const garantitoAperto = isGarantitoAperto(t);
   const showMessaACassa = !t.data_messa_cassa || garantitoAperto || (isPoliennale && t.stato === "attivo");
 
-  // Lock generale: una quietanza messa a cassa o stornata non è più una "bozza".
-  // La polizza madre è un frontespizio: non si mette a cassa.
+  // Lock generale: titolo messo a cassa o stornato non è più una "bozza".
   const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
   const isEmittenda = !!(t as any).emittenda;
   const isRegolazione = !!(t as any).is_regolazione;
@@ -2138,14 +2138,8 @@ const TitoloDetail = () => {
       ]
     : [t.id];
 
-  // "Polizza madre" con rate successive: l'incasso si fa solo sulle singole quietanze, NON qui.
-  const isMadreConRate = !!catenaCorrente && !!madre && madre.id === t.id && totRate > 0;
-  const primaRataDaIncassare = isMadreConRate
-    ? (catenaCorrente!.rate.find((x: any) => x.stato === "attivo" && !x.data_messa_cassa) || null)
-    : null;
-
-  // Polizza originale (madre): sostituisce_polizza === null, non è appendice/regolazione/proroga.
-  // Su queste l'incasso NON si fa mai — solo sulle quietanze, regolazioni e appendici.
+  // Polizza originale: sostituisce_polizza === null, non è appendice/regolazione/proroga.
+  // È incassabile (prima rata). Le quietanze successive restano titoli collegati.
   const isPolizzaMadre =
     !t.sostituisce_polizza &&
     !isAppendiceTitolo;
@@ -2171,6 +2165,56 @@ const TitoloDetail = () => {
     queryClient.invalidateQueries({ queryKey: ["titolo", id] });
     queryClient.invalidateQueries({ queryKey: ["polizza-stato"] });
     queryClient.invalidateQueries({ queryKey: ["catena-titoli"] });
+  };
+  const puoIncassareQui = puoAprireIncasso(t.stato, t.data_messa_cassa, {
+    poliennale: isPoliennale,
+    garantitoAperto,
+  });
+  const apriIncassoDaPolizza = async () => {
+    if (isContrattoAnnullato) {
+      const res = await ripristinaPolizzaPerIncasso(t.id);
+      if (!res.ok) {
+        toast.error(res.error || "Impossibile ripristinare la polizza per l'incasso");
+        return;
+      }
+      await logAttivita({
+        azione: "ripristino_polizza_per_incasso",
+        entita_tipo: "titolo",
+        entita_id: t.id,
+        dettagli_json: { da: t.stato, a: "attivo" },
+      });
+      refreshDopoOperazionePolizza();
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "", banca: "" });
+    setCassaDialogOpen(true);
+  };
+  const apriGarantitoDaPolizza = async () => {
+    if (isContrattoAnnullato) {
+      const res = await ripristinaPolizzaPerIncasso(t.id);
+      if (!res.ok) {
+        toast.error(res.error || "Impossibile ripristinare la polizza per l'incasso");
+        return;
+      }
+      await logAttivita({
+        azione: "ripristino_polizza_per_incasso",
+        entita_tipo: "titolo",
+        entita_id: t.id,
+        dettagli_json: { da: t.stato, a: "attivo" },
+      });
+      refreshDopoOperazionePolizza();
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    setConferimentoForm({
+      dataCopertura: today,
+      dataDecorrenza: today,
+      cig_rif: (t as any).cig_rif || "",
+      cig_temporaneo: !!(t as any).cig_temporaneo,
+      updateMadre: true,
+    });
+    setConferimentoAccettato(false);
+    setConferimentoMessaCassaSerale(false);
+    setConferimentoDialogOpen(true);
   };
 
   const documentiTrigger = (
@@ -2491,7 +2535,7 @@ const TitoloDetail = () => {
                 Libro Matricola ({mezziMatricolaDb.length} mezzi)
               </Button>
             )}
-            {isAdmin && !isMadreConRate && (t.stato === "incassato" || !!t.data_messa_cassa || (!!t.conferimento_gestito && !!t.data_copertura)) && (
+            {isAdmin && (t.stato === "incassato" || !!t.data_messa_cassa || (!!t.conferimento_gestito && !!t.data_copertura)) && (
               <Button
                 variant="outline"
                 size="sm"
@@ -2584,33 +2628,8 @@ const TitoloDetail = () => {
               </Button>
             )}
 
-            {/* ===== Callout: sulla Polizza madre l'incasso si fa sulle singole quietanze ===== */}
-            {(isMadreConRate || isPolizzaMadre) && !isContrattoAnnullato && (
-              <div className="w-full mt-2 pt-4 border-t">
-                <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-900 flex items-start gap-2">
-                  <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <strong>L'incasso si effettua sulla singola quietanza/rata.</strong>{" "}
-                    Apri la rata da incassare dalla lista <em>Quietanze di questa polizza</em> qui sopra. La polizza madre non si mette a cassa.
-                    <div className="mt-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                        disabled={!primaRataDaIncassare}
-                        onClick={() => primaRataDaIncassare && navigate(`/titoli/${(primaRataDaIncassare as any).id}`)}
-                      >
-                        <ArrowLeft className="w-4 h-4 mr-1 rotate-180" />
-                        {primaRataDaIncassare ? "Vai alla prima rata da incassare" : "Nessuna rata da incassare"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* ===== Sotto-sezione Messa a Cassa unificata ===== */}
-            {!isMadreConRate && !isPolizzaMadre && (t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
+            {(t.stato === "attivo" || t.stato === "incassato" || isContrattoAnnullato) && showMessaACassa && (
               <div className="w-full mt-2 pt-4 border-t">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold flex items-center gap-2 text-teal-900 dark:text-teal-100">
@@ -2619,7 +2638,7 @@ const TitoloDetail = () => {
                   <div className="flex items-center gap-2">
                     {isPoliennale && <Badge variant="outline" className="text-xs">Poliennale</Badge>}
                     <Badge variant={t.stato === "incassato" ? "default" : inCopertura || garantitoAperto ? "default" : "secondary"} className={t.stato === "incassato" ? "bg-amber-500 hover:bg-amber-600" : inCopertura || garantitoAperto ? "bg-orange-500 hover:bg-orange-600" : ""}>
-                      {t.stato === "incassato" ? "Incassato" : inCopertura || garantitoAperto ? "In Copertura" : "Da incassare"}
+                      {t.stato === "incassato" ? "Incassato" : inCopertura || garantitoAperto ? "In Copertura" : isContrattoAnnullato ? "Annullata — da incassare" : "Da incassare"}
                     </Badge>
                   </div>
                 </div>
@@ -2771,12 +2790,12 @@ const TitoloDetail = () => {
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
-                          <Info className="w-5 h-5 text-blue-600" /> Quietanza già incassata
+                          <Info className="w-5 h-5 text-blue-600" /> Titolo già incassato
                         </AlertDialogTitle>
                         <AlertDialogDescription asChild>
                           <div className="space-y-2 text-sm">
                             <p>
-                              Questa quietanza è stata <strong>messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}</strong> e non può essere incassata una seconda volta: il sistema applica una protezione anti-doppio-incasso a livello di database. La polizza (contratto) resta invece attiva: la messa a cassa è una proprietà della rata, non del contratto.
+                              Questo titolo è stato <strong>messo a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}</strong> e non può essere incassato una seconda volta: il sistema applica una protezione anti-doppio-incasso a livello di database.
                             </p>
                             <p className="text-muted-foreground">
                               Le azioni <em>Incassa</em> e <em>Garantito</em> tornano disponibili solo dopo l'annullamento della messa a cassa precedente.
@@ -2803,29 +2822,13 @@ const TitoloDetail = () => {
 
                 {/* Azioni */}
                 <div className="mt-3 flex gap-2 flex-wrap">
-                  {t.stato === "attivo" && (!t.data_messa_cassa || isPoliennale || garantitoAperto) && (
-                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
-                      const today = new Date().toISOString().slice(0, 10);
-                      setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "", banca: "" });
-                      setCassaDialogOpen(true);
-                    }} disabled={changeStatoMutation.isPending}>
+                  {puoIncassareQui && (
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => void apriIncassoDaPolizza()} disabled={changeStatoMutation.isPending}>
                       <CheckSquare className="w-4 h-4 mr-1" /> {garantitoAperto ? "Incassa (fondi ricevuti)" : "Incassa"}
                     </Button>
                   )}
-                  {t.stato === "attivo" && !t.data_messa_cassa && !garantitoAperto && (
-                    <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => {
-                      const today = new Date().toISOString().slice(0, 10);
-                      setConferimentoForm({
-                        dataCopertura: today,
-                        dataDecorrenza: today,
-                        cig_rif: (t as any).cig_rif || "",
-                        cig_temporaneo: !!(t as any).cig_temporaneo,
-                        updateMadre: true,
-                      });
-                      setConferimentoAccettato(false);
-                      setConferimentoMessaCassaSerale(false);
-                      setConferimentoDialogOpen(true);
-                    }} disabled={conferimentoGestitoMutation.isPending}>
+                  {puoIncassareQui && !t.data_messa_cassa && !garantitoAperto && (
+                    <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => void apriGarantitoDaPolizza()} disabled={conferimentoGestitoMutation.isPending}>
                       <Shield className="w-4 h-4 mr-1" /> Garantito
                     </Button>
                   )}
@@ -2957,7 +2960,7 @@ const TitoloDetail = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t?.stato === "incassato" ? "Conferma annullamento incasso" : inCopertura || garantitoAperto ? "Conferma annullamento copertura garantita" : "Conferma annullamento messa a cassa"}</DialogTitle>
-            <DialogDescription>Verifica la tua identità per procedere. La polizza madre non verrà modificata.</DialogDescription>
+            <DialogDescription>Verifica la tua identità per procedere. Si annulla la messa a cassa di questo titolo (la polizza è la prima rata).</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-2">
@@ -2970,9 +2973,8 @@ const TitoloDetail = () => {
                 <li>Righe rimessa in bozza (blocco se rimessa in pagamento/pagata)</li>
                 <li>Acconti cliente utilizzati (residuo ripristinato)</li>
                 <li>Eventuale rata successiva auto-generata non incassata</li>
-                <li>La quietanza torna a <strong>«da incassare»</strong> e sparisce dagli estratti conto incassati</li>
+                <li>Il titolo torna a <strong>«da incassare»</strong> e sparisce dagli estratti conto incassati</li>
               </ul>
-              <p className="text-xs text-muted-foreground">La polizza madre non viene toccata.</p>
             </div>
             <div>
               <Label className="text-xs">Password</Label>

@@ -628,6 +628,12 @@ Non cancellare o rinominare i bucket esistenti: `documenti`, `documenti-clienti`
 
 ## 10. Feature recenti — contesto aggiornato
 
+### 10.0 Polizza = prima rata incassabile (28/09/2026)
+- La riga `titoli` inserita **è la polizza e si mette a cassa**. Non è un frontespizio.
+- Quietanze generate solo per le rate **successive** (2..N). Rata unica / Unica / temporanea → nessuna figlia 1/1.
+- Dopo `annulla_polizza_cascade` resta la polizza `annullato`. Reincasso: `ripristinaPolizzaPerIncasso` + Messa a Cassa **su quella riga**. Non rigenerare quietanze.
+- Vietato il box «l'incasso si effettua sulla singola quietanza». Dettaglio: `.cursor/rules/polizza-incassabile.mdc` e `.lovable/memory/insurance/auto-quietanza-su-messa-cassa.md`.
+
 ### 10.1 Portafoglio — Carico (filtri toggle + datepicker)
 - **File:** `src/pages/PortafoglioCaricoPage.tsx`
 - **Filtri aggiunti:** toggle "Mese Corrente / Messe a Cassa / Tutte", toggle "Tutti / Quietanze / Regolazioni", datepicker Dal/Al, ricerca testuale.
@@ -694,4 +700,4 @@ Questa sezione elenca funzionalità parzialmente implementate, placeholder o are
 
 ---
 
-> Ultimo aggiornamento: 2026-06-22. Se trovi informazioni non coerenti con il codice attuale, aggiorna questo file e notifica il team.
+> Ultimo aggiornamento: 2026-09-29. Se trovi informazioni non coerenti con il codice attuale, aggiorna questo file e notifica il team.

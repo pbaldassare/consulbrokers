@@ -422,7 +422,7 @@ export function AzioniPolizzaToolbar({
             <DialogTitle>
               {annullaState.mode === "incasso" ? "Conferma annullamento incasso" : "Conferma annullamento messa a cassa"}
             </DialogTitle>
-            <DialogDescription>Verifica la tua identità per procedere. La polizza madre non verrà modificata.</DialogDescription>
+            <DialogDescription>Verifica la tua identità per procedere. Si annulla la messa a cassa di questo titolo (la polizza è la prima rata).</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-2">

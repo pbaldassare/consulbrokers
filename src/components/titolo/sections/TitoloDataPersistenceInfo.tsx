@@ -92,7 +92,7 @@ export function TitoloDataPersistenceInfo() {
       header: "titoli — campi: stato='annullato' + reset data_messa_cassa/data_incasso/data_pagamento/importo_incassato/tipo_pagamento/banca_pagamento/conferimento_gestito",
       movimento: "RPC transazionale annulla_polizza_cascade — elimina: pagamenti_provvigioni_righe, provvigioni_generate, rimessa_dettaglio, movimenti_contabili, movimenti_polizza, titoli_split_commerciali, quietanze discendenti (delete fisica) + testate rimessa_premi rimaste vuote",
       collegate: "log_attivita (azione='annullamento_polizza_cascade', severity='warning', conteggi in dettagli_json)",
-      note: "Operazione irreversibile. Il titolo madre resta in stato 'annullato' come ancora per il log; tutto il resto è eliminato fisicamente (anche provvigioni già pagate).",
+      note: "Il titolo polizza resta in stato 'annullato' come ancora per il log; le quietanze successive sono eliminate. Per reincassare si ripristina quella stessa riga (è la prima rata) e si mette a cassa: non si ricreano quietanze.",
     },
   ];
 

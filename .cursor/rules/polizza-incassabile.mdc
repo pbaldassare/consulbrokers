@@ -1,0 +1,15 @@
+---
+description: La polizza è la prima rata incassabile (regola 28/09/2026). Sostituisce il modello madre=solo contratto.
+globs: src/pages/TitoloDetail.tsx,src/lib/quietanze.ts,src/lib/ripristinaPolizzaPerIncasso.ts,src/components/portafoglio/MessaCassaDialog.tsx,src/lib/polizzeDisplay.ts
+alwaysApply: true
+---
+
+# Polizza = prima rata
+
+La riga inserita **è la polizza e si mette a cassa**. Non è un frontespizio.
+
+- Messa a Cassa sta sulla scheda polizza. Quietanze = solo rate **successive**.
+- Rata unica / Unica / temporanea: nessuna figlia 1/1.
+- `canHaveDataCopertura` è sempre true. Non mascherare `incassato` sulla madre.
+- Dopo `annulla_polizza_cascade` resta la polizza `annullato`. Reincasso = ripristina `attivo` + cassa su **quella riga**. Non rigenerare quietanze.
+- Vietato reintrodurre il box «l'incasso si effettua sulla singola quietanza/rata».
