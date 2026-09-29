@@ -84,7 +84,7 @@ export function AzioniPolizzaToolbar({
 }: Props) {
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
-  const locked = ["annullata", "estinta", "sostituita"].includes(statoPolizza);
+  const locked = ["annullata", "annullato", "estinta", "sostituita"].includes(statoPolizza);
 
   // polizza-level dialogs
   const [sospensioneOpen, setSospensioneOpen] = useState(false);
@@ -271,15 +271,15 @@ export function AzioniPolizzaToolbar({
           {/* Azioni di ciclo vita contratto: solo sulla scheda polizza, non sulla quietanza */}
           {!onQuietanza && (
             <>
-              {statoPolizza === "sospesa" ? (
+              {!locked && (statoPolizza === "sospesa" ? (
                 <Button size="sm" onClick={() => setRiattivazioneOpen(true)} disabled={!titoloMadreId}>
                   <Play className="h-4 w-4 mr-1" /> Riattiva
                 </Button>
               ) : (
-                <Button size="sm" variant="outline" onClick={() => setSospensioneOpen(true)} disabled={locked || !titoloMadreId}>
+                <Button size="sm" variant="outline" onClick={() => setSospensioneOpen(true)} disabled={!titoloMadreId}>
                   <Pause className="h-4 w-4 mr-1" /> Sospendi
                 </Button>
-              )}
+              ))}
               <Button size="sm" variant="outline" onClick={() => setSostituzioneOpen(true)} disabled={locked || !titoloMadreId}>
                 <Replace className="h-4 w-4 mr-1" /> Sostituisci
               </Button>
@@ -312,9 +312,10 @@ export function AzioniPolizzaToolbar({
               >
                 <FileText className="h-4 w-4 mr-1" /> Precontrattuale
               </Button>
+              {!locked && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button size="sm" variant="destructive" disabled={locked || !titoloMadreId || annullaLoading}>
+                  <Button size="sm" variant="destructive" disabled={!titoloMadreId || annullaLoading}>
                     <Ban className="h-4 w-4 mr-1" /> Annulla polizza (irreversibile)
                   </Button>
                 </AlertDialogTrigger>
@@ -334,6 +335,7 @@ export function AzioniPolizzaToolbar({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+              )}
             </>
           )}
           {onQuietanza && polizzaId && (

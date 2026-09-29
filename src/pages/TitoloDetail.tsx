@@ -2421,7 +2421,7 @@ const TitoloDetail = () => {
               </div>
             )}
             
-            {isPolizzaMadre && (
+            {isPolizzaMadre && !isContrattoAnnullato && (
               <span
                 className="inline-flex"
                 title={sospensioneDisabled ? sospensioneDisabledTitle : "Sospendi temporaneamente la copertura"}
@@ -2436,7 +2436,7 @@ const TitoloDetail = () => {
                 </Button>
               </span>
             )}
-            {isPolizzaMadre && (
+            {isPolizzaMadre && !isContrattoAnnullato && (
               <span
                 className="inline-flex"
                 title={riattivazioneDisabled ? riattivazioneDisabledTitle : "Riattiva la polizza sospesa"}
@@ -2500,19 +2500,13 @@ const TitoloDetail = () => {
                 {t.stato === "incassato" ? "Annulla incasso" : inCopertura || garantitoAperto ? "Annulla copertura garantita" : t.data_messa_cassa ? "Annulla messa a cassa" : "Annulla copertura garantita"}
               </Button>
             )}
-            {!isQuietanzaCorrente && (
+            {!isQuietanzaCorrente && !isContrattoAnnullato && (
             <AlertDialog open={annullaContrattoOpen} onOpenChange={setAnnullaContrattoOpen}>
               <AlertDialogTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
                   className="text-destructive border-destructive/50 hover:bg-destructive/10"
-                  disabled={isContrattoAnnullato}
-                  title={
-                    isContrattoAnnullato
-                      ? (isAppendiceTitolo ? "Appendice già annullata" : "Polizza già annullata")
-                      : undefined
-                  }
                 >
                   <XCircle className="w-4 h-4 mr-1" />{" "}
                   {isAppendiceTitolo
@@ -2562,7 +2556,7 @@ const TitoloDetail = () => {
             </AlertDialog>
             )}
 
-            {!isTitoloDerivato && (
+            {!isTitoloDerivato && !isContrattoAnnullato && (
               <Button
                 variant="outline"
                 size="sm"
@@ -2587,7 +2581,7 @@ const TitoloDetail = () => {
             )}
 
             {/* ===== Callout: sulla Polizza madre l'incasso si fa sulle singole quietanze ===== */}
-            {(isMadreConRate || isPolizzaMadre) && (
+            {(isMadreConRate || isPolizzaMadre) && !isContrattoAnnullato && (
               <div className="w-full mt-2 pt-4 border-t">
                 <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-900 flex items-start gap-2">
                   <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
