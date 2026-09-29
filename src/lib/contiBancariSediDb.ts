@@ -18,6 +18,25 @@ export const saveSediContoBancario = async (contoId: string, ufficioIds: string[
   if (error) throw error;
 };
 
+export const fetchContiPerUfficio = async (ufficioId: string): Promise<string[]> => {
+  const { data, error } = await supabase
+    .from("conti_bancari_uffici" as any)
+    .select("conto_bancario_id, conti_bancari!inner(tipo)")
+    .eq("ufficio_id", ufficioId)
+    .eq("conti_bancari.tipo", "incasso_clienti");
+  if (error) throw error;
+  return ((data || []) as unknown as Array<{ conto_bancario_id: string }>).map((r) => r.conto_bancario_id);
+};
+
+export const saveContiPerUfficio = async (ufficioId: string, contoIds: string[]) => {
+  const unique = Array.from(new Set(contoIds));
+  const { error } = await supabase.rpc("save_ufficio_conti_bancari" as any, {
+    p_ufficio_id: ufficioId,
+    p_conto_ids: unique,
+  });
+  if (error) throw error;
+};
+
 /** Messaggio utente per errori salvataggio sedi / conto bancario. */
 export const formatContoBancarioSaveError = (error: unknown): string => {
   const message =
@@ -29,6 +48,9 @@ export const formatContoBancarioSaveError = (error: unknown): string => {
 
   if (/almeno una sede abilitata/i.test(message)) {
     return "Seleziona almeno una sede abilitata per i conti Consulbrokers.";
+  }
+  if (/collegato solo a questa sede/i.test(message)) {
+    return message;
   }
   if (/non trovato/i.test(message)) {
     return "Conto bancario non trovato. Ricarica la pagina e riprova.";

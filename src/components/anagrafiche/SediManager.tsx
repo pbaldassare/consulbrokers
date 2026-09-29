@@ -15,8 +15,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
-import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
+import SedeContiMultiSelect from "@/components/anagrafiche/SedeContiMultiSelect";
 import { matchesSearchFields } from "@/lib/searchNoEmail";
+import { seedSedeContiSelection, type SedeContiSelection } from "@/lib/contiBancariSedi";
+import {
+  fetchContiPerUfficio,
+  formatContoBancarioSaveError,
+  saveContiPerUfficio,
+} from "@/lib/contiBancariSediDb";
 
 interface Ufficio {
   id: string;
@@ -51,7 +57,9 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   const [selectedUfficio, setSelectedUfficio] = useState<Ufficio | null>(null);
   const [deleteUfficio, setDeleteUfficio] = useState<Ufficio | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const emptyConti: SedeContiSelection = { selectedIds: [], defaultId: null };
   const [formData, setFormData] = useState<{ codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_bancario_id: string | null }>({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_bancario_id: null });
+  const [contiSelection, setContiSelection] = useState<SedeContiSelection>(emptyConti);
   const [search, setSearch] = useState("");
 
   const { data: uffici = [], isLoading } = useQuery({
@@ -99,7 +107,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   });
 
   const upsertMutation = useMutation({
-    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_bancario_id: string | null }) => {
+    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_bancario_id: string | null; conto_ids: string[] }) => {
       const payload = {
         codice_ufficio: data.codice_ufficio,
         nome_ufficio: data.nome_ufficio,
@@ -112,20 +120,24 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
         attivo: data.attivo,
         conto_bancario_id: data.conto_bancario_id,
       };
+      let ufficioId = data.id;
       if (data.id) {
         const { error } = await supabase.from("uffici" as any).update(payload).eq("id", data.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("uffici" as any).insert(payload);
+        const { data: created, error } = await supabase.from("uffici" as any).insert(payload).select("id").single();
         if (error) throw error;
+        ufficioId = (created as { id: string }).id;
       }
+      if (ufficioId) await saveContiPerUfficio(ufficioId, data.conto_ids);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["uffici"] });
+      queryClient.invalidateQueries({ queryKey: ["conti_bancari"] });
       toast.success(editingUfficio ? "Sede aggiornata" : "Sede creata");
       closeDialog();
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(formatContoBancarioSaveError(err)),
   });
 
   const filteredUffici = uffici.filter((u) =>
@@ -144,10 +156,11 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   const openCreateDialog = () => {
     setEditingUfficio(null);
     setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_bancario_id: null });
+    setContiSelection(emptyConti);
     setDialogOpen(true);
   };
 
-  const openEditDialog = (u: Ufficio) => {
+  const openEditDialog = async (u: Ufficio) => {
     setEditingUfficio(u);
     setFormData({
       codice_ufficio: u.codice_ufficio || "",
@@ -161,7 +174,14 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
       attivo: u.attivo,
       conto_bancario_id: u.conto_bancario_id || null,
     });
+    setContiSelection(seedSedeContiSelection([], u.conto_bancario_id || null));
     setDialogOpen(true);
+    try {
+      const linked = await fetchContiPerUfficio(u.id);
+      setContiSelection(seedSedeContiSelection(linked, u.conto_bancario_id || null));
+    } catch {
+      /* default già impostato */
+    }
   };
 
   const closeDialog = () => {
@@ -181,6 +201,8 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
       ...formData,
       codice_ufficio: codice,
       nome_ufficio: nome,
+      conto_bancario_id: contiSelection.defaultId,
+      conto_ids: contiSelection.selectedIds,
     });
   };
 
@@ -287,7 +309,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
       {selectedUfficio && <UfficioDetail ufficio={selectedUfficio} uffici={uffici} />}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingUfficio ? "Modifica Sede" : "Nuova Sede"}</DialogTitle>
           </DialogHeader>
@@ -356,14 +378,12 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
               <Input value={formData.telefono} onChange={(e) => setFormData({ ...formData, telefono: e.target.value })} placeholder="es. 02 1234567" />
             </div>
             <div className="border-t border-border pt-4 space-y-2">
-              <Label className="flex items-center gap-1 font-semibold"><Banknote className="w-3 h-3" /> Conto incassi clienti</Label>
-              <p className="text-xs text-muted-foreground">IBAN su cui i clienti di questa Sede pagano (compare nell'E/C cliente PDF). Se non impostato, viene usato il conto di default.</p>
-              <ContoBancarioSelect
-                value={formData.conto_bancario_id}
-                onChange={(id) => setFormData({ ...formData, conto_bancario_id: id })}
-                tipi={["incasso_clienti"]}
-                placeholder="Usa il default di sistema"
-              />
+              <Label className="flex items-center gap-1 font-semibold"><Banknote className="w-3 h-3" /> Conti incassi clienti</Label>
+              <p className="text-xs text-muted-foreground">
+                Seleziona uno o più IBAN usati da questa sede (messa a cassa, movimenti, E/C).
+                La stella indica il conto di default sul PDF E/C cliente.
+              </p>
+              <SedeContiMultiSelect value={contiSelection} onChange={setContiSelection} />
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={formData.attivo} onCheckedChange={(v) => setFormData({ ...formData, attivo: v })} />

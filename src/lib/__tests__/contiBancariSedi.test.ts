@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { isConsulbrokersContoTipo, validateContoBancarioSedi } from "../contiBancariSedi";
+import {
+  applySedeContoDefault,
+  applySedeContoToggle,
+  isConsulbrokersContoTipo,
+  seedSedeContiSelection,
+  validateContoBancarioSedi,
+} from "../contiBancariSedi";
 import { formatContoBancarioSaveError } from "../contiBancariSediDb";
 
 describe("validateContoBancarioSedi", () => {
@@ -43,5 +49,52 @@ describe("formatContoBancarioSaveError", () => {
 
   it("usa messaggio generico se assente", () => {
     expect(formatContoBancarioSaveError({})).toMatch(/salvataggio/i);
+  });
+
+  it("riporta il blocco scollega-ultimo-conto", () => {
+    expect(
+      formatContoBancarioSaveError({
+        message: 'Il conto "BCC" è collegato solo a questa sede: abilitalo su un\'altra sede.',
+      }),
+    ).toMatch(/collegato solo a questa sede/i);
+  });
+});
+
+describe("selezione conti sede", () => {
+  it("seed unisce link N:N e default", () => {
+    expect(seedSedeContiSelection(["a", "b"], "c")).toEqual({
+      selectedIds: ["a", "b", "c"],
+      defaultId: "c",
+    });
+    expect(seedSedeContiSelection(["a"], null)).toEqual({
+      selectedIds: ["a"],
+      defaultId: "a",
+    });
+  });
+
+  it("toggle aggiunge e imposta il primo default", () => {
+    const next = applySedeContoToggle({ selectedIds: [], defaultId: null }, "a", true);
+    expect(next).toEqual({ selectedIds: ["a"], defaultId: "a" });
+    expect(applySedeContoToggle(next, "b", true)).toEqual({
+      selectedIds: ["a", "b"],
+      defaultId: "a",
+    });
+  });
+
+  it("toggle toglie e riassegna il default", () => {
+    const start = { selectedIds: ["a", "b"], defaultId: "a" };
+    expect(applySedeContoToggle(start, "a", false)).toEqual({
+      selectedIds: ["b"],
+      defaultId: "b",
+    });
+  });
+
+  it("imposta default solo se selezionato", () => {
+    const start = { selectedIds: ["a", "b"], defaultId: "a" };
+    expect(applySedeContoDefault(start, "b")).toEqual({
+      selectedIds: ["a", "b"],
+      defaultId: "b",
+    });
+    expect(applySedeContoDefault(start, "z")).toEqual(start);
   });
 });
