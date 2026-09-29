@@ -34,6 +34,7 @@ describe("classifyTitoloGestione", () => {
       sostituisce_polizza: "P1",
       premio_lordo: 80,
     })).toBe("PQ");
+    expect(classifyTitoloGestione({})).toBe("altro");
   });
 });
 
@@ -53,6 +54,7 @@ describe("listSediFile", () => {
     expect(list.stats.PQ).toBe(1);
     expect(list.stats.AM).toBe(1);
     expect(list.stats.DP).toBe(1);
+    expect(list.stats.lordo).toBe(195);
   });
 });
 

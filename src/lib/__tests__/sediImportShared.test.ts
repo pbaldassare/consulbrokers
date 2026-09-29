@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   SEDI_UFFICI,
   fileClienteCodiceCanonico,
+  fileClienteCodici,
   fileTipoTitolo,
   isTipoExtra,
   isTipoPipq,
@@ -24,6 +25,7 @@ describe("sediImportShared", () => {
     expect(fileClienteCodiceCanonico("006881")).toBe("000909");
     expect(fileClienteCodiceCanonico("011023")).toBe("002591");
     expect(fileClienteCodiceCanonico("D00264")).toBe("D00264");
+    expect(fileClienteCodici("006881")).toEqual({ file: "006881", canonico: "000909" });
   });
 
   it("classifica TipoTit file", () => {

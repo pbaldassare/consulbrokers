@@ -8,11 +8,10 @@
  * - PS = titolo di storno (compensazione), non la polizza stornata
  * - DP non è un titolo: vive solo nel file gestionale
  */
-import { money, normalizeNumeroPolizza, trimTxt } from "@/lib/campobassoPolizze";
-import { isAppendice, isPolizzaMadre } from "@/lib/quietanze";
+import { money, trimTxt } from "@/lib/campobassoPolizze";
+import { baseNumeroPolizza } from "@/lib/quietanze";
 import {
-  fileClienteCodiceCanonico,
-  fileClienteKey,
+  fileClienteCodici,
   fileTipoTitolo,
   mapCompagniaCodiceSede,
   type SedeCodice,
@@ -94,9 +93,8 @@ export function classifyTitoloGestione(t: SediTitoloListLike): SediTipoGestione 
   if (t.is_proroga) return "AP";
   if (t.is_appendice_modifica) return "AM";
   if (isTitoloStorno(t)) return "PS";
-  if (isPolizzaMadre(t)) return "PI";
-  if (t.sostituisce_polizza && !isAppendice(t)) return "PQ";
-  return "altro";
+  if (t.sostituisce_polizza === undefined) return "altro";
+  return t.sostituisce_polizza ? "PQ" : "PI";
 }
 
 export function clienteDisplayNome(c: SediClienteListLike): string {
@@ -162,8 +160,15 @@ function moneyOf(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function emptyTipoStats(): Record<SediTipoGestione, number> {
-  return { PI: 0, PQ: 0, AM: 0, AP: 0, PR: 0, PS: 0, altro: 0 };
+type Acc = { numPolizze: number; numTitoli: number; lordo: number; provvigioni: number };
+
+function bumpAcc(map: Map<string, Acc>, id: string, tipo: SediTipoGestione, t: SediTitoloListLike) {
+  const acc = map.get(id) ?? { numPolizze: 0, numTitoli: 0, lordo: 0, provvigioni: 0 };
+  acc.numTitoli += 1;
+  if (tipo === "PI") acc.numPolizze += 1;
+  acc.lordo += moneyOf(t.premio_lordo);
+  acc.provvigioni += moneyOf(t.provvigioni);
+  map.set(id, acc);
 }
 
 export function listSediPortafoglio(input: {
@@ -172,10 +177,11 @@ export function listSediPortafoglio(input: {
   titoli: SediTitoloListLike[];
   compagnie: SediCompagniaListLike[];
 }): SediPortafoglioLista {
-  const byCliente = new Map<string, SediTitoloListLike[]>();
-  const byCompagnia = new Map<string, SediTitoloListLike[]>();
-  const classified = input.titoli.map((t) => ({ t, tipo: classifyTitoloGestione(t) }));
-  const tipoCount = emptyTipoStats();
+  const compagnieById = new Map(input.compagnie.map((c) => [c.id, c]));
+  const accCli = new Map<string, Acc>();
+  const accComp = new Map<string, Acc>();
+  const cateneMap = new Map<string, SediCatenaLista>();
+  const tipoCount: Record<SediTipoGestione, number> = { PI: 0, PQ: 0, AM: 0, AP: 0, PR: 0, PS: 0, altro: 0 };
   const polizze: SediTitoloListLike[] = [];
   const quietanze: SediTitoloListLike[] = [];
   const extra = { AM: [] as SediTitoloListLike[], AP: [] as SediTitoloListLike[], PR: [] as SediTitoloListLike[], PS: [] as SediTitoloListLike[], altro: [] as SediTitoloListLike[] };
@@ -186,84 +192,68 @@ export function listSediPortafoglio(input: {
   let attivi = 0;
   let stornati = 0;
 
-  for (const { t, tipo } of classified) {
+  for (const t of input.titoli) {
+    const tipo = classifyTitoloGestione(t);
     tipoCount[tipo] += 1;
-    lordo += moneyOf(t.premio_lordo);
-    provvigioni += moneyOf(t.provvigioni);
+    const rowLordo = moneyOf(t.premio_lordo);
+    const rowProvv = moneyOf(t.provvigioni);
+    lordo += rowLordo;
+    provvigioni += rowProvv;
     if (t.stato === "incassato") incassati += 1;
     else if (t.stato === "attivo") attivi += 1;
     else if (t.stato === "stornato") stornati += 1;
     if (tipo === "PI") polizze.push(t);
     else if (tipo === "PQ") quietanze.push(t);
     else extra[tipo].push(t);
-    const cli = t.cliente_anagrafica_id;
-    if (cli) {
-      const list = byCliente.get(cli) ?? [];
-      list.push(t);
-      byCliente.set(cli, list);
+    if (t.cliente_anagrafica_id) bumpAcc(accCli, t.cliente_anagrafica_id, tipo, t);
+    if (t.compagnia_id) bumpAcc(accComp, t.compagnia_id, tipo, t);
+
+    const numero = baseNumeroPolizza(t.numero_titolo) || "?";
+    const chiave = `${numero}|${t.compagnia_id || "?"}|${t.cliente_anagrafica_id || "?"}`;
+    let catena = cateneMap.get(chiave);
+    if (!catena) {
+      catena = {
+        chiave,
+        numero,
+        clienteId: t.cliente_anagrafica_id ?? null,
+        compagniaId: t.compagnia_id ?? null,
+        polizza: null,
+        quietanze: [],
+        extra: [],
+      };
+      cateneMap.set(chiave, catena);
     }
-    const comp = t.compagnia_id;
-    if (comp) {
-      const list = byCompagnia.get(comp) ?? [];
-      list.push(t);
-      byCompagnia.set(comp, list);
-    }
+    if (tipo === "PI") catena.polizza = t;
+    else if (tipo === "PQ") catena.quietanze.push(t);
+    else catena.extra.push(t);
   }
 
   const conPortafoglio: SediAnagraficaLista[] = [];
-  let senzaPortafoglioCount = 0;
   for (const c of input.clienti) {
-    const rows = byCliente.get(c.id) ?? [];
-    if (!rows.length) {
-      senzaPortafoglioCount += 1;
-      continue;
-    }
+    const acc = accCli.get(c.id);
+    if (!acc) continue;
     conPortafoglio.push({
       id: c.id,
       codice: trimTxt(c.codice_ricerca) || trimTxt(c.codice_cliente),
       nome: clienteDisplayNome(c),
-      numPolizze: rows.filter((t) => classifyTitoloGestione(t) === "PI").length,
-      numTitoli: rows.length,
-      lordo: rows.reduce((s, t) => s + moneyOf(t.premio_lordo), 0),
-      provvigioni: rows.reduce((s, t) => s + moneyOf(t.provvigioni), 0),
+      ...acc,
     });
   }
+  const senzaPortafoglioCount = input.clienti.length - conPortafoglio.length;
   conPortafoglio.sort((a, b) => b.lordo - a.lordo || a.nome.localeCompare(b.nome));
 
-  const compagnie: SediCompagniaLista[] = input.compagnie
-    .map((c) => {
-      const rows = byCompagnia.get(c.id) ?? [];
-      if (!rows.length) return null;
-      return {
-        id: c.id,
-        codice: trimTxt(c.codice),
-        nome: trimTxt(c.nome) || trimTxt(c.codice) || c.id,
-        numTitoli: rows.length,
-        numPolizze: rows.filter((t) => classifyTitoloGestione(t) === "PI").length,
-        lordo: rows.reduce((s, t) => s + moneyOf(t.premio_lordo), 0),
-      };
-    })
-    .filter((c): c is SediCompagniaLista => !!c)
-    .sort((a, b) => b.numTitoli - a.numTitoli || a.nome.localeCompare(b.nome));
-
-  const cateneMap = new Map<string, SediCatenaLista>();
-  for (const { t, tipo } of classified) {
-    const numero = normalizeNumeroPolizza(t.numero_titolo).replace(/\/(AM|PR|RG)\d+$/i, "") || "?";
-    const chiave = `${numero}|${t.compagnia_id || "?"}|${t.cliente_anagrafica_id || "?"}`;
-    const catena = cateneMap.get(chiave) ?? {
-      chiave,
-      numero,
-      clienteId: t.cliente_anagrafica_id ?? null,
-      compagniaId: t.compagnia_id ?? null,
-      polizza: null,
-      quietanze: [],
-      extra: [],
-    };
-    if (tipo === "PI") catena.polizza = t;
-    else if (tipo === "PQ") catena.quietanze.push(t);
-    else catena.extra.push(t);
-    cateneMap.set(chiave, catena);
+  const compagnie: SediCompagniaLista[] = [];
+  for (const [id, acc] of accComp) {
+    const c = compagnieById.get(id);
+    if (!c) continue;
+    compagnie.push({
+      id,
+      codice: trimTxt(c.codice),
+      nome: trimTxt(c.nome) || trimTxt(c.codice) || id,
+      ...acc,
+    });
   }
+  compagnie.sort((a, b) => b.numTitoli - a.numTitoli || a.nome.localeCompare(b.nome));
 
   return {
     sede: input.sede ?? null,
@@ -317,44 +307,45 @@ export function listSediFile(rows: SediFileRigaListLike[]): SediFileLista {
   };
   const anag = new Map<string, SediFileAnagrafica>();
   const comp = new Map<string, SediFileCompagnia>();
+  let lordo = 0;
+  let provvigioni = 0;
 
   for (const r of rows) {
     const tipo = fileTipoTitolo(r.TipoTit || r.TipoDoc);
     perTipo[tipo].push(r);
-    const codiceFile = fileClienteKey(r.CdClie);
-    const codiceCanonico = fileClienteCodiceCanonico(r.CdClie);
-    const anagKey = codiceCanonico || normalizeNumeroPolizza(r["Nome CLiente"]) || "?";
-    const a = anag.get(anagKey) ?? {
-      codiceFile,
-      codiceCanonico,
-      nome: trimTxt(r["Nome CLiente"]),
-      numRighe: 0,
-      tipi: {},
-    };
+    lordo += money(r.Premio);
+    provvigioni += money(r.Attive);
+    const { file: codiceFile, canonico: codiceCanonico } = fileClienteCodici(r.CdClie);
+    const nomeCli = trimTxt(r["Nome CLiente"]);
+    const anagKey = codiceCanonico || nomeCli.toUpperCase() || "?";
+    let a = anag.get(anagKey);
+    if (!a) {
+      a = { codiceFile, codiceCanonico, nome: nomeCli, numRighe: 0, tipi: {} };
+      anag.set(anagKey, a);
+    }
     a.numRighe += 1;
     a.tipi[tipo] = (a.tipi[tipo] || 0) + 1;
-    if (!a.nome) a.nome = trimTxt(r["Nome CLiente"]);
-    anag.set(anagKey, a);
+    if (!a.nome) a.nome = nomeCli;
 
-    const codiceFileComp = trimTxt(r.CdComp).toUpperCase();
     const codiceCanonicoComp = mapCompagniaCodiceSede(r.CdComp);
     if (codiceCanonicoComp) {
-      const c = comp.get(codiceCanonicoComp) ?? {
-        codiceFile: codiceFileComp,
-        codiceCanonico: codiceCanonicoComp,
-        nome: trimTxt(r["Nome Compagnia"]),
-        numRighe: 0,
-      };
+      let c = comp.get(codiceCanonicoComp);
+      if (!c) {
+        c = {
+          codiceFile: trimTxt(r.CdComp).toUpperCase(),
+          codiceCanonico: codiceCanonicoComp,
+          nome: trimTxt(r["Nome Compagnia"]),
+          numRighe: 0,
+        };
+        comp.set(codiceCanonicoComp, c);
+      }
       c.numRighe += 1;
       if (!c.nome) c.nome = trimTxt(r["Nome Compagnia"]);
-      comp.set(codiceCanonicoComp, c);
     }
   }
 
   const anagrafiche = [...anag.values()].sort((a, b) => b.numRighe - a.numRighe || a.nome.localeCompare(b.nome));
   const compagnie = [...comp.values()].sort((a, b) => b.numRighe - a.numRighe || a.nome.localeCompare(b.nome));
-  const lordo = rows.reduce((s, r) => s + money(r.Premio), 0);
-  const provvigioni = rows.reduce((s, r) => s + money(r.Attive), 0);
 
   return {
     anagrafiche,

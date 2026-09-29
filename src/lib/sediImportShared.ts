@@ -85,11 +85,14 @@ export function fileClienteKey(cdClie: unknown): string {
   return trimTxt(cdClie).toUpperCase();
 }
 
+export function fileClienteCodici(cdClie: unknown): { file: string; canonico: string } {
+  const file = fileClienteKey(cdClie);
+  return { file, canonico: file ? (SEDI_CLIENTE_ALIAS[file] ?? file) : "" };
+}
+
 /** Codice file → codice_ricerca canonico (dopo alias). */
 export function fileClienteCodiceCanonico(cdClie: unknown): string {
-  const raw = fileClienteKey(cdClie);
-  if (!raw) return "";
-  return SEDI_CLIENTE_ALIAS[raw] ?? raw;
+  return fileClienteCodici(cdClie).canonico;
 }
 
 export function normalizeDenominazione(raw: unknown): string {

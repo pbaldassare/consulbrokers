@@ -438,18 +438,26 @@ function byGaranzia(a: Parsed, b: Parsed): number {
 }
 
 export function groupSediPipqRighe(rows: SediPipqRiga[]): SediPipqRiga[][] {
+  return partitionSediPipqRighe(rows).groups;
+}
+
+function partitionSediPipqRighe(rows: SediPipqRiga[]): { groups: SediPipqRiga[][]; escluseAltriTipi: number } {
   const map = new Map<string, SediPipqRiga[]>();
+  let escluseAltriTipi = 0;
   rows.forEach((row, idx) => {
-    if (!isTipoCaricabile(row.TipoTit || row.TipoDoc)) return;
+    if (!isTipoCaricabile(row.TipoTit || row.TipoDoc)) {
+      escluseAltriTipi += 1;
+      return;
+    }
     const numero = normalizeNumeroPolizza(row.Polizza) || `__vuoto_${idx}`;
     const comp = mapCompagniaCodiceSede(row.CdComp) || `UNK${idx}`;
     const cli = fileClienteKey(row.CdClie) || `CLI${idx}`;
     const key = `${numero}|${comp}|${cli}`;
-    const list = map.get(key) || [];
-    list.push(row);
-    map.set(key, list);
+    const list = map.get(key);
+    if (list) list.push(row);
+    else map.set(key, [row]);
   });
-  return [...map.values()];
+  return { groups: [...map.values()], escluseAltriTipi };
 }
 
 export function resolveSediPipqGruppo(
@@ -532,7 +540,8 @@ export function planSediPipqPolizze(rows: SediPipqRiga[], catalogs: SediPipqCata
   saltati: SediPipqGruppo[];
   stats: Record<string, number>;
 } {
-  const gruppi = groupSediPipqRighe(rows).map((g, i) => resolveSediPipqGruppo(g, catalogs, i + 1));
+  const { groups, escluseAltriTipi } = partitionSediPipqRighe(rows);
+  const gruppi = groups.map((g, i) => resolveSediPipqGruppo(g, catalogs, i + 1));
   const daCreare: SediPipqTitolo[] = [];
   const saltati: SediPipqGruppo[] = [];
   const stats: Record<string, number> = {
@@ -541,7 +550,7 @@ export function planSediPipqPolizze(rows: SediPipqRiga[], catalogs: SediPipqCata
     madriDaPq: 0,
     quietanze: 0,
     saltati: 0,
-    escluseAltriTipi: rows.filter((r) => !isTipoCaricabile(r.TipoTit || r.TipoDoc)).length,
+    escluseAltriTipi,
   };
   for (const g of gruppi) {
     if (g.esito === "saltato") {

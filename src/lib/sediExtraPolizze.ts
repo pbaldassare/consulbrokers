@@ -142,17 +142,41 @@ function mapCompagnia(raw: unknown, catalogs: SediExtraCatalogs): { codice: stri
   return { codice, id: catalogs.compagnieByCodice[codice] ?? null };
 }
 
+export type SediExistingIndex = {
+  byChiave: Map<string, SediExtraExistingTitolo[]>;
+  byLegacy: Set<string>;
+};
+
+const existingIndexCache = new WeakMap<SediExtraExistingTitolo[], SediExistingIndex>();
+
+export function existingTitoloChiave(ufficioId: string, compagniaId: string, numero: string): string {
+  return `${ufficioId}|${compagniaId}|${normNumero(numero)}`;
+}
+
+export function indexExistingTitoli(existing: SediExtraExistingTitolo[]): SediExistingIndex {
+  const cached = existingIndexCache.get(existing);
+  if (cached) return cached;
+  const byChiave = new Map<string, SediExtraExistingTitolo[]>();
+  const byLegacy = new Set<string>();
+  for (const t of existing) {
+    const k = existingTitoloChiave(t.ufficio_id, t.compagnia_id, t.numero_titolo);
+    const list = byChiave.get(k);
+    if (list) list.push(t);
+    else byChiave.set(k, [t]);
+    if (t.id_legacy != null) byLegacy.add(`${t.ufficio_id}|${t.id_legacy}`);
+  }
+  const idx = { byChiave, byLegacy };
+  existingIndexCache.set(existing, idx);
+  return idx;
+}
+
 export function matchExistingTitoli(
   existing: SediExtraExistingTitolo[],
   opts: { numero: string; compagniaId: string; ufficioId: string },
 ): SediExtraExistingTitolo[] {
-  const n = normNumero(opts.numero);
-  return existing.filter(
-    (t) =>
-      t.ufficio_id === opts.ufficioId &&
-      t.compagnia_id === opts.compagniaId &&
-      normNumero(t.numero_titolo) === n,
-  );
+  return indexExistingTitoli(existing).byChiave.get(
+    existingTitoloChiave(opts.ufficioId, opts.compagniaId, opts.numero),
+  ) ?? [];
 }
 
 export function pickCorrispondenteStorno(
@@ -329,7 +353,8 @@ export function planSediExtraRiga(
   const cfg = SEDI_EXTRA_UFFICI[sede];
   const fileId = trimTxt(riga.ID) || null;
   const idLegacy = fileId && /^\d+$/.test(fileId) ? Number(fileId) : null;
-  if (idLegacy != null && catalogs.existing.some((t) => t.ufficio_id === cfg.ufficioId && t.id_legacy === idLegacy)) {
+  const existingIdx = indexExistingTitoli(catalogs.existing);
+  if (idLegacy != null && existingIdx.byLegacy.has(`${cfg.ufficioId}|${idLegacy}`)) {
     return emptyPlan({
       azione: "skip",
       motivo: `id_legacy ${idLegacy} già importato`,
@@ -340,11 +365,9 @@ export function planSediExtraRiga(
       idLegacy,
     });
   }
-  const candidati = matchExistingTitoli(catalogs.existing, {
-    numero,
-    compagniaId,
-    ufficioId: cfg.ufficioId,
-  });
+  const candidati = existingIdx.byChiave.get(
+    existingTitoloChiave(cfg.ufficioId, compagniaId, numero),
+  ) ?? [];
   const madre = candidati.find((t) => !t.sostituisce_polizza && !t.is_appendice_modifica && !t.is_regolazione) || candidati[0] || null;
   const clienteDaNome = catalogs.clientiNameIndex
     ? matchClienteByNome(riga["Nome CLiente"], catalogs.clientiNameIndex)
