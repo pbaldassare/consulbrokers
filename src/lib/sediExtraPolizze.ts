@@ -25,6 +25,13 @@ export type SedeExtraCodice = keyof typeof SEDI_EXTRA_UFFICI;
 
 export const SEDI_EXTRA_COMPAGNIA_ALIAS: Record<string, string> = {
   VIT000: "VIT104",
+  REA100: "REAPZ0",
+  REAASL: "REAPZ0",
+  UNIASL: "FON105",
+  COFSOL: "SOL",
+  BALCIA: "B0699",
+  XLKRM: "B0715",
+  AIB000: "AIB",
 };
 
 export const SEDI_EXTRA_TIPI = new Set(["AM", "PR", "PS", "DP", "AP"]);
