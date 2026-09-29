@@ -8,6 +8,7 @@ import {
   mirrorAllFromFirma,
   resetQuietanzaRow,
   isQuietanzaSincronizzata,
+  shouldAutoMirrorQuietanza,
 } from "@/components/polizze/premiSync";
 
 const row = (over: Partial<GaranziaRow> = {}): GaranziaRow => ({
@@ -162,5 +163,16 @@ describe("isQuietanzaSincronizzata", () => {
   });
   it("false su lista vuota", () => {
     expect(isQuietanzaSincronizzata([])).toBe(false);
+  });
+});
+
+describe("shouldAutoMirrorQuietanza", () => {
+  it("true se vuota o non personalizzata", () => {
+    expect(shouldAutoMirrorQuietanza([])).toBe(true);
+    expect(shouldAutoMirrorQuietanza(null)).toBe(true);
+    expect(shouldAutoMirrorQuietanza([row(), row()])).toBe(true);
+  });
+  it("false se una riga è personalizzata", () => {
+    expect(shouldAutoMirrorQuietanza([row(), row({ quietanzaPersonalizzata: true })])).toBe(false);
   });
 });

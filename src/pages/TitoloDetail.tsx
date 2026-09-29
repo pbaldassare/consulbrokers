@@ -4125,17 +4125,6 @@ const TitoloDetail = () => {
             <span />
           )}
           <div className="flex flex-wrap gap-2">
-            {isPolizzaMadre && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={importiLocked}
-                onClick={() => { void premiBlockRef.current?.copiaInQuietanza(); }}
-                title="Copia i dati della polizza nella quietanza figlia anche dopo la creazione"
-              >
-                Copia in Quietanza
-              </Button>
-            )}
             {!editingImporti ? (
               <Button variant="ghost" size="sm" onClick={startEditImporti} disabled={importiLocked} title={importiLocked ? (isPolizzaMadre ? "Polizza stornata: modifiche bloccate" : "Quietanza messa a cassa: modifiche bloccate") : undefined}>
                 <Pencil className="w-4 h-4 mr-1" /> Modifica

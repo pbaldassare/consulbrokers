@@ -13,3 +13,4 @@ La riga inserita **è la polizza e si mette a cassa**. Non è un frontespizio.
 - `canHaveDataCopertura` è sempre true. Non mascherare `incassato` sulla madre.
 - Dopo `annulla_polizza_cascade` resta la polizza `annullato`. Reincasso = ripristina `attivo` + cassa su **quella riga**. Non rigenerare quietanze.
 - Vietato reintrodurre il box «l'incasso si effettua sulla singola quietanza/rata».
+- Firma → Quietanza sulla stessa riga è automatico al Salva. Vietato il pulsante che crea una figlia 1/1.

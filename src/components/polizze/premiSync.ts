@@ -126,3 +126,9 @@ export function resetQuietanzaRow(
 export function isQuietanzaSincronizzata(quietanza: GaranziaRow[] | null | undefined): boolean {
   return Array.isArray(quietanza) && quietanza.length > 0 && quietanza.every((r) => !r?.quietanzaPersonalizzata);
 }
+
+/** True se al salvataggio la Quietanza va allineata alla Firma (vuota o senza personalizzazioni). */
+export function shouldAutoMirrorQuietanza(quietanza: GaranziaRow[] | null | undefined): boolean {
+  if (!Array.isArray(quietanza) || quietanza.length === 0) return true;
+  return quietanza.every((r) => !r?.quietanzaPersonalizzata);
+}

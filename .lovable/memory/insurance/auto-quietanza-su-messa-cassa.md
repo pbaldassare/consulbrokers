@@ -52,6 +52,7 @@ ad `attivo` e si mette a cassa **quella riga** (`ripristinaPolizzaPerIncasso`).
 - Niente box «l'incasso si fa sulla singola quietanza».
 - `canHaveDataCopertura` è sempre true.
 - `displayStatoPolizza` non maschera più `incassato` sulla madre.
+- Firma → Quietanza (stessa riga) è automatico al Salva se non personalizzata. Nessun pulsante che crea una figlia 1/1.
 
 ## Cosa NON fare
 
