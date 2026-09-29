@@ -100,7 +100,6 @@ import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 import { TitoloHeaderBar } from "@/components/titolo/sections/TitoloHeaderBar";
 import { TitoloScopeBanners } from "@/components/titolo/sections/TitoloScopeBanners";
 import { TitoloQuietanzePanel } from "@/components/titolo/sections/TitoloQuietanzePanel";
-import { TitoloDataPersistenceInfo } from "@/components/titolo/sections/TitoloDataPersistenceInfo";
 import { PageContainer } from "@/components/shared/PageContainer";
 import { TableScrollArea } from "@/components/shared/TableScrollArea";
 import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
@@ -2838,9 +2837,6 @@ const TitoloDetail = () => {
           </CardContent>
         </Card>
       )}
-
-      {/* Dove sono salvati i dati — sezione informativa sulla persistenza delle operazioni ciclo vita */}
-      {!isAppendiceTitolo && <TitoloDataPersistenceInfo />}
 
       {/* MESSA A CASSA — ora integrata nella card Operazioni sopra */}
 
