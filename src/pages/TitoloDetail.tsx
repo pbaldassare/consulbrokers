@@ -2173,6 +2173,16 @@ const TitoloDetail = () => {
     queryClient.invalidateQueries({ queryKey: ["catena-titoli"] });
   };
 
+  const documentiTrigger = (
+    <TitoloDocumentiTrigger
+      titoloId={id!}
+      chainIds={isAppendiceTitolo ? [t.id] : chainIds}
+      appendiciPolizza={appendiciPolizza}
+      isAppendiceView={isAppendiceTitolo}
+    />
+  );
+  // Sulla polizza madre Documenti sta accanto a Precontrattuale, non in header.
+  const documentiAccantoPrecontrattuale = !isTitoloDerivato && t.stato !== "scaduto";
 
   return (
     <PageContainer variant="detail">
@@ -2184,14 +2194,7 @@ const TitoloDetail = () => {
         totRate={totRate}
         isQuietanzaCorrente={isQuietanzaCorrente}
         onEditImportoFirma={!isLocked && isPolizzaMadre ? openImportoFirma : undefined}
-        documentiAction={
-          <TitoloDocumentiTrigger
-            titoloId={id!}
-            chainIds={isAppendiceTitolo ? [t.id] : chainIds}
-            appendiciPolizza={appendiciPolizza}
-            isAppendiceView={isAppendiceTitolo}
-          />
-        }
+        documentiAction={documentiAccantoPrecontrattuale ? undefined : documentiTrigger}
         polizzaMadre={(isQuietanzaCorrente || isAppendiceTitolo) && madre ? {
           id: madre.id,
           numero_titolo: madre.numero_titolo,
@@ -2451,17 +2454,17 @@ const TitoloDetail = () => {
                 </Button>
               </span>
             )}
-            {!isTitoloDerivato && (
+            {!isTitoloDerivato && !isContrattoAnnullato && (
               <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
                 <Replace className="w-4 h-4 mr-1" /> Sostituzione
               </Button>
             )}
-            {!isTitoloDerivato && (
+            {!isTitoloDerivato && !isContrattoAnnullato && (
               <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)}>
                 <Ban className="w-4 h-4 mr-1" /> Estinzione
               </Button>
             )}
-            {!isTitoloDerivato && (
+            {!isTitoloDerivato && !isContrattoAnnullato && (
               <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
                 <FileText className="w-4 h-4 mr-1" /> Appendici
               </Button>
@@ -2471,6 +2474,7 @@ const TitoloDetail = () => {
                 <FileText className="w-4 h-4 mr-1" /> Precontrattuale
               </Button>
             )}
+            {documentiAccantoPrecontrattuale && documentiTrigger}
             {isLibroMatricolaTitolo && libroMatricolaOwnerId && (
               <Button
                 variant="outline"
