@@ -2173,6 +2173,29 @@ const TitoloDetail = () => {
     queryClient.invalidateQueries({ queryKey: ["catena-titoli"] });
   };
 
+  // Stato contratto: tabella `polizze` (attiva/sospesa) con fallback su `titoli.stato`.
+  // I dialog Gestione Polizze aggiornano titoli.stato; il badge header legge polizze.stato.
+  const isContrattoSospeso = polizzaStato === "sospesa" || t.stato === "sospeso";
+  const isContrattoAttivo =
+    !isContrattoSospeso &&
+    (polizzaStato === "attiva" || (!polizzaStato && t.stato === "attivo"));
+  const isContrattoAnnullato = polizzaStato === "annullata" || t.stato === "annullato";
+  const sospensioneDisabled = !isContrattoAttivo;
+  const riattivazioneDisabled = !isContrattoSospeso;
+  const sospensioneDisabledTitle = isContrattoSospeso
+    ? "La polizza è già sospesa: non si può sospendere di nuovo"
+    : isContrattoAnnullato
+      ? "Non si può sospendere una polizza annullata"
+      : "Sospensione disponibile solo per polizze attive";
+  const riattivazioneDisabledTitle = isContrattoAttivo
+    ? "La polizza è già attiva: non si può riattivare di nuovo"
+    : "Riattivazione disponibile solo per polizze sospese";
+  const refreshDopoOperazionePolizza = () => {
+    queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+    queryClient.invalidateQueries({ queryKey: ["polizza-stato"] });
+    queryClient.invalidateQueries({ queryKey: ["catena-titoli"] });
+  };
+
 
   return (
     <PageContainer variant="detail">
