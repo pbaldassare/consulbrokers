@@ -35,8 +35,9 @@ import {
   type ModalitaIncasso,
 } from "@/lib/modalitaIncasso";
 import { buildIncassoDateFields, PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
-import { filterQuietanzeClienteDaIncassare } from "@/lib/messaCassaQuietanzeCliente";
-import { canHaveDataCopertura } from "@/lib/quietanze";
+import { messaggioBloccoSequenza, soloIncassabiliInSequenza } from "@/lib/messaCassaSequenza";
+import { fetchCateneDaTitoli, TITOLO_SEQUENZA_SELECT, verificaSequenzaDistinta } from "@/lib/messaCassaSequenzaDb";
+import { appendiceTipoLabel, canHaveDataCopertura } from "@/lib/quietanze";
 import {
   isPagamentoDirettoCompagnia,
   resolveTipoPagamentoTitoloIncasso,
@@ -380,7 +381,10 @@ export const MessaCassaDialog = ({
       for (const r of [...((byNum as any[]) || []), ...byCliente]) {
         if (!merged.has(r.id)) merged.set(r.id, r);
       }
-      return Array.from(merged.values()).filter((r) => !already.has(r.id)).slice(0, 20);
+      const candidati = Array.from(merged.values()).filter((r) => !already.has(r.id));
+      const catene = await fetchCateneDaTitoli(supabase, candidati);
+      const incassabili = new Set(soloIncassabiliInSequenza(catene).map((t) => t.id));
+      return candidati.filter((r) => incassabili.has(r.id)).slice(0, 20);
     },
   });
 
@@ -401,52 +405,35 @@ export const MessaCassaDialog = ({
     },
   });
 
-  // Tutte le quietanze "da incassare" del cliente selezionato (non ancora messe a cassa).
-  // Usa la vista v_portafoglio_quietanze (stessa sorgente del Portafoglio → Carico).
-  // Post-processa lato client per escludere le polizze madri che hanno rate figlie
-  // nel set restituito: la polizza madre è identificata da sostituisce_polizza IS NULL
-  // mentre le sue rate figlie hanno sostituisce_polizza = numero_titolo_madre.
-  // Non si usa il filtro .or() su numero_rate_totali perché la view può restituire
-  // numero_rate_totali = 1 anche per polizze madri con rinnovi annuali.
+  // Titoli da incassare del cliente: per ogni catena polizza solo il prossimo in
+  // sequenza (prima la polizza, poi la rata successiva). Letti da `titoli`:
+  // la vista v_portafoglio_quietanze rimanda la polizza sulla rata derivata.
   const { data: quietanzeCliente = [] } = useQuery({
     queryKey: ["messa-cassa-quietanze-cliente", clienteQuietanze?.id, titoli.map((t) => t.id).join(",")],
     enabled: open && !!clienteQuietanze?.id,
     queryFn: async () => {
-      const { data } = await (supabase.from("v_portafoglio_quietanze") as any)
-        .select("id, numero_titolo, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, stato, data_scadenza, sostituisce_polizza")
+      const { data, error } = await (supabase.from("titoli") as any)
+        .select(`${TITOLO_SEQUENZA_SELECT}, premio_lordo, cliente_anagrafica_id, ufficio_id, importo_incassato, data_scadenza, cig_rif, cig_temporaneo`)
         .eq("cliente_anagrafica_id", clienteQuietanze!.id)
-        .or(PENDENTI_OR_GARANTITO_APERTO_FILTER)
-        .in("stato", ["attivo", "sospeso"])
-        .order("data_scadenza", { ascending: true })
-        .limit(200);
-
-      const raw = (data as any[]) || [];
+        .not("stato", "in", "(annullato,stornato)")
+        .limit(1000);
+      if (error) throw error;
       const alreadyIds = new Set(titoli.map((t) => t.id));
       const alreadyNumeri = new Set(
         titoli.map((t) => t.numero_titolo).filter((n): n is string => !!n),
       );
-      const ids = raw.map((r) => r.id).filter(Boolean);
-      const lordoByTitoloId: Record<string, number> = {};
-      let titoliExtra: { id: string; premio_lordo?: number; cig_rif?: string | null; cig_temporaneo?: boolean }[] = [];
-      if (ids.length > 0) {
-        const { data: titoliLordo } = await (supabase.from("titoli") as any)
-          .select("id, premio_lordo, cig_rif, cig_temporaneo")
-          .in("id", ids);
-        titoliExtra = (titoliLordo as any[]) || [];
-        for (const t of titoliExtra) {
-          if (t?.id) lordoByTitoloId[t.id] = Number(t.premio_lordo) || 0;
-        }
-      }
-      const filtered = filterQuietanzeClienteDaIncassare(raw, alreadyIds, alreadyNumeri, lordoByTitoloId);
-      const cigByTitolo = new Map(
-        titoliExtra.map((t) => [t.id, { cig_rif: t.cig_rif, cig_temporaneo: t.cig_temporaneo }]),
-      );
-      return filtered.map((r) => ({
-        ...r,
-        cig_rif: cigByTitolo.get(r.id)?.cig_rif ?? (r as any).cig_rif ?? null,
-        cig_temporaneo: cigByTitolo.get(r.id)?.cig_temporaneo ?? (r as any).cig_temporaneo ?? false,
-      }));
+      return soloIncassabiliInSequenza((data as any[]) || [])
+        .filter((r) => !alreadyIds.has(r.id))
+        .filter((r) => !r.numero_titolo || !alreadyNumeri.has(r.numero_titolo))
+        .sort((a, b) => String(a.garanzia_da || "").localeCompare(String(b.garanzia_da || "")));
     },
+  });
+
+  // Titoli in distinta che saltano la sequenza (es. quietanza 2027 con la polizza 2026 aperta).
+  const { data: bloccoSequenza = [] } = useQuery({
+    queryKey: ["messa-cassa-sequenza", titoli.map((t) => t.id).join(",")],
+    enabled: open && titoli.length > 0,
+    queryFn: () => verificaSequenzaDistinta(supabase, titoli.map((t) => t.id)),
   });
 
   const { data: clienteQuietanzeIsEnte = false } = useQuery({
@@ -1322,6 +1309,12 @@ export const MessaCassaDialog = ({
       return;
     }
 
+    const blocchiFreschi = await verificaSequenzaDistinta(supabase, titoli.map((t) => t.id));
+    if (blocchiFreschi.length > 0) {
+      toast.error(`Sequenza di incasso: ${messaggioBloccoSequenza(blocchiFreschi[0])}`);
+      return;
+    }
+
     for (const t of titoli) {
       const { data: row } = await supabase
         .from("titoli")
@@ -2169,7 +2162,7 @@ export const MessaCassaDialog = ({
                         {tutteQuietanzeSel ? "Deseleziona tutte" : "Seleziona tutte"}
                       </button>
                       <span className="text-[11px] text-muted-foreground">
-                        {(quietanzeCliente as any[]).length} quietanze da incassare
+                        {(quietanzeCliente as any[]).length} da incassare (una per polizza)
                       </span>
                     </div>
                     <div className="max-h-48 overflow-y-auto space-y-1">
@@ -2185,7 +2178,8 @@ export const MessaCassaDialog = ({
                           <span className="font-mono font-medium shrink-0">{r.numero_titolo || r.id.slice(0, 8)}</span>
                           <span className="font-mono shrink-0">{fmtEuro(Number(r.premio_lordo) || 0)}</span>
                           <span className="text-muted-foreground truncate min-w-0">
-                            {r.data_scadenza ? `scad. ${new Date(r.data_scadenza).toLocaleDateString("it-IT")}` : "—"}
+                            {appendiceTipoLabel(r) ?? (r.sostituisce_polizza ? "Quietanza" : "Polizza")}
+                            {r.garanzia_da ? ` · gar. dal ${formatDateIT(r.garanzia_da)}` : ""}
                             {clienteQuietanzeIsEnte
                               ? ` · ${formatCigBadge(r.cig_rif, r.cig_temporaneo)}`
                               : ""}
@@ -2895,6 +2889,19 @@ export const MessaCassaDialog = ({
             </div>
           )}
 
+          {bloccoSequenza.length > 0 && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-1">
+              <p className="text-sm font-medium text-destructive">
+                Sequenza di incasso: si incassa prima la polizza, poi le quietanze in ordine di garanzia.
+              </p>
+              <ul className="text-xs text-destructive list-disc pl-4">
+                {bloccoSequenza.map((b) => (
+                  <li key={b.titoloId}>{messaggioBloccoSequenza(b)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
             <p className="text-sm font-medium text-destructive">
               ⚠️ Operazione irreversibile senza privilegi admin. Quadratura: incasso applicato + acconti usati = dovuto rettificato.
@@ -2914,6 +2921,7 @@ export const MessaCassaDialog = ({
             disabled={
               loading ||
               !puoConfermare ||
+              bloccoSequenza.length > 0 ||
               !tipoPagamentoOk ||
               (isBonifico && !form.banca && !bankIncasso?.contoBancarioId) ||
               (needsBonificoLink && bonificiCandidati.length > 0 && selectedBonificoIds.length === 0)
