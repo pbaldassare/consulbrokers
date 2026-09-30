@@ -103,6 +103,7 @@ import { TitoloQuietanzePanel } from "@/components/titolo/sections/TitoloQuietan
 import { PageContainer } from "@/components/shared/PageContainer";
 import { TableScrollArea } from "@/components/shared/TableScrollArea";
 import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
+import { erroreGaranziaPrimaRata } from "@/lib/garanziaPrimaRata";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza, getTotQuietanze, getQuietanzaRataIndex, isAppendice, baseNumeroPolizza, canHaveDataCopertura } from "@/lib/quietanze";
 import { aggiornaNumeroPolizza } from "@/lib/aggiornaNumeroPolizza";
 import { verificaNumeroPolizzaDuplicato } from "@/lib/clientiDuplicate";
@@ -1403,6 +1404,23 @@ const TitoloDetail = () => {
       if (gDa && gA && gDa > gA) errs.push("Garanzia Da non può essere successiva a Garanzia A");
       if (dDa && gDa && gDa < dDa) errs.push("Garanzia Da deve essere ≥ Durata Da");
       if (dA && gA && gA > dA) errs.push("Garanzia A deve essere ≤ Durata A");
+      const tOrig = titolo as unknown as
+        | (Parameters<typeof isAppendice>[0] & { sostituisce_polizza?: string | null; durata_da?: string | null; garanzia_da?: string | null })
+        | null
+        | undefined;
+      const isPolizzaMadre = !!tOrig && !tOrig.sostituisce_polizza && !isAppendice(tOrig);
+      const periodoInizioCambiato =
+        (periodoForm.durata_da || "") !== (tOrig?.durata_da || "") ||
+        (periodoForm.garanzia_da || "") !== (tOrig?.garanzia_da || "");
+      if (isPolizzaMadre && periodoInizioCambiato) {
+        const errPrimaRata = erroreGaranziaPrimaRata({
+          durataDa: periodoForm.durata_da,
+          garanziaDa: periodoForm.garanzia_da,
+          temporanea: periodoForm.polizza_temporanea,
+          rateo: periodoForm.polizza_rateo,
+        });
+        if (errPrimaRata) errs.push(errPrimaRata);
+      }
       if (errs.length) throw new Error(errs.join(" • "));
 
       const before: Record<string, any> = {};

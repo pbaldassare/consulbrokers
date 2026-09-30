@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { verificaNumeroPolizzaDuplicato } from "@/lib/clientiDuplicate";
+import { erroreGaranziaPrimaRata } from "@/lib/garanziaPrimaRata";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1740,6 +1741,13 @@ const ImmissionePolizzaPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [durataDa, durataA, durataATouched, anniDurata, frazionamento, polizzaTemporanea, polizzaRateo, garanziaDa, garanziaDaTouched, garanziaA]);
 
+  const erroreGaranziaPrimaRataForm = erroreGaranziaPrimaRata({
+    durataDa,
+    garanziaDa,
+    temporanea: polizzaTemporanea,
+    rateo: polizzaRateo,
+  });
+
   // Auto date presunte regolazione (anniversari fine garanzia/durata)
   useEffect(() => {
     if (!regolazione) return;
@@ -1846,6 +1854,10 @@ const ImmissionePolizzaPage = () => {
       if (!vTarga) { toast.error("Targa obbligatoria per RCA Auto"); return; }
       if (!vUso) { toast.error("Uso obbligatorio per RCA Auto"); return; }
       if (!vTipologiaGuida) { toast.error("Tipologia Guida obbligatoria per RCA Auto"); return; }
+    }
+    if (!regolazioneMode && erroreGaranziaPrimaRataForm) {
+      toast.error(erroreGaranziaPrimaRataForm);
+      return;
     }
     if (polizzaTemporanea) {
       if (!garanziaDa || !garanziaA) {
@@ -3191,6 +3203,18 @@ const ImmissionePolizzaPage = () => {
           <div className="space-y-1.5">
             <Label className="text-xs">Garanzia Da</Label>
             <Input type="date" value={garanziaDa} onChange={(e) => { setGaranziaDa(e.target.value); setGaranziaDaTouched(true); }} className="h-8 text-xs" />
+            {!regolazioneMode && erroreGaranziaPrimaRataForm && (
+              <div className="flex items-start gap-2 text-[11px] text-destructive">
+                <span>{erroreGaranziaPrimaRataForm}</span>
+                <button
+                  type="button"
+                  className="shrink-0 underline font-medium"
+                  onClick={() => { setGaranziaDa(durataDa); setGaranziaDaTouched(false); setGaranziaATouched(false); setDataCompetenzaTouched(false); }}
+                >
+                  Allinea
+                </button>
+              </div>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Garanzia A</Label>
