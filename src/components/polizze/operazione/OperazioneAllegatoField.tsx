@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { FileDropzone } from "@/components/shared/FileDropzone";
+import { VerificatoCheckbox } from "@/components/shared/VerificatoCheckbox";
 import { documentUploadTooLargeMessage, isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 
 interface Props {
@@ -11,6 +12,8 @@ interface Props {
   displayName: string;
   onFileChange: (file: File | null, displayName: string) => void;
   onDisplayNameChange: (name: string) => void;
+  verificato?: boolean;
+  onVerificatoChange?: (checked: boolean) => void;
   label?: string;
   id?: string;
 }
@@ -20,6 +23,8 @@ export function OperazioneAllegatoField({
   displayName,
   onFileChange,
   onDisplayNameChange,
+  verificato = false,
+  onVerificatoChange,
   label = "Documento allegato (opzionale)",
   id = "operazione-allegato",
 }: Props) {
@@ -61,6 +66,9 @@ export function OperazioneAllegatoField({
             <X className="w-4 h-4" />
           </Button>
         </div>
+      )}
+      {file && onVerificatoChange && (
+        <VerificatoCheckbox checked={verificato} onCheckedChange={onVerificatoChange} />
       )}
     </div>
   );

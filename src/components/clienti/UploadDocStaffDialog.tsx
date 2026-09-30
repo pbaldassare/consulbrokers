@@ -85,6 +85,7 @@ export default function UploadDocStaffDialog({
             caricato_da: user.id,
             caricato_da_cliente: false,
             visibile_al_cliente: item.visibileAlCliente,
+            verificato: item.verificato,
             categoria: tipo,
           });
           if (insErr) {

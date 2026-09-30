@@ -50,6 +50,7 @@ export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [verificato, setVerificato] = useState(false);
 
   const eraMessaCassa = !!titoloRow?.data_messa_cassa || titoloRow?.stato === "incassato";
 
@@ -60,6 +61,7 @@ export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza
     setMotivo("");
     setFile(null);
     setDisplayName("");
+    setVerificato(false);
     setLoading(true);
     (async () => {
       const { data: tit } = await supabase.from("titoli").select("*").eq("id", titoloId).single();
@@ -206,6 +208,7 @@ export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza
             entita_tipo: "titolo",
             entita_id: titoloId,
             caricato_da: user?.id,
+            verificato,
           })
           .select("id")
           .single();
@@ -340,6 +343,8 @@ export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza
               displayName={displayName}
               onFileChange={(f, name) => { setFile(f); setDisplayName(name); }}
               onDisplayNameChange={setDisplayName}
+              verificato={verificato}
+              onVerificatoChange={setVerificato}
               id="storno-allegato"
             />
           </div>

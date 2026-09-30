@@ -62,6 +62,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [verificato, setVerificato] = useState(false);
   const [nuovoNumero, setNuovoNumero] = useState("");
   const [madreId, setMadreId] = useState(titoloId);
 
@@ -76,6 +77,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
     setMotivo("Riattivazione su richiesta cliente");
     setFile(null);
     setDisplayName("");
+    setVerificato(false);
     setNuovoNumero("");
     setEditorState(null);
     setLoadingTitolo(true);
@@ -358,6 +360,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
           entita_tipo: "titolo",
           entita_id: madreIdResolved,
           caricato_da: user?.id,
+          verificato,
         }).select("id").single();
         if (docErr) throw docErr;
         documentoId = (docIns?.id as string) || null;
@@ -520,6 +523,8 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
                 setDisplayName(name);
               }}
               onDisplayNameChange={setDisplayName}
+              verificato={verificato}
+              onVerificatoChange={setVerificato}
             />
           </div>
         }

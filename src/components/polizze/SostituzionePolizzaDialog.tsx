@@ -75,6 +75,7 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [verificato, setVerificato] = useState(false);
 
   const handleEditorStateChange = useCallback((state: PolizzaEditorState) => {
     setEditorState(state);
@@ -90,6 +91,7 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
     setConguaglioManual(false);
     setFile(null);
     setDisplayName("");
+    setVerificato(false);
     setLoading(true);
     (async () => {
       const resolvedMadreId = await resolveTitoloMadreId(supabase, titoloId);
@@ -265,6 +267,7 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
             entita_tipo: "titolo",
             entita_id: madreIdResolved,
             caricato_da: user?.id,
+            verificato,
           } as never)
           .select("id")
           .single();
@@ -443,6 +446,8 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
                 setDisplayName(name);
               }}
               onDisplayNameChange={setDisplayName}
+              verificato={verificato}
+              onVerificatoChange={setVerificato}
             />
           </div>
         }

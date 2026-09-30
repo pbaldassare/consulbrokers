@@ -121,6 +121,7 @@ export default function UploadDocPolizzaDialog({ open, onOpenChange, titoloId, c
           <MultiDocumentUploadPanel
             files={pendingFiles}
             onFilesChange={setPendingFiles}
+            showVerificato={false}
             inputId="up-doc-pol"
             accept=".pdf,.jpg,.jpeg,.png,.webp"
             allowedMimeTypes={ALLOWED}

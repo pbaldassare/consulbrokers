@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { VerificatoCheckbox } from "@/components/shared/VerificatoCheckbox";
 import { toast } from "sonner";
 import { ScanLine, Upload, Loader2, CheckCircle2, X } from "lucide-react";
 import { documentUploadTooLargeMessage, isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
@@ -28,7 +29,7 @@ export interface AiScannerEntityContext {
 interface AiDocumentScannerProps {
   documentType: DocumentType;
   onExtracted: (data: Record<string, unknown>) => void;
-  onFileReady?: (file: File, documentType: DocumentType) => void;
+  onFileReady?: (file: File, documentType: DocumentType, verificato: boolean) => void;
   /**
    * Contesto entità per estrazione mirata: l'AI viene istruita a privilegiare
    * dati coerenti con questa entità (CF/P.IVA), ma restituisce comunque ciò
@@ -45,6 +46,7 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, entityConte
   const [isDragOver, setIsDragOver] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [lastResult, setLastResult] = useState<"success" | "error" | null>(null);
+  const [verificato, setVerificato] = useState(false);
 
   const processFile = useCallback(async (file: File) => {
     if (!ACCEPTED_TYPES.includes(file.type)) {
@@ -79,7 +81,7 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, entityConte
       if (!data?.data) throw new Error("Nessun dato estratto");
 
       onExtracted(data.data);
-      onFileReady?.(file, documentType);
+      onFileReady?.(file, documentType, verificato);
       setLastResult("success");
       setIsExpanded(false);
       toast.success("Dati estratti con successo", { description: `Documento ${DOC_LABELS[documentType]} elaborato` });
@@ -90,7 +92,7 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, entityConte
     } finally {
       setIsProcessing(false);
     }
-  }, [documentType, onExtracted, onFileReady, entityContext]);
+  }, [documentType, onExtracted, onFileReady, entityContext, verificato]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,7 +115,10 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, entityConte
         type="button"
         variant="outline"
         size="sm"
-        onClick={() => setIsExpanded(true)}
+        onClick={() => {
+          setVerificato(false);
+          setIsExpanded(true);
+        }}
         disabled={isProcessing}
         className={`gap-2 ${className}`}
       >
@@ -175,6 +180,14 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, entityConte
           </div>
         )}
       </div>
+      {onFileReady && (
+        <VerificatoCheckbox
+          checked={verificato}
+          onCheckedChange={setVerificato}
+          disabled={isProcessing}
+          className="mt-2"
+        />
+      )}
     </div>
   );
 };

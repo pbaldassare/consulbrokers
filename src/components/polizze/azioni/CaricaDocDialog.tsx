@@ -50,6 +50,7 @@ export function CaricaDocDialog({ open, onOpenChange, titoloId, numeroTitolo, on
           entita_id: titoloId,
           caricato_da: user?.id || null,
           visibile_al_cliente: item.visibileAlCliente,
+          verificato: item.verificato,
         });
         if (insErr) throw insErr;
         await logAttivita({

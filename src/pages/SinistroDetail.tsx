@@ -579,7 +579,7 @@ export default function SinistroDetail() {
                   <AiDocumentScanner
                     documentType="perizia"
                     entityContext={sinistroAiContext}
-                    onFileReady={async (file) => {
+                    onFileReady={async (file, _tipo, verificato) => {
                       try {
                         const { data: { user } } = await supabase.auth.getUser();
                         const path = `sinistro/${id}/${Date.now()}_${file.name}`;
@@ -593,6 +593,7 @@ export default function SinistroDetail() {
                           entita_id: id!,
                           caricato_da: user?.id,
                           categoria: "perizia",
+                          verificato,
                         });
                         toast.success("Perizia salvata nei documenti");
                         qc.invalidateQueries({ queryKey: ["documenti", "sinistro", id] });
@@ -605,7 +606,7 @@ export default function SinistroDetail() {
                   <AiDocumentScanner
                     documentType="referto_medico"
                     entityContext={sinistroAiContext}
-                    onFileReady={async (file) => {
+                    onFileReady={async (file, _tipo, verificato) => {
                       try {
                         const { data: { user } } = await supabase.auth.getUser();
                         const path = `sinistro/${id}/${Date.now()}_${file.name}`;
@@ -619,6 +620,7 @@ export default function SinistroDetail() {
                           entita_id: id!,
                           caricato_da: user?.id,
                           categoria: "referto_medico",
+                          verificato,
                         });
                         toast.success("Referto medico salvato nei documenti");
                         qc.invalidateQueries({ queryKey: ["documenti", "sinistro", id] });

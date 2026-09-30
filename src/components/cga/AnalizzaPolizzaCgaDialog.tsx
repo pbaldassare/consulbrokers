@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { FileDropzone } from "@/components/shared/FileDropzone";
+import { VerificatoCheckbox } from "@/components/shared/VerificatoCheckbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -143,6 +144,7 @@ const fmtEur = (n?: number) =>
 export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [verificato, setVerificato] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedData | null>(null);
   const [esiste, setEsiste] = useState<{ id: string } | null>(null);
@@ -150,6 +152,7 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
 
   const reset = () => {
     setFile(null);
+    setVerificato(false);
     setExtracted(null);
     setEsiste(null);
     setExtracting(false);
@@ -197,6 +200,7 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
       const { data: docRow, error: docErr } = await supabase.from("documenti").insert({
         nome_file: file.name, path_storage: path, bucket_name: "documenti_clienti",
         entita_tipo: "cliente", entita_id: clienteId, caricato_da: user?.id, categoria: "cga_polizza",
+        verificato,
       }).select("id").single();
       if (docErr) throw docErr;
 
@@ -433,6 +437,7 @@ export default function AnalizzaPolizzaCgaDialog({ clienteId, trigger }: Props) 
                 onFilesSelected={(files) => setFile(files[0] ?? null)}
                 hint="PDF o immagine"
               />
+              <VerificatoCheckbox checked={verificato} onCheckedChange={setVerificato} />
             </div>
           ) : (
             <div className="space-y-4 py-2">

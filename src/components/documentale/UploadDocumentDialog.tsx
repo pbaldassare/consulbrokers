@@ -14,7 +14,11 @@ import { Loader2 } from "lucide-react";
 interface UploadDocumentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpload: (files: File[], description: string, tags: string[]) => void | Promise<void>;
+  onUpload: (
+    files: Array<{ file: File; verificato: boolean }>,
+    description: string,
+    tags: string[],
+  ) => void | Promise<void>;
   loading?: boolean;
 }
 
@@ -43,7 +47,11 @@ export default function UploadDocumentDialog({ open, onOpenChange, onUpload, loa
   const handleSubmit = async () => {
     if (pendingFiles.length === 0) return;
     const tags = tagsInput.split(",").map(t => t.trim()).filter(Boolean);
-    await onUpload(pendingFiles.map((p) => p.file), description.trim(), tags);
+    await onUpload(
+      pendingFiles.map((p) => ({ file: p.file, verificato: p.verificato })),
+      description.trim(),
+      tags,
+    );
     reset();
   };
 

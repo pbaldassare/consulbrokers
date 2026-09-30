@@ -184,6 +184,7 @@ export default function UploadDocClienteDialog({ open, onOpenChange, fixedEntita
           <MultiDocumentUploadPanel
             files={pendingFiles}
             onFilesChange={setPendingFiles}
+            showVerificato={false}
             inputId="up-doc-cli"
             accept=".pdf,.jpg,.jpeg,.png,.webp"
             allowedMimeTypes={ALLOWED}

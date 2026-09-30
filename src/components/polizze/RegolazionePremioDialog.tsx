@@ -48,6 +48,7 @@ export const RegolazionePremioDialog = ({ open, onOpenChange, titoloId, numeroPo
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [verificato, setVerificato] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -63,6 +64,7 @@ export const RegolazionePremioDialog = ({ open, onOpenChange, titoloId, numeroPo
     setNote("");
     setFile(null);
     setDisplayName("");
+    setVerificato(false);
     setLoading(true);
     (async () => {
       const { data: tit } = await supabase.from("titoli").select("*").eq("id", titoloId).single();
@@ -175,6 +177,7 @@ export const RegolazionePremioDialog = ({ open, onOpenChange, titoloId, numeroPo
             entita_tipo: "titolo",
             entita_id: titoloId,
             caricato_da: user?.id,
+            verificato,
           })
           .select("id")
           .single();
@@ -321,6 +324,8 @@ export const RegolazionePremioDialog = ({ open, onOpenChange, titoloId, numeroPo
               displayName={displayName}
               onFileChange={(f, name) => { setFile(f); setDisplayName(name); }}
               onDisplayNameChange={setDisplayName}
+              verificato={verificato}
+              onVerificatoChange={setVerificato}
               label="Lettera/comunicazione compagnia (opzionale)"
               id="regolazione-allegato"
             />

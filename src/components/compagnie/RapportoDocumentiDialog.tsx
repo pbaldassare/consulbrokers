@@ -88,6 +88,7 @@ export default function RapportoDocumentiDialog({ open, onOpenChange, rapportoId
             dimensione_bytes: item.file.size,
             mime_type: item.file.type || null,
             uploaded_by: profile?.id,
+            verificato: item.verificato,
           });
           if (dbErr) throw dbErr;
           setPendingFiles((prev) => patchPendingFile(prev, item.id, { status: "done" }));

@@ -22,6 +22,7 @@ export type WizardDocumentEntry = {
   categoria: string;
   descrizione?: string;
   file_base64?: string;
+  verificato?: boolean;
   /** Documento già salvato su storage/DB */
   saved?: boolean;
   doc_id?: string;
@@ -109,7 +110,14 @@ export const serializeBozzaWizardJson = (input: {
 /** Mappa riga sinistro bozza → valori form + UI state. */
 export const hydrateWizardFromSinistroBozza = (
   row: Record<string, unknown>,
-  docs: Array<{ id: string; nome_file: string; path_storage: string; categoria: string | null; descrizione: string | null }>,
+  docs: Array<{
+    id: string;
+    nome_file: string;
+    path_storage: string;
+    categoria: string | null;
+    descrizione: string | null;
+    verificato?: boolean | null;
+  }>,
 ) => {
   const wizardMeta = parseBozzaWizardJson(row.bozza_wizard_json);
   const pratica = sinistroRowToPraticaValues(row);
@@ -117,6 +125,7 @@ export const hydrateWizardFromSinistroBozza = (
     nome_file: d.nome_file,
     categoria: d.categoria || "",
     descrizione: d.descrizione || "",
+    verificato: d.verificato === true,
     saved: true,
     doc_id: d.id,
     path_storage: d.path_storage,

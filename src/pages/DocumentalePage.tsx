@@ -176,13 +176,17 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
     fetchData();
   };
 
-  const handleUpload = async (files: File[], description: string, tags: string[]) => {
+  const handleUpload = async (
+    files: Array<{ file: File; verificato: boolean }>,
+    description: string,
+    tags: string[],
+  ) => {
     if (!currentFolderId) { toast.error("Seleziona prima una cartella"); return; }
     if (files.length === 0) return;
     setActionLoading(true);
     let ok = 0;
     let fail = 0;
-    for (const file of files) {
+    for (const { file, verificato } of files) {
       const path = `${currentFolderId}/${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage.from("document-library").upload(path, file);
       if (uploadError) {
@@ -202,6 +206,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
         description: description || null,
         tags,
         uploaded_by: user?.id,
+        verificato,
       });
       if (dbError) {
         toast.error(`${file.name}: errore salvataggio`);

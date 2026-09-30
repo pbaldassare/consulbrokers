@@ -57,6 +57,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [verificato, setVerificato] = useState(false);
   const [madreIdForEdit, setMadreIdForEdit] = useState(titoloId);
   const [previewFreeze, setPreviewFreeze] = useState<Record<string, unknown>[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -73,6 +74,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       setNuovoNumeroPolizza(numeroPolizza || "");
       setFile(null);
       setDisplayName("");
+      setVerificato(false);
       resolveTitoloMadreId(supabase, titoloId).then(setMadreIdForEdit);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -207,6 +209,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
           entita_tipo: "titolo",
           entita_id: madreId,
           caricato_da: user?.id,
+          verificato,
         }).select("id").single();
         if (docErr) throw docErr;
         documentoId = (docIns?.id as string) || null;
@@ -431,6 +434,8 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
                 setDisplayName(name);
               }}
               onDisplayNameChange={setDisplayName}
+              verificato={verificato}
+              onVerificatoChange={setVerificato}
             />
           </div>
         }

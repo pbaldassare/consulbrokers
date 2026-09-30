@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { fmtEuro as fmtEur } from "@/lib/formatCurrency";
 import { TableScrollArea } from "@/components/shared/TableScrollArea";
+import { VerificatoCheckbox } from "@/components/shared/VerificatoCheckbox";
 
 export type ParsedVeicolo = {
   targa?: string;
@@ -120,7 +121,7 @@ export type MatchResult = {
   /** True quando l'utente ha forzato "Polizza Auto" o il ramo è ZQ — apre il modale veicolo. */
   polizzaAuto?: boolean;
   /** PDF originale caricato per la scansione AI: viene archiviato nei documenti della polizza al salvataggio. */
-  sourcePdf?: { name: string; base64: string; mimeType: string };
+  sourcePdf?: { name: string; base64: string; mimeType: string; verificato?: boolean };
 };
 
 type GruppoFinanziarioOpt = {
@@ -186,6 +187,7 @@ export function ImportNuovaPolizzaAIDialog({
   const [selectedGruppoFinanziarioId, setSelectedGruppoFinanziarioId] = useState<string>("");
   const [codiceCigNew, setCodiceCigNew] = useState<string>("");
   const [sourcePdf, setSourcePdf] = useState<{ name: string; base64: string; mimeType: string } | null>(null);
+  const [pdfVerificato, setPdfVerificato] = useState(false);
 
   const fileInput = useRef<HTMLInputElement>(null);
   const logScrollRef = useRef<HTMLDivElement>(null);
@@ -253,6 +255,7 @@ export function ImportNuovaPolizzaAIDialog({
     setSelectedGruppoFinanziarioId("");
     setCodiceCigNew("");
     setSourcePdf(null);
+    setPdfVerificato(false);
   };
 
   const log = (level: LogEntry["level"], msg: string) =>
@@ -554,7 +557,10 @@ export function ImportNuovaPolizzaAIDialog({
           : null,
         isNewCliente: !lockedClienteId,
         polizzaAuto: wantsVeicolo,
-        sourcePdf: sourcePdf ?? { name: file.name, base64: b64, mimeType: file.type || "application/pdf" },
+        sourcePdf: {
+          ...(sourcePdf ?? { name: file.name, base64: b64, mimeType: file.type || "application/pdf" }),
+          verificato: pdfVerificato,
+        },
       };
 
       onApply(result);
@@ -620,7 +626,7 @@ export function ImportNuovaPolizzaAIDialog({
       tipoCliente: effIsNewCliente ? tipoClienteAuto : undefined,
       codiceCig: effIsNewCliente && cigRequired ? codiceCigNew.trim() || undefined : undefined,
       polizzaAuto: forzaPolizzaAuto || selectedGruppoRamoCodice === "ZQ",
-      sourcePdf: sourcePdf ?? undefined,
+      sourcePdf: sourcePdf ? { ...sourcePdf, verificato: pdfVerificato } : undefined,
     };
   };
 
@@ -831,6 +837,7 @@ export function ImportNuovaPolizzaAIDialog({
                 </div>
               )}
             </div>
+            <VerificatoCheckbox checked={pdfVerificato} onCheckedChange={setPdfVerificato} disabled={parsing} />
           </div>
         )}
 

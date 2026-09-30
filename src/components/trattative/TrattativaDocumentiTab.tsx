@@ -66,6 +66,7 @@ export const TrattativaDocumentiTab = ({ trattativaId, onEvento }: Props) => {
             file_path: path,
             tipo_documento: tipoDoc,
             uploaded_by: profile?.id,
+            verificato: item.verificato,
           });
           if (dbErr) throw dbErr;
 

@@ -333,6 +333,7 @@ export default function DocumentiTab({
             entita_id: uploadEntitaId,
             caricato_da: userId,
             visibile_al_cliente: item.visibileAlCliente,
+            verificato: item.verificato,
           });
           if (insertErr) throw insertErr;
           await logAttivita({

@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { FilePlus, Search, ArrowLeft, ArrowRight, Trash2, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, Save } from "lucide-react";import { format } from "date-fns";
 import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { Checkbox } from "@/components/ui/checkbox";
+import { VerificatoCheckbox } from "@/components/shared/VerificatoCheckbox";
 import SinistroPraticaFormFields from "@/components/sinistri/SinistroPraticaFormFields";
 import {
   sinistroPraticaSchema,
@@ -80,6 +81,7 @@ const wizardSchema = sinistroPraticaSchema.extend({
       categoria: z.string().optional(),
       descrizione: z.string().optional(),
       file_base64: z.string().optional(),
+      verificato: z.boolean().optional(),
       saved: z.boolean().optional(),
       doc_id: z.string().optional(),
       path_storage: z.string().optional(),
@@ -261,13 +263,19 @@ export default function SinistroAperturaWizardPage() {
 
     const { data: docs } = await supabase
       .from("documenti")
-      .select("id, nome_file, path_storage, categoria")
+      .select("id, nome_file, path_storage, categoria, verificato")
       .eq("entita_tipo", "sinistro")
       .eq("entita_id", id);
 
     const hydrated = hydrateWizardFromSinistroBozza(
       row,
-      ((docs || []) as Array<{ id: string; nome_file: string; path_storage: string; categoria: string | null }>).map((d) => ({
+      ((docs || []) as Array<{
+        id: string;
+        nome_file: string;
+        path_storage: string;
+        categoria: string | null;
+        verificato: boolean | null;
+      }>).map((d) => ({
         ...d,
         descrizione: null,
       })),
@@ -408,6 +416,7 @@ export default function SinistroAperturaWizardPage() {
           categoria: "",
           descrizione: "",
           file_base64: base64Content,
+          verificato: false,
         });
         completed += 1;
         if (completed === queued) {
@@ -584,6 +593,7 @@ export default function SinistroAperturaWizardPage() {
         entita_id: sinistroId,
         caricato_da: userId,
         categoria: doc.categoria?.trim() || null,
+        verificato: doc.verificato ?? false,
       });
       if (docDbErr) throw docDbErr;
 
@@ -1154,6 +1164,12 @@ export default function SinistroAperturaWizardPage() {
                               {...register(`documenti.${idx}.descrizione`)}
                             />
                           </div>
+                          <VerificatoCheckbox
+                            checked={watch(`documenti.${idx}.verificato`) === true}
+                            onCheckedChange={(c) => setValue(`documenti.${idx}.verificato`, c)}
+                            disabled={watch(`documenti.${idx}.saved`) === true}
+                            className="shrink-0"
+                          />
                           <Button 
                             type="button" 
                             size="icon" 

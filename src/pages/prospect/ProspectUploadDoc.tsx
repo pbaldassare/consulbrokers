@@ -113,6 +113,7 @@ const ProspectUploadDoc = () => {
           <MultiDocumentUploadPanel
             files={pendingFiles}
             onFilesChange={setPendingFiles}
+            showVerificato={false}
             inputId="file"
             disabled={uploading}
             visibileAlClienteDefault

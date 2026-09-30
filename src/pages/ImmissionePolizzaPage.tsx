@@ -125,7 +125,12 @@ const ImmissionePolizzaPage = () => {
   const [nuovoClienteNonce, setNuovoClienteNonce] = useState(0);
   // PDF originale caricato dal flusso "Scansione AI Polizza": viene archiviato
   // come documento del titolo subito dopo la creazione della polizza.
-  const [aiSourcePdf, setAiSourcePdf] = useState<{ name: string; base64: string; mimeType: string } | null>(null);
+  const [aiSourcePdf, setAiSourcePdf] = useState<{
+    name: string;
+    base64: string;
+    mimeType: string;
+    verificato?: boolean;
+  } | null>(null);
 
   const handleAIImportApply = (m: MatchResult) => {
     const d = m.data;
@@ -2352,6 +2357,7 @@ const ImmissionePolizzaPage = () => {
             nome_file: safeName,
             categoria: "polizza_originale",
             visibile_al_cliente: false,
+            verificato: aiSourcePdf.verificato ?? false,
           } as any);
           if (docErr) throw docErr;
         } catch (e: any) {

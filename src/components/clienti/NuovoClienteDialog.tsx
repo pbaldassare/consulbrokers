@@ -170,7 +170,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const [telefono, setTelefono] = useState("");
   const [pec, setPec] = useState("");
   const [gruppoFinanziarioId, setGruppoFinanziarioId] = useState("");
-  const scannedFilesRef = useRef<{ file: File; documentType: string }[]>([]);
+  const scannedFilesRef = useRef<{ file: File; documentType: string; verificato: boolean }[]>([]);
 
   const [codiceRicerca, setCodiceRicerca] = useState("");
   const [titolo, setTitolo] = useState("");
@@ -232,8 +232,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
 
   const [ufficioClienteId, setUfficioClienteId] = useState<string>("");
 
-  const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
-    scannedFilesRef.current.push({ file, documentType });
+  const handleFileReady = useCallback((file: File, documentType: DocumentType, verificato: boolean) => {
+    scannedFilesRef.current.push({ file, documentType, verificato });
   }, []);
 
   const uploadScannedFiles = useCallback(async (clienteId: string) => {
@@ -241,7 +241,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     if (files.length === 0) return;
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || null;
-    for (const { file, documentType } of files) {
+    for (const { file, documentType, verificato } of files) {
       const ts = Date.now();
       const path = `cliente/${clienteId}/${ts}_${file.name}`;
       const { error: uploadErr } = await supabase.storage.from("documenti_clienti").upload(path, file);
@@ -249,6 +249,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       await supabase.from("documenti").insert({
         nome_file: file.name, path_storage: path, bucket_name: "documenti_clienti",
         entita_tipo: "cliente", entita_id: clienteId, caricato_da: userId, categoria: documentType,
+        verificato,
       });
     }
     scannedFilesRef.current = [];

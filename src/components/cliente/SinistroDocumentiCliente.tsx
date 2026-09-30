@@ -164,6 +164,7 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
         <MultiDocumentUploadPanel
           files={pendingFiles}
           onFilesChange={setPendingFiles}
+          showVerificato={false}
           disabled={uploading}
           visibileAlClienteDefault
           hint={`Max ${MAX_DOCUMENT_UPLOAD_MB} MB per file`}

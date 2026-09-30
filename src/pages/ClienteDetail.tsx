@@ -2880,7 +2880,7 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
-  const handleScanUpload = async (file: File, documentType: DocumentType) => {
+  const handleScanUpload = async (file: File, documentType: DocumentType, verificato: boolean) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const path = `cliente/${id}/${Date.now()}_${file.name}`;
@@ -2889,6 +2889,7 @@ export default function ClienteDetail() {
       await supabase.from("documenti").insert({
         nome_file: file.name, path_storage: path, bucket_name: "documenti_clienti",
         entita_tipo: "cliente", entita_id: id!, caricato_da: user?.id, categoria: documentType,
+        verificato,
       });
       toast.success("Documento scansionato e salvato");
     } catch (err: any) {
