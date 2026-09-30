@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, Info } from "lucide-react";
+import { isAppendice } from "@/lib/quietanze";
 
 interface Props {
   t: any;
@@ -16,6 +17,7 @@ interface Props {
  * Estratti 1:1 da TitoloDetail.tsx.
  */
 export function TitoloScopeBanners({ t, isLocked, isQuietanzaCorrente, totRate, rataIndex, madre, onNavigateMadre }: Props) {
+  const isPolizza = !t.sostituisce_polizza && !isAppendice(t);
   return (
     <>
       {isLocked && (
@@ -23,9 +25,11 @@ export function TitoloScopeBanners({ t, isLocked, isQuietanzaCorrente, totRate, 
           <ShieldCheck className="w-4 h-4 shrink-0" />
           <span>
             <strong>
-              Quietanza{totRate > 1 ? ` (Rata ${rataIndex} di ${totRate})` : ""} {t.stato === "stornato" ? "stornata" : "messa a cassa"}
+              {isPolizza
+                ? `Polizza ${t.stato === "stornato" ? "stornata" : "messa a cassa (prima rata)"}`
+                : `Quietanza${totRate > 1 ? ` (Rata ${rataIndex} di ${totRate})` : ""} ${t.stato === "stornato" ? "stornata" : "messa a cassa"}`}
             </strong>{" "}
-            — modifiche dirette bloccate (la polizza/contratto resta attiva).
+            — modifiche dirette bloccate ({isPolizza ? "il contratto resta attivo" : "la polizza/contratto resta attiva"}).
             {t.stato === "incassato" && " Per riaprirla usa Annulla Incasso / Annulla Messa a Cassa."}
           </span>
         </div>
