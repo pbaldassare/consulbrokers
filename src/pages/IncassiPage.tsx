@@ -667,32 +667,6 @@ const IncassiPage = () => {
     [polizze, selectedIds]
   );
 
-  const handleUsaBonifico = useCallback(
-    (b: BonificoAperto) => {
-      const prefer: PreferredBonificoContext = {
-        movimentoId: b.id,
-        contoBancarioId: b.conto_bancario_id,
-      };
-      if (selectedAttive.length === 0) {
-        setPreferredBonifico(prefer);
-        toast.message("Bonifico memorizzato", {
-          description: "Seleziona le quietanze e poi clicca Incassa: il bonifico sarà già proposto.",
-        });
-        return;
-      }
-      openIncassa(
-        selectedAttive.map((p) => ({
-          id: p.id,
-          numero_titolo: p.numero_titolo,
-          premio_lordo: p.premio_lordo,
-          cliente_anagrafica_id: (p as any).cliente_anagrafica_id,
-          cliente_nome_display: (p as any).cliente_nome_display ?? null,
-        })),
-        prefer,
-      );
-    },
-    [selectedAttive, openIncassa],
-  );
   const selectedGarantibile = useMemo(
     () => selectedAttive.filter((p) => canHaveDataCopertura(p as any) && !isGarantitoAperto(p)),
     [selectedAttive]
@@ -1169,7 +1143,6 @@ const IncassiPage = () => {
           suggerimentiCount={quietanzeConSuggerimento}
           searchTerm={searchActive ? searchTrim : undefined}
           totaleApertiCount={bonificiAperti.length}
-          onUsaPerIncasso={handleUsaBonifico}
         />
       )}
 

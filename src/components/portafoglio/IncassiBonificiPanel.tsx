@@ -1,5 +1,4 @@
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { BonificoAperto } from "@/lib/bonificoMatch";
@@ -36,7 +35,6 @@ type Props = {
   searchTerm?: string;
   /** Totale bonifici aperti prima del filtro search (per contesto). */
   totaleApertiCount?: number;
-  onUsaPerIncasso?: (bonifico: BonificoAperto) => void;
 };
 
 /**
@@ -52,7 +50,6 @@ export function IncassiBonificiPanel({
   suggerimentiCount = 0,
   searchTerm,
   totaleApertiCount,
-  onUsaPerIncasso,
 }: Props) {
   const [filterOrdinante, setFilterOrdinante] = useState("");
   const searchActive = !!searchTerm?.trim();
@@ -140,7 +137,6 @@ export function IncassiBonificiPanel({
                     <TableHead>Conto</TableHead>
                     <TableHead>Stato</TableHead>
                     <TableHead className="text-right">Importo</TableHead>
-                    {onUsaPerIncasso && <TableHead className="w-[100px]" />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -164,19 +160,6 @@ export function IncassiBonificiPanel({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium whitespace-nowrap">{fmtCurrency(b.importo)}</TableCell>
-                      {onUsaPerIncasso && (
-                        <TableCell>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs"
-                            onClick={() => onUsaPerIncasso(b)}
-                          >
-                            Usa
-                          </Button>
-                        </TableCell>
-                      )}
                     </TableRow>
                   ))}
                 </TableBody>
