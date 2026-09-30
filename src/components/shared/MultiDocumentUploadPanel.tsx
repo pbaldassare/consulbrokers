@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { FileDropzone, formatFileSize } from "@/components/shared/FileDropzone";
 import { fileBaseNameWithoutExt } from "@/lib/sanitizeFileName";
@@ -22,20 +23,24 @@ export interface PendingDocumentFile {
   /** Nome visualizzato senza obbligo di estensione (aggiunta al salvataggio). */
   displayName: string;
   visibileAlCliente: boolean;
+  /** Documento controllato dall'utente che lo carica. */
+  verificato: boolean;
   status: PendingDocStatus;
   error?: string;
 }
 
 export function createPendingDocumentFiles(
   files: File[],
-  opts?: { visibileAlCliente?: boolean },
+  opts?: { visibileAlCliente?: boolean; verificato?: boolean },
 ): PendingDocumentFile[] {
   const visibile = opts?.visibileAlCliente ?? false;
+  const verificato = opts?.verificato ?? false;
   return files.map((file) => ({
     id: safeId(),
     file,
     displayName: fileBaseNameWithoutExt(file.name),
     visibileAlCliente: visibile,
+    verificato,
     status: "pending" as const,
   }));
 }
@@ -65,6 +70,8 @@ export interface MultiDocumentUploadPanelProps {
   showVisibileAlCliente?: boolean;
   /** Default per i nuovi file selezionati. */
   visibileAlClienteDefault?: boolean;
+  /** Checkbox «Verificato» (staff). Nascosta nei portali cliente/prospect. */
+  showVerificato?: boolean;
   /** Validazione custom; ritorna messaggio errore o null. */
   validateFile?: (file: File) => string | null;
   /** Messaggio errore globale sotto la lista. */
@@ -84,6 +91,7 @@ export function MultiDocumentUploadPanel({
   emptyLabel = "Trascina uno o più file qui oppure clicca per selezionare",
   showVisibileAlCliente = false,
   visibileAlClienteDefault = false,
+  showVerificato = true,
   validateFile,
   error,
   dropzoneClassName,
@@ -132,6 +140,12 @@ export function MultiDocumentUploadPanel({
     onFilesChange(files.map((f) => ({ ...f, visibileAlCliente: checked })));
   };
 
+  const allVerificati = files.length > 0 && files.every((f) => f.verificato);
+  const someVerificati = files.some((f) => f.verificato);
+  const setAllVerificati = (checked: boolean) => {
+    onFilesChange(files.map((f) => (f.status === "done" ? f : { ...f, verificato: checked })));
+  };
+
   const defaultHint =
     hint ??
     `Puoi selezionare più file — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`;
@@ -165,6 +179,21 @@ export function MultiDocumentUploadPanel({
             disabled={busy}
             aria-checked={allVisible ? true : someVisible ? "mixed" : false}
           />
+        </div>
+      )}
+
+      {showVerificato && files.length > 1 && (
+        <div className="flex items-center gap-2 rounded-md border p-3 bg-muted/30">
+          <Checkbox
+            id="verificato-batch"
+            checked={allVerificati ? true : someVerificati ? "indeterminate" : false}
+            onCheckedChange={(c) => setAllVerificati(c === true)}
+            disabled={busy}
+          />
+          <div>
+            <Label htmlFor="verificato-batch">Verificato</Label>
+            <p className="text-xs text-muted-foreground">Segna tutti i file del lotto come verificati</p>
+          </div>
         </div>
       )}
 
@@ -223,6 +252,19 @@ export function MultiDocumentUploadPanel({
                       />
                       <Label htmlFor={`visibile-${item.id}`} className="text-xs font-normal">
                         Visibile al cliente
+                      </Label>
+                    </div>
+                  )}
+                  {showVerificato && (
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <Checkbox
+                        id={`verificato-${item.id}`}
+                        checked={item.verificato}
+                        onCheckedChange={(c) => updateFile(item.id, { verificato: c === true })}
+                        disabled={busy || item.status === "done"}
+                      />
+                      <Label htmlFor={`verificato-${item.id}`} className="text-xs font-normal">
+                        Verificato
                       </Label>
                     </div>
                   )}

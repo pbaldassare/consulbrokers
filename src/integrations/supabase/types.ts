@@ -2747,6 +2747,9 @@ export type Database = {
       }
       compagnia_rapporto_documenti: {
         Row: {
+          verificato: boolean
+          verificato_da: string | null
+          verificato_il: string | null
           created_at: string
           dimensione_bytes: number | null
           file_path: string
@@ -2759,6 +2762,9 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          verificato?: boolean
+          verificato_da?: string | null
+          verificato_il?: string | null
           created_at?: string
           dimensione_bytes?: number | null
           file_path: string
@@ -2771,6 +2777,9 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          verificato?: boolean
+          verificato_da?: string | null
+          verificato_il?: string | null
           created_at?: string
           dimensione_bytes?: number | null
           file_path?: string
@@ -3868,6 +3877,9 @@ export type Database = {
       }
       document_library: {
         Row: {
+          verificato: boolean
+          verificato_da: string | null
+          verificato_il: string | null
           active: boolean | null
           description: string | null
           file_name: string
@@ -3881,6 +3893,9 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          verificato?: boolean
+          verificato_da?: string | null
+          verificato_il?: string | null
           active?: boolean | null
           description?: string | null
           file_name: string
@@ -3894,6 +3909,9 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          verificato?: boolean
+          verificato_da?: string | null
+          verificato_il?: string | null
           active?: boolean | null
           description?: string | null
           file_name?: string
@@ -3918,6 +3936,9 @@ export type Database = {
       }
       documenti: {
         Row: {
+          verificato: boolean
+          verificato_da: string | null
+          verificato_il: string | null
           bucket_name: string
           caricato_da: string | null
           caricato_da_cliente: boolean
@@ -3931,6 +3952,9 @@ export type Database = {
           visibile_al_cliente: boolean | null
         }
         Insert: {
+          verificato?: boolean
+          verificato_da?: string | null
+          verificato_il?: string | null
           bucket_name?: string
           caricato_da?: string | null
           caricato_da_cliente?: boolean
@@ -3944,6 +3968,9 @@ export type Database = {
           visibile_al_cliente?: boolean | null
         }
         Update: {
+          verificato?: boolean
+          verificato_da?: string | null
+          verificato_il?: string | null
           bucket_name?: string
           caricato_da?: string | null
           caricato_da_cliente?: boolean
@@ -3968,6 +3995,9 @@ export type Database = {
       }
       documenti_utenti: {
         Row: {
+          verificato: boolean
+          verificato_da: string | null
+          verificato_il: string | null
           categoria: string
           created_at: string | null
           id: string
@@ -3977,6 +4007,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          verificato?: boolean
+          verificato_da?: string | null
+          verificato_il?: string | null
           categoria?: string
           created_at?: string | null
           id?: string
@@ -3986,6 +4019,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          verificato?: boolean
+          verificato_da?: string | null
+          verificato_il?: string | null
           categoria?: string
           created_at?: string | null
           id?: string
@@ -11710,6 +11746,9 @@ export type Database = {
       }
       trattativa_documenti: {
         Row: {
+          verificato: boolean
+          verificato_da: string | null
+          verificato_il: string | null
           created_at: string | null
           file_path: string
           id: string
@@ -11720,6 +11759,9 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          verificato?: boolean
+          verificato_da?: string | null
+          verificato_il?: string | null
           created_at?: string | null
           file_path: string
           id?: string
@@ -11730,6 +11772,9 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          verificato?: boolean
+          verificato_da?: string | null
+          verificato_il?: string | null
           created_at?: string | null
           file_path?: string
           id?: string
