@@ -20,6 +20,13 @@ import { logAttivita } from "@/lib/logAttivita";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
 import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
 import {
+  labelTitoloRiferimento,
+  numeroRataRiferimento,
+  pickTitoloRiferimento,
+  titoliRiferimentoAppendice,
+  type TitoloRiferimentoRow,
+} from "@/lib/appendiceTitoloRiferimento";
+import {
   aggregateGaranziePremi,
   calcProvvigioniAppendice,
   creaAppendiceIncasso,
@@ -101,7 +108,7 @@ const TIPO_INFO: Record<AppendiceTipo, { title: string; hint: string; suffix: st
   },
   regolazione: {
     title: "Regolazione premio",
-    hint: "Genera un titolo RG collegato alla quietanza di riferimento. Cassabile anche a premio zero.",
+    hint: "Genera un titolo RG collegato al titolo di riferimento (la polizza o una quietanza successiva). Cassabile anche a premio zero.",
     suffix: "RG",
   },
 };
@@ -125,14 +132,14 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [quietanzaId, setQuietanzaId] = useState("");
+  const [titoloRifId, setTitoloRifId] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
   // Inizializzazione una-tantum alla transizione open false→true: evita che i
   // refetch di `existing`/`titoloInfo` azzerino il form mentre l'utente compila.
   const initializedRef = useRef(false);
-  // Evita di ripetere la pre-selezione automatica della quietanza dopo che
-  // l'utente ha eventualmente scelto un'altra rata.
-  const autoQuietanzaDoneRef = useRef(false);
+  // Evita di ripetere la pre-selezione automatica del titolo di riferimento
+  // dopo che l'utente ne ha eventualmente scelto un altro.
+  const autoTitoloRifDoneRef = useRef(false);
 
   const handleEditorStateChange = useCallback((state: PolizzaEditorState) => {
     setEditorState(state);
@@ -169,49 +176,38 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     },
   });
 
-  const STATI_VALIDI = ["attivo", "incassato", "sospeso"];
-  // La lista delle rate non dipende più solo dalla risoluzione di `titoloId`:
-  // se `titoloInfo` non risolve (id derivato/stale) ricadiamo sul `numeroTitolo`
-  // ricevuto dal chiamante, così le quietanze restano sempre disponibili.
+  // La catena non dipende solo dalla risoluzione di `titoloId`: se `titoloInfo`
+  // non risolve (id derivato/stale) ricadiamo sul `numeroTitolo` del chiamante.
   const numeroTitoloCatena = titoloInfo?.numero_titolo || numeroTitolo || null;
   const { data: catena } = useQuery({
-    queryKey: ["catena-quietanze", numeroTitoloCatena],
+    queryKey: ["catena-titoli-riferimento", numeroTitoloCatena],
     enabled: !!numeroTitoloCatena && open,
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
         .select("id, riga, garanzia_da, garanzia_a, data_scadenza, premio_lordo, premio_netto, tasse, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, stato, numero_titolo")
-        .eq("numero_titolo", numeroTitoloCatena!)
-        .order("garanzia_da", { ascending: false });
-      return (data || []).filter(
-        (t: { sostituisce_polizza?: string | null; is_regolazione?: boolean; is_proroga?: boolean; is_appendice_modifica?: boolean; stato?: string }) =>
-          // Solo quietanze (rate reali): la madre (sostituisce_polizza null) non è
-          // una rata su cui agganciare una regolazione.
-          t.sostituisce_polizza != null &&
-          !t.is_regolazione && !t.is_proroga && !t.is_appendice_modifica && STATI_VALIDI.includes((t.stato || "").toLowerCase()),
-      );
+        .eq("numero_titolo", numeroTitoloCatena!);
+      return titoliRiferimentoAppendice((data || []) as TitoloRiferimentoRow[]);
     },
   });
 
-  const quietanzaOptions: SearchableSelectOption[] = useMemo(() => {
+  const titoloRifOptions: SearchableSelectOption[] = useMemo(() => {
     const list = catena || [];
-    return list.map((t: { id: string; riga?: number; garanzia_da?: string; garanzia_a?: string; premio_lordo?: number; stato?: string; numero_titolo?: string }, i: number) => {
-      const stato = (t.stato || "").toLowerCase();
-      const statoBadge = stato ? ` · ${stato}` : "";
-      const numeroRata = t.riga != null ? t.riga : list.length - i;
-      const label = `Rata ${numeroRata} · ${fmtDate(t.garanzia_da)} → ${fmtDate(t.garanzia_a)} · ${fmt(t.premio_lordo)}${statoBadge}`;
+    return list.map((t, i) => {
+      const polizza = !t.sostituisce_polizza;
       const searchText = [
+        polizza ? "polizza" : "quietanza",
         "rata",
-        numeroRata,
+        numeroRataRiferimento(t, i),
         t.numero_titolo || numeroTitolo || "",
         fmtDate(t.garanzia_da),
         fmtDate(t.garanzia_a),
-        stato,
+        (t.stato || "").toLowerCase(),
         t.premio_lordo != null ? String(t.premio_lordo) : "",
       ]
         .filter(Boolean)
         .join(" ");
-      return { value: t.id, label, searchText };
+      return { value: t.id, label: labelTitoloRiferimento(t, i, fmtDate, fmt), searchText };
     });
   }, [catena, numeroTitolo]);
 
@@ -234,7 +230,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
       setEditorState(null);
       setNoteOpen(false);
       initializedRef.current = false;
-      autoQuietanzaDoneRef.current = false;
+      autoTitoloRifDoneRef.current = false;
     }
   }, [open]);
 
@@ -257,7 +253,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     setTipo(TIPI_APPENDICE.some((x) => x.value === t) ? t : "modifica");
     setOggetto("");
     setNote("");
-    setQuietanzaId("");
+    setTitoloRifId("");
     setFile(null);
     setDisplayName("");
     setFiles([]);
@@ -276,44 +272,38 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     setDataAppendice("");
   }, [open, tipo, titoloInfo?.garanzia_a]);
 
-  // Pre-selezione automatica della quietanza di riferimento: se apri la
-  // regolazione da una rata specifica (o ne esiste una sola), la seleziona da
-  // sola invece di richiederla.
+  // Pre-selezione automatica del titolo di riferimento (polizza o quietanza):
+  // la polizza è sempre in lista, quindi anche a rata unica c'è una scelta valida.
   useEffect(() => {
     if (!open || tipo !== "regolazione") return;
-    if (autoQuietanzaDoneRef.current || quietanzaId) return;
-    const list = (catena || []) as Array<{ id: string; stato?: string }>;
-    if (list.length === 0) return;
-    // 1) se apri da una rata specifica presente in lista, usa quella;
-    // 2) altrimenti (apertura dalla madre / titolo derivato) scegli un default
-    //    sensato: la rata attiva, altrimenti la più recente (lista ordinata per
-    //    garanzia_da desc).
-    const current = titoloId && list.some((t) => t.id === titoloId) ? titoloId : null;
-    const attiva = list.find((t) => (t.stato || "").toLowerCase() === "attivo");
-    const pick = current || attiva?.id || list[0]?.id || null;
+    if (autoTitoloRifDoneRef.current || titoloRifId) return;
+    const pick = pickTitoloRiferimento(catena || [], {
+      currentId: titoloId,
+      dataRiferimento: new Date().toISOString().slice(0, 10),
+    });
     if (pick) {
-      autoQuietanzaDoneRef.current = true;
-      setQuietanzaId(pick);
+      autoTitoloRifDoneRef.current = true;
+      setTitoloRifId(pick);
     }
-  }, [open, tipo, catena, titoloId, quietanzaId]);
+  }, [open, tipo, catena, titoloId, titoloRifId]);
 
-  // Date derivate dalla quietanza selezionata (idempotente sui refetch di catena).
+  // Date derivate dal titolo selezionato (idempotente sui refetch di catena).
   useEffect(() => {
-    if (tipo !== "regolazione" || !quietanzaId || !catena) return;
-    const q = (catena as Array<{ id: string; garanzia_da?: string; garanzia_a?: string; data_scadenza?: string }>).find((t) => t.id === quietanzaId);
-    if (!q) return;
-    setDataEffetto(q.garanzia_da || "");
-    setDataAppendice(q.garanzia_a || q.data_scadenza || "");
-  }, [quietanzaId, catena, tipo]);
+    if (tipo !== "regolazione" || !titoloRifId || !catena) return;
+    const t = catena.find((r) => r.id === titoloRifId);
+    if (!t) return;
+    setDataEffetto(t.garanzia_da || "");
+    setDataAppendice(t.garanzia_a || t.data_scadenza || "");
+  }, [titoloRifId, catena, tipo]);
 
-  // Reset dell'editor SOLO quando cambia davvero la rata di riferimento: evita
+  // Reset dell'editor SOLO quando cambia davvero il titolo di riferimento: evita
   // che un refetch di `catena` lasci `editorReady=false` senza rimontare
   // l'editor (che ha key = editorTitoloId), bloccando il pulsante di salvataggio.
   useEffect(() => {
     if (tipo !== "regolazione") return;
     setEditorReady(false);
     setEditorState(null);
-  }, [quietanzaId, tipo]);
+  }, [titoloRifId, tipo]);
 
   const percProvv = titoloInfo?.percentuale_provvigione_calc ?? null;
   const aggregated = useMemo(
@@ -329,11 +319,11 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     if (dataEffetto && dataAppendice && dataEffetto > dataAppendice) {
       e.dataEffetto = "La data effetto deve precedere la scadenza";
     }
-    if (tipo === "regolazione" && !quietanzaId) e.quietanzaId = "Seleziona la quietanza di riferimento";
-    if (tipo === "regolazione" && !quietanzaId) e.editor = "Seleziona la quietanza di riferimento";
+    if (tipo === "regolazione" && !titoloRifId) e.titoloRifId = "Seleziona il titolo di riferimento (polizza o quietanza)";
+    if (tipo === "regolazione" && !titoloRifId) e.editor = "Seleziona il titolo di riferimento";
     else if (!editorReady) e.editor = "Caricamento composizione premi…";
     return e;
-  }, [dataEffetto, dataAppendice, tipo, quietanzaId, editorReady]);
+  }, [dataEffetto, dataAppendice, tipo, titoloRifId, editorReady]);
 
   const hasErrors = Object.keys(errors).length > 0;
 
@@ -343,7 +333,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
       if (!numeroAppendice.trim()) throw new Error("Numero appendice obbligatorio");
       if (!dataEffetto) throw new Error("Inserisci la data effetto");
       if (dataAppendice && dataEffetto > dataAppendice) throw new Error("La data effetto non può essere successiva alla scadenza");
-      if (tipo === "regolazione" && !quietanzaId) throw new Error("Seleziona la quietanza di riferimento");
+      if (tipo === "regolazione" && !titoloRifId) throw new Error("Seleziona il titolo di riferimento (polizza o quietanza)");
 
       const state = editorRef.current?.getState() ?? editorState;
       if (!state) throw new Error("Editor polizza non pronto");
@@ -376,7 +366,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
         dataScadenza: dataAppendice || null,
         oggetto: oggetto.trim() || null,
         note: note.trim() || null,
-        quietanzaId: tipo === "regolazione" ? quietanzaId : null,
+        quietanzaId: tipo === "regolazione" ? titoloRifId : null,
         aggregated: agg,
         provvigioni,
         percProvv,
@@ -400,7 +390,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
             numero_appendice: numeroAppendice.trim(),
             tipo,
             oggetto: oggetto.trim() || null,
-            quietanza_id: tipo === "regolazione" ? quietanzaId : undefined,
+            quietanza_id: tipo === "regolazione" ? titoloRifId : undefined,
             titolo_derivato_id: res.titolo_id,
           },
         });
@@ -437,12 +427,12 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
 
   const tipoInfo = TIPO_INFO[tipo];
 
-  const editorTitoloId = tipo === "regolazione" ? quietanzaId || null : madreId;
+  const editorTitoloId = tipo === "regolazione" ? titoloRifId || null : madreId;
 
   const editorBlock =
-    tipo === "regolazione" && !quietanzaId ? (
+    tipo === "regolazione" && !titoloRifId ? (
       <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground text-center">
-        Seleziona la quietanza di riferimento qui sopra per compilare i premi.
+        Seleziona il titolo di riferimento (polizza o quietanza) qui sopra per compilare i premi.
       </div>
     ) : editorTitoloId ? (
       <PolizzaSection
@@ -531,16 +521,16 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
 
       {tipo === "regolazione" && (
         <div>
-          <Label className="text-xs">Quietanza di riferimento *</Label>
+          <Label className="text-xs">Titolo di riferimento (polizza o quietanza) *</Label>
           <SearchableSelect
-            options={quietanzaOptions}
-            value={quietanzaId}
-            onValueChange={setQuietanzaId}
-            placeholder="Scegli la rata su cui agganciare la regolazione…"
-            emptyText="Nessuna quietanza disponibile"
-            className={cn(errors.quietanzaId && errClass)}
+            options={titoloRifOptions}
+            value={titoloRifId}
+            onValueChange={setTitoloRifId}
+            placeholder="Scegli la polizza o la rata su cui agganciare la regolazione…"
+            emptyText="Nessun titolo attivo per questa polizza"
+            className={cn(errors.titoloRifId && errClass)}
           />
-          <ErrMsg id="quietanzaId" />
+          <ErrMsg id="titoloRifId" />
         </div>
       )}
 

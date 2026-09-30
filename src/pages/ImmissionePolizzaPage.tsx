@@ -2531,12 +2531,12 @@ const ImmissionePolizzaPage = () => {
           })()}
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 md:gap-5 items-end">
             <div className="space-y-1">
-              <Label className="text-xs">Quietanza di riferimento *</Label>
+              <Label className="text-xs">Titolo di riferimento (polizza o quietanza) *</Label>
               <SearchableSelect
                 className="h-8 text-xs"
                 value={selectedQuietanzaRefId}
                 onValueChange={(v) => setSelectedQuietanzaRefId(v)}
-                placeholder="— Seleziona la quietanza —"
+                placeholder="— Seleziona polizza o quietanza —"
                 options={(quietanzePolizza || []).map((q: any) => {
                   const da = q.durata_da ? new Date(q.durata_da).toLocaleDateString("it-IT") : "—";
                   const a = q.durata_a ? new Date(q.durata_a).toLocaleDateString("it-IT") : "—";
@@ -2548,7 +2548,7 @@ const ImmissionePolizzaPage = () => {
                 })}
               />
               <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
-                La regolazione verrà collegata a questa quietanza nella tabella titoli_regolazioni.
+                La regolazione verrà collegata a questo titolo (polizza o quietanza) nella tabella titoli_regolazioni.
               </p>
             </div>
           </div>
