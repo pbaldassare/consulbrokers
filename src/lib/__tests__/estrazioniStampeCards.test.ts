@@ -14,6 +14,11 @@ describe("Estrazioni e Stampe — card spostate da Gestione Polizze", () => {
     expect(card?.label).toBe("Restituzione originali");
   });
 
+  it("include Documentazione da revisionare", () => {
+    const card = ESTRAZIONI_ACTIONS.find((a) => a.path === "/portafoglio/estrazioni/documentazione-revisione");
+    expect(card?.label).toBe("Documentazione da revisionare");
+  });
+
   it("usa lo stesso layout delle altre card (label + description + path)", () => {
     for (const a of ESTRAZIONI_ACTIONS) {
       expect(a.label.length).toBeGreaterThan(2);
