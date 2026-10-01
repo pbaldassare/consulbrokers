@@ -25,6 +25,21 @@ const fmtAmt = (n: number) => (Math.round((Number(n) || 0) * 100) / 100).toFixed
 
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
+/** Titoli già in una rimessa non annullata (a blocchi: PostgREST tronca a 1000 righe). */
+async function titoliGiaInRimessa(admin: any, titoloIds: string[]): Promise<Set<string>> {
+  const used = new Set<string>();
+  for (let i = 0; i < titoloIds.length; i += 200) {
+    const { data, error } = await admin
+      .from("rimessa_dettaglio")
+      .select("titolo_id, rimessa_premi!inner(stato)")
+      .in("titolo_id", titoloIds.slice(i, i + 200))
+      .neq("rimessa_premi.stato", "annullata");
+    if (error) throw error;
+    for (const r of data || []) used.add(r.titolo_id);
+  }
+  return used;
+}
+
 const payloadSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("metti_in_pagamento"),
@@ -145,11 +160,7 @@ Deno.serve(async (req) => {
       const { data: titoli, error: tErr } = await titoliQ;
       if (tErr) throw tErr;
 
-      const { data: usedTitoli } = await supabaseAdmin
-        .from("rimessa_dettaglio")
-        .select("titolo_id, rimessa_premi!inner(stato)")
-        .neq("rimessa_premi.stato", "annullata");
-      const usedIds = new Set((usedTitoli || []).map((r: any) => r.titolo_id));
+      const usedIds = await titoliGiaInRimessa(supabaseAdmin, (titoli || []).map((t: any) => t.id));
       const available = (titoli || [])
         .filter((t: any) => !usedIds.has(t.id))
         .map((t: any) => ({
@@ -503,11 +514,7 @@ Deno.serve(async (req) => {
       const { data: titoli, error: tErr } = await q;
       if (tErr) throw tErr;
 
-      const { data: usedTitoli } = await supabaseAdmin
-        .from("rimessa_dettaglio")
-        .select("titolo_id, rimessa_premi!inner(stato)")
-        .neq("rimessa_premi.stato", "annullata");
-      const usedIds = new Set((usedTitoli || []).map((r: any) => r.titolo_id));
+      const usedIds = await titoliGiaInRimessa(supabaseAdmin, (titoli || []).map((t: any) => t.id));
       available = (titoli || [])
         .filter((t: any) => !usedIds.has(t.id))
         .map((t: any) => ({

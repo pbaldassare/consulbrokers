@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { conCigEc } from "@/lib/cigEcAgenzia";
+import { fetchAllQueryPages } from "@/lib/movimentiBancari";
 import { buildECAgenziaPdf, type ECAgenziaData, type ECAgenziaTitolo } from "@/lib/ec-agenzia-pdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
@@ -114,8 +115,11 @@ const ECAgenziaPdfPage = () => {
         if (periodoDal) q = q.gte("data_messa_cassa", periodoDal);
         if (periodoAl) q = q.lte("data_messa_cassa", periodoAl);
         // Escludi titoli già rimessati (solo quando non è una selezione esplicita)
-        const { data: rimRaw } = await supabase.from("rimessa_dettaglio").select("titolo_id");
-        const rimSet = new Set((rimRaw || []).map((r: any) => r.titolo_id));
+        const rimRaw = await fetchAllQueryPages<{ titolo_id: string | null }>((from, to) =>
+          supabase.from("rimessa_dettaglio").select("titolo_id").order("id").range(from, to),
+          1000,
+        );
+        const rimSet = new Set(rimRaw.map((r) => r.titolo_id));
         const { data, error } = await q.order("data_messa_cassa", { ascending: true });
         if (error) throw error;
         return conCigEc((data || []).filter((t: any) => !rimSet.has(t.id)));

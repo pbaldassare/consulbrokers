@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { fetchCigEcByTitolo } from "@/lib/cigEcAgenzia";
+import { fetchAllQueryPages } from "@/lib/movimentiBancari";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -311,40 +312,43 @@ Consulbrokers`;
     queryKey: ["ec-agenzia-contab", filters],
     queryFn: async () => {
       // Fetch titoli already in rimessa_dettaglio to exclude them
-      const { data: rimessiRaw } = await supabase
-        .from("rimessa_dettaglio")
-        .select("titolo_id");
-      const rimessiSet = new Set((rimessiRaw || []).map((r) => r.titolo_id));
+      const rimessiRaw = await fetchAllQueryPages<{ titolo_id: string | null }>((from, to) =>
+        supabase.from("rimessa_dettaglio").select("titolo_id").order("id").range(from, to),
+        1000,
+      );
+      const rimessiSet = new Set(rimessiRaw.map((r) => r.titolo_id));
 
-      let query = supabase
-        .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, stato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, cig_rif, cig_temporaneo, cliente_anagrafica_id, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale, codice_cliente), compagnie(nome, codice, mail, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione)), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
-        .not("compagnia_id", "is", null);
+      const buildQuery = () => {
+        let query = supabase
+          .from("titoli")
+          .select("id, numero_titolo, premio_lordo, importo_incassato, stato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, cig_rif, cig_temporaneo, cliente_anagrafica_id, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale, codice_cliente), compagnie(nome, codice, mail, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione)), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
+          .not("compagnia_id", "is", null);
 
-      const incassateBase = ["stato.eq.incassato"];
-      const coperturaBase = ["stato.eq.attivo", "conferimento_gestito.eq.true", "data_copertura.not.is.null", "data_messa_cassa.is.null"];
-      if (filters.periodo_dal) {
-        const dal = format(filters.periodo_dal, "yyyy-MM-dd");
-        incassateBase.push(`data_messa_cassa.gte.${dal}`);
-        coperturaBase.push(`data_copertura.gte.${dal}`);
-      }
-      if (filters.periodo_al) {
-        const al = format(filters.periodo_al, "yyyy-MM-dd");
-        incassateBase.push(`data_messa_cassa.lte.${al}`);
-        coperturaBase.push(`data_copertura.lte.${al}`);
-      }
-      if (filters.stato_incasso === "incassate") {
-        query = query.or(`and(${incassateBase.join(",")})`);
-      } else if (filters.stato_incasso === "non_incassate") {
-        query = query.or(`and(${coperturaBase.join(",")})`);
-      } else {
-        query = query.or(`and(${incassateBase.join(",")}),and(${coperturaBase.join(",")})`);
-      }
+        const incassateBase = ["stato.eq.incassato"];
+        const coperturaBase = ["stato.eq.attivo", "conferimento_gestito.eq.true", "data_copertura.not.is.null", "data_messa_cassa.is.null"];
+        if (filters.periodo_dal) {
+          const dal = format(filters.periodo_dal, "yyyy-MM-dd");
+          incassateBase.push(`data_messa_cassa.gte.${dal}`);
+          coperturaBase.push(`data_copertura.gte.${dal}`);
+        }
+        if (filters.periodo_al) {
+          const al = format(filters.periodo_al, "yyyy-MM-dd");
+          incassateBase.push(`data_messa_cassa.lte.${al}`);
+          coperturaBase.push(`data_copertura.lte.${al}`);
+        }
+        if (filters.stato_incasso === "incassate") {
+          query = query.or(`and(${incassateBase.join(",")})`);
+        } else if (filters.stato_incasso === "non_incassate") {
+          query = query.or(`and(${coperturaBase.join(",")})`);
+        } else {
+          query = query.or(`and(${incassateBase.join(",")}),and(${coperturaBase.join(",")})`);
+        }
 
-      if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
+        if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
+        return query.order("id");
+      };
 
-      const { data: titoli, error } = await query;
-      if (error) throw error;
+      const titoli = await fetchAllQueryPages((from, to) => buildQuery().range(from, to), 1000);
       const cigByTitolo = await fetchCigEcByTitolo(titoli || []);
 
       const coassIds = (titoli || []).filter((t) => t.coassicurazione).map((t) => t.id);
