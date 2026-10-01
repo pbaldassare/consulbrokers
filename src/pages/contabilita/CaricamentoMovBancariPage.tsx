@@ -169,7 +169,8 @@ const Page = () => {
       const dates = Array.from(
         new Set(rows.map((r) => parseDataBancaria(colsPreview.data ? r[colsPreview.data] : null))),
       );
-      const existingKeys = await fetchExistingMovimentoDedupKeys(contoImportId, dates);
+      const importi = rows.map((r) => resolveImportoEstratto(r, colsPreview).importo || 0);
+      const existingKeys = await fetchExistingMovimentoDedupKeys(contoImportId, dates, importi);
       const p = buildPreviewEstratto(file.name, rows, {
         contoBancarioId: contoImportId,
         existingDedupKeys: existingKeys,
@@ -336,7 +337,11 @@ const Page = () => {
       }
 
       const dates = Array.from(new Set(records.map((r) => r.data_movimento)));
-      const existingKeys = await fetchExistingMovimentoDedupKeys(contoImportId, dates);
+      const existingKeys = await fetchExistingMovimentoDedupKeys(
+        contoImportId,
+        dates,
+        records.map((r) => r.importo),
+      );
 
       const toInsert: any[] = [];
       for (const r of records) {

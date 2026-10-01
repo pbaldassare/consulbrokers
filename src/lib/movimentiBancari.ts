@@ -675,10 +675,13 @@ export function sanitizeIlikeTerm(raw: string): string {
  * - Constraint-key (`uq_movimenti_bancari_dedup`): movimenti con le date del file su QUALSIASI conto,
  *   perché l'indice unico DB è globale (non include conto_bancario_id).
  * `dates` filtra solo il fetch del vincolo; se assente/vuoto, il vincolo usa le date dei movimenti del conto.
+ * `importi`: tutte le chiavi includono l'importo → se passati, dal conto si scaricano solo i movimenti
+ * con quegli importi (indice conto+importo) invece dell'intero storico del conto.
  */
 export async function fetchExistingMovimentoDedupKeys(
   contoBancarioId: string,
   dates?: string[],
+  importi?: number[],
 ): Promise<Set<string>> {
   const keys = new Set<string>();
   if (!contoBancarioId) return keys;
@@ -710,20 +713,47 @@ export async function fetchExistingMovimentoDedupKeys(
     }
   };
 
-  const contoRows = await fetchAllQueryPages<{
+  type DedupRow = {
     conto_bancario_id?: string | null;
     data_movimento?: string | null;
     importo?: number | null;
     descrizione?: string | null;
     ordinante?: string | null;
-  }>(async (from, to) =>
-    (supabase
-      .from("movimenti_bancari" as any)
-      .select("conto_bancario_id, data_movimento, importo, descrizione, ordinante")
-      .eq("conto_bancario_id", contoBancarioId)
-      .order("id", { ascending: true })
-      .range(from, to)) as any,
-  DEDUP_FETCH_PAGE);
+  };
+  const DEDUP_COLS = "conto_bancario_id, data_movimento, importo, descrizione, ordinante";
+  const importiList = importi
+    ? Array.from(new Set(importi.map((v) => round2(Number(v))).filter((v) => Number.isFinite(v) && v !== 0)))
+    : null;
+
+  let contoRows: DedupRow[];
+  if (importiList) {
+    const IMPORTO_CHUNK = 100;
+    const chunks: number[][] = [];
+    for (let i = 0; i < importiList.length; i += IMPORTO_CHUNK) chunks.push(importiList.slice(i, i + IMPORTO_CHUNK));
+    const pages = await Promise.all(
+      chunks.map((chunk) =>
+        fetchAllQueryPages<DedupRow>(async (from, to) =>
+          (supabase
+            .from("movimenti_bancari" as any)
+            .select(DEDUP_COLS)
+            .eq("conto_bancario_id", contoBancarioId)
+            .in("importo", chunk)
+            .order("id", { ascending: true })
+            .range(from, to)) as any,
+        DEDUP_FETCH_PAGE),
+      ),
+    );
+    contoRows = pages.flat();
+  } else {
+    contoRows = await fetchAllQueryPages<DedupRow>(async (from, to) =>
+      (supabase
+        .from("movimenti_bancari" as any)
+        .select(DEDUP_COLS)
+        .eq("conto_bancario_id", contoBancarioId)
+        .order("id", { ascending: true })
+        .range(from, to)) as any,
+    DEDUP_FETCH_PAGE);
+  }
 
   for (const row of contoRows) addRowKeys(row);
 
@@ -738,27 +768,24 @@ export async function fetchExistingMovimentoDedupKeys(
 
   // Vincolo globale: stesse date su altri conti (chunk per evitare URL PostgREST troppo lunghi)
   const DATE_CHUNK = 50;
-  for (let i = 0; i < dateList.length; i += DATE_CHUNK) {
-    const chunk = dateList.slice(i, i + DATE_CHUNK);
-    const globalRows = await fetchAllQueryPages<{
-      conto_bancario_id?: string | null;
-      data_movimento?: string | null;
-      importo?: number | null;
-      descrizione?: string | null;
-      ordinante?: string | null;
-    }>(async (from, to) =>
-      (supabase
-        .from("movimenti_bancari" as any)
-        .select("conto_bancario_id, data_movimento, importo, descrizione, ordinante")
-        .in("data_movimento", chunk)
-        .order("id", { ascending: true })
-        .range(from, to)) as any,
-    DEDUP_FETCH_PAGE);
-    for (const row of globalRows) {
-      // Soft keys solo per il conto target (già caricati); qui solo constraint
-      if (row.conto_bancario_id === contoBancarioId) continue;
-      addRowKeys(row, { soft: false, constraint: true });
-    }
+  const dateChunks: string[][] = [];
+  for (let i = 0; i < dateList.length; i += DATE_CHUNK) dateChunks.push(dateList.slice(i, i + DATE_CHUNK));
+  const globalPages = await Promise.all(
+    dateChunks.map((chunk) =>
+      fetchAllQueryPages<DedupRow>(async (from, to) =>
+        (supabase
+          .from("movimenti_bancari" as any)
+          .select(DEDUP_COLS)
+          .in("data_movimento", chunk)
+          .order("id", { ascending: true })
+          .range(from, to)) as any,
+      DEDUP_FETCH_PAGE),
+    ),
+  );
+  for (const row of globalPages.flat()) {
+    // Soft keys solo per il conto target (già caricati); qui solo constraint
+    if (row.conto_bancario_id === contoBancarioId) continue;
+    addRowKeys(row, { soft: false, constraint: true });
   }
 
   return keys;

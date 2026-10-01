@@ -22,6 +22,8 @@ import * as XLSX from "xlsx";
 
 const rangeMock = vi.fn();
 const inRangeMock = vi.fn(async () => ({ data: [], error: null }));
+const contoImportoRangeMock = vi.fn(async () => ({ data: [], error: null }));
+const contoImportoInMock = vi.fn();
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: () => ({
@@ -30,6 +32,14 @@ vi.mock("@/integrations/supabase/client", () => ({
           order: () => ({
             range: (...args: unknown[]) => (rangeMock as (...a: unknown[]) => unknown)(...args),
           }),
+          in: (...inArgs: unknown[]) => {
+            (contoImportoInMock as (...a: unknown[]) => unknown)(...inArgs);
+            return {
+              order: () => ({
+                range: (...args: unknown[]) => (contoImportoRangeMock as (...a: unknown[]) => unknown)(...args),
+              }),
+            };
+          },
         }),
         in: () => ({
           order: () => ({
@@ -200,6 +210,46 @@ describe("estratto bancario CSV/Excel", () => {
     const cell = { t: "n", v: 46232, w: "7/29/26" } as any;
     expect(excelCellValueForColumn(cell, "Data valuta")).toBe("2026-07-29");
     expect(excelCellValueForColumn(cell, "Importo")).toBe("7/29/26");
+  });
+
+  describe("fetchExistingMovimentoDedupKeys filtrato per importi", () => {
+    beforeEach(() => {
+      rangeMock.mockReset();
+      inRangeMock.mockReset();
+      inRangeMock.mockResolvedValue({ data: [], error: null });
+      contoImportoRangeMock.mockReset();
+      contoImportoInMock.mockReset();
+    });
+
+    it("scarica dal conto solo gli importi del file, non tutto lo storico", async () => {
+      contoImportoRangeMock.mockResolvedValue({
+        data: [
+          {
+            conto_bancario_id: "c1",
+            data_movimento: "2026-10-01",
+            importo: 230,
+            descrizione: "Bonifico a Vostro favore disposto da MITT. STIGLIANI",
+            ordinante: "STIGLIANI",
+          },
+        ],
+        error: null,
+      });
+      const keys = await fetchExistingMovimentoDedupKeys("c1", ["2026-10-01"], [230, 230.001, 0, -330]);
+      expect(rangeMock).not.toHaveBeenCalled();
+      expect(contoImportoInMock).toHaveBeenCalledWith("importo", [230, -330]);
+      expect(
+        isMovimentoDedupHit(
+          {
+            conto_bancario_id: "c1",
+            data_movimento: "2026-10-01",
+            importo: 230,
+            descrizione: "Bonifico a Vostro favore disposto da MITT. STIGLIANI",
+            ordinante: "STIGLIANI",
+          },
+          keys,
+        ),
+      ).toBe(true);
+    });
   });
 
   describe("fetchExistingMovimentoDedupKeys paginazione", () => {
