@@ -22,6 +22,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import SediManager from "@/components/anagrafiche/SediManager";
+import SchedaTab from "@/components/shared/SchedaTab";
 import SpecialistList from "@/components/anagrafiche/SpecialistList";
 import SpecialistSinistriList from "@/components/anagrafiche/SpecialistSinistriList";
 import ProduttoreProvvigioniRamoTab from "@/components/anagrafiche/ProduttoreProvvigioniRamoTab";
@@ -123,6 +124,7 @@ const emptyForm = {
 
 const AnagraficheInternePage = () => {
   const { profile, isAdmin } = useAuth();
+  const readOnly = profile?.ruolo === "ufficio";
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get("tab") as TabValue) || "account_executive";
@@ -563,7 +565,7 @@ const AnagraficheInternePage = () => {
           </TableCell>
           <TableCell className="text-sm">{phoneParts.length > 0 ? phoneParts.map((p, i) => <div key={i}>{p}</div>) : "—"}</TableCell>
           <TableCell className="text-center">
-             <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} onClick={(e) => e.stopPropagation()} />
+             <Switch checked={item.attivo ?? true} disabled={readOnly} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} onClick={(e) => e.stopPropagation()} />
           </TableCell>
         </TableRow>
       );
@@ -598,7 +600,7 @@ const AnagraficheInternePage = () => {
           </TableCell>
           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-center gap-2">
-              <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+              <Switch checked={item.attivo ?? true} disabled={readOnly} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
               {item.annullato && <Badge variant="destructive" className="text-xs">A</Badge>}
             </div>
           </TableCell>
@@ -630,7 +632,7 @@ const AnagraficheInternePage = () => {
           </TableCell>
           <TableCell className="text-sm text-xs">{item.iban || "—"}</TableCell>
           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-            <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+            <Switch checked={item.attivo ?? true} disabled={readOnly} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
           </TableCell>
         </TableRow>
       );
@@ -655,7 +657,7 @@ const AnagraficheInternePage = () => {
         </TableCell>
         <TableCell className="text-sm">{compName || "—"}</TableCell>
         <TableCell className="text-center">
-          <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} onClick={(e) => e.stopPropagation()} />
+          <Switch checked={item.attivo ?? true} disabled={readOnly} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} onClick={(e) => e.stopPropagation()} />
         </TableCell>
       </TableRow>
     );
@@ -762,8 +764,8 @@ const AnagraficheInternePage = () => {
 
       return (
         <>
-          {renderRuoliSelect()}
-          {renderUfficioSelect()}
+          <fieldset disabled={readOnly} className="min-w-0">{renderRuoliSelect()}</fieldset>
+          <fieldset disabled={readOnly} className="min-w-0">{renderUfficioSelect()}</fieldset>
           <Tabs defaultValue="dati">
             <TabsList className="grid grid-cols-4">
               <TabsTrigger value="dati">Dati</TabsTrigger>
@@ -771,7 +773,7 @@ const AnagraficheInternePage = () => {
               <TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>
               <TabsTrigger value="banca">Banca</TabsTrigger>
             </TabsList>
-            <TabsContent value="dati" className="space-y-3 mt-3">
+            <SchedaTab readOnly={readOnly} value="dati">
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} /></div>
                 <div><Label>Codice Fornitore</Label><Input value={form.codice_fornitore} onChange={(e) => setForm({ ...form, codice_fornitore: e.target.value })} /></div>
@@ -791,8 +793,8 @@ const AnagraficheInternePage = () => {
                 <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
                 <div><Label>Data iscrizione RUI</Label><DateField value={form.data_iscrizione_rui} onChange={(v) => setForm({ ...form, data_iscrizione_rui: v })} /></div>
               </div>
-            </TabsContent>
-            <TabsContent value="indirizzo" className="space-y-3 mt-3">
+            </SchedaTab>
+            <SchedaTab readOnly={readOnly} value="indirizzo">
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2"><Label>Indirizzo</Label><AddressAutocomplete value={form.indirizzo} onChange={(v) => setForm({ ...form, indirizzo: v })} onSelect={(c) => setForm((f: any) => ({ ...f, cap: c.cap, citta: c.citta, provincia: c.provincia }))} /></div>
                 <div><Label>Località</Label><Input value={form.citta} onChange={(e) => setForm({ ...form, citta: e.target.value })} /></div>
@@ -800,8 +802,8 @@ const AnagraficheInternePage = () => {
                 <div><Label>CAP</Label><Input value={form.cap} onChange={(e) => setForm({ ...form, cap: e.target.value })} /></div>
               </div>
               <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
-            </TabsContent>
-            <TabsContent value="provvigioni" className="space-y-4 mt-3">
+            </SchedaTab>
+            <SchedaTab readOnly={readOnly} value="provvigioni" className="space-y-4">
               <div>
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Default Produttore (fallback)</p>
                 <div className="grid grid-cols-3 gap-3">
@@ -832,15 +834,15 @@ const AnagraficheInternePage = () => {
                   defaults={{ base: form.percentuale_base, consulenza: form.percentuale_consulenza, ra: form.percentuale_ra }}
                 />
               </div>
-            </TabsContent>
-            <TabsContent value="banca" className="space-y-3 mt-3">
+            </SchedaTab>
+            <SchedaTab readOnly={readOnly} value="banca">
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>ABI</Label><Input value={form.abi} onChange={(e) => setForm({ ...form, abi: e.target.value })} /></div>
                 <div><Label>CAB</Label><Input value={form.cab} onChange={(e) => setForm({ ...form, cab: e.target.value })} /></div>
                 <div className="col-span-2"><Label>IBAN</Label><ValidatedInput kind="iban" value={form.iban} onChange={(v) => setForm({ ...form, iban: v })} className="font-mono" /></div>
                 <div className="col-span-2"><Label>Intestatario C/C</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
               </div>
-            </TabsContent>
+            </SchedaTab>
           </Tabs>
         </>
       );
@@ -849,8 +851,8 @@ const AnagraficheInternePage = () => {
     if (isNewCommercial) {
       return (
         <>
-          {renderRuoliSelect()}
-          {renderUfficioSelect()}
+          <fieldset disabled={readOnly} className="min-w-0">{renderRuoliSelect()}</fieldset>
+          <fieldset disabled={readOnly} className="min-w-0">{renderUfficioSelect()}</fieldset>
           <Tabs defaultValue="dati">
             <TabsList className="grid grid-cols-4">
               <TabsTrigger value="dati">Dati</TabsTrigger>
@@ -858,7 +860,7 @@ const AnagraficheInternePage = () => {
               <TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>
               <TabsTrigger value="banca">RUI & Banca</TabsTrigger>
             </TabsList>
-            <TabsContent value="dati" className="space-y-3 mt-3">
+            <SchedaTab readOnly={readOnly} value="dati">
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} /></div>
                 <div><Label>Codice Fornitore</Label><Input value={form.codice_fornitore} onChange={(e) => setForm({ ...form, codice_fornitore: e.target.value })} /></div>
@@ -869,8 +871,8 @@ const AnagraficheInternePage = () => {
                 <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
                 <div><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
               </div>
-            </TabsContent>
-            <TabsContent value="indirizzo" className="space-y-3 mt-3">
+            </SchedaTab>
+            <SchedaTab readOnly={readOnly} value="indirizzo">
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2"><Label>Indirizzo</Label><AddressAutocomplete value={form.indirizzo} onChange={(v) => setForm({ ...form, indirizzo: v })} onSelect={(c) => setForm((f: any) => ({ ...f, cap: c.cap, citta: c.citta, provincia: c.provincia }))} /></div>
                 <div><Label>CAP</Label><Input value={form.cap} onChange={(e) => setForm({ ...form, cap: e.target.value })} /></div>
@@ -878,15 +880,15 @@ const AnagraficheInternePage = () => {
                 <div><Label>Provincia</Label><Input value={form.provincia} onChange={(e) => setForm({ ...form, provincia: e.target.value })} maxLength={2} /></div>
               </div>
               <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
-            </TabsContent>
-            <TabsContent value="provvigioni" className="space-y-3 mt-3">
+            </SchedaTab>
+            <SchedaTab readOnly={readOnly} value="provvigioni">
               <div className="grid grid-cols-3 gap-3">
                 <div><Label>% Provvigione</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
                 <div><Label>% Provv. Consulenza</Label><Input type="number" step="0.01" value={form.percentuale_consulenza} onChange={(e) => setForm({ ...form, percentuale_consulenza: e.target.value })} /></div>
                 <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
               </div>
-            </TabsContent>
-            <TabsContent value="banca" className="space-y-3 mt-3">
+            </SchedaTab>
+            <SchedaTab readOnly={readOnly} value="banca">
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Iscrizione RUI</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Nome Iscrizione RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
@@ -901,7 +903,7 @@ const AnagraficheInternePage = () => {
                 <div className="col-span-2"><Label>IBAN</Label><ValidatedInput kind="iban" value={form.iban} onChange={(v) => setForm({ ...form, iban: v })} className="font-mono" /></div>
                 <div className="col-span-2"><Label>Intestatario C/C</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
               </div>
-            </TabsContent>
+            </SchedaTab>
           </Tabs>
         </>
       );
@@ -915,7 +917,7 @@ const AnagraficheInternePage = () => {
           <TabsTrigger value="contatti">Contatti</TabsTrigger>
           <TabsTrigger value="indirizzo">Indirizzo & Note</TabsTrigger>
         </TabsList>
-        <TabsContent value="dati" className="space-y-3 mt-3">
+        <SchedaTab readOnly={readOnly} value="dati">
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} placeholder="Es. 51" /></div>
             <div><Label>Nome Breve</Label><Input value={form.nome_breve} onChange={(e) => setForm({ ...form, nome_breve: e.target.value })} /></div>
@@ -943,8 +945,8 @@ const AnagraficheInternePage = () => {
             <div><Label>N° Albo</Label><Input value={form.albo_numero} onChange={(e) => setForm({ ...form, albo_numero: e.target.value })} /></div>
             <div><Label>Specializzazione</Label><Input value={form.specializzazione} onChange={(e) => setForm({ ...form, specializzazione: e.target.value })} /></div>
           </div>
-        </TabsContent>
-        <TabsContent value="contatti" className="space-y-3 mt-3">
+        </SchedaTab>
+        <SchedaTab readOnly={readOnly} value="contatti">
           <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Contatti diretti</p>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
@@ -958,8 +960,8 @@ const AnagraficheInternePage = () => {
             <div><Label>Nome Referente</Label><Input value={form.referente_nome} onChange={(e) => setForm({ ...form, referente_nome: e.target.value })} /></div>
             <div><Label>Email Referente</Label><Input type="email" value={form.referente_email} onChange={(e) => setForm({ ...form, referente_email: e.target.value })} /></div>
           </div>
-        </TabsContent>
-        <TabsContent value="indirizzo" className="space-y-3 mt-3">
+        </SchedaTab>
+        <SchedaTab readOnly={readOnly} value="indirizzo">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2"><Label>Indirizzo</Label><AddressAutocomplete value={form.indirizzo} onChange={(v) => setForm({ ...form, indirizzo: v })} onSelect={(c) => setForm((f: any) => ({ ...f, cap: c.cap, citta: c.citta, provincia: c.provincia }))} /></div>
             <div><Label>CAP</Label><Input value={form.cap} onChange={(e) => setForm({ ...form, cap: e.target.value })} /></div>
@@ -967,7 +969,7 @@ const AnagraficheInternePage = () => {
             <div><Label>Provincia</Label><Input value={form.provincia} onChange={(e) => setForm({ ...form, provincia: e.target.value })} maxLength={2} /></div>
           </div>
           <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
-        </TabsContent>
+        </SchedaTab>
       </Tabs>
     );
   };
@@ -979,7 +981,7 @@ const AnagraficheInternePage = () => {
           <h1 className="text-2xl font-bold text-foreground">Anagrafiche Amministrative</h1>
           <p className="text-sm text-muted-foreground">Figure interne all'compagnia: Account Executive, Produttori, Resp. Sede, Specialist e Sedi</p>
         </div>
-        {isAnagraficaTab && (
+        {isAnagraficaTab && !readOnly && (
           <Button onClick={() => { setEditingId(null); setEditingTipo(null); setMergeDupId(""); setForm(emptyForm); setDialogOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" />Nuovo
           </Button>
@@ -1031,6 +1033,7 @@ const AnagraficheInternePage = () => {
 
         <TabsContent value="specialist" className="mt-4">
           <SpecialistList
+            readOnly={readOnly}
             editId={activeTab === "specialist" ? pendingEditId : null}
             onEditConsumed={() => {
               setPendingEditId(null);
@@ -1042,35 +1045,37 @@ const AnagraficheInternePage = () => {
         </TabsContent>
 
         <TabsContent value="specialist_sinistri" className="mt-4">
-          <SpecialistSinistriList />
+          <SpecialistSinistriList readOnly={readOnly} />
         </TabsContent>
 
         <TabsContent value="sedi" className="mt-4">
-          <SediManager showHeader={false} />
+          <SediManager showHeader={false} readOnly={readOnly} />
         </TabsContent>
       </Tabs>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setEditingTipo(null); setMergeDupId(""); setForm(emptyForm); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? `Modifica ${tipoLabel.slice(0, -1)}` : `Nuovo ${tipoLabel.slice(0, -1)}`}</DialogTitle>
+            <DialogTitle>{readOnly ? "Dettaglio anagrafica" : editingId ? `Modifica ${tipoLabel.slice(0, -1)}` : `Nuovo ${tipoLabel.slice(0, -1)}`}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); editingId ? updateMutation.mutate() : createMutation.mutate(); }} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); if (readOnly) return; editingId ? updateMutation.mutate() : createMutation.mutate(); }} className="space-y-4">
             {renderFormFields()}
-            {renderUnisciScheda()}
+            {!readOnly && renderUnisciScheda()}
             <DialogFooter className="sm:justify-between gap-2">
               <div>
-                {editingId && (
+                {editingId && !readOnly && (
                   <Button type="button" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} disabled={deleteMutation.isPending}>
                     <Trash2 className="w-4 h-4 mr-2" />Elimina
                   </Button>
                 )}
               </div>
               <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {(createMutation.isPending || updateMutation.isPending) ? "Salvataggio..." : "Salva"}
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>{readOnly ? "Chiudi" : "Annulla"}</Button>
+                {!readOnly && (
+                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                    {(createMutation.isPending || updateMutation.isPending) ? "Salvataggio..." : "Salva"}
+                  </Button>
+                )}
               </div>
             </DialogFooter>
           </form>

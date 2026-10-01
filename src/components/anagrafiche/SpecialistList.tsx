@@ -18,6 +18,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { Search, Pencil, UserCog, ExternalLink, UserPlus, KeyRound, Copy, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import SchedaTab from "@/components/shared/SchedaTab";
 import { LEVELS } from "@/lib/userLevels";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
@@ -79,11 +80,12 @@ const SELECT_FIELDS =
   "id, nome, cognome, email, ruolo, ufficio_id, attivo, descrizione, indirizzo, cap, citta, provincia, telefono, fax, codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui, codice_contabile, percentuale_ra, iban, intestatario_cc, conto_bancario_id, percentuale_base, percentuale_consulenza, note";
 
 interface SpecialistListProps {
+  readOnly?: boolean;
   editId?: string | null;
   onEditConsumed?: () => void;
 }
 
-const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) => {
+const SpecialistList = ({ readOnly = false, editId, onEditConsumed }: SpecialistListProps = {}) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -410,12 +412,14 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
         </div>
         <Badge variant="secondary">{filtered.length} risultati</Badge>
         <div className="flex-1" />
-        <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
-          <UserPlus className="w-4 h-4" /> Nuovo Specialist
-        </Button>
+        {!readOnly && (
+          <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
+            <UserPlus className="w-4 h-4" /> Nuovo Specialist
+          </Button>
+        )}
       </div>
 
-      <div className="rounded-md border bg-card p-3 text-xs text-muted-foreground flex items-start gap-2">
+      {!readOnly && <div className="rounded-md border bg-card p-3 text-xs text-muted-foreground flex items-start gap-2">
         <UserCog className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <div className="flex-1">
           Gli <strong>Specialist</strong> sono utenti di sistema (ruolo <code className="text-foreground">backoffice</code>).
@@ -425,7 +429,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
         <Button size="sm" variant="outline" onClick={() => navigate("/utenti-privilegi")}>
           <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Centro Utenti
         </Button>
-      </div>
+      </div>}
 
       <div className="border border-border rounded-lg overflow-hidden">
         <Table>
@@ -485,15 +489,19 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                       <div className="text-xs">RA: {p.percentuale_ra ?? 0}%</div>
                     </TableCell>
                     <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                      <Switch checked={p.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: p.id, attivo: v })} />
+                      <Switch checked={p.attivo ?? true} disabled={readOnly} onCheckedChange={(v) => toggleMutation.mutate({ id: p.id, attivo: v })} />
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(p)} title="Modifica anagrafica">
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(p)} title="Elimina">
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      {!readOnly && (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => openEdit(p)} title="Modifica anagrafica">
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(p)} title="Elimina">
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -506,9 +514,9 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Modifica Specialist</DialogTitle>
+            <DialogTitle>{readOnly ? "Specialist" : "Modifica Specialist"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); updateMutation.mutate(); }} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); if (readOnly) return; updateMutation.mutate(); }} className="space-y-4">
             <Tabs defaultValue="dati">
               <TabsList className="grid grid-cols-5">
                 <TabsTrigger value="dati">Dati</TabsTrigger>
@@ -518,7 +526,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                 <TabsTrigger value="banca">Banca</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="dati" className="space-y-3 mt-3">
+              <SchedaTab readOnly={readOnly} value="dati">
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Codice contabile</Label><Input value={form.codice_contabile} onChange={(e) => setForm({ ...form, codice_contabile: e.target.value })} /></div>
                   <div><Label>Cognome *</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
@@ -535,9 +543,9 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                   <Switch checked={form.attivo} onCheckedChange={(v) => setForm({ ...form, attivo: v })} />
                   <Label>Attivo</Label>
                 </div>
-              </TabsContent>
+              </SchedaTab>
 
-              <TabsContent value="indirizzo" className="space-y-3 mt-3">
+              <SchedaTab readOnly={readOnly} value="indirizzo">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2"><Label>Indirizzo</Label><AddressAutocomplete value={form.indirizzo} onChange={(v) => setForm({ ...form, indirizzo: v })} onSelect={(c) => setForm((f) => ({ ...f, cap: c.cap, citta: c.citta, provincia: c.provincia }))} /></div>
                   <div><Label>CAP</Label><Input value={form.cap} onChange={(e) => setForm({ ...form, cap: e.target.value })} /></div>
@@ -545,26 +553,26 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                   <div><Label>Provincia</Label><Input value={form.provincia} onChange={(e) => setForm({ ...form, provincia: e.target.value.toUpperCase() })} maxLength={2} /></div>
                 </div>
                 <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
-              </TabsContent>
+              </SchedaTab>
 
-              <TabsContent value="rui" className="space-y-3 mt-3">
+              <SchedaTab readOnly={readOnly} value="rui">
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Nome RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
                   <div><Label>Sezione RUI</Label><Input value={form.sezione_rui} onChange={(e) => setForm({ ...form, sezione_rui: e.target.value })} placeholder="Es. B" /></div>
                   <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
                   <div><Label>Data iscrizione RUI</Label><DateField value={form.data_iscrizione_rui} onChange={(v) => setForm({ ...form, data_iscrizione_rui: v })} /></div>
                 </div>
-              </TabsContent>
+              </SchedaTab>
 
-              <TabsContent value="provvigioni" className="space-y-3 mt-3">
+              <SchedaTab readOnly={readOnly} value="provvigioni">
                 <div className="grid grid-cols-3 gap-3">
                   <div><Label>% Provvigione</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
                   <div><Label>% Consulenza</Label><Input type="number" step="0.01" value={form.percentuale_consulenza} onChange={(e) => setForm({ ...form, percentuale_consulenza: e.target.value })} /></div>
                   <div><Label>% RA</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
                 </div>
-              </TabsContent>
+              </SchedaTab>
 
-              <TabsContent value="banca" className="space-y-3 mt-3">
+              <SchedaTab readOnly={readOnly} value="banca">
                 <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
                   <Label className="font-semibold">Conto incassi clienti collegato a questo Specialist</Label>
                   <p className="text-xs text-muted-foreground">
@@ -582,18 +590,22 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                   <div><Label>IBAN (campo libero — legacy)</Label><ValidatedInput kind="iban" value={form.iban} onChange={(v) => setForm({ ...form, iban: v })} className="font-mono" /></div>
                   <div><Label>Intestatario C/C (legacy)</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
                 </div>
-              </TabsContent>
+              </SchedaTab>
             </Tabs>
 
             <DialogFooter className="flex sm:justify-between gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => { setResetPwd("Leone123!"); setResetOpen(true); }} className="gap-1.5">
-                <KeyRound className="w-4 h-4" /> Reset password
-              </Button>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? "Salvataggio..." : "Salva"}
+              {readOnly ? <div /> : (
+                <Button type="button" variant="outline" size="sm" onClick={() => { setResetPwd("Leone123!"); setResetOpen(true); }} className="gap-1.5">
+                  <KeyRound className="w-4 h-4" /> Reset password
                 </Button>
+              )}
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>{readOnly ? "Chiudi" : "Annulla"}</Button>
+                {!readOnly && (
+                  <Button type="submit" disabled={updateMutation.isPending}>
+                    {updateMutation.isPending ? "Salvataggio..." : "Salva"}
+                  </Button>
+                )}
               </div>
             </DialogFooter>
           </form>

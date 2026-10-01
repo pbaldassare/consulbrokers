@@ -44,7 +44,7 @@ const emptyCreate = {
   password: DEFAULT_PASSWORD,
 };
 
-const SpecialistSinistriList = () => {
+const SpecialistSinistriList = ({ readOnly = false }: { readOnly?: boolean } = {}) => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -265,20 +265,24 @@ const SpecialistSinistriList = () => {
         </div>
         <Badge variant="secondary">{filtered.length} risultati</Badge>
         <div className="flex-1" />
-        <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
-          <UserPlus className="w-4 h-4" /> Nuovo Specialist Sinistri
-        </Button>
+        {!readOnly && (
+          <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
+            <UserPlus className="w-4 h-4" /> Nuovo Specialist Sinistri
+          </Button>
+        )}
       </div>
 
-      <div className="rounded-md border bg-card p-3 text-xs text-muted-foreground flex items-start gap-2">
-        <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0" />
-        <div>
-          Crea uno <strong>Specialist Sinistri</strong> con nome, cognome, email e sedi di copertura.
-          Viene creato un utente di sistema (ruolo <code className="text-foreground">ufficio</code>)
-          selezionabile come Responsabile Interno nei sinistri. Distinto dallo Specialist commerciale
-          (ruolo backoffice) e dal Liquidatore esterno (anagrafiche compagnie).
+      {!readOnly && (
+        <div className="rounded-md border bg-card p-3 text-xs text-muted-foreground flex items-start gap-2">
+          <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <div>
+            Crea uno <strong>Specialist Sinistri</strong> con nome, cognome, email e sedi di copertura.
+            Viene creato un utente di sistema (ruolo <code className="text-foreground">ufficio</code>)
+            selezionabile come Responsabile Interno nei sinistri. Distinto dallo Specialist commerciale
+            (ruolo backoffice) e dal Liquidatore esterno (anagrafiche compagnie).
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="border border-border rounded-lg overflow-hidden">
         <Table>
@@ -289,19 +293,19 @@ const SpecialistSinistriList = () => {
               <TableHead>Email</TableHead>
               <TableHead>Sedi di copertura</TableHead>
               <TableHead className="text-center">Stato</TableHead>
-              <TableHead className="text-right">Azioni</TableHead>
+              {!readOnly && <TableHead className="text-right">Azioni</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={readOnly ? 5 : 6} className="text-center py-8 text-muted-foreground">
                   Caricamento...
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={readOnly ? 5 : 6} className="text-center py-8 text-muted-foreground">
                   Nessuno Specialist Sinistri. Crea il primo con nome, cognome, email e sede.
                 </TableCell>
               </TableRow>
@@ -311,8 +315,8 @@ const SpecialistSinistriList = () => {
                 return (
                   <TableRow
                     key={p.id}
-                    className={cn("hover:bg-muted/50 cursor-pointer", idx % 2 === 1 && "bg-muted/20")}
-                    onClick={() => openEdit(p)}
+                    className={cn("hover:bg-muted/50", !readOnly && "cursor-pointer", idx % 2 === 1 && "bg-muted/20")}
+                    onClick={readOnly ? undefined : () => openEdit(p)}
                   >
                     <TableCell>
                       <div className="font-medium">{p.cognome || "—"}</div>
@@ -345,7 +349,7 @@ const SpecialistSinistriList = () => {
                         {p.attivo ? "Attivo" : "Disattivo"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    {!readOnly && <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <Button variant="ghost" size="sm" onClick={() => openEdit(p)} title="Modifica sedi">
                         <Pencil className="w-4 h-4" />
                       </Button>
@@ -361,7 +365,7 @@ const SpecialistSinistriList = () => {
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 );
               })

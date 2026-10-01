@@ -43,6 +43,7 @@ interface Ufficio {
 interface SediManagerProps {
   /** Quando true mostra l'header con titolo "Gestione Sedi". Default true (route legacy). */
   showHeader?: boolean;
+  readOnly?: boolean;
 }
 
 const composeIndirizzoFull = (u: Pick<Ufficio, "indirizzo" | "cap" | "citta" | "provincia">) => {
@@ -51,7 +52,7 @@ const composeIndirizzoFull = (u: Pick<Ufficio, "indirizzo" | "cap" | "citta" | "
   return [u.indirizzo, tail].filter(Boolean).join(", ");
 };
 
-const SediManager = ({ showHeader = true }: SediManagerProps) => {
+const SediManager = ({ showHeader = true, readOnly = false }: SediManagerProps) => {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUfficio, setEditingUfficio] = useState<Ufficio | null>(null);
@@ -217,11 +218,11 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
             </h2>
             <p className="text-muted-foreground text-sm mt-1">Gestisci le sedi e le entità collegate</p>
           </div>
-          <Button onClick={openCreateDialog}><Plus className="w-4 h-4 mr-2" /> Nuova Sede</Button>
+          {!readOnly && <Button onClick={openCreateDialog}><Plus className="w-4 h-4 mr-2" /> Nuova Sede</Button>}
         </div>
       )}
 
-      {!showHeader && (
+      {!showHeader && !readOnly && (
         <div className="flex justify-end">
           <Button onClick={openCreateDialog}><Plus className="w-4 h-4 mr-2" /> Nuova Sede</Button>
         </div>
@@ -264,7 +265,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
                   <TableHead className="text-center">Utenti</TableHead>
                   <TableHead className="text-center">Clienti</TableHead>
                   <TableHead>Stato</TableHead>
-                  <TableHead>Azioni</TableHead>
+                  {!readOnly && <TableHead>Azioni</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -286,7 +287,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
                         {u.attivo ? "Attiva" : "Disattiva"}
                       </Badge>
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    {!readOnly && <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="sm" onClick={() => openEditDialog(u)}>
                           <Pencil className="w-4 h-4" />
@@ -295,7 +296,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 ))}
                 {filteredUffici.length === 0 && (
@@ -307,7 +308,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
         </CardContent>
       </Card>
 
-      {selectedUfficio && <UfficioDetail ufficio={selectedUfficio} uffici={uffici} />}
+      {selectedUfficio && <UfficioDetail ufficio={selectedUfficio} uffici={uffici} readOnly={readOnly} />}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
@@ -438,7 +439,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   );
 };
 
-const UfficioDetail = ({ ufficio, uffici }: { ufficio: Ufficio; uffici: Ufficio[] }) => {
+const UfficioDetail = ({ ufficio, uffici, readOnly = false }: { ufficio: Ufficio; uffici: Ufficio[]; readOnly?: boolean }) => {
   const queryClient = useQueryClient();
 
   const { data: utenti = [] } = useQuery({
@@ -568,6 +569,7 @@ const UfficioDetail = ({ ufficio, uffici }: { ufficio: Ufficio; uffici: Ufficio[
                     <TableCell>
                       <Select
                         value={ufficio.id}
+                        disabled={readOnly}
                         onValueChange={(v) => {
                           if (v !== ufficio.id) reassignMutation.mutate({ id: p.id, newUfficioId: v });
                         }}
