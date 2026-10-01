@@ -22,19 +22,27 @@ export function CompactCard({
   );
 }
 
+function isZeroEuro(value: ReactNode): boolean {
+  if (typeof value !== "string") return false;
+  return /^€?\s*0([.,]\d+)?(\s|\u00a0)*€?$/.test(value.trim());
+}
+
 export function Field({
   label,
   value,
   highlight,
   hideEmpty,
+  hideZero,
 }: {
   label: string;
   value: ReactNode;
   highlight?: boolean;
   hideEmpty?: boolean;
+  hideZero?: boolean;
 }) {
   const empty = value === null || value === undefined || value === "" || value === "—";
   if (hideEmpty && empty) return null;
+  if (hideZero && (empty || isZeroEuro(value))) return null;
   return (
     <div className="flex justify-between gap-4 py-1.5 border-b border-border/40 last:border-0">
       <span className="text-muted-foreground shrink-0">{label}</span>

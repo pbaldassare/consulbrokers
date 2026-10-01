@@ -9,14 +9,22 @@ type Props = {
   righe: RipartoRiga[];
   hasProduttore: boolean;
   loading?: boolean;
-  /** Firma / quietanza annuali o di rata, già formattati. */
+  /** Etichetta del totale (annue sul contratto, di rata sulla quietanza). */
+  totaleLabel?: string;
   extraFields?: { label: string; value: ReactNode }[];
 };
 
-export function SchedaCommercialeCard({ totProvv, righe, hasProduttore, loading, extraFields }: Props) {
+export function SchedaCommercialeCard({
+  totProvv,
+  righe,
+  hasProduttore,
+  loading,
+  totaleLabel = "Provvigioni",
+  extraFields,
+}: Props) {
   const produttori = righe.filter((r) => r.ruolo === "produttore");
   const ae = righe.filter((r) => r.ruolo === "ae");
-  const agenzia = righe.find((r) => r.ruolo === "agenzia");
+  const agenzia = righe.find((r) => r.ruolo === "agenzia" && (r.perc > 0 || r.importo > 0));
 
   return (
     <CompactCard title="Produttore & provvigioni" accent="border-l-teal-600">
@@ -37,7 +45,7 @@ export function SchedaCommercialeCard({ totProvv, righe, hasProduttore, loading,
           ))}
           {agenzia && <RipartoRow r={agenzia} icon="agenzia" />}
           <div className="flex justify-between gap-4 pt-1.5 border-t border-border/60 text-sm">
-            <span className="text-muted-foreground">Provvigioni di rata</span>
+            <span className="text-muted-foreground">{totaleLabel}</span>
             <span className="font-bold tabular-nums">{fmtEuro(totProvv)}</span>
           </div>
           {extraFields?.map((f) => (

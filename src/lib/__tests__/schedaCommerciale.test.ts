@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRipartoCommerciale,
+  extraFirmaQuietanza,
   nomeAnagraficaProf,
+  scalaRiparto,
   totProvvigioniRata,
 } from "../schedaCommerciale";
 
@@ -60,5 +62,25 @@ describe("buildRipartoCommerciale", () => {
     expect(r.righe).toEqual([
       { ruolo: "agenzia", nome: "Consulbrokers SPA", perc: 100, importo: 46.58 },
     ]);
+  });
+});
+
+describe("extraFirmaQuietanza", () => {
+  const fmt = (n: number) => `${n}`;
+  it("nasconde se firma = quietanza", () => {
+    expect(extraFirmaQuietanza(46.58, 46.58, fmt)).toEqual([]);
+  });
+  it("mostra solo la valorizzata", () => {
+    expect(extraFirmaQuietanza(409, 0, fmt)).toEqual([{ label: "di cui firma", value: "409" }]);
+  });
+});
+
+describe("scalaRiparto", () => {
+  it("ricalcola gli importi sul totale rata", () => {
+    const scaled = scalaRiparto(
+      [{ ruolo: "produttore", nome: "A", perc: 40, importo: 400 }],
+      50,
+    );
+    expect(scaled[0].importo).toBe(20);
   });
 });

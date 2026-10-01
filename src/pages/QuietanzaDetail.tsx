@@ -18,7 +18,7 @@ import {
 import { useTitoloCommerciale } from "@/hooks/useTitoloCommerciale";
 import { SchedaCommercialeCard } from "@/components/titolo/SchedaCommercialeCard";
 import { CompactCard, Field } from "@/components/titolo/SchedaCompact";
-import { totProvvigioniRata } from "@/lib/schedaCommerciale";
+import { extraFirmaQuietanza, scalaRiparto, totProvvigioniRata } from "@/lib/schedaCommerciale";
 
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
 
@@ -237,18 +237,18 @@ export default function QuietanzaDetail() {
         <CompactCard title="Importi rata">
           <Field label="Premio lordo" value={fmtEuro(q.premio_lordo)} highlight />
           <Field label="Premio netto" value={fmtEuro(q.premio_netto)} />
-          <Field label="Tasse" value={fmtEuro(q.tasse)} hideEmpty />
-          <Field label="Addizionali" value={fmtEuro(q.addizionali)} hideEmpty />
-          <Field label="SSN" value={fmtEuro(q.ssn)} hideEmpty />
-          <Field label="Provv. firma" value={fmtEuro(q.provvigioni_firma)} />
-          <Field label="Provv. quietanza" value={fmtEuro(q.provvigioni_quietanza)} />
+          <Field label="Tasse" value={fmtEuro(q.tasse)} hideZero />
+          <Field label="Addizionali" value={fmtEuro(q.addizionali)} hideZero />
+          <Field label="SSN" value={fmtEuro(q.ssn)} hideZero />
         </CompactCard>
 
         <SchedaCommercialeCard
-          totProvv={commerciale?.totProvv ?? totProvvRata}
-          righe={commerciale?.righe ?? []}
+          totProvv={totProvvRata}
+          righe={scalaRiparto(commerciale?.righe ?? [], totProvvRata)}
           hasProduttore={!!commerciale?.hasProduttore}
           loading={loadingComm}
+          totaleLabel="Provvigioni di rata"
+          extraFields={extraFirmaQuietanza(q.provvigioni_firma, q.provvigioni_quietanza, fmtEuro)}
         />
       </div>
 

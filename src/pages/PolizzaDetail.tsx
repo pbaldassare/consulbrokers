@@ -14,6 +14,7 @@ import { AzioniPolizzaToolbar, type ToolbarQuietanza } from "@/components/titolo
 import { useTitoloCommerciale } from "@/hooks/useTitoloCommerciale";
 import { SchedaCommercialeCard } from "@/components/titolo/SchedaCommercialeCard";
 import { CompactCard, Field } from "@/components/titolo/SchedaCompact";
+import { extraFirmaQuietanza } from "@/lib/schedaCommerciale";
 
 const POLIZZA_TABS = ["contratto", "quietanze"] as const;
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
@@ -129,7 +130,7 @@ export default function PolizzaDetail() {
             {commerciale && (
               <>
                 {" · "}
-                <span className="text-muted-foreground">Provv. rata</span>{" "}
+                <span className="text-muted-foreground">Provv. annue</span>{" "}
                 <span className="font-mono font-semibold">{fmtEuro(commerciale.totProvv)}</span>
               </>
             )}
@@ -179,18 +180,22 @@ export default function PolizzaDetail() {
             <CompactCard title="Premio annuo">
               <Field label="Premio lordo" value={fmtEuro(polizza.premio_annuo_lordo)} highlight />
               <Field label="Premio netto" value={fmtEuro(polizza.premio_annuo_netto)} />
-              <Field label="Tasse" value={fmtEuro(polizza.tasse_annue)} hideEmpty />
-              <Field label="Addizionali" value={fmtEuro(polizza.addizionali_annue)} hideEmpty />
-              <Field label="SSN" value={fmtEuro(polizza.ssn_annuo)} hideEmpty />
-              <Field label="Provv. firma" value={fmtEuro(polizza.provvigioni_annue_firma ?? commerciale?.provvigioniFirma)} />
-              <Field label="Provv. quietanza" value={fmtEuro(polizza.provvigioni_annue_quietanza ?? commerciale?.provvigioniQuietanza)} />
+              <Field label="Tasse" value={fmtEuro(polizza.tasse_annue)} hideZero />
+              <Field label="Addizionali" value={fmtEuro(polizza.addizionali_annue)} hideZero />
+              <Field label="SSN" value={fmtEuro(polizza.ssn_annuo)} hideZero />
             </CompactCard>
 
             <SchedaCommercialeCard
-              totProvv={commerciale?.totProvv ?? 0}
+              totProvv={commerciale?.totProvv ?? Number(polizza.provvigioni_annue_quietanza || polizza.provvigioni_annue_firma) || 0}
               righe={commerciale?.righe ?? []}
               hasProduttore={!!commerciale?.hasProduttore}
               loading={loadingComm}
+              totaleLabel="Provvigioni annue"
+              extraFields={extraFirmaQuietanza(
+                polizza.provvigioni_annue_firma ?? commerciale?.provvigioniFirma,
+                polizza.provvigioni_annue_quietanza ?? commerciale?.provvigioniQuietanza,
+                fmtEuro,
+              )}
             />
           </div>
 

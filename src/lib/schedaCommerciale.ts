@@ -85,3 +85,25 @@ export function buildRipartoCommerciale(opts: {
     righe: [...prodRows, ...aeRows, residuo],
   };
 }
+
+/** Ricalcola gli importi del riparto su un totale diverso (es. rata vs annuo). */
+export function scalaRiparto(righe: RipartoRiga[], totProvv: number): RipartoRiga[] {
+  const tot = round2(Number(totProvv) || 0);
+  return righe.map((r) => ({ ...r, importo: round2((tot * r.perc) / 100) }));
+}
+
+/** Mostra firma/quietanza solo se valorizzate e diverse tra loro. */
+export function extraFirmaQuietanza(
+  firma: number | null | undefined,
+  quietanza: number | null | undefined,
+  formatEuro: (n: number) => string,
+): { label: string; value: string }[] {
+  const f = Number(firma) || 0;
+  const q = Number(quietanza) || 0;
+  if (f <= 0 && q <= 0) return [];
+  if (f > 0 && q > 0 && Math.abs(f - q) < 0.005) return [];
+  const out: { label: string; value: string }[] = [];
+  if (f > 0) out.push({ label: "di cui firma", value: formatEuro(f) });
+  if (q > 0) out.push({ label: "di cui quietanza", value: formatEuro(q) });
+  return out;
+}
