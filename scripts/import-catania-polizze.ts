@@ -13,7 +13,7 @@
  *   rinnovo positivo successivo.
  * - Numeri già presenti non vengono duplicati.
  */
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import XLSX from "xlsx";
 import {
@@ -40,6 +40,8 @@ const OUT =
   process.argv.find((arg) => arg.startsWith("--out="))?.slice("--out=".length) ||
   "/tmp/catania-polizze-import.sql";
 const PLAN = "/tmp/catania-polizze-plan.json";
+const STAGING_DIR = "/tmp/catania-polizze-staging";
+const STAGING_JSON = "/tmp/catania-polizze-staging.json";
 const CATANIA_UFFICIO_ID = "d2c47452-4bb2-4b3b-8a24-a1606357e909";
 
 type Source = {
@@ -193,22 +195,69 @@ function valueSql(row: Source): string {
   ].join(", ")})`;
 }
 
+function stagingJsonRow(row: Source) {
+  return {
+    ordine: row.ordine,
+    id_legacy: row.idLegacy,
+    tipo: row.tipo,
+    numero_raw: row.numeroRaw,
+    numero_norm: row.numero,
+    cliente_codice: row.clienteCodice,
+    cliente_nome: row.clienteNome,
+    compagnia_raw: row.compagniaRaw,
+    compagnia_codice: row.compagnia,
+    ramo_raw: row.ramoRaw,
+    ramo_codice: row.ramo,
+    ramo_nome: row.ramoNome,
+    appendice: row.appendice,
+    descrizione: row.descrizione,
+    cig: row.cig,
+    iniz_pol: row.inizPol,
+    scad_pol: row.scadPol,
+    iniz_gar: row.inizGar,
+    scad_gar: row.scadGar,
+    comp_contabile: row.compContabile,
+    comp_assicurativa: row.compAssicurativa,
+    data_copertura: row.dataCopertura,
+    data_incasso: row.dataIncasso,
+    premio: row.premio,
+    imponibile: row.imponibile,
+    tasse: row.tasse,
+    attive: row.attive,
+    passive: row.passive,
+    riparto: row.riparto,
+    rate: row.rate,
+    frazionamento: row.frazionamento,
+    rinnovo: row.rinnovo,
+    specialist: row.specialist,
+    ae_nome: row.ae,
+    produttore_nome: row.produttore,
+    tipo_incasso: row.tipoIncasso,
+    conto_incasso: row.contoIncasso,
+    tipo_portafoglio: row.tipoPortafoglio,
+    cambio: row.cambio,
+    mesi_disdetta: row.mesiDisdetta,
+  };
+}
+
 function buildSql(rows: Source[]): string {
   const values = rows.map(valueSql).join(",\n");
   return `BEGIN;
 
 -- Anagrafiche autorizzate dal broker.
-INSERT INTO public.compagnie (codice, nome, attiva, tipo)
-SELECT 'LIC000', 'LLOYD''S INSURANCE COMPANY S.A. MILANO', true, 'agenzia'
+INSERT INTO public.compagnie (codice, nome, attiva, tipo, gruppo_compagnia_id)
+SELECT 'LIC000', 'LLOYD''S INSURANCE COMPANY S.A. MILANO', true, 'agenzia',
+       '5f9da355-a4b2-4707-9601-75fd3d333283'::uuid
 WHERE NOT EXISTS (SELECT 1 FROM public.compagnie WHERE upper(codice) = 'LIC000');
 
-INSERT INTO public.compagnie (codice, nome, attiva, tipo)
-SELECT 'UNISCI', 'SCIACCA ASSICURAZIONI SRL UNIPOLSAI ASS.NI TAORMINA', true, 'agenzia'
+INSERT INTO public.compagnie (codice, nome, attiva, tipo, gruppo_compagnia_id)
+SELECT 'UNISCI', 'SCIACCA ASSICURAZIONI SRL UNIPOLSAI ASS.NI TAORMINA', true, 'agenzia',
+       '8d394866-aab5-4b07-a9d3-b718801cf16f'::uuid
 WHERE NOT EXISTS (SELECT 1 FROM public.compagnie WHERE upper(codice) = 'UNISCI');
 
 INSERT INTO public.anagrafiche_professionali
   (tipo, ruoli, nome, cognome, ragione_sociale, ufficio_id, attivo, note)
-SELECT 'produttore', ARRAY['produttore']::text[], v.nome, v.cognome,
+SELECT 'corrispondente', ARRAY['corrispondente']::text[], v.nome, v.cognome,
        concat_ws(' ', v.cognome, v.nome), '${CATANIA_UFFICIO_ID}'::uuid, true,
        'Creato per import portafoglio Catania 01/10/2026'
 FROM (VALUES
@@ -822,4 +871,19 @@ if (new Set(rows.map((row) => row.idLegacy)).size !== rows.length) {
 
 writeFileSync(PLAN, JSON.stringify(report, null, 2) + "\n");
 writeFileSync(OUT, buildSql(rows));
-console.log(JSON.stringify({ ...report, sql: OUT, plan: PLAN }, null, 2));
+writeFileSync(STAGING_JSON, JSON.stringify(rows.map(stagingJsonRow)) + "\n");
+mkdirSync(STAGING_DIR, { recursive: true });
+for (let index = 0; index < rows.length; index += 50) {
+  const batch = rows.slice(index, index + 50);
+  writeFileSync(
+    `${STAGING_DIR}/${String(index / 50 + 1).padStart(2, "0")}.sql`,
+    `INSERT INTO public._import_catania_polizze_20261001 VALUES\n${batch.map(valueSql).join(",\n")};\n`,
+  );
+}
+console.log(JSON.stringify({
+  ...report,
+  sql: OUT,
+  plan: PLAN,
+  staging: STAGING_DIR,
+  stagingJson: STAGING_JSON,
+}, null, 2));
