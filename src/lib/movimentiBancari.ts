@@ -72,6 +72,18 @@ export function extractOrdinanteFromDescrizione(descrizione: string): string {
     return sanitizeOrdinanteNome(name);
   }
 
+  // Intesa "Lista operazioni": "… disposto da MITT. NOME BENEF. CONSULBROKERS …"
+  const mitt = desc.match(/\bMITT\.?\s+(.+?)(?:\s+BENEF\b|$)/i);
+  if (mitt) {
+    const cleaned = sanitizeOrdinanteNome(mitt[1].replace(CAUSALE_STOP_RE, "").trim());
+    if (cleaned) return cleaned;
+  }
+  const disposto = desc.match(/\bdisposto\s+da\s+(.+?)(?:\s+BENEF\b|$)/i);
+  if (disposto) {
+    const cleaned = sanitizeOrdinanteNome(disposto[1].replace(CAUSALE_STOP_RE, "").trim());
+    if (cleaned) return cleaned;
+  }
+
   // Intesa/Unicredit/BPM: "BONIFICO A VOSTRO FAVORE NOME Data Regolamento:"
   // (prima di ORDINANTE: evita di matchare "Coord.Ordinante:" = IBAN)
   const vostro = desc.match(
@@ -214,14 +226,19 @@ export function sheetRowsPreferDisplay(sheet: XLSX.WorkSheet): Record<string, un
   const ref = sheet["!ref"];
   if (!ref) return [];
   const range = XLSX.utils.decode_range(ref);
-  const headers: string[] = [];
-  for (let C = range.s.c; C <= range.e.c; C++) {
-    const addr = XLSX.utils.encode_cell({ r: range.s.r, c: C });
-    const raw = excelCellDisplayValue(sheet[addr]);
-    headers.push(String(raw ?? "").replace(/^\uFEFF/, "").trim());
-  }
+  const readHeaders = (r: number): string[] => {
+    const hs: string[] = [];
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const addr = XLSX.utils.encode_cell({ r, c: C });
+      const raw = excelCellDisplayValue(sheet[addr]);
+      hs.push(String(raw ?? "").replace(/^\uFEFF/, "").trim());
+    }
+    return hs;
+  };
+  const headerRow = findHeaderRowEstratto(range.s.r, Math.min(range.e.r, range.s.r + 60), readHeaders);
+  const headers = readHeaders(headerRow);
   const out: Record<string, unknown>[] = [];
-  for (let R = range.s.r + 1; R <= range.e.r; R++) {
+  for (let R = headerRow + 1; R <= range.e.r; R++) {
     const row: Record<string, unknown> = {};
     let empty = true;
     for (let C = range.s.c; C <= range.e.c; C++) {
@@ -235,6 +252,32 @@ export function sheetRowsPreferDisplay(sheet: XLSX.WorkSheet): Record<string, un
     if (!empty) out.push(normalizeExcelRow(row));
   }
   return out;
+}
+
+/**
+ * Riga intestazioni: alcuni estratti (es. Intesa "Lista Operazioni") hanno
+ * un preambolo (conto, periodo, filtri) prima della tabella movimenti.
+ */
+export function findHeaderRowEstratto(
+  firstRow: number,
+  lastRow: number,
+  readHeaders: (r: number) => string[],
+): number {
+  for (let R = firstRow; R <= lastRow; R++) {
+    const hs = readHeaders(R).filter(Boolean);
+    if (hs.length < 2) continue;
+    const hasData = hs.some((h) => /^data|valuta|^date$/i.test(h));
+    const hasImporto = hs.some((h) => /importo|amount|avere|dare|accredit|addebit|entrate/i.test(h));
+    if (hasData && hasImporto) return R;
+  }
+  return firstRow;
+}
+
+function looksLikeDataCella(v: unknown): boolean {
+  if (v == null || v === "") return false;
+  if (typeof v === "number") return v >= 30000 && v <= 60000;
+  const s = String(v).trim();
+  return /^\d{4}-\d{2}-\d{2}/.test(s) || /^\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}$/.test(s);
 }
 
 /** Data movimento da cella (preferisce gg/mm/aaaa italiani e ISO). */
@@ -290,11 +333,23 @@ export type ColonneEstratto = {
   clienteId: string | null;
 };
 
-export function detectColonneEstratto(cols: string[]): ColonneEstratto {
+/**
+ * `sample`: righe del file. Se presenti, "Valuta" vale come data solo se contiene
+ * date (su Intesa "Valuta" è la divisa, es. EUR).
+ */
+export function detectColonneEstratto(
+  cols: string[],
+  sample?: Record<string, unknown>[],
+): ColonneEstratto {
   const find = (...res: RegExp[]) => cols.find((c) => res.some((re) => re.test(c))) || null;
+  const valuta = find(/valuta/i);
+  const valutaIsData =
+    !valuta ||
+    !sample?.length ||
+    sample.slice(0, 20).some((r) => looksLikeDataCella(r[valuta]));
   return {
     data:
-      find(/valuta/i) ||
+      (valutaIsData ? valuta : null) ||
       find(/data\s*contabile/i) ||
       find(/^data$/i) ||
       find(/^data/i) ||
@@ -309,7 +364,7 @@ export function detectColonneEstratto(cols: string[]): ColonneEstratto {
       find(/^mittente$/i) ||
       find(/ordinante|mittente|nominativo|ragione\s*sociale/i) ||
       null,
-    descrizione: find(/descri/i) || find(/causale|operazione/i),
+    descrizione: find(/descri/i) || find(/dettagli/i) || find(/causale|operazione/i),
     clienteId: find(/cliente\s*id/i),
   };
 }
@@ -486,7 +541,7 @@ export function buildPreviewEstratto(
   rows: Record<string, unknown>[],
   opts?: { contoBancarioId?: string | null; existingDedupKeys?: Set<string> },
 ): PreviewEstratto {
-  const cols = detectColonneEstratto(Object.keys(rows[0] || {}));
+  const cols = detectColonneEstratto(Object.keys(rows[0] || {}), rows);
   const scartiByMotivo: Record<string, number> = {};
   let daImportare = 0;
   const preview: PreviewRigaEstratto[] = [];

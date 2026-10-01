@@ -165,7 +165,7 @@ const Page = () => {
         return;
       }
       // Anteprima con anti-doppio: confronta anche movimenti già collegati sullo stesso conto
-      const colsPreview = detectColonneEstratto(Object.keys(rows[0] || {}));
+      const colsPreview = detectColonneEstratto(Object.keys(rows[0] || {}), rows);
       const dates = Array.from(
         new Set(rows.map((r) => parseDataBancaria(colsPreview.data ? r[colsPreview.data] : null))),
       );

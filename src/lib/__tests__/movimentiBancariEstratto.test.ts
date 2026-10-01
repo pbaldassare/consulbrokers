@@ -14,8 +14,11 @@ import {
   parseImportoBancario,
   readEstrattoBancarioRows,
   resolveImportoEstratto,
+  sheetRowsPreferDisplay,
+  extractOrdinanteFromDescrizione,
   __DEDUP_FETCH_PAGE,
 } from "@/lib/movimentiBancari";
+import * as XLSX from "xlsx";
 
 const rangeMock = vi.fn();
 const inRangeMock = vi.fn(async () => ({ data: [], error: null }));
@@ -321,3 +324,42 @@ describe("estratto bancario CSV/Excel", () => {
   });
 });
 
+
+describe("estratto Intesa «Lista operazioni» con preambolo", () => {
+  it("trova l'intestazione dopo il preambolo e ignora Valuta=EUR come data", () => {
+    const aoa: unknown[][] = [
+      ["Lista Operazioni"],
+      ["Conto", "1000/00016467"],
+      [],
+      ["Data", "Operazione", "Dettagli", "Conto o carta", "Contabilizzazione", "Categoria ", "Valuta", "Importo"],
+      [
+        46296,
+        "Bonifico disposto da CIALLELLA STEFANO",
+        "COD.DISP. 0126 Saldo polizza rca Bonifico a Vostro favore disposto da MITT. CIALLELLA STEFANO BENEF. CONSULBROKERS DIGITAL",
+        "Conto 1000/00016467",
+        "SI",
+        "Bonifici ricevuti",
+        "EUR",
+        330,
+      ],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const rows = sheetRowsPreferDisplay(ws);
+    expect(rows).toHaveLength(1);
+    const p = buildPreviewEstratto("Lista_Operazioni.xlsx", rows);
+    expect(p.colonne.data).toBe("Data");
+    expect(p.colonne.descrizione).toBe("Dettagli");
+    expect(p.daImportare).toBe(1);
+    expect(p.preview[0].data_movimento).toBe("2026-10-01");
+    expect(p.preview[0].importo).toBe(330);
+    expect(p.preview[0].ordinante).toBe("CIALLELLA STEFANO");
+  });
+
+  it("estrae il mittente da «MITT. … BENEF.»", () => {
+    expect(
+      extractOrdinanteFromDescrizione(
+        "Bonifico a Vostro favore disposto da MITT. STIGLIANI DAMIANOMASIELLO BIANCA BENEF. CONSULBROKERS DIGITAL SRL",
+      ),
+    ).toBe("STIGLIANI DAMIANOMASIELLO BIANCA");
+  });
+});
