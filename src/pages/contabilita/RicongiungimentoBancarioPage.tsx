@@ -50,6 +50,7 @@ import { shouldScopeClientiPerSede } from "@/lib/filterContiBancariPerSede";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TOLL = 0.01;
+const MOVIMENTI_CARD_STEP = 50;
 
 type MovimentoFilterRow = {
   data_movimento?: string | null;
@@ -277,7 +278,7 @@ export const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio:
         if (al) q = q.lte("data_movimento", al);
         if (ordTerm) q = q.or(`ordinante.ilike.%${ordTerm}%,descrizione.ilike.%${ordTerm}%`);
         return q.range(from, to);
-      });
+      }, undefined, 4);
     },
   });
 
@@ -286,6 +287,12 @@ export const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio:
     () => filterMovimentiByOrdinanteImporto(movs, "", importo),
     [movs, importo],
   );
+
+  const [visibili, setVisibili] = useState(MOVIMENTI_CARD_STEP);
+  useEffect(() => {
+    setVisibili(MOVIMENTI_CARD_STEP);
+  }, [filtroUfficio, dal, al, ordinanteDebounced, importo, sortDataAsc]);
+  const movsVisibili = useMemo(() => movsFiltrati.slice(0, visibili), [movsFiltrati, visibili]);
 
   return (
     <Card>
@@ -321,7 +328,17 @@ export const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio:
       <CardContent className="space-y-2">
         {isLoading ? <p className="text-sm">Caricamento…</p> :
           movsFiltrati.length === 0 ? <p className="text-sm text-muted-foreground py-6 text-center">Nessun bonifico da collegare</p> :
-          movsFiltrati.map((m: any) => <MovimentoCard key={m.id} movimento={m} onChanged={() => qc.invalidateQueries({ queryKey: ["mov-bancari"] })} />)}
+          movsVisibili.map((m: any) => <MovimentoCard key={m.id} movimento={m} onChanged={() => qc.invalidateQueries({ queryKey: ["mov-bancari"] })} />)}
+        {!isLoading && movsFiltrati.length > movsVisibili.length && (
+          <div className="flex flex-col items-center gap-1 pt-2">
+            <p className="text-xs text-muted-foreground">
+              Mostrati {movsVisibili.length} di {movsFiltrati.length} — usa i filtri per restringere
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setVisibili((v) => v + MOVIMENTI_CARD_STEP)}>
+              Mostra altri {Math.min(MOVIMENTI_CARD_STEP, movsFiltrati.length - movsVisibili.length)}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -977,37 +994,46 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
           </CardContent>
         </CollapsibleContent>
       </Card>
-      <MessaCassaDialog
-        open={cassaOpen}
-        onOpenChange={setCassaOpen}
-        titoli={cassaTitoli}
-        bankIncasso={{
-          movimentoId: movimento.id,
-          contoBancarioId: movimento.conto_bancario_id ?? null,
-          dataMovimento: movimento.data_movimento,
-          importoByTitoloId: cassaImporti,
-        }}
-        onSuccess={(dataMessaCassa) => onCassaSuccess(dataMessaCassa)}
-      />
-      <GarantitoDialog
-        open={garantitoOpen}
-        onOpenChange={setGarantitoOpen}
-        titoli={garantitoTitoli}
-        onSuccess={async () => {
-          setCassaTitoli(garantitoTitoli);
-          await onCassaSuccess(new Date().toISOString().slice(0, 10));
-        }}
-      />
-      <AnticipoUtilizziDrawer
-        anticipoId={anticipoDrawerId}
-        onClose={() => setAnticipoDrawerId(null)}
-      />
-      <AggiungiPolizzaAltroClienteDialog
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
-        excludeTitoloIds={Object.keys(selPol)}
-        onConfirm={onAggiungiPolizze}
-      />
+      {/* Montati solo quando aperti: la lista può avere migliaia di card */}
+      {cassaOpen && (
+        <MessaCassaDialog
+          open={cassaOpen}
+          onOpenChange={setCassaOpen}
+          titoli={cassaTitoli}
+          bankIncasso={{
+            movimentoId: movimento.id,
+            contoBancarioId: movimento.conto_bancario_id ?? null,
+            dataMovimento: movimento.data_movimento,
+            importoByTitoloId: cassaImporti,
+          }}
+          onSuccess={(dataMessaCassa) => onCassaSuccess(dataMessaCassa)}
+        />
+      )}
+      {garantitoOpen && (
+        <GarantitoDialog
+          open={garantitoOpen}
+          onOpenChange={setGarantitoOpen}
+          titoli={garantitoTitoli}
+          onSuccess={async () => {
+            setCassaTitoli(garantitoTitoli);
+            await onCassaSuccess(new Date().toISOString().slice(0, 10));
+          }}
+        />
+      )}
+      {anticipoDrawerId && (
+        <AnticipoUtilizziDrawer
+          anticipoId={anticipoDrawerId}
+          onClose={() => setAnticipoDrawerId(null)}
+        />
+      )}
+      {addDialogOpen && (
+        <AggiungiPolizzaAltroClienteDialog
+          open={addDialogOpen}
+          onOpenChange={setAddDialogOpen}
+          excludeTitoloIds={Object.keys(selPol)}
+          onConfirm={onAggiungiPolizze}
+        />
+      )}
     </Collapsible>
   );
 };

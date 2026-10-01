@@ -647,18 +647,26 @@ export const MOVIMENTI_BANCARI_PAGE_SIZE = 1000;
 export async function fetchAllQueryPages<T>(
   fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message?: string } | null }>,
   pageSize: number = MOVIMENTI_BANCARI_PAGE_SIZE,
+  parallel: number = 1,
 ): Promise<T[]> {
   const all: T[] = [];
+  const batch = Math.max(1, Math.floor(parallel));
   let from = 0;
   for (;;) {
-    const { data, error } = await fetchPage(from, from + pageSize - 1);
-    if (error) throw error;
-    const rows = data ?? [];
-    all.push(...rows);
-    if (rows.length < pageSize) break;
-    from += pageSize;
+    const pages = await Promise.all(
+      Array.from({ length: batch }, (_, i) => {
+        const start = from + i * pageSize;
+        return fetchPage(start, start + pageSize - 1);
+      }),
+    );
+    for (const { data, error } of pages) {
+      if (error) throw error;
+      const rows = data ?? [];
+      all.push(...rows);
+      if (rows.length < pageSize) return all;
+    }
+    from += batch * pageSize;
   }
-  return all;
 }
 
 /** Sanitizza termine per filtri PostgREST `ilike` / `.or(...)` (evita wildcard e virgole). */
