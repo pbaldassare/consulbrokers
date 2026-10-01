@@ -163,7 +163,7 @@ const ContabilitaUfficio = () => {
     retry: 1,
     staleTime: 15_000,
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_quietanze").select(RIEPILOGO_CASSA_SELECT, { count: "estimated" });
+      let q = supabase.from("v_portafoglio_quietanze").select(RIEPILOGO_CASSA_SELECT, { count: "exact" });
       q = applyFilters(q);
       const col = SORT_COLS.has(sortField) ? sortField : "data_messa_cassa";
       q = q.order(col, { ascending: sortDirection === "asc" });
@@ -205,24 +205,35 @@ const ContabilitaUfficio = () => {
     [compagnie],
   );
 
-  const { data: totaliCassa, isFetching: totaliLoading } = useQuery({
+  const { data: totaliCassa } = useQuery({
     queryKey: [...filterKey, "totali"],
     enabled: authReady,
     retry: 1,
     staleTime: 15_000,
     queryFn: async () => {
-      const slim = await fetchAllQueryPages<ViewRow>(async (from, to) => {
+      const batchSize = 1000;
+      const slim: ViewRow[] = [];
+      for (let from = 0; from < 20_000; from += batchSize) {
         let q = supabase
           .from("v_portafoglio_quietanze")
           .select("premio_lordo, provvigioni_firma, provvigioni_quietanza");
         q = applyFilters(q);
-        return q.range(from, to);
-      }, 1000);
+        const { data, error } = await q.range(from, from + batchSize - 1);
+        if (error) throw new Error(error.message || "Errore totali messe a cassa");
+        const batch = data || [];
+        slim.push(...batch);
+        if (batch.length < batchSize) break;
+      }
       return totaliDaTitoli(slim.map((r) => viewRowToTitoloCassa(r)));
     },
   });
 
-  const kpi = totaliCassa || { count: totalCount, premio_lordo: 0, provvigioni: 0, da_rimettere: 0 };
+  const kpi = {
+    count: totalCount,
+    premio_lordo: totaliCassa?.premio_lordo ?? 0,
+    provvigioni: totaliCassa?.provvigioni ?? 0,
+    da_rimettere: totaliCassa?.da_rimettere ?? 0,
+  };
   const periodoLabel = labelPeriodoCassa({ dateDa, dateA, filtroPeriodo });
 
   const hasActiveFilters =
@@ -256,6 +267,7 @@ const ContabilitaUfficio = () => {
 
   const fetchAllFilteredTitoli = useCallback(async (): Promise<TitoloCassa[]> => {
     const viewRows = await fetchAllQueryPages<ViewRow>(async (from, to) => {
+      if (from >= 20_000) return { data: [], error: null };
       let q = supabase.from("v_portafoglio_quietanze").select(RIEPILOGO_CASSA_SELECT);
       q = applyFilters(q);
       return q.order("data_messa_cassa", { ascending: false }).range(from, to);
@@ -425,7 +437,7 @@ const ContabilitaUfficio = () => {
               <CardDescription className="flex items-center gap-1 text-xs">
                 <Hash className="w-3.5 h-3.5" /> Titoli a cassa
               </CardDescription>
-              <CardTitle className="text-xl">{totaliLoading && !totaliCassa ? "…" : kpi.count}</CardTitle>
+              <CardTitle className="text-xl">{isLoading && !result ? "…" : kpi.count}</CardTitle>
             </CardHeader>
           </Card>
           <Card className="border-l-4 border-l-blue-500">
