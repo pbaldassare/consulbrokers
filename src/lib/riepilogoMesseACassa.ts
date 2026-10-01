@@ -1,4 +1,4 @@
-import { format, parseISO } from "date-fns";
+import { endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { it } from "date-fns/locale";
 
 export type TitoloCassaClienti = {
@@ -54,6 +54,107 @@ export type GruppoAgenziaMessaCassa = RiepilogoTotali & {
   nome: string;
   clienti: GruppoClienteMessaCassa[];
 };
+
+export type PeriodoRiepilogoCassa = "mese_corrente" | "tutte";
+
+export const RIEPILOGO_CASSA_SELECT =
+  "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, premio_lordo, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, ufficio_id, data_messa_cassa, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, numero_rata, numero_rate_totali";
+
+/** Range date su data_messa_cassa: Dal/Al vincono sul toggle mese. */
+export function rangeDateCassa(opts: {
+  dateDa: string;
+  dateA: string;
+  filtroPeriodo: PeriodoRiepilogoCassa;
+  now?: Date;
+}): { da: string | null; a: string | null } {
+  if (opts.dateDa || opts.dateA) {
+    return { da: opts.dateDa || null, a: opts.dateA || null };
+  }
+  if (opts.filtroPeriodo === "mese_corrente") {
+    const n = opts.now ?? new Date();
+    return {
+      da: format(startOfMonth(n), "yyyy-MM-dd"),
+      a: format(endOfMonth(n), "yyyy-MM-dd"),
+    };
+  }
+  return { da: null, a: null };
+}
+
+export function labelPeriodoCassa(opts: {
+  dateDa: string;
+  dateA: string;
+  filtroPeriodo: PeriodoRiepilogoCassa;
+  now?: Date;
+}): string {
+  if (opts.dateDa || opts.dateA) {
+    const da = opts.dateDa ? format(parseISO(opts.dateDa), "dd/MM/yyyy") : "…";
+    const a = opts.dateA ? format(parseISO(opts.dateA), "dd/MM/yyyy") : "…";
+    return `${da} – ${a}`;
+  }
+  if (opts.filtroPeriodo === "mese_corrente") {
+    return format(opts.now ?? new Date(), "MMMM yyyy", { locale: it });
+  }
+  return "Tutte le date";
+}
+
+export function sanitizeCassaSearch(raw: string): string {
+  return String(raw || "")
+    .replace(/[%*,()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function applyCassaSearch(q: any, search: string) {
+  const safe = sanitizeCassaSearch(search);
+  if (!safe) return q;
+  return q.or(
+    `numero_titolo.ilike.%${safe}%,cliente_nome_display.ilike.%${safe}%,cliente_codice.ilike.%${safe}%,targa_telaio.ilike.%${safe}%,compagnia_nome.ilike.%${safe}%`,
+  );
+}
+
+/** Base: solo titoli con data cassa, + range Dal/Al o mese corrente. */
+export function applyRiepilogoCassaDate(q: any, opts: {
+  dateDa: string;
+  dateA: string;
+  filtroPeriodo: PeriodoRiepilogoCassa;
+  now?: Date;
+}) {
+  q = q.not("data_messa_cassa", "is", null);
+  const { da, a } = rangeDateCassa(opts);
+  if (da) q = q.gte("data_messa_cassa", da);
+  if (a) q = q.lte("data_messa_cassa", a);
+  return q;
+}
+
+export function tipoIncassoCassaLabel(t: {
+  conferimento_gestito?: boolean | null;
+  fondi_ricevuti?: boolean | null;
+}): string {
+  if (t.conferimento_gestito) return t.fondi_ricevuti ? "Cop. Garantita" : "In Attesa Fondi";
+  return "Incasso diretto";
+}
+
+export function viewRowToTitoloCassa(p: Record<string, any>): TitoloCassa {
+  return {
+    id: p.id,
+    numero_titolo: p.numero_titolo ?? null,
+    data_messa_cassa: p.data_messa_cassa ?? null,
+    cliente_anagrafica_id: p.cliente_anagrafica_id ?? null,
+    riga: p.numero_rata ?? null,
+    tipo: p.sostituisce_polizza ? "quietanza" : "polizza",
+    premio_lordo: p.premio_lordo ?? null,
+    provvigioni_firma: p.provvigioni_firma ?? null,
+    provvigioni_quietanza: p.provvigioni_quietanza ?? null,
+    compagnia_id: p.compagnia_id ?? null,
+    conferimento_gestito: p.conferimento_gestito ?? null,
+    fondi_ricevuti: p.fondi_ricevuti ?? null,
+    tipo_pagamento: p.tipo_pagamento ?? null,
+    compagnie: p.compagnia_nome ? { nome: p.compagnia_nome } : null,
+    clienti: p.cliente_nome_display
+      ? { ragione_sociale: p.cliente_nome_display, nome: null, cognome: null }
+      : null,
+  };
+}
 
 export const TITOLI_CASSA_SELECT =
   "id, numero_titolo, data_messa_cassa, cliente_anagrafica_id, riga, tipo, premio_lordo, provvigioni_firma, provvigioni_quietanza, compagnia_id, conferimento_gestito, fondi_ricevuti, tipo_pagamento, compagnie:compagnie!titoli_compagnia_id_fkey(nome), clienti:clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale)";
