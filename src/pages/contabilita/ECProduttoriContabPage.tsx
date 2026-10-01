@@ -57,7 +57,7 @@ const ECProduttoriContabPage = () => {
     queryFn: async () => {
       const { data } = await supabase.from("anagrafiche_professionali")
         .select("id, codice, cognome, nome, ragione_sociale, citta, fax, email, indirizzo, cap, provincia, percentuale_ra, tipo, codice_fiscale, partita_iva, iban, intestatario_cc")
-        .in("tipo", ["account_executive", "corrispondente"])
+        .overlaps("ruoli", ["account_executive", "corrispondente", "responsabile_sede"])
         .eq("attivo", true).order("cognome");
       return data || [];
     },

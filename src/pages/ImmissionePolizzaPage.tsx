@@ -43,6 +43,7 @@ import {
 import { provvigioniImportoFromPct, provvigioniPctFromImporto } from "@/lib/provvigioniManual";
 
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { aeCoincideConProduttore } from "@/lib/ruoliAnagrafica";
 import { ClienteSearchSelect } from "@/components/clienti/ClienteSearchSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 
@@ -1017,7 +1018,7 @@ const ImmissionePolizzaPage = () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
         .select("id, codice, cognome, nome, sigla, ragione_sociale, tipo, percentuale_base")
-        .in("tipo", ["account_executive", "corrispondente", "responsabile_sede"])
+        .overlaps("ruoli", ["account_executive", "corrispondente", "responsabile_sede"])
         .eq("attivo", true)
         .order("cognome");
       return data || [];
@@ -1988,7 +1989,9 @@ const ImmissionePolizzaPage = () => {
         percentuale_commerciale: produttoreEscludiProvvigioni
           ? 0
           : (parseFloat(percentualeCommerciale) || 100),
-        percentuale_ae: parseFloat(percentualeAE) || 0,
+        percentuale_ae: aeCoincideConProduttore(selectedAccountExecutiveId, [selectedAE, ...splitsForm.map((s) => s.anagrafica_commerciale_id)])
+          ? 0
+          : parseFloat(percentualeAE) || 0,
         garanzia_da: garanziaDa || null,
         garanzia_a: garanziaA || null,
         data_competenza: dataCompetenza || null,
@@ -2094,7 +2097,9 @@ const ImmissionePolizzaPage = () => {
 
         if (effectiveSplits.length > 0) {
           const sum = effectiveSplits.reduce((a, s) => a + s.percentuale, 0);
-          const aePerc = selectedAccountExecutiveId ? parseFloat(percentualeAE) || 0 : 0;
+          const aePerc = selectedAccountExecutiveId && !aeCoincideConProduttore(selectedAccountExecutiveId, effectiveSplits.map((s) => s.anagrafica_commerciale_id))
+            ? parseFloat(percentualeAE) || 0
+            : 0;
           if (sum + aePerc > 100.001) throw new Error("Somma percentuali produttori + AE supera 100%");
           const ids = new Set(effectiveSplits.map((s) => s.anagrafica_commerciale_id));
           if (ids.size !== effectiveSplits.length) throw new Error("Produttori duplicati nello split");
@@ -3717,7 +3722,11 @@ const ImmissionePolizzaPage = () => {
             </Button>
             {(() => {
               const sumPerc = splitsForm.reduce((acc, s) => acc + (Number(s.percentuale) || 0), 0);
-              const aePerc = selectedAccountExecutiveId ? Math.max(0, parseFloat(percentualeAE) || 0) : 0;
+              const aeStessoProduttore = aeCoincideConProduttore(
+                selectedAccountExecutiveId,
+                [selectedAE, ...splitsForm.map((s) => s.anagrafica_commerciale_id)],
+              );
+              const aePerc = selectedAccountExecutiveId && !aeStessoProduttore ? Math.max(0, parseFloat(percentualeAE) || 0) : 0;
               const sumTot = sumPerc + aePerc;
               const consulPerc = Math.max(0, Math.round((100 - sumTot) * 100) / 100);
               const overflow = sumTot > 100.001;
@@ -3801,6 +3810,9 @@ const ImmissionePolizzaPage = () => {
               className="h-8 text-xs font-mono"
             />
             {(() => {
+              if (aeCoincideConProduttore(selectedAccountExecutiveId, [selectedAE, ...splitsForm.map((s) => s.anagrafica_commerciale_id)])) {
+                return <p className="text-[10px] text-amber-700 mt-0.5">Stessa scheda del produttore: la quota AE non viene generata (vince il produttore).</p>;
+              }
               const sum = (parseFloat(percentualeCommerciale) || 0) + (parseFloat(percentualeAE) || 0);
               if (sum > 100.001) {
                 return <p className="text-[10px] text-red-600 mt-0.5">Somma {sum.toFixed(2)}% &gt; 100%</p>;

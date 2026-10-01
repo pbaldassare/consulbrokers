@@ -31,7 +31,7 @@ export const useAccountExecutivesLookup = (_ufficioId?: string | null) => {
       const { data, error } = await supabase
         .from("anagrafiche_professionali")
         .select(SELECT)
-        .eq("tipo", "account_executive")
+        .contains("ruoli", ["account_executive"])
         .eq("attivo", true);
       if (error) throw error;
 

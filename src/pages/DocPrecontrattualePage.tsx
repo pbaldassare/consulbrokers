@@ -130,7 +130,7 @@ const DocPrecontrattualePage = () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
         .select("id, codice, cognome, nome, sigla, sezione_rui, numero_rui, iscrizione_rui, nome_rui, indirizzo, cap, citta, provincia, email, telefono")
-        .eq("tipo", "account_executive")
+        .contains("ruoli", ["account_executive"])
         .eq("attivo", true)
         .order("cognome");
       return data || [];
@@ -156,7 +156,7 @@ const DocPrecontrattualePage = () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
         .select("id, codice, cognome, nome, sigla, sezione_rui, numero_rui, iscrizione_rui, nome_rui, indirizzo, cap, citta, provincia, email, telefono, tipo")
-        .in("tipo", ["produttore_sede", "corrispondente"])
+        .overlaps("ruoli", ["produttore_sede", "corrispondente"])
         .eq("attivo", true)
         .order("cognome");
       return data || [];

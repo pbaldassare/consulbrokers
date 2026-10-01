@@ -280,7 +280,7 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
       const { data } = await supabase
         .from("anagrafiche_professionali")
         .select("id, nome, cognome, ragione_sociale")
-        .eq("tipo", "liquidatore")
+        .contains("ruoli", ["liquidatore"])
         .eq("attivo", true)
         .order("cognome");
       return data || [];

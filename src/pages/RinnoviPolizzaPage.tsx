@@ -63,7 +63,7 @@ const RinnoviPolizzaPage = () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
         .select("id, codice, cognome, nome, sigla")
-        .eq("tipo", "account_executive")
+        .contains("ruoli", ["account_executive"])
         .eq("attivo", true)
         .order("cognome");
       return data || [];

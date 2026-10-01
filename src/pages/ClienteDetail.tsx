@@ -90,6 +90,7 @@ import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge"
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { labelCompagniaAssicurativa, labelAgenziaRiferimento, labelCompagniaEAgenzia } from "@/lib/compagniaDisplay";
 import { isPolizzaAuto } from "@/lib/isPolizzaAuto";
+import { haRuolo } from "@/lib/ruoliAnagrafica";
 
 /* ===========================================================
  * Anagrafica form context + module-level field components
@@ -511,8 +512,8 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
     queryFn: async () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
-        .select("id, tipo, nome, cognome, ragione_sociale, sigla, codice")
-        .in("tipo", ["account_executive", "corrispondente"])
+        .select("id, tipo, ruoli, nome, cognome, ragione_sociale, sigla, codice")
+        .overlaps("ruoli", ["account_executive", "corrispondente"])
         .eq("attivo", true);
       return data || [];
     },
@@ -564,7 +565,7 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
 
   const buildOptions = (tipo: string) =>
     anagraficheAll
-      .filter((a) => a.tipo === tipo)
+      .filter((a) => haRuolo(a, tipo))
       .map((a) => ({
         value: a.id,
         label:
@@ -2541,8 +2542,8 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
-        .select("id, tipo, nome, cognome, ragione_sociale, sigla, codice")
-        .in("tipo", ["account_executive", "corrispondente"])
+        .select("id, tipo, ruoli, nome, cognome, ragione_sociale, sigla, codice")
+        .overlaps("ruoli", ["account_executive", "corrispondente"])
         .eq("attivo", true);
       return data || [];
     },
@@ -2663,7 +2664,7 @@ export default function ClienteDetail() {
   // aeOptions definito dopo `editFields` (lista AE globale)
 
   const produttoreOptions = anagraficheAEProd
-    .filter((a) => a.tipo === "corrispondente")
+    .filter((a) => haRuolo(a, "corrispondente"))
     .map((a) => ({ value: a.id, label: buildAnagraficaLabel(a) }))
     .sort((a, b) => a.label.localeCompare(b.label, "it"));
 

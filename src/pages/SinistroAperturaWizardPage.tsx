@@ -380,7 +380,7 @@ export default function SinistroAperturaWizardPage() {
   const { data: liquidatoriList = [] } = useQuery({
     queryKey: ["anagrafiche-liquidatori-wizard"],
     queryFn: async () => {
-      const { data } = await supabase.from("anagrafiche_professionali").select("id, nome, cognome, ragione_sociale").eq("tipo", "liquidatore").eq("attivo", true).order("cognome");
+      const { data } = await supabase.from("anagrafiche_professionali").select("id, nome, cognome, ragione_sociale").contains("ruoli", ["liquidatore"]).eq("attivo", true).order("cognome");
       return data || [];
     }
   });

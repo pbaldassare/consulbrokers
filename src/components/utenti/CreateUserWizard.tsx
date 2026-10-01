@@ -55,7 +55,7 @@ const CreateUserWizard = ({ open, onOpenChange, onCreated }: Props) => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
         .select("id, nome, cognome, email, tipo, ufficio_id")
-        .in("tipo", ["account_executive", "corrispondente", "executive", "produttore_sede", "responsabile_sede"])
+        .overlaps("ruoli", ["account_executive", "corrispondente", "executive", "produttore_sede", "responsabile_sede"])
         .eq("attivo", true)
         .not("email", "is", null)
         .order("cognome");

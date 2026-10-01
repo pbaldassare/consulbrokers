@@ -16,7 +16,7 @@ export const useProduttoriLookup = () => {
       const { data, error } = await supabase
         .from("anagrafiche_professionali")
         .select("id, nome, cognome, ragione_sociale")
-        .eq("tipo", "corrispondente")
+        .contains("ruoli", ["corrispondente"])
         .eq("attivo", true);
       if (error) throw error;
       const opts = (data || []).map((p: any) => {

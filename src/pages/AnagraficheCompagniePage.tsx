@@ -107,7 +107,7 @@ const AnagraficheCompagniePage = () => {
       const { data, error } = await supabase
         .from("anagrafiche_professionali")
         .select("*")
-        .eq("tipo", activeTab)
+        .contains("ruoli", [activeTab])
         .order("cognome", { ascending: true });
       if (error) throw error;
       return data as unknown as Anagrafica[];

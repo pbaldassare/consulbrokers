@@ -27,7 +27,7 @@ const ECProduttoriStoricoPage = () => {
     queryFn: async () => {
       const { data } = await supabase.from("anagrafiche_professionali")
         .select("id, ragione_sociale, cognome, nome")
-        .in("tipo", ["account_executive", "corrispondente"])
+        .overlaps("ruoli", ["account_executive", "corrispondente", "responsabile_sede"])
         .order("cognome");
       return (data || []).map((c: any) => ({
         value: c.id,

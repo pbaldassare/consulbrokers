@@ -115,7 +115,7 @@ const TitoliList = () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
         .select("id, codice, ragione_sociale, cognome, nome")
-        .eq("tipo", "account_executive")
+        .contains("ruoli", ["account_executive"])
         .eq("attivo", true)
         .order("codice");
       return data || [];

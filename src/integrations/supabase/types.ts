@@ -924,6 +924,7 @@ export type Database = {
           ragione_sociale: string | null
           referente_email: string | null
           referente_nome: string | null
+          ruoli: string[]
           sezione_rui: string | null
           sigla: string | null
           specializzazione: string | null
@@ -974,6 +975,7 @@ export type Database = {
           ragione_sociale?: string | null
           referente_email?: string | null
           referente_nome?: string | null
+          ruoli?: string[]
           sezione_rui?: string | null
           sigla?: string | null
           specializzazione?: string | null
@@ -1024,6 +1026,7 @@ export type Database = {
           ragione_sociale?: string | null
           referente_email?: string | null
           referente_nome?: string | null
+          ruoli?: string[]
           sezione_rui?: string | null
           sigla?: string | null
           specializzazione?: string | null

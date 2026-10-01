@@ -61,6 +61,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { aeCoincideConProduttore } from "@/lib/ruoliAnagrafica";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
 import { useLookupTipologiaVeicolo } from "@/hooks/useLookupTables";
@@ -569,7 +570,7 @@ const TitoloDetail = () => {
         .from("anagrafiche_professionali")
         .select("id, ragione_sociale, cognome, nome, percentuale_base, tipo")
         .eq("attivo", true)
-        .in("tipo", ["corrispondente", "account_executive", "executive", "produttore_sede"])
+        .overlaps("ruoli", ["corrispondente", "account_executive", "executive", "produttore_sede"])
         .order("ragione_sociale");
       return (data || []).map((a: any) => ({
         value: a.id,
@@ -647,7 +648,8 @@ const TitoloDetail = () => {
       const aeIdSave = isChildQuietanza
         ? (titolo?.ae_anagrafica_id ?? null)
         : (aeForm.ae_anagrafica_id ?? null);
-      const aePerc = aeIdSave ? Math.max(0, Number(isChildQuietanza ? titolo?.percentuale_ae : aeForm.percentuale_ae) || 0) : 0;
+      const aeStessoProduttore = aeCoincideConProduttore(aeIdSave, cleaned.map(s => s.anagrafica_commerciale_id));
+      const aePerc = aeIdSave && !aeStessoProduttore ? Math.max(0, Number(isChildQuietanza ? titolo?.percentuale_ae : aeForm.percentuale_ae) || 0) : 0;
       const sumTot = sum + aePerc;
       if (sumTot > 100.001) throw new Error(`Somma percentuali (Produttori ${sum.toFixed(2)}% + AE ${aePerc.toFixed(2)}% = ${sumTot.toFixed(2)}%) supera 100.`);
       const ids = new Set(cleaned.map(s => s.anagrafica_commerciale_id));
@@ -969,7 +971,7 @@ const TitoloDetail = () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
         .select("id, nome, cognome, ragione_sociale, tipo")
-        .in("tipo", ["account_executive", "corrispondente", "responsabile_sede"])
+        .overlaps("ruoli", ["account_executive", "corrispondente", "responsabile_sede"])
         .eq("attivo", true)
         .order("cognome");
       return (data || []).map((p: any) => {
@@ -3768,7 +3770,8 @@ const TitoloDetail = () => {
         {editingComm ? (
           (() => {
             const sumPerc = splitsForm.reduce((acc, s) => acc + (Number(s.percentuale) || 0), 0);
-            const aePerc = aeForm.ae_anagrafica_id ? Math.max(0, Number(aeForm.percentuale_ae) || 0) : 0;
+            const aeStessoProduttore = aeCoincideConProduttore(aeForm.ae_anagrafica_id, splitsForm.map(s => s.anagrafica_commerciale_id));
+            const aePerc = aeForm.ae_anagrafica_id && !aeStessoProduttore ? Math.max(0, Number(aeForm.percentuale_ae) || 0) : 0;
             const sumTot = sumPerc + aePerc;
             const consulPerc = Math.max(0, Math.round((100 - sumTot) * 100) / 100);
             const overflow = sumTot > 100.001;
@@ -3878,6 +3881,11 @@ const TitoloDetail = () => {
                       placeholder="0,00"
                     />
                   </div>
+                  {aeStessoProduttore && (
+                    <p className="col-span-12 text-[11px] text-amber-700">
+                      Stessa scheda del produttore: la quota AE non viene generata (vince il produttore).
+                    </p>
+                  )}
                 </div>
 
                 <div className={cn("p-3 rounded-md border text-sm", overflow ? "border-red-400 bg-red-50 dark:bg-red-950/20 text-red-800" : "bg-muted/40")}>
@@ -3929,8 +3937,9 @@ const TitoloDetail = () => {
                   }] : []);
 
               const sumPerc = effective.reduce((a, s) => a + s.perc, 0);
-              const aePercDisp = Number(t.percentuale_ae) || 0;
               const aeIdDisp = t.ae_anagrafica_id;
+              const aeStessoProduttoreDisp = aeCoincideConProduttore(aeIdDisp, effective.map(e => e.anagrafica_commerciale_id));
+              const aePercDisp = aeStessoProduttoreDisp ? 0 : (Number(t.percentuale_ae) || 0);
               const aeNameDisp = t.ae_nome || "—";
               const consulPerc = Math.max(0, Math.round((100 - sumPerc - aePercDisp) * 100) / 100);
               const hasAdminInList = effective.some(e => e.isAdmin);
@@ -3941,6 +3950,11 @@ const TitoloDetail = () => {
                     <div className="text-xs px-3 py-2 rounded-md bg-violet-50 border border-violet-200 text-violet-900 flex items-center gap-2">
                       <Percent className="w-3.5 h-3.5 flex-shrink-0" />
                       <span>Provvigioni produttore <strong>personalizzate</strong> per questa quietanza: non seguono gli aggiornamenti della polizza madre.</span>
+                    </div>
+                  )}
+                  {aeStessoProduttoreDisp && (
+                    <div className="text-xs px-3 py-2 rounded-md bg-sky-50 border border-sky-200 text-sky-900">
+                      L'Account Executive è la stessa scheda del produttore: vince il produttore, la quota AE non viene generata.
                     </div>
                   )}
                   {hasAdminInList && (

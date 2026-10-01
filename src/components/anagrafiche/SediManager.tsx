@@ -18,6 +18,7 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import SedeContiMultiSelect from "@/components/anagrafiche/SedeContiMultiSelect";
 import { matchesSearchFields } from "@/lib/searchNoEmail";
 import { seedSedeContiSelection, type SedeContiSelection } from "@/lib/contiBancariSedi";
+import { haRuolo, labelRuoli } from "@/lib/ruoliAnagrafica";
 import {
   fetchContiPerUfficio,
   formatContoBancarioSaveError,
@@ -80,7 +81,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
       const [profilesRes, clientiRes, anagRes] = await Promise.all([
         supabase.from("profiles").select("ufficio_id"),
         supabase.from("clienti").select("ufficio_id"),
-        supabase.from("anagrafiche_professionali").select("ufficio_id, tipo"),
+        supabase.from("anagrafiche_professionali").select("ufficio_id, tipo, ruoli"),
       ]);
 
       const result: Record<string, { utenti: number; clienti: number; anagrafiche: number; produttori: number }> = {};
@@ -97,7 +98,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
         if (a.ufficio_id) {
           initEntry(a.ufficio_id);
           result[a.ufficio_id].anagrafiche++;
-          if (a.tipo === "account_executive" || a.tipo === "corrispondente") {
+          if (haRuolo(a, "account_executive") || haRuolo(a, "corrispondente")) {
             result[a.ufficio_id].produttori++;
           }
         }
@@ -469,9 +470,9 @@ const UfficioDetail = ({ ufficio, uffici }: { ufficio: Ufficio; uffici: Ufficio[
     queryFn: async () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
-        .select("id, tipo, cognome, nome, codice, sigla, email, ragione_sociale")
+        .select("id, tipo, ruoli, cognome, nome, codice, sigla, email, ragione_sociale")
         .eq("ufficio_id", ufficio.id)
-        .in("tipo", ["account_executive", "corrispondente"]);
+        .overlaps("ruoli", ["account_executive", "corrispondente"]);
       return data || [];
     },
   });
@@ -560,7 +561,7 @@ const UfficioDetail = ({ ufficio, uffici }: { ufficio: Ufficio; uffici: Ufficio[
                 {produttori.map((p: any) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-mono">{p.codice || "—"}</TableCell>
-                    <TableCell><Badge variant="outline">{p.tipo === "account_executive" ? "AE" : "Corr."}</Badge></TableCell>
+                    <TableCell><Badge variant="outline">{labelRuoli(p)}</Badge></TableCell>
                     <TableCell className="font-medium">{p.ragione_sociale || [p.cognome, p.nome].filter(Boolean).join(" ") || "—"}</TableCell>
                     <TableCell>{p.sigla || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{p.email || "—"}</TableCell>
