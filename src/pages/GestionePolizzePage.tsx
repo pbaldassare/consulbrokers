@@ -123,7 +123,7 @@ const OPERAZIONI: Operazione[] = [
   { key: "regolazioni_attese", label: "Regolazioni Attese", icon: FileClock, descrizione: "Polizze in attesa di regolazione", statiFiltro: [], richiedeRegolazione: true },
 ];
 
-const STATI_OPTIONS = ["", "attivo", "sospeso", "scaduto", "incassato", "annullato", "stornato"];
+const STATI_OPTIONS = ["", "attivo", "sospeso", "scaduto", "incassato", "annullato", "estinto", "stornato"];
 
 const PICKER_HIDDEN_OPS = new Set<OperazioneKey>(["cig_temporanei", "regolazioni_attese"]);
 

@@ -54,7 +54,7 @@ const PortafoglioStoricoPage = () => {
 
   const buildFilter = (q: any) => {
     if (filtroStato === "tutti") {
-      q = q.or(`stato.eq.scaduto,stato.eq.estinto,and(stato.eq.attivo,garanzia_a.lt.${today})`);
+      q = q.or(`stato.eq.scaduto,stato.eq.estinto,stato.eq.annullato,and(stato.eq.attivo,garanzia_a.lt.${today})`);
     } else {
       q = q.eq("stato", filtroStato);
       if (filtroStato === "attivo") {
@@ -119,6 +119,7 @@ const PortafoglioStoricoPage = () => {
       case "sospeso": return "secondary" as const;
       case "scaduto": return "destructive" as const;
       case "estinto": return "destructive" as const;
+      case "annullato": return "secondary" as const;
       case "incassato": return "outline" as const;
       default: return "secondary" as const;
     }
@@ -129,7 +130,7 @@ const PortafoglioStoricoPage = () => {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Storico Polizze</h1>
-          <p className="text-sm text-muted-foreground">Polizze scadute o con copertura terminata — sola consultazione</p>
+          <p className="text-sm text-muted-foreground">Polizze scadute, estinte o annullate — sola consultazione</p>
         </div>
         <NuovaPolizzaButton />
       </div>
@@ -164,6 +165,7 @@ const PortafoglioStoricoPage = () => {
             <SelectItem value="tutti">Tutti gli stati</SelectItem>
             <SelectItem value="scaduto">Scaduto</SelectItem>
             <SelectItem value="estinto">Estinto</SelectItem>
+            <SelectItem value="annullato">Annullato</SelectItem>
             <SelectItem value="attivo">Attivo (garanzia scaduta)</SelectItem>
           </SelectContent>
         </Select>

@@ -16,7 +16,7 @@ const POLIZZA_TABS = ["contratto", "quietanze"] as const;
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
 
 const STATO_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  attiva: "default", sospesa: "outline", annullata: "destructive", scaduta: "secondary", sostituita: "secondary",
+  attiva: "default", sospesa: "outline", annullata: "destructive", estinta: "destructive", scaduta: "secondary", sostituita: "secondary",
 };
 
 const STATO_QUIETANZA: Record<string, { label: string; cls: string }> = {

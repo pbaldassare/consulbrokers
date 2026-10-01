@@ -22,7 +22,7 @@ type: feature
 - **Nessun concetto di penale**. Solo eventuale rimborso al cliente (importo a mano).
 - Form: data, causale (Recesso cliente / compagnia / Vendita bene / Cessazione / Disdetta / Sinistro / Altro), motivo, **rimborso** numerico (default 0).
 - Effetti mutation:
-  1. Update polizza madre: `stato='estinto'`, `data_estinzione`, `causale_estinzione`, `motivo_estinzione`.
+  1. Update polizza madre: `titoli.stato='estinto'`, `data_estinzione`, `causale_estinzione`, `motivo_estinzione`; se esiste il contratto, `polizze.stato='estinta'`.
   2. Cancella quietanze future non incassate e `data_messa_cassa IS NULL` (stesso pattern Sospensione: prima pulisce `movimenti_polizza` e `premi_garanzia_polizza`, poi `titoli`).
   3. Se `rimborso > 0`: insert titolo "Rimborso estinzione DD/MM/YYYY" con `premio_lordo=-rimborso`, split copiato dalla madre.
   4. Upload documento opzionale (`/estinzione_*`).
@@ -32,7 +32,7 @@ type: feature
 ## Effetti contabili (entrambi)
 
 - I titoli conguaglio/rimborso entrano nel ciclo normale (Carico del Mese → Messa a Cassa → trigger `calcola-provvigioni`). Importi negativi producono provvigioni di storno coerenti con la quota madre.
-- `stato='estinto'` rientra nelle filtri "Storico polizze" (`PortafoglioStoricoPage`).
+- `stato='estinto'` e `stato='annullato'` rientrano nello Storico polizze (`PortafoglioStoricoPage`). Le Attive restano solo `attivo`/`sospeso`.
 
 ## Schema DB
 

@@ -2173,13 +2173,17 @@ const TitoloDetail = () => {
   const isContrattoSospeso = statoContratto.isSospeso;
   const isContrattoAttivo = statoContratto.isAttivo;
   const isContrattoAnnullato = statoContratto.isAnnullato;
+  const isContrattoEstinto = statoContratto.isEstinto;
+  const isContrattoChiuso = isContrattoAnnullato || isContrattoEstinto;
   const sospensioneDisabled = !isContrattoAttivo;
   const riattivazioneDisabled = !isContrattoSospeso;
   const sospensioneDisabledTitle = isContrattoSospeso
     ? "La polizza è già sospesa: non si può sospendere di nuovo"
     : isContrattoAnnullato
       ? "Non si può sospendere una polizza annullata"
-      : "Sospensione disponibile solo per polizze attive";
+      : isContrattoEstinto
+        ? "Non si può sospendere una polizza estinta"
+        : "Sospensione disponibile solo per polizze attive";
   const riattivazioneDisabledTitle = isContrattoAttivo
     ? "La polizza è già attiva: non si può riattivare di nuovo"
     : "Riattivazione disponibile solo per polizze sospese";
@@ -2490,7 +2494,7 @@ const TitoloDetail = () => {
               </div>
             )}
             
-            {isPolizzaMadre && !isContrattoAnnullato && (
+            {isPolizzaMadre && !isContrattoChiuso && (
               <span
                 className="inline-flex"
                 title={sospensioneDisabled ? sospensioneDisabledTitle : "Sospendi temporaneamente la copertura"}
@@ -2505,7 +2509,7 @@ const TitoloDetail = () => {
                 </Button>
               </span>
             )}
-            {isPolizzaMadre && !isContrattoAnnullato && (
+            {isPolizzaMadre && !isContrattoChiuso && (
               <span
                 className="inline-flex"
                 title={riattivazioneDisabled ? riattivazioneDisabledTitle : "Riattiva la polizza sospesa"}
@@ -2520,17 +2524,17 @@ const TitoloDetail = () => {
                 </Button>
               </span>
             )}
-            {!isTitoloDerivato && !isContrattoAnnullato && (
+            {!isTitoloDerivato && !isContrattoChiuso && (
               <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
                 <Replace className="w-4 h-4 mr-1" /> Sostituzione
               </Button>
             )}
-            {!isTitoloDerivato && !isContrattoAnnullato && (
+            {!isTitoloDerivato && !isContrattoChiuso && (
               <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)}>
                 <Ban className="w-4 h-4 mr-1" /> Estinzione
               </Button>
             )}
-            {!isTitoloDerivato && !isContrattoAnnullato && (
+            {!isTitoloDerivato && !isContrattoChiuso && (
               <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
                 <FileText className="w-4 h-4 mr-1" /> Appendici
               </Button>
@@ -2570,7 +2574,7 @@ const TitoloDetail = () => {
                 {t.stato === "incassato" ? "Annulla incasso" : inCopertura || garantitoAperto ? "Annulla copertura garantita" : t.data_messa_cassa ? "Annulla messa a cassa" : "Annulla copertura garantita"}
               </Button>
             )}
-            {!isQuietanzaCorrente && !isContrattoAnnullato && (
+            {!isQuietanzaCorrente && !isContrattoChiuso && (
             <AlertDialog open={annullaContrattoOpen} onOpenChange={setAnnullaContrattoOpen}>
               <AlertDialogTrigger asChild>
                 <Button
@@ -2626,7 +2630,7 @@ const TitoloDetail = () => {
             </AlertDialog>
             )}
 
-            {!isTitoloDerivato && !isContrattoAnnullato && (
+            {!isTitoloDerivato && !isContrattoChiuso && (
               <Button
                 variant="outline"
                 size="sm"

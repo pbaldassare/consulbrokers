@@ -126,6 +126,12 @@ export const EstinzionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroPo
         .eq("id", titoloId);
       if (errUp) throw errUp;
 
+      const { error: errPol } = await supabase
+        .from("polizze")
+        .update({ stato: "estinta" } as any)
+        .eq("titolo_madre_id", titoloId);
+      if (errPol) throw errPol;
+
       // 2. Cancella quietanze future cancellabili (pattern sospensione)
       const quietanzeEliminate: string[] = [];
       const ids = rateFutureCancellabili.map((r: any) => r.id);

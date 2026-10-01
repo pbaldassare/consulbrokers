@@ -18,4 +18,12 @@ describe("resolveStatoContrattoTitolo", () => {
     expect(resolveStatoContrattoTitolo("attivo", "attiva").isAttivo).toBe(true);
     expect(resolveStatoContrattoTitolo("attivo", null).isAttivo).toBe(true);
   });
+
+  it("estinzione sul titolo chiude il contratto (distinto da annullato)", () => {
+    const s = resolveStatoContrattoTitolo("estinto", "attiva");
+    expect(s.isEstinto).toBe(true);
+    expect(s.isAnnullato).toBe(false);
+    expect(s.isAttivo).toBe(false);
+    expect(s.polizzaStatoDisplay).toBe("estinta");
+  });
 });

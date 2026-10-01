@@ -1,8 +1,9 @@
 export type StatoContrattoRisolto = {
   isAnnullato: boolean;
+  isEstinto: boolean;
   isSospeso: boolean;
   isAttivo: boolean;
-  /** Badge contratto: non mostrare "attiva" se il titolo è già annullato. */
+  /** Badge contratto: non mostrare "attiva" se il titolo è già chiuso. */
   polizzaStatoDisplay: string | null;
 };
 
@@ -17,9 +18,14 @@ export function resolveStatoContrattoTitolo(
   const ts = (titoloStato || "").toLowerCase();
   const ps = (polizzaStato || "").toLowerCase();
   const isAnnullato = ts === "annullato" || ps === "annullata";
-  const isSospeso = !isAnnullato && (ts === "sospeso" || ps === "sospesa");
+  const isEstinto = ts === "estinto" || ps === "estinta";
+  const isSospeso = !isAnnullato && !isEstinto && (ts === "sospeso" || ps === "sospesa");
   const isAttivo =
-    !isAnnullato && !isSospeso && (ps === "attiva" || ts === "attivo" || (!ps && ts === "attivo"));
-  const polizzaStatoDisplay = isAnnullato ? "annullata" : polizzaStato ?? null;
-  return { isAnnullato, isSospeso, isAttivo, polizzaStatoDisplay };
+    !isAnnullato && !isEstinto && !isSospeso && (ps === "attiva" || ts === "attivo" || (!ps && ts === "attivo"));
+  const polizzaStatoDisplay = isAnnullato
+    ? "annullata"
+    : isEstinto
+      ? "estinta"
+      : polizzaStato ?? null;
+  return { isAnnullato, isEstinto, isSospeso, isAttivo, polizzaStatoDisplay };
 }

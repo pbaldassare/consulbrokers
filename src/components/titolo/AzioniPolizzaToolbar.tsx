@@ -84,7 +84,7 @@ export function AzioniPolizzaToolbar({
 }: Props) {
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
-  const locked = ["annullata", "annullato", "estinta", "sostituita"].includes(statoPolizza);
+  const locked = ["annullata", "annullato", "estinta", "estinto", "sostituita"].includes(statoPolizza);
 
   // polizza-level dialogs
   const [sospensioneOpen, setSospensioneOpen] = useState(false);
