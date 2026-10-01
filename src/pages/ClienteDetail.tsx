@@ -1457,9 +1457,6 @@ function PolizzeClienteTable({
       const madreId = head?.id || null;
       const totale = c.rate.length;
       const datePolizza = datesForCatena(c);
-      if (c.madre && matchTitolo(c.madre) && isQuietanzaDaMostrare(c.madre)) {
-        out.push({ rata: c.madre, madreNum, madreId, idx: 0, totale, datePolizza });
-      }
       c.rate.forEach((r: any, i: number) => {
         if (matchTitolo(r) && isQuietanzaDaMostrare(r)) {
           out.push({ rata: r, madreNum, madreId, idx: i + 1, totale, datePolizza });

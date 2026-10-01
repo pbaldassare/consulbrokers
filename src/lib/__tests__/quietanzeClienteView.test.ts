@@ -60,7 +60,7 @@ describe("isQuietanzaDaMostrare", () => {
     ).toBe(false);
   });
 
-  it("mostra la polizza (prima rata) non incassata", () => {
+  it("la polizza (prima rata) non incassata resta nelle Polizze, non nelle Quietanze", () => {
     expect(
       isQuietanzaDaMostrare({
         stato: "attivo",
@@ -68,7 +68,7 @@ describe("isQuietanzaDaMostrare", () => {
         sostituisce_polizza: null,
         garanzia_da: giorniDaOggi(-10),
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("appendice non compare nel tab Quietanze (anche se non incassata)", () => {
@@ -93,7 +93,7 @@ describe("isQuietanzaDaMostrare", () => {
 });
 
 describe("countQuietanzeDaIncassare", () => {
-  it("conta polizza e quietanze da mostrare, esclude appendici", () => {
+  it("conta solo le quietanze successive da mostrare, esclude polizza e appendici", () => {
     const titoli = [
       { stato: "attivo", sostituisce_polizza: null as string | null, garanzia_da: giorniDaOggi(-5) },
       { stato: "attivo", sostituisce_polizza: "x", garanzia_da: giorniDaOggi(-5) },
@@ -101,7 +101,7 @@ describe("countQuietanzeDaIncassare", () => {
       { stato: "incassato", data_messa_cassa: "2026-01-01", sostituisce_polizza: "x", garanzia_da: giorniDaOggi(-5) },
       { stato: "attivo", is_appendice_modifica: true, numero_titolo: "P/AM1", garanzia_da: giorniDaOggi(200) },
     ];
-    expect(countQuietanzeDaIncassare(titoli)).toBe(2);
-    expect(countQuietanzeRateDaIncassare(titoli)).toBe(2);
+    expect(countQuietanzeDaIncassare(titoli)).toBe(1);
+    expect(countQuietanzeRateDaIncassare(titoli)).toBe(1);
   });
 });

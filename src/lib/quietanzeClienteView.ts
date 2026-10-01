@@ -1,4 +1,4 @@
-import { isAppendice } from "@/lib/quietanze";
+import { isAppendice, isPolizzaMadre } from "@/lib/quietanze";
 
 export const QUIETANZA_SCADENZA_SOGLIA_GIORNI = 60;
 
@@ -31,13 +31,15 @@ type QuietanzaViewTitolo = {
 };
 
 /**
- * Vista Quietanze cliente: polizza (prima rata) e quietanze successive da incassare.
+ * Vista Quietanze cliente: solo le quietanze successive da incassare.
  * Decorrenza (garanzia_da) entro soglia o già passata (arretrate).
- * Le appendici NON compaiono nel tab Quietanze (restano sotto la polizza).
+ * La polizza (prima rata) e le appendici NON compaiono nel tab Quietanze:
+ * restano sotto la polizza, dove si fa la Messa a Cassa.
  */
 export function isQuietanzaDaMostrare(t: QuietanzaViewTitolo): boolean {
   if (!isTitoloNonIncassato(t)) return false;
   if (isAppendice(t)) return false;
+  if (isPolizzaMadre(t)) return false;
   if (!t.garanzia_da) return true;
   const limite = new Date();
   limite.setHours(23, 59, 59, 999);
@@ -47,12 +49,12 @@ export function isQuietanzaDaMostrare(t: QuietanzaViewTitolo): boolean {
   return decorrenza <= limite;
 }
 
-/** Conteggio tab Quietanze: polizza + quietanze da mostrare, esclude appendici. */
+/** Conteggio tab Quietanze: solo quietanze successive da mostrare (no polizza, no appendici). */
 export function countQuietanzeDaIncassare(polizze: QuietanzaViewTitolo[]): number {
   return countQuietanzeRateDaIncassare(polizze);
 }
 
-/** Polizza e quietanze da incassare (esclude appendici) — per conteggi tab. */
+/** Quietanze successive da incassare (esclude polizza e appendici) — per conteggi tab. */
 export function countQuietanzeRateDaIncassare(polizze: QuietanzaViewTitolo[]): number {
   return polizze.filter((p) => isQuietanzaDaMostrare(p)).length;
 }
