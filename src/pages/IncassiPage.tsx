@@ -47,6 +47,7 @@ import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { provvigioneProduttoreForRow } from "@/lib/provvigioneProduttore";
 import { useProvvigioniProduttoreLookup } from "@/hooks/useProvvigioniProduttoreLookup";
 import { mapCaricoExportRows } from "@/lib/portafoglioCarico/mapRow";
+import { rowHref } from "@/lib/portafoglioCarico/filters";
 import { exportCaricoXlsx } from "@/lib/portafoglioCarico/exportXlsx";
 import { buildCaricoPdf, downloadCaricoPdf } from "@/lib/portafoglioCarico/exportPdf";
 import { buildCaricoDocx, downloadCaricoDocx } from "@/lib/portafoglioCarico/exportDocx";
@@ -58,17 +59,6 @@ const provvigioneRiga = getProvvigioneEC;
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 const startOfMonthStr = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), "yyyy-MM-dd");
 const endOfMonthStr = () => format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), "yyyy-MM-dd");
-/** Da Incassi: priorità alla quietanza (non alla madre), come Portafoglio Attive. */
-const rowHref = (p: any): string | null => {
-  if (p?.quietanza_id) return `/quietanze/${p.quietanza_id}`;
-  if (p?.is_appendice_modifica || p?.is_proroga || p?.is_regolazione) {
-    if (p?.id) return `/titoli/${p.id}`;
-  }
-  if (p?.polizza_id) return `/polizze/${p.polizza_id}`;
-  if (p?.id) return `/titoli/${p.id}`;
-  return null;
-};
-
 
 const IncassiPage = () => {
   const navigate = useNavigate();
@@ -1266,9 +1256,9 @@ const IncassiPage = () => {
                           <Badge variant="secondary" title="Appendice di modifica">Modifica</Badge>
                         ) : (
                           <TipoPolizzaBadge
-                            tipo="quietanza"
-                            numero={p.numero_rata || (isQ ? undefined : 1)}
-                            totale={p.numero_rate_totali || (isQ ? undefined : 1)}
+                            tipo={isQ ? "quietanza" : "polizza"}
+                            numero={p.numero_rata || undefined}
+                            totale={p.numero_rate_totali || undefined}
                             messaACassa={isMessaACassa(p)}
                           />
                         )}

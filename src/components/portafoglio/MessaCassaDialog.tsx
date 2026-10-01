@@ -406,8 +406,7 @@ export const MessaCassaDialog = ({
   });
 
   // Titoli da incassare del cliente: per ogni catena polizza solo il prossimo in
-  // sequenza (prima la polizza, poi la rata successiva). Letti da `titoli`:
-  // la vista v_portafoglio_quietanze rimanda la polizza sulla rata derivata.
+  // sequenza (prima la polizza, poi la rata successiva). Letti da `titoli`.
   const { data: quietanzeCliente = [] } = useQuery({
     queryKey: ["messa-cassa-quietanze-cliente", clienteQuietanze?.id, titoli.map((t) => t.id).join(",")],
     enabled: open && !!clienteQuietanze?.id,

@@ -856,9 +856,9 @@ const PortafoglioCaricoConsultazionePage = () => {
                           </Badge>
                         ) : (
                           <TipoPolizzaBadge
-                            tipo="quietanza"
-                            numero={p.numero_rata || (isQ ? undefined : 1)}
-                            totale={p.numero_rate_totali || (isQ ? undefined : 1)}
+                            tipo={isQ ? "quietanza" : "polizza"}
+                            numero={p.numero_rata || undefined}
+                            totale={p.numero_rate_totali || undefined}
                             messaACassa={isMessaACassa(p)}
                           />
                         )}
