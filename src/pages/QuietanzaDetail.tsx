@@ -1,10 +1,9 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileText, Loader2, Pencil } from "lucide-react";
+import { ArrowLeft, Loader2, Pencil } from "lucide-react";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { format } from "date-fns";
 import { AzioniPolizzaToolbar, type ToolbarQuietanza } from "@/components/titolo/AzioniPolizzaToolbar";
@@ -16,6 +15,10 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { useTitoloCommerciale } from "@/hooks/useTitoloCommerciale";
+import { SchedaCommercialeCard } from "@/components/titolo/SchedaCommercialeCard";
+import { CompactCard, Field } from "@/components/titolo/SchedaCompact";
+import { totProvvigioniRata } from "@/lib/schedaCommerciale";
 
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
 
@@ -55,6 +58,8 @@ export default function QuietanzaDetail() {
   });
 
   const polizzaId: string | undefined = (q as any)?.polizze?.id;
+  const titoloId: string | null = (q as any)?.titolo_id || (q as any)?.polizze?.titolo_madre_id || null;
+  const { data: commerciale, isLoading: loadingComm } = useTitoloCommerciale(titoloId);
 
   const { data: quietanzeSorelle = [] } = useQuery({
     queryKey: ["polizza-quietanze", polizzaId],
@@ -73,6 +78,7 @@ export default function QuietanzaDetail() {
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["quietanza", id] });
     if (polizzaId) qc.invalidateQueries({ queryKey: ["polizza-quietanze", polizzaId] });
+    if (titoloId) qc.invalidateQueries({ queryKey: ["titolo-commerciale", titoloId] });
   };
 
   if (isLoading) {
@@ -98,8 +104,14 @@ export default function QuietanzaDetail() {
   const clienteNome = cliente?.ragione_sociale || [cliente?.cognome, cliente?.nome].filter(Boolean).join(" ") || "—";
   const stato = q.stato as string;
   const st = STATO_QUIETANZA[stato] || { label: stato, cls: "" };
-  const titoloId: string | null = (q as any).titolo_id;
   const numPol = polizza?.numero_polizza || (q as any).numero_polizza_snapshot || "";
+  const totProvvRata = totProvvigioniRata({
+    provvigioni_firma: q.provvigioni_firma,
+    provvigioni_quietanza: q.provvigioni_quietanza,
+  });
+  const produttoreLabel = commerciale?.hasProduttore
+    ? commerciale.righe.filter((r) => r.ruolo === "produttore").map((r) => r.nome).join(", ")
+    : "Nessun produttore";
 
   const current: ToolbarQuietanza | null = {
     id: q.id,
@@ -111,7 +123,7 @@ export default function QuietanzaDetail() {
     premio_lordo: q.premio_lordo,
     stato: q.stato,
     data_messa_cassa: q.data_messa_cassa,
-    titolo_id: titoloId,
+    titolo_id: (q as any).titolo_id,
   };
 
   const clienteId = polizza?.cliente_anagrafica_id;
@@ -135,12 +147,6 @@ export default function QuietanzaDetail() {
                   <Link to={clienteHref}>{clienteNome}</Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to={clienteHref}>Polizze</Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
             </>
           )}
           {polizza && (
@@ -155,7 +161,7 @@ export default function QuietanzaDetail() {
           )}
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>Quietanza {totLabel}</BreadcrumbPage>
+            <BreadcrumbPage>Rata {totLabel}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -168,30 +174,37 @@ export default function QuietanzaDetail() {
               variant="ghost"
               size="sm"
               className="h-7 px-2 -ml-2"
-              onClick={() => (clienteHref ? navigate(clienteHref) : navigate(-1))}
+              onClick={() => (polizza ? navigate(`/polizze/${polizza.id}`) : clienteHref ? navigate(clienteHref) : navigate(-1))}
             >
-              <ArrowLeft className="h-3.5 w-3.5 mr-1" /> {clienteHref ? "Torna al cliente" : "Indietro"}
+              <ArrowLeft className="h-3.5 w-3.5 mr-1" /> {polizza ? "Torna alla polizza" : "Indietro"}
             </Button>
             <span>·</span>
-            <span>Quietanza</span>
+            <span>Quietanza di rata</span>
           </div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            Rata {q.numero_rata}{q.numero_rate_totali ? ` / ${q.numero_rate_totali}` : ""}
-            <Badge variant="outline" className={st.cls + " ml-2"}>{st.label}</Badge>
+            Rata {totLabel}
+            <Badge variant="outline" className={st.cls}>{st.label}</Badge>
           </h1>
           <p className="text-muted-foreground text-sm">
             Polizza{" "}
             {polizza ? (
               <Link to={`/polizze/${polizza.id}`} className="text-primary hover:underline font-medium">
-                {polizza.numero_polizza}
+                {numPol}
               </Link>
             ) : "—"}{" "}
-            · {clienteNome} · {polizza?.compagnie?.nome || "—"}
+            · {clienteNome}
+          </p>
+          <p className="text-sm">
+            <span className="text-muted-foreground">Produttore:</span>{" "}
+            <span className="font-semibold">{produttoreLabel}</span>
+            {" · "}
+            <span className="text-muted-foreground">Provv. rata</span>{" "}
+            <span className="font-mono font-semibold">{fmtEuro(totProvvRata)}</span>
           </p>
         </div>
-        {titoloId && (
+        {(q as any).titolo_id && (
           <Button variant="ghost" size="sm" asChild>
-            <Link to={`/titoli/${titoloId}`}>
+            <Link to={`/titoli/${(q as any).titolo_id}`}>
               <Pencil className="h-4 w-4 mr-2" /> Apri editing completo
             </Link>
           </Button>
@@ -213,74 +226,39 @@ export default function QuietanzaDetail() {
         />
       )}
 
-      <div className="grid md:grid-cols-2 gap-3">
-        <CompactCard title="Periodo & scadenze">
+      <div className="grid md:grid-cols-3 gap-3">
+        <CompactCard title="Periodo rata">
           <Field label="Decorrenza" value={fmtDate(q.garanzia_da)} />
           <Field label="Scadenza garanzia" value={fmtDate(q.garanzia_a)} />
-          <Field label="Competenza" value={fmtDate(q.data_competenza)} />
-          <Field label="Scadenza pagamento" value={fmtDate(q.data_scadenza)} />
-          <Field label="Limite mora" value={fmtDate(q.limite_mora)} />
-          <Field label="Giorni mora" value={q.mora_giorni?.toString()} />
+          <Field label="Competenza" value={fmtDate(q.data_competenza)} hideEmpty />
+          <Field label="Scadenza pagamento" value={fmtDate(q.data_scadenza)} hideEmpty />
         </CompactCard>
 
-        <CompactCard title="Importi">
-          <Field label="Premio netto" value={fmtEuro(q.premio_netto)} />
-          <Field label="Tasse" value={fmtEuro(q.tasse)} />
-          <Field label="Addizionali" value={fmtEuro(q.addizionali)} />
-          <Field label="SSN" value={fmtEuro(q.ssn)} />
+        <CompactCard title="Importi rata">
           <Field label="Premio lordo" value={fmtEuro(q.premio_lordo)} highlight />
+          <Field label="Premio netto" value={fmtEuro(q.premio_netto)} />
+          <Field label="Tasse" value={fmtEuro(q.tasse)} hideEmpty />
+          <Field label="Addizionali" value={fmtEuro(q.addizionali)} hideEmpty />
+          <Field label="SSN" value={fmtEuro(q.ssn)} hideEmpty />
           <Field label="Provv. firma" value={fmtEuro(q.provvigioni_firma)} />
-          {stato !== "incassato" && !q.data_messa_cassa && (
-            <Field label="Provv. quietanza" value={fmtEuro(q.provvigioni_quietanza)} />
-          )}
+          <Field label="Provv. quietanza" value={fmtEuro(q.provvigioni_quietanza)} />
         </CompactCard>
 
-        <CompactCard title="Messa a cassa & incasso">
-          <Field label="Data messa a cassa" value={fmtDate(q.data_messa_cassa)} />
-          <Field label="Data pagamento" value={fmtDate(q.data_pagamento)} />
-          <Field label="Data incasso" value={fmtDate(q.data_incasso)} />
-          <Field label="Importo incassato" value={q.importo_incassato != null ? fmtEuro(q.importo_incassato) : "—"} highlight />
-          <Field label="Tipo incasso" value={q.tipo_incasso} />
-          <Field label="Conto incasso" value={q.conto_incasso} />
-        </CompactCard>
-
-        <CompactCard title="Riferimenti">
-          <Field label="N° polizza (snapshot)" value={q.numero_polizza_snapshot} />
-          <Field label="Appendice" value={q.appendice} />
-          {titoloId && (
-            <div className="pt-2 mt-1 border-t border-border/40 flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Titolo legacy</span>
-              <Link to={`/titoli/${titoloId}`} className="text-primary hover:underline text-xs inline-flex items-center gap-1">
-                <FileText className="h-3 w-3" /> Apri
-              </Link>
-            </div>
-          )}
-        </CompactCard>
+        <SchedaCommercialeCard
+          totProvv={commerciale?.totProvv ?? totProvvRata}
+          righe={commerciale?.righe ?? []}
+          hasProduttore={!!commerciale?.hasProduttore}
+          loading={loadingComm}
+        />
       </div>
-    </div>
-  );
-}
 
-function CompactCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Card>
-      <CardHeader className="py-3 px-4">
-        <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 pb-3 pt-0 text-sm">
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
-
-function Field({ label, value, highlight }: { label: string; value: any; highlight?: boolean }) {
-  return (
-    <div className="flex justify-between gap-4 py-1.5 border-b border-border/40 last:border-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={"text-right tabular-nums " + (highlight ? "font-bold text-foreground" : "font-medium")}>
-        {value || value === 0 ? value : <span className="text-muted-foreground font-normal">—</span>}
-      </span>
+      <CompactCard title="Messa a cassa">
+        <div className="grid sm:grid-cols-3 gap-x-6">
+          <Field label="Data messa a cassa" value={fmtDate(q.data_messa_cassa)} />
+          <Field label="Data pagamento" value={fmtDate(q.data_pagamento)} hideEmpty />
+          <Field label="Importo incassato" value={q.importo_incassato != null ? fmtEuro(q.importo_incassato) : "—"} />
+        </div>
+      </CompactCard>
     </div>
   );
 }

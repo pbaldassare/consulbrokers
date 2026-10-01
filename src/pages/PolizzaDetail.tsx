@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +11,9 @@ import { fmtEuro } from "@/lib/formatCurrency";
 import { format } from "date-fns";
 import { useTabParam } from "@/hooks/useTabParam";
 import { AzioniPolizzaToolbar, type ToolbarQuietanza } from "@/components/titolo/AzioniPolizzaToolbar";
+import { useTitoloCommerciale } from "@/hooks/useTitoloCommerciale";
+import { SchedaCommercialeCard } from "@/components/titolo/SchedaCommercialeCard";
+import { CompactCard, Field } from "@/components/titolo/SchedaCompact";
 
 const POLIZZA_TABS = ["contratto", "quietanze"] as const;
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
@@ -56,7 +59,7 @@ export default function PolizzaDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("quietanze")
-        .select("id, numero_rata, numero_rate_totali, garanzia_da, garanzia_a, data_scadenza, premio_lordo, stato, data_messa_cassa, data_incasso, importo_incassato, titolo_id")
+        .select("id, numero_rata, numero_rate_totali, garanzia_da, garanzia_a, data_scadenza, premio_lordo, stato, data_messa_cassa, data_incasso, importo_incassato, titolo_id, provvigioni_firma, provvigioni_quietanza")
         .eq("polizza_id", id!)
         .order("numero_rata", { ascending: true });
       if (error) throw error;
@@ -65,9 +68,13 @@ export default function PolizzaDetail() {
     enabled: !!id,
   });
 
+  const titoloMadreId: string | null = (polizza as any)?.titolo_madre_id ?? null;
+  const { data: commerciale, isLoading: loadingComm } = useTitoloCommerciale(titoloMadreId);
+
   const refreshAll = () => {
     qc.invalidateQueries({ queryKey: ["polizza", id] });
     qc.invalidateQueries({ queryKey: ["polizza-quietanze", id] });
+    if (titoloMadreId) qc.invalidateQueries({ queryKey: ["titolo-commerciale", titoloMadreId] });
   };
 
   if (loadingP) {
@@ -92,13 +99,14 @@ export default function PolizzaDetail() {
   const compagnia: any = (polizza as any).compagnie;
   const ramo: any = (polizza as any).rami;
   const clienteNome = cliente?.ragione_sociale || [cliente?.cognome, cliente?.nome].filter(Boolean).join(" ") || "—";
-  const titoloMadreId: string | null = (polizza as any).titolo_madre_id;
   const stato = polizza.stato as string;
   const numPol = polizza.numero_polizza || "";
+  const produttoreLabel = commerciale?.hasProduttore
+    ? commerciale.righe.filter((r) => r.ruolo === "produttore").map((r) => r.nome).join(", ")
+    : "Nessun produttore";
 
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
-      {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -114,6 +122,17 @@ export default function PolizzaDetail() {
           </h1>
           <p className="text-muted-foreground text-sm">
             {clienteNome} · {compagnia?.nome || "—"} · {ramo?.descrizione || ramo?.codice || "—"}
+          </p>
+          <p className="text-sm">
+            <span className="text-muted-foreground">Produttore:</span>{" "}
+            <span className="font-semibold">{produttoreLabel}</span>
+            {commerciale && (
+              <>
+                {" · "}
+                <span className="text-muted-foreground">Provv. rata</span>{" "}
+                <span className="font-mono font-semibold">{fmtEuro(commerciale.totProvv)}</span>
+              </>
+            )}
           </p>
         </div>
         {titoloMadreId && (
@@ -143,60 +162,52 @@ export default function PolizzaDetail() {
           <TabsTrigger value="quietanze">Quietanze ({quietanze.length})</TabsTrigger>
         </TabsList>
 
-        {/* === CONTRATTO === */}
         <TabsContent value="contratto" className="space-y-3">
-          <div className="grid md:grid-cols-2 gap-3">
-            <CompactCard title="Anagrafica">
-              <Field label="Cliente" value={clienteNome} />
-              <Field label="Codice cliente" value={cliente?.codice_cliente} />
-              <Field label="C.F. / P.IVA" value={cliente?.codice_fiscale || cliente?.partita_iva} />
-              <Field label="Compagnia" value={compagnia?.nome} />
-              <Field label="Ramo" value={ramo ? `${ramo.codice} · ${ramo.descrizione}` : "—"} />
-              <Field label="Prodotto" value={polizza.prodotto_nome} />
-              <Field label="Targa / Telaio" value={polizza.targa_telaio} />
-              <Field label="CIG" value={polizza.cig_rif} />
-            </CompactCard>
-
-            <CompactCard title="Durata & rinnovo">
+          <div className="grid md:grid-cols-3 gap-3">
+            <CompactCard title="Contratto">
               <Field label="Decorrenza" value={fmtDate(polizza.durata_da)} />
               <Field label="Scadenza" value={fmtDate(polizza.durata_a)} />
-              <Field label="Anni durata" value={polizza.anni_durata?.toString()} />
               <Field label="Frazionamento" value={polizza.frazionamento} />
+              <Field label="Anni durata" value={polizza.anni_durata?.toString()} hideEmpty />
               <Field label="Tacito rinnovo" value={polizza.tacito_rinnovo ? "Sì" : "No"} />
-              <Field label="Disdetta (giorni)" value={polizza.disdetta_giorni?.toString()} />
-              <Field label="Regolazione" value={polizza.regolazione ? "Sì" : "No"} />
-              <Field label="Indicizzata" value={polizza.indicizzata ? "Sì" : "No"} />
+              <Field label="Prodotto" value={polizza.prodotto_nome} hideEmpty />
+              <Field label="Targa / Telaio" value={polizza.targa_telaio} hideEmpty />
+              <Field label="CIG" value={polizza.cig_rif} hideEmpty />
+              <Field label="C.F. / P.IVA" value={cliente?.codice_fiscale || cliente?.partita_iva} hideEmpty />
             </CompactCard>
 
-            <CompactCard title="Premio annuo (riferimento)">
+            <CompactCard title="Premio annuo">
               <Field label="Premio lordo" value={fmtEuro(polizza.premio_annuo_lordo)} highlight />
               <Field label="Premio netto" value={fmtEuro(polizza.premio_annuo_netto)} />
-              <Field label="Tasse" value={fmtEuro(polizza.tasse_annue)} />
-              <Field label="Addizionali" value={fmtEuro(polizza.addizionali_annue)} />
-              <Field label="SSN" value={fmtEuro(polizza.ssn_annuo)} />
-              <Field label="Provv. firma" value={fmtEuro(polizza.provvigioni_annue_firma)} />
-              <Field label="Provv. quietanza" value={fmtEuro(polizza.provvigioni_annue_quietanza)} />
+              <Field label="Tasse" value={fmtEuro(polizza.tasse_annue)} hideEmpty />
+              <Field label="Addizionali" value={fmtEuro(polizza.addizionali_annue)} hideEmpty />
+              <Field label="SSN" value={fmtEuro(polizza.ssn_annuo)} hideEmpty />
+              <Field label="Provv. firma" value={fmtEuro(polizza.provvigioni_annue_firma ?? commerciale?.provvigioniFirma)} />
+              <Field label="Provv. quietanza" value={fmtEuro(polizza.provvigioni_annue_quietanza ?? commerciale?.provvigioniQuietanza)} />
             </CompactCard>
 
+            <SchedaCommercialeCard
+              totProvv={commerciale?.totProvv ?? 0}
+              righe={commerciale?.righe ?? []}
+              hasProduttore={!!commerciale?.hasProduttore}
+              loading={loadingComm}
+            />
+          </div>
+
+          {(stato !== "attiva" || polizza.data_sospensione || polizza.data_annullamento || polizza.note) && (
             <CompactCard title="Stato contratto">
               <Field label="Stato" value={stato} />
-              <Field label="Data sospensione" value={fmtDate(polizza.data_sospensione)} />
-              <Field label="Data riattivazione" value={fmtDate(polizza.data_riattivazione)} />
-              <Field label="Data annullamento" value={fmtDate(polizza.data_annullamento)} />
-              <Field label="Motivo annullamento" value={polizza.motivo_annullamento} />
-              <Field label="Tipo portafoglio" value={polizza.tipo_portafoglio} />
-              <Field label="Vincolo" value={polizza.vincolo} />
+              <Field label="Data sospensione" value={fmtDate(polizza.data_sospensione)} hideEmpty />
+              <Field label="Data riattivazione" value={fmtDate(polizza.data_riattivazione)} hideEmpty />
+              <Field label="Data annullamento" value={fmtDate(polizza.data_annullamento)} hideEmpty />
+              <Field label="Motivo" value={polizza.motivo_annullamento} hideEmpty />
               {polizza.note && (
-                <div className="pt-2 mt-1 border-t border-border/40">
-                  <div className="text-xs text-muted-foreground mb-1">Note</div>
-                  <div className="whitespace-pre-wrap text-sm">{polizza.note}</div>
-                </div>
+                <div className="pt-2 mt-1 border-t border-border/40 text-sm whitespace-pre-wrap">{polizza.note}</div>
               )}
             </CompactCard>
-          </div>
+          )}
         </TabsContent>
 
-        {/* === QUIETANZE === */}
         <TabsContent value="quietanze" className="space-y-3">
           <Card>
             <CardContent className="p-0">
@@ -212,16 +223,16 @@ export default function PolizzaDetail() {
                       <TableHead className="h-9 py-1">Decorrenza</TableHead>
                       <TableHead className="h-9 py-1">Scadenza</TableHead>
                       <TableHead className="h-9 py-1 text-right">Premio lordo</TableHead>
+                      <TableHead className="h-9 py-1 text-right">Provv.</TableHead>
                       <TableHead className="h-9 py-1">Stato</TableHead>
                       <TableHead className="h-9 py-1">Messa a cassa</TableHead>
-                      <TableHead className="h-9 py-1">Incassata</TableHead>
-                      <TableHead className="h-9 py-1 text-right">Incassato</TableHead>
                       <TableHead className="h-9 py-1 w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {quietanze.map((q: any) => {
                       const st = STATO_QUIETANZA[q.stato] || { label: q.stato, cls: "" };
+                      const provv = Number(q.provvigioni_quietanza) || Number(q.provvigioni_firma) || 0;
                       return (
                         <TableRow key={q.id} className="cursor-pointer hover:bg-muted/40 h-10" onClick={() => navigate(`/quietanze/${q.id}`)}>
                           <TableCell className="py-1.5 font-medium font-mono">
@@ -230,12 +241,11 @@ export default function PolizzaDetail() {
                           <TableCell className="py-1.5">{fmtDate(q.garanzia_da)}</TableCell>
                           <TableCell className="py-1.5">{fmtDate(q.garanzia_a || q.data_scadenza)}</TableCell>
                           <TableCell className="py-1.5 text-right tabular-nums">{fmtEuro(q.premio_lordo)}</TableCell>
+                          <TableCell className="py-1.5 text-right tabular-nums">{fmtEuro(provv)}</TableCell>
                           <TableCell className="py-1.5">
                             <Badge variant="outline" className={st.cls + " text-xs px-1.5 py-0"}>{st.label}</Badge>
                           </TableCell>
                           <TableCell className="py-1.5 text-muted-foreground">{fmtDate(q.data_messa_cassa)}</TableCell>
-                          <TableCell className="py-1.5 text-muted-foreground">{fmtDate(q.data_incasso)}</TableCell>
-                          <TableCell className="py-1.5 text-right tabular-nums">{q.importo_incassato != null ? fmtEuro(q.importo_incassato) : <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell className="py-1.5" onClick={(e) => e.stopPropagation()}>
                             {q.titolo_id && (
                               <Button size="sm" variant="ghost" asChild className="h-7 w-7 p-0">
@@ -255,30 +265,6 @@ export default function PolizzaDetail() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-function CompactCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Card>
-      <CardHeader className="py-3 px-4">
-        <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 pb-3 pt-0 text-sm">
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
-
-function Field({ label, value, highlight }: { label: string; value: any; highlight?: boolean }) {
-  return (
-    <div className="flex justify-between gap-4 py-1.5 border-b border-border/40 last:border-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={"text-right tabular-nums " + (highlight ? "font-bold text-foreground" : "font-medium")}>
-        {value || value === 0 ? value : <span className="text-muted-foreground font-normal">—</span>}
-      </span>
     </div>
   );
 }
