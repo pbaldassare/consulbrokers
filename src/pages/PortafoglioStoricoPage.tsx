@@ -17,8 +17,9 @@ import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/Ramo
 import { useRamiAll } from "@/hooks/useRamiLookup";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
-import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
+import { SortableTableHead, nextSort } from "@/components/shared/SortableTableHead";
+import { applyPortafoglioTipoOrder, isTipoSortField, TIPO_SORT_FIELD } from "@/lib/portafoglioTipoSort";
 import { rowBorderClass, isQuietanzaRow, displayStatoPolizza, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
 
 const rowHref = (p: any) =>
@@ -33,10 +34,11 @@ const PortafoglioStoricoPage = () => {
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [filtroStato, setFiltroStato] = useState("tutti");
-  const [filtroTipo, setFiltroTipo] = useState<"polizze" | "quietanze" | "regolazioni" | "garantiti">("quietanze");
+  const [sortField, setSortField] = useState("data_scadenza");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const { data: ramiAll = [] } = useRamiAll();
   const { ramoIds: filterRamoIds } = expandRamoFilter(filtroGruppoRamo, filtroRamo, ramiAll);
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroCompagnia, filtroGruppoRamo, filtroRamo, filtroStato, filtroTipo]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroCompagnia, filtroGruppoRamo, filtroRamo, filtroStato, sortField, sortDirection]);
 
   const today = format(new Date(), "yyyy-MM-dd");
 
@@ -64,23 +66,30 @@ const PortafoglioStoricoPage = () => {
     }
     if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
     if (filterRamoIds && filterRamoIds.length > 0) q = q.in("ramo_id", filterRamoIds);
-    if (filtroTipo === "polizze") q = q.is("sostituisce_polizza", null).or("is_regolazione.is.null,is_regolazione.eq.false");
-    else if (filtroTipo === "quietanze") q = q.not("sostituisce_polizza", "is", null).or("is_regolazione.is.null,is_regolazione.eq.false");
-    else if (filtroTipo === "regolazioni") q = q.eq("is_regolazione", true);
     return q;
   };
 
+  const handleSort = (field: string) => {
+    const next = nextSort(sortField, sortDirection, field);
+    setSortField(next.field);
+    setSortDirection(next.direction);
+    setPage(0);
+  };
+
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-storico", search, filtroCompagnia, filterRamoIds, filtroStato, filtroTipo, page, today],
+    queryKey: ["portafoglio-storico", search, filtroCompagnia, filterRamoIds, filtroStato, page, today, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_quietanze").select(
-        "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id, sostituisce_polizza, is_regolazione, regolazione_quietanza_id",
+        "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, regolazione_quietanza_id",
         { count: "exact" }
       );
       q = buildFilter(q);
-      const { data, count } = await q
-        .order("data_scadenza", { ascending: false })
-        .range(range.from, range.to);
+      if (isTipoSortField(sortField)) {
+        q = applyPortafoglioTipoOrder(q, sortDirection === "asc");
+      } else {
+        q = q.order("data_scadenza", { ascending: sortDirection === "asc" });
+      }
+      const { data, count } = await q.range(range.from, range.to);
       return { data: data || [], count: count || 0 };
     },
   });
@@ -178,11 +187,6 @@ const PortafoglioStoricoPage = () => {
             setPage(0);
           }}
         />
-        <TipoFilterSegmented
-          value={filtroTipo}
-          onChange={(v) => { setFiltroTipo(v); setPage(0); }}
-          withRegolazioni
-        />
       </div>
 
       {isLoading ? (
@@ -195,7 +199,7 @@ const PortafoglioStoricoPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>N° Polizza</TableHead>
-                  <TableHead>Tipo</TableHead>
+                  <SortableTableHead field={TIPO_SORT_FIELD} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Ordina per tipo">Tipo</SortableTableHead>
                   <TableHead>Cliente</TableHead>
                   
                   <TableHead>Agenzia</TableHead>
@@ -230,11 +234,15 @@ const PortafoglioStoricoPage = () => {
                       {p.numero_titolo || "—"}
                     </TableCell>
                     <TableCell>
-                      {p.is_regolazione
-                        ? <Badge className="bg-orange-500 hover:bg-orange-600 text-white">Regolazione</Badge>
-                        : isQ
-                          ? <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(p)} />
-                          : <TipoPolizzaBadge tipo="polizza" />}
+                      {p.is_proroga
+                        ? <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Proroga</Badge>
+                        : p.is_regolazione
+                          ? <Badge className="bg-orange-500 hover:bg-orange-600 text-white">Regolazione</Badge>
+                          : p.is_appendice_modifica
+                            ? <Badge variant="secondary">Modifica</Badge>
+                            : isQ
+                              ? <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(p)} />
+                              : <TipoPolizzaBadge tipo="polizza" />}
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { Shield, Search, ChevronRight, ChevronDown } from "lucide-react";
+import { Shield, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
@@ -18,15 +18,15 @@ import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/Ramo
 import { useRamiAll } from "@/hooks/useRamiLookup";
 import { useCompensazioniByTitoli } from "@/hooks/useCompensazioniByTitoli";
 import { CompensazioneBadge } from "@/components/portafoglio/CompensazioneBadge";
-import { TipoFilterSegmented, type FiltroTipo } from "@/components/polizze/TipoFilterSegmented";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { SortableTableHead, nextSort } from "@/components/shared/SortableTableHead";
 import { datePeriodoPolizzaGaranzia } from "@/lib/datePolizzaGaranzia";
 import { rowBorderClass, isQuietanzaRow, isPolizzaMadreRow, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
+import { applyPortafoglioTipoOrder, isTipoSortField, TIPO_SORT_FIELD } from "@/lib/portafoglioTipoSort";
 import { cn } from "@/lib/utils";
 
 const ROW_SELECT =
-  "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, durata_da, durata_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza, is_regolazione, regolazione_quietanza_id, numero_rata, numero_rate_totali";
+  "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, durata_da, durata_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, regolazione_quietanza_id, numero_rata, numero_rate_totali";
 
 type PortafoglioRow = Record<string, any>;
 
@@ -35,28 +35,12 @@ const rowHref = (p: PortafoglioRow) =>
     ? `/quietanze/${p.quietanza_id}`
     : `/polizze/${p.polizza_id}`;
 
-const KPI_LABELS: Record<FiltroTipo, string> = {
-  polizze: "Polizze attive",
-  quietanze: "Quietanze attive",
-  regolazioni: "Regolazioni attive",
-  garantiti: "Garantiti attivi",
-};
-
-const EMPTY_LABELS: Record<FiltroTipo, string> = {
-  polizze: "Nessuna polizza trovata",
-  quietanze: "Nessuna quietanza trovata",
-  regolazioni: "Nessuna regolazione trovata",
-  garantiti: "Nessun titolo garantito trovato",
-};
-
 const PortafoglioAttivePage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
-  const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>("quietanze");
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [sortField, setSortField] = useState("fineGaranzia");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
@@ -71,17 +55,9 @@ const PortafoglioAttivePage = () => {
     filtroGruppoRamo,
     filtroRamo,
     escludiMeseCorrente,
-    filtroTipo,
     sortField,
     sortDirection,
   ]);
-
-  const applyTipoFilter = (q: any, tipo: FiltroTipo) => {
-    if (tipo === "polizze") return q.is("sostituisce_polizza", null).or("is_regolazione.is.null,is_regolazione.eq.false");
-    if (tipo === "quietanze") return q.not("sostituisce_polizza", "is", null).or("is_regolazione.is.null,is_regolazione.eq.false");
-    if (tipo === "regolazioni") return q.eq("is_regolazione", true);
-    return q;
-  };
 
   const applyBaseFilters = (q: any) => {
     let next = q
@@ -99,41 +75,24 @@ const PortafoglioAttivePage = () => {
     return next;
   };
 
-  const { data: tipoCounts } = useQuery({
-    queryKey: ["portafoglio-attive-counts", search, filterRamoIds, today, escludiMeseCorrente],
-    queryFn: async () => {
-      const countFor = async (tipo: FiltroTipo) => {
-        let q = applyBaseFilters(supabase.from("v_portafoglio_quietanze").select("id", { count: "exact", head: true }));
-        q = applyTipoFilter(q, tipo);
-        const { count, error } = await q;
-        if (error) throw error;
-        return count || 0;
-      };
-      const [polizze, quietanze, regolazioni] = await Promise.all([
-        countFor("polizze"),
-        countFor("quietanze"),
-        countFor("regolazioni"),
-      ]);
-      return { polizze, quietanze, regolazioni };
-    },
-  });
-
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente, filtroTipo, sortField, sortDirection],
+    queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente, sortField, sortDirection],
     queryFn: async () => {
-      const orderCol =
-        sortField === "ramo_nome" ? "ramo_nome"
-        : sortField === "inizioPolizza" ? "durata_da"
-        : sortField === "finePolizza" ? "durata_a"
-        : sortField === "inizioGaranzia" ? "garanzia_da"
-        : "garanzia_a";
       let q = applyBaseFilters(
         supabase.from("v_portafoglio_quietanze").select(ROW_SELECT, { count: "exact" }),
       );
-      q = applyTipoFilter(q, filtroTipo);
-      const { data, count, error } = await q
-            .order(orderCol, { ascending: sortDirection === "asc" })
-        .range(range.from, range.to);
+      if (isTipoSortField(sortField)) {
+        q = applyPortafoglioTipoOrder(q, sortDirection === "asc");
+      } else {
+        const orderCol =
+          sortField === "ramo_nome" ? "ramo_nome"
+          : sortField === "inizioPolizza" ? "durata_da"
+          : sortField === "finePolizza" ? "durata_a"
+          : sortField === "inizioGaranzia" ? "garanzia_da"
+          : "garanzia_a";
+        q = q.order(orderCol, { ascending: sortDirection === "asc" });
+      }
+      const { data, count, error } = await q.range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], count: count || 0 };
     },
@@ -142,53 +101,13 @@ const PortafoglioAttivePage = () => {
   const polizze = result?.data || [];
   const totalCount = result?.count || 0;
 
-  const polizzaIdsOnPage = useMemo(
-    () =>
-      filtroTipo === "polizze"
-        ? polizze.filter((p: PortafoglioRow) => !isQuietanzaRow(p)).map((p: PortafoglioRow) => p.polizza_id as string)
-        : [],
-    [polizze, filtroTipo],
-  );
-
-  const { data: rateByPolizza = {} } = useQuery({
-    queryKey: ["portafoglio-attive-rate", polizzaIdsOnPage, today, escludiMeseCorrente],
-    enabled: filtroTipo === "polizze" && polizzaIdsOnPage.length > 0,
-    queryFn: async () => {
-      let q = applyBaseFilters(
-        supabase.from("v_portafoglio_quietanze").select(ROW_SELECT),
-      );
-      q = q.in("polizza_id", polizzaIdsOnPage).not("sostituisce_polizza", "is", null);
-      const { data, error } = await q.order("garanzia_da", { ascending: true });
-      if (error) throw error;
-      const grouped: Record<string, PortafoglioRow[]> = {};
-      for (const row of data || []) {
-        const key = String(row.polizza_id);
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(row);
-      }
-      return grouped;
-    },
-  });
-
-  const titoloIdsRiga = useMemo(() => {
-    const ids: string[] = polizze.map((p: PortafoglioRow) => p.id);
-    if (filtroTipo === "polizze") {
-      for (const pid of polizzaIdsOnPage) {
-        if (expanded[pid]) {
-          (rateByPolizza[pid] || []).forEach((r) => ids.push(r.id));
-        }
-      }
-    }
-    return ids;
-  }, [polizze, filtroTipo, polizzaIdsOnPage, expanded, rateByPolizza]);
-
+  const titoloIdsRiga = useMemo(() => polizze.map((p: PortafoglioRow) => p.id), [polizze]);
   const { data: compensazioniMap } = useCompensazioniByTitoli(titoloIdsRiga);
 
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-attive-totale", search, filterRamoIds, today, escludiMeseCorrente, filtroTipo],
+    queryKey: ["portafoglio-attive-totale", search, filterRamoIds, today, escludiMeseCorrente],
     queryFn: async () => {
-      let q = applyBaseFilters(supabase.from("v_portafoglio_quietanze").select("premio_lordo"));
-      q = applyTipoFilter(q, filtroTipo);
+      const q = applyBaseFilters(supabase.from("v_portafoglio_quietanze").select("premio_lordo"));
       const { data, error } = await q;
       if (error) throw error;
       return (data || []).reduce((sum: number, r: any) => sum + (Number(r.premio_lordo) || 0), 0);
@@ -207,10 +126,6 @@ const PortafoglioAttivePage = () => {
     return map[r] || String(r);
   };
 
-  const toggleExpand = (polizzaId: string) => {
-    setExpanded((prev) => ({ ...prev, [polizzaId]: !prev[polizzaId] }));
-  };
-
   const handleSort = (field: string) => {
     const next = nextSort(sortField, sortDirection, field);
     setSortField(next.field);
@@ -223,9 +138,17 @@ const PortafoglioAttivePage = () => {
     return (
       <TableCell>
         <div className="flex gap-1 flex-wrap">
-          {p.is_regolazione ? (
+          {p.is_proroga ? (
+            <Badge className="bg-blue-500 hover:bg-blue-600 text-white" title="Titolo di proroga">
+              Proroga
+            </Badge>
+          ) : p.is_regolazione ? (
             <Badge className="bg-orange-500 hover:bg-orange-600 text-white" title="Titolo di Regolazione Premio">
               Regolazione
+            </Badge>
+          ) : p.is_appendice_modifica ? (
+            <Badge variant="secondary" title="Appendice di modifica">
+              Modifica
             </Badge>
           ) : isQ ? (
             <TipoPolizzaBadge
@@ -271,11 +194,9 @@ const PortafoglioAttivePage = () => {
     );
   };
 
-  const renderQuietanzaRow = (p: PortafoglioRow, opts?: { child?: boolean; chainDates?: ReturnType<typeof datePeriodoPolizzaGaranzia> }) => {
-    const child = !!opts?.child;
-    const dates = opts?.chainDates
-      ? { ...opts.chainDates, inizioGaranzia: p.garanzia_da ?? null, fineGaranzia: p.garanzia_a ?? null }
-      : datePeriodoPolizzaGaranzia(p);
+  const renderRow = (p: PortafoglioRow) => {
+    const dates = datePeriodoPolizzaGaranzia(p);
+    const isQ = isQuietanzaRow(p);
     return (
       <TableRow
         key={p.id}
@@ -283,86 +204,45 @@ const PortafoglioAttivePage = () => {
           "cursor-pointer",
           rowBorderClass(p),
           messaCassaRowBgClass(p),
-          !isMessaACassa(p) && isQuietanzaRow(p) && "hover:bg-muted/40",
+          !isMessaACassa(p) && isQ && "hover:bg-muted/40",
           p.is_regolazione && "bg-orange-50/40",
-          child && "bg-muted/20 hover:bg-muted/40",
+          p.is_proroga && "bg-blue-50/40",
+          p.is_appendice_modifica && "bg-primary/5",
         )}
         onClick={() => navigate(rowHref(p))}
-        title={child ? "Apri quietanza" : "Apri titolo"}
+        title="Apri titolo"
       >
-        {filtroTipo === "polizze" && <TableCell />}
-        <TableCell className={cn("font-mono text-xs", child && "pl-8 text-muted-foreground")}>
-          {child && <span className="mr-1 text-quietanza/70">↳</span>}
-          {p.is_regolazione && !child && (
-            <span className="text-orange-600 mr-1" title="Regolazione collegata">
-              ↳
-            </span>
+        <TableCell className="font-mono text-xs">
+          {p.is_proroga && (
+            <span className="text-blue-600 mr-1" title="Proroga collegata">↳</span>
+          )}
+          {p.is_regolazione && !p.is_proroga && (
+            <span className="text-orange-600 mr-1" title="Regolazione collegata">↳</span>
+          )}
+          {p.is_appendice_modifica && !p.is_proroga && !p.is_regolazione && (
+            <span className="text-primary mr-1" title="Appendice modifica">↳</span>
           )}
           {p.numero_titolo || "—"}
         </TableCell>
         {renderTipoCell(p)}
-        {filtroTipo === "quietanze" && (
-          <TableCell onClick={(e) => e.stopPropagation()}>
-            {p.polizza_id ? (
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto p-0 font-mono text-xs"
-                onClick={() => navigate(`/polizze/${p.polizza_id}`)}
-              >
-                {p.numero_titolo || "—"}
-              </Button>
-            ) : (
-              "—"
-            )}
-          </TableCell>
-        )}
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          {isQ && p.polizza_id ? (
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 font-mono text-xs"
+              onClick={() => navigate(`/polizze/${p.polizza_id}`)}
+            >
+              {p.numero_titolo || "—"}
+            </Button>
+          ) : (
+            "—"
+          )}
+        </TableCell>
         {renderDataCells(p, dates)}
       </TableRow>
     );
   };
-
-  const renderPolizzaMadreRow = (p: PortafoglioRow) => {
-    const polizzaId = String(p.polizza_id);
-    const rate = rateByPolizza[polizzaId] || [];
-    const dates = datePeriodoPolizzaGaranzia(p, rate);
-    const isOpen = !!expanded[polizzaId];
-    const hasRate = rate.length > 0;
-
-    return (
-      <Fragment key={p.id}>
-        <TableRow
-          className={cn(
-            "cursor-pointer border-l-4 border-l-polizza hover:bg-polizza/5 hover:ring-1 hover:ring-inset hover:ring-polizza/30 transition-colors",
-            messaCassaRowBgClass(p),
-          )}
-          onClick={() => navigate(rowHref(p))}
-          title="Apri polizza"
-        >
-          <TableCell className="w-8 p-0 text-center" onClick={(e) => e.stopPropagation()}>
-            {hasRate ? (
-              <button
-                type="button"
-                onClick={() => toggleExpand(polizzaId)}
-                className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-muted text-muted-foreground"
-                aria-expanded={isOpen}
-                title={isOpen ? "Nascondi quietanze collegate" : `Mostra ${rate.length} quietanze collegate`}
-              >
-                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              </button>
-            ) : null}
-          </TableCell>
-          <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
-          {renderTipoCell(p)}
-          {renderDataCells(p, dates)}
-        </TableRow>
-        {isOpen && rate.map((r) => renderQuietanzaRow(r, { child: true, chainDates: dates }))}
-      </Fragment>
-    );
-  };
-
-  const showChevronCol = filtroTipo === "polizze";
-  const showPolizzaMadreCol = filtroTipo === "quietanze";
 
   return (
     <div className="space-y-6">
@@ -380,7 +260,7 @@ const PortafoglioAttivePage = () => {
             <Shield className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">{KPI_LABELS[filtroTipo]}</p>
+            <p className="text-sm text-muted-foreground">Titoli attivi</p>
             <p className="text-2xl font-bold text-foreground">{totalCount}</p>
             {totaleData != null && (
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -413,16 +293,6 @@ const PortafoglioAttivePage = () => {
             setPage(0);
           }}
         />
-        <TipoFilterSegmented
-          value={filtroTipo}
-          onChange={(v) => {
-            setFiltroTipo(v);
-            setExpanded({});
-            setPage(0);
-          }}
-          withRegolazioni
-          counts={tipoCounts}
-        />
         <div className="flex items-center gap-2 ml-auto">
           <Switch
             id="escludi-mese"
@@ -441,16 +311,15 @@ const PortafoglioAttivePage = () => {
       {isLoading ? (
         <div className="text-center py-10 text-muted-foreground">Caricamento...</div>
       ) : polizze.length === 0 ? (
-        <div className="text-center py-10 text-muted-foreground">{EMPTY_LABELS[filtroTipo]}</div>
+        <div className="text-center py-10 text-muted-foreground">Nessun titolo trovato</div>
       ) : (
         <>
           <Table>
               <TableHeader>
                 <TableRow>
-                  {showChevronCol && <TableHead className="w-8" />}
-                  <TableHead>{filtroTipo === "quietanze" ? "N° Rata" : "N° Polizza"}</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  {showPolizzaMadreCol && <TableHead>Polizza madre</TableHead>}
+                  <TableHead>N° Polizza</TableHead>
+                  <SortableTableHead field={TIPO_SORT_FIELD} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Ordina per tipo">Tipo</SortableTableHead>
+                  <TableHead>Polizza madre</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Agenzia</TableHead>
                   <SortableTableHead field="ramo_nome" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Ordina per garanzia">Garanzia</SortableTableHead>
@@ -469,9 +338,7 @@ const PortafoglioAttivePage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtroTipo === "polizze"
-                  ? polizze.map((p: PortafoglioRow) => renderPolizzaMadreRow(p))
-                  : polizze.map((p: PortafoglioRow) => renderQuietanzaRow(p))}
+                {polizze.map((p: PortafoglioRow) => renderRow(p))}
               </TableBody>
             </Table>
           <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />

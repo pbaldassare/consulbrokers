@@ -56,6 +56,7 @@ import {
   type Periodo,
   type VistaIncasso,
 } from "@/lib/portafoglioCarico/filters";
+import { applyPortafoglioTipoOrder, isTipoSortField, TIPO_SORT_FIELD } from "@/lib/portafoglioTipoSort";
 
 const provvigioneRiga = getProvvigioneEC;
 
@@ -277,8 +278,12 @@ const PortafoglioCaricoConsultazionePage = () => {
         : sortField === "fineGaranzia" ? "garanzia_a"
         : sortField;
 
+      if (isTipoSortField(sortField)) {
+        q = applyPortafoglioTipoOrder(q, sortDirection === "asc");
+      } else {
+        q = q.order(orderCol, { ascending: sortDirection === "asc" });
+      }
       const { data, count, error } = await q
-        .order(orderCol, { ascending: sortDirection === "asc" })
         .range(range.from, range.to);
       if (error) {
         console.error("[Carico] query v_portafoglio_quietanze:", error);
@@ -759,7 +764,7 @@ const PortafoglioCaricoConsultazionePage = () => {
                     />
                   </TableHead>
                   <SortableHeader field="numero_titolo">N° Polizza</SortableHeader>
-                  <TableHead className="bg-background">Tipo</TableHead>
+                  <SortableHeader field={TIPO_SORT_FIELD} title="Ordina per tipo">Tipo</SortableHeader>
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
                   <SortableHeader field="compagnia_nome">Agenzia</SortableHeader>
                   <SortableHeader field="ramo_nome">Garanzia</SortableHeader>
