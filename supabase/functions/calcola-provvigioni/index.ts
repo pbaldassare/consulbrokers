@@ -120,10 +120,12 @@ Deno.serve(async (req) => {
 
       const sumPerc = effectiveSplits.reduce((acc, s) => acc + s.percentuale, 0);
 
-      // Account Executive: secondo intermediario provvigionato (riga distinta, residuo a Consul)
+      // Account Executive: secondo intermediario provvigionato (riga distinta, residuo a Consul).
+      // Se la stessa scheda è anche produttore della polizza vince il produttore: niente quota AE.
       const aeId = (titolo as any).ae_anagrafica_id as string | null;
       const aePerc = Math.max(0, Math.min(100, Number((titolo as any).percentuale_ae) || 0));
-      const hasAE = !!aeId && aePerc > 0;
+      const aeAncheProduttore = !!aeId && effectiveSplits.some((s) => s.anagrafica_commerciale_id === aeId);
+      const hasAE = !!aeId && aePerc > 0 && !aeAncheProduttore;
       const percAdmin = Math.max(0, Math.round((100 - sumPerc - (hasAE ? aePerc : 0)) * 100) / 100);
 
       // Righe commerciali (Produttori)
