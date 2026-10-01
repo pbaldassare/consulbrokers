@@ -206,7 +206,7 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Scadenze RCA', path: '/rca/scadenze' },
   { label: 'Preventivi RCA', path: '/rca/preventivi' },
   { label: 'Riepilogo Acconti', path: '/contabilita/anticipi-clienti' },
-  { label: 'Caricamento Mov. Bancari', path: '/contabilita/caricamento-mov-bancari' },
+  { label: 'Bonifici e mov. Bancari', path: '/contabilita/caricamento-mov-bancari' },
   { label: 'Bonifici (Incassi)', path: '/portafoglio/incassi?tab=bonifici' },
   { label: 'Storico bonifici', path: '/contabilita/ricongiungimento-bancario?tab=storico' },
   { label: 'Report IVA', path: '/report-iva' },

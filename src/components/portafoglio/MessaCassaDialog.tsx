@@ -1837,7 +1837,7 @@ export const MessaCassaDialog = ({
       }
     } else if (ok > 0 && needsBonificoLink && bonificiCandidati.length === 0) {
       toast.warning(
-        "Incasso registrato senza bonifico in caricamento: importa il movimento da Caricamento Mov. Bancari, poi abbinalo in Incassi → Bonifici aperti.",
+        "Incasso registrato senza bonifico in caricamento: importa il movimento da Bonifici e mov. Bancari → Importazioni, poi abbinalo in Incassi → Bonifici aperti.",
       );
     }
 
@@ -2625,7 +2625,7 @@ export const MessaCassaDialog = ({
                           <p className="text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-2">
                             {soloMatchNome && bonificiCandidati.length > 0
                               ? "Nessun match nome su questo conto. Usa «Mostra tutti» oppure cambia conto / importa il bonifico."
-                              : "Nessun movimento aperto su questo conto. Puoi comunque incassare; poi importa da Caricamento Mov. Bancari e abbina in Incassi → Bonifici aperti."}
+                              : "Nessun movimento aperto su questo conto. Puoi comunque incassare; poi importa da Bonifici e mov. Bancari → Importazioni e abbina in Incassi → Bonifici aperti."}
                           </p>
                         ) : (
                           <TableScrollArea className="max-h-[320px] rounded border">
