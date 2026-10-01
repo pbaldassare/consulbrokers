@@ -16,10 +16,12 @@ import { DatePicker } from "@/components/contabilita/DatePicker";
 import { toast } from "sonner";
 import { buildECProduttorePdf, type ECProduttoreData, type ECProduttoreRow, type ECProduttoreTrattenutaRow } from "@/lib/ec-produttore-pdf";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchAllQueryPages } from "@/lib/movimentiBancari";
 import { logAttivita } from "@/lib/logAttivita";
 import {
   defaultDataLimiteIncasso,
   EC_PRODUTTORI_PERIODO_DA,
+  EC_PRODUTTORI_STORICO_AL,
   isDefaultDataLimiteIncasso,
 } from "@/lib/contabilita/defaultDataLimiteIncasso";
 import { defaultDataEstrattoContoFormatted } from "@/lib/contabilita/defaultDataEstrattoConto";
@@ -66,14 +68,15 @@ const ECProduttoriContabPage = () => {
   const { data: provvAll, isLoading } = useQuery({
     queryKey: ["ec-produttori-mese", toIso],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const data = await fetchAllQueryPages((from, to) => supabase
         .from("provvigioni_generate")
         .select("user_id, anagrafica_commerciale_id, importo_provvigione, tipo_destinatario, solo_statistico, pagata, titolo_id, titoli!provvigioni_generate_titolo_id_fkey(id, numero_titolo, riga, appendice, sostituisce_polizza, premio_lordo, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, ramo_id, cliente_anagrafica_id, produttore_id, anagrafica_commerciale_id, rami:ramo_id(descrizione, codice), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale))")
         .in("tipo_destinatario", ["commerciale", "ae"])
         .eq("solo_statistico", false)
-        .eq("pagata", false);
-      if (error) throw error;
-      return (data || []).filter((p: any) => {
+        .eq("pagata", false)
+        .order("id")
+        .range(from, to), 1000);
+      return data.filter((p: any) => {
         const t = p.titoli;
         if (!t || !t.data_messa_cassa) return false;
         return t.data_messa_cassa <= toIso;
@@ -90,6 +93,7 @@ const ECProduttoriContabPage = () => {
         )
         .eq("stato", "attiva")
         .eq("modalita", "produttore_trattiene_provv")
+        .gt("titoli.data_messa_cassa", EC_PRODUTTORI_STORICO_AL)
         .lte("titoli.data_messa_cassa", toIso);
       if (error) throw error;
       return data || [];

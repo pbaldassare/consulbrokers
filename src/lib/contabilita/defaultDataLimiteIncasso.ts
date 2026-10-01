@@ -34,3 +34,6 @@ export function isDefaultDataLimiteIncasso(d: Date | null | undefined, now: Date
 
 /** Data inizio aperta per E/C produttori (solo limite superiore). */
 export const EC_PRODUTTORI_PERIODO_DA = "1970-01-01";
+
+/** Pregresso E/C produttori chiuso a storico: trattenute fino a questa data non si mostrano più. */
+export const EC_PRODUTTORI_STORICO_AL = "2026-08-31";
