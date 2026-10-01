@@ -28,6 +28,9 @@ import ProduttoreProvvigioniRamoTab from "@/components/anagrafiche/ProduttorePro
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { ValidatedInput } from "@/components/ui/validated-input";
 import { matchesAnagraficaListSearch } from "@/lib/searchNoEmail";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { RUOLI_COMMERCIALI, labelRuoli, ruoliDi } from "@/lib/ruoliAnagrafica";
 
 /** value ISO yyyy-MM-dd o "" */
 const DateField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
@@ -53,6 +56,7 @@ type TabValue = TipoAnagrafica | typeof EXTRA_TABS[number]["value"];
 interface Anagrafica {
   id: string;
   tipo: string;
+  ruoli: string[] | null;
   codice: string | null;
   nome: string | null;
   nome_breve: string | null;
@@ -114,10 +118,11 @@ const emptyForm = {
   percentuale_base: "", percentuale_consulenza: "", codice_fornitore: "", percentuale_ra: "4.60",
   trattenuta_provvigioni_incasso: false,
   abi: "", cab: "", iban: "", intestatario_cc: "",
+  ruoli: [] as string[],
 };
 
 const AnagraficheInternePage = () => {
-  const { profile } = useAuth();
+  const { profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get("tab") as TabValue) || "account_executive";
@@ -139,7 +144,7 @@ const AnagraficheInternePage = () => {
       const { data, error } = await supabase
         .from("anagrafiche_professionali")
         .select("*")
-        .eq("tipo", tipoAnagrafica)
+        .contains("ruoli", [tipoAnagrafica])
         .order("cognome", { ascending: true });
       if (error) throw error;
       return data as unknown as Anagrafica[];
@@ -167,6 +172,47 @@ const AnagraficheInternePage = () => {
   const isCorr = activeTab === "corrispondente";
   const isNewCommercial = activeTab === "responsabile_sede";
   const isProduttore = isCommerciale;
+  const [editingTipo, setEditingTipo] = useState<string | null>(null);
+  const tipoPrincipale = editingTipo ?? tipoAnagrafica;
+  const ruoliForm = Array.from(new Set([tipoPrincipale, ...form.ruoli]));
+  // AE puri: nessuna Sede. Se la scheda ha anche altri ruoli valgono le regole di quei ruoli.
+  const soloAE = ruoliForm.every((r) => r === "account_executive");
+  const haCorr = ruoliForm.includes("corrispondente");
+  const [mergeDupId, setMergeDupId] = useState("");
+
+  const { data: schedeCommerciali = [] } = useQuery({
+    queryKey: ["anagrafiche_professionali", "commerciali-merge"],
+    enabled: dialogOpen && isAdmin && !!editingId && isCommerciale,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("anagrafiche_professionali")
+        .select("id, cognome, nome, ragione_sociale, codice, codice_fiscale, tipo, ruoli")
+        .overlaps("ruoli", RUOLI_COMMERCIALI.map((r) => r.value))
+        .eq("attivo", true)
+        .order("cognome", { ascending: true });
+      if (error) throw error;
+      return (data || []) as unknown as Pick<Anagrafica, "id" | "cognome" | "nome" | "ragione_sociale" | "codice" | "codice_fiscale" | "tipo" | "ruoli">[];
+    },
+  });
+
+  const mergeMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingId || !mergeDupId) throw new Error("Selezionare la scheda da unire");
+      const { error } = await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ error: Error | null }>)(
+        "unisci_anagrafiche_professionali",
+        { p_master: editingId, p_dup: mergeDupId },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] });
+      queryClient.invalidateQueries({ queryKey: ["anagrafiche-ae-produttore"] });
+      toast.success("Schede unite: polizze, provvigioni e clienti ora puntano a questa scheda");
+      setMergeDupId("");
+      setDialogOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -176,20 +222,21 @@ const AnagraficheInternePage = () => {
       ]);
       // Account Executive: SEMPRE indipendenti dalla Sede (ufficio_id = NULL).
       // Corrispondenti: Sede opzionale. Altri ruoli commerciali: Sede dell'utente o quella scelta.
-      const resolvedUfficioId = isAE
+      const resolvedUfficioId = soloAE
         ? null
-        : isCorr
+        : haCorr
           ? (form.ufficio_id || null)
           : isProduttore
             ? (form.ufficio_id || profile?.ufficio_id || null)
             : (profile?.ufficio_id || null);
 
-      if (isProduttore && !isCorr && !isAE && !resolvedUfficioId) {
+      if (isProduttore && !haCorr && !soloAE && !resolvedUfficioId) {
         throw new Error("Selezionare un ufficio per il produttore");
       }
 
       const payload: Record<string, unknown> = {
         tipo: tipoAnagrafica,
+        ruoli: ruoliForm,
         codice: form.codice || null,
         nome: form.nome || null,
         nome_breve: form.nome_breve || null,
@@ -226,7 +273,7 @@ const AnagraficheInternePage = () => {
         percentuale_consulenza: form.percentuale_consulenza ? Number(form.percentuale_consulenza) : 0,
         codice_fornitore: form.codice_fornitore || null,
         percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 4.60,
-        trattenuta_provvigioni_incasso: isCorr ? form.trattenuta_provvigioni_incasso : false,
+        trattenuta_provvigioni_incasso: haCorr ? form.trattenuta_provvigioni_incasso : false,
         abi: form.abi || null,
         cab: form.cab || null,
         iban: form.iban || null,
@@ -254,14 +301,14 @@ const AnagraficheInternePage = () => {
         { label: "Partita IVA", value: form.partita_iva, kind: "piva" },
       ]);
       // AE sempre senza Sede; corrispondente opzionale; altri ruoli commerciali obbligatoria.
-      const resolvedUfficioId = isAE
+      const resolvedUfficioId = soloAE
         ? null
-        : isCorr
+        : haCorr
           ? (form.ufficio_id || null)
           : isProduttore
             ? (form.ufficio_id || profile?.ufficio_id || null)
             : (profile?.ufficio_id || null);
-      if (isProduttore && !isCorr && !isAE && !resolvedUfficioId) {
+      if (isProduttore && !haCorr && !soloAE && !resolvedUfficioId) {
         throw new Error("Sede obbligatoria: assegna una Sede prima di salvare");
       }
 
@@ -302,11 +349,12 @@ const AnagraficheInternePage = () => {
         percentuale_consulenza: form.percentuale_consulenza ? Number(form.percentuale_consulenza) : 0,
         codice_fornitore: form.codice_fornitore || null,
         percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 4.60,
-        trattenuta_provvigioni_incasso: isCorr ? form.trattenuta_provvigioni_incasso : false,
+        trattenuta_provvigioni_incasso: haCorr ? form.trattenuta_provvigioni_incasso : false,
         abi: form.abi || null,
         cab: form.cab || null,
         iban: form.iban || null,
         intestatario_cc: form.intestatario_cc || null,
+        ruoli: ruoliForm,
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabase.from("anagrafiche_professionali").update(payload).eq("id", editingId);
@@ -326,6 +374,8 @@ const AnagraficheInternePage = () => {
 
   const openEdit = (item: Anagrafica) => {
     setEditingId(item.id);
+    setEditingTipo(item.tipo);
+    setMergeDupId("");
     setForm({
       codice: item.codice || "",
       nome: item.nome || "",
@@ -369,6 +419,7 @@ const AnagraficheInternePage = () => {
       cab: item.cab || "",
       iban: item.iban || "",
       intestatario_cc: item.intestatario_cc || "",
+      ruoli: ruoliDi(item),
     });
     setDialogOpen(true);
   };
@@ -529,7 +580,10 @@ const AnagraficheInternePage = () => {
       return (
          <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : item.attivo === false ? "opacity-60" : ""}`} onClick={() => openEdit(item)}>
           <TableCell className="font-medium">{item.codice || "—"}</TableCell>
-          <TableCell className="font-medium">{item.ragione_sociale || item.cognome || item.nome || "—"}</TableCell>
+          <TableCell className="font-medium">
+            {item.ragione_sociale || item.cognome || item.nome || "—"}
+            {ruoliDi(item).length > 1 && <div><Badge variant="outline" className="text-[10px] mt-0.5">{labelRuoli(item)}</Badge></div>}
+          </TableCell>
           <TableCell>{item.sigla || "—"}</TableCell>
           <TableCell className="text-sm">
             {item.telefono && <div>Tel {item.telefono}</div>}
@@ -559,6 +613,7 @@ const AnagraficheInternePage = () => {
           <TableCell className="font-medium">
             {item.cognome || item.ragione_sociale || "—"}
             {item.nome && <div className="text-xs text-muted-foreground">{item.nome}</div>}
+            {ruoliDi(item).length > 1 && <Badge variant="outline" className="text-[10px] mt-0.5">{labelRuoli(item)}</Badge>}
           </TableCell>
           <TableCell className="text-sm">
             {addressParts.length > 0 ? addressParts.map((p, i) => <div key={i}>{p}</div>) : "—"}
@@ -608,9 +663,9 @@ const AnagraficheInternePage = () => {
 
   const renderUfficioSelect = () => {
     if (!isProduttore) return null;
-    // Account Executive: nessuna Sede. Sono globali per definizione.
-    if (isAE) return null;
-    const isOptional = isCorr;
+    // Account Executive puri: nessuna Sede. Sono globali per definizione.
+    if (soloAE) return null;
+    const isOptional = haCorr;
     return (
       <div className="mb-4">
         <Label>
@@ -633,11 +688,81 @@ const AnagraficheInternePage = () => {
     );
   };
 
+  const renderRuoliSelect = () => {
+    if (!isProduttore) return null;
+    return (
+      <div className="mb-4 rounded-md border border-border p-3">
+        <Label>Ruoli della scheda</Label>
+        <p className="text-xs text-muted-foreground mb-2">
+          La stessa persona può essere Produttore, Account Executive e Resp. Sede. Per le provvigioni vince sempre il Produttore.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          {RUOLI_COMMERCIALI.map((r) => {
+            const principale = r.value === tipoPrincipale;
+            return (
+              <label key={r.value} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={ruoliForm.includes(r.value)}
+                  disabled={principale}
+                  onCheckedChange={(v) => {
+                    const altri = form.ruoli.filter((x) => x !== r.value);
+                    setForm({ ...form, ruoli: v ? [...altri, r.value] : altri });
+                  }}
+                />
+                {r.label}
+                {principale && <span className="text-xs text-muted-foreground">(principale)</span>}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderUnisciScheda = () => {
+    if (!isProduttore || !isAdmin || !editingId) return null;
+    const options = schedeCommerciali
+      .filter((s) => s.id !== editingId)
+      .map((s) => ({
+        value: s.id,
+        label: [s.cognome, s.nome].filter(Boolean).join(" ") || s.ragione_sociale || s.codice || s.id,
+        description: [labelRuoli(s), s.codice ? `Cod. ${s.codice}` : null, s.codice_fiscale].filter(Boolean).join(" · "),
+        searchText: [s.ragione_sociale, s.codice, s.codice_fiscale].filter(Boolean).join(" "),
+      }));
+    return (
+      <div className="mt-4 rounded-md border border-dashed border-border p-3 space-y-2">
+        <Label>Unisci un'altra scheda in questa</Label>
+        <p className="text-xs text-muted-foreground">
+          Per i doppioni della stessa persona: polizze, quote, provvigioni e clienti passano su questa scheda, che prende anche i ruoli dell'altra. La scheda unita viene archiviata (non cancellata).
+        </p>
+        <div className="flex gap-2">
+          <SearchableSelect
+            className="flex-1"
+            options={options}
+            value={mergeDupId}
+            onValueChange={setMergeDupId}
+            placeholder="Scegli la scheda doppione..."
+            clearable
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!mergeDupId || mergeMutation.isPending}
+            onClick={() => mergeMutation.mutate()}
+          >
+            {mergeMutation.isPending ? "Unione..." : "Unisci"}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   const renderFormFields = () => {
     if (isAE || isCorr) {
 
       return (
         <>
+          {renderRuoliSelect()}
           {renderUfficioSelect()}
           <Tabs defaultValue="dati">
             <TabsList className="grid grid-cols-4">
@@ -685,7 +810,7 @@ const AnagraficheInternePage = () => {
                   <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
                 </div>
               </div>
-              {isCorr && (
+              {haCorr && (
                 <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/30">
                   <div className="space-y-0.5 pr-4">
                     <Label htmlFor="trattenuta-provv-incasso">Trattenuta provvigioni in incasso</Label>
@@ -724,6 +849,7 @@ const AnagraficheInternePage = () => {
     if (isNewCommercial) {
       return (
         <>
+          {renderRuoliSelect()}
           {renderUfficioSelect()}
           <Tabs defaultValue="dati">
             <TabsList className="grid grid-cols-4">
@@ -854,7 +980,7 @@ const AnagraficheInternePage = () => {
           <p className="text-sm text-muted-foreground">Figure interne all'compagnia: Account Executive, Produttori, Resp. Sede, Specialist e Sedi</p>
         </div>
         {isAnagraficaTab && (
-          <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
+          <Button onClick={() => { setEditingId(null); setEditingTipo(null); setMergeDupId(""); setForm(emptyForm); setDialogOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" />Nuovo
           </Button>
         )}
@@ -924,13 +1050,14 @@ const AnagraficheInternePage = () => {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setEditingTipo(null); setMergeDupId(""); setForm(emptyForm); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? `Modifica ${tipoLabel.slice(0, -1)}` : `Nuovo ${tipoLabel.slice(0, -1)}`}</DialogTitle>
           </DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); editingId ? updateMutation.mutate() : createMutation.mutate(); }} className="space-y-4">
             {renderFormFields()}
+            {renderUnisciScheda()}
             <DialogFooter className="sm:justify-between gap-2">
               <div>
                 {editingId && (
