@@ -86,6 +86,7 @@ type Dump = {
     cognome: string | null;
     ragione_sociale: string | null;
     ufficio_id: string | null;
+    percentuale_base?: number | null;
   }>;
   cf_piva: { cf: string[]; piva: string[] };
 };
@@ -180,6 +181,7 @@ function titoloPipqValues(r: SediPipqTitolo & { newId: string }): string {
     sqlStr(r.aeNome),
     sqlStr(r.produttoreNome),
     sqlIdent(r.produttoreId),
+    sqlNum(r.percentualeCommerciale),
     sqlStr(r.tipoIncasso),
     sqlStr(r.contoIncasso),
     sqlStr(r.tipoPortafoglio),
@@ -275,8 +277,11 @@ function main() {
     if (code && !compagnieByCodice[code]) compagnieByCodice[code] = c.id;
   }
   const produttoriByKey: Record<string, string> = {};
+  const produttoriPercById: Record<string, number> = {};
   for (const p of dump.produttori) {
     addProduttoreKeys(produttoriByKey, p.id, p.ragione_sociale, p.cognome, `${p.cognome || ""} ${p.nome || ""}`);
+    const perc = Number(p.percentuale_base);
+    if (Number.isFinite(perc) && perc >= 0) produttoriPercById[p.id] = perc;
   }
 
   const takenCf = new Set((dump.cf_piva.cf || []).map((x) => x.toUpperCase()));
@@ -427,6 +432,7 @@ function main() {
     ramiByCodice,
     compagnieByCodice,
     produttoriByKey,
+    produttoriPercById,
   };
   const plan = planSediPipqPolizze(rows, catalogs);
   const withIds = plan.gruppi
@@ -526,7 +532,7 @@ function main() {
   tacito_rinnovo, emittenda,
   sostituisce_polizza, sostituisce_riga, cig_rif,
   descrizione_polizza, note, prodotto_nome,
-  specialist, ae_nome, produttore_nome, anagrafica_commerciale_id,
+  specialist, ae_nome, produttore_nome, anagrafica_commerciale_id, percentuale_commerciale,
   tipo_incasso, conto_incasso, tipo_portafoglio,
   valuta, cambio, disdetta_giorni, comp_contabile, comp_assicurativa, filiale, id_legacy
 ) VALUES`;

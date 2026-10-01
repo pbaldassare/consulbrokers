@@ -138,6 +138,19 @@ export function lookupProduttoreId(nome: unknown, catalog: Record<string, string
   return null;
 }
 
+/** % produttore da anagrafica (`percentuale_base`). Null se manca id o default. */
+export function percentualeCommercialeDaAnagrafica(
+  produttoreId: string | null | undefined,
+  percById?: Record<string, number | null | undefined> | null,
+): number | null {
+  if (!produttoreId || !percById) return null;
+  const raw = percById[produttoreId];
+  if (raw == null) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
+
 export function buildClienteNameIndex(
   rows: Array<{ id: string; ragione?: string | null; nome?: string | null; cognome?: string | null }>,
 ): Map<string, string> {

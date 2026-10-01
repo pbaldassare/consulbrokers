@@ -21,7 +21,8 @@ const catalogs: SediPipqCatalogs = {
     IPAL00: "comp-ipal",
     AIG000: "comp-aig",
   },
-  produttoriByKey: { "BLANCO ROBERTO": "prod-blanco" },
+  produttoriByKey: { "BLANCO ROBERTO": "prod-blanco", INTERFIDI: "prod-interfidi" },
+  produttoriPercById: { "prod-interfidi": 40, "prod-blanco": 100 },
 };
 
 function riga(partial: Partial<SediPipqRiga>): SediPipqRiga {
@@ -126,6 +127,15 @@ describe("sediPipqPolizze", () => {
     expect(g.madre?.premioLordo).toBe(40);
     expect(g.quietanze).toHaveLength(1);
     expect(g.quietanze[0].premioLordo).toBe(50);
+  });
+
+  it("usa percentuale_base Interfidi 40 invece del default 100", () => {
+    const g = resolveSediPipqGruppo(
+      [riga({ TipoTit: "PI", "Nome Produttore": "INTERFIDI SRL" })],
+      catalogs,
+    );
+    expect(g.madre?.produttoreId).toBe("prod-interfidi");
+    expect(g.madre?.percentualeCommerciale).toBe(40);
   });
 
   it("scarta AM/PR e gruppi senza compagnia", () => {

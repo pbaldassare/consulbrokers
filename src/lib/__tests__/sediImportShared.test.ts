@@ -10,6 +10,7 @@ import {
   matchClienteByNome,
   buildClienteNameIndex,
   yearsBetween,
+  percentualeCommercialeDaAnagrafica,
 } from "@/lib/sediImportShared";
 
 describe("sediImportShared", () => {
@@ -49,5 +50,13 @@ describe("sediImportShared", () => {
   it("yearsBetween non esplode su date vuote", () => {
     expect(yearsBetween(null, "2026-01-01")).toBe(1);
     expect(yearsBetween("2025-01-01", "2026-01-01")).toBe(1);
+  });
+
+  it("prende % commerciale da percentuale_base del produttore", () => {
+    const percById = { "interfidi": 40, "altro": 100 };
+    expect(percentualeCommercialeDaAnagrafica("interfidi", percById)).toBe(40);
+    expect(percentualeCommercialeDaAnagrafica("altro", percById)).toBe(100);
+    expect(percentualeCommercialeDaAnagrafica("manca", percById)).toBeNull();
+    expect(percentualeCommercialeDaAnagrafica(null, percById)).toBeNull();
   });
 });

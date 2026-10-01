@@ -31,6 +31,7 @@ import {
   matchClienteByNome,
   normalizeDenominazione,
   normalizeProduttoreKey,
+  percentualeCommercialeDaAnagrafica,
   yearsBetween,
 } from "@/lib/sediImportShared";
 
@@ -49,6 +50,7 @@ export {
   matchClienteByNome,
   normalizeDenominazione,
   normalizeProduttoreKey,
+  percentualeCommercialeDaAnagrafica,
 };
 
 export type SediPipqRiga = {
@@ -97,6 +99,8 @@ export type SediPipqCatalogs = {
   ramiByCodice: Record<string, { id: string; descrizione: string }>;
   compagnieByCodice: Record<string, string>;
   produttoriByKey: Record<string, string>;
+  /** `anagrafiche_professionali.percentuale_base` per id produttore. */
+  produttoriPercById?: Record<string, number | null | undefined>;
 };
 
 export type SediPipqTitoloTipo = "polizza" | "quietanza";
@@ -137,6 +141,7 @@ export type SediPipqTitolo = {
   rate: number;
   anniDurata: number;
   percentualeRiparto: number;
+  percentualeCommerciale: number;
   tacitoRinnovo: boolean;
   emittenda: boolean;
   sostituiscePolizza: string | null;
@@ -314,6 +319,7 @@ function emptyTitolo(
     rate: 1,
     anniDurata: 1,
     percentualeRiparto: 100,
+    percentualeCommerciale: 100,
     tacitoRinnovo: false,
     emittenda: false,
     sostituiscePolizza: null,
@@ -340,6 +346,7 @@ function emptyTitolo(
 function fillFromParsed(
   tipo: SediPipqTitoloTipo,
   parsed: Parsed,
+  catalogs: SediPipqCatalogs,
   opts: {
     chiave: string;
     numeroTitolo: string;
@@ -394,6 +401,8 @@ function fillFromParsed(
     rate: frazionamentoToRate(parsed.frazionamento, 1),
     anniDurata: yearsBetween(polDa, polA),
     percentualeRiparto: parsed.riparto,
+    percentualeCommerciale:
+      percentualeCommercialeDaAnagrafica(parsed.produttoreId, catalogs.produttoriPercById) ?? 100,
     tacitoRinnovo: parsed.tacito,
     emittenda: /emitt/i.test(opts.numeroTitolo),
     sostituiscePolizza: opts.sostituiscePolizza ?? null,
@@ -490,7 +499,7 @@ export function resolveSediPipqGruppo(
   let madre: SediPipqTitolo;
   let quietanzeSource = pq;
   if (pi.length) {
-    madre = fillFromParsed("polizza", pi[0], {
+    madre = fillFromParsed("polizza", pi[0], catalogs, {
       chiave: `${chiave}:madre`,
       numeroTitolo: numero,
       riga: 0,
@@ -499,7 +508,7 @@ export function resolveSediPipqGruppo(
     });
   } else {
     const source = pq[0];
-    madre = fillFromParsed("polizza", source, {
+    madre = fillFromParsed("polizza", source, catalogs, {
       chiave: `${chiave}:madre`,
       numeroTitolo: numero,
       riga: 0,
@@ -512,7 +521,7 @@ export function resolveSediPipqGruppo(
   madre.clienteId = first.clienteId;
 
   const quietanze = quietanzeSource.map((row, idx) =>
-    fillFromParsed("quietanza", row, {
+    fillFromParsed("quietanza", row, catalogs, {
       chiave: `${chiave}:q${idx + 1}`,
       numeroTitolo: numero,
       riga: idx + 1,
