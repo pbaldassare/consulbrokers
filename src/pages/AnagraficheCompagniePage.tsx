@@ -789,7 +789,7 @@ const AnagraficheCompagniePage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Anagrafiche Agenzie</h1>
+          <h1 className="text-2xl font-bold text-foreground">Anagrafiche Liquidatori Periti e Legali</h1>
           <p className="text-sm text-muted-foreground">Figure esterne nominate dalle compagnie: Liquidatori, Periti, Legali</p>
         </div>
         <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>

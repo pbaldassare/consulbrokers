@@ -158,7 +158,7 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
 
   // Anagrafiche
   { label: 'Clienti', path: '/archivi/clienti' },
-  { label: 'Anagrafiche Agenzie', path: '/archivi/anagrafiche-agenzie' },
+  { label: 'Anagrafiche Liquidatori Periti e Legali', path: '/archivi/anagrafiche-agenzie' },
   { label: 'Anagrafiche Amministrative', path: '/archivi/anagrafiche-amministrative' },
   { label: 'Conti Bancari', path: '/archivi/conti-bancari' },
 
