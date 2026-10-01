@@ -3,6 +3,7 @@ import type { ECAgenziaTitolo } from "@/lib/ec-agenzia-pdf";
 
 export type EcAgenziaRigaArchivio = {
   polizza: string;
+  cig?: string;
   cliente: string;
   premio: number;
   provvigioni: number;
@@ -12,6 +13,7 @@ export type EcAgenziaRigaArchivio = {
 export function righeFromEcAgenziaTitoli(titoli: ECAgenziaTitolo[]): EcAgenziaRigaArchivio[] {
   return titoli.map((t) => ({
     polizza: t.polizza || "",
+    ...(t.cig ? { cig: t.cig } : {}),
     cliente: t.cliente || "",
     premio: t.premio || 0,
     provvigioni: t.provvigioni || 0,
@@ -22,7 +24,7 @@ export function righeFromEcAgenziaTitoli(titoli: ECAgenziaTitolo[]): EcAgenziaRi
 export function buildTestoRicercaEcAgenzia(riferimento: string, righe: EcAgenziaRigaArchivio[]): string {
   const tokens = [
     riferimento,
-    ...righe.flatMap((r) => [r.polizza, r.cliente, r.mi].filter(Boolean)),
+    ...righe.flatMap((r) => [r.polizza, r.cig, r.cliente, r.mi].filter(Boolean)),
   ];
   return tokens.join(" ").toLowerCase();
 }

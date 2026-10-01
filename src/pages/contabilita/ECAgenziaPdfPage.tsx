@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { conCigEc } from "@/lib/cigEcAgenzia";
 import { buildECAgenziaPdf, type ECAgenziaData, type ECAgenziaTitolo } from "@/lib/ec-agenzia-pdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
@@ -104,7 +105,7 @@ const ECAgenziaPdfPage = () => {
     queryFn: async () => {
       let q = supabase
         .from("titoli")
-        .select("id, numero_titolo, riga, premio_lordo, pag_diretto_compagnia, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, ufficio_id, compagnia_rapporto_id, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra), rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
+        .select("id, numero_titolo, riga, premio_lordo, pag_diretto_compagnia, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cig_temporaneo, compagnia_id, cliente_anagrafica_id, ramo_id, ufficio_id, compagnia_rapporto_id, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra), rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
         .eq("compagnia_id", compagniaId)
         .eq("stato", "incassato");
       if (titoliIds.length > 0) {
@@ -117,11 +118,11 @@ const ECAgenziaPdfPage = () => {
         const rimSet = new Set((rimRaw || []).map((r: any) => r.titolo_id));
         const { data, error } = await q.order("data_messa_cassa", { ascending: true });
         if (error) throw error;
-        return (data || []).filter((t: any) => !rimSet.has(t.id));
+        return conCigEc((data || []).filter((t: any) => !rimSet.has(t.id)));
       }
       const { data, error } = await q.order("data_messa_cassa", { ascending: true });
       if (error) throw error;
-      return data || [];
+      return conCigEc(data || []);
     },
   });
 
@@ -192,7 +193,6 @@ const ECAgenziaPdfPage = () => {
     const rows: ECAgenziaTitolo[] = (titoli || []).map((t: any) => {
       const cli = t.clienti_anagrafica;
       const cliente = cli?.ragione_sociale || `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() || "—";
-      const noteCliente = t.cig_rif || "";
       const ramoR = t.rami;
       const ramo = ramoR ? (ramoR.descrizione || ramoR.codice || "") : "";
       const dFrom = t.garanzia_da || t.durata_da;
@@ -204,8 +204,8 @@ const ECAgenziaPdfPage = () => {
       const provv = getProvvigioneEC(t);
       return {
         polizza: polizzaRiga,
+        cig: t._cigEc?.cig || undefined,
         cliente,
-        noteCliente,
         ramo,
         periodo,
         tp: "AM",
@@ -324,6 +324,9 @@ const ECAgenziaPdfPage = () => {
   };
 
   const conteggio = titoli?.length || 0;
+  const cigMancanti = (titoli || [])
+    .filter((t) => t._cigEc.mancante)
+    .map((t) => `${t.numero_titolo || ""}${t.riga ? " - " + t.riga : ""}`.trim());
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -431,6 +434,17 @@ const ECAgenziaPdfPage = () => {
           </div>
         </div>
       </fieldset>
+
+      {cigMancanti.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="font-semibold">CIG mancante su {cigMancanti.length} {cigMancanti.length === 1 ? "polizza" : "polizze"} di enti</p>
+          <p className="mt-1">
+            Il CIG è obbligatorio per i clienti ente e verrà stampato sotto il numero polizza. Inseriscilo sulla polizza
+            (o sull&apos;anagrafica cliente) prima di inviare l&apos;E/C:
+          </p>
+          <p className="mt-1 font-mono text-xs">{cigMancanti.join(", ")}</p>
+        </div>
+      )}
 
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => navigate(-1)}>Chiudi</Button>

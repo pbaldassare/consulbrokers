@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { fetchCigEcByTitolo } from "@/lib/cigEcAgenzia";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,7 @@ interface TitoloDetail {
   numero_titolo: string | null;
   cliente: string;
   cig_rif: string | null;
+  cig_mancante: boolean;
   codice_cliente: string | null;
   stato: string | null;
   data_messa_cassa: string | null;
@@ -316,7 +318,7 @@ Consulbrokers`;
 
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, stato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, cig_rif, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale, codice_cliente), compagnie(nome, codice, mail, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione)), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, stato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, cig_rif, cig_temporaneo, cliente_anagrafica_id, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale, codice_cliente), compagnie(nome, codice, mail, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione)), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
         .not("compagnia_id", "is", null);
 
       const incassateBase = ["stato.eq.incassato"];
@@ -343,6 +345,7 @@ Consulbrokers`;
 
       const { data: titoli, error } = await query;
       if (error) throw error;
+      const cigByTitolo = await fetchCigEcByTitolo(titoli || []);
 
       const coassIds = (titoli || []).filter((t) => t.coassicurazione).map((t) => t.id);
       const ripartoByTitolo = new Map<string, any[]>();
@@ -403,7 +406,8 @@ Consulbrokers`;
           id: t.id,
           numero_titolo: t.numero_titolo,
           cliente: formatClienteEc(cli),
-          cig_rif: t.cig_rif || null,
+          cig_rif: cigByTitolo.get(t.id)?.cig || null,
+          cig_mancante: !!cigByTitolo.get(t.id)?.mancante,
           codice_cliente: cli?.codice_cliente || null,
           stato: t.stato || null,
           data_messa_cassa: t.data_messa_cassa,
@@ -850,8 +854,8 @@ Consulbrokers`;
       const titoli_html = r.titoli.map((t) => {
         const d = t.data_messa_cassa || t.data_copertura;
         return `<tr class="detail">
-          <td></td>          <td>${t.numero_titolo || "—"}</td>
-          <td>${t.cliente || "—"}${t.cig_rif ? `<br><span style="color:#666;font-size:9px">CIG ${t.cig_rif}</span>` : ""}</td>
+          <td></td>          <td>${t.numero_titolo || "—"}${t.cig_rif ? `<br><span style="color:#666;font-size:9px">CIG ${t.cig_rif}</span>` : ""}</td>
+          <td>${t.cliente || "—"}</td>
           <td>${d ? format(new Date(d), "dd/MM/yyyy") : "—"}</td>
           <td class="num">${fmt(t.premio_lordo)}</td>
           <td class="num">${fmt(t.importo_versato_agenzia)}</td>
@@ -973,6 +977,7 @@ Consulbrokers`;
       // 4. Raggruppa titoli per compagnia_id
       const titoliByCompagnia = new Map<string, any[]>();
       const titoliFullById = new Map<string, any>();
+      const cigByTitoloId = new Map(exportRows.flatMap((r) => r.titoli.map((t) => [t.id, t.cig_rif] as const)));
       for (const t of titoliFull || []) {
         titoliFullById.set(t.id, t);
         const arr = titoliByCompagnia.get(t.compagnia_id) || [];
@@ -1014,8 +1019,8 @@ Consulbrokers`;
           const provv = getProvvigioneEC(t);
           return {
             polizza: polizzaRiga,
+            cig: cigByTitoloId.get(t.id) || undefined,
             cliente,
-            noteCliente: t.cig_rif || "",
             ramo,
             periodo,
             tp: "AM",
@@ -1429,14 +1434,20 @@ Consulbrokers`;
                                       onCheckedChange={() => toggleTitolo(r.compagnia_id, t.id)}
                                     />
                                   </TableCell>
-                                  <TableCell className="py-1 text-sm font-mono">{t.numero_titolo || "—"}</TableCell>
-                                  <TableCell className="py-1 text-sm max-w-[220px]">
-                                    <div className="truncate" title={t.cliente}>{t.cliente}</div>
+                                  <TableCell className="py-1 text-sm font-mono">
+                                    <div>{t.numero_titolo || "—"}</div>
                                     {t.cig_rif ? (
-                                      <div className="text-[10px] text-muted-foreground font-mono truncate" title={t.cig_rif}>
+                                      <div className="text-[10px] text-muted-foreground" title={t.cig_rif}>
                                         CIG {t.cig_rif}
                                       </div>
+                                    ) : t.cig_mancante ? (
+                                      <div className="text-[10px] font-sans font-medium text-amber-700 dark:text-amber-400" title="Cliente ente: CIG obbligatorio non inserito">
+                                        CIG mancante
+                                      </div>
                                     ) : null}
+                                  </TableCell>
+                                  <TableCell className="py-1 text-sm max-w-[220px]">
+                                    <div className="truncate" title={t.cliente}>{t.cliente}</div>
                                   </TableCell>
                                   {!isAgenzia && (
                                     <TableCell className="py-1 text-sm">{dataEff ? format(new Date(dataEff), "dd/MM/yyyy") : "—"}</TableCell>

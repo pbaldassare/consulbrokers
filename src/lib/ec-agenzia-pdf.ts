@@ -3,7 +3,8 @@ import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "pdf-lib";
 export interface ECAgenziaTitolo {
   polizza: string;        // "36099 - 6"
   cliente: string;        // "LICEO SCIENTIFICO ..."
-  noteCliente?: string;   // "ZB63217ACE" (riferimento polizza/CIG)
+  noteCliente?: string;
+  cig?: string;           // "ZB63217ACE" — stampato sotto il numero polizza
   ramo: string;           // "ALL RISKS"
   periodo: string;        // "31/08/2025 31/08/2026"
   tp: string;             // PI / PQ / AM
@@ -242,7 +243,9 @@ function drawTabella(ctx: Ctx, d: ECAgenziaData) {
     const clienteCell = [t.cliente || "", t.noteCliente || ""].filter(Boolean).join("\n");
     const ramoCell = [t.ramo || "", t.periodo || ""].filter(Boolean).join("\n");
 
-    const cellsTexts = [t.polizza || "", clienteCell, ramoCell, t.tp || "", fmtEur(t.premio), fmtEur(t.provvigioni), t.mi || ""];
+    const polizzaCell = [t.polizza || "", t.cig ? `CIG ${t.cig}` : ""].filter(Boolean).join("\n");
+
+    const cellsTexts = [polizzaCell, clienteCell, ramoCell, t.tp || "", fmtEur(t.premio), fmtEur(t.provvigioni), t.mi || ""];
 
     // Compute height needed
     let maxH = 0;
