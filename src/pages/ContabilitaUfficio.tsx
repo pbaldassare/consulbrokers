@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import {
   Coins,
@@ -90,6 +90,7 @@ function appendiceLabel(p: ViewRow): string | null {
 
 const ContabilitaUfficio = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isAdmin, profile, loading: authLoading } = useAuth() as any;
   const isCfo = profile?.ruolo === "cfo";
   const seeAllSedi = isAdmin || isCfo;
@@ -98,9 +99,13 @@ const ContabilitaUfficio = () => {
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedClienteSearch(search, 350);
-  const [filtroPeriodo, setFiltroPeriodo] = useState<PeriodoRiepilogoCassa>("mese_corrente");
-  const [dateDa, setDateDa] = useState("");
-  const [dateA, setDateA] = useState("");
+  const [dateDa, setDateDa] = useState(() => searchParams.get("dal") || "");
+  const [dateA, setDateA] = useState(() => searchParams.get("al") || "");
+  const [filtroPeriodo, setFiltroPeriodo] = useState<PeriodoRiepilogoCassa>(() => {
+    if (searchParams.get("dal") || searchParams.get("al")) return "tutte";
+    const p = searchParams.get("periodo");
+    return p === "tutte" || p === "mese_corrente" ? p : "mese_corrente";
+  });
   const [filtroUffici, setFiltroUffici] = useState<string[]>([]);
   const [filtroCompagnia, setFiltroCompagnia] = useState<string | null>(null);
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
@@ -246,6 +251,24 @@ const ContabilitaUfficio = () => {
     !!filtroGruppoRamo ||
     !!filtroRamo;
 
+  const writeCassaUrl = (next: { periodo?: PeriodoRiepilogoCassa; dal?: string; al?: string }) => {
+    const sp = new URLSearchParams(searchParams);
+    const dal = next.dal !== undefined ? next.dal : dateDa;
+    const al = next.al !== undefined ? next.al : dateA;
+    const periodo = next.periodo ?? filtroPeriodo;
+    if (dal || al) {
+      if (dal) sp.set("dal", dal); else sp.delete("dal");
+      if (al) sp.set("al", al); else sp.delete("al");
+      sp.delete("periodo");
+    } else {
+      sp.delete("dal");
+      sp.delete("al");
+      if (periodo === "tutte") sp.set("periodo", "tutte");
+      else sp.set("periodo", "mese_corrente");
+    }
+    setSearchParams(sp, { replace: true });
+  };
+
   const resetFilters = () => {
     setDateDa("");
     setDateA("");
@@ -256,6 +279,7 @@ const ContabilitaUfficio = () => {
     setFiltroGruppoRamo(null);
     setFiltroRamo(null);
     setPage(0);
+    writeCassaUrl({ periodo: "mese_corrente", dal: "", al: "" });
   };
 
   const handleSort = (field: string) => {
@@ -517,7 +541,9 @@ const ContabilitaUfficio = () => {
                 const v = e.target.value;
                 setDateDa(v);
                 setPage(0);
+                const nextPeriodo = v || dateA ? "tutte" : filtroPeriodo;
                 if (v || dateA) setFiltroPeriodo("tutte");
+                writeCassaUrl({ dal: v, al: dateA, periodo: nextPeriodo });
               }}
               className="w-[150px]"
             />
@@ -529,7 +555,9 @@ const ContabilitaUfficio = () => {
                 const v = e.target.value;
                 setDateA(v);
                 setPage(0);
+                const nextPeriodo = v || dateDa ? "tutte" : filtroPeriodo;
                 if (v || dateDa) setFiltroPeriodo("tutte");
+                writeCassaUrl({ dal: dateDa, al: v, periodo: nextPeriodo });
               }}
               className="w-[150px]"
             />
@@ -540,10 +568,14 @@ const ContabilitaUfficio = () => {
             value={filtroPeriodo}
             onValueChange={(v) => {
               if (!v) return;
-              setFiltroPeriodo(v as PeriodoRiepilogoCassa);
-              if (v === "mese_corrente") {
+              const periodo = v as PeriodoRiepilogoCassa;
+              setFiltroPeriodo(periodo);
+              if (periodo === "mese_corrente") {
                 setDateDa("");
                 setDateA("");
+                writeCassaUrl({ periodo, dal: "", al: "" });
+              } else {
+                writeCassaUrl({ periodo, dal: dateDa, al: dateA });
               }
               setPage(0);
             }}

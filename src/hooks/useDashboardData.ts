@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { dashboardDateBounds, isoLocal } from "@/lib/dashboardLinks";
 
 export interface ChatNonRisposta {
   canaleId: string;
@@ -102,14 +103,15 @@ export function useDashboardData(ruolo: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ruolo]);
 
+  const bounds = dashboardDateBounds();
+  const startOfMonth = bounds.startOfMonth;
   const currentYear = new Date().getFullYear();
   const startOfYear = `${currentYear}-01-01`;
-  const startOfMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`;
 
   const loadAdmin = async () => {
-    const oggi = new Date().toISOString().substring(0, 10);
-    const ieri = new Date(Date.now() - 86400000).toISOString().substring(0, 10);
-    const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().substring(0, 10);
+    const oggi = bounds.today;
+    const ieri = bounds.yesterday;
+    const endOfMonth = bounds.endOfMonth;
 
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -192,9 +194,11 @@ export function useDashboardData(ruolo: string) {
 
   const loadUfficio = async () => {
     const now = new Date();
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().substring(0, 10);
-    const in30gg = new Date(Date.now() + 30 * 86400000).toISOString().substring(0, 10);
-    const oggi = now.toISOString().substring(0, 10);
+    const endOfMonth = bounds.endOfMonth;
+    const in30 = new Date(now);
+    in30.setDate(in30.getDate() + 30);
+    const in30gg = isoLocal(in30);
+    const oggi = bounds.today;
 
     const [
       { data: scadenzeMese },
@@ -222,7 +226,7 @@ export function useDashboardData(ruolo: string) {
       supabase.from("rimessa_dettaglio").select("titolo_id").limit(10000),
       // Incassi ultimi 6 mesi per grafico
       supabase.from("v_portafoglio_quietanze").select("premio_lordo, data_messa_cassa")
-        .gte("data_messa_cassa", new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().substring(0, 10))
+        .gte("data_messa_cassa", isoLocal(new Date(now.getFullYear(), now.getMonth() - 5, 1)))
         .limit(10000),
       // Scadenze prossimi 30gg con agenzia
       supabase.from("v_portafoglio_quietanze").select("premio_lordo, compagnia_nome")

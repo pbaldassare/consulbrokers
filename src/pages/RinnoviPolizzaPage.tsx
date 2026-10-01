@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -12,10 +12,11 @@ import { PageContainer } from "@/components/shared/PageContainer";
 
 const RinnoviPolizzaPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [codiceCliente, setCodiceCliente] = useState("");
-  const [scadDal, setScadDal] = useState("");
-  const [scadAl, setScadAl] = useState("");
+  const [scadDal, setScadDal] = useState(() => searchParams.get("dal") || "");
+  const [scadAl, setScadAl] = useState(() => searchParams.get("al") || "");
   const [codiceCompagnia, setCodiceCompagnia] = useState("");
   const [tipoRinn, setTipoRinn] = useState("");
   const [gruppoRamo, setGruppoRamo] = useState("");
