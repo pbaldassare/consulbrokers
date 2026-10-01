@@ -186,7 +186,7 @@ export default function PolizzaDetail() {
             </CompactCard>
 
             <SchedaCommercialeCard
-              totProvv={commerciale?.totProvv ?? Number(polizza.provvigioni_annue_quietanza || polizza.provvigioni_annue_firma) || 0}
+              totProvv={commerciale?.totProvv ?? (Number(polizza.provvigioni_annue_quietanza || polizza.provvigioni_annue_firma) || 0)}
               righe={commerciale?.righe ?? []}
               hasProduttore={!!commerciale?.hasProduttore}
               loading={loadingComm}
