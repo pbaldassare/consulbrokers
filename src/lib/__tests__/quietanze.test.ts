@@ -113,12 +113,33 @@ describe("groupTitoliByPolizza — appendici", () => {
     expect(catene[0].madre?.id).toBe("m");
   });
 
-  it("senza override l'appendice orfana forma catena separata", () => {
+  it("attacca l'appendice alla madre tramite FK anche se il numero non collassa (ENG/AM1)", () => {
+    const titoli = [
+      { id: "m", numero_titolo: "ENG/032634", sostituisce_polizza: null as string | null },
+      { id: "q", numero_titolo: "ENG/032634", sostituisce_polizza: "ENG/032634" },
+      {
+        id: "am",
+        numero_titolo: "ENG/AM1",
+        sostituisce_polizza: null,
+        is_appendice_modifica: true,
+        appendice_modifica_polizza_madre_id: "m",
+      },
+    ];
+    const catene = groupTitoliByPolizza(titoli);
+    expect(catene).toHaveLength(1);
+    expect(catene[0].madre?.id).toBe("m");
+    expect(catene[0].appendici.map((a) => a.id)).toEqual(["am"]);
+    expect(catene[0].rate.map((r) => r.id)).toEqual(["q"]);
+  });
+
+  it("non emette mai una riga-polizza per un'appendice senza ancora in elenco", () => {
     const titoli = [
       { id: "m", numero_titolo: "2026/348272", sostituisce_polizza: null as string | null },
       { id: "am", numero_titolo: "2026/AM1", sostituisce_polizza: null, is_appendice_modifica: true },
     ];
     const catene = groupTitoliByPolizza(titoli);
-    expect(catene).toHaveLength(2);
+    expect(catene).toHaveLength(1);
+    expect(catene[0].madre?.id).toBe("m");
+    expect(catene[0].appendici).toEqual([]);
   });
 });

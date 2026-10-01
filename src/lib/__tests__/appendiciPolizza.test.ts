@@ -66,6 +66,21 @@ describe("linkAppendiceAPolizzaBase / buildAppendiceBaseOverrides", () => {
     expect(flat.some((r) => r.rata.id === "am")).toBe(false);
   });
 
+  it("override da FK madre se il numero appendice non collassa", () => {
+    const conFk = [
+      { id: "m", numero_titolo: "ENG/032634", sostituisce_polizza: null as string | null },
+      {
+        id: "am",
+        numero_titolo: "ENG/AM1",
+        sostituisce_polizza: null,
+        is_appendice_modifica: true,
+        appendice_modifica_polizza_madre_id: "m",
+      },
+    ];
+    const ov = buildAppendiceBaseOverrides(conFk, []);
+    expect(ov.get("am")).toBe("ENG/032634");
+  });
+
   it("nessun override se baseNumero già allineato", () => {
     const allineati = [
       { id: "m", numero_titolo: "POL-A", sostituisce_polizza: null as string | null },

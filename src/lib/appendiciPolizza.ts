@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
-import { baseNumeroPolizza, isAppendice, type TitoloLike } from "@/lib/quietanze";
+import { appendiceAncoraId, baseNumeroPolizza, isAppendice, type TitoloLike } from "@/lib/quietanze";
 
 export type AppendicePolizzaRow = {
   id: string;
@@ -74,7 +74,10 @@ export function buildAppendiceBaseOverrides<T extends TitoloLike>(
   const out = new Map<string, string>();
   for (const t of titoli) {
     if (!t.id || !isAppendice(t)) continue;
-    const linkedBase = linkAppendiceAPolizzaBase(t.id, appendiciRows, byId);
+    const fkId = appendiceAncoraId(t);
+    const fkAncora = fkId ? byId.get(fkId) : undefined;
+    const fkKey = fkAncora ? (fkAncora.numero_titolo || "").trim() : "";
+    const linkedBase = fkKey || linkAppendiceAPolizzaBase(t.id, appendiciRows, byId);
     if (!linkedBase) continue;
     if (baseNumeroPolizza(t.numero_titolo) === linkedBase) continue;
     out.set(t.id, linkedBase);

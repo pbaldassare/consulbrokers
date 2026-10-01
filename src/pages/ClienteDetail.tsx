@@ -1389,7 +1389,7 @@ function PolizzeClienteTable({
   const filteredTitoli = useMemo(() => {
     const out: any[] = [];
     filteredCatene.forEach((c: any) => {
-      const head = c.madre || c.all[0];
+      const head = c.madre;
       if (head && matchTitolo(head)) out.push(head);
       c.rate.forEach((r: any) => { if (matchTitolo(r)) out.push(r); });
       c.appendici.forEach((a: any) => { if (matchTitolo(a)) out.push(a); });
@@ -2060,7 +2060,7 @@ function PolizzeClienteTable({
               </TableCell>
             </TableRow>
           ) : (
-            sortedCatene.map((c) => {
+            sortedCatene.filter((c) => !!c.madre || c.rate.length > 0).map((c) => {
               const head = c.madre || c.all[0];
               const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
               const ramo = head.ramo?.descrizione || "—";
@@ -2762,7 +2762,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, frazionamento, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, data_pagamento, tipo_pagamento, data_copertura, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, gruppo_compagnia, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(id, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione, codice))")
+        .select("id, numero_titolo, stato, premio_lordo, frazionamento, provvigioni_firma, provvigioni_quietanza, targa_telaio, data_incasso, data_messa_cassa, data_pagamento, tipo_pagamento, data_copertura, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_appendice_modifica, is_proroga, is_regolazione, appendice_modifica_polizza_madre_id, proroga_polizza_madre_id, regolazione_quietanza_id, garanzia_da, garanzia_a, durata_da, durata_a, polizza_rateo, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, gruppo_compagnia, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione)), compagnia_rapporto:compagnia_rapporti!titoli_compagnia_rapporto_id_fkey(id, gruppo_compagnia_id, gruppi_compagnia:gruppo_compagnia_id(descrizione, codice))")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;

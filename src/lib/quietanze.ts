@@ -13,6 +13,9 @@ export type TitoloLike = {
   is_appendice_modifica?: boolean | null;
   is_proroga?: boolean | null;
   is_regolazione?: boolean | null;
+  appendice_modifica_polizza_madre_id?: string | null;
+  proroga_polizza_madre_id?: string | null;
+  regolazione_quietanza_id?: string | null;
 };
 
 export type TitoloCoperturaLike = TitoloLike & {
@@ -29,6 +32,39 @@ export function isQuietanza(t: TitoloLike): boolean {
 /** Titolo derivato da appendice (modifica / proroga / regolazione). */
 export function isAppendice(t: TitoloLike): boolean {
   return !!(t.is_appendice_modifica || t.is_proroga || t.is_regolazione);
+}
+
+/** Polizza o quietanza a cui è agganciata l'appendice (FK su titoli). */
+export function appendiceAncoraId(t: TitoloLike): string | null {
+  return t.appendice_modifica_polizza_madre_id
+    || t.proroga_polizza_madre_id
+    || t.regolazione_quietanza_id
+    || null;
+}
+
+function chainKeyNonAppendice(t: TitoloLike): string {
+  return (t.numero_titolo || "").trim() || (t.id ? `__id_${t.id}` : "");
+}
+
+function chainKeyAppendice(
+  t: TitoloLike,
+  byId: Map<string, TitoloLike>,
+  override?: string,
+): string {
+  if (override) return override;
+  const ancoraId = appendiceAncoraId(t);
+  if (ancoraId) {
+    const ancora = byId.get(ancoraId);
+    if (ancora) {
+      if (isAppendice(ancora)) {
+        const nestedId = appendiceAncoraId(ancora);
+        const nested = nestedId ? byId.get(nestedId) : undefined;
+        if (nested) return chainKeyNonAppendice(nested);
+      }
+      return chainKeyNonAppendice(ancora);
+    }
+  }
+  return baseNumeroPolizza(t.numero_titolo) || (t.id ? `__id_${t.id}` : "");
 }
 
 /**
@@ -105,35 +141,68 @@ export type CatenaPolizza<T extends TitoloLike> = {
  * @param appendiceBaseOverrides mappa titolo-appendice id → numero base polizza
  *   (da link `appendici_polizza` quando il numero appendice non collassa sulla madre).
  */
+function sortCatenaItems<T extends TitoloLike>(arr: T[]): T[] {
+  return [...arr].sort((a, b) => {
+    const da = a.garanzia_da || a.created_at || "";
+    const db = b.garanzia_da || b.created_at || "";
+    return da.localeCompare(db);
+  });
+}
+
+function toCatena<T extends TitoloLike>(numero: string, arr: T[]): CatenaPolizza<T> {
+  const sorted = sortCatenaItems(arr);
+  const madre = sorted.find((x) => !x.sostituisce_polizza && !isAppendice(x)) || null;
+  const rate = sorted.filter((x) => x.sostituisce_polizza && !isAppendice(x));
+  const appendici = sorted.filter((x) => isAppendice(x));
+  return { numero, madre, rate, appendici, all: sorted };
+}
+
 export function groupTitoliByPolizza<T extends TitoloLike>(
   titoli: T[],
   appendiceBaseOverrides?: Map<string, string>,
 ): CatenaPolizza<T>[] {
+  const byId = new Map<string, T>();
+  for (const t of titoli) {
+    if (t.id) byId.set(t.id, t);
+  }
+
   const byNumero = new Map<string, T[]>();
   for (const t of titoli) {
-    // Le appendici (rilevate via flag) collassano sul numero base per finire
-    // sotto la polizza madre. Override da appendici_polizza se il numero è
-    // disallineato (es. "2026/AM1" vs madre "2026/348272").
-    // Gli altri titoli restano raggruppati per numero esatto.
-    const override = t.id && appendiceBaseOverrides?.get(t.id);
+    // Appendice: prima FK madre/quietanza, poi override appendici_polizza,
+    // poi suffisso /AM /PR /RG. Mai una catena a sé se esiste un'ancora.
+    const override = t.id ? appendiceBaseOverrides?.get(t.id) : undefined;
     const k = (isAppendice(t)
-      ? (override || baseNumeroPolizza(t.numero_titolo))
-      : (t.numero_titolo || "").trim()) || `__id_${t.id}`;
+      ? chainKeyAppendice(t, byId, override)
+      : chainKeyNonAppendice(t)) || `__id_${t.id}`;
     const arr = byNumero.get(k) || [];
     arr.push(t);
     byNumero.set(k, arr);
   }
+
   const out: CatenaPolizza<T>[] = [];
+  const orphans: T[] = [];
   for (const [numero, arr] of byNumero.entries()) {
-    const sorted = [...arr].sort((a, b) => {
-      const da = a.garanzia_da || a.created_at || "";
-      const db = b.garanzia_da || b.created_at || "";
-      return da.localeCompare(db);
-    });
-    const madre = sorted.find((x) => !x.sostituisce_polizza && !isAppendice(x)) || null;
-    const rate = sorted.filter((x) => x.sostituisce_polizza && !isAppendice(x));
-    const appendici = sorted.filter((x) => isAppendice(x));
-    out.push({ numero, madre, rate, appendici, all: sorted });
+    const catena = toCatena(numero, arr);
+    const soloAppendici = !catena.madre && catena.rate.length === 0 && catena.appendici.length > 0;
+    if (soloAppendici) {
+      orphans.push(...catena.appendici);
+      continue;
+    }
+    out.push(catena);
+  }
+
+  // Orfane residue: prova ad attaccare per FK a una catena già emessa.
+  for (const app of orphans) {
+    const ancoraId = appendiceAncoraId(app);
+    const host = ancoraId
+      ? out.find((c) => c.all.some((x) => x.id === ancoraId) || c.madre?.id === ancoraId)
+      : undefined;
+    if (host) {
+      host.appendici.push(app);
+      host.all = sortCatenaItems([...host.all, app]);
+      continue;
+    }
+    // Nessuna madre/quietanza in elenco: non creare una riga-polizza finta.
   }
   // ordina catene per ultima rata desc (più recente in alto)
   out.sort((a, b) => {
