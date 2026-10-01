@@ -1,0 +1,23 @@
+---
+description: Come scrivere policy RLS su Supabase senza rallentare le ricerche (funzioni di permesso valutate una volta per query).
+globs: supabase/migrations/**/*.sql
+alwaysApply: false
+---
+
+# Policy RLS veloci
+
+Nelle policy di `public` le funzioni di identità/permesso vanno **sempre** avvolte in `(SELECT …)`, così Postgres le calcola una volta per query (InitPlan) e non su ogni riga. Senza, una ricerca ILIKE su `clienti` passa da ~30 ms a ~3 s.
+
+| Scrivere | Non scrivere |
+|---|---|
+| `(SELECT auth.uid())` | `auth.uid()` |
+| `(SELECT has_role(auth.uid(), 'admin'::app_role))` | `has_role(auth.uid(), 'admin'::app_role)` |
+| `ufficio_id = ANY ((SELECT get_my_ufficio_ids())::uuid[])` | `ufficio_id = ANY (get_my_ufficio_ids())` |
+| `(SELECT get_my_ufficio_id())`, `(SELECT is_global_viewer())`, `(SELECT is_documentale_staff())` | le stesse senza `SELECT` |
+
+- `get_my_ufficio_ids()` vuole il cast `::uuid[]`: `= ANY ((SELECT …))` senza cast viene letto come subquery e fallisce (`uuid = uuid[]`).
+- Non avvolgere funzioni che ricevono colonne della riga (es. `is_channel_member(auth.uid(), canale_id)`): devono restare per riga.
+- `get_my_cliente_ids()` resta in `IN (SELECT get_my_cliente_ids())`.
+- Se dubbi, la migration `20261001160000_rls_initplan_helper_per_query.sql` è rieseguibile: riconosce le forme già avvolte e converte le altre.
+- `clienti_candidati_ordinanti` legge le policy di `clienti` da `pg_policies`: non va aggiornata a mano quando cambiano.
+- L'advisor Supabase `auth_rls_initplan` segnala anche `auth.uid()` dentro `(SELECT has_role(auth.uid(), …))`: è un falso positivo.
