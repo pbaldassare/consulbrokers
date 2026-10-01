@@ -24,7 +24,6 @@ import { invokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { MessaCassaDialog, type PreferredBonificoContext } from "@/components/portafoglio/MessaCassaDialog";
 import { GarantitoDialog } from "@/components/portafoglio/GarantitoDialog";
-import { IncassiBonificiPanel } from "@/components/portafoglio/IncassiBonificiPanel";
 import { BonificoMatchBadge } from "@/components/portafoglio/BonificoMatchBadge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Shield } from "lucide-react";
@@ -108,7 +107,6 @@ const IncassiPage = () => {
     if (raw) return raw.split(",").map((s) => s.trim()).filter(Boolean);
     return [];
   });
-  const [bonificiPanelOpen, setBonificiPanelOpen] = useState(() => searchParams.get("tab") === "bonifici");
   const [preferredBonifico, setPreferredBonifico] = useState<PreferredBonificoContext | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
@@ -176,21 +174,9 @@ const IncassiPage = () => {
   }, []); // migrazione URL legacy messe_cassa → tutte (default)
 
   useEffect(() => {
-    if (searchParams.get("tab") === "bonifici") setBonificiPanelOpen(true);
     const v = searchParams.get("vista");
     setVistaIncasso(v === "incassati" ? "incassati" : "pendenti");
   }, [searchParams]);
-
-  const setBonificiPanelOpenSync = useCallback(
-    (open: boolean) => {
-      setBonificiPanelOpen(open);
-      const sp = new URLSearchParams(searchParams);
-      if (open) sp.set("tab", "bonifici");
-      else sp.delete("tab");
-      setSearchParams(sp, { replace: true });
-    },
-    [searchParams, setSearchParams],
-  );
 
   const resetFilters = () => {
     setDateDa("");
@@ -555,7 +541,7 @@ const IncassiPage = () => {
   });
   const pendingCount = pendingRinnovi?.length || 0;
 
-  const { data: bonificiAperti = [], isFetching: bonificiLoading } = useQuery({
+  const { data: bonificiAperti = [] } = useQuery({
     queryKey: ["incassi-bonifici-aperti", filtroUffici.join(","), seeAllSedi, profile?.ufficio_id],
     queryFn: () => {
       const ufficioIds = seeAllSedi
@@ -593,11 +579,6 @@ const IncassiPage = () => {
     [bonificiVisibili],
   );
 
-  // Con ricerca e match: apri il pannello bonifici per farli vedere subito
-  useEffect(() => {
-    if (!searchActive) return;
-    if (bonificiVisibili.length > 0) setBonificiPanelOpenSync(true);
-  }, [searchActive, searchTrim, bonificiVisibili.length, setBonificiPanelOpenSync]);
 
   /** Per riga quietanza: match nome (importo ignorato). */
   const suggerimentiByTitoloId = useMemo(() => {
@@ -613,7 +594,6 @@ const IncassiPage = () => {
     return map;
   }, [polizze, bonificiAperti]);
 
-  const quietanzeConSuggerimento = suggerimentiByTitoloId.size;
 
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
@@ -972,10 +952,7 @@ const IncassiPage = () => {
             </CardContent>
           </Card>
           {!isVistaIncassati && (
-            <Card
-              className="cursor-pointer hover:bg-muted/30 transition-colors"
-              onClick={() => setBonificiPanelOpenSync(!bonificiPanelOpen)}
-            >
+            <Card>
               <CardContent className="flex items-center gap-4 p-3">
                 <div className="rounded-lg bg-sky-100 p-2.5">
                   <ArrowRightLeft className="h-5 w-5 text-sky-700" />
@@ -1133,18 +1110,6 @@ const IncassiPage = () => {
         </div>
       </div>
 
-      {!isVistaIncassati && (
-        <IncassiBonificiPanel
-          open={bonificiPanelOpen}
-          onOpenChange={setBonificiPanelOpenSync}
-          bonifici={bonificiVisibili}
-          loading={bonificiLoading}
-          sedeFilterActive={filtroUffici.length > 0}
-          suggerimentiCount={quietanzeConSuggerimento}
-          searchTerm={searchActive ? searchTrim : undefined}
-          totaleApertiCount={bonificiAperti.length}
-        />
-      )}
 
       {/* Banner: rinnovi in attesa di messa a cassa della polizza precedente */}
       {!isVistaIncassati && pendingCount > 0 && (
