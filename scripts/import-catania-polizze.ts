@@ -373,7 +373,9 @@ LEFT JOIN LATERAL (
 ) comp ON true
 LEFT JOIN LATERAL (
   SELECT r.id FROM public.rami r
-  WHERE upper(r.codice) = s.ramo_codice AND r.attivo IS DISTINCT FROM false
+  WHERE upper(r.codice) = s.ramo_codice
+    -- PI è il ramo storico "R. C. AUTOVEICOLI": si riusa anche se disattivato.
+    AND (r.attivo IS DISTINCT FROM false OR s.ramo_codice = 'PI')
   ORDER BY r.created_at LIMIT 1
 ) ramo ON true
 LEFT JOIN LATERAL (
@@ -684,7 +686,7 @@ matched AS (
            SELECT 1 FROM public.titoli later
            WHERE regexp_replace(upper(trim(later.numero_titolo)), '[._]+$', '', 'g') = ps.numero_norm
              AND later.premio_lordo > 0
-             AND later.garanzia_da > coalesce(ps.scad_gar, ps.scad_pol)
+             AND later.garanzia_da >= coalesce(ps.scad_gar, ps.scad_pol)
          ) AS has_later_positive
   FROM ps
   LEFT JOIN LATERAL (
