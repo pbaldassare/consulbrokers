@@ -532,7 +532,7 @@ const TitoloDetail = () => {
   // --- Cassa dialog state ---
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
-  const [cassaForm, setCassaForm] = useState({ dataMessaCassa: todayStr, dataPagamento: todayStr, dataDecorrenza: todayStr, tipoPagamento: "", banca: "" });
+  const [cassaForm, setCassaForm] = useState({ dataMessaCassa: "", dataPagamento: todayStr, dataDecorrenza: todayStr, tipoPagamento: "", banca: "" });
 
 
   // --- Regolazione edit state ---
@@ -2212,7 +2212,7 @@ const TitoloDetail = () => {
       refreshDopoOperazionePolizza();
     }
     const today = new Date().toISOString().slice(0, 10);
-    setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "", banca: "" });
+    setCassaForm({ dataMessaCassa: "", dataPagamento: today, dataDecorrenza: today, tipoPagamento: "", banca: "" });
     setCassaDialogOpen(true);
   };
   const apriGarantitoDaPolizza = async () => {

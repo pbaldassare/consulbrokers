@@ -35,6 +35,7 @@ import {
   type ModalitaIncasso,
 } from "@/lib/modalitaIncasso";
 import { buildIncassoDateFields, PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
+import { isDataMessaCassaCompilata } from "@/lib/messaCassaDate";
 import { messaggioBloccoSequenza, soloIncassabiliInSequenza } from "@/lib/messaCassaSequenza";
 import { fetchCateneDaTitoli, TITOLO_SEQUENZA_SELECT, verificaSequenzaDistinta } from "@/lib/messaCassaSequenzaDb";
 import { appendiceTipoLabel, canHaveDataCopertura } from "@/lib/quietanze";
@@ -220,7 +221,7 @@ export const MessaCassaDialog = ({
   // aggiungere/rimuovere altre quietanze da incassare (anche di altri clienti).
   const [titoli, setTitoli] = useState<TitoloMin[]>(titoliProp);
   const [form, setForm] = useState({
-    dataMessaCassa: todayISO(),
+    dataMessaCassa: "",
     dataPagamento: todayISO(),
     /** Vuoto finché l'utente non sceglie (obbligatorio se c'è cash da incassare). */
     tipoPagamento: "",
@@ -607,7 +608,7 @@ export const MessaCassaDialog = ({
       const preferBonifico = !!bankIncasso || !!preferredBonifico;
       setTitoli(seed);
       setForm({
-        dataMessaCassa: t,
+        dataMessaCassa: "",
         dataPagamento: t,
         // Prefill solo da flusso bonifico; altrimenti vuoto (scelta obbligatoria)
         tipoPagamento: preferBonifico ? "bonifico" : "",
@@ -1132,7 +1133,8 @@ export const MessaCassaDialog = ({
   const tipoPagamentoObbligatorio =
     !bankIncasso && (cashEffettivo > 0 || isPagDiretto || totaleDovutoConsul > 0);
   const tipoPagamentoOk = !tipoPagamentoObbligatorio || !!form.tipoPagamento;
-  const puoConfermare = quadrato && differenzaBonificoClassificata && tipoPagamentoOk;
+  const dataMessaCassaOk = isDataMessaCassaCompilata(form.dataMessaCassa);
+  const puoConfermare = quadrato && differenzaBonificoClassificata && tipoPagamentoOk && dataMessaCassaOk;
 
   const { data: contiBonificoRaw = [] } = useQuery({
     queryKey: ["messa-cassa-conti-bonifico"],
@@ -1269,6 +1271,10 @@ export const MessaCassaDialog = ({
 
   const handleConferma = async () => {
     if (titoli.length === 0) return;
+    if (!isDataMessaCassaCompilata(form.dataMessaCassa)) {
+      toast.error("Indica la data messa a cassa: è obbligatoria");
+      return;
+    }
     if (!quadrato) {
       toast.error(
         `Non quadra: delta ${fmtEuro(delta)}. Riduci l'incasso applicato oppure aggiungi abbuono/arrotondamento manuale.`,
@@ -2088,8 +2094,21 @@ export const MessaCassaDialog = ({
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">Data Messa a Cassa</Label>
-              <Input type="date" value={form.dataMessaCassa} onChange={(e) => setForm(f => ({ ...f, dataMessaCassa: e.target.value }))} className="mt-1" />
+              <Label htmlFor="data-messa-cassa" className="text-xs">
+                Data Messa a Cassa <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="data-messa-cassa"
+                type="date"
+                required
+                aria-required="true"
+                value={form.dataMessaCassa}
+                onChange={(e) => setForm(f => ({ ...f, dataMessaCassa: e.target.value }))}
+                className="mt-1"
+              />
+              {!dataMessaCassaOk && (
+                <p className="text-[11px] text-muted-foreground mt-1">Obbligatoria — nessuna data precompilata, indica quella reale di cassa.</p>
+              )}
             </div>
             <div>
               <Label className="text-xs">Data Pagamento</Label>
@@ -2920,6 +2939,7 @@ export const MessaCassaDialog = ({
             disabled={
               loading ||
               !puoConfermare ||
+              !dataMessaCassaOk ||
               bloccoSequenza.length > 0 ||
               !tipoPagamentoOk ||
               (isBonifico && !form.banca && !bankIncasso?.contoBancarioId) ||
