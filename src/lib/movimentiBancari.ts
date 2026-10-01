@@ -333,6 +333,85 @@ export type ColonneEstratto = {
   clienteId: string | null;
 };
 
+/** Lunghezza max persistita su `movimenti_bancari.descrizione` (text, ma evita payload enormi). */
+export const DESCRIZIONE_IMPORT_MAX = 4000;
+
+/** Testo cella Excel/CSV: trim + spazi compressi. */
+export function cellText(raw: unknown): string {
+  return String(raw ?? "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Header da non usare come descrizione (codici ABI, importi, date, IBAN, ordinante).
+ * "Causale ABI" è un codice numerico, non la narrativa del movimento.
+ */
+export function isExcludedDescrizioneHeader(col: string): boolean {
+  const c = String(col || "").trim();
+  if (!c) return true;
+  if (/causale[_\s-]*abi/i.test(c)) return true;
+  if (/^(divisa|valuta|data|importo|amount|dare|avere|saldo|iban|cro|trn)$/i.test(c)) return true;
+  if (/ordinante|mittente|nominativo|controparte|cliente\s*id/i.test(c)) return true;
+  return false;
+}
+
+/**
+ * Punteggio header descrizione (più alto = meglio).
+ * Copre estratti IT/EN: Descrizione, Description, Desc., Dettaglio/i, Causale,
+ * Note, Narrativa, Operazione. 0 = non è una colonna descrizione.
+ */
+export function descrizioneHeaderScore(col: string): number {
+  const c = String(col || "").trim();
+  if (!c || isExcludedDescrizioneHeader(c)) return 0;
+  if (/^descrizione$/i.test(c) || /^description$/i.test(c)) return 100;
+  if (/descri/i.test(c) || /description/i.test(c) || /^desc\.?(\s|_|$)/i.test(c)) return 90;
+  if (/^dettagli[oa]?$/i.test(c)) return 80;
+  if (/dettagli[oa]?/i.test(c)) return 75;
+  if (/narrativ/i.test(c)) return 70;
+  if (/^causale$/i.test(c)) return 65;
+  if (/causale/i.test(c)) return 55;
+  if (/^(note|nota)$/i.test(c)) return 50;
+  if (/(note|nota).*(moviment|operaz|bonific|aggiunt)/i.test(c)) return 48;
+  if (/^operazione$/i.test(c)) return 30;
+  if (/operazione/i.test(c)) return 25;
+  return 0;
+}
+
+/** Colonna descrizione più adatta tra gli header dell'estratto. */
+export function pickColonnaDescrizione(cols: string[]): string | null {
+  let best: string | null = null;
+  let bestScore = 0;
+  for (const c of cols) {
+    const s = descrizioneHeaderScore(c);
+    if (s > bestScore) {
+      best = c;
+      bestScore = s;
+    }
+  }
+  return best;
+}
+
+/**
+ * Testo descrizione da riga: colonna rilevata, poi altri header sinonimo con testo.
+ * Non restituisce stringa vuota se esiste un'altra colonna descrittiva popolata.
+ */
+export function resolveDescrizioneEstratto(
+  row: Record<string, unknown>,
+  cols: Pick<ColonneEstratto, "descrizione">,
+): string {
+  const keys: string[] = [];
+  if (cols.descrizione) keys.push(cols.descrizione);
+  for (const k of Object.keys(row)) {
+    if (keys.includes(k)) continue;
+    if (descrizioneHeaderScore(k) > 0) keys.push(k);
+  }
+  keys.sort((a, b) => descrizioneHeaderScore(b) - descrizioneHeaderScore(a));
+  for (const k of keys) {
+    const t = cellText(row[k]);
+    if (t) return t.slice(0, DESCRIZIONE_IMPORT_MAX);
+  }
+  return "";
+}
+
 /**
  * `sample`: righe del file. Se presenti, "Valuta" vale come data solo se contiene
  * date (su Intesa "Valuta" è la divisa, es. EUR).
@@ -364,7 +443,7 @@ export function detectColonneEstratto(
       find(/^mittente$/i) ||
       find(/ordinante|mittente|nominativo|ragione\s*sociale/i) ||
       null,
-    descrizione: find(/descri/i) || find(/dettagli/i) || find(/causale|operazione/i),
+    descrizione: pickColonnaDescrizione(cols),
     clienteId: find(/cliente\s*id/i),
   };
 }
@@ -551,7 +630,7 @@ export function buildPreviewEstratto(
 
   rows.forEach((r, idx) => {
     const riga = idx + 2;
-    const descrizione = cols.descrizione ? String(r[cols.descrizione] ?? "").trim() : "";
+    const descrizione = resolveDescrizioneEstratto(r, cols);
     const ordinante =
       resolveOrdinanteImport(cols.ordinante ? String(r[cols.ordinante] ?? "") : "", descrizione) || null;
     const data_movimento = parseDataBancaria(cols.data ? r[cols.data] : null);

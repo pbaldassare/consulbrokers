@@ -39,6 +39,7 @@ import {
   fetchExistingMovimentoDedupKeys,
   insertMovimentiBancariSkippingDedup,
   detectColonneEstratto,
+  resolveDescrizioneEstratto,
   labelMotivoScarto,
   countByMotivo,
   fetchContoIdsForUfficio,
@@ -216,7 +217,7 @@ const Page = () => {
 
       rows.forEach((r, idx) => {
         const rigaExcel = idx + 2;
-        const descrizione = cols.descrizione ? String(r[cols.descrizione] ?? "").trim() : "";
+        const descrizione = resolveDescrizioneEstratto(r, cols);
         const ordinante =
           resolveOrdinanteImport(cols.ordinante ? String(r[cols.ordinante] ?? "") : "", descrizione) || null;
         const dataMov = parseDataBancaria(cols.data ? r[cols.data] : null);
@@ -721,7 +722,8 @@ function AnteprimaImportDialog({
                 <TableHead>Data</TableHead>
                 <TableHead className="text-right">Importo</TableHead>
                 <TableHead>Ordinante</TableHead>
-                <TableHead>Motivo / Descrizione</TableHead>
+                <TableHead>Descrizione</TableHead>
+                <TableHead>Motivo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -743,12 +745,15 @@ function AnteprimaImportDialog({
                     {r.ordinante || "—"}
                   </TableCell>
                   <TableCell className="text-xs max-w-[280px]">
+                    <span className="truncate block text-muted-foreground" title={r.descrizione || undefined}>
+                      {r.descrizione || "—"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-xs max-w-[220px]">
                     {r.motivo ? (
                       <span className="text-destructive">{labelMotivoScarto(r.motivo)}</span>
                     ) : (
-                      <span className="truncate block text-muted-foreground" title={r.descrizione || undefined}>
-                        {r.descrizione || "—"}
-                      </span>
+                      "—"
                     )}
                   </TableCell>
                 </TableRow>
@@ -997,6 +1002,7 @@ const MonitorTab = () => {
                 return {
                   Data: formatDateIT(m.data_movimento),
                   Ordinante: m.ordinante || "",
+                  Descrizione: m.descrizione || "",
                   "Conto corrente": m.conto?.etichetta || "",
                   Cliente: cliNome,
                   Sede: m.ufficio?.nome || "",
@@ -1042,6 +1048,7 @@ const MonitorTab = () => {
               </TableHead>
               <SortableHeader>Data</SortableHeader>
               <TableHead>Ordinante</TableHead>
+              <TableHead>Descrizione</TableHead>
               <TableHead>Conto</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Sede</TableHead>
@@ -1068,6 +1075,7 @@ const MonitorTab = () => {
                     </TableCell>
                     <TableCell>{formatDateIT(m.data_movimento)}</TableCell>
                     <TableCell className="text-sm max-w-[220px] truncate" title={m.ordinante || undefined}>{m.ordinante || "—"}</TableCell>
+                    <TableCell className="text-sm max-w-[280px] truncate" title={m.descrizione || undefined}>{m.descrizione || "—"}</TableCell>
                     <TableCell className="text-sm max-w-[160px] truncate" title={m.conto?.etichetta || undefined}>{m.conto?.etichetta || "—"}</TableCell>
                     <TableCell className="text-sm">{cliNome}</TableCell>
                     <TableCell className="text-sm">{m.ufficio?.nome ?? "—"}</TableCell>
@@ -1078,7 +1086,7 @@ const MonitorTab = () => {
                   </TableRow>
                 );
               })}
-              {movs.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
+              {movs.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

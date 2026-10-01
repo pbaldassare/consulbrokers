@@ -778,6 +778,12 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
               </div>
               <div><span className="text-muted-foreground">Cliente: </span><span className="font-medium">{cliNome}</span></div>
               <div className="text-right md:text-left"><span className="text-muted-foreground">Importo: </span><span className="font-bold tabular-nums">{fmtEuro(movimento.importo)}</span></div>
+              {movimento.descrizione && (
+                <div className="md:col-span-4 text-xs text-muted-foreground truncate" title={movimento.descrizione}>
+                  <span className="font-medium text-foreground/80">Descrizione: </span>
+                  {movimento.descrizione}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 ml-3">
               <Badge variant={movimento.stato === "ricongiunti" ? "outline" : "default"}>{movimento.stato}</Badge>
@@ -1118,6 +1124,7 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
     const rows = movsFiltrati.map((m: any) => ({
       Data: formatDateIT(m.data_movimento),
       Ordinante: m.ordinante || "",
+      Descrizione: m.descrizione || "",
       Cliente: m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "",
       Ufficio: m.ufficio?.nome || "",
       Importo: Number(m.importo) || 0,
@@ -1219,7 +1226,9 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
         <Table>
           <TableHeader><TableRow>
             <TableHead title="gg/mm/aaaa">Data <span className="font-normal text-muted-foreground text-xs">(gg/mm/aaaa)</span></TableHead>
-            <TableHead>Ordinante</TableHead><TableHead>Cliente</TableHead>
+            <TableHead>Ordinante</TableHead>
+            <TableHead>Descrizione</TableHead>
+            <TableHead>Cliente</TableHead>
             <TableHead>Ufficio</TableHead><TableHead className="text-right">Importo</TableHead>
             <TableHead className="w-36 text-right">Azioni</TableHead>
           </TableRow></TableHeader>
@@ -1228,6 +1237,7 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
               <TableRow key={m.id} className={i % 2 ? "bg-muted/30" : ""}>
                 <TableCell title="gg/mm/aaaa">{formatDateIT(m.data_movimento)}</TableCell>
                 <TableCell className="text-sm max-w-[200px] truncate">{m.ordinante || "—"}</TableCell>
+                <TableCell className="text-sm max-w-[240px] truncate" title={m.descrizione || undefined}>{m.descrizione || "—"}</TableCell>
                 <TableCell className="text-sm">{m.cliente?.ragione_sociale || [m.cliente?.nome, m.cliente?.cognome].filter(Boolean).join(" ") || "—"}</TableCell>
                 <TableCell className="text-sm">{m.ufficio?.nome ?? "—"}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmtEuro(m.importo)}</TableCell>
@@ -1244,7 +1254,7 @@ export const StoricoTab = ({ profileUfficio, seeAll }: { profileUfficio: string 
                 </TableCell>
               </TableRow>
             ))}
-            {movsFiltrati.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
+            {movsFiltrati.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nessun movimento</TableCell></TableRow>}
           </TableBody>
         </Table>
         )}

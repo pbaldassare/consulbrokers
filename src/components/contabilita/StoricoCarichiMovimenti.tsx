@@ -367,6 +367,7 @@ function DettaglioCaricoDialog({ caricoId, onClose }: { caricoId: string | null;
                 <TableRow>
                   <TableHead>Data</TableHead>
                   <TableHead>Ordinante</TableHead>
+                  <TableHead>Descrizione</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead className="text-right">Importo</TableHead>
                   <TableHead>Stato</TableHead>
@@ -377,13 +378,14 @@ function DettaglioCaricoDialog({ caricoId, onClose }: { caricoId: string | null;
                   <TableRow key={m.id}>
                     <TableCell className="text-xs whitespace-nowrap">{formatDateIT(m.data_movimento)}</TableCell>
                     <TableCell className="text-xs max-w-[200px] truncate" title={m.ordinante || undefined}>{m.ordinante || "—"}</TableCell>
+                    <TableCell className="text-xs max-w-[240px] truncate" title={m.descrizione || undefined}>{m.descrizione || "—"}</TableCell>
                     <TableCell className="text-xs">{cliNome(m)}</TableCell>
                     <TableCell className="text-right text-xs tabular-nums">{fmtEuro(m.importo)}</TableCell>
                     <TableCell className="text-xs"><Badge variant="secondary">{m.stato}</Badge></TableCell>
                   </TableRow>
                 ))}
                 {shown.length === 0 && (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun movimento in questa vista</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessun movimento in questa vista</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

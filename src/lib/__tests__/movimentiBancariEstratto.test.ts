@@ -12,7 +12,9 @@ import {
   normalizeDescrizioneDedup,
   parseDataBancaria,
   parseImportoBancario,
+  pickColonnaDescrizione,
   readEstrattoBancarioRows,
+  resolveDescrizioneEstratto,
   resolveImportoEstratto,
   sheetRowsPreferDisplay,
   extractOrdinanteFromDescrizione,
@@ -99,6 +101,7 @@ describe("estratto bancario CSV/Excel", () => {
       data_movimento: "2026-08-03",
       importo: 160,
       ordinante: "TURETTA VALENTINO",
+      descrizione: "Ordinante: TURETTA VALENTINO Causale: ORDINE CONTO",
     });
     expect(p.preview[2]).toMatchObject({
       data_movimento: "2026-07-31",
@@ -126,6 +129,52 @@ describe("estratto bancario CSV/Excel", () => {
     const cols = detectColonneEstratto(["DATA", "CONTROPARTE", "AVERE", "DESCRIZIONE"]);
     expect(cols.ordinante).toBeNull();
     expect(cols.descrizione).toBe("DESCRIZIONE");
+  });
+
+  it("mappa sinonimi descrizione degli estratti IT/EN", () => {
+    expect(pickColonnaDescrizione(["Data", "Importo", "Dettaglio"])).toBe("Dettaglio");
+    expect(pickColonnaDescrizione(["Data", "Avere", "Note"])).toBe("Note");
+    expect(pickColonnaDescrizione(["Date", "Amount", "Narrativa"])).toBe("Narrativa");
+    expect(pickColonnaDescrizione(["Date", "Amount", "Description"])).toBe("Description");
+    expect(pickColonnaDescrizione(["Data", "Importo", "Desc. operazione"])).toBe("Desc. operazione");
+    expect(pickColonnaDescrizione(["Data", "Importo", "Causale"])).toBe("Causale");
+    expect(pickColonnaDescrizione(["DATA", "AVERE", "CAUSALE_ABI", "OPERAZIONE"])).toBe("OPERAZIONE");
+    expect(pickColonnaDescrizione(["DATA", "AVERE", "CAUSALE_ABI"])).toBeNull();
+    // Preferisce narrativa lunga a «Operazione» (tipo movimento)
+    expect(pickColonnaDescrizione(["Operazione", "Dettagli", "Importo"])).toBe("Dettagli");
+    expect(pickColonnaDescrizione(["Causale ABI", "Note movimento", "Data"])).toBe("Note movimento");
+  });
+
+  it("estrae descrizione da colonna Note se Descrizione è vuota", () => {
+    const cols = detectColonneEstratto(["DATA", "AVERE", "DESCRIZIONE", "NOTE"]);
+    expect(cols.descrizione).toBe("DESCRIZIONE");
+    expect(
+      resolveDescrizioneEstratto(
+        { DATA: "01/10/2026", AVERE: 100, DESCRIZIONE: "", NOTE: "Rinnovo polizza RCA CIG ABC" },
+        cols,
+      ),
+    ).toBe("Rinnovo polizza RCA CIG ABC");
+    expect(resolveDescrizioneEstratto({ DATA: "01/10/2026", AVERE: 100 }, cols)).toBe("");
+  });
+
+  it("anteprima include descrizione da header Dettaglio / Note / Description", () => {
+    const pDettaglio = buildPreviewEstratto("dettaglio.xlsx", [
+      { Data: "01/10/2026", Importo: 250, Dettaglio: "Bonifico polizza 123 — Comune di Varese" },
+    ]);
+    expect(pDettaglio.colonne.descrizione).toBe("Dettaglio");
+    expect(pDettaglio.preview[0]?.descrizione).toBe("Bonifico polizza 123 — Comune di Varese");
+
+    const pNote = buildPreviewEstratto("note.xlsx", [
+      { Data: "01/10/2026", Avere: 80, Note: "Saldo avviso quietanza 2/4" },
+    ]);
+    expect(pNote.colonne.descrizione).toBe("Note");
+    expect(pNote.preview[0]?.descrizione).toBe("Saldo avviso quietanza 2/4");
+
+    const pEn = buildPreviewEstratto("en.xlsx", [
+      { Date: "2026-10-01", Amount: 99, Description: "Insurance premium renewal" },
+    ]);
+    expect(pEn.colonne.descrizione).toBe("Description");
+    expect(pEn.preview[0]?.descrizione).toBe("Insurance premium renewal");
   });
 
   it("usa Avere come importo e scarta solo Dare", () => {
@@ -403,6 +452,7 @@ describe("estratto Intesa «Lista operazioni» con preambolo", () => {
     expect(p.preview[0].data_movimento).toBe("2026-10-01");
     expect(p.preview[0].importo).toBe(330);
     expect(p.preview[0].ordinante).toBe("CIALLELLA STEFANO");
+    expect(p.preview[0].descrizione).toMatch(/CIALLELLA STEFANO/);
   });
 
   it("estrae il mittente da «MITT. … BENEF.»", () => {
