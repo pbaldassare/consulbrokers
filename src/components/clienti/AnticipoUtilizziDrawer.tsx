@@ -38,7 +38,7 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
     enabled: !!anticipoId,
     queryFn: async () => {
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
-        .select("id, cliente_id, importo, importo_residuo, note, titolo_origine_id, rimborsato_il, rimborsato_importo, rimborsato_note, rimborsato_conto_bancario_id, data_anticipo, conto_rimborso:conti_bancari!cliente_anticipi_rimborsato_conto_bancario_id_fkey(id, etichetta, iban)")
+        .select("id, cliente_id, importo, importo_residuo, note, titolo_origine_id, rimborsato_il, rimborsato_importo, rimborsato_note, rimborsato_conto_bancario_id, data_anticipo, conto_rimborso:conti_bancari!cliente_anticipi_rimborsato_conto_bancario_id_fkey(id, etichetta, iban), operatore_rimborso:profiles!cliente_anticipi_rimborsato_da_fkey(nome, cognome, email)")
         .eq("id", anticipoId!)
         .maybeSingle();
       if (error) throw error;
@@ -54,6 +54,7 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
         rimborsato_note: string | null;
         rimborsato_conto_bancario_id: string | null;
         conto_rimborso: { id: string; etichetta: string; iban: string } | null;
+        operatore_rimborso: { nome: string | null; cognome: string | null; email: string | null } | null;
         data_anticipo: string;
       } | null;
     },
@@ -107,6 +108,16 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
                       <>
                         <span className="text-muted-foreground">IBAN</span>
                         <span className="text-right font-mono">{maskIban(anticipo.conto_rimborso.iban)}</span>
+                      </>
+                    )}
+                    {anticipo.operatore_rimborso && (
+                      <>
+                        <span className="text-muted-foreground">Registrato da</span>
+                        <span className="text-right">
+                          {[anticipo.operatore_rimborso.nome, anticipo.operatore_rimborso.cognome]
+                            .filter(Boolean)
+                            .join(" ") || anticipo.operatore_rimborso.email || "—"}
+                        </span>
                       </>
                     )}
                     {anticipo.rimborsato_note && (
