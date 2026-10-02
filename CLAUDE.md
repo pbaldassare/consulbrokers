@@ -542,8 +542,10 @@ Le edge functions sono in `supabase/functions/`. Configurate in `supabase/config
 | `ai-match-movimenti-bancari` | Matching AI + fuzzy movimenti bancari → clienti |
 | `analisi-documenti-multipli` | Analisi batch di documenti con AI |
 | `bootstrap-admin` | Crea il primo utente admin |
+| `bandi-cron-mattina` | Job feriale 07:00 Europe/Rome: ricerca tutte le fonti + marca scaduti + storico partecipati |
 | `calcola-provvigioni` | Calcolo provvigioni su titoli |
 | `cerca-bandi` | Ricerca bandi pubblici (API ufficiale TED, senza IA) |
+| `bandi-cron-mattina` | Job feriale 07:00 Europe/Rome: ricerca tutte le fonti + marca scaduti + storico partecipati |
 | `cfo-ai-analyst` | Analisi dati CFO tramite AI |
 | `check-resend-domain` | Verifica dominio Resend configurato |
 | `chiedi-mie-polizze` | Query natural language polizze cliente |
