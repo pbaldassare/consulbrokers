@@ -95,58 +95,58 @@
   }
 
   .dark {
-    --background: 210 20% 8%;
-    --foreground: 210 15% 90%;
-    --card: 210 18% 12%;
-    --card-foreground: 210 15% 90%;
-    --popover: 210 18% 12%;
-    --popover-foreground: 210 15% 90%;
-    --primary: 199 58% 45%;
+    --background: 211 22% 17%;
+    --foreground: 210 22% 92%;
+    --card: 210 20% 21%;
+    --card-foreground: 210 22% 92%;
+    --popover: 210 20% 22%;
+    --popover-foreground: 210 22% 92%;
+    --primary: 195 55% 48%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 18% 18%;
-    --secondary-foreground: 210 15% 85%;
-    --muted: 210 15% 18%;
-    --muted-foreground: 215 14% 60%;
-    --accent: 170 50% 45%;
+    --secondary: 211 18% 27%;
+    --secondary-foreground: 210 18% 88%;
+    --muted: 211 17% 26%;
+    --muted-foreground: 210 15% 70%;
+    --accent: 174 45% 43%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 62% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 210 15% 22%;
-    --input: 210 15% 22%;
-    --ring: 199 58% 45%;
+    --destructive: 0 55% 43%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 16% 32%;
+    --input: 210 16% 32%;
+    --ring: 195 55% 48%;
 
-    --sidebar-bg-from: 210 20% 8%;
-    --sidebar-bg-to: 210 18% 12%;
-    --sidebar-foreground: 210 15% 75%;
-    --sidebar-active: 199 58% 45%;
+    --sidebar-bg-from: 203 35% 18%;
+    --sidebar-bg-to: 202 31% 24%;
+    --sidebar-foreground: 202 20% 84%;
+    --sidebar-active: 195 48% 42%;
     --sidebar-active-foreground: 0 0% 100%;
-    --sidebar-hover: 210 15% 18%;
-    --sidebar-border: 210 15% 22%;
-    --sidebar-muted: 210 15% 55%;
+    --sidebar-hover: 202 25% 30%;
+    --sidebar-border: 202 23% 34%;
+    --sidebar-muted: 202 17% 70%;
 
-    --topbar-bg: 210 18% 12%;
-    --topbar-border: 210 15% 22%;
+    --topbar-bg: 210 20% 21%;
+    --topbar-border: 210 16% 32%;
 
-    /* KPI cards — dark variant: bg scuro + bordo soft + testo chiaro */
-    --kpi-green-bg: 160 35% 14%;
-    --kpi-green-border: 160 40% 28%;
-    --kpi-green-text: 160 55% 70%;
+    /* KPI cards — variante notte blu-ardesia, leggibile senza nero pieno */
+    --kpi-green-bg: 160 26% 23%;
+    --kpi-green-border: 160 30% 36%;
+    --kpi-green-text: 160 48% 72%;
 
-    --kpi-blue-bg: 205 40% 14%;
-    --kpi-blue-border: 205 40% 28%;
-    --kpi-blue-text: 205 55% 70%;
+    --kpi-blue-bg: 205 30% 24%;
+    --kpi-blue-border: 205 34% 38%;
+    --kpi-blue-text: 205 52% 75%;
 
-    --kpi-yellow-bg: 45 40% 14%;
-    --kpi-yellow-border: 45 40% 28%;
-    --kpi-yellow-text: 45 65% 70%;
+    --kpi-yellow-bg: 45 27% 23%;
+    --kpi-yellow-border: 45 32% 37%;
+    --kpi-yellow-text: 45 62% 74%;
 
-    --kpi-orange-bg: 25 40% 14%;
-    --kpi-orange-border: 25 40% 28%;
-    --kpi-orange-text: 25 65% 70%;
+    --kpi-orange-bg: 25 28% 24%;
+    --kpi-orange-border: 25 34% 38%;
+    --kpi-orange-text: 25 62% 74%;
 
-    --kpi-teal-bg: 175 35% 14%;
-    --kpi-teal-border: 175 40% 28%;
-    --kpi-teal-text: 175 55% 70%;
+    --kpi-teal-bg: 175 25% 23%;
+    --kpi-teal-border: 175 30% 37%;
+    --kpi-teal-text: 175 50% 72%;
 
     --badge-green-bg: 160 45% 35%;
     --badge-green-fg: 0 0% 100%;
@@ -160,13 +160,13 @@
     /* Polizza vs Quietanza (dark) */
     --polizza: 173 70% 45%;
     --polizza-foreground: 0 0% 100%;
-    --polizza-soft: 173 40% 16%;
+    --polizza-soft: 173 30% 24%;
     --quietanza: 38 85% 55%;
     --quietanza-foreground: 38 30% 10%;
-    --quietanza-soft: 38 35% 14%;
+    --quietanza-soft: 38 28% 23%;
     --appendice: 262 70% 65%;
     --appendice-foreground: 0 0% 100%;
-    --appendice-soft: 262 40% 16%;
+    --appendice-soft: 262 28% 25%;
   }
 
 }

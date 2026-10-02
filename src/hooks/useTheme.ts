@@ -3,6 +3,14 @@ import { useEffect, useState, useCallback } from "react";
 type Theme = "light" | "dark" | "system";
 const KEY = "consulnet-theme";
 
+function readStoredTheme(): Theme {
+  if (typeof window === "undefined") return "light";
+  const stored = localStorage.getItem(KEY);
+  return stored === "light" || stored === "dark" || stored === "system"
+    ? stored
+    : "light";
+}
+
 function apply(theme: Theme) {
   const root = document.documentElement;
   const effective =
@@ -13,15 +21,18 @@ function apply(theme: Theme) {
   root.style.colorScheme = effective;
 }
 
+/** Applica la preferenza prima del rendering, evitando cambi quando si apre il profilo. */
+export function initializeTheme() {
+  if (typeof window === "undefined") return;
+  apply(readStoredTheme());
+}
+
 /**
  * Gestione tema light/dark/system con persistenza in localStorage.
  * Toggle ciclico: light → dark → system → light.
  */
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "system";
-    return (localStorage.getItem(KEY) as Theme) || "system";
-  });
+  const [theme, setThemeState] = useState<Theme>(readStoredTheme);
 
   useEffect(() => {
     apply(theme);
