@@ -16,6 +16,7 @@ import ClienteAnagrafica from "@/pages/cliente/ClienteAnagrafica";
 import ClienteUfficio from "@/pages/cliente/ClienteUfficio";
 import ClienteAssistente from "@/pages/cliente/ClienteAssistente";
 import ClienteParcoVeicoli from "@/pages/cliente/ClienteParcoVeicoli";
+import SupportTicketsPage from "@/pages/SupportTicketsPage";
 
 export const clienteRoutes = (
   <Route element={<ClienteGuard><ClienteLayout /></ClienteGuard>}>
@@ -35,5 +36,6 @@ export const clienteRoutes = (
     <Route path="/cliente/anagrafica" element={<ClienteAnagrafica />} />
     <Route path="/cliente/ufficio" element={<ClienteUfficio />} />
     <Route path="/cliente/assistente" element={<ClienteAssistente />} />
+    <Route path="/cliente/ticket-supporto" element={<SupportTicketsPage />} />
   </Route>
 );

@@ -12,17 +12,27 @@ import {
   LogOut,
   Menu,
   X,
+  TicketCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import HistoryBackButton from "@/components/HistoryBackButton";
 
-const navItems = [
+interface ProspectNavItem {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  end?: boolean;
+  hasBadge?: boolean;
+}
+
+const navItems: ProspectNavItem[] = [
   { to: "/prospect", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/prospect/trattative", label: "Trattative", icon: ClipboardList },
   { to: "/prospect/documenti", label: "Documenti", icon: FileText },
   { to: "/prospect/upload", label: "Carica Doc", icon: Upload },
   { to: "/chat", label: "Chat", icon: MessageSquare, hasBadge: true },
+  { to: "/prospect/ticket-supporto", label: "Ticket Supporto", icon: TicketCheck },
 ];
 
 const ProspectLayout = () => {
@@ -96,7 +106,7 @@ const ProspectLayout = () => {
               >
                 <item.icon className="h-4 w-4" />
                 <span className="flex-1">{item.label}</span>
-                {(item as any).hasBadge && unreadCount > 0 && (
+                {item.hasBadge && unreadCount > 0 && (
                   <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
                     {unreadCount > 99 ? "99+" : unreadCount}
                   </span>
@@ -125,7 +135,7 @@ const ProspectLayout = () => {
             >
               <item.icon className="h-4 w-4" />
               <span>{item.label}</span>
-              {(item as any).hasBadge && unreadCount > 0 && (
+              {item.hasBadge && unreadCount > 0 && (
                 <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>

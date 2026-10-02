@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Shield, FileText, CalendarClock, MessageSquare,
   Bell, LogOut, Menu, X, AlertTriangle, Building2, Phone,
-  ChevronLeft, ChevronRight, Sparkles, Truck,
+  ChevronLeft, ChevronRight, Sparkles, Truck, TicketCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,15 @@ import { cn } from "@/lib/utils";
 import HistoryBackButton from "@/components/HistoryBackButton";
 import { TourProvider, useTour, hasSeenAIAssistant } from "@/components/tour/AppTourContext";
 import AppTour from "@/components/tour/AppTour";
+
+interface ClienteNavItem {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  end?: boolean;
+  hasBadge?: boolean;
+  tour: string;
+}
 
 const TourTopbarButton = () => {
   const { startTour, isActive } = useTour();
@@ -78,7 +87,7 @@ const TourSidebarButton = ({ compact }: { compact?: boolean }) => {
   );
 };
 
-const allNavItems = [
+const allNavItems: ClienteNavItem[] = [
   { to: "/cliente", label: "Dashboard", icon: LayoutDashboard, end: true, tour: "cl-nav-dashboard" },
   { to: "/cliente/polizze", label: "Polizze", icon: Shield, tour: "cl-nav-polizze" },
   { to: "/cliente/parco-veicoli", label: "Parco Veicoli", icon: Truck, tour: "cl-nav-parco" },
@@ -90,6 +99,7 @@ const allNavItems = [
   { to: "/cliente/notifiche", label: "Notifiche", icon: Bell, tour: "cl-nav-notifiche" },
   { to: "/cliente/anagrafica", label: "Dati Ente", icon: Building2, tour: "cl-nav-dati" },
   { to: "/cliente/ufficio", label: "Info e Contatti", icon: Phone, tour: "cl-nav-contatti" },
+  { to: "/cliente/ticket-supporto", label: "Ticket Supporto", icon: TicketCheck, tour: "cl-nav-ticket" },
 ];
 
 const SIDEBAR_BG = { background: "linear-gradient(180deg, hsl(199, 58%, 18%) 0%, hsl(199, 58%, 26%) 100%)" };
@@ -134,7 +144,7 @@ const ClienteLayout = () => {
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        setAreaType((data as any)?.area_riservata_tipo || "nessuna");
+        setAreaType((data as { area_riservata_tipo?: string } | null)?.area_riservata_tipo || "nessuna");
       });
   }, [user]);
 
@@ -178,7 +188,7 @@ const ClienteLayout = () => {
             to={item.to}
             end={item.end}
             onClick={onItemClick}
-            data-tour={(item as any).tour}
+            data-tour={item.tour}
             title={compact ? item.label : undefined}
             className={({ isActive }) =>
               cn(
@@ -192,7 +202,7 @@ const ClienteLayout = () => {
           >
             <item.icon className="h-4 w-4 shrink-0" />
             {!compact && <span className="flex-1">{item.label}</span>}
-            {(item as any).hasBadge && unreadCount > 0 && (
+            {item.hasBadge && unreadCount > 0 && (
               <span
                 className={cn(
                   "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none",

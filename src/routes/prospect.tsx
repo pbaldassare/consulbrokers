@@ -5,6 +5,7 @@ import ProspectDashboard from "@/pages/prospect/ProspectDashboard";
 import ProspectTrattative from "@/pages/prospect/ProspectTrattative";
 import ProspectDocumenti from "@/pages/prospect/ProspectDocumenti";
 import ProspectUploadDoc from "@/pages/prospect/ProspectUploadDoc";
+import SupportTicketsPage from "@/pages/SupportTicketsPage";
 
 export const prospectRoutes = (
   <Route element={<ProspectGuard><ProspectLayout /></ProspectGuard>}>
@@ -12,5 +13,6 @@ export const prospectRoutes = (
     <Route path="/prospect/trattative" element={<ProspectTrattative />} />
     <Route path="/prospect/documenti" element={<ProspectDocumenti />} />
     <Route path="/prospect/upload" element={<ProspectUploadDoc />} />
+    <Route path="/prospect/ticket-supporto" element={<SupportTicketsPage />} />
   </Route>
 );
