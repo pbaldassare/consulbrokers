@@ -23,6 +23,9 @@ export type QuietanzaCatenaLike = {
   provvigioni_quietanza?: number | null;
   sostituisce_polizza?: string | null;
   tipo_pagamento?: string | null;
+  is_appendice_modifica?: boolean | null;
+  is_proroga?: boolean | null;
+  is_regolazione?: boolean | null;
 };
 
 export function dataIncassoQuietanza(r: QuietanzaCatenaLike | null | undefined): string | null {
@@ -35,21 +38,25 @@ function sortKeyOrdineCatena(r: QuietanzaCatenaLike): string {
 }
 
 /**
- * Quietanza da cui leggere premio/provvigioni sulla riga polizza:
+ * Quietanza ordinaria da cui leggere premio/provvigioni sulla riga polizza:
  * stessa decorrenza della madre, altrimenti unica rata, altrimenti ultima in catena.
+ * Appendici, proroghe e regolazioni hanno importi propri e non devono mai
+ * modificare il premio/provvigione mostrato sulla polizza madre.
  */
 export function quietanzaRiferimentoPremio<T extends QuietanzaCatenaLike>(
   head: { garanzia_da?: string | null } | null | undefined,
   rate: T[],
-  appendici: T[] = [],
 ): T | null {
+  const quietanzeOrdinarie = rate.filter(
+    (r) => !r.is_appendice_modifica && !r.is_proroga && !r.is_regolazione,
+  );
   const da = head?.garanzia_da;
   if (da) {
-    const stessoPeriodo = rate.find((r) => r.garanzia_da === da);
+    const stessoPeriodo = quietanzeOrdinarie.find((r) => r.garanzia_da === da);
     if (stessoPeriodo) return stessoPeriodo;
   }
-  if (rate.length === 1) return rate[0];
-  return ultimaQuietanzaCatena(rate, appendici);
+  if (quietanzeOrdinarie.length === 1) return quietanzeOrdinarie[0];
+  return ultimaQuietanzaCatena(quietanzeOrdinarie);
 }
 
 export function ultimaQuietanzaCatena<T extends QuietanzaCatenaLike>(

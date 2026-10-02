@@ -54,6 +54,29 @@ describe("quietanzaRiferimentoPremio", () => {
     const rate = [{ id: "q1", garanzia_da: "2026-01-01", premio_lordo: 50 }];
     expect(quietanzaRiferimentoPremio({ garanzia_da: "2025-01-01" }, rate)?.id).toBe("q1");
   });
+
+  it("senza quietanze non usa la regolazione come premio della polizza madre", () => {
+    const regolazioni = [
+      {
+        id: "rg1",
+        is_regolazione: true,
+        garanzia_da: "2024-12-31",
+        premio_lordo: 850.95,
+      },
+    ];
+
+    expect(quietanzaRiferimentoPremio({ garanzia_da: "2024-12-31" }, regolazioni)).toBeNull();
+  });
+
+  it("ignora appendici e proroghe anche se mescolate alle quietanze", () => {
+    const titoli = [
+      { id: "am1", is_appendice_modifica: true, garanzia_da: "2026-01-01", premio_lordo: 900 },
+      { id: "pr1", is_proroga: true, garanzia_da: "2026-01-01", premio_lordo: 700 },
+      { id: "q1", garanzia_da: "2026-01-01", premio_lordo: 50 },
+    ];
+
+    expect(quietanzaRiferimentoPremio({ garanzia_da: "2026-01-01" }, titoli)?.id).toBe("q1");
+  });
 });
 
 describe("dataIncassoQuietanza", () => {

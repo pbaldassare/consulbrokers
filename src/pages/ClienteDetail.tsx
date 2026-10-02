@@ -1424,7 +1424,7 @@ function PolizzeClienteTable({
     return filteredCatene.reduce((s, c: any) => {
       const head = c.madre || c.all[0];
       if (!isPolizzaMadre(head)) return s;
-      const qRif = quietanzaRiferimentoPremio(head, c.rate, c.appendici);
+      const qRif = quietanzaRiferimentoPremio(head, c.rate);
       return s + importoAnnualitaDaRata(qRif?.premio_lordo ?? head.premio_lordo, head.frazionamento);
     }, 0);
   }, [filtroTipo, titoliDaIncassareVisibili, filteredCatene]);
@@ -1435,7 +1435,7 @@ function PolizzeClienteTable({
     return filteredCatene.reduce((s, c: any) => {
       const head = c.madre || c.all[0];
       if (!isPolizzaMadre(head)) return s;
-      const qRif = quietanzaRiferimentoPremio(head, c.rate, c.appendici);
+      const qRif = quietanzaRiferimentoPremio(head, c.rate);
       const provvRata = qRif ? getProvvigioneEC(qRif) : getProvvigioneEC(head);
       return s + importoAnnualitaDaRata(provvRata, head.frazionamento);
     }, 0);
@@ -2104,7 +2104,7 @@ function PolizzeClienteTable({
                 ? ultimaQuietanzaCatena(c.rate, c.appendici)
                 : null;
               const qRifPremio = isPolizzaMadre(head)
-                ? quietanzaRiferimentoPremio(head, c.rate, c.appendici)
+                ? quietanzaRiferimentoPremio(head, c.rate)
                 : null;
               const premioRata = qRifPremio?.premio_lordo ?? head.premio_lordo;
               const premioAnnualita = importoAnnualitaDaRata(premioRata, head.frazionamento);
