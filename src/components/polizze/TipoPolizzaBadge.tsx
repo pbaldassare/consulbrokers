@@ -1,4 +1,5 @@
 import { FileText, Receipt, FilePlus2 } from "lucide-react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export type TipoPolizzaBadgeProps = {
@@ -20,8 +21,19 @@ export type TipoPolizzaBadgeProps = {
  * `--appendice`, niente colori hardcoded.
  */
 export function TipoPolizzaBadge({ tipo, numero, totale, messaACassa, appendiceLabel, className }: TipoPolizzaBadgeProps) {
+  const withIncassata = (badge: ReactNode) => (
+    <span className="inline-flex items-center gap-1 flex-wrap">
+      {badge}
+      {messaACassa && (
+        <span className="inline-flex items-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+          Incassata
+        </span>
+      )}
+    </span>
+  );
+
   if (tipo === "appendice") {
-    return (
+    return withIncassata(
       <span
         className={cn(
           "inline-flex items-center gap-1 rounded-md border border-appendice/30 bg-appendice px-2 py-0.5 text-[11px] font-medium text-appendice-foreground",
@@ -35,7 +47,7 @@ export function TipoPolizzaBadge({ tipo, numero, totale, messaACassa, appendiceL
   }
 
   if (tipo === "polizza") {
-    return (
+    return withIncassata(
       <span
         className={cn(
           "inline-flex items-center gap-1 rounded-md border border-polizza/30 bg-polizza px-2 py-0.5 text-[11px] font-medium text-polizza-foreground",
@@ -55,7 +67,7 @@ export function TipoPolizzaBadge({ tipo, numero, totale, messaACassa, appendiceL
         ? `Quietanza ${numero}`
         : "Quietanza";
 
-  return (
+  return withIncassata(
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium",

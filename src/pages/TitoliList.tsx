@@ -17,6 +17,7 @@ import { Plus, Search, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import ServerPagination from "@/components/ServerPagination";
+import { displayStatoPolizza } from "@/lib/polizzeDisplay";
 const statiTitolo = ["creato", "incassato", "stornato", "annullato"];
 
 const TitoliList = () => {
@@ -492,7 +493,7 @@ const TitoliList = () => {
                       <TableCell>{t.produttore ? `${t.produttore.cognome || ""} ${t.produttore.nome || ""}`.trim() : "—"}</TableCell>
                       <TableCell className="font-mono">{t.premio_lordo?.toFixed(2) ?? "—"}</TableCell>
                       <TableCell className="font-mono">{t.importo_incassato?.toFixed(2) ?? "—"}</TableCell>
-                      <TableCell><Badge variant={statoBadgeVariant(t.stato)}>{t.stato}</Badge></TableCell>
+                      <TableCell><Badge variant={statoBadgeVariant(t.stato)}>{displayStatoPolizza(t)}</Badge></TableCell>
                       <TableCell>{t.data_incasso || "—"}</TableCell>
                     </TableRow>
                   ))}

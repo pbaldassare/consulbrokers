@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { List, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { displayStatoPolizza } from "@/lib/polizzeDisplay";
 
 interface Props {
   t: any;
@@ -64,7 +65,7 @@ export function TitoloQuietanzePanel({ t, totRate, catena, onNavigate }: Props) 
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums">{fmtEuro(r.premio_lordo)}</TableCell>
                       <TableCell>
-                        <Badge variant={r.stato === "incassato" ? "default" : r.stato === "stornato" ? "destructive" : "secondary"}>{r.stato}</Badge>
+                        <Badge variant={r.stato === "incassato" ? "default" : r.stato === "stornato" ? "destructive" : "secondary"}>{displayStatoPolizza(r)}</Badge>
                       </TableCell>
                       <TableCell className="text-xs">{r.data_messa_cassa || "—"}</TableCell>
                     </TableRow>

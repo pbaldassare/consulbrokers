@@ -1937,7 +1937,7 @@ function PolizzeClienteTable({
                     ) : (
                       <TipoPolizzaBadge
                         tipo={r.sostituisce_polizza ? "quietanza" : "polizza"}
-                        messaACassa={r.sostituisce_polizza ? isMessaACassa(r) : undefined}
+                        messaACassa={isMessaACassa(r)}
                       />
                     )}
                   </TableCell>
@@ -2133,7 +2133,7 @@ function PolizzeClienteTable({
                       {isAppendice(head) ? (
                         <TipoPolizzaBadge tipo="appendice" appendiceLabel={appendiceTipoLabel(head)} messaACassa={isMessaACassa(head)} />
                       ) : (
-                        <TipoPolizzaBadge tipo="polizza" />
+                        <TipoPolizzaBadge tipo="polizza" messaACassa={isMessaACassa(head)} />
                       )}
                     </TableCell>
                     <TableCell>{gruppoRamo}</TableCell>

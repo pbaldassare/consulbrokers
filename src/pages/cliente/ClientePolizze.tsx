@@ -15,6 +15,7 @@ import { it } from "date-fns/locale";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { fmtEuro as fmt } from "@/lib/formatCurrency";
 import { DatePicker } from "@/components/contabilita/DatePicker";
+import { displayStatoPolizza } from "@/lib/polizzeDisplay";
 
 const statoQuietanzaBadge: Record<string, string> = {
   da_incassare: "bg-amber-100 text-amber-800 border-amber-300",
@@ -381,7 +382,7 @@ const ClientePolizze = () => {
                                             <TableCell className="py-1.5">{q.data_scadenza ? format(new Date(q.data_scadenza), "dd/MM/yyyy") : "—"}</TableCell>
                                             <TableCell className="py-1.5 text-right font-medium">{q.premio_lordo != null ? fmt(q.premio_lordo) : "—"}</TableCell>
                                             <TableCell className="py-1.5">
-                                              <Badge className={`text-[10px] ${statoQuietanzaBadge[q.stato] ?? "bg-muted text-muted-foreground"}`}>{q.stato?.replace(/_/g, " ") ?? "—"}</Badge>
+                                              <Badge className={`text-[10px] ${statoQuietanzaBadge[q.stato] ?? "bg-muted text-muted-foreground"}`}>{displayStatoPolizza(q) || "—"}</Badge>
                                             </TableCell>
                                             <TableCell className="py-1.5">{q.data_incasso ? format(new Date(q.data_incasso), "dd/MM/yyyy") : "—"}</TableCell>
                                           </TableRow>
