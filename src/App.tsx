@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import MioProfilo from "./pages/MioProfilo";
 import AiAssistantPage from "./pages/AiAssistantPage";
 import GuidaOperativaPage from "./pages/GuidaOperativaPage";
+import SupportTicketsPage from "./pages/SupportTicketsPage";
 import NotFound from "./pages/NotFound";
 
 import AppVersionGuard from "./components/AppVersionGuard";
@@ -50,6 +51,7 @@ const App = () => (
                   <Route path="/mio-profilo" element={<MioProfilo />} />
                   <Route path="/ai-assistant" element={<AiAssistantPage />} />
                   <Route path="/guida-operativa" element={<GuidaOperativaPage />} />
+                  <Route path="/ticket-supporto" element={<SupportTicketsPage />} />
                   
                   <Route element={<AppErrorBoundary section="Archivi"><Outlet /></AppErrorBoundary>}>
                     {archiviRoutes}

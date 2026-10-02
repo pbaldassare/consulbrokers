@@ -62,6 +62,7 @@ import {
   Bot,
   Heart,
   Car,
+  TicketCheck,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isSidebarToActive } from "@/lib/sidebarToActive";
@@ -298,6 +299,7 @@ const sidebarEntries: SidebarEntry[] = [
   },
   { type: "single", item: { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Guida Operativa", path: "/guida-operativa", icon: BookOpen, permissionKey: "dashboard" } },
+  { type: "single", item: { label: "Ticket Supporto", path: "/ticket-supporto", icon: TicketCheck, permissionKey: "dashboard" } },
 ];
 
 interface AppSidebarProps {
