@@ -32,6 +32,7 @@ import { matchesAnagraficaListSearch } from "@/lib/searchNoEmail";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RUOLI_COMMERCIALI, labelRuoli, ruoliDi } from "@/lib/ruoliAnagrafica";
+import { canEditProducerCommissions } from "@/lib/anagrafichePermissions";
 
 /** value ISO yyyy-MM-dd o "" */
 const DateField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
@@ -174,6 +175,12 @@ const AnagraficheInternePage = () => {
   const isCorr = activeTab === "corrispondente";
   const isNewCommercial = activeTab === "responsabile_sede";
   const isProduttore = isCommerciale;
+  const canEditProvvigioni = canEditProducerCommissions({
+    role: profile?.ruolo,
+    isAdmin,
+    activeTab,
+    editingId,
+  });
   const [editingTipo, setEditingTipo] = useState<string | null>(null);
   const tipoPrincipale = editingTipo ?? tipoAnagrafica;
   const ruoliForm = Array.from(new Set([tipoPrincipale, ...form.ruoli]));
@@ -371,6 +378,37 @@ const AnagraficheInternePage = () => {
     },
     onError: (e: Error) => {
       toast.error(e?.message || "Errore durante l'aggiornamento");
+    },
+  });
+
+  const officeCommissionsMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingId || profile?.ruolo !== "ufficio" || !isCorr) {
+        throw new Error("Modifica provvigioni non consentita");
+      }
+
+      const payload = {
+        percentuale_base: form.percentuale_base ? Number(form.percentuale_base) : 0,
+        percentuale_consulenza: form.percentuale_consulenza ? Number(form.percentuale_consulenza) : 0,
+        percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 4.60,
+        trattenuta_provvigioni_incasso: haCorr ? form.trattenuta_provvigioni_incasso : false,
+        updated_at: new Date().toISOString(),
+      };
+      const { data, error } = await supabase
+        .from("anagrafiche_professionali")
+        .update(payload)
+        .eq("id", editingId)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Puoi modificare solo i produttori delle tue sedi");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] });
+      toast.success("Provvigioni produttore aggiornate");
+    },
+    onError: (e: Error) => {
+      toast.error(e?.message || "Errore durante l'aggiornamento delle provvigioni");
     },
   });
 
@@ -803,7 +841,7 @@ const AnagraficheInternePage = () => {
               </div>
               <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
             </SchedaTab>
-            <SchedaTab readOnly={readOnly} value="provvigioni" className="space-y-4">
+            <SchedaTab readOnly={!canEditProvvigioni} value="provvigioni" className="space-y-4">
               <div>
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Default Produttore (fallback)</p>
                 <div className="grid grid-cols-3 gap-3">
@@ -811,6 +849,17 @@ const AnagraficheInternePage = () => {
                   <div><Label>% Provv. Consulenza</Label><Input type="number" step="0.01" value={form.percentuale_consulenza} onChange={(e) => setForm({ ...form, percentuale_consulenza: e.target.value })} /></div>
                   <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
                 </div>
+                {readOnly && canEditProvvigioni && (
+                  <div className="flex justify-end mt-3">
+                    <Button
+                      type="button"
+                      onClick={() => officeCommissionsMutation.mutate()}
+                      disabled={officeCommissionsMutation.isPending}
+                    >
+                      {officeCommissionsMutation.isPending ? "Salvataggio..." : "Salva provvigioni generali"}
+                    </Button>
+                  </div>
+                )}
               </div>
               {haCorr && (
                 <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/30">
