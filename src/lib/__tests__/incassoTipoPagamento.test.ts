@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   isTipoPagamentoAliasBonificoEsterno,
+  isTipoPagamentoIncassoZero,
   resolveTipoPagamentoLabel,
   resolveTipoPagamentoPerNotificaAgenzia,
   resolveTipoPagamentoTitoloIncasso,
+  TIPI_PAGAMENTO_MESSA_CASSA,
   TIPO_PAGAMENTO_COMPENSAZIONE,
   TIPO_PAGAMENTO_COSTI_CONSULBROKERS,
   TIPO_PAGAMENTO_DIREITO_COMPAGNIA,
+  TIPO_PAGAMENTO_INCASSO_ZERO,
 } from "@/lib/incassoTipoPagamento";
 
 describe("resolveTipoPagamentoTitoloIncasso", () => {
@@ -119,6 +122,18 @@ describe("resolveTipoPagamentoTitoloIncasso", () => {
       }),
     ).toBe("contanti");
   });
+
+  it("preserva incasso_zero anche con premio, acconti e compensazioni", () => {
+    expect(
+      resolveTipoPagamentoTitoloIncasso({
+        dovuto: 100,
+        usatoAnticipi: 20,
+        residuoCash: 80,
+        haCompensazioni: true,
+        tipoPagamentoPrincipale: TIPO_PAGAMENTO_INCASSO_ZERO,
+      }),
+    ).toBe(TIPO_PAGAMENTO_INCASSO_ZERO);
+  });
 });
 
 describe("isTipoPagamentoAliasBonificoEsterno", () => {
@@ -151,7 +166,7 @@ describe("resolveTipoPagamentoLabel", () => {
     [TIPO_PAGAMENTO_DIREITO_COMPAGNIA, "Pagamento diretto compagnia"],
     ["anticipo", "Acconto"],
     ["anticipo_misto", "Acconto + altro pagamento"],
-    ["incasso_zero", "Incasso a zero"],
+    [TIPO_PAGAMENTO_INCASSO_ZERO, "Messa a cassa a zero"],
   ])("mappa %s in %s", (tipo, label) => {
     expect(resolveTipoPagamentoLabel(tipo)).toBe(label);
   });
@@ -162,5 +177,16 @@ describe("resolveTipoPagamentoLabel", () => {
 
   it("rende leggibili eventuali valori non ancora mappati", () => {
     expect(resolveTipoPagamentoLabel("nuovo_metodo")).toBe("Nuovo Metodo");
+  });
+});
+
+describe("opzione Messa a cassa a zero", () => {
+  it("espone nel menu il codice esistente e la label esatta", () => {
+    expect(TIPI_PAGAMENTO_MESSA_CASSA).toContainEqual({
+      value: "incasso_zero",
+      label: "Messa a cassa a zero",
+    });
+    expect(isTipoPagamentoIncassoZero("incasso_zero")).toBe(true);
+    expect(isTipoPagamentoIncassoZero("bonifico")).toBe(false);
   });
 });

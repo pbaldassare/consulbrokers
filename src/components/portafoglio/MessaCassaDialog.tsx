@@ -42,8 +42,7 @@ import { appendiceTipoLabel, canHaveDataCopertura } from "@/lib/quietanze";
 import {
   isPagamentoDirettoCompagnia,
   resolveTipoPagamentoTitoloIncasso,
-  TIPO_PAGAMENTO_COMPENSAZIONE,
-  TIPO_PAGAMENTO_COSTI_CONSULBROKERS,
+  TIPI_PAGAMENTO_MESSA_CASSA,
   TIPO_PAGAMENTO_DIREITO_COMPAGNIA,
 } from "@/lib/incassoTipoPagamento";
 import {
@@ -1788,7 +1787,10 @@ export const MessaCassaDialog = ({
     }
 
     if (notificaTitoloIds.length > 0) {
-      scheduleOrInvokeNotificaMessaCassa(notificaTitoloIds, { serale: messaCassaSerale })
+      scheduleOrInvokeNotificaMessaCassa(notificaTitoloIds, {
+        serale: messaCassaSerale,
+        tipoPagamento: form.tipoPagamento,
+      })
         .then((outcome) => {
           handleNotificaMessaCassaOutcome(outcome, () => {
             queryClient.invalidateQueries({ queryKey: ["documenti", "titolo"] });
@@ -2405,19 +2407,11 @@ export const MessaCassaDialog = ({
                     <SelectValue placeholder="— Seleziona tipo pagamento —" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="contanti">Contanti</SelectItem>
-                    <SelectItem value="pos">POS</SelectItem>
-                    <SelectItem value="bonifico">Bonifico</SelectItem>
-                    <SelectItem value="assegno">Assegno</SelectItem>
-                    <SelectItem value={TIPO_PAGAMENTO_COSTI_CONSULBROKERS}>
-                      Costi Consulbrokers
-                    </SelectItem>
-                    <SelectItem value={TIPO_PAGAMENTO_COMPENSAZIONE}>
-                      Compensazione
-                    </SelectItem>
-                    <SelectItem value={TIPO_PAGAMENTO_DIREITO_COMPAGNIA}>
-                      Pagamento diretto compagnia
-                    </SelectItem>
+                    {TIPI_PAGAMENTO_MESSA_CASSA.map((tipo) => (
+                      <SelectItem key={tipo.value} value={tipo.value}>
+                        {tipo.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -2441,19 +2435,11 @@ export const MessaCassaDialog = ({
                   <SelectValue placeholder="— Seleziona tipo pagamento —" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="contanti">Contanti</SelectItem>
-                  <SelectItem value="pos">POS</SelectItem>
-                  <SelectItem value="bonifico">Bonifico</SelectItem>
-                  <SelectItem value="assegno">Assegno</SelectItem>
-                  <SelectItem value={TIPO_PAGAMENTO_COSTI_CONSULBROKERS}>
-                    Costi Consulbrokers
-                  </SelectItem>
-                  <SelectItem value={TIPO_PAGAMENTO_COMPENSAZIONE}>
-                    Compensazione
-                  </SelectItem>
-                  <SelectItem value={TIPO_PAGAMENTO_DIREITO_COMPAGNIA}>
-                    Pagamento diretto compagnia
-                  </SelectItem>
+                  {TIPI_PAGAMENTO_MESSA_CASSA.map((tipo) => (
+                    <SelectItem key={tipo.value} value={tipo.value}>
+                      {tipo.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

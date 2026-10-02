@@ -15,6 +15,7 @@ const FALLBACK_EMAIL = "pscarpelli@consulbrokers.it";
 const FROM_EMAIL = "ConsulNet <noreply@cbnet.it>";
 const DOC_BUCKET = "documenti_titoli";
 const DOC_CATEGORIA = "notifica_messa_cassa";
+const TIPO_PAGAMENTO_INCASSO_ZERO = "incasso_zero";
 
 const TITOLI_SELECT = `
   id, numero_titolo, riga, sostituisce_polizza,
@@ -141,6 +142,10 @@ function isGarantitoTitolo(t: TitoloRow): boolean {
   return !!t.conferimento_gestito || String(t.tipo_pagamento || "").toLowerCase() === "garantito";
 }
 
+function isIncassoZeroTitolo(t: TitoloRow): boolean {
+  return String(t.tipo_pagamento || "").toLowerCase() === TIPO_PAGAMENTO_INCASSO_ZERO;
+}
+
 function modalitaLabel(t: TitoloRow): string {
   const tipoPagLabels: Record<string, string> = {
     bonifico: "Bonifico bancario",
@@ -151,6 +156,7 @@ function modalitaLabel(t: TitoloRow): string {
     garantito: "Bonifico bancario",
     costi_consulbrokers: "Bonifico bancario",
     compensazione: "Bonifico bancario",
+    incasso_zero: "Messa a cassa a zero",
   };
   return tipoPagLabels[String(t.tipo_pagamento || "").toLowerCase()] || String(t.tipo_pagamento || "—");
 }
@@ -557,8 +563,8 @@ serve(async (req) => {
     if (tErr) throw tErr;
 
     const titoliMap = new Map((titoliRaw || []).map((t: TitoloRow) => [t.id as string, t]));
-    const titoli = titoloIds.map((id) => titoliMap.get(id)).filter(Boolean) as TitoloRow[];
-    if (titoli.length === 0) {
+    const titoliTrovati = titoloIds.map((id) => titoliMap.get(id)).filter(Boolean) as TitoloRow[];
+    if (titoliTrovati.length === 0) {
       if (codaRows.length > 0) {
         await markCoda(supabase, codaRows.map((r) => r.id), "error", { error: "titoli non trovati" });
       }
@@ -566,6 +572,28 @@ serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // La modalità persistita è l'ultima difesa per tutti gli ingressi (UI, coda,
+    // cron e invocazioni forzate): il resto della messa a cassa è già concluso,
+    // ma questi titoli non devono produrre email, PDF o log di notifica inviata.
+    const titoliSoppressi = titoliTrovati.filter(isIncassoZeroTitolo);
+    const titoli = titoliTrovati.filter((t) => !isIncassoZeroTitolo(t));
+    if (titoli.length === 0) {
+      const skippedPayload = {
+        ok: true,
+        skipped: true,
+        reason: "incasso_zero",
+        titolo_ids: titoliSoppressi.map((t) => t.id),
+        coda_flush: codaRows.length,
+      };
+      if (codaRows.length > 0) {
+        await markCoda(supabase, codaRows.map((r) => r.id), "sent", skippedPayload);
+      }
+      return new Response(
+        JSON.stringify(skippedPayload),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const gruppi = groupTitoliPerAgenzia(titoli);
@@ -703,6 +731,7 @@ serve(async (req) => {
       documenti_archiviati: documentiArchiviati,
       archive_error: archiveErrors[0] ?? null,
       dettaglio_invii: invii,
+      titoli_notifica_soppressa: titoliSoppressi.map((t) => t.id),
       coda_flush: codaRows.length,
     };
 

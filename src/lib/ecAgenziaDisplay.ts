@@ -1,5 +1,6 @@
 import {
   isTipoPagamentoAliasBonificoEsterno,
+  TIPO_PAGAMENTO_INCASSO_ZERO,
   TIPO_PAGAMENTO_COMPENSAZIONE,
   TIPO_PAGAMENTO_COSTI_CONSULBROKERS,
 } from "@/lib/incassoTipoPagamento";
@@ -142,6 +143,7 @@ export function resolveTipoPagamentoLabelEcAgenzia(tipoPagamento: string | null 
   if (tp === "garantito") return "Garantito";
   if (tp === "pagamento_diretto_compagnia") return "Pag. diretto";
   if (tp === "anticipo" || tp === "anticipo_misto") return "Acconto";
+  if (tp === TIPO_PAGAMENTO_INCASSO_ZERO) return "Messa a cassa a zero";
   return tipoPagamento || "—";
 }
 

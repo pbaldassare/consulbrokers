@@ -1268,7 +1268,7 @@ Consulbrokers`;
               <DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" />
             </div>
           )}
-          <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }, { value: "costi_consulbrokers", label: "Costi Consulbrokers" }, { value: "compensazione", label: "Compensazione" }, { value: "garantito", label: "Garantito" }, { value: "pagamento_diretto_compagnia", label: "Pag. diretto compagnia" }, { value: "anticipo", label: "Acconto" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
+          <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }, { value: "costi_consulbrokers", label: "Costi Consulbrokers" }, { value: "compensazione", label: "Compensazione" }, { value: "garantito", label: "Garantito" }, { value: "pagamento_diretto_compagnia", label: "Pag. diretto compagnia" }, { value: "anticipo", label: "Acconto" }, { value: "incasso_zero", label: "Messa a cassa a zero" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
           <FilterSearchableSelect
             value={filters.stato_incasso}
             onValueChange={(v) => set({ stato_incasso: (v as Filters["stato_incasso"]) || null })}
