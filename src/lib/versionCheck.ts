@@ -12,7 +12,10 @@ const RELOAD_FLAG = `${VERSION_STORAGE_PREFIX}reload_ts`;
 const RELOAD_THROTTLE_MS = 5_000;
 const RELOAD_ATTEMPT = `${VERSION_STORAGE_PREFIX}reload_attempt`;
 const STORAGE_KEYS_TO_KEEP = (k: string) =>
-  k.startsWith("sb-") || k.startsWith("supabase.") || k.startsWith(VERSION_STORAGE_PREFIX);
+  k === "consulnet-theme" ||
+  k.startsWith("sb-") ||
+  k.startsWith("supabase.") ||
+  k.startsWith(VERSION_STORAGE_PREFIX);
 
 export const BUNDLE_VERSION: string =
   (import.meta as any).env?.VITE_APP_VERSION || "dev";

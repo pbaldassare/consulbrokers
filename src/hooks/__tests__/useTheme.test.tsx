@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProfileThemeToggle } from "@/components/ThemeToggle";
 import { initializeTheme } from "@/hooks/useTheme";
+import { purgeClientCaches } from "@/lib/versionCheck";
 
 function mockSystemDark(matches: boolean) {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -55,5 +56,15 @@ describe("tema applicazione", () => {
 
     await waitFor(() => expect(document.documentElement).toHaveClass("dark"));
     expect(localStorage.getItem("consulnet-theme")).toBe("dark");
+  });
+
+  it("mantiene la preferenza tema durante la pulizia delle cache", async () => {
+    localStorage.setItem("consulnet-theme", "light");
+    localStorage.setItem("chiave-temporanea", "da eliminare");
+
+    await purgeClientCaches();
+
+    expect(localStorage.getItem("consulnet-theme")).toBe("light");
+    expect(localStorage.getItem("chiave-temporanea")).toBeNull();
   });
 });
