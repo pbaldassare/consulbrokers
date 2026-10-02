@@ -93,6 +93,57 @@ async function assicurAppFetch<T>(
   return data;
 }
 
+async function tryAssicurAppFetch(
+  path: string,
+  options: { method?: string; body?: unknown; token?: string; baseUrl?: string },
+): Promise<Record<string, unknown> | null> {
+  try {
+    const data = await assicurAppFetch<Record<string, unknown>>(path, options);
+    return data && typeof data === "object" ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function lookupDatiEsterni(
+  cfg: { baseUrl: string; token: string; userUid: string },
+  targa: string,
+  cf: string,
+): Promise<{ dati: Record<string, unknown> | null; fonte: string; tentativi: string[]; error?: string }> {
+  const tentativi: string[] = [];
+  const common = { token: cfg.token, baseUrl: cfg.baseUrl };
+  const paths: Array<{ label: string; path: string; method?: string; body?: unknown }> = [
+    { label: "vehicle_data", path: `/api/quotes/vehicle_data?plate=${encodeURIComponent(targa)}` },
+    { label: "vehicles_lookup", path: `/api/vehicles/lookup?plate=${encodeURIComponent(targa)}` },
+    { label: "ania_atr", path: `/api/ania/atr?plate=${encodeURIComponent(targa)}${cf ? `&cf=${encodeURIComponent(cf)}` : ""}` },
+    {
+      label: "quotes_lookup",
+      path: "/api/quotes/lookup",
+      method: "POST",
+      body: { plate: targa, cf, user_uid: cfg.userUid, source: "euroherc" },
+    },
+  ];
+  let merged: Record<string, unknown> = { plate: targa };
+  let found = false;
+  let fonte = "Euroherc / ANIA";
+  for (const step of paths) {
+    tentativi.push(step.label);
+    const hit = await tryAssicurAppFetch(step.path, { ...common, method: step.method, body: step.body });
+    if (!hit) continue;
+    found = true;
+    merged = { ...merged, ...hit };
+    const src = String(hit.source || hit.fonte || hit.provider || "");
+    if (/euroherc/i.test(src)) fonte = "Euroherc";
+    else if (/ania/i.test(src)) fonte = "ANIA";
+    else if (/euroherc/i.test(step.label)) fonte = "Euroherc";
+    else if (/ania/i.test(step.label)) fonte = "ANIA";
+  }
+  if (!found) {
+    return { dati: null, fonte, tentativi, error: "Euroherc / ANIA non ha restituito dati per questa targa" };
+  }
+  return { dati: { ...merged, fonte, targa }, fonte, tentativi };
+}
+
 function genderFromCf(cf?: string, fallback?: string): string {
   const g = String(fallback || "").trim().toUpperCase();
   if (g === "M" || g === "F") return g;
@@ -178,7 +229,22 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const azione = body?.azione === "poll" ? "poll" : "quota";
+    const azioneRaw = String(body?.azione || "quota");
+    if (azioneRaw === "dati") {
+      const targa = String(body?.targa || "").toUpperCase().replace(/[\s-]/g, "");
+      const cf = String(body?.cf || "").toUpperCase().trim();
+      if (!targa) return json({ ok: false, error: "targa obbligatoria per interrogare ANIA / Euroherc" }, 400);
+      const cfg = await getConfig(supabase);
+      const lookup = await lookupDatiEsterni(cfg, targa, cf);
+      return json({
+        ok: lookup.dati != null,
+        dati: lookup.dati,
+        fonte: lookup.fonte,
+        tentativi: lookup.tentativi,
+        error: lookup.dati ? undefined : lookup.error || "Nessun dato ANIA / Euroherc per questa targa",
+      });
+    }
+    const azione = azioneRaw === "poll" ? "poll" : "quota";
     const preventivoId = String(body?.preventivo_id || "");
     if (!preventivoId) return json({ ok: false, error: "preventivo_id obbligatorio" }, 400);
 
