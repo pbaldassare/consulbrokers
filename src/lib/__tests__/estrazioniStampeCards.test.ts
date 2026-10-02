@@ -19,6 +19,12 @@ describe("Estrazioni e Stampe — card spostate da Gestione Polizze", () => {
     expect(card?.label).toBe("Documentazione da revisionare");
   });
 
+  it("non duplica le funzioni E/C già presenti in Contabilità", () => {
+    expect(ESTRAZIONI_ACTIONS.some((a) => a.path === "/contabilita/ec-agenzia")).toBe(false);
+    expect(ESTRAZIONI_ACTIONS.some((a) => a.path === "/contabilita/ec-agenzia/storico")).toBe(false);
+    expect(ESTRAZIONI_ACTIONS.some((a) => a.path === "/contabilita/ec-cliente/storico")).toBe(false);
+  });
+
   it("usa lo stesso layout delle altre card (label + description + path)", () => {
     for (const a of ESTRAZIONI_ACTIONS) {
       expect(a.label.length).toBeGreaterThan(2);
