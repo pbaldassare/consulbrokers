@@ -91,6 +91,7 @@ import {
 import { RegolazioneFattoriImportiGrid } from "@/components/polizze/RegolazioneFattoriImportiGrid";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
+import { calcolaAnniDurata } from "@/lib/durataAnni";
 import { CoassicurazioneContrattoPanel } from "@/components/polizze/CoassicurazioneContrattoPanel";
 import { CoassicurazioneImportiBreakdown } from "@/components/polizze/CoassicurazioneImportiBreakdown";
 import { RcaDatiVeicoloSection } from "@/components/polizze/RcaDatiVeicoloSection";
@@ -3177,7 +3178,12 @@ const ImmissionePolizzaPage = () => {
             <Input
               type="date"
               value={durataDa}
-              onChange={(e) => setDurataDa(e.target.value)}
+              onChange={(e) => {
+                const nextDurataDa = e.target.value;
+                setDurataDa(nextDurataDa);
+                const nextAnni = calcolaAnniDurata(nextDurataDa, durataA);
+                if (!polizzaTemporanea && nextAnni != null) setAnniDurata(String(nextAnni));
+              }}
               className={`h-8 text-xs ${!durataDa ? "border-destructive focus-visible:ring-destructive" : ""}`}
             />
             {!durataDa && (
@@ -3189,7 +3195,13 @@ const ImmissionePolizzaPage = () => {
             <Input
               type="date"
               value={durataA}
-              onChange={(e) => { setDurataA(e.target.value); setDurataATouched(true); }}
+              onChange={(e) => {
+                const nextDurataA = e.target.value;
+                setDurataA(nextDurataA);
+                setDurataATouched(true);
+                const nextAnni = calcolaAnniDurata(durataDa, nextDurataA);
+                if (!polizzaTemporanea && nextAnni != null) setAnniDurata(String(nextAnni));
+              }}
               className={`h-8 text-xs ${!durataA ? "border-destructive focus-visible:ring-destructive" : ""}`}
             />
             {!durataA && (
@@ -3198,7 +3210,18 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Anni Durata</Label>
-            <Input type="number" min="1" value={anniDurata} onChange={(e) => setAnniDurata(e.target.value)} className="h-8 text-xs" disabled={polizzaTemporanea} />
+            <Input
+              type="number"
+              min="1"
+              value={anniDurata}
+              onChange={(e) => {
+                const nextAnni = e.target.value;
+                setAnniDurata(nextAnni);
+                if (/^[1-9]\d*$/.test(nextAnni)) setDurataATouched(false);
+              }}
+              className="h-8 text-xs"
+              disabled={polizzaTemporanea}
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Frazionamento</Label>

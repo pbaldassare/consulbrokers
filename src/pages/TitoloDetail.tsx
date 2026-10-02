@@ -20,6 +20,7 @@ import {
 } from "@/lib/importoFirma";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
+import { addCalendarYearsISO, calcolaAnniDurata } from "@/lib/durataAnni";
 import { computeRegolazioneDatePresunte } from "@/lib/regolazioneDatePresunte";
 import {
   buildRegolazioneFattoriRows,
@@ -1385,13 +1386,7 @@ const TitoloDetail = () => {
   };
 
   // Auto-suggested anni_durata from durata_da/_a
-  const suggestedAnniDurata = (() => {
-    if (!periodoForm.durata_da || !periodoForm.durata_a) return null;
-    const d1 = new Date(periodoForm.durata_da);
-    const d2 = new Date(periodoForm.durata_a);
-    const months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
-    return Math.round((months / 12) * 10) / 10;
-  })();
+  const suggestedAnniDurata = calcolaAnniDurata(periodoForm.durata_da, periodoForm.durata_a);
   const isPoliennaleEdit = suggestedAnniDurata != null && suggestedAnniDurata > 1.08;
 
   const savePeriodoMutation = useMutation({
@@ -3499,6 +3494,16 @@ const TitoloDetail = () => {
                   value={periodoForm[field]?.slice(0, 10) || ""}
                   onChange={(e) => setPeriodoForm(p => {
                     const next: any = { ...p, [field]: e.target.value };
+                    if (
+                      !p.polizza_temporanea &&
+                      (field === "durata_da" || field === "durata_a")
+                    ) {
+                      const nextAnni = calcolaAnniDurata(
+                        field === "durata_da" ? e.target.value : p.durata_da,
+                        field === "durata_a" ? e.target.value : p.durata_a,
+                      );
+                      if (nextAnni != null) next.anni_durata = String(nextAnni);
+                    }
                     if (field === "garanzia_a" && e.target.value) {
                       if (!p.data_scadenza) next.data_scadenza = e.target.value;
                     }
@@ -3518,9 +3523,18 @@ const TitoloDetail = () => {
               <Label className="text-xs">Anni Durata</Label>
               <Input
                 type="number"
-                step="0.1"
+                min="1"
+                step="1"
                 value={periodoForm.anni_durata}
-                onChange={(e) => setPeriodoForm(p => ({ ...p, anni_durata: e.target.value }))}
+                onChange={(e) => setPeriodoForm(p => {
+                  const anni_durata = e.target.value;
+                  const anni = Number(anni_durata);
+                  const durata_a =
+                    p.durata_da && Number.isInteger(anni) && anni >= 1
+                      ? addCalendarYearsISO(p.durata_da, anni)
+                      : p.durata_a;
+                  return { ...p, anni_durata, durata_a };
+                })}
                 disabled={periodoForm.polizza_temporanea}
               />
               {suggestedAnniDurata != null && (
