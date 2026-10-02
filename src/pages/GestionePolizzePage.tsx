@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { useAuth } from "@/contexts/AuthContext";
+import { displayStatoPolizza } from "@/lib/polizzeDisplay";
 import { toast } from "sonner";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { annullaPolizza } from "@/lib/annullaPolizza";
@@ -756,7 +757,7 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className="capitalize">
-                              {p.stato}
+                              {displayStatoPolizza(p)}
                             </Badge>
                           </TableCell>
                           <TableCell>

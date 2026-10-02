@@ -244,7 +244,7 @@ const PortafoglioStoricoPage = () => {
                             ? <Badge variant="secondary">Modifica</Badge>
                             : isQ
                               ? <TipoPolizzaBadge tipo="quietanza" messaACassa={isMessaACassa(p)} />
-                              : <TipoPolizzaBadge tipo="polizza" />}
+                              : <TipoPolizzaBadge tipo="polizza" messaACassa={isMessaACassa(p)} />}
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>

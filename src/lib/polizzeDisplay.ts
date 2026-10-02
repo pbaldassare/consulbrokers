@@ -14,14 +14,22 @@ export function isMessaACassa(p: Pick<PolizzaRow, "data_messa_cassa">): boolean 
   return !!p?.data_messa_cassa;
 }
 
-/** Sfondo canarino: solo titoli messi a cassa. */
-export function messaCassaRowBgClass(p: PolizzaRow): string {
-  if (!isMessaACassa(p)) return "";
-  return "bg-quietanza-soft/40 hover:bg-quietanza-soft/80 hover:ring-1 hover:ring-inset hover:ring-quietanza/40";
+/**
+ * Nessuna colorazione speciale per le righe incassate.
+ * Lo stato è comunicato dal badge «Incassata», così l'hover resta uniforme.
+ */
+export function messaCassaRowBgClass(_p: PolizzaRow): string {
+  return "";
 }
 
-/** Stato da visualizzare in tabella. La polizza (prima rata) mostra "incassato" come le altre. */
+/** True quando il titolo è stato incassato/messo a cassa. */
+export function isTitoloIncassato(p: PolizzaRow): boolean {
+  return p?.stato === "incassato" || isMessaACassa(p);
+}
+
+/** Etichetta stato leggibile e uniforme nelle tabelle. */
 export function displayStatoPolizza(p: PolizzaRow): string {
+  if (isTitoloIncassato(p)) return "Incassata";
   return p?.stato || "";
 }
 

@@ -158,7 +158,7 @@ const PortafoglioAttivePage = () => {
               totale={p.numero_rate_totali ?? undefined}
             />
           ) : (
-            <TipoPolizzaBadge tipo="polizza" />
+            <TipoPolizzaBadge tipo="polizza" messaACassa={isMessaACassa(p)} />
           )}
           {p.stato === "sospeso" && (
             <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">

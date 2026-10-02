@@ -15,6 +15,7 @@ import DocPreviewDialog from "@/components/cliente/DocPreviewDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { fmtEuro as fmt } from "@/lib/formatCurrency";
+import { displayStatoPolizza } from "@/lib/polizzeDisplay";
 
 const statoBadge: Record<string, string> = {
   attivo: "bg-emerald-100 text-emerald-800",
@@ -275,7 +276,7 @@ const ClientePolizzaDetail = () => {
                       </TableCell>
                       <TableCell className="text-right">{q.premio_lordo != null ? fmt(q.premio_lordo) : "—"}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={statoQuietanza[q.stato] ?? ""}>{q.stato}</Badge>
+                        <Badge variant="outline" className={statoQuietanza[q.stato] ?? ""}>{displayStatoPolizza(q)}</Badge>
                       </TableCell>
                       <TableCell>{fmtDate(q.data_incasso)}</TableCell>
                     </TableRow>
