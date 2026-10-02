@@ -100,8 +100,15 @@ export async function creaAnticipoDaTitoloACredito(
 export async function segnaAnticipoRimborsato(
   supabase: SupabaseClient,
   anticipoId: string,
-  opts: { dataRimborso: string; note?: string | null; userId?: string | null },
-): Promise<{ ok: boolean; error?: string }> {
+  opts: {
+    dataRimborso: string;
+    contoBancarioId: string;
+    note?: string | null;
+    userId?: string | null;
+  },
+): Promise<{ ok: boolean; importoRimborsato?: number; error?: string }> {
+  if (!opts.contoBancarioId) return { ok: false, error: "Seleziona il conto di uscita del rimborso" };
+
   const { data: row, error: e1 } = await (supabase.from("cliente_anticipi") as any)
     .select("id, importo, importo_residuo, rimborsato_il")
     .eq("id", anticipoId)
@@ -109,7 +116,15 @@ export async function segnaAnticipoRimborsato(
   if (e1) return { ok: false, error: e1.message };
   if (!row) return { ok: false, error: "Acconto non trovato" };
   if (row.rimborsato_il) return { ok: false, error: "Acconto già rimborsato" };
-  if (Number(row.importo_residuo) <= 0) return { ok: false, error: "Acconto senza residuo da rimborsare (già usato)" };
+  const importoRimborsato = round2(Number(row.importo_residuo));
+  if (importoRimborsato <= 0) return { ok: false, error: "Acconto senza residuo da rimborsare (già usato)" };
+
+  const { data: conto, error: contoError } = await (supabase.from("conti_bancari") as any)
+    .select("id, attivo")
+    .eq("id", opts.contoBancarioId)
+    .maybeSingle();
+  if (contoError) return { ok: false, error: contoError.message };
+  if (!conto?.id || !conto.attivo) return { ok: false, error: "Il conto di uscita selezionato non è disponibile" };
 
   const noteExtra = (opts.note || "").trim();
   const { data: cur } = await (supabase.from("cliente_anticipi") as any)
@@ -124,6 +139,8 @@ export async function segnaAnticipoRimborsato(
     .update({
       importo_residuo: 0,
       rimborsato_il: opts.dataRimborso,
+      rimborsato_importo: importoRimborsato,
+      rimborsato_conto_bancario_id: opts.contoBancarioId,
       rimborsato_note: noteExtra || "Bonificato al cliente",
       rimborsato_da: opts.userId ?? null,
       note: noteMerged,
@@ -132,5 +149,5 @@ export async function segnaAnticipoRimborsato(
     .eq("id", anticipoId);
 
   if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  return { ok: true, importoRimborsato };
 }

@@ -148,17 +148,32 @@ export default function AnticipiChip({ clienteId }: Props) {
               {esauriti.length > 0 && (
                 <details className="mt-3">
                   <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                    Storico crediti esauriti ({esauriti.length})
+                    Storico crediti esauriti e rimborsati ({esauriti.length})
                   </summary>
                   <Table className="mt-2">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Data</TableHead>
+                        <TableHead className="text-xs">Causale</TableHead>
+                        <TableHead className="text-xs">Conto</TableHead>
+                        <TableHead className="text-xs text-right">Importo</TableHead>
+                        <TableHead className="text-xs">Stato</TableHead>
+                      </TableRow>
+                    </TableHeader>
                     <TableBody>
                       {esauriti.map((a, i) => (
                         <TableRow key={a.id} className={`cursor-pointer ${i % 2 === 0 ? "bg-muted/30" : ""}`}
                           onClick={() => setSelectedId(a.id)}>
-                          <TableCell className="text-xs">{fmtDate(a.data_anticipo)}</TableCell>
+                          <TableCell className="text-xs">{fmtDate(a.rimborsato_il || a.data_anticipo)}</TableCell>
                           <TableCell className="text-xs font-mono">{a.causale?.codice || "—"}</TableCell>
-                          <TableCell className="text-xs">{a.conto?.etichetta || "—"}</TableCell>
-                          <TableCell className="text-xs text-right">{fmtEuro(a.importo)}</TableCell>
+                          <TableCell className="text-xs">
+                            {a.rimborsato_il
+                              ? a.conto_rimborso?.etichetta || "Non registrato (storico)"
+                              : a.conto?.etichetta || "—"}
+                          </TableCell>
+                          <TableCell className="text-xs text-right">
+                            {fmtEuro(a.rimborsato_importo ?? a.importo)}
+                          </TableCell>
                           <TableCell><StatoBadge a={a} /></TableCell>
                         </TableRow>
                       ))}

@@ -13,6 +13,8 @@ export interface AnticipoGlobaleRow {
   created_at: string;
   titolo_origine_id?: string | null;
   rimborsato_il?: string | null;
+  rimborsato_importo?: number | null;
+  rimborsato_conto_bancario_id?: string | null;
   rimborsato_note?: string | null;
   causale_id?: string;
   segno?: "+" | "-";
@@ -49,7 +51,7 @@ export function useAnticipiGlobale(filters: AnticipiGlobaleFilters) {
           `id, cliente_id, data_anticipo, conto_bancario_id, importo, importo_residuo, note, created_at,
            titolo_origine_id, rimborsato_il, rimborsato_note, causale_id, segno,
            cliente:clienti(id, nome, cognome, ragione_sociale, tipo_cliente, ufficio_id),
-           conto:conti_bancari(id, etichetta, iban),
+           conto:conti_bancari!cliente_anticipi_conto_bancario_id_fkey(id, etichetta, iban),
            causale:causali_contabili(id, codice, descrizione)`
         )
         .order("data_anticipo", { ascending: false });

@@ -12,6 +12,7 @@ import { useAnticipoUtilizzi, useSegnaAnticipoRimborsato, statoAnticipo } from "
 import { fmtEuro } from "@/lib/formatCurrency";
 import { useNavigate } from "react-router-dom";
 import { Banknote, ExternalLink } from "lucide-react";
+import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 interface Props {
   anticipoId: string | null;
@@ -20,6 +21,8 @@ interface Props {
 
 const fmtDate = (s: string) => { try { return new Date(s).toLocaleDateString("it-IT"); } catch { return s; } };
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const maskIban = (iban: string) =>
+  iban && iban.length >= 8 ? `${iban.slice(0, 4)} •••• ${iban.slice(-4)}` : iban;
 
 export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
   const navigate = useNavigate();
@@ -27,6 +30,7 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
   const rimborsa = useSegnaAnticipoRimborsato();
   const [rimborsoOpen, setRimborsoOpen] = useState(false);
   const [dataRimborso, setDataRimborso] = useState(todayISO());
+  const [contoRimborsoId, setContoRimborsoId] = useState<string | null>(null);
   const [noteRimborso, setNoteRimborso] = useState("");
 
   const { data: anticipo } = useQuery({
@@ -34,7 +38,7 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
     enabled: !!anticipoId,
     queryFn: async () => {
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
-        .select("id, cliente_id, importo, importo_residuo, note, titolo_origine_id, rimborsato_il, rimborsato_note, data_anticipo")
+        .select("id, cliente_id, importo, importo_residuo, note, titolo_origine_id, rimborsato_il, rimborsato_importo, rimborsato_note, rimborsato_conto_bancario_id, data_anticipo, conto_rimborso:conti_bancari!cliente_anticipi_rimborsato_conto_bancario_id_fkey(id, etichetta, iban)")
         .eq("id", anticipoId!)
         .maybeSingle();
       if (error) throw error;
@@ -46,7 +50,10 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
         note: string | null;
         titolo_origine_id: string | null;
         rimborsato_il: string | null;
+        rimborsato_importo: number | null;
         rimborsato_note: string | null;
+        rimborsato_conto_bancario_id: string | null;
+        conto_rimborso: { id: string; etichetta: string; iban: string } | null;
         data_anticipo: string;
       } | null;
     },
@@ -86,6 +93,31 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
               {anticipo.note && (
                 <p className="text-xs text-muted-foreground pt-1 border-t">{anticipo.note}</p>
               )}
+              {stato === "rimborsato" && (
+                <div className="rounded-md border border-slate-300 bg-background p-2.5 space-y-1.5">
+                  <div className="text-xs font-semibold">Storico rimborso</div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                    <span className="text-muted-foreground">Data</span>
+                    <span className="text-right">{fmtDate(anticipo.rimborsato_il!)}</span>
+                    <span className="text-muted-foreground">Importo</span>
+                    <span className="text-right font-medium">{fmtEuro(anticipo.rimborsato_importo ?? 0)}</span>
+                    <span className="text-muted-foreground">Conto di uscita</span>
+                    <span className="text-right font-medium">{anticipo.conto_rimborso?.etichetta || "Non registrato (storico)"}</span>
+                    {anticipo.conto_rimborso?.iban && (
+                      <>
+                        <span className="text-muted-foreground">IBAN</span>
+                        <span className="text-right font-mono">{maskIban(anticipo.conto_rimborso.iban)}</span>
+                      </>
+                    )}
+                    {anticipo.rimborsato_note && (
+                      <>
+                        <span className="text-muted-foreground">Note</span>
+                        <span className="text-right">{anticipo.rimborsato_note}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
               {anticipo.titolo_origine_id && (
                 <Button
                   variant="link"
@@ -105,6 +137,7 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
                   className="w-full mt-2"
                   onClick={() => {
                     setDataRimborso(todayISO());
+                    setContoRimborsoId(null);
                     setNoteRimborso("");
                     setRimborsoOpen(true);
                   }}
@@ -172,6 +205,17 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
               />
             </div>
             <div>
+              <Label className="text-xs">Conto bancario di uscita *</Label>
+              <ContoBancarioSelect
+                className="mt-1"
+                value={contoRimborsoId}
+                onChange={setContoRimborsoId}
+                tipi={["incasso_clienti", "generico"]}
+                placeholder="Seleziona il conto del rimborso…"
+                autoSelectDefault
+              />
+            </div>
+            <div>
               <Label className="text-xs">Note (opz.)</Label>
               <Textarea
                 className="mt-1"
@@ -185,7 +229,7 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRimborsoOpen(false)}>Annulla</Button>
             <Button
-              disabled={rimborsa.isPending || !dataRimborso}
+              disabled={rimborsa.isPending || !dataRimborso || !contoRimborsoId}
               onClick={() => {
                 if (!anticipoId || !anticipo) return;
                 rimborsa.mutate(
@@ -193,6 +237,7 @@ export default function AnticipoUtilizziDrawer({ anticipoId, onClose }: Props) {
                     anticipoId,
                     clienteId: anticipo.cliente_id,
                     dataRimborso,
+                    contoBancarioId: contoRimborsoId,
                     note: noteRimborso || null,
                   },
                   {

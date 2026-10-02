@@ -16,10 +16,13 @@ export interface Anticipo {
   updated_at: string;
   titolo_origine_id?: string | null;
   rimborsato_il?: string | null;
+  rimborsato_importo?: number | null;
+  rimborsato_conto_bancario_id?: string | null;
   rimborsato_note?: string | null;
   causale_id: string;
   segno: "+" | "-";
   conto?: { id: string; etichetta: string; iban: string } | null;
+  conto_rimborso?: { id: string; etichetta: string; iban: string } | null;
   causale?: { id: string; codice: string; descrizione: string } | null;
 }
 
@@ -49,7 +52,7 @@ export function useAnticipiCliente(clienteId: string | undefined) {
     enabled: !!clienteId,
     queryFn: async () => {
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
-        .select("*, conto:conti_bancari(id, etichetta, iban), causale:causali_contabili(id, codice, descrizione)")
+        .select("*, conto:conti_bancari!cliente_anticipi_conto_bancario_id_fkey(id, etichetta, iban), conto_rimborso:conti_bancari!cliente_anticipi_rimborsato_conto_bancario_id_fkey(id, etichetta, iban), causale:causali_contabili(id, codice, descrizione)")
         .eq("cliente_id", clienteId)
         .order("data_anticipo", { ascending: false });
       if (error) throw error;
@@ -64,7 +67,7 @@ export function useAnticipiDisponibili(clienteId: string | undefined) {
     enabled: !!clienteId,
     queryFn: async () => {
       const { data, error } = await (supabase.from("cliente_anticipi") as any)
-        .select("*, conto:conti_bancari(id, etichetta, iban), causale:causali_contabili(id, codice, descrizione)")
+        .select("*, conto:conti_bancari!cliente_anticipi_conto_bancario_id_fkey(id, etichetta, iban), causale:causali_contabili(id, codice, descrizione)")
         .eq("cliente_id", clienteId)
         .eq("segno", "+")
         .gt("importo_residuo", 0)
@@ -176,12 +179,14 @@ export function useSegnaAnticipoRimborsato() {
       anticipoId: string;
       clienteId?: string | null;
       dataRimborso: string;
+      contoBancarioId: string;
       note?: string | null;
     }) => {
       const { data: user } = await supabase.auth.getUser();
       const { segnaAnticipoRimborsato } = await import("@/lib/anticipoDaTitoloCredito");
       const res = await segnaAnticipoRimborsato(supabase, input.anticipoId, {
         dataRimborso: input.dataRimborso,
+        contoBancarioId: input.contoBancarioId,
         note: input.note,
         userId: user.user?.id ?? null,
       });
@@ -193,6 +198,8 @@ export function useSegnaAnticipoRimborsato() {
         dettagli_json: {
           anticipo_id: input.anticipoId,
           data_rimborso: input.dataRimborso,
+          importo_rimborsato: res.importoRimborsato,
+          conto_bancario_uscita_id: input.contoBancarioId,
           note: input.note || null,
         },
       });
@@ -204,6 +211,7 @@ export function useSegnaAnticipoRimborsato() {
       qc.invalidateQueries({ queryKey: ["anticipi-globale"] });
       qc.invalidateQueries({ queryKey: ["anticipi-residuo-by-clienti"] });
       qc.invalidateQueries({ queryKey: ["anticipo-utilizzi"] });
+      qc.invalidateQueries({ queryKey: ["anticipo-dettaglio"] });
       toast.success("Acconto segnato come rimborsato/bonificato");
     },
     onError: (e: any) => toast.error(e?.message || "Errore rimborso acconto"),
