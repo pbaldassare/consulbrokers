@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isTipoPagamentoAliasBonificoEsterno,
+  resolveTipoPagamentoLabel,
   resolveTipoPagamentoPerNotificaAgenzia,
   resolveTipoPagamentoTitoloIncasso,
   TIPO_PAGAMENTO_COMPENSAZIONE,
@@ -136,5 +137,30 @@ describe("resolveTipoPagamentoPerNotificaAgenzia", () => {
     expect(resolveTipoPagamentoPerNotificaAgenzia(TIPO_PAGAMENTO_COSTI_CONSULBROKERS)).toBe("Bonifico bancario");
     expect(resolveTipoPagamentoPerNotificaAgenzia(TIPO_PAGAMENTO_COMPENSAZIONE)).toBe("Bonifico bancario");
     expect(resolveTipoPagamentoPerNotificaAgenzia("contanti")).toBe("Contanti");
+  });
+});
+
+describe("resolveTipoPagamentoLabel", () => {
+  it.each([
+    ["bonifico", "Bonifico"],
+    ["pos", "POS / Carta"],
+    ["contanti", "Contanti"],
+    ["assegno", "Assegno"],
+    ["rid", "RID / Addebito SEPA"],
+    ["garantito", "Garantito"],
+    [TIPO_PAGAMENTO_DIREITO_COMPAGNIA, "Pagamento diretto compagnia"],
+    ["anticipo", "Acconto"],
+    ["anticipo_misto", "Acconto + altro pagamento"],
+    ["incasso_zero", "Incasso a zero"],
+  ])("mappa %s in %s", (tipo, label) => {
+    expect(resolveTipoPagamentoLabel(tipo)).toBe(label);
+  });
+
+  it("se la modalità manca lo segnala senza inventarla", () => {
+    expect(resolveTipoPagamentoLabel(null)).toBe("Modalità non registrata");
+  });
+
+  it("rende leggibili eventuali valori non ancora mappati", () => {
+    expect(resolveTipoPagamentoLabel("nuovo_metodo")).toBe("Nuovo Metodo");
   });
 });

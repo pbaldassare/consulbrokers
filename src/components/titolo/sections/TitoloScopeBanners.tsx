@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, Info } from "lucide-react";
 import { isAppendice } from "@/lib/quietanze";
+import { resolveTipoPagamentoLabel } from "@/lib/incassoTipoPagamento";
 
 interface Props {
   t: any;
@@ -18,6 +19,7 @@ interface Props {
  */
 export function TitoloScopeBanners({ t, isLocked, isQuietanzaCorrente, totRate, rataIndex, madre, onNavigateMadre }: Props) {
   const isPolizza = !t.sostituisce_polizza && !isAppendice(t);
+  const mostraModalitaIncasso = isLocked && t.stato !== "stornato";
   return (
     <>
       {isLocked && (
@@ -29,6 +31,11 @@ export function TitoloScopeBanners({ t, isLocked, isQuietanzaCorrente, totRate, 
                 ? `Polizza ${t.stato === "stornato" ? "stornata" : "messa a cassa (prima rata)"}`
                 : `Quietanza${totRate > 1 ? ` (Rata ${rataIndex} di ${totRate})` : ""} ${t.stato === "stornato" ? "stornata" : "messa a cassa"}`}
             </strong>{" "}
+            {mostraModalitaIncasso && (
+              <>
+                · Incasso: <strong>{resolveTipoPagamentoLabel(t.tipo_pagamento)}</strong>{" "}
+              </>
+            )}
             — modifiche dirette bloccate ({isPolizza ? "il contratto resta attivo" : "la polizza/contratto resta attiva"}).
             {t.stato === "incassato" && " Per riaprirla usa Annulla Incasso / Annulla Messa a Cassa."}
           </span>

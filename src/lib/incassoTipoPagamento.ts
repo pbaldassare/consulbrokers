@@ -53,6 +53,35 @@ export function resolveTipoPagamentoPerNotificaAgenzia(tipo: string | null | und
   return labels[tp] || (tipo || "—");
 }
 
+/** Label leggibile della modalità di incasso mostrata nell'interfaccia. */
+export function resolveTipoPagamentoLabel(tipo: string | null | undefined): string {
+  const valore = (tipo || "").trim();
+  const tp = valore.toLowerCase();
+
+  const labels: Record<string, string> = {
+    bonifico: "Bonifico",
+    contanti: "Contanti",
+    assegno: "Assegno",
+    pos: "POS / Carta",
+    carta_credito: "POS / Carta",
+    rid: "RID / Addebito SEPA",
+    garantito: "Garantito",
+    [TIPO_PAGAMENTO_COSTI_CONSULBROKERS]: "Costi Consulbrokers",
+    [TIPO_PAGAMENTO_COMPENSAZIONE]: "Compensazione",
+    [TIPO_PAGAMENTO_DIREITO_COMPAGNIA]: "Pagamento diretto compagnia",
+    anticipo: "Acconto",
+    anticipo_misto: "Acconto + altro pagamento",
+    incasso_zero: "Incasso a zero",
+  };
+
+  if (labels[tp]) return labels[tp];
+  if (!valore) return "Modalità non registrata";
+
+  return valore
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (lettera) => lettera.toUpperCase());
+}
+
 /**
  * Risolve il tipo_pagamento da salvare su titoli in fase di messa a cassa.
  * Abbuono/compensazioni sono quadratura interna broker: non compaiono come
