@@ -110,6 +110,7 @@ import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza, getTotQuietanze
 import { aggiornaNumeroPolizza } from "@/lib/aggiornaNumeroPolizza";
 import { verificaNumeroPolizzaDuplicato } from "@/lib/clientiDuplicate";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
+import { resolveTipoPagamentoLabel } from "@/lib/incassoTipoPagamento";
 
 // Guard difensivo: garantisce che ogni mutation aggiorni SOLO il record corrente.
 // Lanciare quindi rifiuta qualsiasi update se l'id passato non coincide con il titolo caricato.
@@ -1923,7 +1924,7 @@ const TitoloDetail = () => {
       if (nuovoStato === "incassato" && !isConferimento) {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
         // Notifica formale all'agenzia/rapporto (non bloccante, ma con feedback errore)
-        invokeNotificaMessaCassa([id!])
+        invokeNotificaMessaCassa([id!], { tipoPagamento: cassaData?.tipoPagamento })
           .then(({ data, error }) => {
             if (error) toast.warning(`Notifica messa a cassa non inviata: ${error.message ?? error}`);
             else if (data?.skipped) { /* già inviata */ }
@@ -2729,7 +2730,7 @@ const TitoloDetail = () => {
                 {/* Tipo pagamento / Banca */}
                 {t.stato === "incassato" && (
                   <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-muted-foreground">
-                    <span><span className="font-medium text-foreground">Tipo Pagamento:</span> {fmt(t.tipo_pagamento)}</span>
+                    <span><span className="font-medium text-foreground">Tipo Pagamento:</span> {resolveTipoPagamentoLabel(t.tipo_pagamento)}</span>
                     {t.tipo_pagamento === "bonifico" && t.banca_pagamento && (
                       <span><span className="font-medium text-foreground">Banca:</span> {fmt(t.banca_pagamento)}</span>
                     )}
@@ -4455,7 +4456,7 @@ const TitoloDetail = () => {
                 <TableCell className="text-right font-mono">{fmtEuro(r.tasse)}</TableCell>
                 <TableCell className="text-right font-mono">{fmtEuro(r.totale)}</TableCell>
                 <TableCell className="text-right font-mono">{fmtEuro(r.provv_netto)}</TableCell>
-                <TableCell>{r.tipo_pagamento || "—"}</TableCell>
+                <TableCell>{resolveTipoPagamentoLabel(r.tipo_pagamento)}</TableCell>
               </TableRow>
             ))}
             {riparto.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessun riparto</TableCell></TableRow>}

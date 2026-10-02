@@ -4,10 +4,12 @@ import {
   scheduledForMessaCassaSeraleOggi,
   shouldScheduleMessaCassaSerale,
 } from "@/lib/messaCassaSerale";
+import { isTipoPagamentoIncassoZero } from "@/lib/incassoTipoPagamento";
 
 export type NotificaMessaCassaInvokeResult = {
   ok?: boolean;
   skipped?: boolean;
+  reason?: string;
   recipient?: string;
   recipients?: string[];
   invii?: number;
@@ -31,8 +33,14 @@ export type NotificaMessaCassaOutcome = {
 /** Invoca notifica agenzia. Più titoli di agenzie diverse → un invio (mail+PDF) per agenzia. */
 export async function invokeNotificaMessaCassa(
   titoloIds: string[],
-  opts?: { force?: boolean; flushCoda?: boolean },
+  opts?: { force?: boolean; flushCoda?: boolean; tipoPagamento?: string | null },
 ): Promise<{ data: NotificaMessaCassaInvokeResult | null; error: Error | null }> {
+  if (isTipoPagamentoIncassoZero(opts?.tipoPagamento)) {
+    return {
+      data: { ok: true, skipped: true, reason: "incasso_zero" },
+      error: null,
+    };
+  }
   const ids = [...new Set(titoloIds.filter(Boolean))];
   const flushCoda = opts?.flushCoda !== false;
   if (ids.length === 0 && !flushCoda) return { data: null, error: null };
@@ -70,10 +78,17 @@ export async function enqueueNotificaMessaCassaSerale(
  */
 export async function scheduleOrInvokeNotificaMessaCassa(
   titoloIds: string[],
-  opts?: { serale?: boolean; force?: boolean },
+  opts?: { serale?: boolean; force?: boolean; tipoPagamento?: string | null },
 ): Promise<NotificaMessaCassaOutcome> {
   const ids = [...new Set(titoloIds.filter(Boolean))];
   if (ids.length === 0) return { mode: "skipped", data: null, error: null };
+  if (isTipoPagamentoIncassoZero(opts?.tipoPagamento)) {
+    return {
+      mode: "skipped",
+      data: { ok: true, skipped: true, reason: "incasso_zero" },
+      error: null,
+    };
+  }
 
   if (shouldScheduleMessaCassaSerale(!!opts?.serale)) {
     const { error } = await enqueueNotificaMessaCassaSerale(ids);
@@ -84,6 +99,7 @@ export async function scheduleOrInvokeNotificaMessaCassa(
   const { data, error } = await invokeNotificaMessaCassa(ids, {
     force: opts?.force,
     flushCoda: true,
+    tipoPagamento: opts?.tipoPagamento,
   });
   return { mode: "sent", data, error };
 }

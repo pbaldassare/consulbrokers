@@ -7,8 +7,26 @@ export const TIPO_PAGAMENTO_COSTI_CONSULBROKERS = "costi_consulbrokers";
 /** Incasso registrato come compensazione (interno); verso agenzia trattato come bonifico. */
 export const TIPO_PAGAMENTO_COMPENSAZIONE = "compensazione";
 
+/** Messa a cassa completa senza inviare la comunicazione all'agenzia/compagnia. */
+export const TIPO_PAGAMENTO_INCASSO_ZERO = "incasso_zero";
+
+export const TIPI_PAGAMENTO_MESSA_CASSA = [
+  { value: "contanti", label: "Contanti" },
+  { value: "pos", label: "POS" },
+  { value: "bonifico", label: "Bonifico" },
+  { value: "assegno", label: "Assegno" },
+  { value: TIPO_PAGAMENTO_COSTI_CONSULBROKERS, label: "Costi Consulbrokers" },
+  { value: TIPO_PAGAMENTO_COMPENSAZIONE, label: "Compensazione" },
+  { value: TIPO_PAGAMENTO_DIREITO_COMPAGNIA, label: "Pagamento diretto compagnia" },
+  { value: TIPO_PAGAMENTO_INCASSO_ZERO, label: "Messa a cassa a zero" },
+] as const;
+
 export function isPagamentoDirettoCompagnia(tipo: string | null | undefined): boolean {
   return (tipo || "").toLowerCase() === TIPO_PAGAMENTO_DIREITO_COMPAGNIA;
+}
+
+export function isTipoPagamentoIncassoZero(tipo: string | null | undefined): boolean {
+  return (tipo || "").toLowerCase() === TIPO_PAGAMENTO_INCASSO_ZERO;
 }
 
 export function isTipoPagamentoCostiConsulbrokers(tipo: string | null | undefined): boolean {
@@ -71,7 +89,7 @@ export function resolveTipoPagamentoLabel(tipo: string | null | undefined): stri
     [TIPO_PAGAMENTO_DIREITO_COMPAGNIA]: "Pagamento diretto compagnia",
     anticipo: "Acconto",
     anticipo_misto: "Acconto + altro pagamento",
-    incasso_zero: "Incasso a zero",
+    [TIPO_PAGAMENTO_INCASSO_ZERO]: "Messa a cassa a zero",
   };
 
   if (labels[tp]) return labels[tp];
@@ -103,8 +121,14 @@ export function resolveTipoPagamentoTitoloIncasso(opts: {
     return TIPO_PAGAMENTO_DIREITO_COMPAGNIA;
   }
 
+  // La modalità scelta deve restare salvata anche in presenza di acconti o compensazioni:
+  // è il discriminante persistente che impedisce la notifica all'agenzia.
+  if (isTipoPagamentoIncassoZero(principale)) {
+    return TIPO_PAGAMENTO_INCASSO_ZERO;
+  }
+
   if (dovuto === 0 && usatoAnticipi === 0) {
-    return "incasso_zero";
+    return TIPO_PAGAMENTO_INCASSO_ZERO;
   }
 
   if (principale === "bonifico") {
