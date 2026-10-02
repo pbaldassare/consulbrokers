@@ -160,7 +160,6 @@ BEGIN
       AND COALESCE(t.cliente_anagrafica_id, t.cliente_id)
           IS NOT DISTINCT FROM COALESCE(NEW.cliente_anagrafica_id, NEW.cliente_id)
       AND t.sostituisce_polizza = NEW.numero_titolo
-      AND COALESCE(t.premio_lordo, 0) >= 0
       AND NOT COALESCE(t.is_regolazione, false)
       AND NOT COALESCE(t.is_proroga, false)
       AND NOT COALESCE(t.is_appendice_modifica, false)
