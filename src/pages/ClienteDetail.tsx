@@ -51,7 +51,10 @@ import {
 } from "@/lib/appendiciPolizza";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { isInCoperturaGarantita, isGarantitoDaIncassare, isDaChiudereIncasso, isGarantitoAperto } from "@/lib/garantitoTitolo";
-import { countQuietanzeDaIncassare, countQuietanzeRateDaIncassare, isQuietanzaDaMostrare } from "@/lib/quietanzeClienteView";
+import {
+  countQuietanzeRateDaIncassare,
+  titoliClienteDaIncassare,
+} from "@/lib/quietanzeClienteView";
 import { quietanzaRiferimentoPremio, ultimaQuietanzaCatena } from "@/lib/ultimaQuietanzaCatena";
 import { datePeriodoPolizzaGaranzia, compareDateStr, compareText } from "@/lib/datePolizzaGaranzia";
 import { SortableTableHead, nextSort } from "@/components/shared/SortableTableHead";
@@ -1316,9 +1319,13 @@ function PolizzeClienteTable({
     [polizze],
   );
 
-  const countQuietanze = useMemo(
-    () => countQuietanzeDaIncassare(polizze),
+  const titoliDaIncassare = useMemo(
+    () => titoliClienteDaIncassare(polizze),
     [polizze],
+  );
+  const titoliDaIncassareIds = useMemo(
+    () => new Set(titoliDaIncassare.map((t) => t.id)),
+    [titoliDaIncassare],
   );
 
   // Predicate sul singolo titolo (madre o rata)
@@ -1401,19 +1408,18 @@ function PolizzeClienteTable({
   const allApp = useMemo(() => filteredTitoli.filter((p) => isAppendice(p)), [filteredTitoli]);
   const allPol = useMemo(() => filteredTitoli.filter((p) => !p.sostituisce_polizza && !isAppendice(p)), [filteredTitoli]);
 
-  const quietanzeVisibili = useMemo(
+  const titoliDaIncassareVisibili = useMemo(
     () => (filtroTipo === "quietanze"
-      ? filteredTitoli.filter((p) => isQuietanzaDaMostrare(p))
+      ? filteredTitoli.filter((p) => titoliDaIncassareIds.has(p.id))
       : []),
-    [filteredTitoli, filtroTipo],
+    [filteredTitoli, filtroTipo, titoliDaIncassareIds],
   );
-  const quietanzeVisibiliRate = quietanzeVisibili;
   // Totali aggregati senza filtro anno solare.
   // Vista catene (Polizze): premio/provvigioni di annualità = rata × rate/anno (frazionamento).
-  // Vista quietanze: somma delle quietanze mostrate.
+  // Vista da incassare: somma dei soli titoli effettivamente incassabili.
   const totPremio = useMemo(() => {
     if (filtroTipo === "quietanze") {
-      return quietanzeVisibili.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0);
+      return titoliDaIncassareVisibili.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0);
     }
     return filteredCatene.reduce((s, c: any) => {
       const head = c.madre || c.all[0];
@@ -1421,10 +1427,10 @@ function PolizzeClienteTable({
       const qRif = quietanzaRiferimentoPremio(head, c.rate, c.appendici);
       return s + importoAnnualitaDaRata(qRif?.premio_lordo ?? head.premio_lordo, head.frazionamento);
     }, 0);
-  }, [filtroTipo, quietanzeVisibili, filteredCatene]);
+  }, [filtroTipo, titoliDaIncassareVisibili, filteredCatene]);
   const totProvv = useMemo(() => {
     if (filtroTipo === "quietanze") {
-      return quietanzeVisibili.reduce((s, p) => s + getProvvigioneEC(p), 0);
+      return titoliDaIncassareVisibili.reduce((s, p) => s + getProvvigioneEC(p), 0);
     }
     return filteredCatene.reduce((s, c: any) => {
       const head = c.madre || c.all[0];
@@ -1433,7 +1439,7 @@ function PolizzeClienteTable({
       const provvRata = qRif ? getProvvigioneEC(qRif) : getProvvigioneEC(head);
       return s + importoAnnualitaDaRata(provvRata, head.frazionamento);
     }, 0);
-  }, [filtroTipo, quietanzeVisibili, filteredCatene]);
+  }, [filtroTipo, titoliDaIncassareVisibili, filteredCatene]);
 
   const allGarant = useMemo(() => filteredTitoli.filter(isGarantitoDaIncassare), [filteredTitoli]);
   const totPremioGarant = useMemo(
@@ -1441,42 +1447,42 @@ function PolizzeClienteTable({
     [allGarant],
   );
 
-  // Flat quietanze filtrate (vista "Solo quietanze") — solo rate, no appendici.
-  const flatQuietanze = useMemo(() => {
+  // Vista piatta "Da incassare": polizza/prima rata, prossima quietanza,
+  // appendici e garantiti aperti secondo le regole condivise di incasso.
+  const flatDaIncassare = useMemo(() => {
     const out: {
-      rata: any;
-      madreNum: string | null;
-      madreId: string | null;
-      idx: number;
+      titolo: any;
       totale: number;
       datePolizza: ReturnType<typeof datePeriodoPolizzaGaranzia>;
     }[] = [];
     filteredCatene.forEach((c: any) => {
       const head = c.madre || c.all[0];
-      const madreNum = head?.numero_titolo || null;
-      const madreId = head?.id || null;
       const totale = c.rate.length;
       const datePolizza = datesForCatena(c);
-      c.rate.forEach((r: any, i: number) => {
-        if (matchTitolo(r) && isQuietanzaDaMostrare(r)) {
-          out.push({ rata: r, madreNum, madreId, idx: i + 1, totale, datePolizza });
+      c.all.forEach((titolo: any) => {
+        if (matchTitolo(titolo) && titoliDaIncassareIds.has(titolo.id)) {
+          out.push({
+            titolo,
+            totale,
+            datePolizza,
+          });
         }
       });
     });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredCatene, filtroTipo, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato]);
+  }, [filteredCatene, filtroTipo, filtroNumero, filtroGruppoRamo, filtroGaranzia, filtroAgenzia, filtroStato, titoliDaIncassareIds]);
 
-  const sortedFlatQuietanze = useMemo(() => {
+  const sortedFlatDaIncassare = useMemo(() => {
     const dir = sortDirection;
-    return [...flatQuietanze].sort((a, b) => {
-      if (sortField === "garanzia") return compareText(a.rata.ramo?.descrizione, b.rata.ramo?.descrizione, dir);
+    return [...flatDaIncassare].sort((a, b) => {
+      if (sortField === "garanzia") return compareText(a.titolo.ramo?.descrizione, b.titolo.ramo?.descrizione, dir);
       if (sortField === "inizioPolizza") return compareDateStr(a.datePolizza.inizioPolizza, b.datePolizza.inizioPolizza, dir);
       if (sortField === "finePolizza") return compareDateStr(a.datePolizza.finePolizza, b.datePolizza.finePolizza, dir);
-      if (sortField === "inizioGaranzia") return compareDateStr(a.rata.garanzia_da, b.rata.garanzia_da, dir);
-      return compareDateStr(a.rata.garanzia_a, b.rata.garanzia_a, dir);
+      if (sortField === "inizioGaranzia") return compareDateStr(a.titolo.garanzia_da, b.titolo.garanzia_da, dir);
+      return compareDateStr(a.titolo.garanzia_a, b.titolo.garanzia_a, dir);
     });
-  }, [flatQuietanze, sortField, sortDirection]);
+  }, [flatDaIncassare, sortField, sortDirection]);
 
   const sortedAllGarant = useMemo(() => {
     const dir = sortDirection;
@@ -1493,14 +1499,14 @@ function PolizzeClienteTable({
 
   const isTitoloIncassabile = (t: any) => isDaChiudereIncasso(t);
 
-  const quietanzeIncassabili = useMemo(
-    () => flatQuietanze.map((x) => x.rata).filter(isTitoloIncassabile),
-    [flatQuietanze],
+  const titoliIncassabili = useMemo(
+    () => flatDaIncassare.map((x) => x.titolo).filter(isTitoloIncassabile),
+    [flatDaIncassare],
   );
 
   const selectedAttive = useMemo(
-    () => flatQuietanze.map((x) => x.rata).filter((r) => selectedIds.has(r.id) && isTitoloIncassabile(r)),
-    [flatQuietanze, selectedIds],
+    () => flatDaIncassare.map((x) => x.titolo).filter((r) => selectedIds.has(r.id) && isTitoloIncassabile(r)),
+    [flatDaIncassare, selectedIds],
   );
   const selectedGarantibile = useMemo(
     () => selectedAttive.filter((r) => !isGarantitoAperto(r)),
@@ -1520,8 +1526,8 @@ function PolizzeClienteTable({
     });
   };
 
-  const toggleSelectAllQuietanze = () => {
-    const ids = quietanzeIncassabili.map((r) => r.id);
+  const toggleSelectAllDaIncassare = () => {
+    const ids = titoliIncassabili.map((r) => r.id);
     if (ids.length > 0 && ids.every((id) => selectedIds.has(id))) {
       setSelectedIds(new Set());
     } else {
@@ -1548,11 +1554,11 @@ function PolizzeClienteTable({
     [selectedAttive],
   );
 
-  const quietanzeIdsPerComp = useMemo(
-    () => flatQuietanze.map((x) => x.rata.id).filter(Boolean),
-    [flatQuietanze],
+  const titoliIdsPerComp = useMemo(
+    () => flatDaIncassare.map((x) => x.titolo.id).filter(Boolean),
+    [flatDaIncassare],
   );
-  const { data: compensazioniMap } = useCompensazioniByTitoli(quietanzeIdsPerComp);
+  const { data: compensazioniMap } = useCompensazioniByTitoli(titoliIdsPerComp);
 
   const invalidatePolizzeCliente = () => {
     queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
@@ -1652,7 +1658,8 @@ function PolizzeClienteTable({
             value={filtroTipo}
             onChange={setFiltroTipoState}
             withGarantiti
-            counts={{ polizze: allPol.length, quietanze: countQuietanze, garantiti: countGarantiti }}
+            quietanzeLabel="Da incassare"
+            counts={{ polizze: allPol.length, quietanze: titoliDaIncassare.length, garantiti: countGarantiti }}
           />
         )}
         <div className="text-xs text-muted-foreground">
@@ -1667,7 +1674,7 @@ function PolizzeClienteTable({
             </>
           ) : filtroTipo === "quietanze" ? (
             <>
-              <span className="font-medium text-foreground">{quietanzeVisibiliRate.length}</span> quietanze da incassare
+              <span className="font-medium text-foreground">{titoliDaIncassareVisibili.length}</span> titoli da incassare
               {countGarantiti > 0 && (
                 <> · <span className="font-medium text-orange-700">{countGarantiti}</span> garantiti</>
               )}
@@ -1679,7 +1686,7 @@ function PolizzeClienteTable({
           ) : (
             <>
               <span className="font-medium text-foreground">{allPol.length}</span> polizze ·{" "}
-              <span className="font-medium text-foreground">{countQuietanze}</span> quietanze da incassare
+              <span className="font-medium text-foreground">{titoliDaIncassare.length}</span> da incassare
               {allApp.length > 0 && (
                 <> · <span className="font-medium text-appendice">{allApp.length}</span> appendici</>
               )}
@@ -1756,7 +1763,7 @@ function PolizzeClienteTable({
         )}
       </div>
 
-      {filtroTipo === "quietanze" && quietanzeIncassabili.length > 0 && (
+      {filtroTipo === "quietanze" && titoliIncassabili.length > 0 && (
         <div className="rounded-lg border border-amber-400/40 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
@@ -1765,7 +1772,7 @@ function PolizzeClienteTable({
                 Incasso cliente · abbuoni e acconti
               </div>
               <p className="text-[11px] text-muted-foreground max-w-xl">
-                Seleziona le quietanze e premi Incassa: nella conferma puoi aggiungere abbuoni, arrotondamenti e acconti
+                Seleziona i titoli e premi Incassa: nella conferma puoi aggiungere abbuoni, arrotondamenti e acconti
                 a <span className="font-medium text-foreground">livello cliente</span> (non per singola quietanza).
               </p>
             </div>
@@ -1774,11 +1781,11 @@ function PolizzeClienteTable({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => openIncassa(quietanzeIncassabili)}
+                  onClick={() => openIncassa(titoliIncassabili)}
                   className="gap-1"
                 >
                   <Banknote className="h-3.5 w-3.5" />
-                  Incassa tutte ({quietanzeIncassabili.length})
+                  Incassa tutti ({titoliIncassabili.length})
                 </Button>
               ) : (
                 <Button size="sm" onClick={() => openIncassa(selectedAttive)} className="gap-1">
@@ -1806,8 +1813,8 @@ function PolizzeClienteTable({
           </div>
           {selectedAttive.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              {selectedAttive.length} quietanz{selectedAttive.length === 1 ? "a" : "e"} selezionat
-              {selectedAttive.length === 1 ? "a" : "e"}
+              {selectedAttive.length} titol{selectedAttive.length === 1 ? "o" : "i"} selezionat
+              {selectedAttive.length === 1 ? "o" : "i"}
               {selectedIds.size > selectedAttive.length
                 ? ` · ${selectedIds.size - selectedAttive.length} non incassabili ignorate`
                 : null}
@@ -1822,14 +1829,14 @@ function PolizzeClienteTable({
         <TableHeader className="[&_tr]:border-b sticky top-0 z-[5] bg-background shadow-sm">
           <TableRow className="hover:bg-background">
             <TableHead className="w-8 bg-background" onClick={(e) => e.stopPropagation()}>
-              {filtroTipo === "quietanze" && quietanzeIncassabili.length > 0 ? (
+              {filtroTipo === "quietanze" && titoliIncassabili.length > 0 ? (
                 <Checkbox
                   checked={
-                    quietanzeIncassabili.length > 0 &&
-                    quietanzeIncassabili.every((r) => selectedIds.has(r.id))
+                    titoliIncassabili.length > 0 &&
+                    titoliIncassabili.every((r) => selectedIds.has(r.id))
                   }
-                  onCheckedChange={toggleSelectAllQuietanze}
-                  aria-label="Seleziona tutte le quietanze incassabili"
+                  onCheckedChange={toggleSelectAllDaIncassare}
+                  aria-label="Seleziona tutti i titoli incassabili"
                 />
               ) : null}
             </TableHead>
@@ -1970,14 +1977,14 @@ function PolizzeClienteTable({
               })
             )
           ) : filtroTipo === "quietanze" ? (
-            flatQuietanze.length === 0 ? (
+            flatDaIncassare.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={colSpanBase} className="text-center text-sm text-muted-foreground py-6">
-                  Nessuna quietanza da incassare
+                  Nessun titolo da incassare
                 </TableCell>
               </TableRow>
             ) : (
-              sortedFlatQuietanze.map(({ rata: r, madreNum, madreId, idx, totale, datePolizza }) => (
+              sortedFlatDaIncassare.map(({ titolo: r, totale, datePolizza }) => (
                 <TableRow
                   key={r.id}
                   className={cn(
@@ -1987,14 +1994,14 @@ function PolizzeClienteTable({
                     !isMessaACassa(r) && "hover:bg-muted/40",
                   )}
                   onClick={() => navigate(`/titoli/${r.id}`)}
-                  title="Apri quietanza"
+                  title="Apri titolo da incassare"
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {isTitoloIncassabile(r) ? (
                       <Checkbox
                         checked={selectedIds.has(r.id)}
                         onCheckedChange={() => toggleSelect(r.id)}
-                        aria-label={`Seleziona quietanza ${r.numero_titolo || r.id}`}
+                        aria-label={`Seleziona titolo ${r.numero_titolo || r.id}`}
                       />
                     ) : null}
                   </TableCell>
@@ -2017,8 +2024,12 @@ function PolizzeClienteTable({
                       <CompensazioneBadge summary={compensazioniMap?.get(r.id)} titoloId={r.id} />
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs">—</TableCell>
-                  <TableCell className="text-xs">—</TableCell>
+                  <TableCell className="text-xs">
+                    {isPolizzaMadre(r) ? fmtDate(datePolizza.inizioPolizza) : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {isPolizzaMadre(r) ? fmtDate(datePolizza.finePolizza) : "—"}
+                  </TableCell>
                   <TableCell className="text-xs">{isAppendice(r) ? "—" : fmtDate(r.garanzia_da)}</TableCell>
                   <TableCell className="text-xs">{isAppendice(r) ? "—" : fmtDate(r.garanzia_a)}</TableCell>
                   <TableCell className="text-xs">{labelCompagniaEAgenzia(r) || "—"}</TableCell>
@@ -2042,9 +2053,24 @@ function PolizzeClienteTable({
                         title={
                           isAppendice(r)
                             ? "Elimina appendice (cascade incassi/provvigioni)"
-                            : "Elimina quietanza (cascade incassi/provvigioni)"
+                            : isPolizzaMadre(r)
+                              ? "Elimina polizza (cascade quietanze/incassi/provvigioni)"
+                              : "Elimina quietanza (cascade incassi/provvigioni)"
                         }
-                        onClick={() => (isAppendice(r) ? handleDeleteAppendice(r) : handleDeleteRata(r))}
+                        onClick={() => {
+                          if (isAppendice(r)) {
+                            handleDeleteAppendice(r);
+                          } else if (isPolizzaMadre(r)) {
+                            setDeleteConfirm({
+                              kind: "madre",
+                              titoloId: r.id,
+                              numero: r.numero_titolo ?? "—",
+                              rateCount: totale,
+                            });
+                          } else {
+                            handleDeleteRata(r);
+                          }
+                        }}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>

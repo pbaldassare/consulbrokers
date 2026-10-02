@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  countTitoliClienteDaIncassare,
   countQuietanzeDaIncassare,
   countQuietanzeRateDaIncassare,
+  isTitoloClienteDaIncassare,
   isQuietanzaDaMostrare,
+  titoliClienteDaIncassare,
   quietanzaSogliaGaranziaDa,
   QUIETANZA_SCADENZA_SOGLIA_GIORNI,
 } from "@/lib/quietanzeClienteView";
@@ -103,5 +106,67 @@ describe("countQuietanzeDaIncassare", () => {
     ];
     expect(countQuietanzeDaIncassare(titoli)).toBe(1);
     expect(countQuietanzeRateDaIncassare(titoli)).toBe(1);
+  });
+});
+
+describe("titoliClienteDaIncassare", () => {
+  const now = new Date("2026-10-02T12:00:00");
+  const madre = {
+    id: "pol",
+    numero_titolo: "POL-1",
+    sostituisce_polizza: null,
+    compagnia_id: "comp",
+    stato: "attivo",
+    data_messa_cassa: null,
+    garanzia_da: "2026-10-01",
+  };
+  const quietanza = {
+    ...madre,
+    id: "q2",
+    sostituisce_polizza: "POL-1",
+    garanzia_da: "2026-11-01",
+  };
+
+  it("mostra la polizza come prima rata e non anticipa la quietanza successiva", () => {
+    expect(titoliClienteDaIncassare([madre, quietanza], now).map((t) => t.id)).toEqual(["pol"]);
+  });
+
+  it("dopo l'incasso della polizza mostra la quietanza successiva entro soglia", () => {
+    const polizzaIncassata = {
+      ...madre,
+      stato: "incassato",
+      data_messa_cassa: "2026-10-02",
+    };
+    expect(titoliClienteDaIncassare([polizzaIncassata, quietanza], now).map((t) => t.id)).toEqual(["q2"]);
+  });
+
+  it("esclude quietanze incassate, annullate e future oltre soglia", () => {
+    expect(isTitoloClienteDaIncassare({ ...quietanza, stato: "incassato", data_messa_cassa: "2026-10-02" }, now)).toBe(false);
+    expect(isTitoloClienteDaIncassare({ ...quietanza, stato: "annullato" }, now)).toBe(false);
+    expect(isTitoloClienteDaIncassare({ ...quietanza, garanzia_da: "2027-01-01" }, now)).toBe(false);
+  });
+
+  it("include garantiti aperti e appendici incassabili", () => {
+    const garantito = {
+      ...quietanza,
+      data_messa_cassa: "2026-10-01",
+      data_copertura: "2026-10-01",
+      conferimento_gestito: true,
+      fondi_ricevuti: false,
+      tipo_pagamento: "garantito",
+    };
+    const appendice = {
+      ...madre,
+      id: "am",
+      numero_titolo: "POL-1/AM1",
+      is_appendice_modifica: true,
+      garanzia_da: "2027-12-01",
+    };
+    expect(isTitoloClienteDaIncassare(garantito, now)).toBe(true);
+    expect(titoliClienteDaIncassare([garantito, appendice], now).map((t) => t.id).sort()).toEqual(["am", "q2"]);
+  });
+
+  it("una polizza unica o temporanea resta un solo titolo incassabile, senza figlia 1/1", () => {
+    expect(countTitoliClienteDaIncassare([madre], now)).toBe(1);
   });
 });

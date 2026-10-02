@@ -10,6 +10,8 @@ export type TipoFilterSegmentedProps = {
   withRegolazioni?: boolean;
   /** Mostra chip Garantiti (copertura / attesa fondi). Default: false. */
   withGarantiti?: boolean;
+  /** Etichetta del filtro quietanze, personalizzabile nelle viste con semantica incasso. */
+  quietanzeLabel?: string;
   /** Nasconde il chip Polizze (es. pagina Carico dove ci sono solo quietanze). Default: false. */
   hidePolizze?: boolean;
   className?: string;
@@ -25,6 +27,7 @@ export function TipoFilterSegmented({
   counts,
   withRegolazioni = false,
   withGarantiti = false,
+  quietanzeLabel = "Quietanze",
   hidePolizze = false,
   className,
 }: TipoFilterSegmentedProps) {
@@ -46,7 +49,7 @@ export function TipoFilterSegmented({
         ]),
     {
       key: "quietanze",
-      label: "Quietanze",
+      label: quietanzeLabel,
       count: counts?.quietanze,
       activeClasses: "bg-quietanza text-quietanza-foreground shadow-sm",
     },
