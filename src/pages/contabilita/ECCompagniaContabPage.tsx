@@ -22,7 +22,12 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
   defaultDataLimiteIncasso,
+  defaultPeriodoDalAgenzia,
   isDefaultDataLimiteIncasso,
+  isDefaultPeriodoDalAgenzia,
+  isIncassoNelPeriodoEcAgenzia,
+  resolvePeriodoDalAgenzia,
+  resolvePeriodoDalAgenziaIso,
 } from "@/lib/contabilita/defaultDataLimiteIncasso";
 import { defaultDataEstrattoContoFormatted } from "@/lib/contabilita/defaultDataEstrattoConto";
 import { prossimoRiferimentoEc } from "@/lib/contabilita/ecProgressivo";
@@ -118,7 +123,7 @@ function createDefaultEcFilters(isAgenzia: boolean): Filters {
   return {
     compagnia_id: null,
     ufficio_id: null,
-    periodo_dal: null,
+    periodo_dal: isAgenzia ? defaultPeriodoDalAgenzia() : null,
     periodo_al: isAgenzia ? defaultDataLimiteIncasso() : null,
     tipo_pagamento: null,
     stato_incasso: null,
@@ -309,7 +314,7 @@ Consulbrokers`;
     },
   });
   const { data, isLoading } = useQuery({
-    queryKey: ["ec-agenzia-contab", filters],
+    queryKey: ["ec-agenzia-contab", isAgenzia, filters],
     queryFn: async () => {
       // Fetch titoli already in rimessa_dettaglio to exclude them
       const rimessiRaw = await fetchAllQueryPages<{ titolo_id: string | null }>((from, to) =>
@@ -326,10 +331,12 @@ Consulbrokers`;
 
         const incassateBase = ["stato.eq.incassato"];
         const coperturaBase = ["stato.eq.attivo", "conferimento_gestito.eq.true", "data_copertura.not.is.null", "data_messa_cassa.is.null"];
-        if (filters.periodo_dal) {
-          const dal = format(filters.periodo_dal, "yyyy-MM-dd");
-          incassateBase.push(`data_messa_cassa.gte.${dal}`);
-          coperturaBase.push(`data_copertura.gte.${dal}`);
+        const dalIso = isAgenzia
+          ? resolvePeriodoDalAgenziaIso(filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null)
+          : (filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null);
+        if (dalIso) {
+          incassateBase.push(`data_messa_cassa.gte.${dalIso}`);
+          coperturaBase.push(`data_copertura.gte.${dalIso}`);
         }
         if (filters.periodo_al) {
           const al = format(filters.periodo_al, "yyyy-MM-dd");
@@ -440,6 +447,17 @@ Consulbrokers`;
         if (filters.tipo_pagamento && t.tipo_pagamento !== filters.tipo_pagamento) continue;
         if (filters.stato_incasso === "incassate" && t.stato !== "incassato") continue;
         if (filters.stato_incasso === "non_incassate" && !isInCoperturaGarantita(t)) continue;
+        if (isAgenzia) {
+          const dalIso = resolvePeriodoDalAgenziaIso(
+            filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null,
+          );
+          if (t.stato === "incassato") {
+            if (!isIncassoNelPeriodoEcAgenzia(t.data_messa_cassa, dalIso)) continue;
+          } else {
+            const cov = (t.data_copertura || "").slice(0, 10);
+            if (!cov || cov < dalIso) continue;
+          }
+        }
         const dataEff = t.data_messa_cassa || t.data_copertura;
 
         // Pagamento diretto compagnia: il premio è stato pagato dal cliente
@@ -597,7 +615,9 @@ Consulbrokers`;
           compagnia_id: compagniaId,
           ufficio_id: profile?.ufficio_id || null,
           created_by: user?.id || null,
-          data_da: filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : undefined,
+          data_da: isAgenzia
+            ? resolvePeriodoDalAgenziaIso(filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null)
+            : (filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : undefined),
           data_a: filters.periodo_al ? format(filters.periodo_al, "yyyy-MM-dd") : undefined,
           titoli_ids: titoliIds || undefined,
           iban_utilizzato: ibanMittente,
@@ -644,7 +664,9 @@ Consulbrokers`;
           compagnia_id: compagniaId,
           ufficio_id: profile?.ufficio_id || null,
           created_by: user?.id || null,
-          data_da: filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : undefined,
+          data_da: isAgenzia
+            ? resolvePeriodoDalAgenziaIso(filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null)
+            : (filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : undefined),
           data_a: filters.periodo_al ? format(filters.periodo_al, "yyyy-MM-dd") : undefined,
           titoli_ids: titoliIds || undefined,
           note: note || undefined,
@@ -751,7 +773,7 @@ Consulbrokers`;
   const hasFilters = Boolean(
     filters.compagnia_id ||
       filters.ufficio_id ||
-      filters.periodo_dal ||
+      (filters.periodo_dal && !(isAgenzia && isDefaultPeriodoDalAgenzia(filters.periodo_dal))) ||
       (filters.periodo_al && !isDefaultPeriodoAl(filters.periodo_al, isAgenzia)) ||
       filters.tipo_pagamento ||
       filters.stato_incasso ||
@@ -767,13 +789,21 @@ Consulbrokers`;
 
   // Righe filtrate per export: se è impostata exportDate usa solo quella come limite "al"
   const exportRows = useMemo(() => {
-    if (!exportDate) return rows;
-    const al = format(exportDate, "yyyy-MM-dd");
+    const dalIso = isAgenzia
+      ? resolvePeriodoDalAgenziaIso(filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null)
+      : null;
+    const al = exportDate ? format(exportDate, "yyyy-MM-dd") : null;
+    if (!dalIso && !al) return rows;
     return rows.map((r) => ({
       ...r,
       titoli: r.titoli.filter((t) => {
         const d = t.data_messa_cassa || t.data_copertura;
-        return !d || d <= al;
+        if (!d) return !dalIso;
+        const day = d.slice(0, 10);
+        if (dalIso && t.data_messa_cassa && !isIncassoNelPeriodoEcAgenzia(t.data_messa_cassa, dalIso)) return false;
+        if (dalIso && !t.data_messa_cassa && day < dalIso) return false;
+        if (al && day > al) return false;
+        return true;
       }),
     })).filter((r) => r.titoli.length > 0)
       .map((r) => {
@@ -783,7 +813,7 @@ Consulbrokers`;
         const ra = r.ritenutaAcconto * factor;
         return { ...r, lordo, provvigioni: provv, ritenutaAcconto: ra };
       });
-  }, [rows, exportDate]);
+  }, [rows, exportDate, filters.periodo_dal, isAgenzia]);
 
   const exportCSV = () => {
     const src = exportRows;
@@ -1000,7 +1030,18 @@ Consulbrokers`;
       for (const r of exportRows) {
         const comp = (compagnieFull || []).find((c: any) => c.id === r.compagnia_id);
         if (!comp) continue;
-        const titoliAgenzia = titoliByCompagnia.get(r.compagnia_id) || [];
+        const dalIsoBulk = isAgenzia
+          ? resolvePeriodoDalAgenziaIso(
+              filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null,
+            )
+          : null;
+        const titoliAgenzia = (titoliByCompagnia.get(r.compagnia_id) || []).filter((t: any) => {
+          if (!dalIsoBulk) return true;
+          return (
+            isIncassoNelPeriodoEcAgenzia(t.data_messa_cassa, dalIsoBulk) ||
+            (!t.data_messa_cassa && (t.data_copertura || "").slice(0, 10) >= dalIsoBulk)
+          );
+        });
         if (!titoliAgenzia.length) continue;
 
         // Periodo testo dalla data più recente di messa a cassa
@@ -1249,7 +1290,7 @@ Consulbrokers`;
             className="w-[240px]"
           />
           <FilterSearchableSelect value={filters.ufficio_id} onValueChange={(v) => set({ ufficio_id: v })} options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))} placeholder="Sede" allLabel="Tutte le sedi" className="w-[200px]" />
-          <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
+          <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: isAgenzia ? resolvePeriodoDalAgenzia(d) : d })} placeholder="Dal" /></div>
           {isAgenzia ? (
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Data limite incasso</Label>
@@ -1358,7 +1399,16 @@ Consulbrokers`;
                             const ids = sel && sel.size > 0 ? Array.from(sel).join(",") : "";
                             const qs = new URLSearchParams({ compagniaId: r.compagnia_id });
                             if (ids) qs.set("titoliIds", ids);
-                            if (filters.periodo_dal) qs.set("periodoDal", format(filters.periodo_dal, "yyyy-MM-dd"));
+                            if (isAgenzia) {
+                              qs.set(
+                                "periodoDal",
+                                resolvePeriodoDalAgenziaIso(
+                                  filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null,
+                                ),
+                              );
+                            } else if (filters.periodo_dal) {
+                              qs.set("periodoDal", format(filters.periodo_dal, "yyyy-MM-dd"));
+                            }
                             if (filters.periodo_al) qs.set("periodoAl", format(filters.periodo_al, "yyyy-MM-dd"));
                             navigate(`/contabilita/ec-agenzia/pdf?${qs.toString()}`);
                           }}

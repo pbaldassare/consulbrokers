@@ -17,6 +17,10 @@ import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { calcolaRitenutaAcconto, resolvePercentualeRA } from "@/lib/resolvePercentualeRA";
 import { resolveCompagniaCollegataNome, resolveMiCodiceEcAgenzia } from "@/lib/ecAgenziaDisplay";
 import { defaultDataEstrattoContoFormatted } from "@/lib/contabilita/defaultDataEstrattoConto";
+import {
+  isIncassoNelPeriodoEcAgenzia,
+  resolvePeriodoDalAgenziaIso,
+} from "@/lib/contabilita/defaultDataLimiteIncasso";
 import { anteprimaRiferimentoEc, prossimoRiferimentoEc } from "@/lib/contabilita/ecProgressivo";
 import { archiviaEcAgenziaPdf, righeFromEcAgenziaTitoli } from "@/lib/contabilita/ecAgenziaArchivio";
 
@@ -109,10 +113,11 @@ const ECAgenziaPdfPage = () => {
         .select("id, numero_titolo, riga, premio_lordo, pag_diretto_compagnia, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cig_temporaneo, compagnia_id, cliente_anagrafica_id, ramo_id, ufficio_id, compagnia_rapporto_id, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra), rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
         .eq("compagnia_id", compagniaId)
         .eq("stato", "incassato");
+      const dalIso = resolvePeriodoDalAgenziaIso(periodoDal || null);
+      q = q.gte("data_messa_cassa", dalIso);
       if (titoliIds.length > 0) {
         q = q.in("id", titoliIds);
       } else {
-        if (periodoDal) q = q.gte("data_messa_cassa", periodoDal);
         if (periodoAl) q = q.lte("data_messa_cassa", periodoAl);
         // Escludi titoli già rimessati (solo quando non è una selezione esplicita)
         const rimRaw = await fetchAllQueryPages<{ titolo_id: string | null }>((from, to) =>
@@ -122,11 +127,18 @@ const ECAgenziaPdfPage = () => {
         const rimSet = new Set(rimRaw.map((r) => r.titolo_id));
         const { data, error } = await q.order("data_messa_cassa", { ascending: true });
         if (error) throw error;
-        return conCigEc((data || []).filter((t: any) => !rimSet.has(t.id)));
+        return conCigEc(
+          (data || []).filter(
+            (t: any) => !rimSet.has(t.id) && isIncassoNelPeriodoEcAgenzia(t.data_messa_cassa, dalIso),
+          ),
+        );
       }
+      if (periodoAl) q = q.lte("data_messa_cassa", periodoAl);
       const { data, error } = await q.order("data_messa_cassa", { ascending: true });
       if (error) throw error;
-      return conCigEc(data || []);
+      return conCigEc(
+        (data || []).filter((t: any) => isIncassoNelPeriodoEcAgenzia(t.data_messa_cassa, dalIso)),
+      );
     },
   });
 

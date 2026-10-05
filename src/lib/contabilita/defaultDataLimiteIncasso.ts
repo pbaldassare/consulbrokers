@@ -37,3 +37,40 @@ export const EC_PRODUTTORI_PERIODO_DA = "1970-01-01";
 
 /** Pregresso E/C produttori chiuso a storico: trattenute fino a questa data non si mostrano più. */
 export const EC_PRODUTTORI_STORICO_AL = "2026-08-31";
+
+/**
+ * Go-live CBnet: E/C agenzie (lista + PDF) include solo incassi
+ * con data messa a cassa da questa data in poi.
+ */
+export const EC_AGENZIE_DAL = "2026-09-01";
+
+export function defaultPeriodoDalAgenzia(): Date {
+  return new Date(2026, 8, 1);
+}
+
+/** Periodo dal E/C agenzie: mai prima del 1 settembre 2026. */
+export function resolvePeriodoDalAgenzia(d: Date | null | undefined): Date {
+  const floor = defaultPeriodoDalAgenzia();
+  if (!d) return floor;
+  return format(d, "yyyy-MM-dd") < EC_AGENZIE_DAL ? floor : d;
+}
+
+export function resolvePeriodoDalAgenziaIso(iso: string | null | undefined): string {
+  const day = (iso || "").slice(0, 10);
+  if (!day || day < EC_AGENZIE_DAL) return EC_AGENZIE_DAL;
+  return day;
+}
+
+export function isDefaultPeriodoDalAgenzia(d: Date | null | undefined): boolean {
+  if (!d) return true;
+  return format(d, "yyyy-MM-dd") === EC_AGENZIE_DAL;
+}
+
+/** Incasso ammissibile in E/C agenzia / PDF (data messa a cassa). */
+export function isIncassoNelPeriodoEcAgenzia(
+  dataMessaCassa: string | null | undefined,
+  dalIso: string = EC_AGENZIE_DAL,
+): boolean {
+  if (!dataMessaCassa) return false;
+  return dataMessaCassa.slice(0, 10) >= dalIso;
+}
