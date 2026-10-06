@@ -39,6 +39,7 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.elimina_support_ticket(uuid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.elimina_support_ticket(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.elimina_support_ticket(uuid) TO authenticated;
 
 DROP POLICY IF EXISTS ticket_supporto_storage_delete ON storage.objects;
