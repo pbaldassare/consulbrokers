@@ -1286,6 +1286,1023 @@ export type Database = {
         }
         Relationships: []
       }
+      bak_rm2_20261005_map: {
+        Row: {
+          created_at: string | null
+          esito: string | null
+          exe_chiave: string | null
+          exe_numero: string | null
+          exe_tipo: string | null
+          id: string | null
+          motivo: string | null
+          titolo_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          esito?: string | null
+          exe_chiave?: string | null
+          exe_numero?: string | null
+          exe_tipo?: string | null
+          id?: string | null
+          motivo?: string | null
+          titolo_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          esito?: string | null
+          exe_chiave?: string | null
+          exe_numero?: string | null
+          exe_tipo?: string | null
+          id?: string | null
+          motivo?: string | null
+          titolo_id?: string | null
+        }
+        Relationships: []
+      }
+      bak_rm2_20261005_movimenti_polizza: {
+        Row: {
+          appendice: string | null
+          created_at: string | null
+          data_copertura: string | null
+          data_effetto: string | null
+          data_incasso: string | null
+          data_movimento: string | null
+          data_rinnovo: string | null
+          data_scadenza: string | null
+          descrizione: string | null
+          id: string | null
+          incassato: boolean | null
+          premio: number | null
+          premio_netto: number | null
+          provvigioni: number | null
+          provvigioni_attive: number | null
+          provvigioni_passive: number | null
+          riga: number | null
+          sostituisce_id: string | null
+          sostituito_da_id: string | null
+          stato: string | null
+          stato_incasso: string | null
+          tacito_rinnovo: boolean | null
+          tasse: number | null
+          tipo: string | null
+          tipo_documento: string | null
+          tipo_rinnovo: string | null
+          titolo_id: string | null
+          ufficio_id: string | null
+          updated_at: string | null
+          valuta: string | null
+        }
+        Insert: {
+          appendice?: string | null
+          created_at?: string | null
+          data_copertura?: string | null
+          data_effetto?: string | null
+          data_incasso?: string | null
+          data_movimento?: string | null
+          data_rinnovo?: string | null
+          data_scadenza?: string | null
+          descrizione?: string | null
+          id?: string | null
+          incassato?: boolean | null
+          premio?: number | null
+          premio_netto?: number | null
+          provvigioni?: number | null
+          provvigioni_attive?: number | null
+          provvigioni_passive?: number | null
+          riga?: number | null
+          sostituisce_id?: string | null
+          sostituito_da_id?: string | null
+          stato?: string | null
+          stato_incasso?: string | null
+          tacito_rinnovo?: boolean | null
+          tasse?: number | null
+          tipo?: string | null
+          tipo_documento?: string | null
+          tipo_rinnovo?: string | null
+          titolo_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          valuta?: string | null
+        }
+        Update: {
+          appendice?: string | null
+          created_at?: string | null
+          data_copertura?: string | null
+          data_effetto?: string | null
+          data_incasso?: string | null
+          data_movimento?: string | null
+          data_rinnovo?: string | null
+          data_scadenza?: string | null
+          descrizione?: string | null
+          id?: string | null
+          incassato?: boolean | null
+          premio?: number | null
+          premio_netto?: number | null
+          provvigioni?: number | null
+          provvigioni_attive?: number | null
+          provvigioni_passive?: number | null
+          riga?: number | null
+          sostituisce_id?: string | null
+          sostituito_da_id?: string | null
+          stato?: string | null
+          stato_incasso?: string | null
+          tacito_rinnovo?: boolean | null
+          tasse?: number | null
+          tipo?: string | null
+          tipo_documento?: string | null
+          tipo_rinnovo?: string | null
+          titolo_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          valuta?: string | null
+        }
+        Relationships: []
+      }
+      bak_rm2_20261005_movimenti_polizze: {
+        Row: {
+          cliente_id: string | null
+          created_at: string | null
+          data_messa_cassa: string | null
+          id: string | null
+          importo: number | null
+          messo_a_cassa: boolean | null
+          movimento_cliente_id: string | null
+          pagato_da: string | null
+          tipo: Database["public"]["Enums"]["movimento_polizza_tipo"] | null
+          titolo_id: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string | null
+          data_messa_cassa?: string | null
+          id?: string | null
+          importo?: number | null
+          messo_a_cassa?: boolean | null
+          movimento_cliente_id?: string | null
+          pagato_da?: string | null
+          tipo?: Database["public"]["Enums"]["movimento_polizza_tipo"] | null
+          titolo_id?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string | null
+          data_messa_cassa?: string | null
+          id?: string | null
+          importo?: number | null
+          messo_a_cassa?: boolean | null
+          movimento_cliente_id?: string | null
+          pagato_da?: string | null
+          tipo?: Database["public"]["Enums"]["movimento_polizza_tipo"] | null
+          titolo_id?: string | null
+        }
+        Relationships: []
+      }
+      bak_rm2_20261005_polizze: {
+        Row: {
+          account_executive_anagrafica_id: string | null
+          addizionali_annue: number | null
+          anagrafica_commerciale_id: string | null
+          anni_durata: number | null
+          appendice_corrente: string | null
+          cambio: number | null
+          cig_rif: string | null
+          cliente_anagrafica_id: string | null
+          commerciale_id: string | null
+          compagnia_id: string | null
+          compagnia_rapporto_id: string | null
+          created_at: string | null
+          created_by: string | null
+          data_annullamento: string | null
+          data_riattivazione: string | null
+          data_sospensione: string | null
+          descrizione_polizza: string | null
+          disdetta_giorni: number | null
+          durata_a: string | null
+          durata_da: string | null
+          emissione_fee: boolean | null
+          formato_elettronico: boolean | null
+          frazionamento: string | null
+          giorni_presentazione: number | null
+          gruppo_ramo_id: string | null
+          id: string | null
+          indicizzata: boolean | null
+          libro_matricola: string | null
+          motivo_annullamento: string | null
+          no_calcolo_tasse: boolean | null
+          note: string | null
+          numero_polizza: string | null
+          numero_polizza_precedente: string | null
+          pag_diretto_compagnia: boolean | null
+          percentuale_commerciale: number | null
+          percentuale_riparto: number | null
+          premio_annuo_lordo: number | null
+          premio_annuo_netto: number | null
+          prodotto_nome: string | null
+          produttore_anagrafica_id: string | null
+          provvigioni_annue_firma: number | null
+          provvigioni_annue_quietanza: number | null
+          ramo_id: string | null
+          regolazione: boolean | null
+          risk_type: string | null
+          search_vector: unknown
+          sostituisce_polizza_id: string | null
+          sostituita_da_polizza_id: string | null
+          ssn_annuo: number | null
+          stato: Database["public"]["Enums"]["polizza_stato"] | null
+          tacito_rinnovo: boolean | null
+          targa_telaio: string | null
+          tasse_annue: number | null
+          tipo_lettera_regolazione: string | null
+          tipo_mandatario: string | null
+          tipo_portafoglio: string | null
+          tipo_scadenza: string | null
+          titolo_madre_id: string | null
+          ufficio_id: string | null
+          updated_at: string | null
+          valuta: string | null
+          vincolo: string | null
+        }
+        Insert: {
+          account_executive_anagrafica_id?: string | null
+          addizionali_annue?: number | null
+          anagrafica_commerciale_id?: string | null
+          anni_durata?: number | null
+          appendice_corrente?: string | null
+          cambio?: number | null
+          cig_rif?: string | null
+          cliente_anagrafica_id?: string | null
+          commerciale_id?: string | null
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_annullamento?: string | null
+          data_riattivazione?: string | null
+          data_sospensione?: string | null
+          descrizione_polizza?: string | null
+          disdetta_giorni?: number | null
+          durata_a?: string | null
+          durata_da?: string | null
+          emissione_fee?: boolean | null
+          formato_elettronico?: boolean | null
+          frazionamento?: string | null
+          giorni_presentazione?: number | null
+          gruppo_ramo_id?: string | null
+          id?: string | null
+          indicizzata?: boolean | null
+          libro_matricola?: string | null
+          motivo_annullamento?: string | null
+          no_calcolo_tasse?: boolean | null
+          note?: string | null
+          numero_polizza?: string | null
+          numero_polizza_precedente?: string | null
+          pag_diretto_compagnia?: boolean | null
+          percentuale_commerciale?: number | null
+          percentuale_riparto?: number | null
+          premio_annuo_lordo?: number | null
+          premio_annuo_netto?: number | null
+          prodotto_nome?: string | null
+          produttore_anagrafica_id?: string | null
+          provvigioni_annue_firma?: number | null
+          provvigioni_annue_quietanza?: number | null
+          ramo_id?: string | null
+          regolazione?: boolean | null
+          risk_type?: string | null
+          search_vector?: unknown
+          sostituisce_polizza_id?: string | null
+          sostituita_da_polizza_id?: string | null
+          ssn_annuo?: number | null
+          stato?: Database["public"]["Enums"]["polizza_stato"] | null
+          tacito_rinnovo?: boolean | null
+          targa_telaio?: string | null
+          tasse_annue?: number | null
+          tipo_lettera_regolazione?: string | null
+          tipo_mandatario?: string | null
+          tipo_portafoglio?: string | null
+          tipo_scadenza?: string | null
+          titolo_madre_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          valuta?: string | null
+          vincolo?: string | null
+        }
+        Update: {
+          account_executive_anagrafica_id?: string | null
+          addizionali_annue?: number | null
+          anagrafica_commerciale_id?: string | null
+          anni_durata?: number | null
+          appendice_corrente?: string | null
+          cambio?: number | null
+          cig_rif?: string | null
+          cliente_anagrafica_id?: string | null
+          commerciale_id?: string | null
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_annullamento?: string | null
+          data_riattivazione?: string | null
+          data_sospensione?: string | null
+          descrizione_polizza?: string | null
+          disdetta_giorni?: number | null
+          durata_a?: string | null
+          durata_da?: string | null
+          emissione_fee?: boolean | null
+          formato_elettronico?: boolean | null
+          frazionamento?: string | null
+          giorni_presentazione?: number | null
+          gruppo_ramo_id?: string | null
+          id?: string | null
+          indicizzata?: boolean | null
+          libro_matricola?: string | null
+          motivo_annullamento?: string | null
+          no_calcolo_tasse?: boolean | null
+          note?: string | null
+          numero_polizza?: string | null
+          numero_polizza_precedente?: string | null
+          pag_diretto_compagnia?: boolean | null
+          percentuale_commerciale?: number | null
+          percentuale_riparto?: number | null
+          premio_annuo_lordo?: number | null
+          premio_annuo_netto?: number | null
+          prodotto_nome?: string | null
+          produttore_anagrafica_id?: string | null
+          provvigioni_annue_firma?: number | null
+          provvigioni_annue_quietanza?: number | null
+          ramo_id?: string | null
+          regolazione?: boolean | null
+          risk_type?: string | null
+          search_vector?: unknown
+          sostituisce_polizza_id?: string | null
+          sostituita_da_polizza_id?: string | null
+          ssn_annuo?: number | null
+          stato?: Database["public"]["Enums"]["polizza_stato"] | null
+          tacito_rinnovo?: boolean | null
+          targa_telaio?: string | null
+          tasse_annue?: number | null
+          tipo_lettera_regolazione?: string | null
+          tipo_mandatario?: string | null
+          tipo_portafoglio?: string | null
+          tipo_scadenza?: string | null
+          titolo_madre_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          valuta?: string | null
+          vincolo?: string | null
+        }
+        Relationships: []
+      }
+      bak_rm2_20261005_premi_garanzia: {
+        Row: {
+          accessori: number | null
+          aliquota_tasse_pct: number | null
+          annuo: number | null
+          capitale: number | null
+          codice_garanzia: string | null
+          created_at: string | null
+          firma: number | null
+          garanzia: string | null
+          id: string | null
+          imposta_provinciale: number | null
+          is_rca_principale: boolean | null
+          lordo_calcolato: number | null
+          ordine: number | null
+          polizza_id: string | null
+          provvigione_accessori_pct: number | null
+          provvigione_accessori_pct_override: boolean | null
+          provvigione_netto_pct: number | null
+          provvigione_netto_pct_override: boolean | null
+          quietanza_id: string | null
+          quietanza_personalizzata: boolean | null
+          rata: number | null
+          ssn: number | null
+          tasse_rettifica: number | null
+          tasso: number | null
+          tipo_premio: string | null
+          titolo_id: string | null
+          voce_origine_id: string | null
+        }
+        Insert: {
+          accessori?: number | null
+          aliquota_tasse_pct?: number | null
+          annuo?: number | null
+          capitale?: number | null
+          codice_garanzia?: string | null
+          created_at?: string | null
+          firma?: number | null
+          garanzia?: string | null
+          id?: string | null
+          imposta_provinciale?: number | null
+          is_rca_principale?: boolean | null
+          lordo_calcolato?: number | null
+          ordine?: number | null
+          polizza_id?: string | null
+          provvigione_accessori_pct?: number | null
+          provvigione_accessori_pct_override?: boolean | null
+          provvigione_netto_pct?: number | null
+          provvigione_netto_pct_override?: boolean | null
+          quietanza_id?: string | null
+          quietanza_personalizzata?: boolean | null
+          rata?: number | null
+          ssn?: number | null
+          tasse_rettifica?: number | null
+          tasso?: number | null
+          tipo_premio?: string | null
+          titolo_id?: string | null
+          voce_origine_id?: string | null
+        }
+        Update: {
+          accessori?: number | null
+          aliquota_tasse_pct?: number | null
+          annuo?: number | null
+          capitale?: number | null
+          codice_garanzia?: string | null
+          created_at?: string | null
+          firma?: number | null
+          garanzia?: string | null
+          id?: string | null
+          imposta_provinciale?: number | null
+          is_rca_principale?: boolean | null
+          lordo_calcolato?: number | null
+          ordine?: number | null
+          polizza_id?: string | null
+          provvigione_accessori_pct?: number | null
+          provvigione_accessori_pct_override?: boolean | null
+          provvigione_netto_pct?: number | null
+          provvigione_netto_pct_override?: boolean | null
+          quietanza_id?: string | null
+          quietanza_personalizzata?: boolean | null
+          rata?: number | null
+          ssn?: number | null
+          tasse_rettifica?: number | null
+          tasso?: number | null
+          tipo_premio?: string | null
+          titolo_id?: string | null
+          voce_origine_id?: string | null
+        }
+        Relationships: []
+      }
+      bak_rm2_20261005_quietanze: {
+        Row: {
+          addizionali: number | null
+          appendice: string | null
+          conto_incasso: string | null
+          created_at: string | null
+          data_competenza: string | null
+          data_copertura: string | null
+          data_incasso: string | null
+          data_messa_cassa: string | null
+          data_pagamento: string | null
+          data_scadenza: string | null
+          garanzia_a: string | null
+          garanzia_da: string | null
+          id: string | null
+          importo_incassato: number | null
+          limite_mora: string | null
+          mora_giorni: number | null
+          numero_polizza_snapshot: string | null
+          numero_rata: number | null
+          numero_rate_totali: number | null
+          polizza_id: string | null
+          premio_lordo: number | null
+          premio_netto: number | null
+          provvigioni_firma: number | null
+          provvigioni_quietanza: number | null
+          search_vector: unknown
+          ssn: number | null
+          stato: Database["public"]["Enums"]["quietanza_stato"] | null
+          tasse: number | null
+          tipo_incasso: string | null
+          titolo_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          addizionali?: number | null
+          appendice?: string | null
+          conto_incasso?: string | null
+          created_at?: string | null
+          data_competenza?: string | null
+          data_copertura?: string | null
+          data_incasso?: string | null
+          data_messa_cassa?: string | null
+          data_pagamento?: string | null
+          data_scadenza?: string | null
+          garanzia_a?: string | null
+          garanzia_da?: string | null
+          id?: string | null
+          importo_incassato?: number | null
+          limite_mora?: string | null
+          mora_giorni?: number | null
+          numero_polizza_snapshot?: string | null
+          numero_rata?: number | null
+          numero_rate_totali?: number | null
+          polizza_id?: string | null
+          premio_lordo?: number | null
+          premio_netto?: number | null
+          provvigioni_firma?: number | null
+          provvigioni_quietanza?: number | null
+          search_vector?: unknown
+          ssn?: number | null
+          stato?: Database["public"]["Enums"]["quietanza_stato"] | null
+          tasse?: number | null
+          tipo_incasso?: string | null
+          titolo_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          addizionali?: number | null
+          appendice?: string | null
+          conto_incasso?: string | null
+          created_at?: string | null
+          data_competenza?: string | null
+          data_copertura?: string | null
+          data_incasso?: string | null
+          data_messa_cassa?: string | null
+          data_pagamento?: string | null
+          data_scadenza?: string | null
+          garanzia_a?: string | null
+          garanzia_da?: string | null
+          id?: string | null
+          importo_incassato?: number | null
+          limite_mora?: string | null
+          mora_giorni?: number | null
+          numero_polizza_snapshot?: string | null
+          numero_rata?: number | null
+          numero_rate_totali?: number | null
+          polizza_id?: string | null
+          premio_lordo?: number | null
+          premio_netto?: number | null
+          provvigioni_firma?: number | null
+          provvigioni_quietanza?: number | null
+          search_vector?: unknown
+          ssn?: number | null
+          stato?: Database["public"]["Enums"]["quietanza_stato"] | null
+          tasse?: number | null
+          tipo_incasso?: string | null
+          titolo_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      bak_rm2_20261005_split: {
+        Row: {
+          anagrafica_commerciale_id: string | null
+          commerciale_user_id: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          note: string | null
+          ordine: number | null
+          percentuale: number | null
+          titolo_id: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          anagrafica_commerciale_id?: string | null
+          commerciale_user_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          note?: string | null
+          ordine?: number | null
+          percentuale?: number | null
+          titolo_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          anagrafica_commerciale_id?: string | null
+          commerciale_user_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          note?: string | null
+          ordine?: number | null
+          percentuale?: number | null
+          titolo_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      bak_rm2_20261005_titoli: {
+        Row: {
+          addizionali: number | null
+          addizionali_quietanza: number | null
+          ae_anagrafica_id: string | null
+          ae_nome: string | null
+          anagrafica_commerciale_id: string | null
+          anni_durata: number | null
+          appendice: string | null
+          appendice_modifica_polizza_madre_id: string | null
+          banca_pagamento: string | null
+          brokeraggio_firma: number | null
+          brokeraggio_quietanza: number | null
+          cambio: number | null
+          causale_estinzione: string | null
+          causale_sostituzione: string | null
+          causale_storno: string | null
+          cig_rif: string | null
+          cig_temporaneo: boolean | null
+          cliente_anagrafica_id: string | null
+          cliente_id: string | null
+          coassicurazione: boolean | null
+          codice_rapporto: string | null
+          commerciale_id: string | null
+          comp_assicurativa: string | null
+          comp_contabile: string | null
+          compagnia_id: string | null
+          compagnia_rapporto_id: string | null
+          conferimento_gestito: boolean | null
+          conto_incasso: string | null
+          created_at: string | null
+          data_competenza: string | null
+          data_conferimento_gestito: string | null
+          data_copertura: string | null
+          data_decorrenza_rinnovo: string | null
+          data_estinzione: string | null
+          data_incasso: string | null
+          data_messa_cassa: string | null
+          data_pagamento: string | null
+          data_riattivazione: string | null
+          data_scadenza: string | null
+          data_sospensione: string | null
+          data_sostituzione: string | null
+          data_storno: string | null
+          descrizione_polizza: string | null
+          disdetta_giorni: number | null
+          durata_a: string | null
+          durata_da: string | null
+          emissione_fee: boolean | null
+          emittenda: boolean | null
+          filiale: string | null
+          fondi_ricevuti: boolean | null
+          formato_elettronico: boolean | null
+          frazionamento: string | null
+          garanzia_a: string | null
+          garanzia_da: string | null
+          giorni_presentazione: number | null
+          id: string | null
+          id_legacy: number | null
+          importo_incassato: number | null
+          indicizzata: boolean | null
+          is_appendice_modifica: boolean | null
+          is_oneri_riattivazione: boolean | null
+          is_oneri_sospensione: boolean | null
+          is_proroga: boolean | null
+          is_regolazione: boolean | null
+          libro_matricola: string | null
+          limite_mora: string | null
+          limite_riattivazione: string | null
+          mora_giorni: number | null
+          motivo_estinzione: string | null
+          motivo_sospensione: string | null
+          motivo_sostituzione: string | null
+          motivo_storno: string | null
+          no_calcolo_tasse: boolean | null
+          note: string | null
+          numero_titolo: string | null
+          pag_diretto_compagnia: boolean | null
+          percentuale_ae: number | null
+          percentuale_brokeraggio: number | null
+          percentuale_commerciale: number | null
+          percentuale_riparto: number | null
+          periodicita: string | null
+          polizza_id: string | null
+          polizza_rateo: boolean | null
+          polizza_temporanea: boolean | null
+          premio_lordo: number | null
+          premio_netto: number | null
+          premio_netto_quietanza: number | null
+          prodotto_id: string | null
+          prodotto_nome: string | null
+          produttore_id: string | null
+          produttore_nome: string | null
+          proroga_polizza_madre_id: string | null
+          provvigioni_firma: number | null
+          provvigioni_quietanza: number | null
+          quietanze_sospensione_snapshot: Json | null
+          ramo_id: string | null
+          rate: number | null
+          regolazione: boolean | null
+          regolazione_data_presunta: string | null
+          regolazione_date_presunte: string[] | null
+          regolazione_fattore: string | null
+          regolazione_note: string | null
+          regolazione_quietanza_id: string | null
+          riforma_alla_scadenza: boolean | null
+          riga: number | null
+          rimborso: boolean | null
+          risk_type: string | null
+          search_vector: unknown
+          sostituisce_appendice: string | null
+          sostituisce_polizza: string | null
+          sostituisce_riga: number | null
+          specialist: string | null
+          split_personalizzato: boolean | null
+          ssn_firma: number | null
+          ssn_quietanza: number | null
+          stato: string | null
+          storno_appendice: string | null
+          storno_polizza: string | null
+          storno_riga: number | null
+          tacito_rinnovo: boolean | null
+          targa_telaio: string | null
+          tasse: number | null
+          tasse_quietanza: number | null
+          tipo_incasso: string | null
+          tipo_lettera_regolazione: string | null
+          tipo_mandatario: string | null
+          tipo_pagamento: string | null
+          tipo_portafoglio: string | null
+          tipo_rinnovo: string | null
+          tipo_scadenza: string | null
+          titolo_storno_id: string | null
+          ufficio_id: string | null
+          updated_at: string | null
+          valuta: string | null
+          vincolo: string | null
+          vincolo_attivo: boolean | null
+        }
+        Insert: {
+          addizionali?: number | null
+          addizionali_quietanza?: number | null
+          ae_anagrafica_id?: string | null
+          ae_nome?: string | null
+          anagrafica_commerciale_id?: string | null
+          anni_durata?: number | null
+          appendice?: string | null
+          appendice_modifica_polizza_madre_id?: string | null
+          banca_pagamento?: string | null
+          brokeraggio_firma?: number | null
+          brokeraggio_quietanza?: number | null
+          cambio?: number | null
+          causale_estinzione?: string | null
+          causale_sostituzione?: string | null
+          causale_storno?: string | null
+          cig_rif?: string | null
+          cig_temporaneo?: boolean | null
+          cliente_anagrafica_id?: string | null
+          cliente_id?: string | null
+          coassicurazione?: boolean | null
+          codice_rapporto?: string | null
+          commerciale_id?: string | null
+          comp_assicurativa?: string | null
+          comp_contabile?: string | null
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
+          conferimento_gestito?: boolean | null
+          conto_incasso?: string | null
+          created_at?: string | null
+          data_competenza?: string | null
+          data_conferimento_gestito?: string | null
+          data_copertura?: string | null
+          data_decorrenza_rinnovo?: string | null
+          data_estinzione?: string | null
+          data_incasso?: string | null
+          data_messa_cassa?: string | null
+          data_pagamento?: string | null
+          data_riattivazione?: string | null
+          data_scadenza?: string | null
+          data_sospensione?: string | null
+          data_sostituzione?: string | null
+          data_storno?: string | null
+          descrizione_polizza?: string | null
+          disdetta_giorni?: number | null
+          durata_a?: string | null
+          durata_da?: string | null
+          emissione_fee?: boolean | null
+          emittenda?: boolean | null
+          filiale?: string | null
+          fondi_ricevuti?: boolean | null
+          formato_elettronico?: boolean | null
+          frazionamento?: string | null
+          garanzia_a?: string | null
+          garanzia_da?: string | null
+          giorni_presentazione?: number | null
+          id?: string | null
+          id_legacy?: number | null
+          importo_incassato?: number | null
+          indicizzata?: boolean | null
+          is_appendice_modifica?: boolean | null
+          is_oneri_riattivazione?: boolean | null
+          is_oneri_sospensione?: boolean | null
+          is_proroga?: boolean | null
+          is_regolazione?: boolean | null
+          libro_matricola?: string | null
+          limite_mora?: string | null
+          limite_riattivazione?: string | null
+          mora_giorni?: number | null
+          motivo_estinzione?: string | null
+          motivo_sospensione?: string | null
+          motivo_sostituzione?: string | null
+          motivo_storno?: string | null
+          no_calcolo_tasse?: boolean | null
+          note?: string | null
+          numero_titolo?: string | null
+          pag_diretto_compagnia?: boolean | null
+          percentuale_ae?: number | null
+          percentuale_brokeraggio?: number | null
+          percentuale_commerciale?: number | null
+          percentuale_riparto?: number | null
+          periodicita?: string | null
+          polizza_id?: string | null
+          polizza_rateo?: boolean | null
+          polizza_temporanea?: boolean | null
+          premio_lordo?: number | null
+          premio_netto?: number | null
+          premio_netto_quietanza?: number | null
+          prodotto_id?: string | null
+          prodotto_nome?: string | null
+          produttore_id?: string | null
+          produttore_nome?: string | null
+          proroga_polizza_madre_id?: string | null
+          provvigioni_firma?: number | null
+          provvigioni_quietanza?: number | null
+          quietanze_sospensione_snapshot?: Json | null
+          ramo_id?: string | null
+          rate?: number | null
+          regolazione?: boolean | null
+          regolazione_data_presunta?: string | null
+          regolazione_date_presunte?: string[] | null
+          regolazione_fattore?: string | null
+          regolazione_note?: string | null
+          regolazione_quietanza_id?: string | null
+          riforma_alla_scadenza?: boolean | null
+          riga?: number | null
+          rimborso?: boolean | null
+          risk_type?: string | null
+          search_vector?: unknown
+          sostituisce_appendice?: string | null
+          sostituisce_polizza?: string | null
+          sostituisce_riga?: number | null
+          specialist?: string | null
+          split_personalizzato?: boolean | null
+          ssn_firma?: number | null
+          ssn_quietanza?: number | null
+          stato?: string | null
+          storno_appendice?: string | null
+          storno_polizza?: string | null
+          storno_riga?: number | null
+          tacito_rinnovo?: boolean | null
+          targa_telaio?: string | null
+          tasse?: number | null
+          tasse_quietanza?: number | null
+          tipo_incasso?: string | null
+          tipo_lettera_regolazione?: string | null
+          tipo_mandatario?: string | null
+          tipo_pagamento?: string | null
+          tipo_portafoglio?: string | null
+          tipo_rinnovo?: string | null
+          tipo_scadenza?: string | null
+          titolo_storno_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          valuta?: string | null
+          vincolo?: string | null
+          vincolo_attivo?: boolean | null
+        }
+        Update: {
+          addizionali?: number | null
+          addizionali_quietanza?: number | null
+          ae_anagrafica_id?: string | null
+          ae_nome?: string | null
+          anagrafica_commerciale_id?: string | null
+          anni_durata?: number | null
+          appendice?: string | null
+          appendice_modifica_polizza_madre_id?: string | null
+          banca_pagamento?: string | null
+          brokeraggio_firma?: number | null
+          brokeraggio_quietanza?: number | null
+          cambio?: number | null
+          causale_estinzione?: string | null
+          causale_sostituzione?: string | null
+          causale_storno?: string | null
+          cig_rif?: string | null
+          cig_temporaneo?: boolean | null
+          cliente_anagrafica_id?: string | null
+          cliente_id?: string | null
+          coassicurazione?: boolean | null
+          codice_rapporto?: string | null
+          commerciale_id?: string | null
+          comp_assicurativa?: string | null
+          comp_contabile?: string | null
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
+          conferimento_gestito?: boolean | null
+          conto_incasso?: string | null
+          created_at?: string | null
+          data_competenza?: string | null
+          data_conferimento_gestito?: string | null
+          data_copertura?: string | null
+          data_decorrenza_rinnovo?: string | null
+          data_estinzione?: string | null
+          data_incasso?: string | null
+          data_messa_cassa?: string | null
+          data_pagamento?: string | null
+          data_riattivazione?: string | null
+          data_scadenza?: string | null
+          data_sospensione?: string | null
+          data_sostituzione?: string | null
+          data_storno?: string | null
+          descrizione_polizza?: string | null
+          disdetta_giorni?: number | null
+          durata_a?: string | null
+          durata_da?: string | null
+          emissione_fee?: boolean | null
+          emittenda?: boolean | null
+          filiale?: string | null
+          fondi_ricevuti?: boolean | null
+          formato_elettronico?: boolean | null
+          frazionamento?: string | null
+          garanzia_a?: string | null
+          garanzia_da?: string | null
+          giorni_presentazione?: number | null
+          id?: string | null
+          id_legacy?: number | null
+          importo_incassato?: number | null
+          indicizzata?: boolean | null
+          is_appendice_modifica?: boolean | null
+          is_oneri_riattivazione?: boolean | null
+          is_oneri_sospensione?: boolean | null
+          is_proroga?: boolean | null
+          is_regolazione?: boolean | null
+          libro_matricola?: string | null
+          limite_mora?: string | null
+          limite_riattivazione?: string | null
+          mora_giorni?: number | null
+          motivo_estinzione?: string | null
+          motivo_sospensione?: string | null
+          motivo_sostituzione?: string | null
+          motivo_storno?: string | null
+          no_calcolo_tasse?: boolean | null
+          note?: string | null
+          numero_titolo?: string | null
+          pag_diretto_compagnia?: boolean | null
+          percentuale_ae?: number | null
+          percentuale_brokeraggio?: number | null
+          percentuale_commerciale?: number | null
+          percentuale_riparto?: number | null
+          periodicita?: string | null
+          polizza_id?: string | null
+          polizza_rateo?: boolean | null
+          polizza_temporanea?: boolean | null
+          premio_lordo?: number | null
+          premio_netto?: number | null
+          premio_netto_quietanza?: number | null
+          prodotto_id?: string | null
+          prodotto_nome?: string | null
+          produttore_id?: string | null
+          produttore_nome?: string | null
+          proroga_polizza_madre_id?: string | null
+          provvigioni_firma?: number | null
+          provvigioni_quietanza?: number | null
+          quietanze_sospensione_snapshot?: Json | null
+          ramo_id?: string | null
+          rate?: number | null
+          regolazione?: boolean | null
+          regolazione_data_presunta?: string | null
+          regolazione_date_presunte?: string[] | null
+          regolazione_fattore?: string | null
+          regolazione_note?: string | null
+          regolazione_quietanza_id?: string | null
+          riforma_alla_scadenza?: boolean | null
+          riga?: number | null
+          rimborso?: boolean | null
+          risk_type?: string | null
+          search_vector?: unknown
+          sostituisce_appendice?: string | null
+          sostituisce_polizza?: string | null
+          sostituisce_riga?: number | null
+          specialist?: string | null
+          split_personalizzato?: boolean | null
+          ssn_firma?: number | null
+          ssn_quietanza?: number | null
+          stato?: string | null
+          storno_appendice?: string | null
+          storno_polizza?: string | null
+          storno_riga?: number | null
+          tacito_rinnovo?: boolean | null
+          targa_telaio?: string | null
+          tasse?: number | null
+          tasse_quietanza?: number | null
+          tipo_incasso?: string | null
+          tipo_lettera_regolazione?: string | null
+          tipo_mandatario?: string | null
+          tipo_pagamento?: string | null
+          tipo_portafoglio?: string | null
+          tipo_rinnovo?: string | null
+          tipo_scadenza?: string | null
+          titolo_storno_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          valuta?: string | null
+          vincolo?: string | null
+          vincolo_attivo?: boolean | null
+        }
+        Relationships: []
+      }
       banca_documenti: {
         Row: {
           created_at: string | null
@@ -11198,6 +12215,96 @@ export type Database = {
           },
         ]
       }
+      roma_exe_import_plan: {
+        Row: {
+          bnote: string | null
+          cliente_anagrafica_id: string | null
+          compagnia_id: string | null
+          compagnia_rapporto_id: string | null
+          eff: string | null
+          emittenda: boolean | null
+          fraz: string | null
+          imp: number | null
+          k: number | null
+          m: number | null
+          numero_titolo: string | null
+          pa: string | null
+          pda: string | null
+          polizza_titolo_id: string | null
+          pq: string | null
+          prodotto_nome: string | null
+          provv: number | null
+          qa: string | null
+          qda: string | null
+          quietanza_titolo_id: string | null
+          quota: number | null
+          ramo_id: string | null
+          scad: string | null
+          seq: number
+          sottoramo: string | null
+          staged: boolean | null
+          tax: number | null
+        }
+        Insert: {
+          bnote?: string | null
+          cliente_anagrafica_id?: string | null
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
+          eff?: string | null
+          emittenda?: boolean | null
+          fraz?: string | null
+          imp?: number | null
+          k?: number | null
+          m?: number | null
+          numero_titolo?: string | null
+          pa?: string | null
+          pda?: string | null
+          polizza_titolo_id?: string | null
+          pq?: string | null
+          prodotto_nome?: string | null
+          provv?: number | null
+          qa?: string | null
+          qda?: string | null
+          quietanza_titolo_id?: string | null
+          quota?: number | null
+          ramo_id?: string | null
+          scad?: string | null
+          seq: number
+          sottoramo?: string | null
+          staged?: boolean | null
+          tax?: number | null
+        }
+        Update: {
+          bnote?: string | null
+          cliente_anagrafica_id?: string | null
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
+          eff?: string | null
+          emittenda?: boolean | null
+          fraz?: string | null
+          imp?: number | null
+          k?: number | null
+          m?: number | null
+          numero_titolo?: string | null
+          pa?: string | null
+          pda?: string | null
+          polizza_titolo_id?: string | null
+          pq?: string | null
+          prodotto_nome?: string | null
+          provv?: number | null
+          qa?: string | null
+          qda?: string | null
+          quietanza_titolo_id?: string | null
+          quota?: number | null
+          ramo_id?: string | null
+          scad?: string | null
+          seq?: number
+          sottoramo?: string | null
+          staged?: boolean | null
+          tax?: number | null
+        }
+        Relationships: []
+      }
       roma_exe_polizze_map: {
         Row: {
           created_at: string
@@ -11256,6 +12363,38 @@ export type Database = {
             columns: ["titolo_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roma_exe_rischi_map: {
+        Row: {
+          codice_rischio: number
+          created_at: string
+          descrizione_rischio: string
+          ramo_exe: string
+          ramo_id: string
+        }
+        Insert: {
+          codice_rischio: number
+          created_at?: string
+          descrizione_rischio: string
+          ramo_exe: string
+          ramo_id: string
+        }
+        Update: {
+          codice_rischio?: number
+          created_at?: string
+          descrizione_rischio?: string
+          ramo_exe?: string
+          ramo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roma_exe_rischi_map_ramo_id_fkey"
+            columns: ["ramo_id"]
+            isOneToOne: false
+            referencedRelation: "rami"
             referencedColumns: ["id"]
           },
         ]
