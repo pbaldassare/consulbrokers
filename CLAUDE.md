@@ -55,8 +55,8 @@ bun run preview        # anteprima build
 ```
 
 Dev server: porta **5175** (`VITE_DEV_PORT`; la 8080 è spesso occupata da altri progetti), host `::`, header `Cache-Control: no-store`.  
-Migrazioni: `supabase/migrations/` (323 file).  
-Edge functions: `supabase/functions/` (42+ funzioni Deno).  
+Migrazioni: `supabase/migrations/` (570+ file).  
+Edge functions: `supabase/functions/` (55 funzioni Deno).  
 Config `verify_jwt` per funzione: `supabase/config.toml`.
 
 ---
@@ -662,6 +662,13 @@ Non cancellare o rinominare i bucket esistenti: `documenti`, `documenti-clienti`
   - `chiedi-polizza-cga` — RAG su una CGA specifica di polizza (domande/risposte).
 - **UI:** accessibile dal dettaglio polizza, sezione CGA / Assistente IA polizza.
 
+### 10.4 Portafoglio ROMA 2 EXE — reimport del 06/10/2026
+- **Ufficio:** `uffici.codice_ufficio = 'RM2'` (ROMA 2 EXE). Script: `scripts/roma-exe-reimport-20261006.sql`.
+- **Modello:** polizza (riga 1) = rata già incassata nel gestionale EXE, stato `incassato`, data cassa presunta < 01/09/2026 (go-live, fuori dagli E/C agenzie); quietanza (riga 2) = prima rata con scadenza ≥ 01/09/2026, stato `attivo`. Le rate successive le genera `genera_quietanza_su_messa_cassa` all'incasso.
+- **Rami:** tabella `roma_exe_rischi_map` (68 codici rischio EXE → `rami.id`), migrazione `20261005120000_roma_exe_rischi_map.sql`; l'elenco polizze EXE riporta solo il ramo, quindi il sottoramo è un default per ramo più l'incrocio con l'estrazione auto.
+- **Tabelle di servizio:** `roma_exe_polizze_map`, `roma_exe_clienti_map`, `roma_exe_compagnie_map`, `roma_exe_import_plan` (piano dell'import); backup della cancellazione `bak_rm2_20261005_*`.
+- **Non caricate:** una tantum senza rata, polizze a premio zero, 31 righe senza cliente/compagnia. Produttori EXE solo in nota (nessuna corrispondenza con `anagrafiche_professionali`).
+
 ---
 
 ## 11. Cantieri aperti
@@ -700,4 +707,4 @@ Questa sezione elenca funzionalità parzialmente implementate, placeholder o are
 
 ---
 
-> Ultimo aggiornamento: 2026-09-29. Se trovi informazioni non coerenti con il codice attuale, aggiorna questo file e notifica il team.
+> Ultimo aggiornamento: 2026-10-06. Se trovi informazioni non coerenti con il codice attuale, aggiorna questo file e notifica il team.
