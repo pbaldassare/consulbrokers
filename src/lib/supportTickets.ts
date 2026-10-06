@@ -15,6 +15,13 @@ export const SUPPORT_TICKET_STATUS_LABEL: Record<SupportTicketStatus, string> = 
   risolto: "Risolto",
 };
 
+/** Unico account autorizzato a eliminare ticket (solo per ticket inutili/di prova). */
+export const SUPPORT_TICKET_DELETE_EMAIL = "admin@consul.it";
+
+export function canDeleteSupportTicket(email: string | null | undefined): boolean {
+  return (email ?? "").trim().toLowerCase() === SUPPORT_TICKET_DELETE_EMAIL;
+}
+
 export function formatSupportTicketNumber(numero: number | string): string {
   return `TCK-${String(numero).padStart(6, "0")}`;
 }

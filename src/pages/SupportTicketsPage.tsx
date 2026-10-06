@@ -13,6 +13,7 @@ import {
   Plus,
   ShieldCheck,
   TicketCheck,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ import {
   isDocumentUploadTooLarge,
 } from "@/lib/uploadLimits";
 import {
+  canDeleteSupportTicket,
   escapeSupportTicketHtml,
   formatSupportTicketNumber,
   isOpenSupportTicket,
@@ -35,6 +37,16 @@ import {
   validateSupportTicketDescription,
 } from "@/lib/supportTickets";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -378,16 +390,21 @@ function TicketDetail({
   open,
   onOpenChange,
   onUpdated,
+  onDeleted,
 }: {
   ticket: SupportTicket | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdated: () => void;
+  onDeleted: () => void;
 }) {
   const { isAdmin, user, profile } = useAuth();
   const [status, setStatus] = useState<SupportTicketStatus>(ticket?.stato || "aperto");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const canDelete = isAdmin && canDeleteSupportTicket(user?.email ?? profile?.email);
 
   useEffect(() => {
     if (ticket?.stato) setStatus(ticket.stato);
@@ -432,6 +449,40 @@ function TicketDetail({
       return;
     }
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const deleteTicket = async () => {
+    if (!canDelete) return;
+    setDeleting(true);
+    try {
+      const paths = attachments.map((attachment) => attachment.path_storage);
+      if (paths.length > 0) {
+        const { error: storageError } = await supabase.storage.from(SUPPORT_BUCKET).remove(paths);
+        if (storageError) throw storageError;
+      }
+      const { error } = await db.rpc("elimina_support_ticket", { p_ticket_id: ticket.id });
+      if (error) throw error;
+      await logAttivita({
+        azione: "ticket_supporto_eliminato",
+        entita_tipo: "support_ticket",
+        entita_id: ticket.id,
+        dettagli_json: {
+          numero: formatSupportTicketNumber(ticket.numero),
+          titolo: ticket.titolo,
+          richiedente: ticket.richiedente_email,
+          allegati_rimossi: paths.length,
+        },
+        severity: "warning",
+        ufficio_id: ticket.ufficio_id || undefined,
+      });
+      toast.success(`Ticket ${formatSupportTicketNumber(ticket.numero)} eliminato`);
+      setConfirmDeleteOpen(false);
+      onDeleted();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Errore durante l'eliminazione");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const saveAdminUpdate = async () => {
@@ -605,6 +656,22 @@ function TicketDetail({
                     Salva e avvisa il richiedente
                   </Button>
                 </div>
+                {canDelete && (
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 p-4">
+                    <p className="text-sm text-muted-foreground">
+                      Elimina definitivamente il ticket. Da usare solo per ticket inutili o di prova.
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setConfirmDeleteOpen(true)}
+                      disabled={deleting}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Elimina ticket
+                    </Button>
+                  </div>
+                )}
               </>
             )}
 
@@ -638,6 +705,31 @@ function TicketDetail({
           </div>
         </ScrollArea>
       </SheetContent>
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={(value) => !deleting && setConfirmDeleteOpen(value)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare {formatSupportTicketNumber(ticket.numero)}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Il ticket «{ticket.titolo}» verrà cancellato insieme a cronologia e allegati ({attachments.length}).
+              L'operazione non è reversibile: usala solo per ticket inutili o di prova.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={(event) => {
+                event.preventDefault();
+                deleteTicket();
+              }}
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Elimina definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
@@ -829,6 +921,10 @@ export default function SupportTicketsPage() {
         open={!!selectedTicket}
         onOpenChange={(open) => !open && setSelectedTicket(null)}
         onUpdated={refresh}
+        onDeleted={() => {
+          setSelectedTicket(null);
+          queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
+        }}
       />
     </div>
   );
