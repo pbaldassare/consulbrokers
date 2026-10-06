@@ -113,3 +113,23 @@ commit;
 
 -- Esito verificato il 06/10/2026: 3.747 polizze incassate (lordo 7.593.258,81),
 -- 3.741 quietanze da incassare (lordo 7.571.863,68), 0 incoerenze.
+
+-- ---------------------------------------------------------------------------
+-- STEP 3 (06/10/2026) — composizione premio per garanzia + pulizia appoggio
+-- ---------------------------------------------------------------------------
+-- Per ogni titolo importato: una riga premi_garanzia_polizza tipo 'firma' con il sottoramo come voce,
+-- firma = premio_netto, aliquota_tasse_pct = tasse/netto, tasse_rettifica per quadrare al centesimo;
+-- la riga 'quietanza' la crea il trigger premi_garanzia_sync_quietanza. Poi drop di
+-- roma_exe_import_stage e roma_exe_import_sottorami (roma_exe_import_plan e bak_rm2_* restano).
+-- Esito: 7.489 voci firma / 7.489 quietanza, 0 differenze.
+
+-- ---------------------------------------------------------------------------
+-- STEP 4 (06/10/2026) — produttori EXE (file Produttori_al_05.03.2026.xlsx, 32 codici)
+-- ---------------------------------------------------------------------------
+-- Categoria usata: anagrafiche_professionali tipo 'corrispondente' (= tendina "Produttore"),
+-- ufficio RM2, codice 'EXE-<codice EXE>', percentuale_base = quota prevalente del produttore.
+-- 30 schede create; DBB riusa la scheda esistente 40d9da90-...; Di Falco unica per i codici 28 e 128.
+-- Collegamento su titoli (polizza riga 1 e quietanza riga 2): anagrafica_commerciale_id,
+-- produttore_nome, percentuale_commerciale = provvigioni passive / attive della singola polizza
+-- (0% per i 16 produttori senza provvigioni passive nel file). Secondo produttore (10 polizze) in nota.
+-- Esito: 1.620 polizze e 1.616 quietanze collegate, 28 produttori usati.
