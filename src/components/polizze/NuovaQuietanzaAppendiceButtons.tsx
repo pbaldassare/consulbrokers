@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { AppendiceDialog } from "@/components/polizze/azioni/AppendiceDialog";
 import { NuovaQuietanzaDettaglio } from "@/components/polizze/NuovaQuietanzaDettaglio";
-import { anteprimaNuovaQuietanza, creaNuovaQuietanza, type DatiNuovaQuietanza } from "@/lib/copiaDatiQuietanzaDb";
+import { anteprimaNuovaQuietanza, creaNuovaQuietanza, eliminaNuovaQuietanza, type DatiNuovaQuietanza } from "@/lib/copiaDatiQuietanzaDb";
 import { isAppendice, type TitoloLike } from "@/lib/quietanze";
 
 type TitoloCliente = TitoloLike & {
@@ -69,6 +69,21 @@ export function NuovaQuietanzaAppendiceButtons({ clienteId, titoli }: { clienteI
     setNuovaId(null);
   };
 
+  // Chiusura con X / Esc al secondo passo = Annulla: la quietanza appena creata viene eliminata
+  const annullaDaChiusura = async () => {
+    if (!nuovaId) return;
+    try {
+      await eliminaNuovaQuietanza(nuovaId);
+      toast.info("Creazione annullata");
+    } catch (e) {
+      toast.error("Quietanza creata ma non annullata: eliminala dalla sua scheda", {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    }
+    queryClient.invalidateQueries({ queryKey: ["polizze_cliente", clienteId] });
+    chiudi();
+  };
+
   const conferma = async () => {
     if (!sceltaId) return;
     if (tipo === "appendice") {
@@ -96,7 +111,7 @@ export function NuovaQuietanzaAppendiceButtons({ clienteId, titoli }: { clienteI
         <FilePlus2 className="h-4 w-4" /> Nuova Appendice
       </Button>
 
-      <Dialog open={!!tipo} onOpenChange={(o) => !o && !saving && !nuovaId && chiudi()}>
+      <Dialog open={!!tipo} onOpenChange={(o) => !o && !saving && (nuovaId ? annullaDaChiusura() : chiudi())}>
         <DialogContent className={nuovaId ? "max-w-5xl max-h-[90vh] overflow-y-auto" : "max-h-[90vh] overflow-y-auto"}>
           <DialogHeader>
             <DialogTitle>{tipo === "quietanza" ? "Nuova quietanza" : "Nuova appendice"}</DialogTitle>

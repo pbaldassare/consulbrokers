@@ -281,3 +281,9 @@ export async function creaNuovaQuietanza(madreId: string, dati: DatiNuovaQuietan
   if (splitErr) console.warn("[creaNuovaQuietanza] split:", splitErr.message);
   return created.id;
 }
+
+/** Annulla una quietanza appena creata dal dialog (righe premi e split si cancellano a cascata). */
+export async function eliminaNuovaQuietanza(quietanzaId: string): Promise<void> {
+  const { error } = await supabase.from("titoli").delete().eq("id", quietanzaId);
+  if (error) throw error;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import {
 } from "@/components/polizze/TitoloImportiPremiBlock";
 import { aeCoincideConProduttore } from "@/lib/ruoliAnagrafica";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { eliminaNuovaQuietanza } from "@/lib/copiaDatiQuietanzaDb";
 
 type Split = { anagrafica_commerciale_id: string | null; commerciale_user_id: string | null; percentuale: number };
 
@@ -146,15 +147,25 @@ export function NuovaQuietanzaDettaglio({
 
   const annulla = async () => {
     setBusy(true);
-    const { error } = await supabase.from("titoli").delete().eq("id", quietanzaId);
-    setBusy(false);
-    if (error) {
-      toast.error("Non è stato possibile annullare: elimina la quietanza dalla sua scheda", { description: error.message });
-      return;
+    try {
+      await eliminaNuovaQuietanza(quietanzaId);
+      toast.info("Creazione annullata");
+      onAnnullata();
+    } catch (e) {
+      toast.error("Non è stato possibile annullare: elimina la quietanza dalla sua scheda", {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    } finally {
+      setBusy(false);
     }
-    toast.info("Creazione annullata");
-    onAnnullata();
   };
+
+  // Callback stabile: il blocco premi la richiama a ogni cambio della funzione (con una nuova a ogni render = ciclo infinito)
+  const onTotali = useCallback((tot: TitoloImportiPremiDisplayTotals) => {
+    setTotali(tot);
+    // Il blocco carica le righe solo fuori dalla modalità modifica: si attiva dopo il caricamento
+    if (tot.quietanza.hasRows) setDraft(true);
+  }, []);
 
   if (!t || !splits) {
     return (
@@ -184,11 +195,7 @@ export function NuovaQuietanzaDettaglio({
             addizionaliQuietanza={t.addizionali_quietanza}
             provvigioniFirma={t.provvigioni_firma}
             provvigioniQuietanza={t.provvigioni_quietanza}
-            onDisplayTotalsChange={(tot) => {
-              setTotali(tot);
-              // Il blocco carica le righe solo fuori dalla modalità modifica: si attiva dopo il caricamento
-              if (tot.quietanza.hasRows) setDraft(true);
-            }}
+            onDisplayTotalsChange={onTotali}
           />
           {!draft && (
             <Button size="sm" variant="outline" onClick={() => setDraft(true)}>
