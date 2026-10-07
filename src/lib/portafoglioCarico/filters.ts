@@ -2,7 +2,41 @@ import { format } from "date-fns";
 import { PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
 import { quietanzaSogliaGaranziaDa } from "@/lib/quietanzeClienteView";
 
-export type Periodo = "mese_corrente" | "tutte";
+/**
+ * Pendenti (filtro su inizio garanzia):
+ * - mese_corrente: arretrati (inizio < oggi) + rate che iniziano entro fine mese
+ * - prossimi_60:   arretrati + rate che iniziano entro oggi + 60 giorni
+ * - tutte:         tutti i pendenti, senza limite di data
+ * Incassati (filtro su messa a cassa): mese_corrente = messi a cassa nel mese; altrimenti tutti.
+ */
+export type Periodo = "mese_corrente" | "prossimi_60" | "tutte";
+
+export const PERIODO_DEFAULT: Periodo = "mese_corrente";
+
+export const PERIODO_LABEL: Record<Periodo, string> = {
+  mese_corrente: "Arretrati + mese",
+  prossimi_60: "Prossimi 60 gg",
+  tutte: "Tutto",
+};
+
+export const PERIODO_HINT: Record<Periodo, string> = {
+  mese_corrente: "Rate già scadute ancora da incassare più quelle che iniziano entro fine mese",
+  prossimi_60: "Rate già scadute ancora da incassare più quelle che iniziano nei prossimi 60 giorni",
+  tutte: "Tutte le rate da incassare, senza limite di data",
+};
+
+export const PERIODO_LABEL_INCASSATI: Record<Periodo, string> = {
+  mese_corrente: "Mese corrente",
+  prossimi_60: "Tutto",
+  tutte: "Tutto",
+};
+
+/** Legge `?periodo=` (valori sconosciuti o legacy → default). */
+export const parsePeriodoParam = (raw: string | null): Periodo =>
+  raw === "mese_corrente" || raw === "prossimi_60" || raw === "tutte" ? raw : PERIODO_DEFAULT;
+
+export const periodoLabel = (periodo: Periodo, isVistaIncassati: boolean): string =>
+  isVistaIncassati ? PERIODO_LABEL_INCASSATI[periodo] : PERIODO_LABEL[periodo];
 export type VistaIncasso = "pendenti" | "incassati";
 
 export const todayStr = () => format(new Date(), "yyyy-MM-dd");
@@ -48,7 +82,7 @@ export const applySedeFilter = (q: any, filtroUffici: string[]) =>
 
 /**
  * Pendenti: attivo + (senza messa a cassa OR garantito aperto in attesa fondi/incasso).
- * Default/mese usano soglia 60gg. Con Dal/Al espliciti: solo range su garanzia_da.
+ * Con Dal/Al espliciti: solo range su garanzia_da. Altrimenti vedi `Periodo`.
  * Incassati: stato=incassato; Dal/Al e "mese corrente" su data_messa_cassa.
  */
 export const applyPeriodoFilter = (
@@ -80,17 +114,14 @@ export const applyPeriodoFilter = (
     return applyDateRange(q, "garanzia_da", dateDa, dateA);
   }
 
+  if (filtroPeriodo === "tutte") return q;
+
   if (filtroPeriodo === "mese_corrente") {
-    const today = todayStr();
-    const start = startOfMonthStr();
-    const end = endOfMonthStr();
-    const meseOArretrato = `or(garanzia_da.lt.${today},and(garanzia_da.gte.${start},garanzia_da.lte.${end}))`;
-    const soglia = quietanzaSogliaGaranziaDa();
-    return q.or(
-      `garanzia_da.is.null,and(garanzia_da.lte.${soglia},${meseOArretrato}),and(or(${isAppendiceExpr}),${meseOArretrato})`,
-    );
+    // Fine mese è sempre entro oggi + 60 gg: arretrati o inizio garanzia entro fine mese.
+    return q.or(`garanzia_da.is.null,garanzia_da.lte.${endOfMonthStr()}`);
   }
 
+  // Prossimi 60 gg: le appendici restano sempre visibili (come prima).
   const soglia = quietanzaSogliaGaranziaDa();
   return q.or(`garanzia_da.is.null,garanzia_da.lte.${soglia},${isAppendiceExpr}`);
 };

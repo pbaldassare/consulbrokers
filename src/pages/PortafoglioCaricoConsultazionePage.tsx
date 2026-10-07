@@ -49,6 +49,10 @@ import { buildCaricoDocx, downloadCaricoDocx } from "@/lib/portafoglioCarico/exp
 import type { CaricoExportMeta } from "@/lib/portafoglioCarico/columns";
 import {
   applyPeriodoFilter,
+  PERIODO_DEFAULT,
+  PERIODO_HINT,
+  parsePeriodoParam,
+  periodoLabel,
   applySearch,
   applySedeFilter,
   CARICO_SELECT_FIELDS,
@@ -72,11 +76,7 @@ const PortafoglioCaricoConsultazionePage = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialPeriodo: Periodo = (() => {
-    const p = searchParams.get("periodo");
-    if (p === "messe_cassa") return "tutte";
-    return p === "mese_corrente" || p === "tutte" ? p : "tutte";
-  })();
+  const initialPeriodo: Periodo = parsePeriodoParam(searchParams.get("periodo"));
   const [filtroPeriodo, setFiltroPeriodo] = useState<Periodo>(initialPeriodo);
   const [userTouched, setUserTouched] = useState<boolean>(() => {
     const p = searchParams.get("periodo");
@@ -118,7 +118,7 @@ const PortafoglioCaricoConsultazionePage = () => {
     !!dateDa ||
     !!dateA ||
     !!search ||
-    filtroPeriodo !== "tutte" ||
+    filtroPeriodo !== PERIODO_DEFAULT ||
     userTouched ||
     filtroUffici.length > 0 ||
     vistaIncasso !== "pendenti";
@@ -170,7 +170,7 @@ const PortafoglioCaricoConsultazionePage = () => {
     setDateDa("");
     setDateA("");
     setSearch("");
-    setFiltroPeriodo("tutte");
+    setFiltroPeriodo(PERIODO_DEFAULT);
     setUserTouched(false);
     setFiltroUffici(sedeLockedId ? [sedeLockedId] : []);
     setVistaIncasso("pendenti");
@@ -193,6 +193,12 @@ const PortafoglioCaricoConsultazionePage = () => {
     if (v === "incassati") {
       setSortField("data_messa_cassa");
       setSortDirection("desc");
+      // "Prossimi 60 gg" non ha senso sugli incassati: diventa "Tutto"
+      if (filtroPeriodo === "prossimi_60") {
+        setFiltroPeriodo("tutte");
+        updateUrl({ vista: v, periodo: "tutte" });
+        return;
+      }
     } else {
       setSortField("garanzia_a");
       setSortDirection("asc");
@@ -344,7 +350,7 @@ const PortafoglioCaricoConsultazionePage = () => {
       totaleFiltrate: totalCount,
       filtri: {
         Vista: isVistaIncassati ? "Incassati" : "Pendenti",
-        Periodo: filtroPeriodo === "mese_corrente" ? "Mese corrente" : "Tutte",
+        Periodo: dateDa || dateA ? "Dal/Al" : periodoLabel(filtroPeriodo, isVistaIncassati),
         Dal: dateDa ? format(dateDa.length === 10 ? parseISO(dateDa) : new Date(dateDa), "dd/MM/yyyy") : "—",
         Al: dateA ? format(dateA.length === 10 ? parseISO(dateA) : new Date(dateA), "dd/MM/yyyy") : "—",
         Sedi: sedeLabel,
@@ -531,6 +537,13 @@ const PortafoglioCaricoConsultazionePage = () => {
               Polizze e quietanze del carico — consultazione ed estrazione
               {isVistaIncassati ? " · vista incassati" : " · vista pendenti"}
             </p>
+            {!isVistaIncassati && (
+              <p className="text-xs text-muted-foreground">
+                {dateDa || dateA
+                  ? "Rate da incassare con inizio garanzia nell'intervallo Dal/Al"
+                  : PERIODO_HINT[filtroPeriodo]}
+              </p>
+            )}
           </div>
           <ToggleGroup
             type="single"
@@ -659,28 +672,32 @@ const PortafoglioCaricoConsultazionePage = () => {
           </div>
           <ToggleGroup
             type="single"
-            value={filtroPeriodo}
+            value={dateDa || dateA ? "" : filtroPeriodo}
             onValueChange={(v) => {
               if (!v) return;
+              // Scegliere un periodo sostituisce l'intervallo Dal/Al
+              setDateDa("");
+              setDateA("");
               setFiltroPeriodo(v as Periodo);
               setUserTouched(true);
               setPage(0);
-              updateUrl({ periodo: v as Periodo });
+              updateUrl({ periodo: v as Periodo, dal: null, al: null });
             }}
             className="border rounded-md"
           >
-            <ToggleGroupItem
-              value="mese_corrente"
-              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-            >
-              {isVistaIncassati ? "Mese corrente" : "Mese Corrente"}
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="tutte"
-              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-            >
-              Tutte
-            </ToggleGroupItem>
+            {(isVistaIncassati
+              ? (["mese_corrente", "tutte"] as Periodo[])
+              : (["mese_corrente", "prossimi_60", "tutte"] as Periodo[])
+            ).map((value) => (
+              <ToggleGroupItem
+                key={value}
+                value={value}
+                title={isVistaIncassati ? undefined : PERIODO_HINT[value]}
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >
+                {periodoLabel(value, isVistaIncassati)}
+              </ToggleGroupItem>
+            ))}
           </ToggleGroup>
           {hasActiveFilters && (
             <Button variant="outline" size="sm" onClick={resetFilters} className="gap-1">
