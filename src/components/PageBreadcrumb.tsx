@@ -26,7 +26,6 @@ const ROUTE_LABELS: Record<string, string> = {
   "storico-gare": "Storico Gare",
   "bandi-pubblici": "Bandi Pubblici",
   "partecipati": "Bandi partecipati",
-  "archivi": "Archivi",
   "clienti": "Clienti",
   "anagrafiche": "Anagrafiche Professionali",
   "agenzie": "Agenzie / Agenzie",
@@ -94,6 +93,8 @@ const ROUTE_LABELS: Record<string, string> = {
   "chiusura-giornaliera": "Chiusura Giornaliera",
   "ec-agenzia": "E/C Agenzie",
   "ec-produttori": "E/C Produttori",
+  "ec-cliente": "E/C Clienti",
+  "ec-produttore": "E/C Produttori",
   "stampa-primanota": "Stampa Primanota",
   "check-primanota": "Check Primanota",
   "stampa-sospesi": "Acconti",
@@ -119,6 +120,17 @@ const ROUTE_LABELS: Record<string, string> = {
   "anomalie-sistema": "Anomalie Sistema",
   "login": "Login",
   "reset-password": "Reset Password",
+};
+
+/** Segmenti di raggruppamento senza una pagina propria: non compaiono nelle briciole. */
+const HIDDEN_SEGMENTS = new Set(["archivi"]);
+
+/** Prefissi senza pagina propria: la briciola porta alla lista corrispondente (evita il 404). */
+const CRUMB_TARGET: Record<string, string> = {
+  "/polizze": "/portafoglio/attive",
+  "/quietanze": "/portafoglio/carico",
+  "/contabilita/ec-cliente": "/contabilita/ec-clienti",
+  "/contabilita/ec-produttore": "/contabilita/ec-produttori",
 };
 
 const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
@@ -180,7 +192,8 @@ const PageBreadcrumb = () => {
 
   const segments = location.pathname.split("/").filter(Boolean);
 
-  const crumbs = segments.map((seg, i) => {
+  const crumbs = segments.flatMap((seg, i) => {
+    if (HIDDEN_SEGMENTS.has(seg)) return [];
     const isLast = i === segments.length - 1;
     let label = isUuid(seg)
       ? "Dettaglio"
@@ -188,14 +201,15 @@ const PageBreadcrumb = () => {
     if ((seg === "documentale" || (seg === "consultazione" && isLast)) && isLast) {
       label = documentaleRouteLabel(documentaleTabFromLocation(location.pathname, location.search));
     }
-    return {
+    const path = "/" + segments.slice(0, i + 1).join("/");
+    return [{
       raw: seg,
       isUuid: isUuid(seg),
       label,
-      path: "/" + segments.slice(0, i + 1).join("/"),
+      path: CRUMB_TARGET[path] ?? path,
       parent: i > 0 ? segments[i - 1] : undefined,
       isLast,
-    };
+    }];
   });
 
   return (
