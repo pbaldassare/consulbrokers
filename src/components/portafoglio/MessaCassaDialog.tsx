@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckSquare, Wallet, Trash2, Calculator, Printer, FileText, Plus, Users, ArrowLeftRight, Building2, Landmark } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
-import { logAttivita } from "@/lib/logAttivita";
 import { handleNotificaMessaCassaOutcome, scheduleOrInvokeNotificaMessaCassa } from "@/lib/notificaMessaCassa";
 import { MessaCassaSeraleCheckbox } from "@/components/portafoglio/MessaCassaSeraleCheckbox";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
@@ -46,7 +45,6 @@ import {
   TIPO_PAGAMENTO_DIREITO_COMPAGNIA,
 } from "@/lib/incassoTipoPagamento";
 import {
-  creaAnticipoDaTitoloACredito,
   creditoDaPremioLordo,
   isTitoloACredito,
 } from "@/lib/anticipoDaTitoloCredito";
@@ -1375,12 +1373,16 @@ export const MessaCassaDialog = ({
       bankIncasso?.movimentoId ?? selectedBonificoIds[0] ?? null;
     /** Prima quietanza effettivamente processata riceve gli abbuoni cliente. */
     let titoloIdPerAbbuoni: string | null = null;
+    // Tutte le scritture vanno in un'unica transazione (RPC conferma_messa_cassa):
+    // qui si prepara solo il payload, i calcoli restano quelli di sempre.
+    const titoliTx: Record<string, unknown>[] = [];
+    const dopoCommit: Array<{ id: string; numero: string | null; prodId: string | null; isFullIncasso: boolean }> = [];
 
     for (const t of titoli) {
       if (t.stato === "sospeso") {
         toast.error(`Impossibile incassare: titolo in sospensione (${(t as any).numero_titolo || t.id})`);
-        ko++;
-        continue;
+        setLoading(false);
+        return;
       }
       if ((t as any).sostituisce_polizza && (t as any).numero_titolo) {
         const { data: madre } = await supabase
@@ -1393,8 +1395,8 @@ export const MessaCassaDialog = ({
           .maybeSingle();
         if (madre?.stato === "sospeso") {
           toast.error(`Impossibile incassare: polizza ${(t as any).numero_titolo} sospesa`);
-          ko++;
-          continue;
+          setLoading(false);
+          return;
         }
       }
 
@@ -1504,7 +1506,6 @@ export const MessaCassaDialog = ({
       const payload: any = {
         importo_incassato: nuovoIncassato,
         tipo_pagamento: tipoPag,
-        updated_at: new Date().toISOString(),
       };
       if (isFullIncasso) {
         const dateFields = buildIncassoDateFields(
@@ -1538,131 +1539,56 @@ export const MessaCassaDialog = ({
         payload.cig_temporaneo = !!cigDraft.temporaneo;
       }
 
-      const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
-      if (error) { ko++; continue; }
-
-      // Titolo a credito (es. appendice −150): crea acconto cliente riutilizzabile
-      if (isFullIncasso && creditoDaPremioLordo(lordo) > 0 && t.cliente_anagrafica_id) {
-        const resAcc = await creaAnticipoDaTitoloACredito(supabase, {
-          titoloId: t.id,
-          clienteId: t.cliente_anagrafica_id,
-          premioLordo: lordo,
-          numeroTitolo: t.numero_titolo,
-          dataAnticipo: d.mc,
-          userId,
-        });
-        if (!resAcc.ok) {
-          toast.warning(`Titolo chiuso ma acconto non creato (${t.numero_titolo ?? t.id}): ${resAcc.error}`);
-        } else if (!resAcc.skipped && resAcc.importo) {
-          accontiCreati += 1;
-          accontiImporto = round2(accontiImporto + resAcc.importo);
-          await logAttivita({
-            azione: "anticipo_da_titolo_credito",
-            entita_tipo: "titolo",
-            entita_id: t.id,
-            dettagli_json: {
-              anticipo_id: resAcc.anticipoId,
-              importo: resAcc.importo,
-              cliente_id: t.cliente_anagrafica_id,
-            },
-          });
-        }
-      }
-
+      const movimentiTx: Record<string, unknown>[] = [];
       if (utilizziPerTitolo.length > 0) {
-        const rows = utilizziPerTitolo.map((u) => ({
-          ...u,
-          titolo_id: t.id,
-          data_utilizzo: form.dataMessaCassa,
-          creato_da: userId,
-        }));
-        const { error: errU } = await (supabase.from("cliente_anticipi_utilizzi") as any).insert(rows);
-        if (errU) {
-          toast.error(`Errore registrazione acconti su ${t.numero_titolo ?? t.id}: ${errU.message}`);
-        } else {
-          const totUtilizzo = round2(utilizziPerTitolo.reduce((s, u: any) => s + Number(u.importo_utilizzato || 0), 0));
-          if (totUtilizzo > 0) {
-            const { error: errMA } = await (supabase.from("movimenti_contabili") as any).insert({
-              ufficio_id: t.ufficio_id || null,
-              tipo: "entrata",
-              categoria: "utilizzo_anticipo",
-              riferimento_tipo: "titolo",
-              riferimento_id: t.id,
-              importo: totUtilizzo,
-              data_movimento: form.dataMessaCassa,
-              descrizione: `Utilizzo acconto cliente su titolo ${t.numero_titolo ?? t.id}`,
-              stato: "registrato",
-              created_by: userId,
-            });
-            if (errMA) toast.warning(`Acconto registrato ma prima nota non aggiornata: ${errMA.message}`);
-          }
+        const totUtilizzo = round2(utilizziPerTitolo.reduce((s, u: any) => s + Number(u.importo_utilizzato || 0), 0));
+        if (totUtilizzo > 0) {
+          movimentiTx.push({
+            ufficio_id: t.ufficio_id || null,
+            tipo: "entrata",
+            categoria: "utilizzo_anticipo",
+            importo: totUtilizzo,
+            data_movimento: form.dataMessaCassa,
+            descrizione: `Utilizzo acconto cliente su titolo ${t.numero_titolo ?? t.id}`,
+          });
         }
       }
 
       // Giroconto inter-cliente: se gli acconti del cliente pagatore coprono la
       // quietanza di un cliente diverso, registra una partita di giroconto per
       // ciascun acconto utilizzato (visibile negli E/C di entrambi i clienti).
-      if (
+      const giroconti =
         effettivoPagatoreId &&
         t.cliente_anagrafica_id &&
         t.cliente_anagrafica_id !== effettivoPagatoreId &&
         utilizziPerTitolo.length > 0
-      ) {
-        const giroRows = utilizziPerTitolo.map((u) => ({
-          data: d.mc,
-          cliente_pagatore_id: effettivoPagatoreId,
-          cliente_beneficiario_id: t.cliente_anagrafica_id,
-          titolo_id: t.id,
-          anticipo_id: u.anticipo_id,
-          importo: u.importo_utilizzato,
-          note: `Acconto ${clienteNomeById.get(effettivoPagatoreId) || "pagatore"} usato per quietanza ${t.numero_titolo ?? t.id} di ${t.cliente_anagrafica_id ? clienteNomeById.get(t.cliente_anagrafica_id) || "altro cliente" : "altro cliente"}`,
-          created_by: userId,
-        }));
-        const { error: errG } = await (supabase.from("giroconti_cliente") as any).insert(giroRows);
-        if (errG) toast.warning(`Giroconto inter-cliente non registrato su ${t.numero_titolo ?? t.id}: ${errG.message}`);
-      }
+          ? utilizziPerTitolo.map((u) => ({
+              data: d.mc,
+              cliente_pagatore_id: effettivoPagatoreId,
+              cliente_beneficiario_id: t.cliente_anagrafica_id,
+              anticipo_id: u.anticipo_id,
+              importo: u.importo_utilizzato,
+              note: `Acconto ${clienteNomeById.get(effettivoPagatoreId) || "pagatore"} usato per quietanza ${t.numero_titolo ?? t.id} di ${t.cliente_anagrafica_id ? clienteNomeById.get(t.cliente_anagrafica_id) || "altro cliente" : "altro cliente"}`,
+            }))
+          : [];
 
-      // Abbuoni/arrotondamenti → sulla quietanza (titoli_compensazioni)
-      if (abbuoniForThis.length > 0) {
-        const compRows = abbuoniForThis.map((c) => ({
-          titolo_id: t.id,
-          causale_id: c.causale_id,
-          causale_codice: c.causale_codice,
-          causale_descrizione: c.causale_descrizione,
+      // Abbuoni/arrotondamenti → sulla quietanza (titoli_compensazioni) + prima nota
+      const categoriaFor = (eff: EffettoContabile) => (eff === "abbuono" ? "abbuono" : "compensazione_titolo");
+      for (const c of abbuoniForThis) {
+        movimentiTx.push({
+          ufficio_id: t.ufficio_id || null,
+          tipo: c.segno === "+" ? "uscita" : "entrata",
+          categoria: categoriaFor(c.effetto),
           importo: c.importo,
-          segno: c.segno,
-          note: c.note || null,
-          creato_da: userId,
-        }));
-        const { error: errC } = await (supabase.from("titoli_compensazioni") as any).insert(compRows);
-        if (errC) {
-          toast.error(`Errore registrazione abbuoni su ${t.numero_titolo ?? t.id}: ${errC.message}`);
-        } else {
-          const categoriaFor = (eff: EffettoContabile) =>
-            eff === "abbuono" ? "abbuono" : "compensazione_titolo";
-          const movRows = abbuoniForThis.map((c) => ({
-            ufficio_id: t.ufficio_id || null,
-            tipo: c.segno === "+" ? "uscita" : "entrata",
-            categoria: categoriaFor(c.effetto),
-            riferimento_tipo: "titolo",
-            riferimento_id: t.id,
-            importo: c.importo,
-            data_movimento: form.dataMessaCassa,
-            descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
-            stato: "registrato",
-            created_by: userId,
-          }));
-          if (movRows.length > 0) {
-            const { error: errM } = await (supabase.from("movimenti_contabili") as any).insert(movRows);
-            if (errM) toast.warning(`Abbuoni salvati ma prima nota non aggiornata: ${errM.message}`);
-          }
-        }
+          data_movimento: form.dataMessaCassa,
+          descrizione: `${c.causale_codice} — ${c.causale_descrizione}${c.note ? " · " + c.note : ""}`,
+        });
       }
 
+      let modalita: Record<string, unknown> | null = null;
       if (isFullIncasso && modalitaByTitolo[t.id] === "produttore_trattiene_provv" && tr) {
         const calcTr = calcIncassoConTrattenutaProvvigioni(dovutoT, tr.provvigioneLorda, tr.percentualeRa);
-        const { error: errMod } = await (supabase.from("titoli_modalita_incasso") as any).insert({
-          titolo_id: t.id,
+        modalita = {
           modalita: "produttore_trattiene_provv",
           anagrafica_commerciale_id: tr.prodId,
           importo_dovuto_lordo: dovutoT,
@@ -1670,61 +1596,62 @@ export const MessaCassaDialog = ({
           importo_ra: tr.ritenutaAcconto,
           importo_trattenuto_netto: tr.trattenutoNetto,
           importo_versato_consul: calcTr.importoVersatoConsul,
-          stato: "attiva",
-          applicata_da: userId,
-        });
-        if (errMod) {
-          toast.warning(`Incasso ok ma modalità non salvata su ${t.numero_titolo ?? t.id}: ${errMod.message}`);
-        }
+        };
       }
 
-      ok++;
-      await logAttivita({
-        azione: isFullIncasso ? "messa_a_cassa" : "incasso_parziale",
-        entita_tipo: "titolo",
-        entita_id: t.id,
-        dettagli_json: {
-          data_messa_cassa: isFullIncasso ? form.dataMessaCassa : null,
-          tipo_pagamento: tipoPag,
-          modalita_incasso: modalitaByTitolo[t.id] || "standard",
-          anticipi_usati: utilizziPerTitolo,
-          compensazioni: compForThis.map((c) => ({ codice: c.causale_codice, segno: c.segno, importo: c.importo })),
-          residuo_cash: residuoCash,
-          importo_incassato_totale: nuovoIncassato,
-          incasso_parziale: !isFullIncasso,
-          movimento_bancario_id: movimentoBancarioIdEffettivo,
-          trattenuta_provvigioni: tr
-            ? {
-                prod_id: tr.prodId,
-                provvigione_lorda: tr.provvigioneLorda,
-                ritenuta: tr.ritenutaAcconto,
-                trattenuto_netto: tr.trattenutoNetto,
-              }
+      titoliTx.push({
+        id: t.id,
+        numero: t.numero_titolo ?? null,
+        set: payload,
+        // Titolo a credito (es. appendice −150): acconto cliente riutilizzabile
+        credito:
+          isFullIncasso && creditoDaPremioLordo(lordo) > 0 && t.cliente_anagrafica_id
+            ? { cliente_id: t.cliente_anagrafica_id, importo: creditoDaPremioLordo(lordo), data: d.mc }
             : null,
-          bulk: isMulti,
+        utilizzi: utilizziPerTitolo.map((u) => ({ ...u, data_utilizzo: form.dataMessaCassa })),
+        giroconti,
+        compensazioni: abbuoniForThis.map((c) => ({
+          causale_id: c.causale_id,
+          causale_codice: c.causale_codice,
+          causale_descrizione: c.causale_descrizione,
+          importo: c.importo,
+          segno: c.segno,
+          note: c.note || null,
+        })),
+        movimenti: movimentiTx,
+        modalita,
+        log: {
+          azione: isFullIncasso ? "messa_a_cassa" : "incasso_parziale",
+          dettagli_json: {
+            data_messa_cassa: isFullIncasso ? form.dataMessaCassa : null,
+            tipo_pagamento: tipoPag,
+            modalita_incasso: modalitaByTitolo[t.id] || "standard",
+            anticipi_usati: utilizziPerTitolo,
+            compensazioni: compForThis.map((c) => ({ codice: c.causale_codice, segno: c.segno, importo: c.importo })),
+            residuo_cash: residuoCash,
+            importo_incassato_totale: nuovoIncassato,
+            incasso_parziale: !isFullIncasso,
+            movimento_bancario_id: movimentoBancarioIdEffettivo,
+            trattenuta_provvigioni: tr
+              ? {
+                  prod_id: tr.prodId,
+                  provvigione_lorda: tr.provvigioneLorda,
+                  ritenuta: tr.ritenutaAcconto,
+                  trattenuto_netto: tr.trattenutoNetto,
+                }
+              : null,
+            bulk: isMulti,
+          },
         },
       });
-      try {
-        await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: t.id } });
-        if (tr?.prodId && isFullIncasso) {
-          const { error: errPag } = await (supabase.from("provvigioni_generate") as any)
-            .update({ pagata: true })
-            .eq("titolo_id", t.id)
-            .eq("anagrafica_commerciale_id", tr.prodId)
-            .eq("tipo_destinatario", "commerciale");
-          if (errPag) {
-            toast.warning(`Provvigione non segnata pagata su ${t.numero_titolo ?? t.id}: ${errPag.message}`);
-          }
-        }
-      } catch {
-        toast.warning(`Calcolo provvigioni non completato su ${t.numero_titolo ?? t.id}`);
-      }
+      dopoCommit.push({ id: t.id, numero: t.numero_titolo ?? null, prodId: tr?.prodId ?? null, isFullIncasso });
       if (isFullIncasso) {
         notificaTitoloIds.push(t.id);
       }
     }
 
-    if (ok > 0 && updateMadreCig && cigCondiviso && hasEnteCig) {
+    const cigMadri: Array<{ id: string; cig_rif: string | null; cig_temporaneo: boolean }> = [];
+    if (titoliTx.length > 0 && updateMadreCig && cigCondiviso && hasEnteCig) {
       const cigVal = normalizeCig(enteCigDrafts[0].cig) || null;
       const tempVal = !!enteCigDrafts[0].temporaneo;
       const seenMadre = new Set<string>();
@@ -1733,21 +1660,13 @@ export const MessaCassaDialog = ({
         const madreId = await resolveTitoloMadreId(supabase, t.id);
         if (!madreId || madreId === t.id || seenMadre.has(madreId)) continue;
         seenMadre.add(madreId);
-        const { error: errMadre } = await (supabase.from("titoli") as any)
-          .update({
-            cig_rif: cigVal,
-            cig_temporaneo: tempVal,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", madreId);
-        if (errMadre) {
-          toast.warning(`CIG aggiornato sulla quietanza ma non sulla madre: ${errMadre.message}`);
-        }
+        cigMadri.push({ id: madreId, cig_rif: cigVal, cig_temporaneo: tempVal });
       }
     }
 
     // Acconti (ACC_*) a livello cliente → una sola volta sul pagatore
-    if (ok > 0 && accontiCliente.length > 0) {
+    let accontiTx: Record<string, unknown>[] = [];
+    if (titoliTx.length > 0 && accontiCliente.length > 0) {
       const clienteAnticipoId =
         effettivoPagatoreId || titoli.find((x) => x.cliente_anagrafica_id)?.cliente_anagrafica_id || null;
       if (!clienteAnticipoId) {
@@ -1772,18 +1691,44 @@ export const MessaCassaDialog = ({
             c.segno === "-"
               ? `Accredito passivo / mancanza bonifico da messa a cassa (${quietanzeLabel}${titoli.length > 5 ? "…" : ""})${c.note ? " · " + c.note : ""}`
               : `Acconto attivo da messa a cassa (${quietanzeLabel}${titoli.length > 5 ? "…" : ""})${c.note ? " · " + c.note : ""}`,
-          creato_da: userId,
         }));
-        const { error: errAcc } = await (supabase.from("cliente_anticipi") as any).insert(anticipoRows);
-        if (errAcc) {
-          toast.warning(`Acconti cliente non creati: ${errAcc.message}`);
-        } else {
-          accontiCreati += anticipoRows.length;
-          accontiImporto = round2(
-            accontiImporto + anticipoRows.reduce((s, r) => s + (Number(r.importo) || 0), 0),
-          );
-        }
+        accontiTx = anticipoRows;
       }
+    }
+
+    // === Unica transazione: o si salva tutto o niente ===
+    const { data: esitoTx, error: errTx } = await (supabase.rpc as any)("conferma_messa_cassa", {
+      p: { titoli: titoliTx, cig_madri: cigMadri, acconti: accontiTx },
+    });
+    if (errTx) {
+      setLoading(false);
+      toast.error(`Messa a cassa annullata, nessun dato salvato. ${errTx.message}`);
+      return;
+    }
+    ok = Number(esitoTx?.ok) || titoliTx.length;
+    accontiCreati += Number(esitoTx?.crediti) || 0;
+    accontiImporto = round2(accontiImporto + (Number(esitoTx?.crediti_importo) || 0));
+    accontiCreati += accontiTx.length;
+    accontiImporto = round2(accontiImporto + accontiTx.reduce((s, r) => s + (Number(r.importo) || 0), 0));
+
+    // Dopo il commit (fuori transazione, ricalcolabili): provvigioni e avviso agenzia
+    for (const x of dopoCommit) {
+      try {
+        await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: x.id } });
+        if (x.prodId && x.isFullIncasso) {
+          const { error: errPag } = await (supabase.from("provvigioni_generate") as any)
+            .update({ pagata: true })
+            .eq("titolo_id", x.id)
+            .eq("anagrafica_commerciale_id", x.prodId)
+            .eq("tipo_destinatario", "commerciale");
+          if (errPag) {
+            toast.warning(`Provvigione non segnata pagata su ${x.numero ?? x.id}: ${errPag.message}`);
+          }
+        }
+      } catch {
+        toast.warning(`Calcolo provvigioni non completato su ${x.numero ?? x.id}`);
+      }
+      if (x.isFullIncasso) notificaTitoloIds.push(x.id);
     }
 
     if (notificaTitoloIds.length > 0) {

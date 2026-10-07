@@ -77,9 +77,10 @@ di incasso, Carico del mese (il titolo sparisce dai pendenti, compare la quietan
 
 ## Punti fragili
 
-1. **Nessuna transazione unica**: i passi 2, 4, 5, 6 sono chiamate separate. Se uno fallisce a metà
-   (rete, RLS) il titolo può risultare incassato senza compensazioni/provvigioni/avviso. Oggi diventa
-   un `toast.warning`, non un rollback.
+1. **Transazione unica (dal 07/10/2026)**: passi 2 e 4, più CIG madre e acconti ACC_*, sono una sola
+   RPC `conferma_messa_cassa` (migrazione `20261007120000_conferma_messa_cassa_transazione.sql`,
+   SECURITY INVOKER): se un passo o un trigger fallisce non resta salvato nulla, anche con più titoli.
+   Restano fuori, dopo il commit: provvigioni (edge, ricalcolabile), email agenzia, collegamento bonifici.
 2. **Regole duplicate frontend/DB**: sequenza e doppio incasso sono controllati in entrambi i posti;
    cambiarne uno solo crea comportamenti incoerenti.
 3. **Quietanza successiva invisibile nel codice app**: la crea il trigger. Chi cerca "dove nasce la
