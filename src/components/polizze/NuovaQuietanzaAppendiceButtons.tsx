@@ -6,9 +6,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { AppendiceDialog } from "@/components/polizze/azioni/AppendiceDialog";
+import { NuovaQuietanzaDettaglio } from "@/components/polizze/NuovaQuietanzaDettaglio";
 import { anteprimaNuovaQuietanza, creaNuovaQuietanza, type DatiNuovaQuietanza } from "@/lib/copiaDatiQuietanzaDb";
 import { isAppendice, type TitoloLike } from "@/lib/quietanze";
 
@@ -34,6 +36,8 @@ export function NuovaQuietanzaAppendiceButtons({ clienteId, titoli }: { clienteI
   const [appendiceSu, setAppendiceSu] = useState<TitoloCliente | null>(null);
   const [dati, setDati] = useState<DatiNuovaQuietanza | null>(null);
   const [erroreMadre, setErroreMadre] = useState("");
+  // Secondo passo: quietanza creata, si completano garanzie e produttori
+  const [nuovaId, setNuovaId] = useState<string | null>(null);
 
   // Scelta la polizza madre: proponi periodo e importi della rata successiva
   useEffect(() => {
@@ -49,8 +53,7 @@ export function NuovaQuietanzaAppendiceButtons({ clienteId, titoli }: { clienteI
     };
   }, [tipo, sceltaId]);
 
-  const setCampo = (k: keyof DatiNuovaQuietanza, v: string) =>
-    setDati((d) => (d ? { ...d, [k]: k.startsWith("garanzia") ? v : Number(v) || 0 } : d));
+  const setCampo = (k: keyof DatiNuovaQuietanza, v: string) => setDati((d) => (d ? { ...d, [k]: v } : d));
 
   const attivi = titoli.filter((t) => !isAppendice(t) && !chiuso(t));
   const opzioni = (tipo === "quietanza" ? attivi.filter((t) => !t.sostituisce_polizza) : attivi).map((t) => ({
@@ -63,6 +66,7 @@ export function NuovaQuietanzaAppendiceButtons({ clienteId, titoli }: { clienteI
   const chiudi = () => {
     setTipo(null);
     setSceltaId("");
+    setNuovaId(null);
   };
 
   const conferma = async () => {
@@ -75,11 +79,7 @@ export function NuovaQuietanzaAppendiceButtons({ clienteId, titoli }: { clienteI
     setSaving(true);
     try {
       if (!dati) return;
-      const nuovaId = await creaNuovaQuietanza(sceltaId, dati);
-      await queryClient.invalidateQueries({ queryKey: ["polizze_cliente", clienteId] });
-      toast.success("Quietanza creata");
-      chiudi();
-      navigate(`/titoli/${nuovaId}`);
+      setNuovaId(await creaNuovaQuietanza(sceltaId, dati));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Errore nella creazione della quietanza");
     } finally {
@@ -96,16 +96,35 @@ export function NuovaQuietanzaAppendiceButtons({ clienteId, titoli }: { clienteI
         <FilePlus2 className="h-4 w-4" /> Nuova Appendice
       </Button>
 
-      <Dialog open={!!tipo} onOpenChange={(o) => !o && !saving && chiudi()}>
-        <DialogContent>
+      <Dialog open={!!tipo} onOpenChange={(o) => !o && !saving && !nuovaId && chiudi()}>
+        <DialogContent className={nuovaId ? "max-w-5xl max-h-[90vh] overflow-y-auto" : "max-h-[90vh] overflow-y-auto"}>
           <DialogHeader>
             <DialogTitle>{tipo === "quietanza" ? "Nuova quietanza" : "Nuova appendice"}</DialogTitle>
             <DialogDescription>
-              {tipo === "quietanza"
-                ? "La quietanza è la rata successiva della polizza madre: periodo e importi sono proposti dalla polizza, correggili se serve."
+              {nuovaId
+                ? "Passo 2 di 2 · garanzie, accessori, tasse e produttori sono copiati dalla polizza madre: correggili se serve."
+                : tipo === "quietanza"
+                ? "Passo 1 di 2 · la quietanza è la rata successiva della polizza madre: periodo e date sono proposti dalla polizza."
                 : "L'appendice va sempre collegata a una polizza o a una quietanza."}
             </DialogDescription>
           </DialogHeader>
+          {nuovaId ? (
+            <NuovaQuietanzaDettaglio
+              quietanzaId={nuovaId}
+              madreId={sceltaId}
+              onSalvata={() => {
+                queryClient.invalidateQueries({ queryKey: ["polizze_cliente", clienteId] });
+                const id = nuovaId;
+                chiudi();
+                navigate(`/titoli/${id}`);
+              }}
+              onAnnullata={() => {
+                queryClient.invalidateQueries({ queryKey: ["polizze_cliente", clienteId] });
+                chiudi();
+              }}
+            />
+          ) : (
+          <>
           <div className="space-y-1.5">
             <Label>
               {tipo === "quietanza" ? "Polizza madre" : "Polizza o quietanza"} <span className="text-destructive">*</span>
@@ -127,29 +146,20 @@ export function NuovaQuietanzaAppendiceButtons({ clienteId, titoli }: { clienteI
             <div className="grid grid-cols-2 gap-3">
               {(
                 [
-                  ["garanzia_da", "Inizio garanzia", "date"],
-                  ["garanzia_a", "Fine garanzia", "date"],
-                  ["premio_netto", "Premio netto €", "number"],
-                  ["tasse", "Tasse €", "number"],
-                  ["provvigioni", "Provvigioni €", "number"],
+                  ["garanzia_da", "Inizio garanzia"],
+                  ["garanzia_a", "Fine garanzia"],
+                  ["data_competenza", "Data competenza"],
+                  ["data_scadenza", "Data scadenza"],
                 ] as const
-              ).map(([k, label, type]) => (
+              ).map(([k, label]) => (
                 <div key={k} className="space-y-1.5">
                   <Label htmlFor={`nq-${k}`}>{label}</Label>
-                  <Input
-                    id={`nq-${k}`}
-                    type={type}
-                    step={type === "number" ? "0.01" : undefined}
-                    value={dati[k]}
-                    onChange={(e) => setCampo(k, e.target.value)}
-                  />
+                  <Input id={`nq-${k}`} type="date" value={dati[k]} onChange={(e) => setCampo(k, e.target.value)} />
                 </div>
               ))}
-              <div className="space-y-1.5">
-                <Label>Netto + tasse €</Label>
-                <p className="flex h-10 items-center text-sm font-medium">
-                  {(dati.premio_netto + dati.tasse).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
+              <div className="col-span-2 space-y-1.5">
+                <Label htmlFor="nq-note">Note</Label>
+                <Textarea id="nq-note" rows={2} value={dati.note} onChange={(e) => setCampo("note", e.target.value)} />
               </div>
             </div>
           )}
@@ -157,9 +167,11 @@ export function NuovaQuietanzaAppendiceButtons({ clienteId, titoli }: { clienteI
             <Button variant="outline" onClick={chiudi} disabled={saving}>Annulla</Button>
             <Button onClick={conferma} disabled={!sceltaId || saving || (tipo === "quietanza" && !dati)}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {tipo === "quietanza" ? "Crea quietanza" : "Continua"}
+              {tipo === "quietanza" ? "Avanti: garanzie e produttori" : "Continua"}
             </Button>
           </DialogFooter>
+          </>
+          )}
         </DialogContent>
       </Dialog>
 

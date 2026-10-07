@@ -3,7 +3,6 @@ import {
   buildQuietanzaFigliaInsertFromMadre,
   buildQuietanzaFigliaUpdateFromMadre,
   decideCopiaDatiInQuietanza,
-  importiQuietanzaDaMadre,
   nextRigaQuietanza,
   periodoNuovaQuietanza,
   type CopiaDatiQuietanzaFiglia,
@@ -218,9 +217,9 @@ export async function copiaDatiPolizzaInQuietanza(madreId: string): Promise<Copi
 export type DatiNuovaQuietanza = {
   garanzia_da: string;
   garanzia_a: string;
-  premio_netto: number;
-  tasse: number;
-  provvigioni: number;
+  data_competenza: string;
+  data_scadenza: string;
+  note: string;
 };
 
 async function caricaMadreECatena(madreId: string) {
@@ -240,24 +239,23 @@ async function caricaMadreECatena(madreId: string) {
   return { madre: m, figlie: (siblings || []) as CopiaDatiQuietanzaFiglia[] };
 }
 
-/** Valori proposti per la nuova quietanza: rata successiva all'ultima, importi della madre. */
+/** Valori proposti per la nuova quietanza: rata successiva all'ultima. */
 export async function anteprimaNuovaQuietanza(madreId: string): Promise<DatiNuovaQuietanza> {
   const { madre, figlie } = await caricaMadreECatena(madreId);
   const periodo = periodoNuovaQuietanza(madre, figlie);
   if ("reason" in periodo) throw new Error(periodo.reason);
-  const imp = importiQuietanzaDaMadre(madre);
   return {
     garanzia_da: periodo.garanzia_da,
     garanzia_a: periodo.garanzia_a,
-    premio_netto: imp.premio_netto ?? 0,
-    tasse: imp.tasse ?? 0,
-    provvigioni: imp.provvigioni_quietanza ?? 0,
+    data_competenza: periodo.garanzia_da,
+    data_scadenza: periodo.garanzia_a,
+    note: madre.note ?? "",
   };
 }
 
 /**
- * Nuova quietanza creata a mano (scheda cliente) con i dati confermati nel dialog.
- * Anagrafica, split e composizione premio vengono dalla madre.
+ * Nuova quietanza creata a mano (scheda cliente): periodo e note dal dialog,
+ * anagrafica, split e garanzie copiati dalla madre (poi modificabili nel secondo passo del dialog).
  */
 export async function creaNuovaQuietanza(madreId: string, dati: DatiNuovaQuietanza): Promise<string> {
   if (!dati.garanzia_da || !dati.garanzia_a || dati.garanzia_a <= dati.garanzia_da) {
@@ -271,22 +269,14 @@ export async function creaNuovaQuietanza(madreId: string, dati: DatiNuovaQuietan
     ...buildQuietanzaFigliaInsertFromMadre(madre, nextRigaQuietanza(madre, figlie)),
     garanzia_da: dati.garanzia_da,
     garanzia_a: dati.garanzia_a,
-    data_competenza: dati.garanzia_da,
-    data_scadenza: dati.garanzia_a,
-    premio_netto: dati.premio_netto,
-    premio_netto_quietanza: dati.premio_netto,
-    tasse: dati.tasse,
-    tasse_quietanza: dati.tasse,
-    provvigioni_firma: dati.provvigioni,
-    provvigioni_quietanza: dati.provvigioni,
+    data_competenza: dati.data_competenza || dati.garanzia_da,
+    data_scadenza: dati.data_scadenza || dati.garanzia_a,
+    note: dati.note.trim() || null,
   };
   const { data: created, error: insErr } = await supabase.from("titoli").insert(payload as any).select("id").single();
   if (insErr) throw insErr;
 
-  // ponytail: se il netto cambia, le righe garanzia della madre si riscalano in proporzione;
-  // con più garanzie a ripartizione diversa va ritoccata a mano la composizione.
-  const nettoMadre = importiQuietanzaDaMadre(madre).premio_netto || 0;
-  await clonePremiMadreSuFiglia(madreId, created.id, nettoMadre > 0 ? dati.premio_netto / nettoMadre : 1);
+  await clonePremiMadreSuFiglia(madreId, created.id);
   const { error: splitErr } = await supabase.rpc("sync_split_commerciali_to_children", { p_madre_id: madreId });
   if (splitErr) console.warn("[creaNuovaQuietanza] split:", splitErr.message);
   return created.id;
