@@ -2869,6 +2869,14 @@ export default function ClienteDetail() {
     ];
   }, [polizze, relatedIds]);
 
+  // Tab Documenti: id titolo (polizza o quietanza) → numero della polizza, per raggruppare
+  const polizzaDiTitolo = useMemo(
+    () => Object.fromEntries(
+      polizze.map((p: any) => [p.id as string, String(p.sostituisce_polizza || p.numero_titolo || "—")]),
+    ),
+    [polizze],
+  );
+
 
   // Realtime: badge "Sinistri" aggiornato in tempo reale anche se il tab non è montato
   useEffect(() => {
@@ -3331,6 +3339,7 @@ export default function ClienteDetail() {
             extraTitoloCategorie={["notifica_messa_cassa"]}
             aggregateSources={documentiSources}
             origineLabel="Anagrafica cliente"
+            polizzaDiTitolo={polizzaDiTitolo}
           />
 
         </TabsContent>

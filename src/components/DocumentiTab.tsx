@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,7 +71,11 @@ interface DocumentiTabProps {
   entitaLabel?: string;
   /** Se false, nasconde anteprima (icona occhio e click su miniatura/nome). */
   showPreview?: boolean;
+  /** Se valorizzato raggruppa i documenti per polizza: id titolo (polizza o quietanza) → numero polizza. */
+  polizzaDiTitolo?: Record<string, string>;
 }
+
+const GRUPPO_ALTRI = "Altri documenti";
 
 
 
@@ -130,6 +134,7 @@ export default function DocumentiTab({
   entitaLabel,
   showPreview = true,
   appendiciAllegati,
+  polizzaDiTitolo,
 }: DocumentiTabProps) {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -234,7 +239,11 @@ export default function DocumentiTab({
 
   const documentiFiltrati = useMemo(() => {
     const q = ricerca.trim().toLowerCase();
-    return (documenti ?? []).filter((d: any) => {
+    const gruppoDoc = (d: any): string => {
+      const numero = d.entita_tipo === "titolo" ? polizzaDiTitolo?.[d.entita_id] : undefined;
+      return numero ? `Polizza ${numero}` : GRUPPO_ALTRI;
+    };
+    const filtered = (documenti ?? []).filter((d: any) => {
       if (filtroOrigine !== "all" && d._origineKey !== filtroOrigine) return false;
       if (filtroTipologia !== "all" && (d.categoria || "__none__") !== filtroTipologia) return false;
       if (filtroVisibile === "si" && !d.visibile_al_cliente) return false;
@@ -242,7 +251,14 @@ export default function DocumentiTab({
       if (q && !String(d.nome_file || "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [documenti, filtroOrigine, filtroTipologia, filtroVisibile, ricerca]);
+    if (!polizzaDiTitolo) return filtered;
+    // Raggruppa per polizza (ordine alfabetico), documenti non legati a polizze in fondo
+    return filtered
+      .map((d: any) => ({ ...d, _gruppo: gruppoDoc(d) }))
+      .sort((a: any, b: any) =>
+        (a._gruppo === GRUPPO_ALTRI ? 1 : 0) - (b._gruppo === GRUPPO_ALTRI ? 1 : 0)
+        || a._gruppo.localeCompare(b._gruppo, "it", { numeric: true }));
+  }, [documenti, filtroOrigine, filtroTipologia, filtroVisibile, ricerca, polizzaDiTitolo]);
 
   const filtriAttivi =
     filtroOrigine !== "all" || filtroTipologia !== "all" || filtroVisibile !== "all" || ricerca.trim() !== "";
@@ -602,9 +618,19 @@ export default function DocumentiTab({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {documentiFiltrati.map((doc: any) => (
-
-            <TableRow key={doc.id}>
+          {documentiFiltrati.map((doc: any, i: number) => (
+            <Fragment key={doc.id}>
+            {doc._gruppo && doc._gruppo !== documentiFiltrati[i - 1]?._gruppo && (
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableCell colSpan={colSpan} className="py-2 text-sm font-semibold">
+                  {doc._gruppo}
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    ({documentiFiltrati.filter((d: any) => d._gruppo === doc._gruppo).length})
+                  </span>
+                </TableCell>
+              </TableRow>
+            )}
+            <TableRow>
               <TableCell>
                 <DocumentThumbnail
                   bucketName={doc.bucket_name}
@@ -800,6 +826,7 @@ export default function DocumentiTab({
                 {!readOnly && <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(doc)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
               </TableCell>
             </TableRow>
+            </Fragment>
           ))}
           {showAppendici && appendiceRows.map((a) => (
             <TableRow key={`appendice-${a.id}`}>
