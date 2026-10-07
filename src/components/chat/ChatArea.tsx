@@ -6,6 +6,16 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Send, CheckCheck, MessageSquare, Users, Download, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,6 +56,8 @@ export default function ChatArea({
   const [msg, setMsg] = useState("");
   const [richiediConferma, setRichiediConferma] = useState(false);
   const [confermeOpenId, setConfermeOpenId] = useState<string | null>(null);
+  // Conferme già chieste in questa sessione (inviate o rifiutate): non si richiede due volte; le rifiutate restano nel riquadro in alto
+  const [confermeGestite, setConfermeGestite] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -210,16 +222,26 @@ export default function ChatArea({
   });
 
   const confirmMutation = useMutation({
-    mutationFn: async (confermaId: string) => {
-      await supabase
+    mutationFn: async (confermaIds: string | string[]) => {
+      const { error } = await supabase
         .from("chat_conferme_lettura")
         .update({ confermato: true, confermato_at: new Date().toISOString() })
-        .eq("id", confermaId);
+        .in("id", Array.isArray(confermaIds) ? confermaIds : [confermaIds]);
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["chat_conferme_pending", canaleId, profile?.id] });
     },
+    onError: (e: Error) => toast.error("Conferma di lettura non inviata", { description: e.message }),
   });
+
+  type ConfermaPending = {
+    id: string;
+    chat_messaggi_interni?: { profiles?: { nome?: string; cognome?: string }; messaggio?: string };
+  };
+  // Come nelle mail: all'apertura della chat chiedo se inviare le conferme richieste
+  const confermeDaChiedere = ((pendingConferme || []) as ConfermaPending[]).filter((c) => !confermeGestite.has(c.id));
+  const segnaConfermeGestite = () => setConfermeGestite((p) => new Set([...p, ...confermeDaChiedere.map((c) => c.id)]));
 
   const handleExportPdf = async () => {
     if (!canaleId || !profile?.id) return;
@@ -302,6 +324,40 @@ export default function ChatArea({
           })}
         </div>
       )}
+
+      <AlertDialog open={confermeDaChiedere.length > 0}>
+        <AlertDialogContent className="max-h-[90vh] overflow-y-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma di lettura richiesta</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Chi ha scritto ha chiesto una conferma di lettura. Vuoi inviarla?</p>
+                {confermeDaChiedere.map((c) => (
+                  <p key={c.id} className="rounded-md bg-muted/50 px-3 py-2 text-foreground">
+                    <span className="font-medium">
+                      {c.chat_messaggi_interni?.profiles?.nome} {c.chat_messaggi_interni?.profiles?.cognome}:
+                    </span>{" "}
+                    &ldquo;{c.chat_messaggi_interni?.messaggio?.slice(0, 120)}&rdquo;
+                  </p>
+                ))}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={segnaConfermeGestite}>
+              Non inviare
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                confirmMutation.mutate(confermeDaChiedere.map((c) => c.id));
+                segnaConfermeGestite();
+              }}
+            >
+              <CheckCheck className="h-4 w-4 mr-1" /> Invia conferma
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {pendingConferme && pendingConferme.length > 0 && (
         <div className="border-b border-border bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2 shrink-0">

@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -83,6 +82,7 @@ export default function CanaliSidebar({
   showAmbitoToggle = true,
 }: CanaliSidebarProps) {
   const [filtroTipo, setFiltroTipo] = useState<string>("tutti");
+  const [soloDaLeggere, setSoloDaLeggere] = useState(false);
   const [ricerca, setRicerca] = useState("");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -271,6 +271,7 @@ export default function CanaliSidebar({
 
   const canaliFiltrati = useMemo(() => {
     return canali.filter((c) => {
+      if (soloDaLeggere && !(Number(c.unread_count) > 0)) return false;
       if (filtroTipo !== "tutti") {
         if (ambito === "interno" && c.tipo !== filtroTipo) return false;
         if (ambito === "contestuale" && c.entita_tipo !== filtroTipo) return false;
@@ -283,7 +284,12 @@ export default function CanaliSidebar({
       }
       return true;
     });
-  }, [canali, filtroTipo, ambito, ricerca, matchingCanaliIds, entitaNomi, directMembers]);
+  }, [canali, filtroTipo, soloDaLeggere, ambito, ricerca, matchingCanaliIds, entitaNomi, directMembers]);
+
+  // ponytail: "Da leggere" filtra lato client, quindi carica tutte le pagine; RPC filtrata se i canali diventano migliaia
+  useEffect(() => {
+    if (soloDaLeggere && hasNextPage && !isFetchingNextPage) fetchNextPage();
+  }, [soloDaLeggere, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -345,6 +351,13 @@ export default function CanaliSidebar({
           />
         </div>
         <div className="flex gap-1 flex-wrap">
+          <Badge
+            variant={soloDaLeggere ? "default" : "outline"}
+            className="cursor-pointer gap-1 text-[10px] px-2 py-0.5"
+            onClick={() => setSoloDaLeggere((v) => !v)}
+          >
+            <Mail className="h-3 w-3" /> Da leggere
+          </Badge>
           {filterOptions.map((t) => (
             <Badge
               key={t}
@@ -358,7 +371,8 @@ export default function CanaliSidebar({
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      {/* div semplice: lo ScrollArea di Radix allarga le righe oltre la colonna (testo tagliato, orario e badge fuori vista) */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="p-1">
           {canaliFiltrati.map((canale) => {
             const Icon =
@@ -387,9 +401,9 @@ export default function CanaliSidebar({
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <p className={cn("truncate text-[13px]", unread > 0 && "font-semibold")}>{displayName}</p>
+                    <p className={cn("truncate text-[13px]", unread > 0 && "font-bold")}>{displayName}</p>
                     {ts && (
-                      <span className="text-[10px] text-muted-foreground shrink-0">
+                      <span className={cn("text-[10px] shrink-0", unread > 0 ? "font-bold text-foreground" : "text-muted-foreground")}>
                         {formatDistanceToNow(new Date(ts), { locale: it, addSuffix: false })}
                       </span>
                     )}
@@ -398,14 +412,14 @@ export default function CanaliSidebar({
                     <p
                       className={cn(
                         "truncate text-[11px] mt-0.5",
-                        unread > 0 ? "text-foreground" : "text-muted-foreground"
+                        unread > 0 ? "font-bold text-foreground" : "text-muted-foreground"
                       )}
                     >
                       {canale.last_message_preview.replace(/\[POLIZZA:[0-9a-f-]+\]/gi, "📎 polizza")}
                     </p>
                   )}
                   <div className="flex items-center justify-between mt-0.5">
-                    <span className="text-[10px] text-muted-foreground capitalize">
+                    <span className={cn("text-[10px] capitalize", unread > 0 ? "font-bold text-foreground" : "text-muted-foreground")}>
                       {subtitle}
                       {matchInMsg && <span className="ml-1 text-primary">• match</span>}
                     </span>
@@ -436,7 +450,7 @@ export default function CanaliSidebar({
           })}
           {!canaliFiltrati.length && (
             <p className="text-center text-xs text-muted-foreground py-6">
-              {ricerca ? "Nessun risultato" : "Nessun canale — crea una nuova conversazione"}
+              {ricerca ? "Nessun risultato" : soloDaLeggere ? "Nessuna conversazione da leggere" : "Nessun canale — crea una nuova conversazione"}
             </p>
           )}
           {!ricerca && hasNextPage && (
@@ -445,7 +459,7 @@ export default function CanaliSidebar({
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

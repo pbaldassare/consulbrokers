@@ -33,7 +33,7 @@ export default function ComunicazioniPage() {
 
   return (
     <div className="h-[calc(100vh-4rem)] flex">
-      <div className="w-72 shrink-0">
+      <div className="w-80 min-w-0 shrink-0">
         <CanaliSidebar
           canaleAttivoId={canaleAttivoId}
           onSelectCanale={setCanaleAttivoId}
