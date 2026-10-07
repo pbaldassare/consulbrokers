@@ -799,7 +799,7 @@ const MovimentoCard = ({ movimento: movimentoProp, onChanged }: { movimento: any
                 <div>
                   <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">Cliente pre-matchato (pagatore)</h4>
                   {movimento.cliente_id ? (
-                    <Link to={`/archivi/clienti/${movimento.cliente_id}`} className="text-sm text-primary underline flex items-center gap-1">
+                    <Link to={`/clienti/${movimento.cliente_id}`} className="text-sm text-primary underline flex items-center gap-1">
                       {cliNome} <ExternalLink className="w-3 h-3" />
                     </Link>
                   ) : (

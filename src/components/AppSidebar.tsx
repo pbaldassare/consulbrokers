@@ -177,7 +177,7 @@ const sidebarEntries: SidebarEntry[] = [
       icon: Briefcase,
       permissionKey: "titoli",
       children: [
-        { label: "Clienti", path: "/archivi/clienti", icon: Users },
+        { label: "Clienti", path: "/clienti", icon: Users },
         { label: "Polizze Attive", path: "/portafoglio/attive", icon: Shield },
         { label: "Carico del mese", path: "/portafoglio/carico", icon: Clock },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
@@ -210,9 +210,9 @@ const sidebarEntries: SidebarEntry[] = [
       permissionKey: "anagrafiche",
       children: [
         { label: "Centro Utenti & Privilegi", path: "/utenti-privilegi", icon: ShieldCheck, hideForRoles: ["ufficio"] },
-        { label: "Anagrafiche Agenzie", path: "/archivi/anagrafiche-agenzie", icon: Scale },
-        { label: "Anagrafiche Amministrative", path: "/archivi/anagrafiche-amministrative", icon: Briefcase },
-        { label: "Conti Bancari", path: "/archivi/conti-bancari", icon: Banknote, hideForRoles: ["ufficio"] },
+        { label: "Anagrafiche Agenzie", path: "/anagrafiche-agenzie", icon: Scale },
+        { label: "Anagrafiche Amministrative", path: "/anagrafiche-amministrative", icon: Briefcase },
+        { label: "Conti Bancari", path: "/conti-bancari", icon: Banknote, hideForRoles: ["ufficio"] },
         { label: "Compagnie / Agenzie", path: "/compagnie", icon: Building2, hideForRoles: ["ufficio"] },
       ],
     },

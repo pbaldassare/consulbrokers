@@ -241,7 +241,7 @@ function DeduplicaContent() {
                                     />
                                   </TableCell>
                                   <TableCell className="font-medium">
-                                    <a href={`/archivi/clienti/${r.cliente_id}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                    <a href={`/clienti/${r.cliente_id}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
                                       {r.nome_completo || "(senza nome)"}
                                     </a>
                                   </TableCell>

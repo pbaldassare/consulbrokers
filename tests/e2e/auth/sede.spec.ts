@@ -73,7 +73,7 @@ test.describe('Sede — visibilità limitata alla propria sede', () => {
 
   test('accesso diretto al cliente di un\'altra sede è bloccato da RLS', async ({ page }) => {
     await login(page, fixtures!.sede.email, fixtures!.password);
-    await page.goto(`/archivi/clienti/${fixtures!.clienteB.id}`);
+    await page.goto(`/clienti/${fixtures!.clienteB.id}`);
     await page.waitForLoadState('networkidle').catch(() => {});
 
     // ClienteDetail non renderizza nulla se la query RLS non restituisce righe

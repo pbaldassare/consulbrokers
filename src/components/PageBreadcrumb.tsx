@@ -122,9 +122,6 @@ const ROUTE_LABELS: Record<string, string> = {
   "reset-password": "Reset Password",
 };
 
-/** Segmenti di raggruppamento senza una pagina propria: non compaiono nelle briciole. */
-const HIDDEN_SEGMENTS = new Set(["archivi"]);
-
 /** Prefissi senza pagina propria: la briciola porta alla lista corrispondente (evita il 404). */
 const CRUMB_TARGET: Record<string, string> = {
   "/polizze": "/portafoglio/attive",
@@ -193,7 +190,6 @@ const PageBreadcrumb = () => {
   const segments = location.pathname.split("/").filter(Boolean);
 
   const crumbs = segments.flatMap((seg, i) => {
-    if (HIDDEN_SEGMENTS.has(seg)) return [];
     const isLast = i === segments.length - 1;
     let label = isUuid(seg)
       ? "Dettaglio"

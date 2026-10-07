@@ -2265,7 +2265,7 @@ const TitoloDetail = () => {
           id: madre.id,
           numero_titolo: madre.numero_titolo,
         } : null}
-        onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}?tab=polizze`) : navigate("/portafoglio/incassi")}
+        onBack={() => t.cliente_anagrafica?.id ? navigate(`/clienti/${t.cliente_anagrafica.id}?tab=polizze`) : navigate("/portafoglio/incassi")}
         madre={isProroga && madreProroga ? {
           id: (madreProroga as any).id,
           numero_titolo: (madreProroga as any).numero_titolo,
@@ -3127,7 +3127,7 @@ const TitoloDetail = () => {
             {t.cliente_anagrafica ? (
               <div className="flex justify-between py-1">
                 <span className="text-xs text-muted-foreground">Cliente</span>
-                <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${t.cliente_anagrafica.id}?tab=polizze`)}>
+                <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/clienti/${t.cliente_anagrafica.id}?tab=polizze`)}>
                   {t.cliente_anagrafica.tipo_cliente === "privato"
                     ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
                     : t.cliente_anagrafica.ragione_sociale || "—"}

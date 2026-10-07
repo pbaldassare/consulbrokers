@@ -22,7 +22,7 @@ test.describe('Autenticazione — accesso non autorizzato', () => {
   test.use({ storageState: EMPTY_STORAGE_STATE });
 
   test('rota protetta reindirizza al login se non autenticati', async ({ page }) => {
-    await page.goto('/archivi/clienti');
+    await page.goto('/clienti');
     await expect(page).toHaveURL(/\/login/);
   });
 

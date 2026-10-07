@@ -13,7 +13,7 @@ export interface NavEntry {
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Home",
-  "/archivi/clienti": "Clienti",
+  "/clienti": "Clienti",
   "/trattative": "Trattative",
   "/titoli": "Titoli",
   "/sinistri": "Sinistri",

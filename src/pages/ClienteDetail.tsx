@@ -3927,7 +3927,7 @@ export default function ClienteDetail() {
             toast.success(`Cliente "${_clienteName}" eliminato. Storico preservato.`);
             setDeleteOpen(false);
             queryClient.invalidateQueries({ queryKey: ["clienti"] });
-            navigate("/archivi/clienti");
+            navigate("/clienti");
           }}
         />
         );

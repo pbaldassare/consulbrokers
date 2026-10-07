@@ -73,7 +73,7 @@ const ClientiList = () => {
           onCreated={(nuovoId) => {
             queryClient.invalidateQueries({ queryKey: ["clienti"] });
             queryClient.invalidateQueries({ queryKey: ["count_polizze_per_cliente"] });
-            if (nuovoId) navigate(`/archivi/clienti/${nuovoId}`);
+            if (nuovoId) navigate(`/clienti/${nuovoId}`);
           }}
         />
       </div>
@@ -130,7 +130,7 @@ const ClientiList = () => {
                   const cfPiva = c.codice_fiscale || c.partita_iva || c.codice_fiscale_azienda || "—";
                   const citta = c.citta_residenza || c.citta_sede || "—";
                   return (
-                    <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
+                    <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/clienti/${c.id}`)}>
                       <TableCell className="font-mono text-xs">{c.codice_cliente || c.codice_ricerca || "—"}</TableCell>
                       <TableCell className="font-medium">{denominazione}</TableCell>
                       <TableCell className="font-mono text-xs">{cfPiva}</TableCell>

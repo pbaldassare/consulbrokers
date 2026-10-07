@@ -5,7 +5,7 @@ test.use({ storageState: STORAGE_STATE });
 
 test.describe('Anagrafica Clienti', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/archivi/clienti');
+    await page.goto('/clienti');
     await expectPageHealthy(page);
   });
 

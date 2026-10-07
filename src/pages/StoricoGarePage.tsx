@@ -437,7 +437,7 @@ export default function StoricoGarePage() {
                     </TableCell>
                     <TableCell>
                       {r.cliente_id ? (
-                        <a href={`/archivi/clienti/${r.cliente_id}`} className="text-primary hover:underline text-xs flex items-center gap-1">
+                        <a href={`/clienti/${r.cliente_id}`} className="text-primary hover:underline text-xs flex items-center gap-1">
                           {r.cliente_display?.slice(0, 25) ?? "Cliente"} <ExternalLink className="h-3 w-3" />
                         </a>
                       ) : <span className="text-muted-foreground text-xs">—</span>}

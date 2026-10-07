@@ -269,7 +269,7 @@ export default function ElaborazioniSommarioPanel({
               variant="link"
               size="sm"
               className="h-auto p-0 text-xs"
-              onClick={() => navigate(`/archivi/clienti/${clienteId}`)}
+              onClick={() => navigate(`/clienti/${clienteId}`)}
             >
               Allega Word in anagrafica
             </Button>

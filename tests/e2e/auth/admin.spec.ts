@@ -74,10 +74,10 @@ test.describe('Admin — accesso completo', () => {
 
   test('admin accede al dettaglio cliente di un\'altra sede', async ({ page }) => {
     await login(page, fixtures!.admin.email, fixtures!.password);
-    await page.goto(`/archivi/clienti/${fixtures!.clienteB.id}`);
+    await page.goto(`/clienti/${fixtures!.clienteB.id}`);
     await page.waitForLoadState('networkidle').catch(() => {});
 
-    await expect(page).toHaveURL(new RegExp(`/archivi/clienti/${fixtures!.clienteB.id}`));
+    await expect(page).toHaveURL(new RegExp(`/clienti/${fixtures!.clienteB.id}`));
     await expect(page.getByText(fixtures!.clienteB.cognome).first()).toBeVisible({ timeout: 15_000 });
   });
 });

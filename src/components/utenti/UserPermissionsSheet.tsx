@@ -282,7 +282,7 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
                       toast.info("Questo ruolo non ha un'anagrafica amministrativa");
                       return;
                     }
-                    window.location.href = `/archivi/anagrafiche-amministrative?tab=${tab}&edit=${user.id}`;
+                    window.location.href = `/anagrafiche-amministrative?tab=${tab}&edit=${user.id}`;
                   }}
                 >
                   Apri anagrafica

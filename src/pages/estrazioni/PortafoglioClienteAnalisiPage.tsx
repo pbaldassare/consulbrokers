@@ -587,7 +587,7 @@ const PortafoglioClienteAnalisiPage = () => {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate(`/archivi/clienti/${clienteId}`)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/clienti/${clienteId}`)}>
             Anagrafica
           </Button>
           <Button variant="outline" size="sm" onClick={runExcel} disabled={!polizze.length || !!busy}>

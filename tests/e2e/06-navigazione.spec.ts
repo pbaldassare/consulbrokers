@@ -47,7 +47,7 @@ test.describe('Navigazione — sidebar senza 404', () => {
 
 test.describe('Navigazione — breadcrumb', () => {
   test('breadcrumb visibile sulla lista clienti', async ({ page }) => {
-    await page.goto('/archivi/clienti');
+    await page.goto('/clienti');
     await expectPageHealthy(page);
     const breadcrumb = page.locator('nav[aria-label="breadcrumb"], [data-slot="breadcrumb"]').first();
     await expect(breadcrumb).toBeVisible();
@@ -79,7 +79,7 @@ test.describe('Navigazione — breadcrumb', () => {
   });
 
   test('navigazione breadcrumb Home riporta alla dashboard', async ({ page }) => {
-    await page.goto('/archivi/clienti');
+    await page.goto('/clienti');
     await expectPageHealthy(page);
     const homeLink = page.locator('nav[aria-label="breadcrumb"] a, [data-slot="breadcrumb"] a').filter({ hasText: /Home/i }).first();
     if (await homeLink.count()) {

@@ -146,7 +146,7 @@ export default function CommandPalette() {
         titolo: clienteSearchLabel(c) || "(senza nome)",
         sottotitolo: clienteSearchDescription(c) || "",
         categoria: "clienti",
-        link: `/archivi/clienti/${c.id}`,
+        link: `/clienti/${c.id}`,
       }),
     );
     titoli.data?.forEach((t: any) =>

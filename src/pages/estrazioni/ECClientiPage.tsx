@@ -220,7 +220,7 @@ const ECClientiPage = () => {
               if (filters.dateTo) qs.set("periodoAl", format(filters.dateTo, "yyyy-MM-dd"));
               return (
                 <TableRow key={c.cliente_id}>
-                  <TableCell className="font-medium cursor-pointer" onClick={() => navigate(`/archivi/clienti/${c.cliente_id}`)}>{c.label}</TableCell>
+                  <TableCell className="font-medium cursor-pointer" onClick={() => navigate(`/clienti/${c.cliente_id}`)}>{c.label}</TableCell>
                   <TableCell className="text-right">{fmt(c.totale_premi)}</TableCell>
                   <TableCell className="text-right">{fmt(c.totale_incassato)}</TableCell>
                   <TableCell className="text-right">

@@ -314,7 +314,7 @@ export default function ClienteNidificazionePanel({ clienteId, cliente, compact,
         <ul className="space-y-1">
           {relazioni.map((r) => (
             <li key={r.id} className="flex items-start justify-between gap-2 text-sm">
-              <button type="button" className="text-left hover:underline" onClick={() => navigate(`/archivi/clienti/${r.altro.id}`)}>
+              <button type="button" className="text-left hover:underline" onClick={() => navigate(`/clienti/${r.altro.id}`)}>
                 {phraseOf(r)}
               </button>
               {actionButtons(r, true)}
@@ -337,7 +337,7 @@ export default function ClienteNidificazionePanel({ clienteId, cliente, compact,
               return (
                 <TableRow key={r.id}>
                   <TableCell>
-                    <button type="button" className="text-left font-medium hover:underline" onClick={() => navigate(`/archivi/clienti/${r.altro.id}`)}>
+                    <button type="button" className="text-left font-medium hover:underline" onClick={() => navigate(`/clienti/${r.altro.id}`)}>
                       {phraseOf(r)}
                     </button>
                   </TableCell>

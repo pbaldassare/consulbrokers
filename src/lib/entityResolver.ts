@@ -20,16 +20,16 @@ export function detectEntity(pathname: string): EntityMatch | null {
   const last = seg[seg.length - 1];
   if (!last || !UUID_RE.test(last)) return null;
 
-  if (seg[0] === "archivi" && seg[1] === "clienti") return { kind: "cliente", id: last, path: pathname };
+  if (seg[0] === "clienti") return { kind: "cliente", id: last, path: pathname };
   if (seg[0] === "portafoglio" && seg[1] === "estrazioni" && seg[2] === "per-cliente")
     return { kind: "cliente", id: last, path: pathname };
-  if ((seg[0] === "archivi" && seg[1] === "prospect") || seg[0] === "prospect")
+  if (seg[0] === "prospect")
     return { kind: "prospect", id: last, path: pathname };
   if (seg[0] === "titoli") return { kind: "polizza", id: last, path: pathname };
   if (seg[0] === "portafoglio" && seg.length === 2) return { kind: "polizza", id: last, path: pathname };
   if (seg[0] === "sinistri") return { kind: "sinistro", id: last, path: pathname };
   if (seg[0] === "trattative") return { kind: "trattativa", id: last, path: pathname };
-  if (seg[0] === "archivi" && seg[1]?.startsWith("anagrafiche-agenzie"))
+  if (seg[0]?.startsWith("anagrafiche-agenzie"))
     return { kind: "compagnia", id: last, path: pathname };
 
   return null;

@@ -1781,7 +1781,7 @@ const ImmissionePolizzaPage = () => {
       selectedClienteId ||
       preselectedClienteId ||
       (regolazioneMode ? polizzaMadre?.cliente_anagrafica_id : null);
-    return clienteId ? `/archivi/clienti/${clienteId}?tab=polizze` : null;
+    return clienteId ? `/clienti/${clienteId}?tab=polizze` : null;
   }, [selectedClienteId, preselectedClienteId, regolazioneMode, polizzaMadre?.cliente_anagrafica_id]);
 
   const exitImmissione = useCallback(() => {

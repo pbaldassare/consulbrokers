@@ -124,7 +124,7 @@ export default function GlobalSearch() {
         titolo: clienteSearchLabel(c) || "(senza nome)",
         sottotitolo: clienteSearchDescription(c) || "",
         categoria: "clienti",
-        link: `/archivi/clienti/${c.id}`,
+        link: `/clienti/${c.id}`,
       }),
     );
     prospect.data?.forEach((p: any) => allResults.push({
@@ -132,7 +132,7 @@ export default function GlobalSearch() {
       titolo: p.ragione_sociale || `${p.nome || ""} ${p.cognome || ""}`.trim(),
       sottotitolo: p.stato || "",
       categoria: "prospect",
-      link: `/archivi/prospect/${p.id}`,
+      link: `/prospect/${p.id}`,
     }));
     titoli.data?.forEach((t: any) => allResults.push({ id: t.id, titolo: `Titolo ${t.numero_titolo || "—"}`, sottotitolo: `${t.stato} · €${t.premio_lordo || 0}`, categoria: "titoli", link: `/titoli/${t.id}` }));
     sinistri.data?.forEach((s: any) => allResults.push({ id: s.id, titolo: `Sinistro ${s.numero_sinistro || "—"}`, sottotitolo: `${s.stato} · ${s.descrizione?.slice(0, 40) || ""}`, categoria: "sinistri", link: `/sinistri/${s.id}` }));

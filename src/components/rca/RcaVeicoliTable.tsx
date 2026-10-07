@@ -36,7 +36,7 @@ export function RcaVeicoliTable({
   const colSpan = showPreventiva ? 6 : 5;
 
   const openCliente = (row: RcaClientelaRow) => {
-    if (row.clienteId) navigate(`/archivi/clienti/${row.clienteId}`);
+    if (row.clienteId) navigate(`/clienti/${row.clienteId}`);
     else if (row.titoloId) navigate(`/titoli/${row.titoloId}`);
   };
 

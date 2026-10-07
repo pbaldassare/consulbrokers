@@ -127,7 +127,7 @@ export default function QuietanzaDetail() {
   };
 
   const clienteId = polizza?.cliente_anagrafica_id;
-  const clienteHref = clienteId ? `/archivi/clienti/${clienteId}?tab=polizze` : null;
+  const clienteHref = clienteId ? `/clienti/${clienteId}?tab=polizze` : null;
   const totLabel = q.numero_rate_totali ? `${q.numero_rata}/${q.numero_rate_totali}` : `${q.numero_rata}`;
 
   return (
@@ -136,7 +136,7 @@ export default function QuietanzaDetail() {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link to="/archivi/clienti">Clienti</Link>
+              <Link to="/clienti">Clienti</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           {clienteHref && (

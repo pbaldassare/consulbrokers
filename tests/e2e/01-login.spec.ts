@@ -15,7 +15,7 @@ test.describe('Login & Autenticazione', () => {
   });
 
   test('una rotta protetta reindirizza al login se non autenticati', async ({ page }) => {
-    await page.goto('/archivi/clienti');
+    await page.goto('/clienti');
     await expect(page).toHaveURL(/\/login/);
   });
 

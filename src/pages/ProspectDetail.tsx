@@ -149,7 +149,7 @@ const ProspectDetail = () => {
     },
     onSuccess: (clienteId) => {
       toast.success("Prospect convertito in cliente con successo!");
-      navigate(`/archivi/clienti/${clienteId}`);
+      navigate(`/clienti/${clienteId}`);
     },
     onError: () => toast.error("Errore durante la conversione"),
   });
@@ -261,14 +261,14 @@ const ProspectDetail = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <button onClick={() => navigate("/archivi/clienti")} className="hover:text-foreground">Clienti</button>
+        <button onClick={() => navigate("/clienti")} className="hover:text-foreground">Clienti</button>
         <span>›</span>
         <span>{prospect.nome} {prospect.cognome}</span>
       </div>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/archivi/clienti")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/clienti")}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
@@ -312,7 +312,7 @@ const ProspectDetail = () => {
             </AlertDialog>
           )}
           {prospect.convertito_cliente_id && (
-            <Button variant="outline" className="gap-2 text-kpi-green-text border-kpi-green-border" onClick={() => navigate(`/archivi/clienti/${prospect.convertito_cliente_id}`)}>
+            <Button variant="outline" className="gap-2 text-kpi-green-text border-kpi-green-border" onClick={() => navigate(`/clienti/${prospect.convertito_cliente_id}`)}>
               <ExternalLink className="w-4 h-4" />Vai al Cliente
             </Button>
           )}

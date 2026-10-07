@@ -66,7 +66,7 @@ export async function logout(page: Page): Promise<void> {
 }
 
 export async function searchClienti(page: Page, query: string): Promise<void> {
-  await page.goto('/archivi/clienti');
+  await page.goto('/clienti');
   await page.getByPlaceholder('Cerca per nome, CF, P.IVA...').fill(query);
   await page.waitForTimeout(500);
 }
@@ -84,13 +84,13 @@ export async function expectPageHealthy(page: Page): Promise<void> {
 }
 
 export async function openFirstClienteDetail(page: Page): Promise<string | null> {
-  await page.goto('/archivi/clienti');
+  await page.goto('/clienti');
   await expectPageHealthy(page);
   const row = page.locator('table tbody tr').filter({ hasNotText: 'Nessun cliente trovato' }).first();
   if (!(await row.count())) return null;
   await row.click();
-  await page.waitForURL(/\/archivi\/clienti\/[^/]+/, { timeout: 15_000 }).catch(() => {});
-  const match = page.url().match(/\/archivi\/clienti\/([^/?]+)/);
+  await page.waitForURL(/\/clienti\/[^/]+/, { timeout: 15_000 }).catch(() => {});
+  const match = page.url().match(/\/clienti\/([^/?]+)/);
   return match?.[1] ?? null;
 }
 

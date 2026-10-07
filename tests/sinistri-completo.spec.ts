@@ -183,7 +183,7 @@ test.describe('E2E Sinistri Flow Completo', () => {
 
     // TEST 6 — Apertura da scheda cliente
     console.log('--- TEST 6 ---');
-    await page.goto(`/archivi/clienti/${clientId}`);
+    await page.goto(`/clienti/${clientId}`);
     await page.click('button[role="tab"]:has-text("Sinistri")');
     const apriSinistroBtn = page.locator('button:has-text("Apri Sinistro")').first();
     await expect(apriSinistroBtn).toBeVisible({ timeout: 15000 });

@@ -388,7 +388,7 @@ const DocumentazioneRevisionePage = () => {
                         </TableCell>
                         <TableCell className="min-w-[180px]">
                           {d.cliente_id ? (
-                            <Link to={`/archivi/clienti/${d.cliente_id}`} className="text-primary hover:underline">
+                            <Link to={`/clienti/${d.cliente_id}`} className="text-primary hover:underline">
                               {d.cliente_nome || "—"}
                             </Link>
                           ) : (

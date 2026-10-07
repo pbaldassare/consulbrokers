@@ -11,7 +11,7 @@ test.use({ storageState: STORAGE_STATE });
 
 test.describe('Clienti — lista anagrafica', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/archivi/clienti');
+    await page.goto('/clienti');
     await expectPageHealthy(page);
   });
 
@@ -46,7 +46,7 @@ test.describe('Clienti — scheda dettaglio e tab', () => {
     const clienteId = await openFirstClienteDetail(page);
     test.skip(!clienteId, 'Nessun cliente visibile nel DB di test');
 
-    await expect(page).toHaveURL(new RegExp(`/archivi/clienti/${clienteId}`));
+    await expect(page).toHaveURL(new RegExp(`/clienti/${clienteId}`));
     await expect(page.getByRole('tab', { name: /Polizze/i })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Anagrafica' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Sinistri' })).toBeVisible();
@@ -76,7 +76,7 @@ test.describe('Clienti — scheda dettaglio e tab', () => {
     test.skip(!(await row.count()), 'Nessun risultato di ricerca');
 
     await row.click();
-    await expect(page).toHaveURL(/\/archivi\/clienti\/[^/]+/);
+    await expect(page).toHaveURL(/\/clienti\/[^/]+/);
     await expectPageHealthy(page);
   });
 });

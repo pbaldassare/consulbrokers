@@ -268,7 +268,7 @@ export default function SinistroDetail() {
                 <button
                   type="button"
                   className="font-medium text-foreground hover:underline truncate max-w-[220px]"
-                  onClick={() => navigate(`/archivi/clienti/${sinistro.cliente_anagrafica_id}`)}
+                  onClick={() => navigate(`/clienti/${sinistro.cliente_anagrafica_id}`)}
                 >
                   {clienteNome}
                 </button>

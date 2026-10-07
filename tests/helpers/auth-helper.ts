@@ -38,7 +38,7 @@ export const CLIENTE_PORTAL_ROUTES: { label: string; path: string; heading?: Reg
 /** Rotte del gestionale che un utente cliente non deve raggiungere. */
 export const GESTIONALE_BLOCKED_FOR_CLIENTE: string[] = [
   '/',
-  '/archivi/clienti',
+  '/clienti',
   '/titoli',
   '/utenti-privilegi',
   '/contabilita',
@@ -94,7 +94,7 @@ export async function expectRouteBlocked(
  * Cerca un cliente per cognome nella lista anagrafica clienti.
  */
 export async function searchClienti(page: Page, query: string): Promise<void> {
-  await page.goto('/archivi/clienti');
+  await page.goto('/clienti');
   await page.getByPlaceholder('Cerca per nome, CF, P.IVA...').fill(query);
   await page.waitForTimeout(500);
 }
@@ -148,7 +148,7 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Mio Profilo', path: '/mio-profilo' },
 
   // Trattative / commerciale
-  { label: 'Prospect', path: '/archivi/prospect' },
+  { label: 'Prospect', path: '/clienti' },
   { label: 'Trattative', path: '/trattative' },
   { label: 'Calendario Trattative', path: '/trattative/calendario' },
   { label: 'Storico Trattative', path: '/trattative/storico' },
@@ -157,10 +157,10 @@ export const GESTIONALE_ROUTES: { label: string; path: string }[] = [
   { label: 'Chat', path: '/chat' },
 
   // Anagrafiche
-  { label: 'Clienti', path: '/archivi/clienti' },
-  { label: 'Anagrafiche Agenzie', path: '/archivi/anagrafiche-agenzie' },
-  { label: 'Anagrafiche Amministrative', path: '/archivi/anagrafiche-amministrative' },
-  { label: 'Conti Bancari', path: '/archivi/conti-bancari' },
+  { label: 'Clienti', path: '/clienti' },
+  { label: 'Anagrafiche Agenzie', path: '/anagrafiche-agenzie' },
+  { label: 'Anagrafiche Amministrative', path: '/anagrafiche-amministrative' },
+  { label: 'Conti Bancari', path: '/conti-bancari' },
 
   // Portafoglio
   { label: 'Polizze Attive', path: '/portafoglio/attive' },

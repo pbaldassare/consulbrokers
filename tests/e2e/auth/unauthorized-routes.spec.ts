@@ -17,7 +17,7 @@ import {
  */
 test.describe('Accesso negato — utente non autenticato', () => {
   test('utente non autenticato viene reindirizzato al login', async ({ page }) => {
-    await page.goto('/archivi/clienti');
+    await page.goto('/clienti');
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -62,10 +62,10 @@ test.describe('Accesso negato — guard di ruolo (richiede service role)', () =>
 
   test('ufficio può accedere a rotte operative della propria sede', async ({ page }) => {
     await login(page, fixtures!.sede.email, fixtures!.password);
-    await page.goto('/archivi/clienti');
+    await page.goto('/clienti');
     await page.waitForLoadState('networkidle').catch(() => {});
 
-    await expect(page).toHaveURL(/\/archivi\/clienti/);
+    await expect(page).toHaveURL(/\/clienti/);
     await expect(page.getByRole('heading', { name: 'Clienti', exact: true })).toBeVisible();
   });
 

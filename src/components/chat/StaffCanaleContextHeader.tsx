@@ -23,11 +23,11 @@ interface Props {
 }
 
 const entitaRoute: Record<string, (id: string) => string> = {
-  cliente: (id) => `/archivi/clienti/${id}`,
+  cliente: (id) => `/clienti/${id}`,
   titolo: (id) => `/titoli/${id}`,
   sinistro: (id) => `/sinistri/${id}`,
   trattativa: (id) => `/trattative?id=${id}`,
-  prospect: (id) => `/archivi/prospect/${id}`,
+  prospect: (id) => `/prospect/${id}`,
 };
 
 const entitaLabels: Record<string, string> = {

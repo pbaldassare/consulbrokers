@@ -132,20 +132,17 @@ Le route sono definite in `src/App.tsx` e raggruppate in `src/routes/*.tsx`. L�
 | `/mio-profilo` | `MioProfilo` | qualsiasi |
 | `/ai-assistant` | `AiAssistantPage` | qualsiasi |
 
-### Archivi (`src/routes/archivi.tsx`)
+### Anagrafiche e commerciale (`src/routes/archivi.tsx`)
 | Route | Pagina | Ruolo / Permesso |
 |---|---|---|
-| `/archivi/prospect` | `ProspectList` | admin, ufficio, backoffice, contabilita, manager, produttore |
-| `/archivi/prospect/:id` | `ProspectDetail` | come sopra |
-| `/prospect/:id` | `ProspectDetail` | compatibilità legacy |
-| `/archivi/clienti` | `ClientiList` | autenticato con permesso `titoli` o visibilità commerciale |
-| `/archivi/clienti/deduplica` | `DeduplicaClientiPage` | admin |
-| `/archivi/clienti/:id` | `ClienteDetail` | autenticato con visibilità sul cliente |
-| `/archivi/anagrafiche-agenzie` | `AnagraficheCompagniePage` | admin, ufficio |
-| `/archivi/anagrafiche-amministrative` | `AnagraficheInternePage` | admin, ufficio |
-| `/archivi/anagrafiche-interne` | redirect | — |
-| `/archivi/anagrafiche` | redirect | — |
-| `/archivi/conti-bancari` | `ContiBancariPage` | admin, ufficio, contabilita |
+| `/prospect/:id` | `ProspectDetail` | admin, ufficio, backoffice, contabilita, manager, produttore |
+| `/clienti` | `ClientiList` | autenticato con permesso `titoli` o visibilità commerciale |
+| `/clienti/deduplica` | `DeduplicaClientiPage` | admin |
+| `/clienti/:id` | `ClienteDetail` | autenticato con visibilità sul cliente |
+| `/anagrafiche-agenzie` | `AnagraficheCompagniePage` | admin, ufficio |
+| `/anagrafiche-amministrative` | `AnagraficheInternePage` | admin, ufficio |
+| `/archivi/*` | redirect ai nuovi indirizzi senza `/archivi` | — |
+| `/conti-bancari` | `ContiBancariPage` | admin, ufficio, contabilita |
 | `/trattative` | `TrattativeList` | autenticato |
 | `/trattative/calendario` | `CalendarioTrattativePage` | autenticato |
 | `/trattative/storico` | `StoricoTrattativePage` | autenticato |
