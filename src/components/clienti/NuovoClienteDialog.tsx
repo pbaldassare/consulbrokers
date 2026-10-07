@@ -191,6 +191,22 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       .catch(() => toast.error("Elenco comuni non disponibile: il codice fiscale va inserito a mano"));
   }, [open, tipoCliente, comuniCatastali]);
 
+  // Indice dei comuni normalizzato una volta sola; al campo vanno solo i primi 20 che combaciano
+  const indiceComuni = useMemo(
+    () => (comuniCatastali ?? []).map((c) => ({ chiave: c[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase(), label: `${c[0]} (${c[1]})`, cod: c[2] })),
+    [comuniCatastali],
+  );
+  const suggerimentiComuni = useMemo(() => {
+    const q = luogoNascita.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s*\(.*$/, "").trim();
+    if (q.length < 2) return [];
+    const out: typeof indiceComuni = [];
+    for (const c of indiceComuni) {
+      if (c.chiave.startsWith(q)) out.push(c);
+      if (out.length === 20) break;
+    }
+    return out;
+  }, [indiceComuni, luogoNascita]);
+
   const calcolaCF = () => {
     const mancanti = [
       !nome.trim() && "Nome",
@@ -874,7 +890,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                   <Label>Luogo di Nascita</Label>
                   <Input list="comuni-nascita" placeholder="es. Roma (RM)" value={luogoNascita} onChange={(e) => setLuogoNascita(e.target.value)} />
                   <datalist id="comuni-nascita">
-                    {comuniCatastali?.map(([c, sg, cod]) => <option key={cod} value={`${c} (${sg})`} />)}
+                    {suggerimentiComuni.map((c) => <option key={c.cod} value={c.label} />)}
                   </datalist>
                 </div>
                 <div>
