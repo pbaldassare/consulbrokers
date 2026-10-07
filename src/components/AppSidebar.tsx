@@ -1,5 +1,5 @@
-import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -312,6 +312,8 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
   const location = useLocation();
   const qc = useQueryClient();
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
+  const [cercaSezione, setCercaSezione] = useState("");
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["chat_unread_count", user?.id],
@@ -383,6 +385,24 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
     return hasPermission(permissionKey);
   };
 
+  // Ricerca sezioni (solo admin): stesse voci del menu, piatte, cercate anche per nome del gruppo
+  const normTesto = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const sezioniTrovate = useMemo(() => {
+    const q = normTesto(cercaSezione.trim());
+    if (!q) return [];
+    const tutte = sidebarEntries.flatMap((e) =>
+      e.type === "single"
+        ? [{ label: e.item.label, path: e.item.path, icon: e.item.icon, gruppo: "" }]
+        : e.group.children.map((c) => ({ label: c.label, path: c.path, icon: c.icon, gruppo: e.group.label })),
+    ).filter((x) => !isLegacyPath(x.path) && !isLegacyLabel(x.label));
+    return tutte.filter((x) => normTesto(`${x.label} ${x.gruppo}`).includes(q)).slice(0, 15);
+  }, [cercaSezione]);
+
+  const apriSezione = (path: string) => {
+    navigate(path);
+    setCercaSezione("");
+  };
+
   return (
     <aside
       className={`fixed left-0 top-0 h-screen z-30 transition-all duration-200 flex flex-col ${
@@ -397,6 +417,44 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 sidebar-scrollbar">
+        {isAdmin && !collapsed && (
+          <div className="relative mb-3 px-1">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
+            <input
+              type="search"
+              value={cercaSezione}
+              onChange={(e) => setCercaSezione(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && sezioniTrovate[0]) apriSezione(sezioniTrovate[0].path);
+                if (e.key === "Escape") setCercaSezione("");
+              }}
+              placeholder="Cerca sezione…"
+              aria-label="Cerca una sezione di CBnet"
+              className="h-9 w-full rounded-lg border border-white/15 bg-white/10 pl-9 pr-3 text-sm text-white placeholder:text-white/50 outline-none focus:border-white/40 focus:bg-white/15"
+            />
+          </div>
+        )}
+        {cercaSezione.trim() ? (
+          sezioniTrovate.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-white/60">Nessuna sezione trovata</p>
+          ) : (
+            sezioniTrovate.map((x) => (
+              <button
+                key={x.path}
+                type="button"
+                onClick={() => apriSezione(x.path)}
+                className="mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <x.icon className="h-[18px] w-[18px] shrink-0" />
+                <span className="flex-1">
+                  {x.label}
+                  {x.gruppo && <span className="block text-[11px] uppercase tracking-wider text-white/45">{x.gruppo}</span>}
+                </span>
+              </button>
+            ))
+          )
+        ) : (
+        <>
         <RecentiPreferitiSidebar collapsed={collapsed} />
         {sidebarEntries.map((entry) => {
           if (entry.type === "single") {
@@ -497,6 +555,8 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
             </div>
           );
         })}
+        </>
+        )}
       </nav>
     </aside>
   );
