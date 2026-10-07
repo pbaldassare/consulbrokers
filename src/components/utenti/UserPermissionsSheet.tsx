@@ -7,10 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { readInvokeErrorMessage } from "@/lib/edgeFunctionError";
@@ -18,11 +18,13 @@ import { canModifyAccount, isRootAdminEmail, OTHER_ADMIN_LOCKED_MESSAGE } from "
 import { ALL_PERMISSION_KEYS, getLevelByRole, ROLE_LABELS, VISIBILITY_LABEL, VisibilityScope, LEVELS } from "@/lib/userLevels";
 import { roleLabel, sedeAssegnataLabel } from "@/lib/userPrivilegiDisplay";
 import PermissionsMatrix from "./PermissionsMatrix";
-import { KeyRound, Power, Shield, User as UserIcon, Eye, Settings2, Save, ExternalLink } from "lucide-react";
+import { KeyRound, Power, Shield, User as UserIcon, Eye, Settings2, Save, ExternalLink, Layers } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import ProfileAvatarUpload from "./ProfileAvatarUpload";
 import ProfileInfoForm from "./ProfileInfoForm";
 import { Separator as Sep2 } from "@/components/ui/separator";
+
+type AppRole = Database["public"]["Enums"]["app_role"];
 
 interface Props {
   user: any | null;
@@ -67,11 +69,20 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
   const isSelf = authUser?.id === user.id;
   const actorIsRoot = isRootAdminEmail(authProfile?.email);
   const locked = !canModifyAccount({ id: authUser?.id, email: authProfile?.email }, user);
-  const roleChoices = LEVELS.flatMap((l) => l.roles).filter((r) => {
-    if (r === "cliente" || r === "prospect") return false;
-    if (r === "admin" && !actorIsRoot && user.ruolo !== "admin") return false;
-    return true;
-  });
+  // Il portale cliente/prospect ha un proprio provisioning; Admin lo assegna solo admin@consul.it (vincolo anche su DB)
+  const livelliScelta = LEVELS.filter((l) => l.id !== "L6");
+  const ruoloAmmesso = (r: string) => r !== "admin" || actorIsRoot || user.ruolo === "admin";
+
+  // Cambio livello: primo sottoruolo ammesso + template permessi del nuovo livello
+  const cambiaLivello = (id: string) => {
+    const lvl = LEVELS.find((l) => l.id === id);
+    const r = lvl?.roles.find(ruoloAmmesso);
+    if (!lvl || !r || lvl.roles.includes(ruolo)) return;
+    setRuolo(r);
+    setPermissions(lvl.defaultPermissions);
+    setVisibility(lvl.defaultVisibility);
+    toast.info(`Livello ${lvl.id} · permessi e visibilità impostati sul template "${lvl.label}"`);
+  };
 
   const handleSave = async () => {
     if (locked) {
@@ -102,8 +113,16 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
     }
 
     if (ruolo !== user.ruolo) {
-      await supabase.from("user_roles").delete().eq("user_id", user.id);
-      await supabase.from("user_roles").insert({ user_id: user.id, role: ruolo as any });
+      // user_roles (RLS) allineato a profiles.ruolo: prima il nuovo ruolo, poi via gli altri
+      const ins = await supabase.from("user_roles").upsert({ user_id: user.id, role: ruolo as AppRole }, { onConflict: "user_id,role" });
+      const del = ins.error ? null : await supabase.from("user_roles").delete().eq("user_id", user.id).neq("role", ruolo as AppRole);
+      const err = ins.error || del?.error;
+      if (err) {
+        toast.error("Ruolo salvato sul profilo ma non nei permessi di sistema", { description: err.message });
+        onSaved();
+        setSaving(false);
+        return;
+      }
     }
 
     toast.success("Utente aggiornato");
@@ -176,8 +195,9 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
         )}
 
         <Tabs defaultValue="anagrafica" className="flex-1 flex flex-col overflow-hidden mt-4">
-          <TabsList className="grid grid-cols-4">
+          <TabsList className="grid grid-cols-5">
             <TabsTrigger value="anagrafica" className="text-xs"><UserIcon className="w-3.5 h-3.5 mr-1" />Anagrafica</TabsTrigger>
+            <TabsTrigger value="ruoli" className="text-xs"><Layers className="w-3.5 h-3.5 mr-1" />Ruoli</TabsTrigger>
             <TabsTrigger value="visibility" className="text-xs"><Eye className="w-3.5 h-3.5 mr-1" />Visibilità</TabsTrigger>
             <TabsTrigger value="permissions" className="text-xs"><Settings2 className="w-3.5 h-3.5 mr-1" />Permessi</TabsTrigger>
             <TabsTrigger value="security" className="text-xs"><Shield className="w-3.5 h-3.5 mr-1" />Sicurezza</TabsTrigger>
@@ -220,14 +240,9 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Ruolo</Label>
-                  <Select value={ruolo} onValueChange={setRuolo} disabled={locked}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {roleChoices.map((r) => (
-                        <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-muted/30">
+                    <span className="text-sm truncate">{level.id} · {ROLE_LABELS[ruolo] || ruolo}</span>
+                  </div>
                 </div>
                 <div>
                   <Label className="text-xs">Sede assegnata</Label>
@@ -291,6 +306,52 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
               <p className="text-[11px] text-muted-foreground">
                 Ruolo, attivo e permessi si salvano col pulsante "Salva modifiche". Dati anagrafici col pulsante dedicato sopra.
               </p>
+            </TabsContent>
+
+            <TabsContent value="ruoli" className="space-y-3 mt-0">
+              <p className="text-sm text-muted-foreground">
+                {isSelf ? "Non puoi cambiare il tuo ruolo." : "Livello e sottoruolo. Cambiando livello si applica il template permessi del nuovo livello."}
+              </p>
+              <RadioGroup value={level.id} onValueChange={cambiaLivello} className="space-y-2" disabled={locked || isSelf}>
+                {livelliScelta.map((l) => {
+                  const LIcon = l.icon;
+                  const attivoL = l.id === level.id;
+                  const bloccato = !l.roles.some(ruoloAmmesso);
+                  return (
+                    <div key={l.id} className={`rounded-lg border p-3 ${attivoL ? `${l.bgClass} ${l.borderClass}` : ""}`}>
+                      <label className={`flex items-center gap-3 ${bloccato ? "opacity-50" : "cursor-pointer"}`}>
+                        <RadioGroupItem value={l.id} disabled={locked || isSelf || bloccato} />
+                        <LIcon className={`w-4 h-4 ${l.color}`} />
+                        <span className="text-sm font-medium">{l.id} · {l.label}</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {bloccato ? "Solo admin@consul.it può assegnarlo" : l.shortDesc}
+                        </span>
+                      </label>
+                      {attivoL && l.roles.length > 1 && (
+                        <div className="mt-3 pl-7 flex flex-wrap gap-2">
+                          {l.roles.map((r) => (
+                            <Button
+                              key={r}
+                              type="button"
+                              size="sm"
+                              variant={r === ruolo ? "default" : "outline"}
+                              disabled={locked || isSelf || !ruoloAmmesso(r)}
+                              onClick={() => setRuolo(r)}
+                            >
+                              {ROLE_LABELS[r] || r}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </RadioGroup>
+              {ruolo !== user.ruolo && (
+                <p className="text-xs rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+                  Da {ROLE_LABELS[user.ruolo] || user.ruolo} a <strong>{ROLE_LABELS[ruolo] || ruolo}</strong>: premi "Salva modifiche" per confermare.
+                </p>
+              )}
             </TabsContent>
 
             <TabsContent value="visibility" className="space-y-3 mt-0">
