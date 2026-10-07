@@ -3,6 +3,7 @@ import {
   buildQuietanzaFigliaInsertFromMadre,
   buildQuietanzaFigliaUpdateFromMadre,
   decideCopiaDatiInQuietanza,
+  importiQuietanzaDaMadre,
   nextRigaQuietanza,
   periodoNuovaQuietanza,
   type CopiaDatiQuietanzaFiglia,
@@ -115,7 +116,7 @@ const PREMI_COPY_COLS = [
   "tasse_rettifica",
 ] as const;
 
-async function clonePremiMadreSuFiglia(madreId: string, figliaId: string): Promise<void> {
+async function clonePremiMadreSuFiglia(madreId: string, figliaId: string, fattore = 1): Promise<void> {
   const { data: rows, error } = await supabase
     .from("premi_garanzia_polizza")
     .select(PREMI_COPY_COLS.join(", "))
@@ -129,15 +130,15 @@ async function clonePremiMadreSuFiglia(madreId: string, figliaId: string): Promi
         .eq("titolo_id", madreId)
         .order("ordine");
       if (retry.error) throw retry.error;
-      await writePremiFiglia(figliaId, (retry.data || []) as Record<string, unknown>[]);
+      await writePremiFiglia(figliaId, (retry.data || []) as Record<string, unknown>[], fattore);
       return;
     }
     throw error;
   }
-  await writePremiFiglia(figliaId, (rows || []) as Record<string, unknown>[]);
+  await writePremiFiglia(figliaId, (rows || []) as Record<string, unknown>[], fattore);
 }
 
-async function writePremiFiglia(figliaId: string, rows: Record<string, unknown>[]): Promise<void> {
+async function writePremiFiglia(figliaId: string, rows: Record<string, unknown>[], fattore = 1): Promise<void> {
   const { error: delErr } = await supabase.from("premi_garanzia_polizza").delete().eq("titolo_id", figliaId);
   if (delErr) throw delErr;
   if (!rows.length) return;
@@ -146,7 +147,7 @@ async function writePremiFiglia(figliaId: string, rows: Record<string, unknown>[
   const firmaRows = rows.filter((r) => r.tipo_premio === "firma");
   const source = quietanzaRows.length ? quietanzaRows : firmaRows;
   const payload = source.map((r) => {
-    const rata = Number(r.tipo_premio === "quietanza" ? r.rata : r.firma) || 0;
+    const rata = Math.round((Number(r.tipo_premio === "quietanza" ? r.rata : r.firma) || 0) * fattore * 100) / 100;
     return {
       ...r,
       titolo_id: figliaId,
@@ -214,11 +215,15 @@ export async function copiaDatiPolizzaInQuietanza(madreId: string): Promise<Copi
   return { action: "create", quietanzaId: created.id };
 }
 
-/**
- * Nuova quietanza creata a mano (scheda cliente): rata successiva all'ultima della catena,
- * con dati e premi della polizza madre. Torna l'id da aprire per completarla.
- */
-export async function creaNuovaQuietanza(madreId: string): Promise<string> {
+export type DatiNuovaQuietanza = {
+  garanzia_da: string;
+  garanzia_a: string;
+  premio_netto: number;
+  tasse: number;
+  provvigioni: number;
+};
+
+async function caricaMadreECatena(madreId: string) {
   const { data: madre, error: madreErr } = await supabase
     .from("titoli")
     .select(MADRE_SELECT)
@@ -226,27 +231,62 @@ export async function creaNuovaQuietanza(madreId: string): Promise<string> {
     .maybeSingle();
   if (madreErr) throw madreErr;
   if (!madre) throw new Error("Polizza madre non trovata");
-
   const m = madre as CopiaDatiQuietanzaMadre;
   const { data: siblings, error: sibErr } = await supabase
     .from("titoli")
     .select("id, numero_titolo, riga, stato, sostituisce_polizza, data_messa_cassa, garanzia_a, is_appendice_modifica, is_proroga, is_regolazione")
     .eq("sostituisce_polizza", String(m.numero_titolo || "").trim());
   if (sibErr) throw sibErr;
+  return { madre: m, figlie: (siblings || []) as CopiaDatiQuietanzaFiglia[] };
+}
 
-  const periodo = periodoNuovaQuietanza(m, (siblings || []) as CopiaDatiQuietanzaFiglia[]);
+/** Valori proposti per la nuova quietanza: rata successiva all'ultima, importi della madre. */
+export async function anteprimaNuovaQuietanza(madreId: string): Promise<DatiNuovaQuietanza> {
+  const { madre, figlie } = await caricaMadreECatena(madreId);
+  const periodo = periodoNuovaQuietanza(madre, figlie);
   if ("reason" in periodo) throw new Error(periodo.reason);
-
-  const payload = {
-    ...buildQuietanzaFigliaInsertFromMadre(m, nextRigaQuietanza(m, (siblings || []) as CopiaDatiQuietanzaFiglia[])),
+  const imp = importiQuietanzaDaMadre(madre);
+  return {
     garanzia_da: periodo.garanzia_da,
     garanzia_a: periodo.garanzia_a,
-    data_competenza: periodo.garanzia_da,
+    premio_netto: imp.premio_netto ?? 0,
+    tasse: imp.tasse ?? 0,
+    provvigioni: imp.provvigioni_quietanza ?? 0,
+  };
+}
+
+/**
+ * Nuova quietanza creata a mano (scheda cliente) con i dati confermati nel dialog.
+ * Anagrafica, split e composizione premio vengono dalla madre.
+ */
+export async function creaNuovaQuietanza(madreId: string, dati: DatiNuovaQuietanza): Promise<string> {
+  if (!dati.garanzia_da || !dati.garanzia_a || dati.garanzia_a <= dati.garanzia_da) {
+    throw new Error("La fine garanzia deve essere dopo l'inizio.");
+  }
+  const { madre, figlie } = await caricaMadreECatena(madreId);
+  const gate = periodoNuovaQuietanza(madre, figlie);
+  if ("reason" in gate) throw new Error(gate.reason);
+
+  const payload = {
+    ...buildQuietanzaFigliaInsertFromMadre(madre, nextRigaQuietanza(madre, figlie)),
+    garanzia_da: dati.garanzia_da,
+    garanzia_a: dati.garanzia_a,
+    data_competenza: dati.garanzia_da,
+    data_scadenza: dati.garanzia_a,
+    premio_netto: dati.premio_netto,
+    premio_netto_quietanza: dati.premio_netto,
+    tasse: dati.tasse,
+    tasse_quietanza: dati.tasse,
+    provvigioni_firma: dati.provvigioni,
+    provvigioni_quietanza: dati.provvigioni,
   };
   const { data: created, error: insErr } = await supabase.from("titoli").insert(payload as any).select("id").single();
   if (insErr) throw insErr;
 
-  await clonePremiMadreSuFiglia(madreId, created.id);
+  // ponytail: se il netto cambia, le righe garanzia della madre si riscalano in proporzione;
+  // con più garanzie a ripartizione diversa va ritoccata a mano la composizione.
+  const nettoMadre = importiQuietanzaDaMadre(madre).premio_netto || 0;
+  await clonePremiMadreSuFiglia(madreId, created.id, nettoMadre > 0 ? dati.premio_netto / nettoMadre : 1);
   const { error: splitErr } = await supabase.rpc("sync_split_commerciali_to_children", { p_madre_id: madreId });
   if (splitErr) console.warn("[creaNuovaQuietanza] split:", splitErr.message);
   return created.id;
