@@ -992,7 +992,7 @@ function AgenzieCollegateDialog({
             <Network className="w-4 h-4 text-primary" />
             Rapporti aggiuntivi (plurimandatarie) — N:N
             <span className="text-xs text-muted-foreground font-normal">
-              gestibili dal tab "Agenzie" → colonna "Rapporti"
+              gestibili dal tab "Agenzie, Broker e Direzione" → colonna "Rapporti"
             </span>
           </h3>
 
@@ -1618,7 +1618,7 @@ const CompagnieList = () => {
             <Layers className="w-4 h-4" />Compagnie Assicurative
           </TabsTrigger>
           <TabsTrigger value="anagrafica" className="gap-2">
-            <Building2 className="w-4 h-4" />Agenzie
+            <Building2 className="w-4 h-4" />Agenzie, Broker e Direzione
           </TabsTrigger>
         </TabsList>
 
