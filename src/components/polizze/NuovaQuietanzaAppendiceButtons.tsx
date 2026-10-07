@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { FilePlus2, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,7 +113,14 @@ export function NuovaQuietanzaAppendiceButtons({ clienteId, titoli }: { clienteI
       </Button>
 
       <Dialog open={!!tipo} onOpenChange={(o) => !o && !saving && (nuovaId ? annullaDaChiusura() : chiudi())}>
-        <DialogContent className={nuovaId ? "max-w-5xl max-h-[90vh] overflow-y-auto" : "max-h-[90vh] overflow-y-auto"}>
+        <DialogContent
+          // Colonna a larghezza fissa + spazio riservato alla barra: senza, tabella garanzie larga → barra orizzontale
+          // → compare/sparisce la verticale → la larghezza cambia di nuovo (sfarfallio continuo)
+          className={cn(
+            "max-h-[90vh] grid-cols-[minmax(0,1fr)] overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]",
+            nuovaId && "w-[95vw] max-w-6xl",
+          )}
+        >
           <DialogHeader>
             <DialogTitle>{tipo === "quietanza" ? "Nuova quietanza" : "Nuova appendice"}</DialogTitle>
             <DialogDescription>

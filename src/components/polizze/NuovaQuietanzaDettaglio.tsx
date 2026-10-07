@@ -178,8 +178,8 @@ export function NuovaQuietanzaDettaglio({
 
   return (
     <>
-      <div className="space-y-6">
-        <section className="space-y-2">
+      <div className="min-w-0 space-y-6">
+        <section className="min-w-0 space-y-2">
           <h3 className="text-sm font-semibold">Garanzie, accessori e provvigioni</h3>
           <TitoloImportiPremiBlock
             ref={premiRef}
@@ -204,7 +204,7 @@ export function NuovaQuietanzaDettaglio({
           )}
         </section>
 
-        <section className="space-y-2">
+        <section className="min-w-0 space-y-2">
           <h3 className="text-sm font-semibold">Produttori</h3>
           <p className="text-xs text-muted-foreground">
             Provvigioni della rata: <strong>{fmtEuro(provvigioni)}</strong>. La % è la quota di provvigione di ciascun produttore.
