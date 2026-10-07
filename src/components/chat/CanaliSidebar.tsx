@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,8 @@ import {
   AlertTriangle,
   UserCheck,
   Loader2,
+  Mail,
+  MailOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -26,7 +29,7 @@ const PAGE_SIZE = 20;
 
 interface CanaliSidebarProps {
   canaleAttivoId: string | null;
-  onSelectCanale: (id: string) => void;
+  onSelectCanale: (id: string | null) => void;
   onNuovaConversazione: () => void;
   userId: string;
   ambito?: "interno" | "contestuale";
@@ -103,6 +106,34 @@ export default function CanaliSidebar({
   });
 
   const canali: CanaleMeta[] = useMemo(() => (pages?.pages || []).flat(), [pages]);
+
+  // Non letti per scheda: il totale del menu laterale somma Interna + Contestuale
+  const qc = useQueryClient();
+  const { data: unreadAmbito } = useQuery({
+    queryKey: ["chat_unread_ambito", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_chat_unread_per_ambito" as never);
+      if (error) throw error;
+      return Object.fromEntries(((data || []) as { ambito: string; unread: number }[]).map((r) => [r.ambito, Number(r.unread) || 0]));
+    },
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const toggleLetto = async (canale: CanaleMeta) => {
+    const daLeggere = !(Number(canale.unread_count) > 0);
+    const { data, error } = await supabase.rpc(
+      (daLeggere ? "mark_canale_as_unread" : "mark_canale_as_read") as never,
+      { _canale_id: canale.id } as never,
+    );
+    if (error) return toast.error("Stato di lettura non aggiornato", { description: error.message });
+    if (daLeggere && data === false) return toast.info("Nessun messaggio ricevuto in questa conversazione");
+    // La chat aperta si segnerebbe subito come letta: la chiudo
+    if (daLeggere && canale.id === canaleAttivoId) onSelectCanale(null);
+    qc.invalidateQueries({ queryKey: ["chat_canali_staff_meta"] });
+    qc.invalidateQueries({ queryKey: ["chat_unread_count"] });
+    qc.invalidateQueries({ queryKey: ["chat_unread_ambito"] });
+  };
 
   const { data: matchingCanaliIds } = useQuery({
     queryKey: ["chat_search_msg_staff", ricerca, userId],
@@ -291,12 +322,12 @@ export default function CanaliSidebar({
             }}
           >
             <TabsList className="w-full h-8">
-              <TabsTrigger value="interno" className="flex-1 text-xs">
-                Interna
-              </TabsTrigger>
-              <TabsTrigger value="contestuale" className="flex-1 text-xs">
-                Contestuale
-              </TabsTrigger>
+              {(["interno", "contestuale"] as const).map((a) => (
+                <TabsTrigger key={a} value={a} className="flex-1 gap-1.5 text-xs">
+                  {a === "interno" ? "Interna" : "Contestuale"}
+                  {(unreadAmbito?.[a] ?? 0) > 0 && <UnreadBadge n={unreadAmbito![a]} />}
+                </TabsTrigger>
+              ))}
             </TabsList>
           </Tabs>
         )}
@@ -345,11 +376,11 @@ export default function CanaliSidebar({
             const matchInMsg = ricerca && matchingCanaliIds?.has(canale.id);
 
             return (
+              <div key={canale.id} className="group relative">
               <button
-                key={canale.id}
                 onClick={() => onSelectCanale(canale.id)}
                 className={cn(
-                  "w-full flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-left transition-colors text-sm",
+                  "w-full flex items-start gap-2.5 pl-3 pr-10 py-2.5 rounded-lg text-left transition-colors text-sm",
                   isActive ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-muted"
                 )}
               >
@@ -384,15 +415,23 @@ export default function CanaliSidebar({
                           👤
                         </Badge>
                       )}
-                      {unread > 0 && (
-                        <Badge variant="default" className="h-4 min-w-[16px] rounded-full px-1 text-[9px]">
-                          {unread}
-                        </Badge>
-                      )}
+                      {unread > 0 && <UnreadBadge n={unread} />}
                     </div>
                   </div>
                 </div>
               </button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                title={unread > 0 ? "Segna come letta" : "Segna da leggere"}
+                aria-label={unread > 0 ? "Segna come letta" : "Segna da leggere"}
+                onClick={() => toggleLetto(canale)}
+              >
+                {unread > 0 ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+              </Button>
+              </div>
             );
           })}
           {!canaliFiltrati.length && (
@@ -408,5 +447,14 @@ export default function CanaliSidebar({
         </div>
       </ScrollArea>
     </div>
+  );
+}
+
+/** Stesso stile del badge "Comunicazioni" nel menu laterale. */
+function UnreadBadge({ n }: { n: number }) {
+  return (
+    <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground">
+      {n > 99 ? "99+" : n}
+    </span>
   );
 }

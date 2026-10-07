@@ -336,6 +336,9 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
         { event: "INSERT", schema: "public", table: "chat_messaggi_interni" },
         () => {
           qc.invalidateQueries({ queryKey: ["chat_unread_count", user.id] });
+          // Anche lista conversazioni e schede, se la pagina Chat è aperta
+          qc.invalidateQueries({ queryKey: ["chat_canali_staff_meta"] });
+          qc.invalidateQueries({ queryKey: ["chat_unread_ambito"] });
         }
       )
       .subscribe();

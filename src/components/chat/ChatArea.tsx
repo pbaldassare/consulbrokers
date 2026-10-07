@@ -127,6 +127,7 @@ export default function ChatArea({
     if (!canaleId || !profile?.id) return;
     supabase.rpc("mark_canale_as_read", { _canale_id: canaleId }).then(() => {
       qc.invalidateQueries({ queryKey: ["chat_unread_count"] });
+      qc.invalidateQueries({ queryKey: ["chat_unread_ambito"] });
       qc.invalidateQueries({ queryKey: ["chat_canali_staff_meta"] });
     });
   }, [canaleId, messaggi?.length, profile?.id, qc]);
