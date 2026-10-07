@@ -1,4 +1,6 @@
 import { isAppendice, isPolizzaMadre, isQuietanza, type TitoloLike } from "@/lib/quietanze";
+import { mesiRataFromFrazionamento } from "@/lib/quietanzePlan";
+import { isRataUnica } from "@/lib/frazionamento";
 
 /**
  * Copia dati della polizza → quietanze successive già esistenti (2..N).
@@ -306,4 +308,27 @@ export function buildQuietanzaFigliaUpdateFromMadre(
     sostituisce_polizza: numero,
     sostituisce_riga: madre.riga ?? 0,
   };
+}
+
+/**
+ * Periodo della nuova quietanza creata a mano dalla polizza madre:
+ * parte dalla fine garanzia più avanti nella catena (madre + rate) e dura una rata.
+ */
+export function periodoNuovaQuietanza(
+  madre: CopiaDatiQuietanzaMadre,
+  figlie: Array<CopiaDatiQuietanzaFiglia & { garanzia_a?: string | null }>,
+): { ok: true; garanzia_da: string; garanzia_a: string } | { ok: false; reason: string } {
+  const gate = canCopiaDatiInQuietanza(madre);
+  if (!gate.ok) return { ok: false, reason: gate.reason || "Quietanza non disponibile." };
+  if (madre.polizza_temporanea) return { ok: false, reason: "Polizza temporanea: non ha quietanze successive." };
+  const mesi = mesiRataFromFrazionamento(String(madre.frazionamento || ""));
+  if (mesi <= 0 || isRataUnica(madre.frazionamento)) return { ok: false, reason: "Polizza a rata unica: non ha quietanze successive." };
+  const fine = [madre.garanzia_a, ...filterQuietanzeFiglie(madre, figlie).map((q) => q.garanzia_a)]
+    .filter((d): d is string => !!d)
+    .sort()
+    .at(-1);
+  if (!fine) return { ok: false, reason: "Manca la fine garanzia della polizza." };
+  const [y, m, d] = fine.slice(0, 10).split("-").map(Number);
+  const a = new Date(Date.UTC(y, m - 1 + mesi, d)).toISOString().slice(0, 10);
+  return { ok: true, garanzia_da: fine.slice(0, 10), garanzia_a: a };
 }

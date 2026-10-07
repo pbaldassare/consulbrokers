@@ -4,6 +4,7 @@ import {
   buildQuietanzaFigliaUpdateFromMadre,
   decideCopiaDatiInQuietanza,
   nextRigaQuietanza,
+  periodoNuovaQuietanza,
   type CopiaDatiQuietanzaFiglia,
   type CopiaDatiQuietanzaMadre,
 } from "@/lib/copiaDatiQuietanza";
@@ -211,4 +212,42 @@ export async function copiaDatiPolizzaInQuietanza(madreId: string): Promise<Copi
   }
 
   return { action: "create", quietanzaId: created.id };
+}
+
+/**
+ * Nuova quietanza creata a mano (scheda cliente): rata successiva all'ultima della catena,
+ * con dati e premi della polizza madre. Torna l'id da aprire per completarla.
+ */
+export async function creaNuovaQuietanza(madreId: string): Promise<string> {
+  const { data: madre, error: madreErr } = await supabase
+    .from("titoli")
+    .select(MADRE_SELECT)
+    .eq("id", madreId)
+    .maybeSingle();
+  if (madreErr) throw madreErr;
+  if (!madre) throw new Error("Polizza madre non trovata");
+
+  const m = madre as CopiaDatiQuietanzaMadre;
+  const { data: siblings, error: sibErr } = await supabase
+    .from("titoli")
+    .select("id, numero_titolo, riga, stato, sostituisce_polizza, data_messa_cassa, garanzia_a, is_appendice_modifica, is_proroga, is_regolazione")
+    .eq("sostituisce_polizza", String(m.numero_titolo || "").trim());
+  if (sibErr) throw sibErr;
+
+  const periodo = periodoNuovaQuietanza(m, (siblings || []) as CopiaDatiQuietanzaFiglia[]);
+  if ("reason" in periodo) throw new Error(periodo.reason);
+
+  const payload = {
+    ...buildQuietanzaFigliaInsertFromMadre(m, nextRigaQuietanza(m, (siblings || []) as CopiaDatiQuietanzaFiglia[])),
+    garanzia_da: periodo.garanzia_da,
+    garanzia_a: periodo.garanzia_a,
+    data_competenza: periodo.garanzia_da,
+  };
+  const { data: created, error: insErr } = await supabase.from("titoli").insert(payload as any).select("id").single();
+  if (insErr) throw insErr;
+
+  await clonePremiMadreSuFiglia(madreId, created.id);
+  const { error: splitErr } = await supabase.rpc("sync_split_commerciali_to_children", { p_madre_id: madreId });
+  if (splitErr) console.warn("[creaNuovaQuietanza] split:", splitErr.message);
+  return created.id;
 }

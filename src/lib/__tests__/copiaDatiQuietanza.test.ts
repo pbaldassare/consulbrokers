@@ -8,6 +8,7 @@ import {
   importiQuietanzaDaMadre,
   isQuietanzaFigliaBloccata,
   nextRigaQuietanza,
+  periodoNuovaQuietanza,
   type CopiaDatiQuietanzaMadre,
 } from "../copiaDatiQuietanza";
 
@@ -155,5 +156,24 @@ describe("nextRigaQuietanza / filter / lock", () => {
     expect(isQuietanzaFigliaBloccata({ id: "q", sostituisce_polizza: "P", stato: "attivo" })).toBe(false);
     expect(isQuietanzaFigliaBloccata({ id: "q", sostituisce_polizza: "P", data_messa_cassa: "2026-01-01" })).toBe(true);
     expect(isQuietanzaFigliaBloccata({ id: "q", sostituisce_polizza: "P", is_proroga: true })).toBe(true);
+  });
+});
+
+describe("periodoNuovaQuietanza", () => {
+  const madre = {
+    id: "m", numero_titolo: "P1", riga: 0, stato: "incassato", sostituisce_polizza: null,
+    frazionamento: "Semestrale", garanzia_da: "2026-01-01", garanzia_a: "2026-07-01",
+  };
+
+  it("parte dalla fine della rata più avanti e dura una rata", () => {
+    const figlie = [{ id: "q1", numero_titolo: "P1", riga: 1, sostituisce_polizza: "P1", garanzia_a: "2027-01-01" }];
+    expect(periodoNuovaQuietanza(madre, figlie)).toEqual({ ok: true, garanzia_da: "2027-01-01", garanzia_a: "2027-07-01" });
+    expect(periodoNuovaQuietanza(madre, [])).toEqual({ ok: true, garanzia_da: "2026-07-01", garanzia_a: "2027-01-01" });
+  });
+
+  it("blocca rata unica, temporanea e polizze annullate", () => {
+    expect(periodoNuovaQuietanza({ ...madre, frazionamento: "Rata unica" }, []).ok).toBe(false);
+    expect(periodoNuovaQuietanza({ ...madre, polizza_temporanea: true }, []).ok).toBe(false);
+    expect(periodoNuovaQuietanza({ ...madre, stato: "annullato" }, []).ok).toBe(false);
   });
 });

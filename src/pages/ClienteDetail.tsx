@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, createContext, useContext, useMemo, Fragment } from "react";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
+import { NuovaQuietanzaAppendiceButtons } from "@/components/polizze/NuovaQuietanzaAppendiceButtons";
 import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { TipoFilterSegmented } from "@/components/polizze/TipoFilterSegmented";
 import { messaCassaRowBgClass, rowBorderClass, isMessaACassa } from "@/lib/polizzeDisplay";
@@ -3228,7 +3229,10 @@ export default function ClienteDetail() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base">Polizze del cliente</CardTitle>
-              <NuovaPolizzaButton clienteId={id} size="sm" />
+              <div className="flex flex-wrap items-center gap-2">
+                <NuovaQuietanzaAppendiceButtons clienteId={id!} titoli={polizze} />
+                <NuovaPolizzaButton clienteId={id} size="sm" />
+              </div>
             </CardHeader>
             <CardContent className="pt-2">
               {polizzeLoading ? (
