@@ -34,3 +34,6 @@ test-results/
 supabase/.temp/
 tests/.auth/
 
+
+# graphify (grafo locale del codice)
+graphify-out/
