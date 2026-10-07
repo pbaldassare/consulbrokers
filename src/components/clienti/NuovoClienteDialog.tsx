@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus } from "lucide-react";
+import { Calculator, Plus } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
@@ -20,6 +20,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
 import { parseCF } from "@/lib/parseCF";
 import { lookupComune } from "@/lib/comuniItaliani";
+import { calcolaCodiceFiscale, risolviComune, type ComuneCatastale } from "@/lib/codiceFiscale";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { validatePIVA } from "@/lib/validatePIVA";
 import { validateCF } from "@/lib/validateCF";
@@ -180,6 +181,46 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const [sesso, setSesso] = useState("");
   const [comuneNascita, setComuneNascita] = useState("");
   const [provinciaNascita, setProvinciaNascita] = useState("");
+  // Elenco ISTAT dei comuni (codice catastale): caricato solo quando serve
+  const [comuniCatastali, setComuniCatastali] = useState<ComuneCatastale[] | null>(null);
+  useEffect(() => {
+    if (!open || tipoCliente !== "privato" || comuniCatastali) return;
+    fetch("/data/comuni-catastali.json")
+      .then((r) => r.json())
+      .then((d: ComuneCatastale[]) => setComuniCatastali(d))
+      .catch(() => toast.error("Elenco comuni non disponibile: il codice fiscale va inserito a mano"));
+  }, [open, tipoCliente, comuniCatastali]);
+
+  const calcolaCF = () => {
+    const mancanti = [
+      !nome.trim() && "Nome",
+      !cognome.trim() && "Cognome",
+      !sesso && "Sesso",
+      !dataNascita && "Data di nascita",
+      !luogoNascita.trim() && "Luogo di nascita",
+    ].filter(Boolean);
+    if (mancanti.length) {
+      toast.error(`Per calcolare il codice fiscale manca: ${mancanti.join(", ")}`);
+      return;
+    }
+    if (!comuniCatastali) {
+      toast.info("Elenco comuni in caricamento, riprova tra un istante");
+      return;
+    }
+    const r = risolviComune(luogoNascita, comuniCatastali);
+    if (r.ok === false) {
+      toast.error(`${r.errore}. Per i nati all'estero inserisci il codice fiscale a mano.`);
+      return;
+    }
+    const [comune, sigla, codice] = r.comune;
+    setCodiceFiscale(
+      calcolaCodiceFiscale({ nome, cognome, sesso: sesso as "M" | "F", dataNascita, codiceCatastale: codice }),
+    );
+    setComuneNascita(comune);
+    setProvinciaNascita(sigla);
+    setLuogoNascita(`${comune} (${sigla})`);
+    toast.success("Codice fiscale calcolato");
+  };
   const [tipoSommario, setTipoSommario] = useState("");
   const [clienteNonCeduto, setClienteNonCeduto] = useState(false);
   const [aziendaSsnSx, setAziendaSsnSx] = useState(false);
@@ -805,7 +846,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 <div><Label>Cognome *</Label><Input value={cognome} onChange={(e) => setCognome(e.target.value)} className={!cognome.trim() ? "border-amber-400" : undefined} /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Codice Fiscale *</Label><FiscalCodeInput kind="cf16" enforcePattern required value={codiceFiscale} onChange={(val) => {
+                <div><Label>Codice Fiscale *</Label><div className="flex gap-2"><div className="flex-1"><FiscalCodeInput kind="cf16" enforcePattern required value={codiceFiscale} onChange={(val) => {
                   setCodiceFiscale(val);
                   if (val.length === 16) {
                     const parsed = parseCF(val);
@@ -822,9 +863,31 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                     }
                   }
                 }} /></div>
+                  <Button type="button" variant="outline" size="icon" onClick={calcolaCF}
+                    title="Calcola dal nome, cognome, sesso, data e luogo di nascita" aria-label="Calcola codice fiscale">
+                    <Calculator className="h-4 w-4" />
+                  </Button></div></div>
                 <div><Label>Data di Nascita</Label><Input type="date" value={dataNascita} onChange={(e) => setDataNascita(e.target.value)} /></div>
               </div>
-              <div><Label>Luogo di Nascita</Label><Input value={luogoNascita} onChange={(e) => setLuogoNascita(e.target.value)} /></div>
+              <div className="grid grid-cols-[1fr_10rem] gap-4">
+                <div>
+                  <Label>Luogo di Nascita</Label>
+                  <Input list="comuni-nascita" placeholder="es. Roma (RM)" value={luogoNascita} onChange={(e) => setLuogoNascita(e.target.value)} />
+                  <datalist id="comuni-nascita">
+                    {comuniCatastali?.map(([c, sg, cod]) => <option key={cod} value={`${c} (${sg})`} />)}
+                  </datalist>
+                </div>
+                <div>
+                  <Label>Sesso</Label>
+                  <Select value={sesso} onValueChange={setSesso}>
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="M">Maschio</SelectItem>
+                      <SelectItem value="F">Femmina</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="grid grid-cols-3 gap-4">
                 <div><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={!email.trim() ? "border-amber-400" : undefined} /></div>
                 <div><Label>Telefono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
