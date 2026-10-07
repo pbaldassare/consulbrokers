@@ -18,7 +18,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { logAttivita } from "@/lib/logAttivita";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
-import { fetchAppendiciPolizzaForTitolo } from "@/lib/appendiciPolizza";
+import { fetchNumeriAppendiceCliente, normalizzaNumeroAppendice, prossimoNumeroAppendice } from "@/lib/appendiciPolizza";
 import {
   labelTitoloRiferimento,
   numeroRataRiferimento,
@@ -146,23 +146,13 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     setEditorReady(true);
   }, []);
 
-  const { data: existing } = useQuery({
-    queryKey: ["appendici-count", madreId ?? titoloId],
-    enabled: !!(madreId ?? titoloId) && open,
-    queryFn: async () => {
-      const anchor = madreId ?? titoloId!;
-      const data = await fetchAppendiciPolizzaForTitolo(supabase, anchor);
-      return data.map((a) => ({ numero_appendice: a.numero_appendice }));
-    },
-  });
-
   const { data: titoloInfo } = useQuery({
     queryKey: ["titolo-scadenza", titoloId],
     enabled: !!titoloId && open,
     queryFn: async () => {
       const { data } = await supabase
         .from("titoli")
-        .select("data_scadenza, garanzia_da, garanzia_a, numero_titolo, premio_netto, provvigioni_firma")
+        .select("data_scadenza, garanzia_da, garanzia_a, numero_titolo, premio_netto, provvigioni_firma, cliente_anagrafica_id, cliente_id")
         .eq("id", titoloId!)
         .maybeSingle();
       if (!data) return null;
@@ -174,6 +164,13 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
           : null;
       return { ...data, percentuale_provvigione_calc: perc };
     },
+  });
+
+  // Numeri appendice già usati dal cliente (il numero è univoco per cliente, non per polizza)
+  const { data: numeriCliente } = useQuery({
+    queryKey: ["numeri-appendice-cliente", titoloInfo?.cliente_anagrafica_id ?? titoloInfo?.cliente_id],
+    enabled: open && !!titoloInfo,
+    queryFn: () => fetchNumeriAppendiceCliente(supabase, titoloInfo!),
   });
 
   // La catena non dipende solo dalla risoluzione di `titoloId`: se `titoloInfo`
@@ -234,12 +231,18 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     }
   }, [open]);
 
-  // Numero appendice: sempre derivato (campo readonly), non lo tocca l'utente.
+  // Numero appendice: libero; si propone il prossimo numero del cliente finché l'utente non lo cambia.
+  const numeroToccatoRef = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    const max = (existing || []).reduce((acc, a: { numero_appendice?: string }) => Math.max(acc, parseInt(a.numero_appendice || "0") || 0), 0);
-    setNumeroAppendice(String(max + 1));
-  }, [open, existing]);
+    if (!open) {
+      numeroToccatoRef.current = false;
+      return;
+    }
+    if (numeriCliente && !numeroToccatoRef.current) setNumeroAppendice(prossimoNumeroAppendice(numeriCliente));
+  }, [open, numeriCliente]);
+  const numeroDuplicato =
+    !!numeroAppendice.trim() &&
+    (numeriCliente || []).some((n) => normalizzaNumeroAppendice(n) === normalizzaNumeroAppendice(numeroAppendice));
 
   // Inizializza il form una sola volta per apertura, quando i dati del titolo
   // sono risolti. I refetch di `existing`/`titoloInfo` non ripristinano più i
@@ -313,6 +316,8 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
 
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
+    if (!numeroAppendice.trim()) e.numeroAppendice = "Numero appendice obbligatorio";
+    else if (numeroDuplicato) e.numeroAppendice = "Numero già usato per un'altra appendice di questo cliente";
     if (!dataEffetto) e.dataEffetto = "Data effetto obbligatoria";
     // La scadenza è opzionale per tutte le tipologie (le appendici sono
     // titoli-incasso autonomi, non richiedono la scadenza della polizza).
@@ -323,7 +328,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     if (tipo === "regolazione" && !titoloRifId) e.editor = "Seleziona il titolo di riferimento";
     else if (!editorReady) e.editor = "Caricamento composizione premi…";
     return e;
-  }, [dataEffetto, dataAppendice, tipo, titoloRifId, editorReady]);
+  }, [dataEffetto, dataAppendice, tipo, titoloRifId, editorReady, numeroAppendice, numeroDuplicato]);
 
   const hasErrors = Object.keys(errors).length > 0;
 
@@ -409,6 +414,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
           : undefined,
       });
       qc.invalidateQueries({ queryKey: ["appendici-polizza"] });
+      qc.invalidateQueries({ queryKey: ["numeri-appendice-cliente"] });
       qc.invalidateQueries({ queryKey: ["gestione-polizze"] });
       qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
       onCreated?.();
@@ -482,7 +488,16 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div>
           <Label className="text-xs">N° appendice *</Label>
-          <Input value={numeroAppendice} readOnly disabled className="bg-muted h-9" />
+          <Input
+            value={numeroAppendice}
+            maxLength={30}
+            onChange={(e) => {
+              numeroToccatoRef.current = true;
+              setNumeroAppendice(e.target.value);
+            }}
+            className={cn("h-9", errors.numeroAppendice && errClass)}
+          />
+          {errors.numeroAppendice && <p className="text-[11px] text-destructive mt-0.5">{errors.numeroAppendice}</p>}
         </div>
         <div>
           <Label className="text-xs">Tipo</Label>

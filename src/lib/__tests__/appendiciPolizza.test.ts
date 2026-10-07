@@ -3,6 +3,8 @@ import {
   buildAppendiceBaseOverrides,
   fetchAppendiciPolizzaForTitoli,
   linkAppendiceAPolizzaBase,
+  normalizzaNumeroAppendice,
+  prossimoNumeroAppendice,
 } from "@/lib/appendiciPolizza";
 import { groupTitoliByPolizza } from "@/lib/quietanze";
 import { computeFlatQuietanze } from "@/lib/polizzeClienteView";
@@ -90,5 +92,15 @@ describe("linkAppendiceAPolizzaBase / buildAppendiceBaseOverrides", () => {
       { titolo_id: "m", titolo_modifica_id: "am" },
     ]);
     expect(ov.size).toBe(0);
+  });
+});
+
+describe("numero appendice libero", () => {
+  it("propone il massimo numerico del cliente + 1, ignorando i numeri alfanumerici", () => {
+    expect(prossimoNumeroAppendice([])).toBe("1");
+    expect(prossimoNumeroAppendice(["1", "3", "A7", " 2 "])).toBe("4");
+  });
+  it("confronta senza spazi e maiuscole", () => {
+    expect(normalizzaNumeroAppendice(" ab-12 ")).toBe(normalizzaNumeroAppendice("AB-12"));
   });
 });
