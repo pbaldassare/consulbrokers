@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { Calculator, Plus } from "lucide-react";
+import { IdCard, Plus } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
@@ -865,7 +865,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 }} /></div>
                   <Button type="button" variant="outline" size="icon" onClick={calcolaCF}
                     title="Calcola dal nome, cognome, sesso, data e luogo di nascita" aria-label="Calcola codice fiscale">
-                    <Calculator className="h-4 w-4" />
+                    <IdCard className="h-4 w-4" />
                   </Button></div></div>
                 <div><Label>Data di Nascita</Label><Input type="date" value={dataNascita} onChange={(e) => setDataNascita(e.target.value)} /></div>
               </div>
