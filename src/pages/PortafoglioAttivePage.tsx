@@ -176,12 +176,12 @@ const PortafoglioAttivePage = () => {
     return (
     <>
       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
+      <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_da ?? d.inizioGaranzia) : "—"}</TableCell>
+      <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_a ?? d.fineGaranzia) : "—"}</TableCell>
       <TableCell>{p.compagnia_nome || "—"}</TableCell>
       <TableCell>{p.ramo_nome || "—"}</TableCell>
       <TableCell>{isPolizzaMadreRow(p) ? fmtDate(d.inizioPolizza) : "—"}</TableCell>
       <TableCell>{isPolizzaMadreRow(p) ? fmtDate(d.finePolizza) : "—"}</TableCell>
-      <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_da ?? d.inizioGaranzia) : "—"}</TableCell>
-      <TableCell>{isQuietanzaRow(p) ? fmtDate(p.garanzia_a ?? d.fineGaranzia) : "—"}</TableCell>
       <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
       <TableCell>{frazLabel(p.rate)}</TableCell>
       <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
@@ -321,12 +321,12 @@ const PortafoglioAttivePage = () => {
                   <SortableTableHead field={TIPO_SORT_FIELD} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Ordina per tipo">Tipo</SortableTableHead>
                   <TableHead>Polizza madre</TableHead>
                   <TableHead>Cliente</TableHead>
+                  <SortableTableHead field="inizioGaranzia" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Periodo di garanzia della quietanza">Inizio Garanzia</SortableTableHead>
+                  <SortableTableHead field="fineGaranzia" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Periodo di garanzia della quietanza">Fine Garanzia</SortableTableHead>
                   <TableHead>Agenzia</TableHead>
                   <SortableTableHead field="ramo_nome" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Ordina per garanzia">Garanzia</SortableTableHead>
                   <SortableTableHead field="inizioPolizza" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Inizio durata complessiva del contratto">Inizio Polizza</SortableTableHead>
                   <SortableTableHead field="finePolizza" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Fine durata complessiva del contratto">Fine Polizza</SortableTableHead>
-                  <SortableTableHead field="inizioGaranzia" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Periodo di garanzia della quietanza">Inizio Garanzia</SortableTableHead>
-                  <SortableTableHead field="fineGaranzia" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} title="Periodo di garanzia della quietanza">Fine Garanzia</SortableTableHead>
                   <TableHead>Targa</TableHead>
                   <TableHead>Fraz</TableHead>
                   <TableHead className="text-right">Lordo</TableHead>

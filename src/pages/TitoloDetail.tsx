@@ -3135,6 +3135,8 @@ const TitoloDetail = () => {
                 </Button>
               </div>
             ) : <FieldRow label="Cliente" value="—" />}
+            <FieldRow label="Inizio Garanzia" value={fmtDate(t.garanzia_da)} />
+            <FieldRow label="Fine Garanzia" value={fmtDate(t.garanzia_a)} />
             {(t.cliente_anagrafica?.gruppi_finanziari?.tipo_soggetto === "ente" || t.cliente_anagrafica?.tipo_cliente === "ente") && (
               <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
             )}
@@ -3420,8 +3422,6 @@ const TitoloDetail = () => {
             <FieldRow label="Frazionamento" value={t.polizza_temporanea ? "—" : (t.frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata))} />
             <FieldRow label="Polizza temporanea" value={t.polizza_temporanea ? "Sì" : "No"} />
             <FieldRow label="Polizza rateo" value={t.polizza_rateo ? "Sì" : "No"} />
-            <FieldRow label="Garanzia Da" value={fmtDate(t.garanzia_da)} />
-            <FieldRow label="Garanzia A" value={fmtDate(t.garanzia_a)} />
             <FieldRow label="Data Competenza" value={fmtDate(t.data_competenza)} />
             <FieldRow label="Data Scadenza" value={fmtDate(t.data_scadenza)} />
             <FieldRow label="Limite Mora" value={fmtDate(t.limite_mora)} />
