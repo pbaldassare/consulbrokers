@@ -57,7 +57,7 @@ export function validateCbBotDocFiles(files: { name: string; type?: string; size
   }
   for (const f of files) {
     const check = isCbBotDocFileAllowed(f);
-    if (!check.ok) return check;
+    if (!check.ok) return { ok: false, reason: check.reason };
   }
   return { ok: true, files };
 }

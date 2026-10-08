@@ -35,12 +35,13 @@ export function isTipoSortField(field: string): boolean {
  * (la vista non espone titoli.tipo).
  */
 export function applyPortafoglioTipoOrder<T>(q: T, ascending: boolean): T {
-  const next = q as {
-    order: (col: string, opts: { ascending: boolean; nullsFirst: boolean }) => T;
+  type Orderable = {
+    order: (col: string, opts: { ascending: boolean; nullsFirst: boolean }) => Orderable;
   };
+  const next = q as unknown as Orderable;
   return next
     .order("is_appendice_modifica", { ascending, nullsFirst: true })
     .order("is_proroga", { ascending, nullsFirst: true })
     .order("is_regolazione", { ascending, nullsFirst: true })
-    .order("sostituisce_polizza", { ascending, nullsFirst: true });
+    .order("sostituisce_polizza", { ascending, nullsFirst: true }) as unknown as T;
 }

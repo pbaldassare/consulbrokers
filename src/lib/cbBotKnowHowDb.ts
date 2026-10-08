@@ -76,7 +76,7 @@ export async function promoteKnowHowConsultazione(
   if (error) throw error;
 
   let saved = 0;
-  for (const pair of pairUserAssistant((data ?? []) as { id?: string; role: string; content: string; fonti?: unknown }[])) {
+  for (const pair of pairUserAssistant((data ?? []) as { id?: string; role: string; content: string; fonti?: any }[])) {
     const { error: insErr } = await supabase.rpc("cb_bot_insert_know_how_consultazione", {
       p_email: email,
       p_tipo: tipo,

@@ -42,7 +42,11 @@ async function fetchOrCreateTemplate(opts: {
   if (data) {
     return { ...data, layout_json: parseSommarioLayoutJson(data.layout_json) };
   }
-  const layout_key = defaultLayoutKeyForCliente(opts);
+  const layout_key = defaultLayoutKeyForCliente({
+    id: opts.clienteId,
+    ragione_sociale: opts.ragioneSociale,
+    partita_iva: opts.partitaIva,
+  });
   const { data: created, error: insErr } = await table()
     .insert({
       cliente_id: opts.clienteId,
