@@ -150,11 +150,51 @@ const ECAgenzieStoricoPage = () => {
 
   return (
     <div className="space-y-6">
+      <Dialog open={!!piani?.length} onOpenChange={(o) => { if (!o && !busyExec) setPiani(null); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Correzione provvigioni E/C archiviati</DialogTitle>
+            <DialogDescription>
+              {piani?.length} E/C verranno rigenerati con stesso numero, data e righe: cambia solo la provvigione
+              (vince il valore scritto sulla polizza). Il PDF archiviato verrà sostituito.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {(piani || []).map((p) => (
+              <div key={p.archivio.id} className="border rounded-md p-3">
+                <div className="flex justify-between text-sm font-medium">
+                  <span className="font-mono">{p.archivio.riferimento}</span>
+                  <span>Totale provvigioni: {eur(p.totaleProvvPrima)} → {eur(p.totaleProvvDopo)}</span>
+                </div>
+                <ul className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                  {p.diff.map((d) => (
+                    <li key={d.polizza} className="flex justify-between">
+                      <span className="font-mono">{d.polizza}</span>
+                      <span>{eur(d.prima)} → <span className="text-foreground font-medium">{eur(d.dopo)}</span></span>
+                    </li>
+                  ))}
+                </ul>
+                {p.mancanti.length > 0 && (
+                  <p className="mt-2 text-xs text-destructive">Titoli non trovati: {p.mancanti.join(", ")} — questo E/C non verrà sovrascritto.</p>
+                )}
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={busyExec} onClick={() => setPiani(null)}>Annulla</Button>
+            <Button disabled={busyExec} onClick={handleEseguiTutti}>
+              <RefreshCw className={`h-4 w-4 mr-1 ${busyExec ? "animate-spin" : ""}`} />
+              {busyExec ? "Rigenerazione…" : "Rigenera e sostituisci"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
           <FileText className="w-5 h-5 text-primary" />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">Storico E/C Agenzie</h1>
           <p className="text-sm text-muted-foreground">
             PDF archiviati — cerca per riferimento progressivo, cliente, polizza o pagamento (MI)
