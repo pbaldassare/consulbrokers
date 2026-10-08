@@ -1,23 +1,42 @@
 import { useState, useEffect } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileText, Search } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Download, FileText, Search, RefreshCw, Wrench } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   cercaEcAgenziaStorico,
   formatClientiAnteprima,
   type EcAgenziaStoricoRow,
 } from "@/lib/contabilita/ecAgenziaArchivio";
+import {
+  caricaArchivioByDocumento,
+  eseguiRigenerazione,
+  pianificaRigenerazione,
+  trovaEcAgenziaDaCorreggere,
+  type PianoRigenerazione,
+} from "@/lib/contabilita/rigeneraEcAgenzia";
+
+const eur = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const ECAgenzieStoricoPage = () => {
+  const { isAdmin } = useAuth();
+  const qc = useQueryClient();
+  const [piani, setPiani] = useState<PianoRigenerazione[] | null>(null);
+  const [busyScan, setBusyScan] = useState(false);
+  const [busyExec, setBusyExec] = useState(false);
+  const [busyRow, setBusyRow] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [riferimento, setRiferimento] = useState("");
   const [cliente, setCliente] = useState("");
@@ -29,6 +48,49 @@ const ECAgenzieStoricoPage = () => {
   const { page, setPage, pageSize, range } = useServerPagination(25, filterKey);
 
   useEffect(() => { setPage(0); }, filterKey); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleScan = async () => {
+    try {
+      setBusyScan(true);
+      const res = await trovaEcAgenziaDaCorreggere();
+      if (!res.length) toast.success("Nessun E/C con provvigioni da correggere");
+      setPiani(res);
+    } catch (e: any) {
+      toast.error("Errore analisi: " + (e?.message || e));
+    } finally { setBusyScan(false); }
+  };
+
+  const handleEseguiTutti = async () => {
+    if (!piani?.length) return;
+    setBusyExec(true);
+    let ok = 0;
+    const errori: string[] = [];
+    for (const p of piani) {
+      try { await eseguiRigenerazione(p); ok++; }
+      catch (e: any) { errori.push(`${p.archivio.riferimento}: ${e?.message || e}`); }
+    }
+    setBusyExec(false);
+    setPiani(null);
+    qc.invalidateQueries({ queryKey: ["ec-agenzie-storico"] });
+    if (ok) toast.success(`${ok} E/C rigenerati e sostituiti`);
+    if (errori.length) toast.error(`Non rigenerati: ${errori.join(" · ")}`, { duration: 15000 });
+  };
+
+  const handleRigeneraRiga = async (documentoId: string) => {
+    try {
+      setBusyRow(documentoId);
+      const a = await caricaArchivioByDocumento(documentoId);
+      if (!a) throw new Error("Archivio non trovato");
+      const p = await pianificaRigenerazione(a);
+      if (!p.diff.length) {
+        toast.info("Provvigioni già corrette: nessuna modifica necessaria");
+        return;
+      }
+      setPiani([p]);
+    } catch (e: any) {
+      toast.error("Errore: " + (e?.message || e));
+    } finally { setBusyRow(null); }
+  };
 
   const { data: agenzieOpts = [] } = useQuery({
     queryKey: ["ec-agenzie-storico-agenzie"],
@@ -88,16 +150,62 @@ const ECAgenzieStoricoPage = () => {
 
   return (
     <div className="space-y-6">
+      <Dialog open={!!piani?.length} onOpenChange={(o) => { if (!o && !busyExec) setPiani(null); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Correzione provvigioni E/C archiviati</DialogTitle>
+            <DialogDescription>
+              {piani?.length} E/C verranno rigenerati con stesso numero, data e righe: cambia solo la provvigione
+              (vince il valore scritto sulla polizza). Il PDF archiviato verrà sostituito.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {(piani || []).map((p) => (
+              <div key={p.archivio.id} className="border rounded-md p-3">
+                <div className="flex justify-between text-sm font-medium">
+                  <span className="font-mono">{p.archivio.riferimento}</span>
+                  <span>Totale provvigioni: {eur(p.totaleProvvPrima)} → {eur(p.totaleProvvDopo)}</span>
+                </div>
+                <ul className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                  {p.diff.map((d) => (
+                    <li key={d.polizza} className="flex justify-between">
+                      <span className="font-mono">{d.polizza}</span>
+                      <span>{eur(d.prima)} → <span className="text-foreground font-medium">{eur(d.dopo)}</span></span>
+                    </li>
+                  ))}
+                </ul>
+                {p.mancanti.length > 0 && (
+                  <p className="mt-2 text-xs text-destructive">Titoli non trovati: {p.mancanti.join(", ")} — questo E/C non verrà sovrascritto.</p>
+                )}
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={busyExec} onClick={() => setPiani(null)}>Annulla</Button>
+            <Button disabled={busyExec} onClick={handleEseguiTutti}>
+              <RefreshCw className={`h-4 w-4 mr-1 ${busyExec ? "animate-spin" : ""}`} />
+              {busyExec ? "Rigenerazione…" : "Rigenera e sostituisci"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
           <FileText className="w-5 h-5 text-primary" />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">Storico E/C Agenzie</h1>
           <p className="text-sm text-muted-foreground">
             PDF archiviati — cerca per riferimento progressivo, cliente, polizza o pagamento (MI)
           </p>
         </div>
+        {isAdmin && (
+          <Button variant="outline" onClick={handleScan} disabled={busyScan}>
+            <Wrench className={`h-4 w-4 mr-1 ${busyScan ? "animate-pulse" : ""}`} />
+            {busyScan ? "Analisi in corso…" : "Correggi provvigioni E/C"}
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -173,9 +281,22 @@ const ECAgenzieStoricoPage = () => {
                   {formatClientiAnteprima(d.righe)}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button size="sm" variant="outline" onClick={() => handleDownload(d)}>
-                    <Download className="h-3.5 w-3.5 mr-1" /> Scarica
-                  </Button>
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="outline" onClick={() => handleDownload(d)}>
+                      <Download className="h-3.5 w-3.5 mr-1" /> Scarica
+                    </Button>
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Rigenera con provvigioni corrette"
+                        disabled={busyRow === d.documento_id}
+                        onClick={() => handleRigeneraRiga(d.documento_id)}
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${busyRow === d.documento_id ? "animate-spin" : ""}`} />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
