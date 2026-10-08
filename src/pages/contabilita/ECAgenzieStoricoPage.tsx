@@ -1,23 +1,42 @@
 import { useState, useEffect } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileText, Search } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Download, FileText, Search, RefreshCw, Wrench } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   cercaEcAgenziaStorico,
   formatClientiAnteprima,
   type EcAgenziaStoricoRow,
 } from "@/lib/contabilita/ecAgenziaArchivio";
+import {
+  caricaArchivioByDocumento,
+  eseguiRigenerazione,
+  pianificaRigenerazione,
+  trovaEcAgenziaDaCorreggere,
+  type PianoRigenerazione,
+} from "@/lib/contabilita/rigeneraEcAgenzia";
+
+const eur = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const ECAgenzieStoricoPage = () => {
+  const { isAdmin } = useAuth();
+  const qc = useQueryClient();
+  const [piani, setPiani] = useState<PianoRigenerazione[] | null>(null);
+  const [busyScan, setBusyScan] = useState(false);
+  const [busyExec, setBusyExec] = useState(false);
+  const [busyRow, setBusyRow] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [riferimento, setRiferimento] = useState("");
   const [cliente, setCliente] = useState("");
@@ -29,6 +48,49 @@ const ECAgenzieStoricoPage = () => {
   const { page, setPage, pageSize, range } = useServerPagination(25, filterKey);
 
   useEffect(() => { setPage(0); }, filterKey); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleScan = async () => {
+    try {
+      setBusyScan(true);
+      const res = await trovaEcAgenziaDaCorreggere();
+      if (!res.length) toast.success("Nessun E/C con provvigioni da correggere");
+      setPiani(res);
+    } catch (e: any) {
+      toast.error("Errore analisi: " + (e?.message || e));
+    } finally { setBusyScan(false); }
+  };
+
+  const handleEseguiTutti = async () => {
+    if (!piani?.length) return;
+    setBusyExec(true);
+    let ok = 0;
+    const errori: string[] = [];
+    for (const p of piani) {
+      try { await eseguiRigenerazione(p); ok++; }
+      catch (e: any) { errori.push(`${p.archivio.riferimento}: ${e?.message || e}`); }
+    }
+    setBusyExec(false);
+    setPiani(null);
+    qc.invalidateQueries({ queryKey: ["ec-agenzie-storico"] });
+    if (ok) toast.success(`${ok} E/C rigenerati e sostituiti`);
+    if (errori.length) toast.error(`Non rigenerati: ${errori.join(" · ")}`, { duration: 15000 });
+  };
+
+  const handleRigeneraRiga = async (documentoId: string) => {
+    try {
+      setBusyRow(documentoId);
+      const a = await caricaArchivioByDocumento(documentoId);
+      if (!a) throw new Error("Archivio non trovato");
+      const p = await pianificaRigenerazione(a);
+      if (!p.diff.length) {
+        toast.info("Provvigioni già corrette: nessuna modifica necessaria");
+        return;
+      }
+      setPiani([p]);
+    } catch (e: any) {
+      toast.error("Errore: " + (e?.message || e));
+    } finally { setBusyRow(null); }
+  };
 
   const { data: agenzieOpts = [] } = useQuery({
     queryKey: ["ec-agenzie-storico-agenzie"],
