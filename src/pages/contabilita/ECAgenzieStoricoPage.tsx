@@ -200,6 +200,12 @@ const ECAgenzieStoricoPage = () => {
             PDF archiviati — cerca per riferimento progressivo, cliente, polizza o pagamento (MI)
           </p>
         </div>
+        {isAdmin && (
+          <Button variant="outline" onClick={handleScan} disabled={busyScan}>
+            <Wrench className={`h-4 w-4 mr-1 ${busyScan ? "animate-pulse" : ""}`} />
+            {busyScan ? "Analisi in corso…" : "Correggi provvigioni E/C"}
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -275,9 +281,22 @@ const ECAgenzieStoricoPage = () => {
                   {formatClientiAnteprima(d.righe)}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button size="sm" variant="outline" onClick={() => handleDownload(d)}>
-                    <Download className="h-3.5 w-3.5 mr-1" /> Scarica
-                  </Button>
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="outline" onClick={() => handleDownload(d)}>
+                      <Download className="h-3.5 w-3.5 mr-1" /> Scarica
+                    </Button>
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Rigenera con provvigioni corrette"
+                        disabled={busyRow === d.documento_id}
+                        onClick={() => handleRigeneraRiga(d.documento_id)}
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${busyRow === d.documento_id ? "animate-spin" : ""}`} />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
