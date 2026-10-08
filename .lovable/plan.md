@@ -1,49 +1,27 @@
-## Obiettivo
+# Fix provvigioni E/C: rispettare lo zero scritto a mano
 
-Allineare il codebase attuale a `github.com/pbaldassare/consulbrokers` branch `main`, assunto come fonte di verità.
+## Problema
+Sulla polizza 184683970 (rata di marzo, premio 0,00 €, incasso a zero) l'Estratto Conto Agenzia ha accreditato 23,57 € di provvigioni non dovute. Causa: la funzione di calcolo `getProvvigioneEC` (in `src/lib/getProvvigioneEC.ts`) ignora lo zero scritto dall'operatore e prende il valore della quietanza quando questo è maggiore di zero:
 
-## Contesto verificato
+```ts
+return quietanza > 0 ? quietanza : firma;
+```
 
-- Branch di lavoro locale = `origin/main` (mirror interno Lovable): 0 commit di differenza, working tree clean.
-- Nessun URL `github.com` referenziato in `.git/config` o nel progetto.
-- Cercando "Acconti" nel codebase attuale: la label è `"Acconti"` in sidebar, breadcrumb, card cliente e chip. La stringa `"Acconti e Compensazioni"` non esiste da nessuna parte.
-- Conclusione: se GitHub ha "Acconti e Compensazioni" (o altre differenze), la Lovable↔GitHub sync non ha portato indietro quei commit. Va verificato clonando davvero il repo.
+Regola richiesta: **il valore inserito a mano vince sempre**. Se l'operatore scrive zero, la provvigione deve restare zero — nessun override automatico.
 
-## Passi
+## Modifica
+In `src/lib/getProvvigioneEC.ts` cambiare la logica in:
 
-1. **Clone** in `/tmp/ghcheck/consulbrokers` (fuori dal progetto, non tocca `/dev-server/.git`).
-2. **Diff strutturale**:
-   - `diff -rq /tmp/ghcheck/consulbrokers /dev-server` filtrato per escludere `node_modules`, `dist`, `.git`, `bun.lock*`, `package-lock.json`.
-   - Elenco: file solo su GitHub, file solo in locale, file diversi.
-3. **Diff per aree critiche** (per capire la natura delle divergenze):
-   - `src/pages/**`, `src/components/**`, `src/routes/**`, `src/lib/**`
-   - `src/components/AppSidebar.tsx` e `src/components/PageBreadcrumb.tsx` (verifica label "Acconti")
-   - `supabase/migrations/**` e `supabase/functions/**`
-   - `index.html`, `package.json`, `tailwind.config.*`, `vite.config.*`
-4. **Report sintetico** all'utente prima di scrivere:
-   - N file da aggiornare, N da creare, N da rimuovere.
-   - Elenco puntuale con dimensione del delta (righe +/-) per i primi 30 file più grossi.
-   - Segnalazione esplicita di: migrations nuove (potenziale impatto DB), edge functions nuove/modificate, cambi di schema tipi Supabase (`src/integrations/supabase/types.ts`), route/permessi diversi.
-5. **Sospensione per conferma**: chiedo esplicitamente l'ok prima di sovrascrivere. Motivo: gli ultimi commit locali (`Fixed CfoExplorer TS errors`, `Aggiornato annullamento incasso`, migrazioni `data_copertura` / `coassicurazione` / `note_interne`, RPC `annulla_quietanza_incasso` aggiornata) potrebbero non essere su GitHub e andrebbero persi.
-6. **Applicazione dell'allineamento** (dopo conferma):
-   - Copia file per file dallo stato GitHub → locale, escludendo qualsiasi cosa dentro `.git/`, `node_modules/`, `dist/`, `.lovable/`, e lock file di bun a meno che tu non chieda esplicitamente di allinearli.
-   - Rimozione dei file presenti solo in locale ma non su GitHub, previa conferma per lista.
-   - Non tocco `src/integrations/supabase/client.ts` e `types.ts` se sono generati (verifico prima).
-7. **Post-allineamento**:
-   - Se ci sono migrations nuove da GitHub non ancora applicate al DB, le eseguo con lo strumento migration di Supabase.
-   - Verifico che il build TypeScript passi; sistemo eventuali rotture minori nate dal merge.
+- **Quietanza/rata** (`sostituisce_polizza` presente): usa `provvigioni_quietanza` così com'è (zero compreso).
+- **Polizza madre**: usa `provvigioni_firma` se il campo è valorizzato (anche se vale 0); solo se `provvigioni_firma` è **null/vuoto** (mai compilato) si ripiega su `provvigioni_quietanza`.
 
-## Cosa NON faccio in questo piano
+In pratica: lo zero esplicito non viene più sostituito; il fallback sulla quietanza scatta solo quando il campo firma non è mai stato impostato.
 
-- Non tocco il DB oltre alle migrations che risultano nuove su GitHub.
-- Non uccido i commit locali finché non hai visto la lista delle differenze e detto "procedi".
-- Non allineo `bun.lock*` / `package-lock.json` (rigenerati da `bun install`) a meno che tu lo chieda.
+## Verifica
+- Aggiornare/estendere il test unitario `src/lib/__tests__/getProvvigioneEC.test.ts` con i casi: firma=0 + quietanza=23,57 → 0; firma=null + quietanza=23,57 → 23,57; quietanza su rata → valore quietanza.
+- Eseguire i test e il typecheck.
+- Verificare che il caso 184683970 (marzo) risulterebbe a 0,00 € e che i casi legacy (madri con solo quietanza valorizzata) restino invariati.
 
-## Domanda unica prima di partire
-
-Se durante lo step 4 vedo che l'allineamento **cancellerebbe** i tuoi ultimi commit locali (migrations e RPC citate sopra), come devo comportarmi?
-- (A) Vince sempre GitHub → sovrascrivo tutto.
-- (B) Fermo tutto e ti mostro cosa perderesti → decidi tu file per file.
-- (C) Vince sempre il locale in caso di conflitto → uso GitHub solo per aggiungere file/rinomine ma non per sovrascrivere.
-
-Il default che consiglio è **(B)**.
+## Note tecniche
+- La distinzione tra "zero scritto" e "mai compilato" si basa su `null`/`undefined` vs `0`: il trigger `trg_titoli_normalizza_importi` e le form scrivono 0 esplicito quando l'operatore azzera il campo.
+- Nessuna modifica al database né ai dati esistenti: la correzione riguarda solo il calcolo in lettura dell'E/C. L'E/C `B0879/261006` già generato resta come è (eventuale storno/rettifica da valutare a parte).
