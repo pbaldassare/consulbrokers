@@ -1286,6 +1286,57 @@ export type Database = {
         }
         Relationships: []
       }
+      bak_movbanc_date_20261007: {
+        Row: {
+          caricato_da: string | null
+          carico_id: string | null
+          cliente_id: string | null
+          conto_bancario_id: string | null
+          created_at: string | null
+          data_movimento: string | null
+          descrizione: string | null
+          id: string | null
+          importo: number | null
+          note: string | null
+          ordinante: string | null
+          stato: Database["public"]["Enums"]["movimento_bancario_stato"] | null
+          ufficio_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          caricato_da?: string | null
+          carico_id?: string | null
+          cliente_id?: string | null
+          conto_bancario_id?: string | null
+          created_at?: string | null
+          data_movimento?: string | null
+          descrizione?: string | null
+          id?: string | null
+          importo?: number | null
+          note?: string | null
+          ordinante?: string | null
+          stato?: Database["public"]["Enums"]["movimento_bancario_stato"] | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          caricato_da?: string | null
+          carico_id?: string | null
+          cliente_id?: string | null
+          conto_bancario_id?: string | null
+          created_at?: string | null
+          data_movimento?: string | null
+          descrizione?: string | null
+          id?: string | null
+          importo?: number | null
+          note?: string | null
+          ordinante?: string | null
+          stato?: Database["public"]["Enums"]["movimento_bancario_stato"] | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       bak_rm2_20261005_map: {
         Row: {
           created_at: string | null
@@ -16702,6 +16753,7 @@ export type Database = {
         Args: { p_madre_id: string }
         Returns: undefined
       }
+      conferma_messa_cassa: { Args: { p: Json }; Returns: Json }
       copy_titoli_split_commerciali: {
         Args: { p_source: string; p_target: string }
         Returns: undefined
@@ -16755,6 +16807,10 @@ export type Database = {
       elimina_quietanza_cascade: {
         Args: { p_titolo_id: string }
         Returns: Json
+      }
+      elimina_support_ticket: {
+        Args: { p_ticket_id: string }
+        Returns: undefined
       }
       ensure_default_rapporto: {
         Args: { _compagnia_id: string }
@@ -16934,6 +16990,13 @@ export type Database = {
         }[]
       }
       get_chat_unread_count: { Args: { _user_id: string }; Returns: number }
+      get_chat_unread_per_ambito: {
+        Args: never
+        Returns: {
+          ambito: string
+          unread: number
+        }[]
+      }
       get_iban_cliente: {
         Args: { p_cliente_id: string }
         Returns: {
@@ -16991,6 +17054,7 @@ export type Database = {
         Returns: Json
       }
       mark_canale_as_read: { Args: { _canale_id: string }; Returns: undefined }
+      mark_canale_as_unread: { Args: { _canale_id: string }; Returns: boolean }
       merge_cliente_atomico: {
         Args: { _legacy_id: string; _master_id: string }
         Returns: Json
