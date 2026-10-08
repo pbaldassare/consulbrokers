@@ -8,11 +8,18 @@ export type TitoloProvvigioneEC = {
 /**
  * Provvigione per titoli incassati in E/C Agenzie/Compagnia.
  * Evita il doppio conteggio firma + quietanza (es. quietanza incassata con entrambi a 150 → 150, non 300).
- * Quietanza/rata: solo provvigioni_quietanza; polizza madre legacy: provvigioni_firma.
+ *
+ * Regola: il valore scritto a mano vince sempre, zero compreso.
+ * - Quietanza/rata: solo provvigioni_quietanza (zero compreso).
+ * - Polizza madre: provvigioni_firma se il campo è valorizzato (anche 0 esplicito);
+ *   il fallback su provvigioni_quietanza scatta solo quando firma è null/vuoto
+ *   (mai compilato, casi legacy).
  */
 export function getProvvigioneEC(titolo: TitoloProvvigioneEC): number {
-  const firma = Number(titolo.provvigioni_firma) || 0;
   const quietanza = Number(titolo.provvigioni_quietanza) || 0;
   if (titolo.sostituisce_polizza) return quietanza;
-  return quietanza > 0 ? quietanza : firma;
+  if (titolo.provvigioni_firma !== null && titolo.provvigioni_firma !== undefined) {
+    return Number(titolo.provvigioni_firma) || 0;
+  }
+  return quietanza;
 }
