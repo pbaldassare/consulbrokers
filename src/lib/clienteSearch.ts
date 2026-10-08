@@ -17,6 +17,10 @@ export type ClienteSearchRow = ClienteEcAnagrafica & {
   codice_cliente?: string | null;
   telefono?: string | null;
   cellulare?: string | null;
+  indirizzo_alternativo?: string | null;
+  cap_alternativo?: string | null;
+  citta_alternativa?: string | null;
+  provincia_alternativa?: string | null;
   gruppo_statistico?: string | null;
   nominativi?: Array<{ nome?: string | null; cognome?: string | null }>;
 };

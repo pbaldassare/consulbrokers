@@ -321,10 +321,10 @@ const TITOLI_INCASSO_SELECT = [
   "uffici(nome_ufficio)",
 ].join(", ");
 
-function applyTitoliFiltri<T extends { eq: (c: string, v: string) => T }>(
-  q: T,
+function applyTitoliFiltri(
+  q: any,
   params: FetchComunicazioniIncassoParams,
-): T {
+): any {
   let next = q;
   if (params.ufficioId) next = next.eq("ufficio_id", params.ufficioId);
   if (params.agenziaId) next = next.eq("compagnia_id", params.agenziaId);

@@ -129,7 +129,7 @@ const SediManager = ({ showHeader = true, readOnly = false }: SediManagerProps) 
       } else {
         const { data: created, error } = await supabase.from("uffici" as any).insert(payload).select("id").single();
         if (error) throw error;
-        ufficioId = (created as { id: string }).id;
+        ufficioId = (created as unknown as { id: string }).id;
       }
       if (ufficioId) await saveContiPerUfficio(ufficioId, data.conto_ids);
     },

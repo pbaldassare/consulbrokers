@@ -129,12 +129,12 @@ async function clonePremiMadreSuFiglia(madreId: string, figliaId: string, fattor
         .eq("titolo_id", madreId)
         .order("ordine");
       if (retry.error) throw retry.error;
-      await writePremiFiglia(figliaId, (retry.data || []) as Record<string, unknown>[], fattore);
+      await writePremiFiglia(figliaId, (retry.data || []) as unknown as Record<string, unknown>[], fattore);
       return;
     }
     throw error;
   }
-  await writePremiFiglia(figliaId, (rows || []) as Record<string, unknown>[], fattore);
+  await writePremiFiglia(figliaId, (rows || []) as unknown as Record<string, unknown>[], fattore);
 }
 
 async function writePremiFiglia(figliaId: string, rows: Record<string, unknown>[], fattore = 1): Promise<void> {

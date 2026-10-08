@@ -23,7 +23,7 @@ export async function insertCbBotFonte(opts: {
 }): Promise<"ok" | "duplicata"> {
   const domains = await loadDominiAutorizzati();
   const checked = assertFonteSuSitiAutorizzati(opts.hit.url, domains);
-  if (!checked.ok) throw new Error(checked.error);
+  if (!checked.ok) throw new Error((checked as { ok: false; error: string }).error);
 
   const { error } = await supabase.from("cb_bot_fonti").insert({
     titolo: opts.hit.title?.trim() || checked.dominio,

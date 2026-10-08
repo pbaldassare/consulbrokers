@@ -132,7 +132,7 @@ export async function fetchPolizzeTacitoRinnovo(
 
     const { data, error } = await q;
     if (error) throw error;
-    const batch = ((data || []) as TitoloTacitoRaw[])
+    const batch = ((data || []) as unknown as TitoloTacitoRaw[])
       .map(mapTitoloToPolizzaTacito)
       .filter((r): r is PolizzaTacitoRinnovoRow => !!r);
     out.push(...batch);
