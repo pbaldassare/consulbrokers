@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import AppSidebar from "./AppSidebar";
 import Topbar from "./Topbar";
+import VisualizzaComeBanner from "./VisualizzaComeBanner";
 import PageBreadcrumb from "./PageBreadcrumb";
 import CommandPalette from "./CommandPalette";
 import RecentEntitiesTracker from "./RecentEntitiesTracker";
@@ -28,6 +29,7 @@ const MainLayout = () => {
           collapsed ? "ml-16" : "ml-60"
         }`}
       >
+        <VisualizzaComeBanner />
         <Topbar onToggleSidebar={() => setCollapsed(!collapsed)} />
         <main className="p-6">
           <PageBreadcrumb />

@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import HistoryBackButton from "@/components/HistoryBackButton";
 import { TourProvider, useTour, hasSeenAIAssistant } from "@/components/tour/AppTourContext";
 import AppTour from "@/components/tour/AppTour";
+import VisualizzaComeBanner from "@/components/VisualizzaComeBanner";
 
 interface ClienteNavItem {
   to: string;
@@ -275,8 +276,9 @@ const ClienteLayout = () => {
 
       {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0">
+        <VisualizzaComeBanner />
         {/* Topbar — visible on all sizes; hamburger only on mobile */}
-        <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <header className="sticky top-[var(--vc-h,0px)] z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
           <div className="flex items-center justify-between gap-3 px-3 sm:px-4 h-14">
             <div className="flex items-center gap-2 min-w-0">
               <button

@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import HistoryBackButton from "@/components/HistoryBackButton";
+import VisualizzaComeBanner from "@/components/VisualizzaComeBanner";
 
 interface ProspectNavItem {
   to: string;
@@ -58,7 +59,8 @@ const ProspectLayout = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-50 border-b border-border bg-card shadow-sm">
+      <VisualizzaComeBanner />
+      <header className="sticky top-[var(--vc-h,0px)] z-30 border-b border-border bg-card shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-3">
             <button

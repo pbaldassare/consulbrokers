@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Eye, Loader2, LogOut } from "lucide-react";
@@ -10,13 +10,20 @@ import {
   subscribeVisualizzaCome,
 } from "@/lib/visualizzaCome";
 
-/** Banner in alto finché admin@consul.it sta usando CBnet come un altro utente. Va montato dentro il Router. */
+/**
+ * Barra fucsia sopra l'header finché admin@consul.it sta usando CBnet come un altro utente.
+ * Va montata nei layout, sopra l'header; gli header sticky usano top-[var(--vc-h,0px)] per stare sotto di lei.
+ */
 export default function VisualizzaComeBanner() {
   const raw = useSyncExternalStore(subscribeVisualizzaCome, snapshotVisualizzaCome);
   const stato = parseVisualizzaCome(raw);
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [uscendo, setUscendo] = useState(false);
+  const attivo = !!stato;
+  useEffect(() => {
+    document.documentElement.style.setProperty("--vc-h", attivo ? "2.5rem" : "0px");
+  }, [attivo]);
   if (!stato) return null;
 
   const esci = async () => {
@@ -35,7 +42,7 @@ export default function VisualizzaComeBanner() {
   return (
     <div
       role="status"
-      className="fixed left-1/2 top-2 z-[200] flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center gap-3 rounded-full bg-fuchsia-700 py-1.5 pl-4 pr-1.5 text-sm text-white shadow-lg ring-2 ring-white/70"
+      className="sticky top-0 z-40 flex h-10 items-center justify-center gap-3 bg-fuchsia-700 px-4 text-sm text-white shadow-sm"
     >
       <Eye className="h-4 w-4 shrink-0" />
       <span className="truncate">
@@ -46,7 +53,7 @@ export default function VisualizzaComeBanner() {
         type="button"
         disabled={uscendo}
         onClick={esci}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-fuchsia-800 hover:bg-fuchsia-50 disabled:opacity-70"
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-white px-3 py-1 text-xs font-semibold text-fuchsia-800 hover:bg-fuchsia-50 disabled:opacity-70"
       >
         {uscendo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
         Esci

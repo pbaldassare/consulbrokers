@@ -44,7 +44,7 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
     : "U";
 
   return (
-    <header className="h-14 bg-card border-b-2 border-primary/20 flex items-center gap-2 px-3 sm:px-6 sticky top-0 z-20 shadow-sm">
+    <header className="h-14 bg-card border-b-2 border-primary/20 flex items-center gap-2 px-3 sm:px-6 sticky top-[var(--vc-h,0px)] z-20 shadow-sm">
       <button
         onClick={onToggleSidebar}
         aria-label="Toggle sidebar"
