@@ -25,9 +25,9 @@ import { PageContainer } from "@/components/shared/PageContainer";
 import { ChangelogContenuto, type Changelog } from "@/components/ChangelogPopup";
 
 const CAMPI = [
-  ["cambiamenti", "Cambiamenti", "Un cambiamento per riga"],
-  ["bug_in_carico", "Bug presi in carico", "Un bug per riga"],
-  ["problemi_noti", "Problemi noti", "Un problema per riga"],
+  ["cambiamenti", "Cambiamenti", "Markdown: # titolo, ## sottotitolo, - punto elenco, **grassetto**"],
+  ["bug_in_carico", "Bug presi in carico", "Markdown: - un bug per punto"],
+  ["problemi_noti", "Problemi noti", "Markdown: - un problema per punto"],
 ] as const;
 type Campo = (typeof CAMPI)[number][0];
 type Testi = Record<Campo, string>;
@@ -36,12 +36,13 @@ type Attivi = Record<Campo, boolean>;
 
 const VUOTO: Testi = { cambiamenti: "", bug_in_carico: "", problemi_noti: "" };
 const TUTTI_ATTIVI: Attivi = { cambiamenti: true, bug_in_carico: true, problemi_noti: true };
-const righe = (t: string) => t.split("\n").map((r) => r.trim()).filter(Boolean);
+/** Ogni categoria è un unico testo markdown (array di un elemento). Vuota o non spuntata → niente. */
+const md = (t: string, attivo: boolean) => (attivo && t.trim() ? [t.trim()] : []);
 /** Le categorie non spuntate non vanno né in bozza né in pubblicazione (il testo resta solo nell'editor). */
 const daTesti = (t: Testi, a: Attivi) => ({
-  cambiamenti: a.cambiamenti ? righe(t.cambiamenti) : [],
-  bug_in_carico: a.bug_in_carico ? righe(t.bug_in_carico) : [],
-  problemi_noti: a.problemi_noti ? righe(t.problemi_noti) : [],
+  cambiamenti: md(t.cambiamenti, a.cambiamenti),
+  bug_in_carico: md(t.bug_in_carico, a.bug_in_carico),
+  problemi_noti: md(t.problemi_noti, a.problemi_noti),
 });
 
 /**
@@ -145,10 +146,11 @@ export default function PubblicazioniChangelogPage() {
                     id={`cl-${campo}`}
                     aria-label={etichetta}
                     rows={campo === "cambiamenti" ? 8 : 4}
+                    spellCheck={false}
                     placeholder={aiuto}
                     value={testi[campo]}
                     disabled={!attivi[campo]}
-                    className="disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+                    className="font-mono text-[13px] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
                     onChange={(e) => setTesti((t) => ({ ...t, [campo]: e.target.value }))}
                   />
                 </div>
@@ -183,7 +185,7 @@ export default function PubblicazioniChangelogPage() {
               {pubblicati.map((c) => (
                 <details key={c.id} className="rounded-md border p-3">
                   <summary className="cursor-pointer text-sm font-medium">
-                    {format(new Date(c.pubblicato_at!), "dd/MM/yyyy HH:mm")} · {c.cambiamenti.length} cambiamenti
+                    Pubblicato il {format(new Date(c.pubblicato_at!), "dd/MM/yyyy HH:mm")}
                   </summary>
                   <div className="mt-3">
                     <ChangelogContenuto changelog={c} />

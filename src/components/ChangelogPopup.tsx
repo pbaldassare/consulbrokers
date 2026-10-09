@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -102,22 +104,28 @@ export default function ChangelogPopup() {
   );
 }
 
-/** Corpo del changelog (popup e anteprima nell'editor): le sezioni vuote non compaiono. */
+/** Tollera "##Titolo" e "-voce" senza spazio (il markdown standard lo richiede). */
+const normalizzaMarkdown = (t: string) =>
+  t.replace(/^(#{1,6})(?=[^#\s])/gm, "$1 ").replace(/^(\s*)-(?=[^\s-])/gm, "$1- ");
+
+/**
+ * Corpo del changelog (popup e anteprima nell'editor). Ogni categoria è testo markdown
+ * (# titolo, ## sottotitolo, - elenco, **grassetto**); le categorie vuote non compaiono.
+ */
 export function ChangelogContenuto({ changelog }: { changelog: Pick<Changelog, "cambiamenti" | "bug_in_carico" | "problemi_noti"> }) {
   return (
     <div className="space-y-5 text-sm">
-      {SEZIONI.map(([campo, titolo]) =>
-        changelog[campo].length ? (
+      {SEZIONI.map(([campo, titolo]) => {
+        const testo = changelog[campo].join("\n").trim();
+        return testo ? (
           <section key={campo} className="space-y-2">
             {titolo && <h3 className="font-semibold text-foreground">{titolo}</h3>}
-            <ul className="list-disc space-y-1 pl-5 text-foreground/90">
-              {changelog[campo].map((voce, i) => (
-                <li key={i}>{voce}</li>
-              ))}
-            </ul>
+            <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:mb-2 prose-headings:mt-3 prose-p:my-1 prose-ul:my-1 prose-li:my-0">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizzaMarkdown(testo)}</ReactMarkdown>
+            </div>
           </section>
-        ) : null,
-      )}
+        ) : null;
+      })}
     </div>
   );
 }
