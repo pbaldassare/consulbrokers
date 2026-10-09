@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   KEYWORD_BROKERAGGIO,
+  KEYWORD_RICERCA_DEFAULT,
   KEYWORD_SERVIZI,
+  KEYWORDS_RICERCA,
   frasiKeywordRicerca,
   includeBrokeraggio,
   includeServiziAssicurativi,
@@ -10,6 +12,18 @@ import {
   matchesFiltroKeyword,
   parseKeywordRicerca,
 } from "@/lib/bandiKeywords";
+
+describe("scelta keyword in pagina", () => {
+  it("default brokeraggio, con servizi o entrambe", () => {
+    expect(KEYWORD_RICERCA_DEFAULT).toBe("brokeraggio");
+    expect(KEYWORDS_RICERCA.map((k) => k.value)).toEqual(["brokeraggio", "servizi", "entrambe"]);
+    expect(KEYWORDS_RICERCA.map((k) => k.label)).toEqual([
+      KEYWORD_BROKERAGGIO,
+      KEYWORD_SERVIZI,
+      "Entrambe",
+    ]);
+  });
+});
 
 describe("parseKeywordRicerca", () => {
   it("default brokeraggio, accetta servizi o entrambe", () => {

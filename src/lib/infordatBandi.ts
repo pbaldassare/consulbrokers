@@ -154,3 +154,18 @@ export function parseInfordatHtml(html: string, regioniCatalogo: string[] = []):
 export function isBrokeraggioInfordat(text: string): boolean {
   return /brokeraggio|broker assicur|intermediazione assicur|polizza|assicurativ/i.test(text);
 }
+
+const BROKER_ONLY_RE = /brokeraggio|broker assicur|intermediazione assicur/i;
+const SERVIZI_RE = /servizi assicurativ|servizi di assicurazione|polizze assicur|coperture assicur|assicurativ/i;
+
+export function matchesInfordatKeywordMode(
+  text: string,
+  mode?: "brokeraggio" | "servizi" | "entrambe",
+): boolean {
+  const broker = BROKER_ONLY_RE.test(text);
+  const servizi = SERVIZI_RE.test(text) || broker;
+  if (mode === "brokeraggio") return broker;
+  if (mode === "servizi") return servizi;
+  if (mode === "entrambe") return broker || servizi;
+  return isBrokeraggioInfordat(text);
+}
