@@ -42,9 +42,9 @@ const App = () => (
         <ConsultazioneProvider>
           <TooltipProvider>
             <Toaster />
-            <VisualizzaComeBanner />
             <BrowserRouter>
               <AppVersionGuard />
+              <VisualizzaComeBanner />
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />

@@ -2,9 +2,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { readInvokeErrorMessage } from "@/lib/edgeFunctionError";
 
 /**
- * "Visualizza come" (solo admin@consul.it): entra con la sessione di un altro utente e torna alla propria
- * senza rifare il login. La sessione admin resta in localStorage (come quella di Supabase, condivisa fra le schede)
- * e viene ripristinata da "Esci".
+ * "Visualizza come" (solo admin@consul.it): passa alla sessione di un altro utente e torna alla propria
+ * senza logout/login né ricarica della pagina. La sessione admin resta in localStorage
+ * (come quella di Supabase, condivisa fra le schede) e viene ripristinata da "Esci".
  */
 const KEY = "cbnet_visualizza_come_v1";
 
@@ -14,15 +14,38 @@ export type VisualizzaComeStato = {
   admin: { access_token: string; refresh_token: string };
 };
 
-export function leggiVisualizzaCome(): VisualizzaComeStato | null {
+const listeners = new Set<() => void>();
+const notifica = () => listeners.forEach((l) => l());
+
+/** Per useSyncExternalStore: avvisa al cambio in questa scheda e nelle altre (evento storage). */
+export function subscribeVisualizzaCome(listener: () => void) {
+  listeners.add(listener);
+  const onStorage = (e: StorageEvent) => e.key === KEY && listener();
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+/** Snapshot grezzo (stringa): stabile tra un render e l'altro, come richiede useSyncExternalStore. */
+export function snapshotVisualizzaCome(): string | null {
   try {
-    const raw = localStorage.getItem(KEY);
+    return localStorage.getItem(KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function parseVisualizzaCome(raw: string | null): VisualizzaComeStato | null {
+  try {
     return raw ? (JSON.parse(raw) as VisualizzaComeStato) : null;
   } catch {
     return null;
   }
 }
 
+/** Entra come l'utente indicato. Al ritorno la sessione è già quella dell'utente: il chiamante svuota la cache e naviga. */
 export async function avviaVisualizzaCome(utente: { id: string; nome?: string | null; cognome?: string | null }) {
   const { data: s } = await supabase.auth.getSession();
   if (!s.session) throw new Error("Sessione scaduta: rientra in CBnet");
@@ -46,15 +69,20 @@ export async function avviaVisualizzaCome(utente: { id: string; nome?: string | 
     await supabase.auth.setSession(stato.admin);
     throw error;
   }
-  // Ricarica completa: niente dati dell'admin rimasti nella cache delle pagine
-  window.location.assign("/");
+  notifica();
 }
 
-export async function esciVisualizzaCome() {
-  const stato = leggiVisualizzaCome();
-  // Chiude solo la sessione dell'utente visualizzato (scope local), non quella admin salvata
-  await supabase.auth.signOut({ scope: "local" });
+/** Torna alla sessione admin salvata. Ritorna false se non è stato possibile (serve un nuovo login). */
+export async function esciVisualizzaCome(): Promise<boolean> {
+  const stato = parseVisualizzaCome(snapshotVisualizzaCome());
   localStorage.removeItem(KEY);
-  if (stato) await supabase.auth.setSession(stato.admin);
-  window.location.assign(stato ? "/utenti-privilegi" : "/login");
+  notifica();
+  if (!stato) return false;
+  // Sostituisce la sessione corrente con quella admin (se scaduta la rinnova col refresh token): nessun logout
+  const { error } = await supabase.auth.setSession(stato.admin);
+  if (error) {
+    await supabase.auth.signOut({ scope: "local" });
+    return false;
+  }
+  return true;
 }

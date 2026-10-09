@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,8 @@ const GestioneUtentiPrivilegi = () => {
   // "Visualizza come": solo admin@consul.it (verificato anche lato server nella edge visualizza-come)
   const puoVisualizzareCome = isRootAdminEmail(authProfile?.email);
   const [visualizzaId, setVisualizzaId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [filterLevel, setFilterLevel] = useState<UserLevel | "all">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
@@ -332,6 +334,8 @@ const GestioneUtentiPrivilegi = () => {
                               setVisualizzaId(u.id);
                               try {
                                 await avviaVisualizzaCome(u);
+                                queryClient.clear(); // niente dati admin rimasti in cache
+                                navigate("/", { replace: true });
                               } catch (e) {
                                 toast.error("Visualizza come non riuscito", { description: e instanceof Error ? e.message : undefined });
                                 setVisualizzaId(null);

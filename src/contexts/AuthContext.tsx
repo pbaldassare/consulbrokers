@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { resolveProfileAfterFetch, shouldRefetchProfileOnAuthEvent } from "@/lib/authProfile";
@@ -46,6 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileMissing, setProfileMissing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const userIdRef = useRef<string | null>(null);
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
@@ -67,6 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (_event === "SIGNED_OUT") {
+          userIdRef.current = null;
           setUser(null);
           setProfile(null);
           setProfileMissing(false);
@@ -74,6 +76,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
         const currentUser = session?.user ?? null;
+        // Cambio account senza logout ("Visualizza come"): via il profilo precedente finché non arriva il nuovo,
+        // così guardie e menu non mescolano utente nuovo e profilo vecchio.
+        if (currentUser && userIdRef.current && currentUser.id !== userIdRef.current) {
+          setProfile(null);
+          setLoading(true);
+        }
+        userIdRef.current = currentUser?.id ?? null;
         setUser(currentUser);
         if (!currentUser) {
           setProfile(null);
@@ -101,6 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
         const currentUser = session?.user ?? null;
+        userIdRef.current = currentUser?.id ?? null;
         setUser(currentUser);
         if (currentUser) {
           fetchProfile(currentUser.id);
