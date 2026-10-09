@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.assicurapp-rca]
 verify_jwt = false
+
+[functions.visualizza-come]
+verify_jwt = true

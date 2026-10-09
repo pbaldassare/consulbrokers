@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2, Info, Trash2 } from "lucide-react";
+import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2, Info, Trash2, Eye, Loader2 } from "lucide-react";
+import { avviaVisualizzaCome } from "@/lib/visualizzaCome";
 import { LEVELS, getLevelByRole, UserLevel } from "@/lib/userLevels";
 import { permissionSummary, roleLabel, sedeAssegnataLabel } from "@/lib/userPrivilegiDisplay";
 import UserLevelCard from "@/components/utenti/UserLevelCard";
@@ -24,6 +25,9 @@ import { canModifyAccount, isRootAdminEmail, OTHER_ADMIN_LOCKED_MESSAGE } from "
 const GestioneUtentiPrivilegi = () => {
   const { user: authUser, profile: authProfile } = useAuth();
   const actor = { id: authUser?.id, email: authProfile?.email };
+  // "Visualizza come": solo admin@consul.it (verificato anche lato server nella edge visualizza-come)
+  const puoVisualizzareCome = isRootAdminEmail(authProfile?.email);
+  const [visualizzaId, setVisualizzaId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [filterLevel, setFilterLevel] = useState<UserLevel | "all">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
@@ -316,6 +320,27 @@ const GestioneUtentiPrivilegi = () => {
                             />
                           </span>
                         </div>
+                        {puoVisualizzareCome && !self && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-fuchsia-300 text-fuchsia-700 hover:bg-fuchsia-50 dark:border-fuchsia-800 dark:text-fuchsia-300 dark:hover:bg-fuchsia-950/40"
+                            title={`Visualizza CBnet come ${u.cognome || ""} ${u.nome || ""}`.trim()}
+                            aria-label="Visualizza come questo utente"
+                            disabled={!!visualizzaId}
+                            onClick={async () => {
+                              setVisualizzaId(u.id);
+                              try {
+                                await avviaVisualizzaCome(u);
+                              } catch (e) {
+                                toast.error("Visualizza come non riuscito", { description: e instanceof Error ? e.message : undefined });
+                                setVisualizzaId(null);
+                              }
+                            }}
+                          >
+                            {visualizzaId === u.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
+                          </Button>
+                        )}
                         <Button size="sm" variant="outline" onClick={() => { setSheetUser(u); setSheetOpen(true); }}>
                           <Settings2 className="w-3.5 h-3.5 mr-1" /> Permessi
                         </Button>

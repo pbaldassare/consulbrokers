@@ -16,6 +16,7 @@ import SupportTicketsPage from "./pages/SupportTicketsPage";
 import NotFound from "./pages/NotFound";
 
 import AppVersionGuard from "./components/AppVersionGuard";
+import VisualizzaComeBanner from "./components/VisualizzaComeBanner";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import { archiviRoutes } from "./routes/archivi";
 import { portafoglioRoutes } from "./routes/portafoglio";
@@ -41,6 +42,7 @@ const App = () => (
         <ConsultazioneProvider>
           <TooltipProvider>
             <Toaster />
+            <VisualizzaComeBanner />
             <BrowserRouter>
               <AppVersionGuard />
               <Routes>
