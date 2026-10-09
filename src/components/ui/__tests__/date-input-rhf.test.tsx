@@ -111,4 +111,11 @@ describe("DateInput with react-hook-form register", () => {
     expect(input.value).toBe("01/07/2026");
     expect(screen.getByTestId("value").textContent).toBe("2026-07-01");
   });
+
+  it("resta compatto: icona calendario attaccata al campo, non a tutta la riga", () => {
+    render(<Input type="date" />);
+    const wrap = screen.getByTestId("date-input-wrap");
+    expect(wrap).toHaveClass("w-[11rem]");
+    expect(wrap.className).not.toMatch(/(?:^|\s)w-full(?:\s|$)/);
+  });
 });
