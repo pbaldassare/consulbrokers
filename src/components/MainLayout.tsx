@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import AppSidebar from "./AppSidebar";
 import Topbar from "./Topbar";
 import VisualizzaComeBanner from "./VisualizzaComeBanner";
+import ChangelogPopup from "./ChangelogPopup";
 import PageBreadcrumb from "./PageBreadcrumb";
 import CommandPalette from "./CommandPalette";
 import RecentEntitiesTracker from "./RecentEntitiesTracker";
@@ -22,6 +23,7 @@ const MainLayout = () => {
       <RecentEntitiesTracker />
       <GlobalShortcuts />
       <SinistroReminderPopupGate />
+      <ChangelogPopup />
 
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       <div

@@ -63,11 +63,13 @@ import {
   Heart,
   Car,
   TicketCheck,
+  Megaphone,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isSidebarToActive } from "@/lib/sidebarToActive";
 import { SISTEMA_SEDE_ALLOWED_ROLES } from "@/lib/sistemaSede";
 import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
+import { isRootAdminEmail } from "@/lib/adminAccountGuard";
 
 
 interface SidebarItem {
@@ -100,6 +102,8 @@ interface SidebarSingleItem {
   showForRoles?: string[];
   /** Match esatto del path (non i sotto-path). */
   end?: boolean;
+  /** Solo per admin@consul.it. */
+  rootOnly?: boolean;
 }
 
 type SidebarEntry =
@@ -299,6 +303,7 @@ const sidebarEntries: SidebarEntry[] = [
   },
   { type: "single", item: { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Guida Operativa", path: "/guida-operativa", icon: BookOpen, permissionKey: "dashboard" } },
+  { type: "single", item: { label: "Pubblicazioni Changelog", path: "/pubblicazioni-changelog", icon: Megaphone, permissionKey: "dashboard", adminOnly: true, rootOnly: true } },
   { type: "single", item: { label: "Ticket Supporto", path: "/ticket-supporto", icon: TicketCheck, permissionKey: "dashboard" } },
 ];
 
@@ -395,11 +400,13 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
     if (!q) return [];
     const tutte = sidebarEntries.flatMap((e) =>
       e.type === "single"
-        ? [{ label: e.item.label, path: e.item.path, icon: e.item.icon, gruppo: "" }]
+        ? e.item.rootOnly && !isRootAdminEmail(profile?.email)
+          ? []
+          : [{ label: e.item.label, path: e.item.path, icon: e.item.icon, gruppo: "" }]
         : e.group.children.map((c) => ({ label: c.label, path: c.path, icon: c.icon, gruppo: e.group.label })),
     ).filter((x) => !isLegacyPath(x.path) && !isLegacyLabel(x.label));
     return tutte.filter((x) => normTesto(`${x.label} ${x.gruppo}`).includes(q)).slice(0, 15);
-  }, [cercaSezione]);
+  }, [cercaSezione, profile?.email]);
 
   const apriSezione = (path: string) => {
     navigate(path);
@@ -464,6 +471,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
             const item = entry.item;
             if (isLegacyPath(item.path) || isLegacyLabel(item.label)) return null;
             if (!isVisible(item.permissionKey, item.adminOnly, item.hideForRoles, item.showForRoles)) return null;
+            if (item.rootOnly && !isRootAdminEmail(profile?.email)) return null;
             return (
               <RouterNavLink
                 key={item.path}
