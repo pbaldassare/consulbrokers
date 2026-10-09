@@ -60,7 +60,7 @@ import { lookupComune } from "@/lib/comuniItaliani";
 
 // resolvePercentualeProvvigione non più usato: matrice caricata inline per calcolo per-riga
 import { useRcaUsi } from "@/hooks/useRcaLookups";
-import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
+import { useAccountExecutivesLookup, useLookupIntermediari } from "@/hooks/useAccountExecutivesLookup";
 import { NuovoClienteDialog, type NuovoClienteInitialData } from "@/components/clienti/NuovoClienteDialog";
 import { UserPlus, Sparkles, X } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
@@ -1013,56 +1013,13 @@ const ImmissionePolizzaPage = () => {
     }
   }, [profile?.ufficio_id]);
 
-  const { data: aeList } = useQuery({
-    queryKey: ["produttori-list-immissione"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("anagrafiche_professionali")
-        .select("id, codice, cognome, nome, sigla, ragione_sociale, tipo, percentuale_base")
-        .overlaps("ruoli", ["account_executive", "corrispondente", "responsabile_sede"])
-        .eq("attivo", true)
-        .order("cognome");
-      return data || [];
-    },
-  });
-
-  const { data: backofficeList } = useQuery({
-    queryKey: ["backoffice-list-immissione"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome, ruolo")
-        .eq("ruolo", "backoffice")
-        .eq("attivo", true)
-        .order("cognome");
-      return data || [];
-    },
-  });
-
-  const { data: ufficiList } = useQuery({
-    queryKey: ["uffici-list-immissione"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("uffici")
-        .select("id, nome_ufficio, codice_ufficio")
-        .eq("attivo", true)
-        .order("nome_ufficio");
-      return data || [];
-    },
-  });
-
-  const { data: commercialiList } = useQuery({
-    queryKey: ["commerciali-list-immissione"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome, ruolo")
-        .in("ruolo", ["account_executive", "executive", "produttore_sede", "responsabile_sede"])
-        .eq("attivo", true)
-        .order("cognome");
-      return data || [];
-    },
-  });
+  // Sede, Produttori, Specialist: elenco completo per tutte le sedi (RPC riservata al personale interno;
+  // la RLS delle tabelle mostrerebbe solo la propria sede).
+  const { data: lookup } = useLookupIntermediari();
+  const aeList = lookup?.produttori;
+  const backofficeList = lookup?.specialist;
+  const ufficiList = lookup?.uffici;
+  const commercialiList = lookup?.commerciali;
 
   // Account Executive: fonte canonica = anagrafiche_professionali (tipo='account_executive').
   // Indipendenti dalla Sede: lista globale di tutti gli AE attivi.
