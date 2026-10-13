@@ -58,3 +58,13 @@ export function formatDecimalIt(n: number, decimals = 2): string {
   if (!isFinite(n)) return "";
   return n.toLocaleString("it-IT", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
+
+/** Due decimali fissi (`23.00`), per input font-mono. Stringa vuota se non numerico. */
+export function formatFixed2(value: unknown): string {
+  if (value == null || value === "") return "";
+  const n = typeof value === "number"
+    ? (Number.isFinite(value) ? value : null)
+    : parseDecimalIt(value);
+  if (n === null) return "";
+  return n.toFixed(2);
+}

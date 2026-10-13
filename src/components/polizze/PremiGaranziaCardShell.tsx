@@ -10,7 +10,7 @@ import { Car, ShieldCheck, Plus, Trash2, Lock, LockOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
-import { parseDecimalIt, parseDecimalItOr } from "@/lib/number";
+import { formatFixed2, parseDecimalIt, parseDecimalItOr } from "@/lib/number";
 import { safeId } from "@/lib/safeId";
 import {
   calcTasseRiga,
@@ -989,10 +989,8 @@ export function PremiGaranziaCardShell({
           const quotaCB = totProv - quotaProd;
           const editable = !!onPercentualeAgenziaChange && !readOnly;
 
-          const totDisplay = totFocus ? totDraft : totProv.toFixed(2);
-          const pctDisplay = pctFocus
-            ? pctDraft
-            : (percentualeAgenzia ?? "");
+          const totDisplay = totFocus ? totDraft : formatFixed2(totProv);
+          const pctDisplay = pctFocus ? pctDraft : formatFixed2(percentualeAgenzia);
 
           const commitTot = (raw: string) => {
             if (!editable) return;
@@ -1005,13 +1003,12 @@ export function PremiGaranziaCardShell({
             const n = parseFloat(s);
             if (isNaN(n)) return;
             if (onProvvigioniImportoChange) {
-              onProvvigioniImportoChange(n);
+              onProvvigioniImportoChange(round2(n));
               return;
             }
             const base = totNetto + totAccessori;
             if (base <= 0) return;
-            const newPct = (n / base) * 100;
-            onPercentualeAgenziaChange!(String(newPct));
+            onPercentualeAgenziaChange!(formatFixed2((n / base) * 100));
           };
           const commitPct = (raw: string) => {
             if (!editable) return;
@@ -1019,7 +1016,7 @@ export function PremiGaranziaCardShell({
             if (s === "") { onPercentualeAgenziaChange!(""); return; }
             const n = parseFloat(s);
             if (isNaN(n)) return;
-            onPercentualeAgenziaChange!(String(n));
+            onPercentualeAgenziaChange!(formatFixed2(n));
           };
 
           const showSplit = !!produttoreLabel || !!produttoreIsSede;
@@ -1066,11 +1063,16 @@ export function PremiGaranziaCardShell({
                     inputMode="decimal"
                     value={totDisplay}
                     onFocus={() => {
-                      setTotDraft(totProv ? String(totProv) : "");
+                      setTotDraft(formatFixed2(totProv));
                       setTotFocus(true);
                     }}
                     onChange={(e) => setTotDraft(e.target.value)}
-                    onBlur={(e) => { setTotFocus(false); commitTot(e.target.value); }}
+                    onBlur={(e) => {
+                      setTotFocus(false);
+                      const next = formatFixed2(e.target.value);
+                      if (next === formatFixed2(totProv)) return;
+                      commitTot(e.target.value);
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                     }}
@@ -1089,11 +1091,16 @@ export function PremiGaranziaCardShell({
                     inputMode="decimal"
                     value={pctDisplay}
                     onFocus={() => {
-                      setPctDraft(percentualeAgenzia ?? "");
+                      setPctDraft(formatFixed2(percentualeAgenzia));
                       setPctFocus(true);
                     }}
                     onChange={(e) => setPctDraft(e.target.value)}
-                    onBlur={(e) => { setPctFocus(false); commitPct(e.target.value); }}
+                    onBlur={(e) => {
+                      setPctFocus(false);
+                      const next = formatFixed2(e.target.value);
+                      if (next === formatFixed2(percentualeAgenzia)) return;
+                      commitPct(e.target.value);
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                     }}
@@ -1141,7 +1148,7 @@ export function PremiGaranziaCardShell({
                         </div>
                         <div className="flex items-center gap-2 shrink-0 pl-2">
                           <span className="inline-flex items-center rounded-sm bg-foreground/10 text-foreground px-1.5 py-0.5 text-[10px] font-bold font-mono">
-                            {pctComm}%
+                            {formatFixed2(pctComm)}%
                           </span>
                           <span className="text-sm font-mono font-bold text-foreground tabular-nums w-20 text-right">
                             € {quotaProd.toFixed(2)}
@@ -1159,7 +1166,7 @@ export function PremiGaranziaCardShell({
                         </div>
                         <div className="flex items-center gap-2 shrink-0 pl-2">
                           <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] font-bold font-mono">
-                            {pctCB}%
+                            {formatFixed2(pctCB)}%
                           </span>
                           <span className="text-sm font-mono font-bold text-primary tabular-nums w-20 text-right">
                             € {quotaCB.toFixed(2)}

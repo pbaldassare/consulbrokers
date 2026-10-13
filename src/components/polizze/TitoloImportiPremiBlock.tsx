@@ -39,6 +39,7 @@ import {
   premioRigaDbImporto,
 } from "@/lib/calcProvvigioniGaranzia";
 import { logAttivita } from "@/lib/logAttivita";
+import { formatFixed2 } from "@/lib/number";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1255,17 +1256,17 @@ function TitoloImportiPremiBlock({
     blockPctQui != null ? blockPctQui : resolveRowPctNetto(row, provvMatrice).pct;
   const pctFirma = !provvFirmaAuto
     ? (manualFromEuroFirmaRef.current && manualImportoFirmaRef.current != null
-      ? provvigioniPctFromImporto(manualImportoFirmaRef.current, totBaseFirma)
-      : manualPctFirmaRef.current)
+      ? formatFixed2(provvigioniPctFromImporto(manualImportoFirmaRef.current, totBaseFirma))
+      : formatFixed2(manualPctFirmaRef.current))
     : provvBreakdownFirma
-      ? String(provvBreakdownFirma.pctNetto)
+      ? formatFixed2(provvBreakdownFirma.pctNetto)
       : "";
   const pctQui = !provvQuietanzaAuto
     ? (manualFromEuroQuietanzaRef.current && manualImportoQuietanzaRef.current != null
-      ? provvigioniPctFromImporto(manualImportoQuietanzaRef.current, totBaseQui)
-      : manualPctQuietanzaRef.current)
+      ? formatFixed2(provvigioniPctFromImporto(manualImportoQuietanzaRef.current, totBaseQui))
+      : formatFixed2(manualPctQuietanzaRef.current))
     : provvBreakdownQuietanza
-      ? String(provvBreakdownQuietanza.pctNetto)
+      ? formatFixed2(provvBreakdownQuietanza.pctNetto)
       : "";
 
   const setProvvigioniManualPct = (tipo: "firma" | "quietanza", v: string) => {

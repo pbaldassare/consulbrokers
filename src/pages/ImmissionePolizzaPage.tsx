@@ -1601,7 +1601,7 @@ const ImmissionePolizzaPage = () => {
     const totBase = premioNettoNum + accessoriFirmaNum + premioNettoQNum + accessoriQuietanzaNum;
     if (provvMatrice && totBase > 0) {
       const avg = ((provvFirma + provvQuietanza) / totBase) * 100;
-      const rounded = String(Math.round(avg * 1000) / 1000);
+      const rounded = (Math.round(avg * 100) / 100).toFixed(2);
       setPercentualeProvvigione((prev) => (prev === rounded ? prev : rounded));
     } else if (!provvMatrice) {
       setPercentualeProvvigione((prev) => (prev === "" ? prev : ""));
