@@ -34,7 +34,7 @@ import {
   useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici,
 } from "@/hooks/useLookupTables";
 import { useProduttoriLookup } from "@/hooks/useProduttoriLookup";
-import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
+import { useAccountExecutivesLookup, useLookupIntermediari, mapSpecialistOptions } from "@/hooks/useAccountExecutivesLookup";
 
 interface CommercialRole {
   profilo_id: string;
@@ -324,37 +324,12 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     },
   });
 
-  const { data: profiliCommercialiRaw = [] } = useQuery({
-    queryKey: ["profili_commerciali_lookup_backoffice"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome, ruolo")
-        .eq("ruolo", "backoffice")
-        .order("cognome");
-      return data || [];
-    },
-  });
-
   const { data: produttoriOpts = [] } = useProduttoriLookup();
   const { data: aeLookupData } = useAccountExecutivesLookup();
   const aeOpts = aeLookupData?.options ?? [];
-
-  const { data: ufficiList = [] } = useQuery({
-    queryKey: ["uffici_lookup_nuovo_cliente"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("uffici")
-        .select("id, codice_ufficio, nome_ufficio")
-        .order("nome_ufficio");
-      return data || [];
-    },
-  });
-
-  const profiliCommerciali = profiliCommercialiRaw.map((p: any) => ({
-    value: p.id,
-    label: `${p.cognome || ""} ${p.nome || ""} (${p.ruolo})`.trim(),
-  }));
+  const { data: lookup } = useLookupIntermediari();
+  const ufficiList = lookup?.uffici ?? [];
+  const specialistOpts = mapSpecialistOptions(lookup?.specialist);
 
   useEffect(() => {
     if (open && initialData) {
@@ -410,47 +385,13 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     }
   }, [open, initialData]);
 
-  // Stable id derived from query data: prevents re-runs when array reference changes but content doesn't
-  const backofficeProfileId = useMemo<string | null>(
-    () => profiliCommercialiRaw.find((p: any) => p.ruolo === "backoffice")?.id ?? null,
-    [profiliCommercialiRaw]
-  );
-
-  // `open` lives in a ref so the effect depends only on `backofficeProfileId`:
-  // re-runs only when the resolved id actually changes, not on every dialog toggle.
-  const openRef = useRef(open);
-  useEffect(() => {
-    openRef.current = open;
-  }, [open]);
-
-  // Auto-assign backoffice profile.
-  // - Effect deps: only `backofficeProfileId` (stable via useMemo) → no spurious re-runs.
-  // - setState is idempotent: if `profilo_id` is already set OR equal to the incoming id,
-  //   we return the SAME reference so React bails out (no re-render, no overwrite of initialData).
-  useEffect(() => {
-    if (!openRef.current || !backofficeProfileId) return;
-    setBackofficeRole(prev => {
-      if (prev.profilo_id) return prev; // already assigned (manual or initialData) → no-op
-      if (prev.profilo_id === backofficeProfileId) return prev; // same id → keep reference
-      return { ...prev, profilo_id: backofficeProfileId };
-    });
-  }, [backofficeProfileId]);
-
-  // Auto-fill Sede dal profilo dello Specialist selezionato (solo se Sede è vuota)
+  // Auto-fill Sede dallo Specialist selezionato (ufficio_id già in RPC, senza RLS)
   useEffect(() => {
     const profId = backofficeRole.profilo_id;
     if (!profId || ufficioClienteId) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("ufficio_id")
-        .eq("id", profId)
-        .maybeSingle();
-      if (!cancelled && data?.ufficio_id) setUfficioClienteId(data.ufficio_id);
-    })();
-    return () => { cancelled = true; };
-  }, [backofficeRole.profilo_id, ufficioClienteId]);
+    const spec = (lookup?.specialist || []).find((s) => s.id === profId);
+    if (spec?.ufficio_id) setUfficioClienteId(spec.ufficio_id);
+  }, [backofficeRole.profilo_id, ufficioClienteId, lookup?.specialist]);
 
   const insertCommercialRoles = async (clienteId: string) => {
     // 1) Default singoli storici (Specialist + primo AE/Produttore) → codici_commerciali_cliente
@@ -1164,7 +1105,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                     value={backofficeRole.profilo_id}
                     onValueChange={(v) => updateRole(setBackofficeRole, "profilo_id", v)}
                     placeholder="Seleziona Specialist..."
-                    options={profiliCommerciali}
+                    options={specialistOpts}
                   />
                 </div>
               </div>

@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Search, RefreshCw, FileSpreadsheet, FileText, ListChecks, Filter } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { PageContainer } from "@/components/shared/PageContainer";
+import { useAccountExecutivesLookup, useSpecialistsLookup } from "@/hooks/useAccountExecutivesLookup";
 
 const RinnoviPolizzaPage = () => {
   const navigate = useNavigate();
@@ -58,18 +59,9 @@ const RinnoviPolizzaPage = () => {
     enabled: codiceCompagnia.length >= 2,
   });
 
-  const { data: aeList } = useQuery({
-    queryKey: ["ae-list-rinn"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("anagrafiche_professionali")
-        .select("id, codice, cognome, nome, sigla")
-        .contains("ruoli", ["account_executive"])
-        .eq("attivo", true)
-        .order("cognome");
-      return data || [];
-    },
-  });
+  const { data: aeLookupData } = useAccountExecutivesLookup();
+  const aeList = aeLookupData?.options ?? [];
+  const { data: specialistOpts = [] } = useSpecialistsLookup();
 
   const selectClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -124,8 +116,8 @@ const RinnoviPolizzaPage = () => {
               <Label className="w-24 text-right shrink-0">A/E</Label>
               <select value={selectedAE} onChange={(e) => setSelectedAE(e.target.value)} className={`${selectClass} flex-1`}>
                 <option value="">Tutti gli A/E</option>
-                {aeList?.map((ae) => (
-                  <option key={ae.id} value={ae.id}>{ae.sigla || ae.codice} - {ae.cognome} {ae.nome}</option>
+                {aeList.map((ae) => (
+                  <option key={ae.value} value={ae.value}>{ae.label}</option>
                 ))}
               </select>
             </div>
@@ -134,6 +126,9 @@ const RinnoviPolizzaPage = () => {
               <Label className="w-24 text-right shrink-0">Specialist</Label>
               <select value={specialist} onChange={(e) => setSpecialist(e.target.value)} className={`${selectClass} flex-1`}>
                 <option value="">Tutti gli specialist</option>
+                {specialistOpts.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
               </select>
               <Label className="shrink-0">Indotto</Label>
               <select value={indotto} onChange={(e) => setIndotto(e.target.value)} className={`${selectClass} flex-1`}>

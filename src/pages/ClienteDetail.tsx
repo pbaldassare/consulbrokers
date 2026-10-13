@@ -10,7 +10,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useTabParam } from "@/hooks/useTabParam";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
+import { useAccountExecutivesLookup, useSpecialistsLookup } from "@/hooks/useAccountExecutivesLookup";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -2521,19 +2521,8 @@ export default function ClienteDetail() {
 
   const specialistAssigned = !!specialistRow?.profilo_id;
 
-  // Profili backoffice per il select Specialist nella card "Assegnazioni Gestionali"
-  const { data: profiliBackoffice = [] } = useQuery({
-    queryKey: ["profili_commerciali"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome, ruolo, attivo")
-        .in("ruolo", ["produttore", "ufficio", "backoffice", "admin"])
-        .eq("attivo", true)
-        .order("cognome");
-      return data || [];
-    },
-  });
+  // Specialist di tutte le sedi (RPC): la RLS su profiles nasconderebbe le altre sedi
+  const { data: specialistOpts = [] } = useSpecialistsLookup();
 
   const upsertSpecialistMutation = useMutation({
     mutationFn: async (profilo_id: string | null) => {
@@ -3435,8 +3424,8 @@ export default function ClienteDetail() {
                   {readOnly ? (
                     <p className="text-sm mt-1">
                       {(() => {
-                        const p = profiliBackoffice.find((x: any) => x.id === specialistRow?.profilo_id);
-                        return p ? `${p.cognome ?? ""} ${p.nome ?? ""}`.trim() || "—" : "—";
+                        const p = specialistOpts.find((x) => x.value === specialistRow?.profilo_id);
+                        return p?.label || "—";
                       })()}
                     </p>
                   ) : (
@@ -3446,12 +3435,7 @@ export default function ClienteDetail() {
                         value={specialistRow?.profilo_id || ""}
                         onValueChange={(v) => upsertSpecialistMutation.mutate(v || null)}
                         placeholder="— Seleziona specialist —"
-                        options={profiliBackoffice
-                          .filter((p: any) => p.ruolo === "backoffice" || p.ruolo === "admin")
-                          .map((p: any) => ({
-                            value: p.id,
-                            label: `${p.cognome ?? ""} ${p.nome ?? ""}`.trim() || "—",
-                          }))}
+                        options={specialistOpts}
                       />
                       {!specialistAssigned && (
                         <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>

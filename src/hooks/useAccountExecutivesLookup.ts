@@ -25,9 +25,25 @@ export type LookupIntermediari = {
     percentuale_base: number | null;
   })[];
   account_executive: (Persona & { ragione_sociale: string | null; sigla: string | null; codice: string | null })[];
-  specialist: (Persona & { ruolo: string })[];
+  specialist: (Persona & { ruolo: string; ufficio_id: string | null })[];
   commerciali: (Persona & { ruolo: string })[];
 };
+
+export type SpecialistOption = {
+  value: string;
+  label: string;
+  ufficio_id: string | null;
+};
+
+export function mapSpecialistOptions(list: LookupIntermediari["specialist"] | undefined): SpecialistOption[] {
+  const opts = (list || []).map((p) => ({
+    value: p.id,
+    label: `${p.cognome || ""} ${p.nome || ""}`.trim() || "—",
+    ufficio_id: p.ufficio_id ?? null,
+  }));
+  opts.sort((a, b) => a.label.localeCompare(b.label, "it"));
+  return opts;
+}
 
 /**
  * Elenchi da tendina (sedi, produttori, AE, specialist) di TUTTE le sedi, per qualsiasi utente interno.
@@ -41,6 +57,14 @@ async function fetchLookupIntermediari(): Promise<LookupIntermediari> {
 
 export const useLookupIntermediari = () =>
   useQuery({ queryKey: ["lookup-intermediari"], queryFn: fetchLookupIntermediari, staleTime: 5 * 60 * 1000 });
+
+/** Specialist (profiles.backoffice) di tutte le sedi, via RPC. */
+export const useSpecialistsLookup = () =>
+  useQuery({
+    queryKey: ["lookup-intermediari", "specialist"],
+    queryFn: async () => mapSpecialistOptions((await fetchLookupIntermediari()).specialist),
+    staleTime: 5 * 60 * 1000,
+  });
 
 /**
  * Lookup canonico degli Account Executive per le tendine di Immissione/Polizze.

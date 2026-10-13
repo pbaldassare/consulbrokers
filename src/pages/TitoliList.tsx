@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import ServerPagination from "@/components/ServerPagination";
 import { displayStatoPolizza } from "@/lib/polizzeDisplay";
 const statiTitolo = ["creato", "incassato", "stornato", "annullato"];
@@ -110,18 +111,8 @@ const TitoliList = () => {
     enabled: clienteAnagraficaSearch.length >= 2,
   });
 
-  const { data: accountExecutives = [] } = useQuery({
-    queryKey: ["ae_list"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("anagrafiche_professionali")
-        .select("id, codice, ragione_sociale, cognome, nome")
-        .contains("ruoli", ["account_executive"])
-        .eq("attivo", true)
-        .order("codice");
-      return data || [];
-    },
-  });
+  const { data: aeLookupData } = useAccountExecutivesLookup();
+  const accountExecutives = aeLookupData?.options ?? [];
 
   const { data: titoliResult, isLoading } = useQuery({
     queryKey: ["titoli", page, appliedFilters],
@@ -352,8 +343,8 @@ const TitoliList = () => {
                 <SelectContent>
                   <SelectItem value="all">Tutti</SelectItem>
                   {accountExecutives.map((ae) => (
-                    <SelectItem key={ae.id} value={ae.id}>
-                      {ae.codice ? `${ae.codice} - ` : ""}{ae.ragione_sociale || ae.cognome || ae.nome || "—"}
+                    <SelectItem key={ae.value} value={ae.value}>
+                      {ae.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
