@@ -30,20 +30,17 @@ test.describe('Contabilità · Bonifici (merge Incassi)', () => {
     await expect(page.locator('table')).toBeVisible();
   });
 
-  test('legacy=1 mantiene Da collegare per casi avanzati', async ({ page }) => {
+  test('legacy=1 mostra Da collegare in sola lettura, senza incasso', async ({ page }) => {
     await page.goto('/contabilita/ricongiungimento-bancario?legacy=1');
     await expectPageHealthy(page);
     await expect(page.getByRole('tab', { name: /Da collegare/i })).toBeVisible();
     await expect(page.getByRole('tab', { name: /Storico/i })).toBeVisible();
 
-    const trigger = page.locator('.cursor-pointer').filter({ hasText: /Ordinante:/i }).first();
-    if (!(await trigger.count())) {
-      test.skip(true, 'Nessun movimento assegnato da collegare nel DB di test');
-      return;
-    }
-
-    await trigger.click();
-    await expect(page.getByRole('button', { name: /Salva Ricongiungimento/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Metti a Cassa/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Salva Ricongiungimento/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Metti a Cassa/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Incassa$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Garantito$/ })).toHaveCount(0);
+    await expect(page.getByText(/Cerca cliente pagatore/i)).toHaveCount(0);
+    await expect(page.getByText(/CLIENTE PRE-MATCHATO/i)).toHaveCount(0);
   });
 });

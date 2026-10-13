@@ -42,6 +42,9 @@ test.describe('Contabilità · Bonifici (hub)', () => {
     });
     await expect(page.getByRole('tab', { name: SEL.contabilita.tabDaRicongiungere })).toBeVisible();
     await expect(page.getByRole('tab', { name: SEL.contabilita.tabRicongiunti })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Incassa$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Garantito$/ })).toHaveCount(0);
+    await expect(page.getByText(/CLIENTE PRE-MATCHATO/i)).toHaveCount(0);
     await expect(page.getByRole('tab', { name: SEL.contabilita.tabImportazione, exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: SEL.contabilita.tabStoricoImportazioni, exact: true })).toBeVisible();
 

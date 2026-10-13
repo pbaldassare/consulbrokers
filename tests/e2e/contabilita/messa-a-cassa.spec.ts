@@ -42,38 +42,14 @@ test.describe('Contabilità · Messa a Cassa (dialog)', () => {
     await expect(dialog).toBeHidden();
   });
 
-  test('da Bonifici legacy: Metti a Cassa apre lo stesso dialog quando la quadratura è ok', async ({ page }) => {
+  test('da Bonifici / Da collegare non si può incassare', async ({ page }) => {
     await page.goto('/contabilita/ricongiungimento-bancario?legacy=1');
     await expectPageHealthy(page);
 
-    const trigger = page.locator('.cursor-pointer').filter({ hasText: /Ordinante:/i }).first();
-    if (!(await trigger.count())) {
-      test.skip(true, 'Nessun movimento da ricongiungere');
-      return;
-    }
-
-    await trigger.click();
-
-    const checkbox = page.locator('table tbody tr').first().locator('[role="checkbox"]').first();
-    if (!(await checkbox.count())) {
-      test.skip(true, 'Nessuna polizza selezionabile');
-      return;
-    }
-
-    await checkbox.click();
-
-    const mettiACassa = page.getByRole('button', { name: /Metti a Cassa/i });
-    if (!(await page.getByText(/✓ Quadra/i).isVisible().catch(() => false))) {
-      test.skip(true, 'Quadratura non raggiunta con la prima polizza disponibile');
-      return;
-    }
-
-    await mettiACassa.click();
-
-    const dialog = page.getByRole('dialog');
-    await expect(dialog.getByRole('heading', { name: /Conferma Messa a Cassa/i })).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('button', { name: /Metti a Cassa/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Incassa$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Salva Ricongiungimento/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Garantito$/ })).toHaveCount(0);
   });
 
   test('Incassi: colonna Messa a Cassa visibile in vista Tutte', async ({ page }) => {
