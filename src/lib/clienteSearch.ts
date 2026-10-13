@@ -57,7 +57,7 @@ export function clienteSearchDescription(c: ClienteSearchRow | null | undefined)
   return parts.length ? parts.join(" · ") : undefined;
 }
 
-/** Blob ricercabile: anagrafica + più nomi + indirizzi. Mai email/pec. */
+/** Blob ricercabile: anagrafica + più nomi + sede/fiscale/alternativo. Mai email/pec né residenza. */
 export function clienteSearchBlob(c: ClienteSearchRow): string {
   const nominativi = (c.nominativi ?? [])
     .map((n) => `${n.cognome ?? ""} ${n.nome ?? ""}`.trim())
@@ -73,19 +73,15 @@ export function clienteSearchBlob(c: ClienteSearchRow): string {
     c.codice_cliente,
     c.telefono,
     c.cellulare,
-    c.indirizzo_residenza,
     c.indirizzo_sede,
     c.indirizzo_fiscale,
     c.indirizzo_alternativo,
-    c.cap_residenza,
     c.cap_sede,
     c.cap_fiscale,
     c.cap_alternativo,
-    c.citta_residenza,
     c.citta_sede,
     c.citta_fiscale,
     c.citta_alternativa,
-    c.provincia_residenza,
     c.provincia_sede,
     c.provincia_fiscale,
     c.provincia_alternativa,
@@ -98,7 +94,7 @@ export function clienteSearchBlob(c: ClienteSearchRow): string {
     .toLowerCase();
 }
 
-/** Token AND: ogni parola deve comparire in nome, più nomi o indirizzo. */
+/** Token AND: ogni parola deve comparire in nome, più nomi o sede/fiscale (non residenza). */
 export function matchesClienteSearch(c: ClienteSearchRow, term: string): boolean {
   const tokens = clienteSearchTokens(term);
   if (tokens.length === 0) return true;

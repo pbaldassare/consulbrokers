@@ -40,17 +40,15 @@ export function scoreClienteSearch(c: ClienteSearchFields, term: string): number
 
   const tokens = t.split(/\s+/).filter(Boolean);
 
-  const cittaRes = norm(c.citta_residenza);
   const cittaSede = norm(c.citta_sede);
   const cittaFisc = norm(c.citta_fiscale);
   const cittaAlt = norm(c.citta_alternativa);
   const indirizzi = [
-    c.indirizzo_residenza,
     c.indirizzo_sede,
     c.indirizzo_fiscale,
     c.indirizzo_alternativo,
   ].map(norm);
-  if (cittaRes === t || cittaSede === t || cittaFisc === t || cittaAlt === t || indirizzi.includes(t)) return 1;
+  if (cittaSede === t || cittaFisc === t || cittaAlt === t || indirizzi.includes(t)) return 1;
 
   const rs = norm(c.ragione_sociale);
   const cognome = norm(c.cognome);
@@ -59,19 +57,15 @@ export function scoreClienteSearch(c: ClienteSearchFields, term: string): number
   const displayNc = collapseSpaces(`${nome} ${cognome}`);
   const indirizzoBlob = collapseSpaces(
     [
-      c.indirizzo_residenza,
       c.indirizzo_sede,
       c.indirizzo_fiscale,
       c.indirizzo_alternativo,
-      c.cap_residenza,
       c.cap_sede,
       c.cap_fiscale,
       c.cap_alternativo,
-      cittaRes,
       cittaSede,
       cittaFisc,
       cittaAlt,
-      c.provincia_residenza,
       c.provincia_sede,
       c.provincia_fiscale,
       c.provincia_alternativa,

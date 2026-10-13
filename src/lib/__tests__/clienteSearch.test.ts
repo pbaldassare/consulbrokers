@@ -39,11 +39,19 @@ describe("clienteSearch", () => {
     expect(matchesClienteSearch(abatangelo, "rossi")).toBe(false);
   });
 
-  it("trova per indirizzo e città", () => {
-    expect(matchesClienteSearch(abatangelo, "via dante")).toBe(true);
-    expect(matchesClienteSearch(abatangelo, "dante bari")).toBe(true);
-    expect(matchesClienteSearch(abatangelo, "70121")).toBe(true);
-    expect(matchesClienteSearch(abatangelo, "via verdi")).toBe(false);
+  it("non cerca sulla residenza", () => {
+    expect(matchesClienteSearch(abatangelo, "via dante")).toBe(false);
+    expect(matchesClienteSearch(abatangelo, "dante bari")).toBe(false);
+    expect(matchesClienteSearch(abatangelo, "70121")).toBe(false);
+    expect(matchesClienteSearch(abatangelo, "bari")).toBe(false);
+    expect(clienteSearchBlob(abatangelo)).not.toContain("via dante");
+    expect(clienteSearchBlob(abatangelo)).not.toContain("bari");
+  });
+
+  it("trova per indirizzo sede e città sede", () => {
+    expect(matchesClienteSearch(conNominativo, "corso italia")).toBe(true);
+    expect(matchesClienteSearch(conNominativo, "milano")).toBe(true);
+    expect(matchesClienteSearch(conNominativo, "via verdi")).toBe(false);
   });
 
   it("trova per nominativo aggiuntivo + indirizzo sede", () => {
@@ -58,11 +66,11 @@ describe("clienteSearch", () => {
     expect(parseSearchClientiRankedPayload(null)).toEqual([]);
   });
 
-  it("opzione dropdown include indirizzo nel searchText", () => {
+  it("opzione dropdown mostra residenza in descrizione ma non nel searchText", () => {
     const opt = toClienteSearchOption(abatangelo);
     expect(opt.label).toBe("ABATANGELO COSIMO DAMIANO");
     expect(opt.description).toContain("Via Dante 10");
-    expect(opt.searchText).toContain("via dante 10");
+    expect(opt.searchText).not.toContain("via dante 10");
   });
 
   it("non matcha email/pec anche se presenti in anagrafica", () => {

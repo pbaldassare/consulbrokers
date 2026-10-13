@@ -4,11 +4,11 @@ import { scoreClienteSearch } from "../scoreClienteSearch";
 describe("scoreClienteSearch", () => {
   it("priorità città esatta su match nome parziale", () => {
     const citta = scoreClienteSearch(
-      { cognome: "Biolcati", nome: "Mario", citta_residenza: "ADRIA" },
+      { cognome: "Biolcati", nome: "Mario", citta_sede: "ADRIA" },
       "adria",
     );
     const nomeParziale = scoreClienteSearch(
-      { cognome: "Adriano", nome: "Luca", citta_residenza: "Milano" },
+      { cognome: "Adriano", nome: "Luca", citta_sede: "Milano" },
       "adria",
     );
     expect(citta).toBe(1);
@@ -40,12 +40,27 @@ describe("scoreClienteSearch", () => {
     expect(scoreClienteSearch(cliente, "gobbi de")).toBe(4);
   });
 
-  it("match indirizzo come contains-like", () => {
+  it("match indirizzo sede come contains-like", () => {
+    expect(
+      scoreClienteSearch(
+        { cognome: "Abate", nome: "Alexander", indirizzo_sede: "Via Roma 12", citta_sede: "Milano" },
+        "via roma",
+      ),
+    ).toBe(4);
+  });
+
+  it("ignora residenza", () => {
     expect(
       scoreClienteSearch(
         { cognome: "Abate", nome: "Alexander", indirizzo_residenza: "Via Roma 12", citta_residenza: "Milano" },
         "via roma",
       ),
-    ).toBe(4);
+    ).toBe(5);
+    expect(
+      scoreClienteSearch(
+        { cognome: "Rossi", nome: "Mario", citta_residenza: "Adria" },
+        "adria",
+      ),
+    ).toBe(5);
   });
 });
