@@ -3,12 +3,15 @@ import {
   countUnreadSupportTickets,
   emptySupportTicketSeenState,
   ensureSupportTicketSeenBaseline,
+  isSeenStateAhead,
   isSupportTicketUnread,
   loadSupportTicketSeenState,
   markAllSupportTicketsRead,
   markSupportTicketOpened,
+  mergeSupportTicketSeenState,
   parseSupportTicketSeenState,
   saveSupportTicketSeenState,
+  seenStateFromDbRow,
   unreadSupportTicketIds,
 } from "../supportTicketUnread";
 
@@ -126,6 +129,55 @@ describe("supportTicketUnread", () => {
       countUnreadSupportTickets(
         [{ id: "vecchio", created_at: "2026-10-14T10:00:00.000Z" }],
         reloaded,
+      ),
+    ).toBe(0);
+  });
+
+  it("la riga DB con visto_il tiene i ticket già visti anche senza localStorage", () => {
+    const fromDb = seenStateFromDbRow({ visto_il: "2026-10-14T11:00:00.000Z", aperti_ids: [] });
+    expect(fromDb.lastSeenAt).toBe("2026-10-14T11:00:00.000Z");
+    expect(
+      countUnreadSupportTickets(
+        [
+          { id: "vecchio", created_at: "2026-10-14T10:00:00.000Z" },
+          { id: "nuovo", created_at: "2026-10-14T12:00:00.000Z" },
+        ],
+        fromDb,
+      ),
+    ).toBe(1);
+  });
+
+  it("merge tiene il lastSeenAt più recente e unisce gli aperti", () => {
+    const merged = mergeSupportTicketSeenState(
+      { lastSeenAt: "2026-10-14T10:00:00.000Z", openedIds: ["a"] },
+      { lastSeenAt: "2026-10-14T11:00:00.000Z", openedIds: ["b"] },
+    );
+    expect(merged.lastSeenAt).toBe("2026-10-14T11:00:00.000Z");
+    expect(merged.openedIds).toEqual(["a", "b"]);
+    expect(
+      isSeenStateAhead(
+        { lastSeenAt: "2026-10-14T12:00:00.000Z", openedIds: [] },
+        { lastSeenAt: "2026-10-14T11:00:00.000Z", openedIds: [] },
+      ),
+    ).toBe(true);
+    expect(
+      isSeenStateAhead(
+        { lastSeenAt: "2026-10-14T10:00:00.000Z", openedIds: [] },
+        { lastSeenAt: "2026-10-14T11:00:00.000Z", openedIds: [] },
+      ),
+    ).toBe(false);
+  });
+
+  it("un markOpened senza lastSeenAt non deve vincere su un visto_il già in DB", () => {
+    const afterOpen = markSupportTicketOpened(emptySupportTicketSeenState(), "t1");
+    const fromDb = seenStateFromDbRow({ visto_il: "2026-10-14T11:00:00.000Z", aperti_ids: [] });
+    const merged = mergeSupportTicketSeenState(fromDb, afterOpen);
+    expect(merged.lastSeenAt).toBe("2026-10-14T11:00:00.000Z");
+    expect(merged.openedIds).toEqual(["t1"]);
+    expect(
+      countUnreadSupportTickets(
+        [{ id: "vecchio", created_at: "2026-10-14T10:00:00.000Z" }],
+        merged,
       ),
     ).toBe(0);
   });

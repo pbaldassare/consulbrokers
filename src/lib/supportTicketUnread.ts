@@ -1,4 +1,5 @@
-/** Stato locale: ticket nuovi dall'ultima visita alla pagina Ticket Supporto. */
+/** Stato letture Ticket Supporto. Fonte di verità: tabella `support_ticket_letture`.
+ *  localStorage è solo cache ottimistica: F5 / hard reload / altro browser leggono il DB. */
 
 export const SUPPORT_TICKET_UNREAD_STORAGE_PREFIX = "cbnet_support_tickets_seen_v2:";
 export const SUPPORT_TICKET_UNREAD_QUERY_KEY = "support-ticket-unread";
@@ -7,11 +8,15 @@ export type SupportTicketSeenState = {
   /**
    * ISO dell'ultima apertura (o uscita) dalla tab Ticket Supporto.
    * `null` = la tab non è mai stata aperta: tutti i ticket contano come nuovi.
-   * Si persiste al mount della pagina, non solo in uscita: un refresh non deve
-   * far tornare il badge sui ticket già visti.
+   * Si persiste sul DB al mount della pagina, non solo in uscita.
    */
   lastSeenAt: string | null;
   openedIds: string[];
+};
+
+export type SupportTicketLettureRow = {
+  visto_il?: string | null;
+  aperti_ids?: unknown;
 };
 
 export type SupportTicketUnreadRow = {
@@ -28,18 +33,55 @@ export function emptySupportTicketSeenState(): SupportTicketSeenState {
   return { lastSeenAt: null, openedIds: [] };
 }
 
+function normalizeOpenedIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((id): id is string => typeof id === "string" && id.length > 0);
+}
+
+function laterIso(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  const am = Date.parse(a);
+  const bm = Date.parse(b);
+  if (!Number.isFinite(am)) return b;
+  if (!Number.isFinite(bm)) return a;
+  return bm > am ? b : a;
+}
+
 export function parseSupportTicketSeenState(raw: string | null): SupportTicketSeenState {
   if (!raw) return emptySupportTicketSeenState();
   try {
     const parsed = JSON.parse(raw) as Partial<SupportTicketSeenState>;
     const lastSeenAt = typeof parsed.lastSeenAt === "string" && parsed.lastSeenAt ? parsed.lastSeenAt : null;
-    const openedIds = Array.isArray(parsed.openedIds)
-      ? parsed.openedIds.filter((id): id is string => typeof id === "string" && id.length > 0)
-      : [];
-    return { lastSeenAt, openedIds };
+    return { lastSeenAt, openedIds: normalizeOpenedIds(parsed.openedIds) };
   } catch {
     return emptySupportTicketSeenState();
   }
+}
+
+export function seenStateFromDbRow(row: SupportTicketLettureRow | null | undefined): SupportTicketSeenState {
+  if (!row) return emptySupportTicketSeenState();
+  const lastSeenAt = typeof row.visto_il === "string" && row.visto_il ? row.visto_il : null;
+  return { lastSeenAt, openedIds: normalizeOpenedIds(row.aperti_ids) };
+}
+
+/** Unisce cache locale e riga DB: lastSeenAt più recente + union openedIds. */
+export function mergeSupportTicketSeenState(
+  a: SupportTicketSeenState,
+  b: SupportTicketSeenState,
+): SupportTicketSeenState {
+  return {
+    lastSeenAt: laterIso(a.lastSeenAt, b.lastSeenAt),
+    openedIds: [...new Set([...a.openedIds, ...b.openedIds])],
+  };
+}
+
+export function isSeenStateAhead(candidate: SupportTicketSeenState, baseline: SupportTicketSeenState): boolean {
+  const mergedLast = laterIso(candidate.lastSeenAt, baseline.lastSeenAt);
+  if (candidate.lastSeenAt && mergedLast === candidate.lastSeenAt && candidate.lastSeenAt !== baseline.lastSeenAt) {
+    return true;
+  }
+  return candidate.openedIds.some((id) => !baseline.openedIds.includes(id));
 }
 
 export function loadSupportTicketSeenState(userId: string, storage: Pick<Storage, "getItem"> = localStorage): SupportTicketSeenState {

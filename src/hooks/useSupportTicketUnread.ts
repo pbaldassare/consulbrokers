@@ -4,17 +4,71 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   SUPPORT_TICKET_UNREAD_QUERY_KEY,
-  ensureSupportTicketSeenBaseline,
+  emptySupportTicketSeenState,
+  isSeenStateAhead,
   loadSupportTicketSeenState,
   markAllSupportTicketsRead,
   markSupportTicketOpened,
+  mergeSupportTicketSeenState,
   saveSupportTicketSeenState,
+  seenStateFromDbRow,
   unreadSupportTicketIds,
+  type SupportTicketSeenState,
   type SupportTicketUnreadRow,
 } from "@/lib/supportTicketUnread";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
+
+type UnreadQueryData = {
+  tickets: SupportTicketUnreadRow[];
+  unreadIds: string[];
+  unreadCount: number;
+};
+
+function readLocalSeenState(userId: string): SupportTicketSeenState {
+  try {
+    return loadSupportTicketSeenState(userId);
+  } catch {
+    return emptySupportTicketSeenState();
+  }
+}
+
+async function loadSeenStateFromDb(userId: string): Promise<SupportTicketSeenState> {
+  const { data: row, error } = await db
+    .from("support_ticket_letture")
+    .select("visto_il, aperti_ids")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return seenStateFromDbRow(row);
+}
+
+async function persistSeenState(userId: string, state: SupportTicketSeenState): Promise<SupportTicketSeenState> {
+  let dbState = emptySupportTicketSeenState();
+  try {
+    dbState = await loadSeenStateFromDb(userId);
+  } catch {
+    /* se il SELECT fallisce, scriviamo comunque lo stato nuovo */
+  }
+  const merged = mergeSupportTicketSeenState(dbState, state);
+  try {
+    saveSupportTicketSeenState(userId, merged);
+  } catch {
+    /* cache locale opzionale */
+  }
+  const { error } = await db.from("support_ticket_letture").upsert(
+    {
+      user_id: userId,
+      visto_il: merged.lastSeenAt,
+      aperti_ids: merged.openedIds,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
+  if (error) throw error;
+  return merged;
+}
 
 export function useSupportTicketUnread() {
   const { user } = useAuth();
@@ -24,9 +78,24 @@ export function useSupportTicketUnread() {
   const { data } = useQuery({
     queryKey: [SUPPORT_TICKET_UNREAD_QUERY_KEY, userId],
     enabled: !!userId,
-    queryFn: async () => {
-      if (!userId) return { tickets: [] as SupportTicketUnreadRow[], unreadIds: [] as string[], unreadCount: 0 };
-      const state = ensureSupportTicketSeenBaseline(userId);
+    queryFn: async (): Promise<UnreadQueryData> => {
+      if (!userId) return { tickets: [], unreadIds: [], unreadCount: 0 };
+      const dbState = await loadSeenStateFromDb(userId);
+      const localState = readLocalSeenState(userId);
+      const state = mergeSupportTicketSeenState(dbState, localState);
+      if (isSeenStateAhead(localState, dbState)) {
+        try {
+          await persistSeenState(userId, state);
+        } catch (err) {
+          console.error("[useSupportTicketUnread] sync locale→db", err);
+        }
+      } else {
+        try {
+          saveSupportTicketSeenState(userId, state);
+        } catch {
+          /* ignore */
+        }
+      }
       const { data: rows, error } = await db.from("support_tickets").select("id, created_at, data_apertura");
       if (error) throw error;
       const tickets = (rows || []) as SupportTicketUnreadRow[];
@@ -61,21 +130,44 @@ export function useSupportTicketUnread() {
     qc.invalidateQueries({ queryKey: [SUPPORT_TICKET_UNREAD_QUERY_KEY, userId] });
   }, [qc, userId]);
 
-  const markOpened = useCallback(
-    (ticketId: string) => {
-      if (!userId || !ticketId) return;
-      const next = markSupportTicketOpened(loadSupportTicketSeenState(userId), ticketId);
-      saveSupportTicketSeenState(userId, next);
-      refresh();
+  const applyOptimisticRead = useCallback(
+    (next: SupportTicketSeenState) => {
+      if (!userId) return;
+      qc.setQueryData([SUPPORT_TICKET_UNREAD_QUERY_KEY, userId], (prev: UnreadQueryData | undefined) => {
+        if (!prev) return prev;
+        const unread = unreadSupportTicketIds(prev.tickets, next);
+        return { ...prev, unreadIds: unread, unreadCount: unread.length };
+      });
     },
-    [refresh, userId],
+    [qc, userId],
   );
 
-  const markAllRead = useCallback(() => {
+  const markOpened = useCallback(
+    async (ticketId: string) => {
+      if (!userId || !ticketId) return;
+      const next = markSupportTicketOpened(readLocalSeenState(userId), ticketId);
+      applyOptimisticRead(next);
+      try {
+        await persistSeenState(userId, next);
+      } catch (err) {
+        console.error("[useSupportTicketUnread] markOpened", err);
+      }
+      refresh();
+    },
+    [applyOptimisticRead, refresh, userId],
+  );
+
+  const markAllRead = useCallback(async () => {
     if (!userId) return;
-    saveSupportTicketSeenState(userId, markAllSupportTicketsRead());
+    const next = markAllSupportTicketsRead();
+    applyOptimisticRead(next);
+    try {
+      await persistSeenState(userId, next);
+    } catch (err) {
+      console.error("[useSupportTicketUnread] markAllRead", err);
+    }
     refresh();
-  }, [refresh, userId]);
+  }, [applyOptimisticRead, refresh, userId]);
 
   return { unreadCount, unreadIds, markOpened, markAllRead };
 }

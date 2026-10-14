@@ -820,10 +820,13 @@ export default function SupportTicketsPage() {
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
 
   useEffect(() => {
-    // Persistenza all'apertura: pagehide/F5 non è affidabile, quindi lastSeenAt
-    // va scritto subito. Così un refresh non fa tornare il badge sui ticket già visti.
-    markAllRead();
-    const persistSeen = () => markAllRead();
+    // Persistenza sul DB all'apertura (non solo pagehide): F5 / hard reload /
+    // altro browser rileggono visto_il e non rimostrano i ticket già visti.
+    if (!user?.id) return;
+    void markAllRead();
+    const persistSeen = () => {
+      void markAllRead();
+    };
     window.addEventListener("pagehide", persistSeen);
     window.addEventListener("beforeunload", persistSeen);
     return () => {
@@ -831,7 +834,7 @@ export default function SupportTicketsPage() {
       window.removeEventListener("pagehide", persistSeen);
       window.removeEventListener("beforeunload", persistSeen);
     };
-  }, [markAllRead]);
+  }, [markAllRead, user?.id]);
 
   const { data: tickets = [], isLoading, error } = useQuery({
     queryKey: ["support-tickets", user?.id, isAdmin],
