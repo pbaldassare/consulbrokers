@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2, Info, Trash2, Eye, Loader2 } from "lucide-react";
 import { avviaVisualizzaCome } from "@/lib/visualizzaCome";
 import { LEVELS, getLevelByRole, UserLevel } from "@/lib/userLevels";
-import { formatNomeCognome, permissionSummary, roleLabel, sedeAssegnataLabel } from "@/lib/userPrivilegiDisplay";
+import { compareNomeCognome, formatNomeCognome, permissionSummary, roleLabel, sedeAssegnataLabel } from "@/lib/userPrivilegiDisplay";
 import UserLevelCard from "@/components/utenti/UserLevelCard";
 import CreateUserWizard from "@/components/utenti/CreateUserWizard";
 import UserPermissionsSheet from "@/components/utenti/UserPermissionsSheet";
@@ -57,6 +57,7 @@ const GestioneUtentiPrivilegi = () => {
           .select("id, nome, cognome, email, ruolo, attivo, ufficio_id, permessi_json, percentuale_base, percentuale_ra, created_at")
           .neq("ruolo", "cliente")
           .neq("ruolo", "prospect")
+          .order("nome")
           .order("cognome"),
         supabase.from("uffici").select("id, nome_ufficio"),
         supabase.from("profilo_sedi").select("profilo_id, primaria, ufficio_id"),
@@ -106,16 +107,18 @@ const GestioneUtentiPrivilegi = () => {
   }, [users]);
 
   const filtered = useMemo(() => {
-    return users.filter((u) => {
-      if (filterLevel !== "all") {
-        const lvl = getLevelByRole(u.ruolo);
-        if (lvl.id !== filterLevel) return false;
-      }
-      if (statusFilter === "active" && !u.attivo) return false;
-      if (statusFilter === "suspended" && u.attivo) return false;
-      if (search && !matchesProfileNameSearch(u, search)) return false;
-      return true;
-    });
+    return users
+      .filter((u) => {
+        if (filterLevel !== "all") {
+          const lvl = getLevelByRole(u.ruolo);
+          if (lvl.id !== filterLevel) return false;
+        }
+        if (statusFilter === "active" && !u.attivo) return false;
+        if (statusFilter === "suspended" && u.attivo) return false;
+        if (search && !matchesProfileNameSearch(u, search)) return false;
+        return true;
+      })
+      .sort(compareNomeCognome);
   }, [users, filterLevel, statusFilter, search]);
 
   const grouped = useMemo(() => {

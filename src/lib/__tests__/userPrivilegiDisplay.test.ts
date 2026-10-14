@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatNomeCognome, permissionSummary, sedeAssegnataLabel } from "../userPrivilegiDisplay";
+import { compareNomeCognome, formatNomeCognome, permissionSummary, sedeAssegnataLabel } from "../userPrivilegiDisplay";
 
 describe("sedeAssegnataLabel", () => {
   it("per l'admin senza sede indica tutte le sedi", () => {
@@ -42,6 +42,36 @@ describe("formatNomeCognome", () => {
     expect(formatNomeCognome({ nome: "  Federico  ", cognome: "  " })).toBe("Federico");
     expect(formatNomeCognome({ nome: "", cognome: "Bonito" })).toBe("Bonito");
     expect(formatNomeCognome(null)).toBe("");
+  });
+});
+
+describe("compareNomeCognome", () => {
+  it("ordina per nome e solo a parità per cognome", () => {
+    const rows = [
+      { nome: "Tina", cognome: "Bonito" },
+      { nome: "Federico", cognome: "Zunino" },
+      { nome: "Federico", cognome: "Bartozzi" },
+      { nome: "Maria", cognome: "Midena" },
+    ];
+    expect([...rows].sort(compareNomeCognome).map((r) => `${r.nome} ${r.cognome}`)).toEqual([
+      "Federico Bartozzi",
+      "Federico Zunino",
+      "Maria Midena",
+      "Tina Bonito",
+    ]);
+  });
+
+  it("non mette in testa le sedi con cognome vuoto (niente sort per cognome)", () => {
+    const rows = [
+      { nome: "CATANIA Sede", cognome: "" },
+      { nome: "Anna", cognome: "Rossi" },
+      { nome: "Bergamo Sede", cognome: null },
+    ];
+    expect([...rows].sort(compareNomeCognome).map((r) => r.nome)).toEqual([
+      "Anna",
+      "Bergamo Sede",
+      "CATANIA Sede",
+    ]);
   });
 });
 

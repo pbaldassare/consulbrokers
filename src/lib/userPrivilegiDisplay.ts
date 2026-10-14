@@ -63,14 +63,23 @@ export function roleLabel(role: string | null | undefined): string {
   return ROLE_LABELS[role] || role;
 }
 
-/** Nome e cognome in quest'ordine. Parti vuote omesse, niente inversione. */
-export function formatNomeCognome(person: {
+export type NomeCognomePerson = {
   nome?: string | null;
   cognome?: string | null;
-} | null | undefined): string {
+};
+
+/** Nome e cognome in quest'ordine. Parti vuote omesse, niente inversione. */
+export function formatNomeCognome(person: NomeCognomePerson | null | undefined): string {
   if (!person) return "";
   return [person.nome, person.cognome]
     .map((part) => (part ?? "").trim())
     .filter(Boolean)
     .join(" ");
+}
+
+/** Ordine lista Centro Utenti: nome, poi cognome. Mai il contrario. */
+export function compareNomeCognome(a: NomeCognomePerson, b: NomeCognomePerson): number {
+  const byNome = (a.nome ?? "").trim().localeCompare((b.nome ?? "").trim(), "it", { sensitivity: "base" });
+  if (byNome !== 0) return byNome;
+  return (a.cognome ?? "").trim().localeCompare((b.cognome ?? "").trim(), "it", { sensitivity: "base" });
 }

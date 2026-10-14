@@ -44,7 +44,7 @@ const MioProfilo = () => {
   const ruoloLabel = profile.ruolo ? ROLE_LABELS[profile.ruolo] || profile.ruolo : "—";
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-4xl mx-auto min-w-0 space-y-6">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
           <UserCircle2 className="w-6 h-6 text-primary" />
@@ -57,8 +57,8 @@ const MioProfilo = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1">
+      <div className="grid min-w-0 grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="min-w-0 overflow-hidden lg:col-span-1">
           <CardHeader>
             <CardTitle className="text-base">Foto profilo</CardTitle>
           </CardHeader>
@@ -72,11 +72,11 @@ const MioProfilo = () => {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="min-w-0 overflow-hidden lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base">Dati personali</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-w-0">
             <ProfileInfoForm
               userId={user.id}
               mode="self"
@@ -91,7 +91,7 @@ const MioProfilo = () => {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3">
+        <Card className="min-w-0 overflow-hidden lg:col-span-3">
           <CardHeader>
             <CardTitle className="text-base">Account</CardTitle>
           </CardHeader>

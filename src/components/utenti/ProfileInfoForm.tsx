@@ -81,54 +81,60 @@ const ProfileInfoForm = ({ userId, initial, mode, onSaved, hideSubmit, disabled 
   };
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs">Nome</Label>
+    <div className="min-w-0 space-y-3">
+      <div className="min-w-0 overflow-hidden space-y-3">
+        <div className="grid min-w-0 grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="min-w-0">
+            <Label className="text-xs">Nome</Label>
+            <Input
+              className="min-w-0 focus-visible:ring-inset focus-visible:ring-offset-0"
+              value={form.nome}
+              onChange={(e) => update("nome", e.target.value)}
+              maxLength={100}
+              placeholder="Mario"
+              disabled={disabled}
+            />
+          </div>
+          <div className="min-w-0">
+            <Label className="text-xs">Cognome</Label>
+            <Input
+              className="min-w-0 focus-visible:ring-inset focus-visible:ring-offset-0"
+              value={form.cognome}
+              onChange={(e) => update("cognome", e.target.value)}
+              maxLength={100}
+              placeholder="Rossi"
+              disabled={disabled}
+            />
+          </div>
+        </div>
+        <div className="min-w-0">
+          <Label className="text-xs">Recapito telefonico</Label>
           <Input
-            value={form.nome}
-            onChange={(e) => update("nome", e.target.value)}
-            maxLength={100}
-            placeholder="Mario"
+            className="min-w-0 focus-visible:ring-inset focus-visible:ring-offset-0"
+            value={form.telefono}
+            onChange={(e) => update("telefono", e.target.value)}
+            maxLength={30}
+            placeholder="+39 ..."
+            inputMode="tel"
             disabled={disabled}
           />
         </div>
-        <div>
-          <Label className="text-xs">Cognome</Label>
-          <Input
-            value={form.cognome}
-            onChange={(e) => update("cognome", e.target.value)}
-            maxLength={100}
-            placeholder="Rossi"
+        <div className="min-w-0">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Note sintetiche</Label>
+            <span className="text-[10px] text-muted-foreground">
+              {form.note.length}/{NOTE_MAX}
+            </span>
+          </div>
+          <Textarea
+            className="min-w-0 max-w-full resize-y focus-visible:ring-inset focus-visible:ring-offset-0"
+            value={form.note}
+            onChange={(e) => update("note", e.target.value.slice(0, NOTE_MAX))}
+            rows={3}
+            placeholder="Brevi annotazioni opzionali"
             disabled={disabled}
           />
         </div>
-      </div>
-      <div>
-        <Label className="text-xs">Recapito telefonico</Label>
-        <Input
-          value={form.telefono}
-          onChange={(e) => update("telefono", e.target.value)}
-          maxLength={30}
-          placeholder="+39 ..."
-          inputMode="tel"
-          disabled={disabled}
-        />
-      </div>
-      <div>
-        <div className="flex items-center justify-between">
-          <Label className="text-xs">Note sintetiche</Label>
-          <span className="text-[10px] text-muted-foreground">
-            {form.note.length}/{NOTE_MAX}
-          </span>
-        </div>
-        <Textarea
-          value={form.note}
-          onChange={(e) => update("note", e.target.value.slice(0, NOTE_MAX))}
-          rows={3}
-          placeholder="Brevi annotazioni opzionali"
-          disabled={disabled}
-        />
       </div>
       {!hideSubmit && (
         <div className="flex justify-end">

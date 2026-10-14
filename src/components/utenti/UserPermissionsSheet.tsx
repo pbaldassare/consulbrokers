@@ -204,8 +204,8 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
           </TabsList>
 
           <ScrollArea className="flex-1 mt-3 pr-3">
-            <TabsContent value="anagrafica" className="space-y-4 mt-0">
-              <div className="rounded-lg border p-3">
+            <TabsContent value="anagrafica" className="min-w-0 space-y-4 mt-0 overflow-hidden">
+              <div className="min-w-0 overflow-hidden rounded-lg border p-3">
                 <ProfileAvatarUpload
                   userId={user.id}
                   avatarUrl={user.avatar_url || null}
