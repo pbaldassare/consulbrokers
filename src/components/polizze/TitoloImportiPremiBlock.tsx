@@ -16,6 +16,8 @@ import {
   resetQuietanzaRow,
   isQuietanzaSincronizzata,
   shouldAutoMirrorQuietanza,
+  shouldMirrorProvvigioni,
+  resolveProvvigioniQuietanza,
   rowsAreEmpty,
 } from "./premiSync";
 import {
@@ -381,7 +383,14 @@ function TitoloImportiPremiBlock({
   const manualFromEuroQuietanzaRef = useRef(false);
   const manualUserEditFirmaRef = useRef(false);
   const manualUserEditQuietanzaRef = useRef(false);
+  const provvQuietanzaPersonalizzataRef = useRef(false);
+  const [provvQuietanzaPersonalizzata, setProvvQuietanzaPersonalizzata] = useState(false);
   const [, bumpProvvDisplay] = useState(0);
+
+  const setProvvQuietanzaScollegata = (v: boolean) => {
+    provvQuietanzaPersonalizzataRef.current = v;
+    setProvvQuietanzaPersonalizzata(v);
+  };
 
   const setProvvAuto = (tipo: "firma" | "quietanza", auto: boolean) => {
     if (tipo === "firma") {
@@ -401,6 +410,7 @@ function TitoloImportiPremiBlock({
     setQuietanzaRows([]);
     manualUserEditFirmaRef.current = false;
     manualUserEditQuietanzaRef.current = false;
+    setProvvQuietanzaScollegata(false);
   }, [titoloId]);
 
   const enrichGaranziaRow = (r: GaranziaRow): GaranziaRow => {
@@ -521,7 +531,15 @@ function TitoloImportiPremiBlock({
       setProvvAuto("firma", true);
     }
 
-    if (manualUserEditQuietanzaRef.current || isProvvigioniManualStored(storedQ, calcQ)) {
+    if (shouldMirrorProvvigioni(quietanzaMapped, provvQuietanzaPersonalizzataRef.current) && !hideFirma) {
+      // Stesso specchio dei premi: il blocco provvigioni Quietanza segue la Firma.
+      provvQuietanzaAutoRef.current = provvFirmaAutoRef.current;
+      setProvvQuietanzaAuto(provvFirmaAutoRef.current);
+      manualImportoQuietanzaRef.current = manualImportoFirmaRef.current;
+      manualFromEuroQuietanzaRef.current = manualFromEuroFirmaRef.current;
+      manualPctQuietanzaRef.current = manualPctFirmaRef.current;
+      manualUserEditQuietanzaRef.current = manualUserEditFirmaRef.current;
+    } else if (manualUserEditQuietanzaRef.current || isProvvigioniManualStored(storedQ, calcQ)) {
       manualImportoQuietanzaRef.current = storedQ;
       manualFromEuroQuietanzaRef.current = true;
       manualPctQuietanzaRef.current = "";
@@ -613,12 +631,6 @@ function TitoloImportiPremiBlock({
     bumpProvvDisplay((n) => n + 1);
   };
 
-  /** Unica verità = totale blocco (mai somma righe/matrice). */
-  const resolveProvvigioniForSave = (
-    tipo: "firma" | "quietanza",
-    rows: GaranziaRow[],
-  ): number => resolveProvvigioniForSavePure(resolveProvvigioniImporto(tipo, rows));
-
   const totNettoProvvEligible = (rows: GaranziaRow[]) =>
     rows.reduce((s, r) => {
       if (isRigaEsclusaProvvigioni(r)) return s;
@@ -693,6 +705,7 @@ function TitoloImportiPremiBlock({
     manualImportoQuietanzaRef.current = manualImportoFirmaRef.current;
     manualFromEuroQuietanzaRef.current = manualFromEuroFirmaRef.current;
     manualUserEditQuietanzaRef.current = manualUserEditFirmaRef.current;
+    setProvvQuietanzaScollegata(false);
     bumpProvvDisplay((n) => n + 1);
   };
 
@@ -707,7 +720,11 @@ function TitoloImportiPremiBlock({
     setSaving(true);
     setSaveStatus("saving");
     try {
-      const blockProvv = resolveProvvigioniForSave(tipo, rows);
+      const blockProvv = resolveProvvigioniForSavePure(
+        tipo === "quietanza" && !hideFirma && shouldMirrorProvvigioni(rows, provvQuietanzaPersonalizzataRef.current)
+          ? resolveProvvigioniImporto("firma", firmaRowsRef.current)
+          : resolveProvvigioniImporto(tipo, rows),
+      );
       const auto =
         tipo === "firma" ? provvFirmaAutoRef.current : provvQuietanzaAutoRef.current;
       const nettoEligible = totNettoProvvEligible(rows);
@@ -860,6 +877,7 @@ function TitoloImportiPremiBlock({
     manualFromEuroQuietanzaRef.current = false;
     manualUserEditFirmaRef.current = false;
     manualUserEditQuietanzaRef.current = false;
+    setProvvQuietanzaScollegata(false);
     setProvvAuto("firma", true);
     setProvvAuto("quietanza", true);
     bumpProvvDisplay((n) => n + 1);
@@ -1065,7 +1083,13 @@ function TitoloImportiPremiBlock({
   const totBaseFirma = totNettoFirma + accessoriFirmaNum;
   const totBaseQui = totNettoQui + accessoriQuietanzaNum;
   const displayProvvFirma = resolveProvvigioniImporto("firma", firmaRows);
-  const displayProvvQuietanza = resolveProvvigioniImporto("quietanza", quietanzaRows);
+  const displayProvvQuietanzaCalc = resolveProvvigioniImporto("quietanza", quietanzaRows);
+  const displayProvvQuietanza = resolveProvvigioniQuietanza(
+    quietanzaRows,
+    { importo: displayProvvFirma, pctDisplay: "" },
+    { importo: displayProvvQuietanzaCalc, pctDisplay: "" },
+    provvQuietanzaPersonalizzata,
+  ).importo;
 
   const displayTotals: TitoloImportiPremiDisplayTotals = useMemo(() => {
     const build = (
@@ -1261,13 +1285,16 @@ function TitoloImportiPremiBlock({
     : provvBreakdownFirma
       ? formatFixed2(provvBreakdownFirma.pctNetto)
       : "";
-  const pctQui = !provvQuietanzaAuto
+  const pctQuiCalc = !provvQuietanzaAuto
     ? (manualFromEuroQuietanzaRef.current && manualImportoQuietanzaRef.current != null
       ? formatFixed2(provvigioniPctFromImporto(manualImportoQuietanzaRef.current, totBaseQui))
       : formatFixed2(manualPctQuietanzaRef.current))
     : provvBreakdownQuietanza
       ? formatFixed2(provvBreakdownQuietanza.pctNetto)
       : "";
+  const pctQui = shouldMirrorProvvigioni(quietanzaRows, provvQuietanzaPersonalizzata)
+    ? pctFirma
+    : pctQuiCalc;
 
   const setProvvigioniManualPct = (tipo: "firma" | "quietanza", v: string) => {
     if (isLocked || !draftMode) return;
@@ -1321,12 +1348,20 @@ function TitoloImportiPremiBlock({
   };
 
   const onPercentualeAgenziaFirma = (v: string) => { setProvvigioniManualPct("firma", v); };
-  const onPercentualeAgenziaQuietanza = (v: string) => { setProvvigioniManualPct("quietanza", v); };
+  const onPercentualeAgenziaQuietanza = (v: string) => {
+    setProvvQuietanzaScollegata(true);
+    setProvvigioniManualPct("quietanza", v);
+  };
   const onImportoProvvigioniFirma = (importo: number) => { setProvvigioniManualImporto("firma", importo); };
-  const onImportoProvvigioniQuietanza = (importo: number) => { setProvvigioniManualImporto("quietanza", importo); };
+  const onImportoProvvigioniQuietanza = (importo: number) => {
+    setProvvQuietanzaScollegata(true);
+    setProvvigioniManualImporto("quietanza", importo);
+  };
 
   // Specchio perfetto: nessuna riga Quietanza personalizzata.
-  const sincronizzata = isQuietanzaSincronizzata(quietanzaRows);
+  const sincronizzata =
+    isQuietanzaSincronizzata(quietanzaRows) &&
+    shouldMirrorProvvigioni(quietanzaRows, provvQuietanzaPersonalizzata);
   const personalizzati = quietanzaRows.map((r) => !!r.quietanzaPersonalizzata);
 
   const saveStatusLabel = (() => {
@@ -1417,7 +1452,11 @@ function TitoloImportiPremiBlock({
         }
         addizionali={String(round2(accessoriQuietanzaNum))}
         provvigioni={displayProvvQuietanza}
-        provvPctBreakdown={provvBreakdownQuietanza}
+        provvPctBreakdown={
+          shouldMirrorProvvigioni(quietanzaRows, provvQuietanzaPersonalizzata)
+            ? provvBreakdownFirma
+            : provvBreakdownQuietanza
+        }
         rowPctAccessori={rowPctAccessoriFn}
         rowPctNetto={rowPctNettoQuietanzaFn}
         rowAgencyPctNetto={rowAgencyPctNettoFn}

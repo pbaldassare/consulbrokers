@@ -9,6 +9,9 @@ import {
   resetQuietanzaRow,
   isQuietanzaSincronizzata,
   shouldAutoMirrorQuietanza,
+  shouldMirrorProvvigioni,
+  resolveProvvigioniQuietanza,
+  mirrorProvvManualState,
 } from "@/components/polizze/premiSync";
 
 const row = (over: Partial<GaranziaRow> = {}): GaranziaRow => ({
@@ -174,5 +177,59 @@ describe("shouldAutoMirrorQuietanza", () => {
   });
   it("false se una riga è personalizzata", () => {
     expect(shouldAutoMirrorQuietanza([row(), row({ quietanzaPersonalizzata: true })])).toBe(false);
+  });
+});
+
+describe("provvigioni Firma → Quietanza (stesso specchio dei premi)", () => {
+  it("shouldMirrorProvvigioni segue shouldAutoMirrorQuietanza", () => {
+    expect(shouldMirrorProvvigioni([row()])).toBe(true);
+    expect(shouldMirrorProvvigioni([])).toBe(true);
+    expect(shouldMirrorProvvigioni([row({ quietanzaPersonalizzata: true })])).toBe(false);
+    expect(shouldMirrorProvvigioni([row()], true)).toBe(false);
+  });
+
+  it("quando è specchio usa totale e % della Firma, non il ricalcolo Quietanza", () => {
+    const firma = { importo: 122, pctDisplay: "100.00" };
+    const quietanzaCalc = { importo: 0, pctDisplay: "0.00" };
+    expect(resolveProvvigioniQuietanza([row()], firma, quietanzaCalc)).toEqual(firma);
+  });
+
+  it("quando è personalizzata tiene il calcolo Quietanza", () => {
+    const firma = { importo: 122, pctDisplay: "100.00" };
+    const quietanzaCalc = { importo: 40, pctDisplay: "20.00" };
+    expect(
+      resolveProvvigioniQuietanza(
+        [row({ quietanzaPersonalizzata: true, netto: "200" })],
+        firma,
+        quietanzaCalc,
+      ),
+    ).toEqual(quietanzaCalc);
+  });
+
+  it("se l'utente tocca il blocco Quietanza tiene il calcolo anche con voci specchio", () => {
+    const firma = { importo: 122, pctDisplay: "100.00" };
+    const quietanzaCalc = { importo: 40, pctDisplay: "20.00" };
+    expect(resolveProvvigioniQuietanza([row()], firma, quietanzaCalc, true)).toEqual(quietanzaCalc);
+  });
+
+  it("mirrorProvvManualState copia auto / € / % dalla Firma", () => {
+    expect(
+      mirrorProvvManualState({ auto: false, importo: 122, fromEuro: true, pct: "" }),
+    ).toEqual({ auto: false, importo: 122, fromEuro: true, pct: "" });
+  });
+
+  it("syncQuietanzaFromFirma porta anche le % provvigione di riga", () => {
+    const firma = [
+      row({
+        netto: "122",
+        sottoramoId: "ramo-p-i",
+        provvNettoPct: 100,
+        provvNettoPctOverride: true,
+      }),
+    ];
+    const out = syncQuietanzaFromFirma(firma, [row({ netto: "0" })]);
+    expect(out[0].provvNettoPct).toBe(100);
+    expect(out[0].provvNettoPctOverride).toBe(true);
+    expect(out[0].sottoramoId).toBe("ramo-p-i");
   });
 });

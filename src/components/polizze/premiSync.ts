@@ -132,3 +132,47 @@ export function shouldAutoMirrorQuietanza(quietanza: GaranziaRow[] | null | unde
   if (!Array.isArray(quietanza) || quietanza.length === 0) return true;
   return quietanza.every((r) => !r?.quietanzaPersonalizzata);
 }
+
+/**
+ * Stesso criterio dei premi: se la Quietanza è specchio della Firma,
+ * anche il blocco provvigioni (totale €, % medie, riparto) segue la Firma.
+ * `provvPersonalizzata` = l'utente ha toccato il blocco Quietanza a mano.
+ */
+export function shouldMirrorProvvigioni(
+  quietanza: GaranziaRow[] | null | undefined,
+  provvPersonalizzata = false,
+): boolean {
+  return !provvPersonalizzata && shouldAutoMirrorQuietanza(quietanza);
+}
+
+export type ProvvigioniBlocco = {
+  importo: number;
+  pctDisplay: string;
+};
+
+/** Se specchio: usa Firma. Se personalizzata: tiene il calcolo Quietanza. */
+export function resolveProvvigioniQuietanza(
+  quietanza: GaranziaRow[] | null | undefined,
+  firma: ProvvigioniBlocco,
+  quietanzaCalcolata: ProvvigioniBlocco,
+  provvPersonalizzata = false,
+): ProvvigioniBlocco {
+  return shouldMirrorProvvigioni(quietanza, provvPersonalizzata) ? firma : quietanzaCalcolata;
+}
+
+export type ProvvManualState = {
+  auto: boolean;
+  importo: number | null;
+  fromEuro: boolean;
+  pct: string;
+};
+
+/** Copia lo stato manuale/auto del blocco provvigioni Firma → Quietanza. */
+export function mirrorProvvManualState(firma: ProvvManualState): ProvvManualState {
+  return {
+    auto: firma.auto,
+    importo: firma.importo,
+    fromEuro: firma.fromEuro,
+    pct: firma.pct,
+  };
+}

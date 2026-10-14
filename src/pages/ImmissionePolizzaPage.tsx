@@ -29,6 +29,8 @@ import {
   resetQuietanzaRow,
   isQuietanzaSincronizzata,
   shouldAutoMirrorQuietanza,
+  shouldMirrorProvvigioni,
+  resolveProvvigioniQuietanza,
 } from "@/components/polizze/premiSync";
 import {
   calcProvvigioniGaranzia,
@@ -512,6 +514,7 @@ const ImmissionePolizzaPage = () => {
   const [manualProvvImportoQuietanza, setManualProvvImportoQuietanza] = useState<number | null>(null);
   const [manualProvvFromEuroFirma, setManualProvvFromEuroFirma] = useState(false);
   const [manualProvvFromEuroQuietanza, setManualProvvFromEuroQuietanza] = useState(false);
+  const [provvQuietanzaPersonalizzata, setProvvQuietanzaPersonalizzata] = useState(false);
   const [provvigioneFonte, setProvvigioneFonte] = useState<string>("");
   const [provvigioneWarning, setProvvigioneWarning] = useState<string>("");
 
@@ -713,6 +716,7 @@ const ImmissionePolizzaPage = () => {
         percentualeCommercialeAuto: setPercentualeCommercialeAuto,
         percentualeProvvigione: setPercentualeProvvigione,
         percentualeProvvigioneAuto: setPercentualeProvvigioneAuto,
+        provvQuietanzaPersonalizzata: setProvvQuietanzaPersonalizzata,
         percentualeBrokeraggio: setPercentualeBrokeraggio,
         percentualeBrokeraggioAuto: setPercentualeBrokeraggioAuto,
         percentualeAE: setPercentualeAE,
@@ -794,6 +798,7 @@ const ImmissionePolizzaPage = () => {
     rimborso, indicizzata, noCalcoloTasse, pagDirettoCompagnia, emissioneFee, formatoElettronico, cambio,
     percentualeCommercialeAuto,
     percentualeProvvigione, percentualeProvvigioneAuto,
+    provvQuietanzaPersonalizzata,
     percentualeBrokeraggio, percentualeBrokeraggioAuto,
     percentualeAE,
     vSettore, vTipoVeicolo, vUso, vMarca, vModello, vVersione, vTarga, vTelaio, vDescrizione,
@@ -1418,8 +1423,11 @@ const ImmissionePolizzaPage = () => {
 
   const rowPctAccessoriFn = (row: GaranziaRow) => resolveRowPctAccessori(row, provvMatrice).pct;
   const rowPctNettoFn = (row: GaranziaRow) => resolveRowPctNetto(row, provvMatrice).pct;
+  const quietanzaSpecchio =
+    !polizzaTemporanea && shouldMirrorProvvigioni(premiQuietanzaRows, provvQuietanzaPersonalizzata);
   const provvBreakdownFirma = provvPctBreakdown(premiFirmaRows, provvMatrice);
-  const provvBreakdownQuietanza = provvPctBreakdown(premiQuietanzaRows, provvMatrice);
+  const provvBreakdownQuietanzaCalc = provvPctBreakdown(premiQuietanzaEffective, provvMatrice);
+  const provvBreakdownQuietanza = quietanzaSpecchio ? provvBreakdownFirma : provvBreakdownQuietanzaCalc;
 
   const baseFirmaProvv = premioNettoNum + accessoriFirmaNum;
   const baseQuietanzaProvv = premioNettoQNum + accessoriQuietanzaNum;
@@ -1431,13 +1439,21 @@ const ImmissionePolizzaPage = () => {
       : percentualeProvvigione
         ? provvigioniImportoFromPct(baseFirmaProvv, percentualeProvvigione)
         : 0;
-  const provvQuietanza = percentualeProvvigioneAuto
-    ? calcProvvAuto(premiQuietanzaRows)
+  const provvQuietanzaCalcolata = percentualeProvvigioneAuto
+    ? calcProvvAuto(premiQuietanzaEffective)
     : manualProvvFromEuroQuietanza && manualProvvImportoQuietanza != null
       ? manualProvvImportoQuietanza
       : percentualeProvvigione
         ? provvigioniImportoFromPct(baseQuietanzaProvv, percentualeProvvigione)
         : 0;
+  const provvQuietanza = polizzaTemporanea
+    ? 0
+    : resolveProvvigioniQuietanza(
+        premiQuietanzaRows,
+        { importo: provvFirma, pctDisplay: percentualeProvvigione },
+        { importo: provvQuietanzaCalcolata, pctDisplay: percentualeProvvigione },
+        provvQuietanzaPersonalizzata,
+      ).importo;
 
   const brokFirma = percentualeBrokeraggio ? (premioNettoNum * parseFloat(percentualeBrokeraggio) / 100) : 0;
   const brokQuietanza = percentualeBrokeraggio ? (premioNettoQNum * parseFloat(percentualeBrokeraggio) / 100) : 0;
@@ -3444,58 +3460,78 @@ const ImmissionePolizzaPage = () => {
                 setManualProvvImportoQuietanza(null);
                 setManualProvvFromEuroFirma(false);
                 setManualProvvFromEuroQuietanza(false);
+                setProvvQuietanzaPersonalizzata(false);
               },
+            };
+            const firmaSafe = Array.isArray(premiFirmaRows) ? premiFirmaRows : [];
+            const quietanzaSafe = Array.isArray(premiQuietanzaRows) ? premiQuietanzaRows : [];
+            const pctFirmaDisplay = percentualeProvvigioneAuto
+              ? percentualeProvvigione
+              : manualProvvFromEuroFirma && manualProvvImportoFirma != null
+                ? provvigioniPctFromImporto(manualProvvImportoFirma, baseFirmaProvv)
+                : percentualeProvvigione;
+            const pctQuietanzaCalcolata = percentualeProvvigioneAuto
+              ? percentualeProvvigione
+              : manualProvvFromEuroQuietanza && manualProvvImportoQuietanza != null
+                ? provvigioniPctFromImporto(manualProvvImportoQuietanza, baseQuietanzaProvv)
+                : percentualeProvvigione;
+            const specchioProvv = shouldMirrorProvvigioni(quietanzaSafe, provvQuietanzaPersonalizzata);
+            const copyProvvFirmaToQuietanza = () => {
+              setManualProvvImportoQuietanza(manualProvvImportoFirma);
+              setManualProvvFromEuroQuietanza(manualProvvFromEuroFirma);
+              setProvvQuietanzaPersonalizzata(false);
             };
             const provvPropsFirma = {
               ...commonProvvProps,
-              percentualeAgenzia: percentualeProvvigioneAuto
-                ? percentualeProvvigione
-                : manualProvvFromEuroFirma && manualProvvImportoFirma != null
-                  ? provvigioniPctFromImporto(manualProvvImportoFirma, baseFirmaProvv)
-                  : percentualeProvvigione,
+              percentualeAgenzia: pctFirmaDisplay,
               onPercentualeAgenziaChange: (v: string) => {
                 setPercentualeProvvigione(v);
                 setPercentualeProvvigioneAuto(false);
                 setManualProvvFromEuroFirma(false);
                 setManualProvvImportoFirma(null);
+                if (shouldMirrorProvvigioni(premiQuietanzaRows, provvQuietanzaPersonalizzata)) {
+                  setManualProvvFromEuroQuietanza(false);
+                  setManualProvvImportoQuietanza(null);
+                }
               },
               onProvvigioniImportoChange: (importo: number) => {
                 setManualProvvImportoFirma(importo);
                 setManualProvvFromEuroFirma(true);
                 setPercentualeProvvigioneAuto(false);
                 setPercentualeProvvigione("");
+                if (shouldMirrorProvvigioni(premiQuietanzaRows, provvQuietanzaPersonalizzata)) {
+                  setManualProvvImportoQuietanza(importo);
+                  setManualProvvFromEuroQuietanza(true);
+                }
               },
             };
             const provvPropsQuietanza = {
               ...commonProvvProps,
-              percentualeAgenzia: percentualeProvvigioneAuto
-                ? percentualeProvvigione
-                : manualProvvFromEuroQuietanza && manualProvvImportoQuietanza != null
-                  ? provvigioniPctFromImporto(manualProvvImportoQuietanza, baseQuietanzaProvv)
-                  : percentualeProvvigione,
+              percentualeAgenzia: specchioProvv ? pctFirmaDisplay : pctQuietanzaCalcolata,
               onPercentualeAgenziaChange: (v: string) => {
                 setPercentualeProvvigione(v);
                 setPercentualeProvvigioneAuto(false);
                 setManualProvvFromEuroQuietanza(false);
                 setManualProvvImportoQuietanza(null);
+                setProvvQuietanzaPersonalizzata(true);
               },
               onProvvigioniImportoChange: (importo: number) => {
                 setManualProvvImportoQuietanza(importo);
                 setManualProvvFromEuroQuietanza(true);
                 setPercentualeProvvigioneAuto(false);
                 setPercentualeProvvigione("");
+                setProvvQuietanzaPersonalizzata(true);
               },
             };
-            // Auto-sync: la Quietanza rispecchia la Firma in tempo reale.
-            // Le righe Quietanza modificate a mano (quietanzaPersonalizzata=true)
-            // si scollegano e smettono di seguire la Firma; il pulsante
-            // "Sincronizza da Firma" le riallinea tutte.
-            const firmaSafe = Array.isArray(premiFirmaRows) ? premiFirmaRows : [];
-            const quietanzaSafe = Array.isArray(premiQuietanzaRows) ? premiQuietanzaRows : [];
+            // Auto-sync: la Quietanza rispecchia la Firma in tempo reale
+            // (premi e provvigioni). Le righe Quietanza modificate a mano
+            // (quietanzaPersonalizzata=true) si scollegano; "Sincronizza da Firma"
+            // riallinea voci e blocco provvigioni.
             const sincronizzata =
               isQuietanzaSincronizzata(quietanzaSafe) &&
               quietanzaSafe.length === firmaSafe.length &&
-              accessoriQuietanzaNum === accessoriFirmaNum;
+              accessoriQuietanzaNum === accessoriFirmaNum &&
+              specchioProvv;
             const personalizzati = quietanzaSafe.map((r) => !!r?.quietanzaPersonalizzata);
             return (
               <>
@@ -3570,6 +3606,7 @@ const ImmissionePolizzaPage = () => {
                         disabled={sincronizzata}
                         onClick={() => {
                           setPremiQuietanzaRows(mirrorAllFromFirma(premiFirmaRows));
+                          copyProvvFirmaToQuietanza();
                         }}
                         title="Riallinea tutte le voci alla Firma, azzerando le personalizzazioni"
                       >
