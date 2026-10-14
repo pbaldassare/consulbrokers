@@ -5,8 +5,10 @@ export const SUPPORT_TICKET_UNREAD_QUERY_KEY = "support-ticket-unread";
 
 export type SupportTicketSeenState = {
   /**
-   * ISO dell'ultima uscita dalla tab Ticket Supporto.
+   * ISO dell'ultima apertura (o uscita) dalla tab Ticket Supporto.
    * `null` = la tab non è mai stata aperta: tutti i ticket contano come nuovi.
+   * Si persiste al mount della pagina, non solo in uscita: un refresh non deve
+   * far tornare il badge sui ticket già visti.
    */
   lastSeenAt: string | null;
   openedIds: string[];
@@ -103,6 +105,7 @@ export function markSupportTicketOpened(state: SupportTicketSeenState, ticketId:
   return { ...state, openedIds: [...state.openedIds, ticketId] };
 }
 
+/** Persiste la visita: lastSeenAt=now. Usato al mount della pagina e in uscita. */
 export function markAllSupportTicketsRead(
   now = new Date().toISOString(),
 ): SupportTicketSeenState {

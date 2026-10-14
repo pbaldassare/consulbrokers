@@ -4,9 +4,11 @@ import {
   emptySupportTicketSeenState,
   ensureSupportTicketSeenBaseline,
   isSupportTicketUnread,
+  loadSupportTicketSeenState,
   markAllSupportTicketsRead,
   markSupportTicketOpened,
   parseSupportTicketSeenState,
+  saveSupportTicketSeenState,
   unreadSupportTicketIds,
 } from "../supportTicketUnread";
 
@@ -78,5 +80,53 @@ describe("supportTicketUnread", () => {
 
   it("empty state ha openedIds vuoti e lastSeenAt null", () => {
     expect(emptySupportTicketSeenState()).toEqual({ lastSeenAt: null, openedIds: [] });
+  });
+
+  it("dopo markAllRead un refresh non fa tornare i ticket già visti", () => {
+    const mem = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        mem.set(k, v);
+      },
+    };
+    const tickets = [
+      { id: "vecchio", created_at: "2026-10-01T00:00:00.000Z" },
+      { id: "visto", created_at: "2026-10-14T10:00:00.000Z" },
+    ];
+
+    const baseline = ensureSupportTicketSeenBaseline("u1", storage);
+    expect(baseline.lastSeenAt).toBeNull();
+    expect(countUnreadSupportTickets(tickets, baseline)).toBe(2);
+
+    // mount pagina Ticket Supporto: persiste lastSeenAt subito
+    saveSupportTicketSeenState("u1", markAllSupportTicketsRead("2026-10-14T11:00:00.000Z"), storage);
+
+    // refresh / F5 = ricarica lo stato persistito, non la baseline vuota
+    const afterRefresh = loadSupportTicketSeenState("u1", storage);
+    expect(afterRefresh.lastSeenAt).toBe("2026-10-14T11:00:00.000Z");
+    expect(countUnreadSupportTickets(tickets, afterRefresh)).toBe(0);
+    expect(
+      isSupportTicketUnread({ id: "nuovo", created_at: "2026-10-14T12:00:00.000Z" }, afterRefresh),
+    ).toBe(true);
+  });
+
+  it("il caricamento non azzera un lastSeenAt già persistito", () => {
+    const mem = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        mem.set(k, v);
+      },
+    };
+    saveSupportTicketSeenState("u1", markAllSupportTicketsRead("2026-10-14T11:00:00.000Z"), storage);
+    const reloaded = ensureSupportTicketSeenBaseline("u1", storage);
+    expect(reloaded.lastSeenAt).toBe("2026-10-14T11:00:00.000Z");
+    expect(
+      countUnreadSupportTickets(
+        [{ id: "vecchio", created_at: "2026-10-14T10:00:00.000Z" }],
+        reloaded,
+      ),
+    ).toBe(0);
   });
 });
