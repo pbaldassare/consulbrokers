@@ -37,6 +37,17 @@ export function isTipoPagamentoCompensazione(tipo: string | null | undefined): b
   return (tipo || "").toLowerCase() === TIPO_PAGAMENTO_COMPENSAZIONE;
 }
 
+export function isTipoPagamentoPos(tipo: string | null | undefined): boolean {
+  const tp = (tipo || "").toLowerCase();
+  return tp === "pos" || tp === "carta_credito";
+}
+
+/** Bonifico e POS accreditano su un conto corrente della sede: la scelta è obbligatoria. */
+export function tipoPagamentoRichiedeConto(tipo: string | null | undefined): boolean {
+  const tp = (tipo || "").toLowerCase();
+  return tp === "bonifico" || isTipoPagamentoPos(tipo);
+}
+
 /**
  * Tipi che internamente hanno codice proprio ma verso agenzia/E/C/notifica
  * si comportano come bonifico (label "Bonifico", codice MI "B", niente conto obbligatorio).

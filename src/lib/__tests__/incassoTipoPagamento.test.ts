@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   isTipoPagamentoAliasBonificoEsterno,
   isTipoPagamentoIncassoZero,
+  isTipoPagamentoPos,
   resolveTipoPagamentoLabel,
   resolveTipoPagamentoPerNotificaAgenzia,
   resolveTipoPagamentoTitoloIncasso,
+  tipoPagamentoRichiedeConto,
   TIPI_PAGAMENTO_MESSA_CASSA,
   TIPO_PAGAMENTO_COMPENSAZIONE,
   TIPO_PAGAMENTO_COSTI_CONSULBROKERS,
@@ -177,6 +179,20 @@ describe("resolveTipoPagamentoLabel", () => {
 
   it("rende leggibili eventuali valori non ancora mappati", () => {
     expect(resolveTipoPagamentoLabel("nuovo_metodo")).toBe("Nuovo Metodo");
+  });
+});
+
+describe("tipoPagamentoRichiedeConto", () => {
+  it("POS e bonifico richiedono il conto della sede", () => {
+    expect(isTipoPagamentoPos("pos")).toBe(true);
+    expect(isTipoPagamentoPos("carta_credito")).toBe(true);
+    expect(isTipoPagamentoPos("bonifico")).toBe(false);
+    expect(tipoPagamentoRichiedeConto("pos")).toBe(true);
+    expect(tipoPagamentoRichiedeConto("carta_credito")).toBe(true);
+    expect(tipoPagamentoRichiedeConto("bonifico")).toBe(true);
+    expect(tipoPagamentoRichiedeConto("contanti")).toBe(false);
+    expect(tipoPagamentoRichiedeConto("assegno")).toBe(false);
+    expect(tipoPagamentoRichiedeConto(TIPO_PAGAMENTO_DIREITO_COMPAGNIA)).toBe(false);
   });
 });
 

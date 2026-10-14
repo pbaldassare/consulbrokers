@@ -40,7 +40,9 @@ import { fetchCateneDaTitoli, TITOLO_SEQUENZA_SELECT, verificaSequenzaDistinta }
 import { appendiceTipoLabel, canHaveDataCopertura } from "@/lib/quietanze";
 import {
   isPagamentoDirettoCompagnia,
+  isTipoPagamentoPos,
   resolveTipoPagamentoTitoloIncasso,
+  tipoPagamentoRichiedeConto,
   TIPI_PAGAMENTO_MESSA_CASSA,
   TIPO_PAGAMENTO_DIREITO_COMPAGNIA,
 } from "@/lib/incassoTipoPagamento";
@@ -194,6 +196,70 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 const round2 = (n: number) => Math.round(n * 100) / 100;
 /** Quadratura stretta: niente tolleranza — delta deve essere 0 (eventuali scostamenti via causali). */
 const isBonificoTipo = (tipo: string) => tipo === "bonifico";
+
+function ibanAccorciato(iban: string) {
+  return iban.length > 12 ? `${iban.slice(0, 4)}…${iban.slice(-4)}` : iban;
+}
+
+function ContiSedeButtons({
+  conti,
+  selectedId,
+  onSelect,
+}: {
+  conti: Array<{
+    id: string;
+    etichetta?: string | null;
+    banca?: string | null;
+    iban?: string | null;
+    is_default?: boolean | null;
+  }>;
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  if (conti.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground italic py-4 text-center">
+        Nessun conto disponibile per la tua sede.
+      </p>
+    );
+  }
+  return (
+    <div className="max-h-[340px] overflow-y-auto space-y-1.5 pr-0.5">
+      {conti.map((c) => {
+        const selected = selectedId === c.id;
+        return (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => onSelect(c.id)}
+            className={`w-full text-left rounded-md border px-2.5 py-2 transition-colors ${
+              selected
+                ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                : "hover:bg-muted/60"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-medium truncate">{c.etichetta || c.banca || "Conto"}</span>
+              {c.is_default && (
+                <Badge variant="outline" className="text-[9px] shrink-0">
+                  default
+                </Badge>
+              )}
+            </div>
+            {c.iban ? (
+              <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                {ibanAccorciato(String(c.iban))}
+              </div>
+            ) : null}
+            {c.banca && (
+              <div className="text-[10px] text-muted-foreground truncate">{c.banca}</div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 interface MovimentoPreview {
   tipo: "entrata" | "uscita";
@@ -960,8 +1026,13 @@ export const MessaCassaDialog = ({
         : delta === 0;
 
   const isBonifico = isBonificoTipo(form.tipoPagamento);
+  const isPos = isTipoPagamentoPos(form.tipoPagamento);
+  const needsContoSede = tipoPagamentoRichiedeConto(form.tipoPagamento) && !isPagDiretto;
   /** Pannello conti+estratti visibile per ogni bonifico (anche incasso a 0). */
   const showBonificoPanel = isBonifico && !isPagDiretto;
+  /** Stessa lista conti del bonifico, senza estratti: il POS va agganciato a un conto della sede. */
+  const showPosContoPanel = isPos && !isPagDiretto && !bankIncasso;
+  const showContoPanel = showBonificoPanel || showPosContoPanel;
   /** Collegamento obbligatorio movimento solo se c'è cash da quadrare sul conto. */
   const needsBonificoLink = !bankIncasso && cashEffettivo > 0 && isBonifico && !!form.banca;
   /** Carica estratti appena c'è un conto (anche con cash 0). */
@@ -1135,7 +1206,7 @@ export const MessaCassaDialog = ({
 
   const { data: contiBonificoRaw = [] } = useQuery({
     queryKey: ["messa-cassa-conti-bonifico"],
-    enabled: open && showBonificoPanel && !bankIncasso,
+    enabled: open && showContoPanel && !bankIncasso,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("conti_bancari" as any)
@@ -1159,18 +1230,18 @@ export const MessaCassaDialog = ({
     [contiBonificoRaw, profile?.ruolo, profile?.ufficio_id],
   );
 
-  // Preseleziona il conto default (o il primo) quando si sceglie Bonifico
+  // Preseleziona il conto default (o il primo) quando si sceglie Bonifico o POS
   useEffect(() => {
-    if (!open || bankIncasso || !showBonificoPanel) return;
+    if (!open || bankIncasso || !showContoPanel) return;
     if (form.banca) return;
-    if (preferredBonifico?.contoBancarioId) {
+    if (showBonificoPanel && preferredBonifico?.contoBancarioId) {
       setForm((f) => ({ ...f, banca: preferredBonifico.contoBancarioId || "" }));
       return;
     }
     if (contiBonifico.length === 0) return;
     const def = contiBonifico.find((c: any) => c.is_default) || contiBonifico[0];
     if (def?.id) setForm((f) => ({ ...f, banca: def.id }));
-  }, [open, bankIncasso, showBonificoPanel, contiBonifico, form.banca, preferredBonifico?.contoBancarioId]);
+  }, [open, bankIncasso, showContoPanel, showBonificoPanel, contiBonifico, form.banca, preferredBonifico?.contoBancarioId]);
 
   const estrattiFiltrati = useMemo(() => {
     const base =
@@ -1294,8 +1365,12 @@ export const MessaCassaDialog = ({
       }
       return;
     }
-    if (isBonificoTipo(form.tipoPagamento) && !form.banca && !bankIncasso?.contoBancarioId) {
-      toast.error("Seleziona il conto Consulbrokers per il bonifico");
+    if (needsContoSede && !form.banca && !bankIncasso?.contoBancarioId) {
+      toast.error(
+        isPos
+          ? "Seleziona il conto su cui accreditare il POS"
+          : "Seleziona il conto Consulbrokers per il bonifico",
+      );
       return;
     }
     if (titoli.some((t) => cigById[t.id]?.isEnte && isCigFormatoInvalido(cigById[t.id].cig, cigById[t.id].temporaneo))) {
@@ -1485,7 +1560,7 @@ export const MessaCassaDialog = ({
 
       let bancaLabel: string | null = null;
       const bancaId = form.banca || bankIncasso?.contoBancarioId || "";
-      if (residuoCash > 0 && isBonificoTipo(form.tipoPagamento) && bancaId) {
+      if (residuoCash > 0 && tipoPagamentoRichiedeConto(form.tipoPagamento) && bancaId) {
         const { data: conto } = await (supabase.from("conti_bancari") as any)
           .select("etichetta, banca, iban").eq("id", bancaId).maybeSingle();
         bancaLabel = conto?.etichetta || conto?.banca || bancaId;
@@ -2397,6 +2472,33 @@ export const MessaCassaDialog = ({
             />
           )}
 
+          {showPosContoPanel && (
+            <div className="rounded-lg border border-primary/20 bg-muted/20 p-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <Landmark className="h-4 w-4 text-primary" />
+                  Conto di accredito POS
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Il POS va collegato a un conto corrente della sede. Scegli su quale conto accreditare
+                  {cashEffettivo > 0 ? ` l'incasso (${fmtEuro(cashEffettivo)})` : " il pagamento"}.
+                </p>
+              </div>
+              <div className="rounded-md border bg-background p-3 space-y-2">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" />
+                  Conto
+                  {contiBonifico.length > 1 && <span className="text-destructive">*</span>}
+                </Label>
+                <ContiSedeButtons
+                  conti={contiBonifico}
+                  selectedId={form.banca}
+                  onSelect={(id) => setForm((f) => ({ ...f, banca: id }))}
+                />
+              </div>
+            </div>
+          )}
+
           {showBonificoPanel && (
             <div className="rounded-lg border border-primary/20 bg-muted/20 p-4 space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -2445,53 +2547,15 @@ export const MessaCassaDialog = ({
                       <Building2 className="h-3.5 w-3.5" />
                       1. Conto
                     </Label>
-                    <div className="max-h-[340px] overflow-y-auto space-y-1.5 pr-0.5">
-                      {contiBonifico.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic py-4 text-center">
-                          Nessun conto disponibile per la tua sede.
-                        </p>
-                      ) : (
-                        contiBonifico.map((c: any) => {
-                          const selected = form.banca === c.id;
-                          const iban = String(c.iban || "");
-                          const ibanShort =
-                            iban.length > 12 ? `${iban.slice(0, 4)}…${iban.slice(-4)}` : iban;
-                          return (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedBonificoIds([]);
-                                setEstrattoSearch("");
-                                setForm((f) => ({ ...f, banca: c.id }));
-                              }}
-                              className={`w-full text-left rounded-md border px-2.5 py-2 transition-colors ${
-                                selected
-                                  ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                                  : "hover:bg-muted/60"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-1">
-                                <span className="text-xs font-medium truncate">
-                                  {c.etichetta || c.banca || "Conto"}
-                                </span>
-                                {c.is_default && (
-                                  <Badge variant="outline" className="text-[9px] shrink-0">
-                                    default
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                                {ibanShort}
-                              </div>
-                              {c.banca && (
-                                <div className="text-[10px] text-muted-foreground truncate">{c.banca}</div>
-                              )}
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
+                    <ContiSedeButtons
+                      conti={contiBonifico}
+                      selectedId={form.banca}
+                      onSelect={(id) => {
+                        setSelectedBonificoIds([]);
+                        setEstrattoSearch("");
+                        setForm((f) => ({ ...f, banca: id }));
+                      }}
+                    />
                   </div>
 
                   {/* STEP 2 — Estratti */}
@@ -2873,7 +2937,7 @@ export const MessaCassaDialog = ({
               !dataMessaCassaOk ||
               bloccoSequenza.length > 0 ||
               !tipoPagamentoOk ||
-              (isBonifico && !form.banca && !bankIncasso?.contoBancarioId) ||
+              (needsContoSede && !form.banca && !bankIncasso?.contoBancarioId) ||
               (needsBonificoLink && bonificiCandidati.length > 0 && selectedBonificoIds.length === 0)
             }
             onClick={handleConferma}
