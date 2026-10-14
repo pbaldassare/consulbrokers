@@ -498,7 +498,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
                     isActive
                       ? "bg-white/15 text-white shadow-sm backdrop-blur-sm"
                       : "text-white/70 hover:bg-white/8 hover:text-white/90"
-                  } ${collapsed ? "justify-center" : ""}`;
+                  } ${collapsed ? "justify-center relative" : ""}`;
                 }}
               >
                 <item.icon className="w-[18px] h-[18px] shrink-0" />
