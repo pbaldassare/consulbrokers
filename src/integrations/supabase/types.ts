@@ -12613,6 +12613,7 @@ export type Database = {
           cliente_anagrafica_id: string | null
           cliente_id: string | null
           compagnia_id: string | null
+          compagnia_libera: string | null
           controparte: string | null
           costo_effettivo: number | null
           costo_preventivato: number | null
@@ -12666,6 +12667,7 @@ export type Database = {
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           compagnia_id?: string | null
+          compagnia_libera?: string | null
           controparte?: string | null
           costo_effettivo?: number | null
           costo_preventivato?: number | null
@@ -12719,6 +12721,7 @@ export type Database = {
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           compagnia_id?: string | null
+          compagnia_libera?: string | null
           controparte?: string | null
           costo_effettivo?: number | null
           costo_preventivato?: number | null

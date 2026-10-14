@@ -19,6 +19,10 @@ export interface SearchableSelectOption {
   searchText?: string;
   /** Righe etichetta/valore sotto il numero (es. prodotto, garanzia). */
   details?: SearchableSelectOptionDetail[];
+  /** Classi extra sulla label (lista e trigger). */
+  labelClassName?: string;
+  /** Testo nel trigger diverso dalla label in lista. */
+  triggerLabel?: string;
 }
 
 interface SearchableSelectProps {
@@ -91,7 +95,7 @@ export function SearchableSelect({
   const [open, setOpen] = React.useState(false);
 
   const selectedOption = options.find((o) => o.value === value);
-  const selectedLabel = selectedOption?.label;
+  const selectedLabel = selectedOption?.triggerLabel || selectedOption?.label;
   const selectedDetails = selectedOption?.details?.length ? selectedOption.details : undefined;
   const showTriggerDescription =
     showSelectedDescription && (!!selectedDetails || !!selectedOption?.description);
@@ -119,7 +123,7 @@ export function SearchableSelect({
         >
           {showTriggerDescription ? (
             <span className="flex flex-col items-start min-w-0 text-left w-full">
-              <span className="truncate w-full font-medium">{selectedLabel}</span>
+              <span className={cn("truncate w-full font-medium", selectedOption?.labelClassName)}>{selectedLabel}</span>
               {selectedDetails ? (
                 <OptionDetails details={selectedDetails} />
               ) : (
@@ -127,7 +131,7 @@ export function SearchableSelect({
               )}
             </span>
           ) : (
-            <span className="truncate">{selectedLabel || placeholder}</span>
+            <span className={cn("truncate", selectedOption?.labelClassName)}>{selectedLabel || placeholder}</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -175,7 +179,7 @@ export function SearchableSelect({
                 >
                   <Check className={cn("mr-2 h-4 w-4 mt-0.5 shrink-0", value === option.value ? "opacity-100" : "opacity-0")} />
                   <div className="flex flex-col min-w-0 w-full">
-                    <span className="truncate font-medium">{option.label}</span>
+                    <span className={cn("truncate font-medium", option.labelClassName)}>{option.label}</span>
                     {option.details?.length ? (
                       <OptionDetails details={option.details} />
                     ) : option.description ? (

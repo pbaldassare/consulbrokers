@@ -29,6 +29,7 @@ import SinistroPrescrizioniPanel from "@/components/sinistri/SinistroPrescrizion
 import SinistroNoteInternePanel from "@/components/sinistri/SinistroNoteInternePanel";
 import SinistroPolizzaSelector from "@/components/sinistri/SinistroPolizzaSelector";
 import SinistroCompagniaHeaderField from "@/components/sinistri/SinistroCompagniaHeaderField";
+import { displayNomeCompagniaSinistro } from "@/lib/sinistroCompagniaLibera";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   badgeClassStatoSinistro,
@@ -234,6 +235,10 @@ export default function SinistroDetail() {
   const responsabileNome = sinistro.profiles
     ? `${sinistro.profiles.nome || ""} ${sinistro.profiles.cognome || ""}`.trim()
     : "—";
+  const compagniaHeaderDisplay = displayNomeCompagniaSinistro({
+    compagniaNome: sinistro.compagnie?.nome,
+    compagniaLibera: sinistro.compagnia_libera,
+  });
 
   return (
     <Tabs value={safeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -326,11 +331,15 @@ export default function SinistroDetail() {
                   sinistroId={id!}
                   compagniaId={sinistro.compagnia_id}
                   compagniaNome={sinistro.compagnie?.nome}
+                  compagniaLibera={sinistro.compagnia_libera}
                   onSaved={invalidate}
                 />
               ) : (
-                <span className="truncate max-w-[160px]" title={sinistro.compagnie?.nome || undefined}>
-                  {sinistro.compagnie?.nome || "—"}
+                <span
+                  className={cn("truncate max-w-[160px]", compagniaHeaderDisplay.libera && "italic")}
+                  title={compagniaHeaderDisplay.text || undefined}
+                >
+                  {compagniaHeaderDisplay.text || "—"}
                 </span>
               )}
               <span className="text-border">·</span>

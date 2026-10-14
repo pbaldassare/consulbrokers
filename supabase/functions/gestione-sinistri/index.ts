@@ -251,6 +251,7 @@ const payloadSchema = z.discriminatedUnion("azione", [
     note_importanti: z.string().optional().nullable(),
     bozza_wizard_json: z.record(z.unknown()).optional().nullable(),
     compagnia_id: z.string().uuid().nullable().optional(),
+    compagnia_libera: z.string().max(300).nullable().optional(),
     ufficio_id: z.string().uuid().nullable().optional(),
     numero_polizza: z.string().optional().nullable(),
     ramo_sinistro: z.string().optional().nullable(),
@@ -515,7 +516,7 @@ Deno.serve(async (req) => {
         citta_sinistro, cap_sinistro, provincia_sinistro, controparte, targa_veicolo,
         importo_riserva, costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
         responsabile_id, liquidatore_id, note_interne, note_importanti, bozza_wizard_json,
-        compagnia_id, ufficio_id, numero_polizza, ramo_sinistro, prodotto_sinistro,
+        compagnia_id, compagnia_libera, ufficio_id, numero_polizza, ramo_sinistro, prodotto_sinistro,
       } = parsed.data;
 
       const { data: prev, error: prevErr } = await supabase
@@ -563,7 +564,15 @@ Deno.serve(async (req) => {
       if (note_interne !== undefined) updateData.note_interne = note_interne?.trim() || null;
       if (note_importanti !== undefined) updateData.note_importanti = note_importanti?.trim() || null;
       if (bozza_wizard_json !== undefined) updateData.bozza_wizard_json = bozza_wizard_json;
-      if (compagnia_id !== undefined) updateData.compagnia_id = compagnia_id;
+      if (compagnia_libera !== undefined) {
+        const nomeLibero = compagnia_libera?.trim() || null;
+        updateData.compagnia_libera = nomeLibero;
+        if (nomeLibero) updateData.compagnia_id = null;
+      }
+      if (compagnia_id !== undefined) {
+        updateData.compagnia_id = compagnia_id;
+        if (compagnia_id) updateData.compagnia_libera = null;
+      }
       if (ufficio_id !== undefined) updateData.ufficio_id = ufficio_id;
       if (numero_polizza !== undefined) updateData.numero_polizza = numero_polizza?.trim() || null;
       if (ramo_sinistro !== undefined) updateData.ramo_sinistro = ramo_sinistro?.trim() || null;
@@ -582,7 +591,10 @@ Deno.serve(async (req) => {
             .select("compagnia_id, ufficio_id")
             .eq("id", titolo_id)
             .maybeSingle();
-          if (titoloRow?.compagnia_id) updateData.compagnia_id = titoloRow.compagnia_id;
+          if (titoloRow?.compagnia_id) {
+            updateData.compagnia_id = titoloRow.compagnia_id;
+            updateData.compagnia_libera = null;
+          }
           if (titoloRow?.ufficio_id) updateData.ufficio_id = titoloRow.ufficio_id;
         }
       }

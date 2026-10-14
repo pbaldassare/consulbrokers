@@ -1,20 +1,36 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
+import {
+  buildSinistroCompagniaHeaderOptions,
+  COMPAGNIA_LIBERA_BADGE,
+  payloadCompagniaCatalogo,
+  payloadCompagniaLibera,
+  resolveSceltaCompagniaHeader,
+  selectedCompagniaHeaderValue,
+  type CompagniaCatalogoOption,
+} from "@/lib/sinistroCompagniaLibera";
 import { toast } from "sonner";
-
-type CompagniaOption = {
-  id: string;
-  nome: string | null;
-  codice?: string | null;
-};
 
 type Props = {
   sinistroId: string;
   compagniaId?: string | null;
   compagniaNome?: string | null;
+  compagniaLibera?: string | null;
   onSaved: () => void;
 };
 
@@ -22,10 +38,14 @@ export default function SinistroCompagniaHeaderField({
   sinistroId,
   compagniaId,
   compagniaNome,
+  compagniaLibera,
   onSaved,
 }: Props) {
   const [saving, setSaving] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [liberaDraft, setLiberaDraft] = useState(compagniaLibera || "");
   const currentId = compagniaId || "";
+  const currentIsLibera = Boolean((compagniaLibera || "").trim());
 
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie-attive-sinistro-header"],
@@ -37,39 +57,25 @@ export default function SinistroCompagniaHeaderField({
         .order("nome")
         .limit(1000);
       if (error) throw error;
-      return (data || []) as CompagniaOption[];
+      return (data || []) as CompagniaCatalogoOption[];
     },
   });
 
-  const options = useMemo(() => {
-    const list = [...compagnie];
-    if (currentId && !list.some((c) => c.id === currentId)) {
-      list.unshift({
-        id: currentId,
-        nome: compagniaNome || "Compagnia corrente",
-        codice: null,
-      });
-    }
-    return list.map((c) => ({
-      value: c.id,
-      label: c.nome || c.id,
-      searchText: `${c.nome || ""} ${c.codice || ""}`,
-    }));
-  }, [compagnie, currentId, compagniaNome]);
+  const options = useMemo(
+    () =>
+      buildSinistroCompagniaHeaderOptions({
+        compagnie,
+        currentId,
+        compagniaNome,
+        compagniaLibera,
+      }),
+    [compagnie, currentId, compagniaNome, compagniaLibera],
+  );
 
-  const saveCompagnia = async (nextId: string) => {
-    if (!nextId || nextId === currentId) return;
+  const persist = async (body: Record<string, unknown>) => {
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data, error } = await supabase.functions.invoke("gestione-sinistri", {
-        body: {
-          azione: "aggiorna",
-          sinistro_id: sinistroId,
-          user_id: user?.id,
-          compagnia_id: nextId,
-        },
-      });
+      const { data, error } = await supabase.functions.invoke("gestione-sinistri", { body });
       if (error || !data?.success) {
         throw new Error(formatEdgeFunctionError(error, data));
       }
@@ -83,16 +89,90 @@ export default function SinistroCompagniaHeaderField({
     }
   };
 
+  const onValueChange = (nextId: string) => {
+    const scelta = resolveSceltaCompagniaHeader(nextId, currentIsLibera);
+    if (scelta === "dialog") {
+      setLiberaDraft(compagniaLibera || "");
+      setDialogOpen(true);
+      return;
+    }
+    if (scelta === "noop" || nextId === currentId) return;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const payload = payloadCompagniaCatalogo(sinistroId, nextId, user?.id);
+      if (!payload) return;
+      await persist(payload);
+    })();
+  };
+
+  const confirmLibera = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const payload = payloadCompagniaLibera(sinistroId, liberaDraft, user?.id);
+    if (!payload) {
+      toast.error("Inserisci il nome della compagnia");
+      return;
+    }
+    await persist(payload);
+    setDialogOpen(false);
+  };
+
   return (
-    <SearchableSelect
-      options={options}
-      value={currentId}
-      onValueChange={saveCompagnia}
-      placeholder="Seleziona compagnia…"
-      searchPlaceholder="Cerca compagnia…"
-      emptyText="Nessuna compagnia trovata."
-      disabled={saving}
-      className="h-7 min-w-[180px] w-[220px] max-w-[min(280px,50vw)] text-xs"
-    />
+    <div className="inline-flex items-center gap-1.5 min-w-0">
+      <SearchableSelect
+        options={options}
+        value={selectedCompagniaHeaderValue({ compagniaId, compagniaLibera })}
+        onValueChange={onValueChange}
+        placeholder="Seleziona compagnia…"
+        searchPlaceholder="Cerca compagnia…"
+        emptyText="Nessuna compagnia trovata."
+        disabled={saving}
+        className="h-7 min-w-[180px] w-[220px] max-w-[min(280px,50vw)] text-xs"
+      />
+      {currentIsLibera ? (
+        <Badge variant="outline" className="shrink-0 text-[10px] font-normal italic px-1.5 py-0">
+          {COMPAGNIA_LIBERA_BADGE}
+        </Badge>
+      ) : null}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Compagnia non in anagrafica</DialogTitle>
+            <DialogDescription>
+              Inserisci il nome della compagnia solo per questo sinistro. Non verrà aggiunta
+              all&apos;anagrafica compagnie.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="compagnia-libera-nome">Nome compagnia</Label>
+            <Input
+              id="compagnia-libera-nome"
+              value={liberaDraft}
+              onChange={(e) => setLiberaDraft(e.target.value)}
+              placeholder="Es. compagnia non censita"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void confirmLibera();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              Annulla
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void confirmLibera()}
+              disabled={saving || !liberaDraft.trim()}
+            >
+              Conferma
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
