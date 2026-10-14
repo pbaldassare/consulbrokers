@@ -10,7 +10,7 @@ import {
   unreadSupportTicketIds,
 } from "../supportTicketUnread";
 
-const seen = (lastSeenAt: string, openedIds: string[] = []) => ({ lastSeenAt, openedIds });
+const seen = (lastSeenAt: string | null, openedIds: string[] = []) => ({ lastSeenAt, openedIds });
 
 describe("supportTicketUnread", () => {
   it("un ticket creato dopo lastSeenAt è nuovo", () => {
@@ -42,16 +42,24 @@ describe("supportTicketUnread", () => {
     expect(afterLeave.openedIds).toEqual([]);
   });
 
-  it("senza stato salvato parte da baseline e non marca lo storico", () => {
-    const now = "2026-10-14T12:00:00.000Z";
-    const state = parseSupportTicketSeenState(null, now);
-    expect(state.lastSeenAt).toBe(now);
+  it("senza visita alla tab tutti i ticket sono nuovi", () => {
+    const state = parseSupportTicketSeenState(null);
+    expect(state.lastSeenAt).toBeNull();
     expect(
       isSupportTicketUnread({ id: "vecchio", created_at: "2026-10-01T00:00:00.000Z" }, state),
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      countUnreadSupportTickets(
+        [
+          { id: "a", created_at: "2026-10-01T00:00:00.000Z" },
+          { id: "b", created_at: "2026-10-14T12:00:00.000Z" },
+        ],
+        state,
+      ),
+    ).toBe(2);
   });
 
-  it("scrive la baseline una sola volta", () => {
+  it("la baseline non marca lo storico come letto", () => {
     const mem = new Map<string, string>();
     const storage = {
       getItem: (k: string) => mem.get(k) ?? null,
@@ -59,13 +67,16 @@ describe("supportTicketUnread", () => {
         mem.set(k, v);
       },
     };
-    const first = ensureSupportTicketSeenBaseline("u1", storage, "2026-10-14T12:00:00.000Z");
-    const second = ensureSupportTicketSeenBaseline("u1", storage, "2026-10-14T13:00:00.000Z");
-    expect(first.lastSeenAt).toBe("2026-10-14T12:00:00.000Z");
-    expect(second.lastSeenAt).toBe("2026-10-14T12:00:00.000Z");
+    const first = ensureSupportTicketSeenBaseline("u1", storage);
+    const second = ensureSupportTicketSeenBaseline("u1", storage);
+    expect(first.lastSeenAt).toBeNull();
+    expect(second.lastSeenAt).toBeNull();
+    expect(
+      isSupportTicketUnread({ id: "t1", created_at: "2026-10-14T10:00:00.000Z" }, first),
+    ).toBe(true);
   });
 
-  it("empty state ha openedIds vuoti", () => {
-    expect(emptySupportTicketSeenState("t").openedIds).toEqual([]);
+  it("empty state ha openedIds vuoti e lastSeenAt null", () => {
+    expect(emptySupportTicketSeenState()).toEqual({ lastSeenAt: null, openedIds: [] });
   });
 });
