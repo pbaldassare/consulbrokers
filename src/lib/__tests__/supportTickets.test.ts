@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAX_DOCUMENT_UPLOAD_BYTES } from "../uploadLimits";
 import {
   canDeleteSupportTicket,
   canUserReplyToSupportTicket,
@@ -6,6 +7,7 @@ import {
   formatSupportTicketNumber,
   isOpenSupportTicket,
   isSupportTicketClosed,
+  mergeSupportTicketAttachmentFiles,
   supportTicketUserLockedMessage,
   validateSupportTicketDescription,
   validateSupportTicketReply,
@@ -82,5 +84,17 @@ describe("supportTickets", () => {
     expect(supportTicketUserLockedMessage("risolto")).toMatch(/risolto/i);
     expect(validateSupportTicketReply("")).toBeTruthy();
     expect(validateSupportTicketReply("Ok, fatto.")).toBeNull();
+  });
+
+  it("accoda gli allegati validi e scarta quelli troppo grandi", () => {
+    const existing = new File(["a"], "già-presente.pdf");
+    const ok = new File(["ok"], "ok.pdf");
+    const tooBig = new File(["x"], "enorme.pdf");
+    Object.defineProperty(tooBig, "size", { value: MAX_DOCUMENT_UPLOAD_BYTES + 1 });
+
+    const { files, rejected } = mergeSupportTicketAttachmentFiles([existing], [ok, tooBig]);
+
+    expect(files.map((file) => file.name)).toEqual(["già-presente.pdf", "ok.pdf"]);
+    expect(rejected.map((file) => file.name)).toEqual(["enorme.pdf"]);
   });
 });

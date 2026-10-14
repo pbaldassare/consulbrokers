@@ -1,3 +1,5 @@
+import { isDocumentUploadTooLarge } from "@/lib/uploadLimits";
+
 export type SupportTicketStatus = "aperto" | "preso_in_carico" | "risolto";
 
 export const SUPPORT_TICKET_STATUS: Array<{
@@ -84,4 +86,21 @@ export function escapeSupportTicketHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+/** Accoda gli allegati validi e segnala quelli oltre il limite documenti. */
+export function mergeSupportTicketAttachmentFiles(
+  current: File[],
+  incoming: File[],
+): { files: File[]; rejected: File[] } {
+  const rejected: File[] = [];
+  const accepted: File[] = [];
+  for (const file of incoming) {
+    if (isDocumentUploadTooLarge(file.size)) {
+      rejected.push(file);
+    } else {
+      accepted.push(file);
+    }
+  }
+  return { files: [...current, ...accepted], rejected };
 }

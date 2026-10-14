@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -24,7 +24,7 @@ import { logAttivita } from "@/lib/logAttivita";
 import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
 import {
   documentUploadTooLargeMessage,
-  isDocumentUploadTooLarge,
+  MAX_DOCUMENT_UPLOAD_MB,
 } from "@/lib/uploadLimits";
 import {
   canDeleteSupportTicket,
@@ -33,6 +33,7 @@ import {
   formatSupportTicketNumber,
   isOpenSupportTicket,
   isSupportTicketClosed,
+  mergeSupportTicketAttachmentFiles,
   SUPPORT_TICKET_STATUS,
   SUPPORT_TICKET_STATUS_LABEL,
   supportTicketUserLockedMessage,
@@ -78,6 +79,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 
 const SUPPORT_EMAIL = "support@cbnet.it";
 const SUPPORT_FROM = `CBnet Support <${SUPPORT_EMAIL}>`;
@@ -151,7 +153,6 @@ function NewTicketDialog({
   const [polizza, setPolizza] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
     setTitolo("");
@@ -274,18 +275,12 @@ function NewTicketDialog({
     }
   };
 
-  const addFiles = (selected: FileList | null) => {
-    if (!selected) return;
-    const accepted: File[] = [];
-    for (const file of Array.from(selected)) {
-      if (isDocumentUploadTooLarge(file.size)) {
-        toast.error(`${file.name}: ${documentUploadTooLargeMessage()}`);
-      } else {
-        accepted.push(file);
-      }
+  const addFiles = (selected: File[]) => {
+    const { files: next, rejected } = mergeSupportTicketAttachmentFiles(files, selected);
+    for (const file of rejected) {
+      toast.error(`${file.name}: ${documentUploadTooLargeMessage()}`);
     }
-    setFiles((current) => [...current, ...accepted]);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setFiles(next);
   };
 
   return (
@@ -352,12 +347,14 @@ function NewTicketDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="ticket-files">Allegati</Label>
-            <Input
-              ref={fileInputRef}
-              id="ticket-files"
-              type="file"
+            <FileDropzone
+              inputId="ticket-files"
               multiple
-              onChange={(event) => addFiles(event.target.files)}
+              size="sm"
+              icon={Paperclip}
+              emptyLabel="Trascina qui o clicca per selezionare"
+              hint={`Puoi selezionare più file — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
+              onFilesSelected={addFiles}
             />
             {files.length > 0 && (
               <div className="space-y-1 rounded-md border p-2">
@@ -414,7 +411,6 @@ function TicketDetail({
   const [saving, setSaving] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const replyFileInputRef = useRef<HTMLInputElement>(null);
   const canDelete = isAdmin && canDeleteSupportTicket(user?.email ?? profile?.email);
 
   useEffect(() => {
@@ -463,16 +459,12 @@ function TicketDetail({
   });
   const authorLabel = [profile?.nome, profile?.cognome].filter(Boolean).join(" ") || profile?.email || user?.email || "Utente";
 
-  const addReplyFiles = (list: FileList | null) => {
-    if (!list) return;
-    const incoming = Array.from(list);
-    const tooBig = incoming.find((file) => isDocumentUploadTooLarge(file.size));
-    if (tooBig) {
-      toast.error(documentUploadTooLargeMessage(tooBig.name));
-      return;
+  const addReplyFiles = (selected: File[]) => {
+    const { files: next, rejected } = mergeSupportTicketAttachmentFiles(replyFiles, selected);
+    for (const file of rejected) {
+      toast.error(`${file.name}: ${documentUploadTooLargeMessage()}`);
     }
-    setReplyFiles((current) => [...current, ...incoming]);
-    if (replyFileInputRef.current) replyFileInputRef.current.value = "";
+    setReplyFiles(next);
   };
 
   const downloadAttachment = async (attachment: TicketAttachment) => {
@@ -870,12 +862,14 @@ function TicketDetail({
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="user-reply-files">Allegati</Label>
-                      <Input
-                        ref={replyFileInputRef}
-                        id="user-reply-files"
-                        type="file"
+                      <FileDropzone
+                        inputId="user-reply-files"
                         multiple
-                        onChange={(event) => addReplyFiles(event.target.files)}
+                        size="sm"
+                        icon={Paperclip}
+                        emptyLabel="Trascina qui o clicca per selezionare"
+                        hint={`Puoi selezionare più file — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
+                        onFilesSelected={addReplyFiles}
                       />
                       {replyFiles.length > 0 && (
                         <div className="space-y-1 rounded-md border bg-background p-2">
