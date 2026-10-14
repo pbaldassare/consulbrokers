@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { permissionSummary, sedeAssegnataLabel } from "../userPrivilegiDisplay";
+import { formatNomeCognome, permissionSummary, sedeAssegnataLabel } from "../userPrivilegiDisplay";
 
 describe("sedeAssegnataLabel", () => {
   it("per l'admin senza sede indica tutte le sedi", () => {
@@ -27,6 +27,21 @@ describe("sedeAssegnataLabel", () => {
         profilo_sedi: [{ primaria: true, uffici: { nome_ufficio: "Torino" } }],
       }),
     ).toBe("Torino (primaria)");
+  });
+});
+
+describe("formatNomeCognome", () => {
+  it("mostra sempre nome poi cognome", () => {
+    expect(formatNomeCognome({ nome: "Federico", cognome: "Bartozzi" })).toBe("Federico Bartozzi");
+    expect(formatNomeCognome({ nome: "Tina", cognome: "Bonito" })).toBe("Tina Bonito");
+  });
+
+  it("omite le parti vuote e non inverte le etichette sede", () => {
+    expect(formatNomeCognome({ nome: "Bergamo Sede", cognome: "" })).toBe("Bergamo Sede");
+    expect(formatNomeCognome({ nome: "CATANIA Sede", cognome: null })).toBe("CATANIA Sede");
+    expect(formatNomeCognome({ nome: "  Federico  ", cognome: "  " })).toBe("Federico");
+    expect(formatNomeCognome({ nome: "", cognome: "Bonito" })).toBe("Bonito");
+    expect(formatNomeCognome(null)).toBe("");
   });
 });
 

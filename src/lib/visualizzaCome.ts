@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { readInvokeErrorMessage } from "@/lib/edgeFunctionError";
+import { formatNomeCognome } from "@/lib/userPrivilegiDisplay";
 
 /**
  * "Visualizza come" (solo admin@consul.it): passa alla sessione di un altro utente e torna alla propria
@@ -57,7 +58,7 @@ export async function avviaVisualizzaCome(utente: { id: string; nome?: string | 
   }
 
   const stato: VisualizzaComeStato = {
-    nome: `${utente.cognome || ""} ${utente.nome || ""}`.trim() || body.email,
+    nome: formatNomeCognome(utente) || body.email,
     email: body.email,
     admin: { access_token: s.session.access_token, refresh_token: s.session.refresh_token },
   };

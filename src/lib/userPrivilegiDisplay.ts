@@ -62,3 +62,15 @@ export function roleLabel(role: string | null | undefined): string {
   if (!role) return "Senza ruolo";
   return ROLE_LABELS[role] || role;
 }
+
+/** Nome e cognome in quest'ordine. Parti vuote omesse, niente inversione. */
+export function formatNomeCognome(person: {
+  nome?: string | null;
+  cognome?: string | null;
+} | null | undefined): string {
+  if (!person) return "";
+  return [person.nome, person.cognome]
+    .map((part) => (part ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+}

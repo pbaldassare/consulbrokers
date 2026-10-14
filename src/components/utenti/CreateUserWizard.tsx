@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LEVELS, LevelConfig, ROLE_LABELS } from "@/lib/userLevels";
+import { formatNomeCognome } from "@/lib/userPrivilegiDisplay";
 import { Sparkles, UserPlus, Building2, ShieldCheck, ChevronRight, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -207,7 +208,7 @@ const CreateUserWizard = ({ open, onOpenChange, onCreated }: Props) => {
                     <SelectContent className="max-h-60">
                       {anagrafiche?.map((a) => (
                         <SelectItem key={a.id} value={a.id}>
-                          {a.cognome} {a.nome} — {a.email} ({a.tipo})
+                          {formatNomeCognome(a)} — {a.email} ({a.tipo})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -298,7 +299,7 @@ const CreateUserWizard = ({ open, onOpenChange, onCreated }: Props) => {
               <div className="rounded-lg border p-4 bg-muted/30 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Nome completo</span>
-                  <span className="font-medium">{cognome} {nome}</span>
+                  <span className="font-medium">{formatNomeCognome({ nome, cognome })}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Email</span>

@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2, Info, Trash2, Eye, Loader2 } from "lucide-react";
 import { avviaVisualizzaCome } from "@/lib/visualizzaCome";
 import { LEVELS, getLevelByRole, UserLevel } from "@/lib/userLevels";
-import { permissionSummary, roleLabel, sedeAssegnataLabel } from "@/lib/userPrivilegiDisplay";
+import { formatNomeCognome, permissionSummary, roleLabel, sedeAssegnataLabel } from "@/lib/userPrivilegiDisplay";
 import UserLevelCard from "@/components/utenti/UserLevelCard";
 import CreateUserWizard from "@/components/utenti/CreateUserWizard";
 import UserPermissionsSheet from "@/components/utenti/UserPermissionsSheet";
@@ -164,7 +164,13 @@ const GestioneUtentiPrivilegi = () => {
     refetch();
   };
 
-  const initials = (u: any) => `${(u.cognome?.[0] || "").toUpperCase()}${(u.nome?.[0] || "").toUpperCase()}` || "?";
+  const initials = (u: any) => {
+    const letters = [u.nome, u.cognome]
+      .map((part: string | null | undefined) => (part ?? "").trim()[0] || "")
+      .join("")
+      .toUpperCase();
+    return letters || "?";
+  };
 
   return (
     <div className="space-y-5">
@@ -281,7 +287,7 @@ const GestioneUtentiPrivilegi = () => {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium text-sm truncate">{u.cognome} {u.nome}</p>
+                          <p className="font-medium text-sm truncate">{formatNomeCognome(u)}</p>
                           <Badge variant="outline" className="text-[10px] h-4">Ruolo: {roleLabel(u.ruolo)}</Badge>
                           {(u.ruoli_rls?.length ? u.ruoli_rls : []).map((role: string) => (
                             <Badge key={role} variant="secondary" className="text-[10px] h-4">Sistema: {roleLabel(role)}</Badge>
@@ -327,7 +333,7 @@ const GestioneUtentiPrivilegi = () => {
                             size="sm"
                             variant="outline"
                             className="border-fuchsia-300 text-fuchsia-700 hover:bg-fuchsia-50 dark:border-fuchsia-800 dark:text-fuchsia-300 dark:hover:bg-fuchsia-950/40"
-                            title={`Visualizza CBnet come ${u.cognome || ""} ${u.nome || ""}`.trim()}
+                            title={`Visualizza CBnet come ${formatNomeCognome(u)}`.trim()}
                             aria-label="Visualizza come questo utente"
                             disabled={!!visualizzaId}
                             onClick={async () => {
@@ -379,7 +385,7 @@ const GestioneUtentiPrivilegi = () => {
         onOpenChange={(o) => { if (!o) setDeleteUser(null); }}
         entityId={deleteUser?.id}
         entityType="utente"
-        entityName={deleteUser ? `${deleteUser.cognome || ""} ${deleteUser.nome || ""} (${deleteUser.email || "—"})`.trim() : "—"}
+        entityName={deleteUser ? `${formatNomeCognome(deleteUser) || "—"} (${deleteUser.email || "—"})` : "—"}
         checks={[
           { table: "titoli", column: "commerciale_id", label: "Polizze (commerciale)" },
           { table: "titoli", column: "produttore_id", label: "Polizze (produttore)" },

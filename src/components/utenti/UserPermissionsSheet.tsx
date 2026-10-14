@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { readInvokeErrorMessage } from "@/lib/edgeFunctionError";
 import { canModifyAccount, isRootAdminEmail, OTHER_ADMIN_LOCKED_MESSAGE } from "@/lib/adminAccountGuard";
 import { ALL_PERMISSION_KEYS, getLevelByRole, ROLE_LABELS, VISIBILITY_LABEL, VisibilityScope, LEVELS } from "@/lib/userLevels";
-import { roleLabel, sedeAssegnataLabel } from "@/lib/userPrivilegiDisplay";
+import { formatNomeCognome, roleLabel, sedeAssegnataLabel } from "@/lib/userPrivilegiDisplay";
 import PermissionsMatrix from "./PermissionsMatrix";
 import { KeyRound, Power, Shield, User as UserIcon, Eye, Settings2, Save, ExternalLink, Layers } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -171,7 +171,7 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
               <Icon className={`w-6 h-6 ${level.color}`} />
             </div>
             <div className="flex-1 min-w-0">
-              <SheetTitle className="truncate">{user.cognome} {user.nome}</SheetTitle>
+              <SheetTitle className="truncate">{formatNomeCognome(user)}</SheetTitle>
               <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               <div className="flex gap-1 mt-1 flex-wrap">
                 <Badge variant="outline" className="text-[10px]">{level.id}</Badge>
