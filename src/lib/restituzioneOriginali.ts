@@ -174,3 +174,116 @@ export function clientiOrFilter(clienteIds: string[]): string {
   const list = clienteIds.filter(Boolean).join(",");
   return `cliente_id.in.(${list}),cliente_anagrafica_id.in.(${list})`;
 }
+
+export function formatCapCitta(
+  cap?: string | null,
+  citta?: string | null,
+  provincia?: string | null,
+): string {
+  const city = [citta, provincia ? `(${provincia})` : ""].filter(Boolean).join(" ").trim();
+  return [cap, city].filter(Boolean).join(" ");
+}
+
+export function protocolloDistinta(compagniaNome: string, at: Date): string {
+  const y = at.getFullYear();
+  const m = String(at.getMonth() + 1).padStart(2, "0");
+  const d = String(at.getDate()).padStart(2, "0");
+  return `RO/${y}/${m}${d}-${slugAgenziaFilename(compagniaNome).slice(0, 16)}`;
+}
+
+export type DistintaMittente = {
+  ragioneSociale: string;
+  sedeNome?: string;
+  indirizzo?: string;
+  capCitta?: string;
+  telefono?: string;
+  email?: string;
+};
+
+export type DistintaDestinatario = {
+  nome: string;
+  indirizzo?: string;
+  capCitta?: string;
+};
+
+export type DistintaPreviewRiga = {
+  n: number;
+  cliente: string;
+  numeroTitolo: string;
+  tipo: string;
+  documento: string;
+  data: string;
+};
+
+export type DistintaRestituzioneModel = {
+  titolo: string;
+  protocollo: string;
+  dataLabel: string;
+  generatoDa?: string;
+  mittente: DistintaMittente;
+  destinatario: DistintaDestinatario;
+  clientiLabel: string;
+  oggetto: string;
+  intro: string;
+  rows: DistintaPreviewRiga[];
+  note: string;
+  chiusura: string;
+};
+
+export const DEFAULT_MITTENTE_RESTITUZIONE: DistintaMittente = {
+  ragioneSociale: "Consulbrokers S.p.A.",
+};
+
+function fmtDataDoc(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+export function buildDistintaRestituzioneModel(
+  gruppo: RestituzioneGruppoCompagnia,
+  generatedAt: Date,
+  options?: {
+    note?: string;
+    clientiLabel?: string;
+    generatoDa?: string;
+    mittente?: DistintaMittente;
+    destinatario?: DistintaDestinatario;
+    dataLabel?: string;
+  },
+): DistintaRestituzioneModel {
+  const clientiLabel = (options?.clientiLabel || "").trim();
+  const note = (options?.note || "").trim();
+  const destinatario: DistintaDestinatario = options?.destinatario ?? {
+    nome: gruppo.compagniaNome,
+  };
+  const rows = gruppo.rows.map((r, i) => ({
+    n: i + 1,
+    cliente: r.clienteNome || "—",
+    numeroTitolo: r.numeroTitolo || "—",
+    tipo: labelTipoTitoloRestituzione(r.tipoTitolo),
+    documento: r.nomeFile || "—",
+    data: fmtDataDoc(r.createdAt),
+  }));
+  const oggettoClienti = clientiLabel || destinatario.nome;
+  return {
+    titolo: "Distinta di restituzione originali",
+    protocollo: protocolloDistinta(destinatario.nome, generatedAt),
+    dataLabel: options?.dataLabel || fmtDataDoc(generatedAt.toISOString()),
+    generatoDa: options?.generatoDa,
+    mittente: { ...DEFAULT_MITTENTE_RESTITUZIONE, ...options?.mittente },
+    destinatario,
+    clientiLabel,
+    oggetto: `Restituzione documenti originali — ${oggettoClienti}`,
+    intro:
+      rows.length > 0
+        ? "Con la presente si restituiscono in originale i documenti elencati, relativi alle polizze dei clienti indicati. Si prega di prendere in carico e archiviare presso l'agenzia / compagnia destinataria."
+        : "Con la presente si comunica la restituzione degli originali come da note. Non risultano documenti selezionati in elenco.",
+    rows,
+    note,
+    chiusura: "Cordiali saluti.",
+  };
+}
