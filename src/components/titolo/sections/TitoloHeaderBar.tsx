@@ -101,7 +101,7 @@ export function TitoloHeaderBar({
         <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="w-5 h-5" /></Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="min-w-0 break-words text-2xl font-bold text-foreground">
               {isProroga ? (
                 <>Proroga {numeroDisplay}</>
               ) : isRegolazione ? (
@@ -203,15 +203,15 @@ export function TitoloHeaderBar({
             </p>
           )}
 
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-sm min-w-0 break-words">
             {(t as any).prodotto_nome || t.prodotti?.nome_prodotto || ""}
             {((t as any).prodotto_nome || t.prodotti?.nome_prodotto) ? " — " : ""}
             {labelCompagniaEAgenzia(t as any) || "N/D"}
           </p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Cliente:</span>
-              <span className="font-medium text-foreground">
+          <div className="mt-2 flex min-w-0 flex-wrap items-start gap-x-5 gap-y-1 text-sm">
+            <div className="flex min-w-0 max-w-full items-start gap-1.5">
+              <span className="shrink-0 text-xs uppercase tracking-wide text-muted-foreground">Cliente:</span>
+              <span className="min-w-0 break-words font-medium text-foreground">
                 {t.cliente_anagrafica
                   ? ((t.cliente_anagrafica as any).tipo_cliente === "privato"
                     ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim() || "—"
@@ -219,9 +219,9 @@ export function TitoloHeaderBar({
                   : "—"}
               </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Sede:</span>
-              <span className="font-medium text-foreground">{(t as any).uffici?.nome_ufficio || "—"}</span>
+            <div className="flex min-w-0 items-start gap-1.5">
+              <span className="shrink-0 text-xs uppercase tracking-wide text-muted-foreground">Sede:</span>
+              <span className="min-w-0 break-words font-medium text-foreground">{(t as any).uffici?.nome_ufficio || "—"}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs uppercase tracking-wide text-muted-foreground">{importoLabel}:</span>

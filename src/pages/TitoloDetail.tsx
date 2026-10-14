@@ -11,6 +11,8 @@ import { buildGarantitoPayload, buildIncassoDateFields, isInCoperturaGarantita, 
 import { annullaPolizza } from "@/lib/annullaPolizza";
 import { puoAprireIncasso, ripristinaPolizzaPerIncasso } from "@/lib/ripristinaPolizzaPerIncasso";
 import { resolveStatoContrattoTitolo } from "@/lib/statoContrattoTitolo";
+import { titoloModificaLockedTooltip } from "@/lib/titoloModificaLocked";
+import { LockedModificaButton } from "@/components/titolo/LockedModificaButton";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
 import {
   lordoFirmaDaVoci,
@@ -168,9 +170,9 @@ const SubBlockTitle = ({ children }: { children: React.ReactNode }) => (
 );
 
 const FieldRow = React.forwardRef<HTMLDivElement, { label: string; value: React.ReactNode }>(({ label, value }, ref) => (
-  <div ref={ref} className="flex justify-between py-1">
-    <span className="text-xs text-muted-foreground">{label}</span>
-    <span className="text-sm font-mono text-right">{value}</span>
+  <div ref={ref} className="flex min-w-0 justify-between gap-2 py-1">
+    <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+    <span className="min-w-0 break-words text-right text-sm font-mono">{value}</span>
   </div>
 ));
 FieldRow.displayName = "FieldRow";
@@ -2159,9 +2161,11 @@ const TitoloDetail = () => {
     !t.sostituisce_polizza &&
     !isAppendiceTitolo;
   const importiLocked = isPolizzaMadre ? t.stato === "stornato" : isLocked;
-  const lockedTitle = isLocked
-    ? `${isPolizzaMadre ? "Polizza" : "Quietanza"} ${t.stato === "stornato" ? "stornata" : "messa a cassa"}: modifiche bloccate`
-    : undefined;
+  const lockedTitle = titoloModificaLockedTooltip({
+    isLocked,
+    stato: t.stato,
+    isPolizzaMadre,
+  });
 
   // Stato contratto: tabella `polizze` (attiva/sospesa) con fallback su `titoli.stato`.
   // I dialog Gestione Polizze aggiornano titoli.stato; il badge header legge polizze.stato.
@@ -3084,9 +3088,7 @@ const TitoloDetail = () => {
             </Button>
           )}
           {!editingContratto ? (
-            <Button variant="ghost" size="sm" onClick={startEditContratto} disabled={isLocked} title={lockedTitle}>
-              <Pencil className="w-4 h-4 mr-1" /> Modifica
-            </Button>
+            <LockedModificaButton disabled={isLocked} lockedTitle={lockedTitle} onClick={startEditContratto} />
           ) : (
             <>
               <Button variant="outline" size="sm" onClick={() => setEditingContratto(false)}>Annulla</Button>
@@ -3098,7 +3100,7 @@ const TitoloDetail = () => {
         </div>
 
         {!editingContratto ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-1">
+          <div className="grid min-w-0 grid-cols-1 gap-x-6 gap-y-1 md:grid-cols-3 [&>*]:min-w-0">
             <FieldRow label="Compagnia" value={
               <span>{
                 t.compagnia_rapporto?.gruppi_compagnia?.descrizione
@@ -3125,13 +3127,19 @@ const TitoloDetail = () => {
             />
             <FieldRow label="Note" value={fmt(t.note)} />
             {t.cliente_anagrafica ? (
-              <div className="flex justify-between py-1">
-                <span className="text-xs text-muted-foreground">Cliente</span>
-                <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/clienti/${t.cliente_anagrafica.id}?tab=polizze`)}>
-                  {t.cliente_anagrafica.tipo_cliente === "privato"
-                    ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
-                    : t.cliente_anagrafica.ragione_sociale || "—"}
-                  <ExternalLink className="w-3 h-3 ml-1" />
+              <div className="flex min-w-0 justify-between gap-2 py-1">
+                <span className="shrink-0 text-xs text-muted-foreground">Cliente</span>
+                <Button
+                  variant="link"
+                  className="h-auto max-w-full min-w-0 flex-wrap justify-end whitespace-normal break-words p-0 text-right text-sm"
+                  onClick={() => navigate(`/clienti/${t.cliente_anagrafica.id}?tab=polizze`)}
+                >
+                  <span className="min-w-0 break-words">
+                    {t.cliente_anagrafica.tipo_cliente === "privato"
+                      ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
+                      : t.cliente_anagrafica.ragione_sociale || "—"}
+                  </span>
+                  <ExternalLink className="ml-1 h-3 w-3 shrink-0" />
                 </Button>
               </div>
             ) : <FieldRow label="Cliente" value="—" />}
@@ -3310,7 +3318,7 @@ const TitoloDetail = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5 md:col-span-2">
                 <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Cliente</Label>
-                <div className="h-8 px-2 flex items-center text-xs rounded-md border bg-muted/30">
+                <div className="flex min-h-8 min-w-0 items-start break-words rounded-md border bg-muted/30 px-2 py-1.5 text-xs">
                   {t.cliente_anagrafica
                     ? (t.cliente_anagrafica.tipo_cliente === "privato"
                       ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
@@ -3401,9 +3409,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Periodo" icon={Calendar}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingPeriodo ? (
-            <Button variant="ghost" size="sm" onClick={startEditPeriodo} disabled={isLocked} title={lockedTitle}>
-              <Pencil className="w-4 h-4 mr-1" /> Modifica
-            </Button>
+            <LockedModificaButton disabled={isLocked} lockedTitle={lockedTitle} onClick={startEditPeriodo} />
           ) : (
             <>
               <Button variant="outline" size="sm" onClick={() => setEditingPeriodo(false)}>Annulla</Button>
@@ -3623,9 +3629,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Regolazione" icon={Shield} defaultOpen={false}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingReg ? (
-            <Button variant="ghost" size="sm" onClick={startEditReg} disabled={isLocked} title={lockedTitle}>
-              <Pencil className="w-4 h-4 mr-1" /> Modifica
-            </Button>
+            <LockedModificaButton disabled={isLocked} lockedTitle={lockedTitle} onClick={startEditReg} />
           ) : (
             <>
               <Button variant="outline" size="sm" onClick={() => setEditingReg(false)}>Annulla</Button>
@@ -4033,9 +4037,7 @@ const TitoloDetail = () => {
                 </div>
               );
             })()}
-            <Button size="sm" variant="outline" className="mt-3" onClick={startEditComm} disabled={isLocked} title={lockedTitle}>
-              <Pencil className="w-3 h-3 mr-1" /> Modifica
-            </Button>
+            <LockedModificaButton variant="outline" className="mt-3" disabled={isLocked} lockedTitle={lockedTitle} onClick={startEditComm} />
           </>
         )}
       </SectionCollapsible>
@@ -4522,9 +4524,9 @@ const TitoloDetail = () => {
           </div>
           <div className="flex gap-2">
           {!editingVeicolo ? (
-            <Button variant="ghost" size="sm" onClick={startEditVeicolo} disabled={isLocked} title={lockedTitle}>
-              <Pencil className="w-4 h-4 mr-1" /> {veicolo ? "Modifica" : "Aggiungi"}
-            </Button>
+            <LockedModificaButton disabled={isLocked} lockedTitle={lockedTitle} onClick={startEditVeicolo}>
+              {veicolo ? "Modifica" : "Aggiungi"}
+            </LockedModificaButton>
           ) : (
             <>
               <Button variant="outline" size="sm" onClick={() => setEditingVeicolo(false)}>Annulla</Button>

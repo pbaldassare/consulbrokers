@@ -9,7 +9,7 @@ const variantClasses: Record<PageContainerVariant, string> = {
   /** Immissione, appendici, form operativi — allineati a sinistra */
   form: "max-w-6xl xl:max-w-7xl w-full space-y-8",
   /** Dettaglio titolo/polizza — centrato, leggermente più largo su desktop */
-  detail: "max-w-6xl xl:max-w-7xl w-full space-y-6 mx-auto",
+  detail: "max-w-6xl xl:max-w-7xl w-full min-w-0 space-y-6 mx-auto",
   /** Cruscotti e liste full-width */
   full: "max-w-none w-full space-y-6",
 };
