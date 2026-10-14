@@ -29,6 +29,15 @@ data_competenza, ae_anagrafica_id` (NB: il campo è `ae_anagrafica_id`, non
   `TitoloDetail`, abilitato solo se `data_messa_cassa` valorizzato.
   Mostra toast con il destinatario risolto, invalida `log-attivita`.
 
+## Testo intro (formale, mezzo parametrizzato)
+`In data odierna abbiamo incassato per Vostro conto a mezzo {mezzo} il seguente premio che vi accrediteremo al netto delle provvigioni come da accordi:`
+
+`{mezzo}` da `tipo_pagamento` (Bonifico, POS / Carta, Assegno, Contanti, …).
+Bonifico/garantito/costi Consulbrokers/compensazione → «Bonifico».
+Al plurale: «i seguenti premi». Provvigioni una sola volta: riga nel dettaglio
+titolo (singola) oppure totale in fondo tabella (più polizze). Non ripetere il
+blocco «Totale provvigioni maturate» sotto la scheda singola.
+
 ## Log
 Ogni invio crea entry in `log_attivita` con `azione = 'notifica_messa_cassa_inviata'`,
 `dettagli_json = { destinatario, oggetto, send_id }`.

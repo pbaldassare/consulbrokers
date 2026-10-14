@@ -70,7 +70,7 @@ export function resolveTipoPagamentoPerNotificaAgenzia(tipo: string | null | und
     tp === TIPO_PAGAMENTO_COSTI_CONSULBROKERS ||
     tp === TIPO_PAGAMENTO_COMPENSAZIONE
   ) {
-    return "Bonifico bancario";
+    return "Bonifico";
   }
   const labels: Record<string, string> = {
     contanti: "Contanti",
@@ -80,6 +80,20 @@ export function resolveTipoPagamentoPerNotificaAgenzia(tipo: string | null | und
     rid: "RID / Addebito SEPA",
   };
   return labels[tp] || (tipo || "—");
+}
+
+/**
+ * Intro formale della mail di incasso all'agenzia.
+ * Mezzo parametrizzato (Bonifico, POS, assegno, …); se assente o misti, senza «a mezzo».
+ */
+export function testoIntroIncassoAgenzia(opts: {
+  mezzo?: string | null;
+  bulk?: boolean;
+}): string {
+  const premio = opts.bulk ? "i seguenti premi" : "il seguente premio";
+  const mezzo = (opts.mezzo || "").trim();
+  const mezzoPart = mezzo ? ` a mezzo ${mezzo}` : "";
+  return `In data odierna abbiamo incassato per Vostro conto${mezzoPart} ${premio} che vi accrediteremo al netto delle provvigioni come da accordi:`;
 }
 
 /** Label leggibile della modalità di incasso mostrata nell'interfaccia. */

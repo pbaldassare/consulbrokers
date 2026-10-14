@@ -6,6 +6,7 @@ import {
   isTipoPagamentoPos,
   resolveTipoPagamentoLabel,
   resolveTipoPagamentoPerNotificaAgenzia,
+  testoIntroIncassoAgenzia,
   resolveTipoPagamentoTitoloIncasso,
   tipoPagamentoRichiedeConto,
   TIPI_PAGAMENTO_MESSA_CASSA,
@@ -149,11 +150,32 @@ describe("isTipoPagamentoAliasBonificoEsterno", () => {
 });
 
 describe("resolveTipoPagamentoPerNotificaAgenzia", () => {
-  it("mappa alias bonifico esterno a Bonifico bancario", () => {
-    expect(resolveTipoPagamentoPerNotificaAgenzia("bonifico")).toBe("Bonifico bancario");
-    expect(resolveTipoPagamentoPerNotificaAgenzia(TIPO_PAGAMENTO_COSTI_CONSULBROKERS)).toBe("Bonifico bancario");
-    expect(resolveTipoPagamentoPerNotificaAgenzia(TIPO_PAGAMENTO_COMPENSAZIONE)).toBe("Bonifico bancario");
+  it("mappa alias bonifico esterno a Bonifico", () => {
+    expect(resolveTipoPagamentoPerNotificaAgenzia("bonifico")).toBe("Bonifico");
+    expect(resolveTipoPagamentoPerNotificaAgenzia(TIPO_PAGAMENTO_COSTI_CONSULBROKERS)).toBe("Bonifico");
+    expect(resolveTipoPagamentoPerNotificaAgenzia(TIPO_PAGAMENTO_COMPENSAZIONE)).toBe("Bonifico");
     expect(resolveTipoPagamentoPerNotificaAgenzia("contanti")).toBe("Contanti");
+    expect(resolveTipoPagamentoPerNotificaAgenzia("pos")).toBe("POS / Carta");
+    expect(resolveTipoPagamentoPerNotificaAgenzia("assegno")).toBe("Assegno");
+  });
+});
+
+describe("testoIntroIncassoAgenzia", () => {
+  it("usa il testo formale con mezzo Bonifico", () => {
+    expect(testoIntroIncassoAgenzia({ mezzo: "Bonifico" })).toBe(
+      "In data odierna abbiamo incassato per Vostro conto a mezzo Bonifico il seguente premio che vi accrediteremo al netto delle provvigioni come da accordi:",
+    );
+  });
+
+  it("parametrizza il mezzo reale (POS, assegno)", () => {
+    expect(testoIntroIncassoAgenzia({ mezzo: "POS / Carta" })).toContain("a mezzo POS / Carta il seguente premio");
+    expect(testoIntroIncassoAgenzia({ mezzo: "Assegno" })).toContain("a mezzo Assegno il seguente premio");
+  });
+
+  it("al plurale cambia solo premio → premi", () => {
+    expect(testoIntroIncassoAgenzia({ mezzo: "Bonifico", bulk: true })).toBe(
+      "In data odierna abbiamo incassato per Vostro conto a mezzo Bonifico i seguenti premi che vi accrediteremo al netto delle provvigioni come da accordi:",
+    );
   });
 });
 

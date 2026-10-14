@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { invoke, getUser, insert } = vi.hoisted(() => ({
@@ -65,5 +67,26 @@ describe("notifica messa a cassa per modalità di pagamento", () => {
 
     expect(result.data).toMatchObject({ skipped: true, reason: "incasso_zero" });
     expect(invoke).not.toHaveBeenCalled();
+  });
+});
+
+describe("template mail notifica-messa-cassa-agenzia", () => {
+  const edgeSrc = readFileSync(
+    resolve(process.cwd(), "supabase/functions/notifica-messa-cassa-agenzia/index.ts"),
+    "utf8",
+  );
+
+  it("usa il testo formale con accredito al netto delle provvigioni", () => {
+    expect(edgeSrc).toContain(
+      "che vi accrediteremo al netto delle provvigioni come da accordi:",
+    );
+    expect(edgeSrc).toContain("a mezzo ${mezzo}");
+    expect(edgeSrc).not.toContain("come da accordi${isBulk");
+  });
+
+  it("non ripete il totale provvigioni sotto la scheda singola", () => {
+    expect(edgeSrc).not.toMatch(
+      /Provvigioni maturate[\s\S]*?<\/table>\s*<p[^>]*>[\s\S]*Totale provvigioni maturate/,
+    );
   });
 });

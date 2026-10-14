@@ -148,17 +148,26 @@ function isIncassoZeroTitolo(t: TitoloRow): boolean {
 
 function modalitaLabel(t: TitoloRow): string {
   const tipoPagLabels: Record<string, string> = {
-    bonifico: "Bonifico bancario",
+    bonifico: "Bonifico",
     contanti: "Contanti",
     assegno: "Assegno",
     pos: "POS / Carta",
+    carta_credito: "POS / Carta",
     rid: "RID / Addebito SEPA",
-    garantito: "Bonifico bancario",
-    costi_consulbrokers: "Bonifico bancario",
-    compensazione: "Bonifico bancario",
+    garantito: "Bonifico",
+    costi_consulbrokers: "Bonifico",
+    compensazione: "Bonifico",
     incasso_zero: "Messa a cassa a zero",
   };
   return tipoPagLabels[String(t.tipo_pagamento || "").toLowerCase()] || String(t.tipo_pagamento || "—");
+}
+
+/** Intro formale: allineata a src/lib/incassoTipoPagamento.ts `testoIntroIncassoAgenzia`. */
+function testoIntroIncassoAgenzia(opts: { mezzo?: string | null; bulk?: boolean }): string {
+  const premio = opts.bulk ? "i seguenti premi" : "il seguente premio";
+  const mezzo = (opts.mezzo || "").trim();
+  const mezzoPart = mezzo ? ` a mezzo ${mezzo}` : "";
+  return `In data odierna abbiamo incassato per Vostro conto${mezzoPart} ${premio} che vi accrediteremo al netto delle provvigioni come da accordi:`;
 }
 
 /** Template unico: stesso avviso incasso per messa a cassa e per Garantito. */
@@ -175,7 +184,13 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
     ? `Comunicazione messa a cassa — ${nomeAgenzia} — ${titoli.length} polizze — ${clienteLabel}`
     : `Comunicazione messa a cassa — ${nomeAgenzia} — Polizza ${primary.numero_titolo || "—"} — ${clienteNome(primary)}`;
 
-  const introBody = `<p style="margin:0 0 14px;">In data odierna abbiamo incassato per Vostro conto${isBulk ? " i seguenti premi" : " il seguente premio"}, come da accordi${isBulk ? "" : ` a mezzo <strong>${escapeHtml(modalitaLabel(primary))}</strong>`}:</p>`;
+  const mezziUnici = [...new Set(titoli.map(modalitaLabel))];
+  const mezzoIntro = mezziUnici.length === 1 ? mezziUnici[0] : "";
+  const introPlain = testoIntroIncassoAgenzia({ mezzo: mezzoIntro, bulk: isBulk });
+  const introHtml = mezzoIntro
+    ? introPlain.replace(` a mezzo ${mezzoIntro} `, ` a mezzo <strong>${escapeHtml(mezzoIntro)}</strong> `)
+    : introPlain;
+  const introBody = `<p style="margin:0 0 14px;">${introHtml}</p>`;
 
   const totProvv = totaleProvvigioniMaturate(titoli);
   const totPremi = titoli.reduce((s, t) => s + (resolveImportoEmail(t) || 0), 0);
@@ -209,8 +224,7 @@ function buildEmailContent(titoli: TitoloRow[], sentAt: Date) {
             <tr><td style="color:#55615e;">Premio</td><td><strong>${escapeHtml(fmtEuro(resolveImportoEmail(primary)))}</strong></td></tr>
             <tr style="background:#f7faf9;"><td style="color:#55615e;">Provvigioni maturate</td><td><strong>${escapeHtml(fmtEuro(provvigioneMaturata(primary)))}</strong></td></tr>
             <tr><td style="color:#55615e;">Modalità incasso</td><td>${escapeHtml(modalitaLabel(primary))}</td></tr>
-          </table>
-          <p style="margin:0 0 18px;font-size:14px;"><strong>Totale provvigioni maturate:</strong> ${escapeHtml(fmtEuro(totProvv))}</p>` : `
+          </table>` : `
           <table role="presentation" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;margin:8px 0 18px;font-size:13px;">
             <thead>
               <tr style="background:#f0f4f3;">
@@ -335,12 +349,18 @@ async function buildArchivePdf(opts: {
   }
   y -= 6;
   drawLine(`Totale premi: ${fmtEuro(titoli.reduce((s, t) => s + (resolveImportoEmail(t) || 0), 0))}`, 10, bold);
-  drawLine(`Totale provvigioni maturate: ${fmtEuro(totaleProvvigioniMaturate(titoli))}`, 10, bold);
+  if (titoli.length > 1) {
+    drawLine(`Totale provvigioni maturate: ${fmtEuro(totaleProvvigioniMaturate(titoli))}`, 10, bold);
+  }
 
   y -= 10;
   drawLine("Testo comunicazione inviata", 11, bold);
   y -= 4;
-  const bodyIntro = `In data odierna abbiamo incassato per Vostro conto ${titoli.length > 1 ? "i premi indicati" : "il premio indicato"}.`;
+  const mezziPdf = [...new Set(titoli.map(modalitaLabel))];
+  const bodyIntro = testoIntroIncassoAgenzia({
+    mezzo: mezziPdf.length === 1 ? mezziPdf[0] : "",
+    bulk: titoli.length > 1,
+  });
   drawLine(bodyIntro, 9);
   drawLine("È gradita l'occasione per porgere cordiali saluti.", 9);
 
