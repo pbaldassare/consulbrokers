@@ -84,6 +84,14 @@ export function extractOrdinanteFromDescrizione(descrizione: string): string {
     if (cleaned) return cleaned;
   }
 
+  // UniCredit: "BONIFICO SEPA DA  NOME COGNOME PER  causale TRN …"
+  // (anche dopo "BONIFICO ISTANTANEO DEL … DA  Nome PER")
+  const ucDaPer = desc.match(/\bDA\s+(.+?)\s+PER\s+/i);
+  if (ucDaPer) {
+    const cleaned = sanitizeOrdinanteNome(ucDaPer[1].replace(CAUSALE_STOP_RE, "").trim());
+    if (cleaned && cleaned.length >= 3) return cleaned;
+  }
+
   // Intesa/Unicredit/BPM: "BONIFICO A VOSTRO FAVORE NOME Data Regolamento:"
   // (prima di ORDINANTE: evita di matchare "Coord.Ordinante:" = IBAN)
   const vostro = desc.match(
@@ -236,9 +244,17 @@ export function sheetRowsPreferDisplay(sheet: XLSX.WorkSheet): Record<string, un
     return hs;
   };
   const headerRow = findHeaderRowEstratto(range.s.r, Math.min(range.e.r, range.s.r + 60), readHeaders);
-  const headers = readHeaders(headerRow);
+  let headers = readHeaders(headerRow);
+  let dataStart = headerRow + 1;
+  if (dataStart <= range.e.r) {
+    const nextHeaders = readHeaders(dataStart);
+    if (looksLikeEstrattoHeaderContinuation(headers, nextHeaders)) {
+      headers = mergeEstrattoHeaderRows(headers, nextHeaders);
+      dataStart += 1;
+    }
+  }
   const out: Record<string, unknown>[] = [];
-  for (let R = headerRow + 1; R <= range.e.r; R++) {
+  for (let R = dataStart; R <= range.e.r; R++) {
     const row: Record<string, unknown> = {};
     let empty = true;
     for (let C = range.s.c; C <= range.e.c; C++) {
@@ -255,8 +271,72 @@ export function sheetRowsPreferDisplay(sheet: XLSX.WorkSheet): Record<string, un
 }
 
 /**
- * Riga intestazioni: alcuni estratti (es. Intesa "Lista Operazioni") hanno
- * un preambolo (conto, periodo, filtri) prima della tabella movimenti.
+ * Celle titolo/preambolo UniCredit (e simili): non sono la riga intestazione
+ * né la colonna Data. Es. "Data da: Rapporto IT 60 B …", "Rapporto IT60B…".
+ */
+export function isPreambleEstrattoCell(raw: string): boolean {
+  const s = String(raw || "").trim();
+  if (!s) return false;
+  if (/^data\s*(da|a)\s*:/i.test(s)) return true;
+  if (/^data\s*(da|a)\b/i.test(s) && /rapporto|iban|\bIT\s*\d{2}/i.test(s)) return true;
+  if (/rapporto\s+it/i.test(s)) return true;
+  const compact = s.replace(/[\s-]/g, "");
+  if (/rapporto/i.test(s) && /IT\d{2}/i.test(compact)) return true;
+  if (s.length > 40 && looksLikeIbanOrAccount(s)) return true;
+  if (/^lista\s+operazioni/i.test(s)) return true;
+  return false;
+}
+
+/** Header data vero (Data / Data operaz. / Valuta), non "Data da: Rapporto…". */
+export function isDateHeaderEstratto(raw: string): boolean {
+  const s = String(raw || "").trim();
+  if (!s || isPreambleEstrattoCell(s) || s.length > 40) return false;
+  if (/^data\s*(da|a)\b/i.test(s)) return false;
+  if (/^(data|date)$/i.test(s)) return true;
+  if (/^data\s*(operaz|valuta|contabile|movimento|regol)/i.test(s)) return true;
+  if (/^valuta$/i.test(s)) return true;
+  return false;
+}
+
+/**
+ * Colonna importo/segno: Importo, Avere/Dare, Entrate/Uscite, oppure
+ * divisa UniCredit (`EUR`) usata come unica colonna importi.
+ */
+export function isImportoHeaderEstratto(raw: string): boolean {
+  const s = String(raw || "").trim();
+  if (!s) return false;
+  if (/importo|amount|avere|dare|accredit|addebit|entrate|uscite/i.test(s)) return true;
+  if (/^(eur|usd|gbp|chf)$/i.test(s)) return true;
+  return false;
+}
+
+const ESTRATTO_HEADER_CONT_RE = /^(operaz\.?|valuta|data)$/i;
+
+/** Seconda riga header UniCredit: "Operaz." | "Valuta" sotto Data / Descrizione / EUR. */
+export function looksLikeEstrattoHeaderContinuation(top: string[], next: string[]): boolean {
+  const filled = next.map((h) => String(h || "").trim()).filter(Boolean);
+  if (filled.length === 0 || filled.length > 3) return false;
+  if (!filled.every((h) => ESTRATTO_HEADER_CONT_RE.test(h))) return false;
+  if (!filled.some((h) => /^operaz\.?$/i.test(h) || /^valuta$/i.test(h))) return false;
+  const topFilled = top.map((h) => String(h || "").trim()).filter(Boolean);
+  return topFilled.some((h) => isDateHeaderEstratto(h) || /descri/i.test(h) || isImportoHeaderEstratto(h));
+}
+
+export function mergeEstrattoHeaderRows(top: string[], bottom: string[]): string[] {
+  const n = Math.max(top.length, bottom.length);
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = String(top[i] || "").trim();
+    const b = String(bottom[i] || "").trim();
+    if (a && b && a.toLowerCase() !== b.toLowerCase()) out.push(`${a} ${b}`);
+    else out.push(a || b);
+  }
+  return out;
+}
+
+/**
+ * Riga intestazioni: alcuni estratti (es. Intesa "Lista Operazioni", UniCredit)
+ * hanno un preambolo (conto, rapporto IBAN, periodo) prima della tabella.
  */
 export function findHeaderRowEstratto(
   firstRow: number,
@@ -264,10 +344,18 @@ export function findHeaderRowEstratto(
   readHeaders: (r: number) => string[],
 ): number {
   for (let R = firstRow; R <= lastRow; R++) {
-    const hs = readHeaders(R).filter(Boolean);
+    const raw = readHeaders(R);
+    const hs = raw.filter((h) => String(h || "").trim());
     if (hs.length < 2) continue;
-    const hasData = hs.some((h) => /^data|valuta|^date$/i.test(h));
-    const hasImporto = hs.some((h) => /importo|amount|avere|dare|accredit|addebit|entrate/i.test(h));
+    if (hs.every((h) => isPreambleEstrattoCell(h))) continue;
+    if (
+      hs.some((h) => isPreambleEstrattoCell(h)) &&
+      !hs.some((h) => isImportoHeaderEstratto(h) || /descri/i.test(h))
+    ) {
+      continue;
+    }
+    const hasData = raw.some((h) => isDateHeaderEstratto(h));
+    const hasImporto = raw.some((h) => isImportoHeaderEstratto(h));
     if (hasData && hasImporto) return R;
   }
   return firstRow;
@@ -420,30 +508,39 @@ export function detectColonneEstratto(
   cols: string[],
   sample?: Record<string, unknown>[],
 ): ColonneEstratto {
-  const find = (...res: RegExp[]) => cols.find((c) => res.some((re) => re.test(c))) || null;
-  const valuta = find(/valuta/i);
+  const usable = cols.filter((c) => c && !isPreambleEstrattoCell(c));
+  const find = (...res: RegExp[]) => usable.find((c) => res.some((re) => re.test(c))) || null;
+  const valuta = usable.find((c) => /^valuta$/i.test(String(c).trim())) || find(/valuta/i);
   const valutaIsData =
     !valuta ||
     !sample?.length ||
     sample.slice(0, 20).some((r) => looksLikeDataCella(r[valuta]));
+  const dateCols = usable.filter((c) => isDateHeaderEstratto(c));
+  const avere =
+    find(/^avere$/i) || find(/avere|accredito|^credito$/i) || find(/^entrate$/i) || find(/entrate/i);
+  const dare =
+    find(/^dare$/i) || find(/dare|addebito|^debito$/i) || find(/^uscite$/i) || find(/uscite/i);
+  const importoEsplicito = find(/^importo$/i) || find(/importo|amount/i);
   return {
     data:
-      (valutaIsData ? valuta : null) ||
+      (valutaIsData && valuta && !isPreambleEstrattoCell(valuta) ? valuta : null) ||
+      dateCols.find((c) => /data\s*contabile/i.test(c)) ||
+      dateCols.find((c) => /^data$/i.test(String(c).trim())) ||
+      dateCols[0] ||
       find(/data\s*contabile/i) ||
       find(/^data$/i) ||
-      find(/^data/i) ||
-      cols[0] ||
+      usable[0] ||
       null,
-    importo: find(/^importo$/i) || find(/importo|amount/i),
-    avere: find(/^avere$/i) || find(/avere|accredito|^credito$/i),
-    dare: find(/^dare$/i) || find(/dare|addebito|^debito$/i),
+    importo: importoEsplicito || (!avere && !dare ? find(/^(eur|usd|gbp|chf)$/i) : null),
+    avere,
+    dare,
     // Evita "controparte" / colonne IBAN: spesso contengono solo coordinate conto
     ordinante:
       find(/^ordinante$/i) ||
       find(/^mittente$/i) ||
       find(/ordinante|mittente|nominativo|ragione\s*sociale/i) ||
       null,
-    descrizione: pickColonnaDescrizione(cols),
+    descrizione: pickColonnaDescrizione(usable),
     clienteId: find(/cliente\s*id/i),
   };
 }

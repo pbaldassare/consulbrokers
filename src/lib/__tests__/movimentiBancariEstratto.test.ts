@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { existsSync, readFileSync } from "node:fs";
 import {
   buildMovimentoDedupKey,
   buildMovimentoContentDedupKey,
@@ -7,8 +8,11 @@ import {
   detectColonneEstratto,
   excelCellValueForColumn,
   fetchExistingMovimentoDedupKeys,
+  findHeaderRowEstratto,
+  isDateHeaderEstratto,
   isMovimentoDedupHit,
   isMovimentiBancariDedupViolation,
+  isPreambleEstrattoCell,
   normalizeDescrizioneDedup,
   parseDataBancaria,
   parseImportoBancario,
@@ -21,6 +25,10 @@ import {
   __DEDUP_FETCH_PAGE,
 } from "@/lib/movimentiBancari";
 import * as XLSX from "xlsx";
+import {
+  UNICREDIT_ENTRATE_USCITE_AOA,
+  UNICREDIT_PREAMBLE_AOA,
+} from "@/lib/__tests__/fixtures/unicreditEstratto";
 
 const rangeMock = vi.fn();
 const inRangeMock = vi.fn(async () => ({ data: [], error: null }));
@@ -461,5 +469,125 @@ describe("estratto Intesa «Lista operazioni» con preambolo", () => {
         "Bonifico a Vostro favore disposto da MITT. STIGLIANI DAMIANOMASIELLO BIANCA BENEF. CONSULBROKERS DIGITAL SRL",
       ),
     ).toBe("STIGLIANI DAMIANOMASIELLO BIANCA");
+  });
+});
+
+describe("estratto UniCredit con preambolo Rapporto/IBAN", () => {
+  const UNICREDIT_UPLOAD =
+    "/root/.cursor/projects/home-ubuntu-cursor-projects-cbnet/uploads/MOVIMENTI_UNICREDIT_AL_08_10_e06c.xls";
+
+  it("non tratta «Data da: Rapporto IT…» come header Data", () => {
+    expect(isPreambleEstrattoCell("Data da: Rapporto IT 60 B 02008 36282 000101869818")).toBe(true);
+    expect(isPreambleEstrattoCell("Rapporto IT 60 B 02008 36282 000101869818 - CONSULBROKERS S.P.A.")).toBe(
+      true,
+    );
+    expect(isDateHeaderEstratto("Data da: Rapporto IT 60 B 02008 36282 000101869818")).toBe(false);
+    expect(isDateHeaderEstratto("Data")).toBe(true);
+    expect(isDateHeaderEstratto("Data Operaz.")).toBe(true);
+    const header = findHeaderRowEstratto(0, 4, (r) => {
+      const rows = [
+        ["Data da: Rapporto IT 60 B 02008 36282 000101869818 - CONSULBROKERS S.P.A."],
+        [],
+        ["Data", "", "Descrizione", "EUR", "Caus."],
+        ["Operaz.", "Valuta"],
+      ];
+      return (rows[r] || []).map(String);
+    });
+    expect(header).toBe(2);
+  });
+
+  it("trova Data+EUR dopo il preambolo, unisce Operaz./Valuta e importa gli accrediti", () => {
+    const ws = XLSX.utils.aoa_to_sheet(UNICREDIT_PREAMBLE_AOA);
+    const rows = sheetRowsPreferDisplay(ws);
+    expect(rows).toHaveLength(4);
+    expect(Object.keys(rows[0] || {}).some((k) => /rapporto/i.test(k))).toBe(false);
+    const p = buildPreviewEstratto("MOVIMENTI_UNICREDIT_AL_08_10.xls", rows);
+    expect(p.colonne.data).toMatch(/data|valuta/i);
+    expect(p.colonne.importo).toBe("EUR");
+    expect(p.colonne.descrizione).toBe("Descrizione");
+    expect(p.daImportare).toBe(4);
+    expect(p.scarti).toBe(0);
+    expect(p.preview[0]).toMatchObject({
+      data_movimento: "2026-10-01",
+      importo: 594.78,
+      ordinante: "SIMIONI MAURA",
+      esito: "ok",
+    });
+    expect(p.preview[1]).toMatchObject({
+      data_movimento: "2026-10-01",
+      importo: 284.9,
+      ordinante: "DARMAN IVANO E DEL ZENERO MICHELA",
+    });
+    expect(p.preview[2]).toMatchObject({
+      data_movimento: "2026-10-05",
+      importo: 1343.01,
+      ordinante: "COMUNE DI SAN GIORGIO IN BOSCO",
+    });
+    expect(p.preview[3]).toMatchObject({
+      data_movimento: "2026-10-06",
+      importo: 690.09,
+      ordinante: "Snezha Dinova",
+    });
+    expect(p.preview[0]?.descrizione).toMatch(/BONIFICO SEPA DA/);
+  });
+
+  it("legge il xlsx costruito via readEstrattoBancarioRows", async () => {
+    const ws = XLSX.utils.aoa_to_sheet(UNICREDIT_PREAMBLE_AOA);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Movimenti");
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    const file = {
+      name: "MOVIMENTIUNICREDITAL0810.xlsx",
+      arrayBuffer: async () => buf,
+    } as File;
+    const rows = await readEstrattoBancarioRows(file);
+    const p = buildPreviewEstratto(file.name, rows);
+    expect(p.righeFile).toBe(4);
+    expect(p.daImportare).toBe(4);
+    expect(p.scartiByMotivo.importo_zero_o_invalido ?? 0).toBe(0);
+  });
+
+  it("mappa Entrate/Uscite e scarta solo le uscite", () => {
+    const ws = XLSX.utils.aoa_to_sheet(UNICREDIT_ENTRATE_USCITE_AOA);
+    const rows = sheetRowsPreferDisplay(ws);
+    const p = buildPreviewEstratto("unicredit-entrate.xls", rows);
+    expect(p.colonne.avere).toBe("Entrate");
+    expect(p.colonne.dare).toBe("Uscite");
+    expect(p.daImportare).toBe(1);
+    expect(p.scartiByMotivo.solo_dare).toBe(1);
+    expect(p.preview.find((r) => r.esito === "ok")).toMatchObject({
+      importo: 1234.56,
+      ordinante: "ROSSI MARIO",
+      data_movimento: "2026-10-01",
+    });
+  });
+
+  it.skipIf(!existsSync(UNICREDIT_UPLOAD))("importa i 7 accrediti dal file UniCredit caricato", async () => {
+    const buf = readFileSync(UNICREDIT_UPLOAD);
+    const bytes = new Uint8Array(buf.byteLength);
+    bytes.set(buf);
+    const file = {
+      name: "MOVIMENTI_UNICREDIT_AL_08_10.xls",
+      arrayBuffer: async () => bytes.buffer,
+    } as File;
+    const rows = await readEstrattoBancarioRows(file);
+    const p = buildPreviewEstratto(file.name, rows);
+    expect(p.righeFile).toBe(7);
+    expect(p.daImportare).toBe(7);
+    expect(p.scarti).toBe(0);
+    expect(p.colonne.importo).toBe("EUR");
+    expect(p.colonne.descrizione).toBe("Descrizione");
+    expect(p.preview.map((r) => r.importo)).toEqual([594.78, 284.9, 1343.01, 690.09, 1520.28, 383.88, 501.5]);
+    expect(p.preview.map((r) => r.data_movimento)).toEqual([
+      "2026-10-01",
+      "2026-10-01",
+      "2026-10-05",
+      "2026-10-06",
+      "2026-10-07",
+      "2026-10-08",
+      "2026-10-08",
+    ]);
+    expect(p.preview[0]?.ordinante).toBe("SIMIONI MAURA");
+    expect(p.preview[6]?.ordinante).toBe("TREVITRANS SNC ROSSITTO CLAUDI");
   });
 });

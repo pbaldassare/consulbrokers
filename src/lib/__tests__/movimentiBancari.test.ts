@@ -33,6 +33,24 @@ describe("extractOrdinanteFromDescrizione", () => {
     expect(extractOrdinanteFromDescrizione("ORDINANTE: ROSSI MARIO SRL CRO 123")).toBe("ROSSI MARIO SRL");
   });
 
+  it("estrae UniCredit «DA … PER» anche in minuscolo", () => {
+    expect(
+      extractOrdinanteFromDescrizione(
+        "BONIFICO A VOSTRO FAVORE BONIFICO SEPA DA  SIMIONI MAURA PER  SIMIONI MAURA POLIZZA 408847349 TRN 1001262742001529",
+      ),
+    ).toBe("SIMIONI MAURA");
+    expect(
+      extractOrdinanteFromDescrizione(
+        "BONIFICO A VOSTRO FAVORE BONIFICO ISTANTANEO DEL 06.10.2026 ALLE 10.27.54 DA  Snezha Dinova PER  EMITTENDA- 02075 R. C. AUTO",
+      ),
+    ).toBe("Snezha Dinova");
+    expect(
+      extractOrdinanteFromDescrizione(
+        "BONIFICO SEPA DA  TRIPPUTI MARIA LUIGIA PER  Pagamento polizza n. 30/211075324",
+      ),
+    ).toBe("TRIPPUTI MARIA LUIGIA");
+  });
+
   it("estrae da BONIFICO A VOSTRO FAVORE … Data Regolamento", () => {
     expect(
       extractOrdinanteFromDescrizione(
