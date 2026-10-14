@@ -3,16 +3,16 @@ import { formatTipoSinistro } from "@/lib/tipiSinistro";
 import { format } from "date-fns";
 import {
   buildSinistroAddress,
+  buildSinistroLuogoLabel,
   colorForTipo,
   readGeocodeCache,
-  REGGIO_CALABRIA_CENTER,
-  resolveSinistroCoords,
+  resolveMapFallbackCenter,
+  resolveStoredSinistroCoords,
   writeGeocodeCache,
 } from "@/lib/sinistriMapUtils";
 
 const GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY || import.meta.env.VITE_GOOGLE_MAPS_API_KEY) as string | undefined;
 const GOOGLE_MAPS_CHANNEL = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
-const DEFAULT_CENTER = REGGIO_CALABRIA_CENTER;
 
 type Sinistro = {
   id: string;
@@ -35,6 +35,8 @@ type Sinistro = {
 
 interface Props {
   sinistri: Sinistro[];
+  /** Città sede / area del cliente (es. Varese) se il sinistro non ha luogo. */
+  fallbackCitta?: string | null;
 }
 
 type MapsLibs = {
@@ -123,7 +125,7 @@ async function ensureMapsLibs(): Promise<MapsLibs> {
 
 const fmtEur = (v?: number | null) => v == null ? "—" : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
 
-export function SinistriMap({ sinistri }: Props) {
+export function SinistriMap({ sinistri, fallbackCitta }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -132,7 +134,10 @@ export function SinistriMap({ sinistri }: Props) {
   const [loading, setLoading] = useState(true);
   const [mappedCount, setMappedCount] = useState(0);
 
-  const key = useMemo(() => sinistri.map(s => s.id).join("|"), [sinistri]);
+  const key = useMemo(
+    () => `${fallbackCitta || ""}|${sinistri.map((s) => s.id).join("|")}`,
+    [sinistri, fallbackCitta],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -143,9 +148,10 @@ export function SinistriMap({ sinistri }: Props) {
       try {
         const libs = await ensureMapsLibs();
         if (cancelled || !containerRef.current) return;
+        const fallbackCenter = resolveMapFallbackCenter(fallbackCitta);
         if (!mapRef.current) {
           mapRef.current = new libs.Map(containerRef.current, {
-            center: DEFAULT_CENTER,
+            center: fallbackCenter,
             zoom: 11,
             minZoom: 8,
             maxZoom: 16,
@@ -163,14 +169,12 @@ export function SinistriMap({ sinistri }: Props) {
         const cache = readGeocodeCache();
         const geocoder = new libs.Geocoder();
         const bounds = new libs.LatLngBounds();
-        const boundsCalabria = new libs.LatLngBounds();
         let placed = 0;
-        let placedCalabria = 0;
 
         for (const s of sinistri) {
-          let coords = resolveSinistroCoords(s);
+          let coords = resolveStoredSinistroCoords(s);
           if (!coords) {
-            const addr = buildSinistroAddress(s);
+            const addr = buildSinistroAddress(s, fallbackCitta);
             if (!addr) continue;
             coords = cache[addr];
             if (!coords) {
@@ -207,7 +211,7 @@ export function SinistriMap({ sinistri }: Props) {
           marker.addListener("click", () => {
             const tipo = formatTipoSinistro(s);
             const dt = s.data_evento ? format(new Date(s.data_evento), "dd/MM/yyyy") : "—";
-            const loc = [s.indirizzo_sinistro, s.citta_sinistro].filter(Boolean).join(" — ");
+            const loc = buildSinistroLuogoLabel(s);
             const html = `
               <div style="font-family:system-ui,sans-serif;min-width:220px;max-width:280px">
                 <div style="font-weight:600;color:#0f172a;margin-bottom:4px">${s.numero_sinistro || "Sinistro"}</div>
@@ -225,10 +229,6 @@ export function SinistriMap({ sinistri }: Props) {
           markersRef.current.push(marker);
           bounds.extend(coords);
           placed++;
-          if (coords.lat >= 37.85 && coords.lat <= 39.55 && coords.lng >= 15.45 && coords.lng <= 17.35) {
-            boundsCalabria.extend(coords);
-            placedCalabria++;
-          }
         }
 
         writeGeocodeCache(cache);
@@ -236,7 +236,7 @@ export function SinistriMap({ sinistri }: Props) {
         if (!cancelled) {
           setMappedCount(placed);
           if (placed > 0) {
-            mapRef.current.fitBounds(placedCalabria > 0 ? boundsCalabria : bounds, 60);
+            mapRef.current.fitBounds(bounds, 60);
             const listener = mapRef.current.addListener?.("idle", () => {
               const z = mapRef.current.getZoom?.() ?? 11;
               if (z > 13) mapRef.current.setZoom(13);
@@ -244,7 +244,7 @@ export function SinistriMap({ sinistri }: Props) {
               (window as any).google?.maps?.event?.removeListener(listener);
             });
           } else {
-            mapRef.current.setCenter(DEFAULT_CENTER);
+            mapRef.current.setCenter(fallbackCenter);
             mapRef.current.setZoom(11);
           }
           setLoading(false);

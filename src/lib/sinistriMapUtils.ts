@@ -11,7 +11,17 @@ export function colorForTipo(t?: string | null): string {
 
 export const GEOCODE_CACHE_KEY = "cbnet_geocode_cache_v1";
 
+export const VARESE_CENTER = { lat: 45.8206, lng: 8.825 };
 export const REGGIO_CALABRIA_CENTER = { lat: 38.1113, lng: 15.6471 };
+export const ITALY_CENTER = { lat: 42.5, lng: 12.5 };
+
+const CITY_CENTERS: Record<string, { lat: number; lng: number }> = {
+  varese: VARESE_CENTER,
+  "reggio calabria": REGGIO_CALABRIA_CENTER,
+  milano: { lat: 45.4642, lng: 9.19 },
+  "san dona di piave": { lat: 45.6297, lng: 12.5644 },
+  "san donà di piave": { lat: 45.6297, lng: 12.5644 },
+};
 
 export type SinistroGeo = {
   id: string;
@@ -25,6 +35,83 @@ export type SinistroGeo = {
   lng?: number | null;
 };
 
+export function normalizeCittaLabel(value?: string | null): string {
+  return (value || "").trim().replace(/\s+/g, " ");
+}
+
+export function knownCityCenter(citta?: string | null): { lat: number; lng: number } | null {
+  const n = normalizeCittaLabel(citta).toLowerCase();
+  if (!n) return null;
+  if (CITY_CENTERS[n]) return CITY_CENTERS[n];
+  for (const [key, center] of Object.entries(CITY_CENTERS)) {
+    if (n.includes(key) || key.includes(n)) return center;
+  }
+  return null;
+}
+
+export function isCalabriaCoords(lat: number, lng: number): boolean {
+  return lat >= 37.85 && lat <= 39.55 && lng >= 15.45 && lng <= 17.35;
+}
+
+function textLooksCalabria(...parts: Array<string | null | undefined>): boolean {
+  const t = parts.filter(Boolean).join(" ").toLowerCase();
+  return /reggio\s*calabria|\bcalabria\b|\bcatanzaro\b|\bcosenza\b|\bcrotone\b|\bvibo\b|\b\(rc\)/.test(t);
+}
+
+/** Città più frequente sui sinistri, altrimenti sede/nome cliente. */
+export function resolveMapAreaLabel(opts: {
+  clienteCitta?: string | null;
+  clienteNome?: string | null;
+  sinistri: Array<{ citta_sinistro?: string | null }>;
+}): string {
+  const counts = new Map<string, number>();
+  for (const s of opts.sinistri) {
+    const c = normalizeCittaLabel(s.citta_sinistro);
+    if (!c) continue;
+    const key = c.toLowerCase();
+    const prev = counts.get(key);
+    if (!prev) counts.set(key, 1);
+    else counts.set(key, prev + 1);
+  }
+  let bestKey = "";
+  let bestN = 0;
+  const display = new Map<string, string>();
+  for (const s of opts.sinistri) {
+    const c = normalizeCittaLabel(s.citta_sinistro);
+    if (c) display.set(c.toLowerCase(), c);
+  }
+  for (const [key, n] of counts) {
+    if (n > bestN) {
+      bestKey = key;
+      bestN = n;
+    }
+  }
+  if (bestKey) return display.get(bestKey) || bestKey;
+  const sede = normalizeCittaLabel(opts.clienteCitta);
+  if (sede) return sede;
+  const nome = normalizeCittaLabel(opts.clienteNome);
+  if (/varese/i.test(nome)) return "Varese";
+  return sede || "Italia";
+}
+
+export function resolveMapFallbackCenter(areaLabel?: string | null): { lat: number; lng: number } {
+  return knownCityCenter(areaLabel) || ITALY_CENTER;
+}
+
+/** Indirizzo + città + zona/luogo, se valorizzati. */
+export function buildSinistroLuogoLabel(s: SinistroGeo): string {
+  const indirizzo = normalizeCittaLabel(s.indirizzo_sinistro);
+  const citta = [s.cap_sinistro, s.citta_sinistro, s.provincia_sinistro ? `(${s.provincia_sinistro})` : null]
+    .filter(Boolean)
+    .join(" ");
+  const luogo = normalizeCittaLabel(s.luogo_sinistro);
+  const parts = [indirizzo, citta].filter(Boolean);
+  if (luogo && !parts.some((p) => p.toLowerCase().includes(luogo.toLowerCase()))) {
+    parts.push(luogo);
+  }
+  return parts.join(" — ");
+}
+
 export function resolveSinistroCoords(
   s: Pick<SinistroGeo, "lat" | "lng">,
 ): { lat: number; lng: number } | null {
@@ -36,17 +123,35 @@ export function resolveSinistroCoords(
   return { lat, lng };
 }
 
-export function buildSinistroAddress(s: SinistroGeo): string {
-  const parts = [
+/**
+ * Coordinate persistite, scartate se sono il vecchio lock Calabria
+ * ma il sinistro è in un'altra città (es. Varese).
+ */
+export function resolveStoredSinistroCoords(s: SinistroGeo): { lat: number; lng: number } | null {
+  const stored = resolveSinistroCoords(s);
+  if (!stored) return null;
+  if (
+    isCalabriaCoords(stored.lat, stored.lng) &&
+    !textLooksCalabria(s.citta_sinistro, s.provincia_sinistro, s.luogo_sinistro, s.indirizzo_sinistro)
+  ) {
+    return null;
+  }
+  return stored;
+}
+
+export function buildSinistroAddress(s: SinistroGeo, fallbackCitta?: string | null): string {
+  const local = [
     s.indirizzo_sinistro,
     s.cap_sinistro,
     s.citta_sinistro,
     s.provincia_sinistro && `(${s.provincia_sinistro})`,
-    "Italia",
-  ]
-    .filter(Boolean)
-    .join(", ");
-  return parts || s.luogo_sinistro || "";
+  ].filter(Boolean);
+  if (local.length) return [...local, "Italia"].join(", ");
+  const luogo = normalizeCittaLabel(s.luogo_sinistro);
+  if (luogo) return /italia/i.test(luogo) ? luogo : `${luogo}, Italia`;
+  const fallback = normalizeCittaLabel(fallbackCitta);
+  if (fallback) return `${fallback}, Italia`;
+  return "";
 }
 
 export function readGeocodeCache(): Record<string, { lat: number; lng: number }> {

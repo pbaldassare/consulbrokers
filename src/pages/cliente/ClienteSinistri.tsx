@@ -82,6 +82,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import InfoHint from "@/components/cliente/InfoHint";
 import SinistriMap from "@/components/cliente/SinistriMap";
+import { resolveMapAreaLabel } from "@/lib/sinistriMapUtils";
 import SinistriPerRepartoChart from "@/components/cliente/SinistriPerRepartoChart";
 import { isClienteSanitario, resolveReparto } from "@/lib/sinistriReparto";
 import { aggregateSinPerTipo, aggregateSinPerVeicolo } from "@/lib/sinistriClienteCharts";
@@ -182,6 +183,16 @@ export default function ClienteSinistri() {
       return true;
     });
   }, [sinistri, fSearch, fStati, fRami, fCompagnie, fPolizze, fCitta, fReparti, fDataDa, fDataA]);
+
+  const mapAreaLabel = useMemo(
+    () =>
+      resolveMapAreaLabel({
+        clienteCitta: cliente?.citta_sede || cliente?.citta_residenza,
+        clienteNome: cliente?.ragione_sociale,
+        sinistri: filteredSinistri,
+      }),
+    [cliente?.citta_sede, cliente?.citta_residenza, cliente?.ragione_sociale, filteredSinistri],
+  );
 
   const resetFilters = () => {
     setFSearch(""); setFStati([]); setFRami([]); setFCompagnie([]);
@@ -378,7 +389,7 @@ export default function ClienteSinistri() {
                 {isSanitario ? (
                   <><Building2 className="h-4 w-4 text-teal-700" /> Sinistri per Reparto</>
                 ) : (
-                  <><MapPin className="h-4 w-4 text-teal-700" /> Mappa sinistri — area Reggio Calabria</>
+                  <><MapPin className="h-4 w-4 text-teal-700" /> Mappa sinistri — {mapAreaLabel}</>
                 )}
               </CardTitle>
             </CardHeader>
@@ -386,7 +397,10 @@ export default function ClienteSinistri() {
               {isSanitario ? (
                 <SinistriPerRepartoChart sinistri={filteredSinistri} />
               ) : (
-                <SinistriMap sinistri={filteredSinistri} />
+                <SinistriMap
+                  sinistri={filteredSinistri}
+                  fallbackCitta={cliente?.citta_sede || cliente?.citta_residenza || mapAreaLabel}
+                />
               )}
             </CardContent>
           </Card>
