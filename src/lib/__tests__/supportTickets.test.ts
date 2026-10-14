@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   canDeleteSupportTicket,
+  canUserReplyToSupportTicket,
   escapeSupportTicketHtml,
   formatSupportTicketNumber,
   isOpenSupportTicket,
+  isSupportTicketClosed,
+  supportTicketUserLockedMessage,
   validateSupportTicketDescription,
+  validateSupportTicketReply,
 } from "../supportTickets";
 
 describe("supportTickets", () => {
@@ -35,5 +39,48 @@ describe("supportTickets", () => {
     expect(escapeSupportTicketHtml('<script>alert("x")</script>')).toBe(
       "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;",
     );
+  });
+
+  it("segue i turni utente / supporto", () => {
+    const user = "user-1";
+    const aperto = {
+      stato: "aperto" as const,
+      richiedenteId: user,
+      userId: user,
+      isAdmin: false,
+    };
+    expect(canUserReplyToSupportTicket({ ...aperto, utentePuoRispondere: false })).toBe(false);
+    expect(canUserReplyToSupportTicket({
+      stato: "preso_in_carico",
+      utentePuoRispondere: true,
+      richiedenteId: user,
+      userId: user,
+      isAdmin: false,
+    })).toBe(true);
+    expect(canUserReplyToSupportTicket({
+      stato: "preso_in_carico",
+      utentePuoRispondere: false,
+      richiedenteId: user,
+      userId: user,
+      isAdmin: false,
+    })).toBe(false);
+    expect(canUserReplyToSupportTicket({
+      stato: "risolto",
+      utentePuoRispondere: true,
+      richiedenteId: user,
+      userId: user,
+      isAdmin: false,
+    })).toBe(false);
+    expect(canUserReplyToSupportTicket({
+      stato: "preso_in_carico",
+      utentePuoRispondere: true,
+      richiedenteId: user,
+      userId: user,
+      isAdmin: true,
+    })).toBe(false);
+    expect(isSupportTicketClosed("risolto")).toBe(true);
+    expect(supportTicketUserLockedMessage("risolto")).toMatch(/risolto/i);
+    expect(validateSupportTicketReply("")).toBeTruthy();
+    expect(validateSupportTicketReply("Ok, fatto.")).toBeNull();
   });
 });

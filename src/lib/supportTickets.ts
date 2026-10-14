@@ -30,6 +30,42 @@ export function isOpenSupportTicket(status: SupportTicketStatus): boolean {
   return status !== "risolto";
 }
 
+export function isSupportTicketClosed(status: SupportTicketStatus): boolean {
+  return status === "risolto";
+}
+
+/** Dopo il salvataggio del supporto l'utente può rispondere; dopo la sua risposta si blocca. */
+export function canUserReplyToSupportTicket(opts: {
+  stato: SupportTicketStatus;
+  utentePuoRispondere?: boolean | null;
+  richiedenteId: string;
+  userId?: string | null;
+  isAdmin: boolean;
+}): boolean {
+  if (opts.isAdmin) return false;
+  if (!opts.userId || opts.userId !== opts.richiedenteId) return false;
+  if (isSupportTicketClosed(opts.stato)) return false;
+  return opts.utentePuoRispondere === true;
+}
+
+export function supportTicketUserLockedMessage(status: SupportTicketStatus): string {
+  if (isSupportTicketClosed(status)) {
+    return "Ticket risolto. Non puoi più modificarlo. Per una nuova esigenza apri un nuovo ticket.";
+  }
+  return "In attesa di una risposta del supporto. Potrai rispondere e allegare di nuovo quando il supporto ti risponderà.";
+}
+
+export function validateSupportTicketReply(text: string): string | null {
+  const value = text.trim();
+  if (value.length < 1) {
+    return "Scrivi una risposta.";
+  }
+  if (value.length > 5_000) {
+    return "La risposta non può superare 5.000 caratteri.";
+  }
+  return null;
+}
+
 export function validateSupportTicketDescription(description: string): string | null {
   const value = description.trim();
   if (value.length < 20) {

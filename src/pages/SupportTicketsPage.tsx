@@ -28,13 +28,17 @@ import {
 } from "@/lib/uploadLimits";
 import {
   canDeleteSupportTicket,
+  canUserReplyToSupportTicket,
   escapeSupportTicketHtml,
   formatSupportTicketNumber,
   isOpenSupportTicket,
+  isSupportTicketClosed,
   SUPPORT_TICKET_STATUS,
   SUPPORT_TICKET_STATUS_LABEL,
+  supportTicketUserLockedMessage,
   type SupportTicketStatus,
   validateSupportTicketDescription,
+  validateSupportTicketReply,
 } from "@/lib/supportTickets";
 import { useSupportTicketUnread } from "@/hooks/useSupportTicketUnread";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -99,11 +103,12 @@ interface SupportTicket {
   data_risoluzione: string | null;
   created_at: string;
   updated_at: string;
+  utente_puo_rispondere?: boolean;
 }
 
 interface TicketEvent {
   id: string;
-  tipo: "apertura" | "cambio_stato" | "nota_admin";
+  tipo: "apertura" | "cambio_stato" | "nota_admin" | "risposta_utente";
   stato_da: SupportTicketStatus | null;
   stato_a: SupportTicketStatus | null;
   nota: string | null;
@@ -404,9 +409,12 @@ function TicketDetail({
   const { isAdmin, user, profile } = useAuth();
   const [status, setStatus] = useState<SupportTicketStatus>(ticket?.stato || "aperto");
   const [note, setNote] = useState("");
+  const [reply, setReply] = useState("");
+  const [replyFiles, setReplyFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const replyFileInputRef = useRef<HTMLInputElement>(null);
   const canDelete = isAdmin && canDeleteSupportTicket(user?.email ?? profile?.email);
 
   useEffect(() => {
@@ -427,7 +435,7 @@ function TicketDetail({
     enabled: !!ticket?.id && open,
   });
 
-  const { data: attachments = [] } = useQuery({
+  const { data: attachments = [], refetch: refetchAttachments } = useQuery({
     queryKey: ["support-ticket-attachments", ticket?.id],
     queryFn: async () => {
       const { data, error } = await db
@@ -442,6 +450,27 @@ function TicketDetail({
   });
 
   if (!ticket) return null;
+
+  const canUserReply = canUserReplyToSupportTicket({
+    stato: ticket.stato,
+    utentePuoRispondere: ticket.utente_puo_rispondere,
+    richiedenteId: ticket.richiedente_id,
+    userId: user?.id,
+    isAdmin,
+  });
+  const authorLabel = [profile?.nome, profile?.cognome].filter(Boolean).join(" ") || profile?.email || user?.email || "Utente";
+
+  const addReplyFiles = (list: FileList | null) => {
+    if (!list) return;
+    const incoming = Array.from(list);
+    const tooBig = incoming.find((file) => isDocumentUploadTooLarge(file.size));
+    if (tooBig) {
+      toast.error(documentUploadTooLargeMessage(tooBig.name));
+      return;
+    }
+    setReplyFiles((current) => [...current, ...incoming]);
+    if (replyFileInputRef.current) replyFileInputRef.current.value = "";
+  };
 
   const downloadAttachment = async (attachment: TicketAttachment) => {
     const { data, error } = await supabase.storage
@@ -552,12 +581,112 @@ function TicketDetail({
       await refetchEvents();
       onUpdated();
       if (emailResult.success) {
-        toast.success("Ticket aggiornato e richiedente avvisato");
+        toast.success(
+          finalStatus === "risolto"
+            ? "Ticket risolto e richiedente avvisato"
+            : "Ticket aggiornato e richiedente avvisato",
+        );
       } else {
         toast.warning("Ticket aggiornato; notifica email non consegnata");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Errore durante l'aggiornamento");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveUserReply = async () => {
+    if (!canUserReply || !user?.id) return;
+    const replyError = validateSupportTicketReply(reply);
+    if (replyError) {
+      toast.error(replyError);
+      return;
+    }
+    setSaving(true);
+    try {
+      const uploadedNames: string[] = [];
+      for (const file of replyFiles) {
+        const path = `${ticket.id}/${crypto.randomUUID()}_${sanitizeStorageFileName(file.name)}`;
+        const { error: uploadError } = await supabase.storage
+          .from(SUPPORT_BUCKET)
+          .upload(path, file, { contentType: file.type || undefined, upsert: false });
+        if (uploadError) {
+          toast.warning(`${file.name} non è stato caricato`);
+          continue;
+        }
+        const { error: metadataError } = await db.from("support_ticket_allegati").insert({
+          ticket_id: ticket.id,
+          nome_file: file.name,
+          path_storage: path,
+          bucket_name: SUPPORT_BUCKET,
+          mime_type: file.type || null,
+          dimensione_bytes: file.size,
+          caricato_da: user.id,
+        });
+        if (metadataError) {
+          await supabase.storage.from(SUPPORT_BUCKET).remove([path]);
+          toast.warning(`${file.name} non è stato registrato`);
+          continue;
+        }
+        uploadedNames.push(file.name);
+      }
+
+      const { error } = await db.from("support_ticket_eventi").insert({
+        ticket_id: ticket.id,
+        tipo: "risposta_utente",
+        nota: reply.trim(),
+        autore_id: user.id,
+        autore_nome: authorLabel,
+      });
+      if (error) throw error;
+
+      const emailResult = await sendEmail({
+        to: SUPPORT_EMAIL,
+        from: SUPPORT_FROM,
+        reply_to: ticket.richiedente_email,
+        subject: `[CBnet] Risposta ${formatSupportTicketNumber(ticket.numero)} - ${ticket.titolo}`,
+        apply_branding: true,
+        ufficio_id: ticket.ufficio_id,
+        html: `
+          <h2>Risposta dell'utente su ${formatSupportTicketNumber(ticket.numero)}</h2>
+          <p><strong>${escapeSupportTicketHtml(ticket.titolo)}</strong></p>
+          <p><strong>Richiedente:</strong> ${escapeSupportTicketHtml(ticket.richiedente_nome)}
+          &lt;${escapeSupportTicketHtml(ticket.richiedente_email)}&gt;</p>
+          <p><strong>Risposta:</strong></p>
+          <div style="white-space:pre-wrap">${escapeSupportTicketHtml(reply.trim())}</div>
+          <p><strong>Allegati:</strong> ${uploadedNames.length
+            ? uploadedNames.map(escapeSupportTicketHtml).join(", ")
+            : "Nessuno"}</p>
+          <p><a href="${window.location.origin}/ticket-supporto">Apri il ticket in CBnet</a></p>
+        `,
+      });
+      await logAttivita({
+        azione: emailResult.success ? "ticket_supporto_risposta_utente" : "ticket_supporto_email_errore",
+        entita_tipo: "support_ticket",
+        entita_id: ticket.id,
+        dettagli_json: {
+          destinatario: SUPPORT_EMAIL,
+          allegati: uploadedNames.length,
+          email_id: emailResult.id || null,
+          errore: emailResult.error || null,
+        },
+        severity: emailResult.success ? "info" : "warning",
+        ufficio_id: ticket.ufficio_id || undefined,
+      });
+
+      setReply("");
+      setReplyFiles([]);
+      await refetchEvents();
+      await refetchAttachments();
+      onUpdated();
+      if (emailResult.success) {
+        toast.success("Risposta inviata al supporto");
+      } else {
+        toast.warning("Risposta salvata; notifica email non consegnata");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Errore durante l'invio della risposta");
     } finally {
       setSaving(false);
     }
@@ -658,8 +787,15 @@ function TicketDetail({
                   </div>
                   <Button onClick={saveAdminUpdate} disabled={saving}>
                     {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Salva e avvisa il richiedente
+                    {isSupportTicketClosed(ticket.stato) && status !== "risolto"
+                      ? "Riapri e avvisa il richiedente"
+                      : "Salva e avvisa il richiedente"}
                   </Button>
+                  {isSupportTicketClosed(ticket.stato) && (
+                    <p className="text-xs text-muted-foreground">
+                      Ticket chiuso. Per casi particolari cambia lo stato e salva: solo allora l&apos;utente potrà di nuovo rispondere.
+                    </p>
+                  )}
                 </div>
                 {canDelete && (
                   <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 p-4">
@@ -695,6 +831,7 @@ function TicketDetail({
                       {event.tipo === "cambio_stato" && event.stato_a
                         && `Stato: ${SUPPORT_TICKET_STATUS_LABEL[event.stato_a]}`}
                       {event.tipo === "nota_admin" && "Nota del supporto"}
+                      {event.tipo === "risposta_utente" && "Risposta dell'utente"}
                     </p>
                     {event.nota && event.nota !== "Ticket aperto" && (
                       <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{event.nota}</p>
@@ -707,6 +844,69 @@ function TicketDetail({
                 ))}
               </div>
             </div>
+
+            {!isAdmin && (
+              <>
+                <Separator />
+                {canUserReply ? (
+                  <div className="space-y-4 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                    <div className="font-semibold">La tua risposta</div>
+                    <p className="text-sm text-muted-foreground">
+                      Dopo l&apos;invio non potrai scrivere di nuovo finché il supporto non ti risponderà.
+                    </p>
+                    <div className="grid gap-2">
+                      <Label htmlFor="user-reply">Messaggio</Label>
+                      <Textarea
+                        id="user-reply"
+                        className="min-h-24"
+                        maxLength={5_000}
+                        value={reply}
+                        onChange={(event) => setReply(event.target.value)}
+                        placeholder="Scrivi la risposta o i dettagli richiesti dal supporto..."
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="user-reply-files">Allegati</Label>
+                      <Input
+                        ref={replyFileInputRef}
+                        id="user-reply-files"
+                        type="file"
+                        multiple
+                        onChange={(event) => addReplyFiles(event.target.files)}
+                      />
+                      {replyFiles.length > 0 && (
+                        <div className="space-y-1 rounded-md border bg-background p-2">
+                          {replyFiles.map((file, index) => (
+                            <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 text-sm">
+                              <span className="truncate">{file.name}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setReplyFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                              >
+                                Rimuovi
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <Button onClick={saveUserReply} disabled={saving}>
+                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Invia risposta
+                    </Button>
+                  </div>
+                ) : (
+                  <Alert>
+                    <AlertTitle>
+                      {isSupportTicketClosed(ticket.stato) ? "Ticket chiuso" : "In attesa del supporto"}
+                    </AlertTitle>
+                    <AlertDescription>{supportTicketUserLockedMessage(ticket.stato)}</AlertDescription>
+                  </Alert>
+                )}
+              </>
+            )}
           </div>
         </ScrollArea>
       </SheetContent>
@@ -742,11 +942,13 @@ function TicketDetail({
 function TicketsTable({
   tickets,
   isAdmin,
+  currentUserId,
   unreadIds,
   onSelect,
 }: {
   tickets: SupportTicket[];
   isAdmin: boolean;
+  currentUserId?: string;
   unreadIds: Set<string>;
   onSelect: (ticket: SupportTicket) => void;
 }) {
@@ -785,6 +987,17 @@ function TicketsTable({
                     aria-label={unreadIds.has(ticket.id) ? "Ticket nuovo" : undefined}
                   />
                   {formatSupportTicketNumber(ticket.numero)}
+                  {canUserReplyToSupportTicket({
+                    stato: ticket.stato,
+                    utentePuoRispondere: ticket.utente_puo_rispondere,
+                    richiedenteId: ticket.richiedente_id,
+                    userId: currentUserId,
+                    isAdmin,
+                  }) && (
+                    <Badge variant="outline" className="border-blue-300 bg-blue-50 text-blue-800">
+                      Rispondi
+                    </Badge>
+                  )}
                 </span>
               </TableCell>
               <TableCell>
@@ -934,6 +1147,7 @@ export default function SupportTicketsPage() {
             <TicketsTable
               tickets={openTickets}
               isAdmin={isAdmin}
+              currentUserId={user?.id}
               unreadIds={unreadIds}
               onSelect={(ticket) => {
                 markOpened(ticket.id);
@@ -945,6 +1159,7 @@ export default function SupportTicketsPage() {
             <TicketsTable
               tickets={resolvedTickets}
               isAdmin={isAdmin}
+              currentUserId={user?.id}
               unreadIds={unreadIds}
               onSelect={(ticket) => {
                 markOpened(ticket.id);
