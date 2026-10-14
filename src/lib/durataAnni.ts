@@ -55,3 +55,22 @@ export function calcolaAnniDurata(
 
   return Math.max(1, Math.round(anniCompleti + quotaAnno));
 }
+
+/** Giorni di copertura inclusivi (stesso giorno = 1). */
+export function calcolaGiorniDurata(
+  durataDa?: string | null,
+  durataA?: string | null,
+): number | null {
+  const from = parseIsoDate(durataDa);
+  const to = parseIsoDate(durataA);
+  if (!from || !to || to < from) return null;
+  return Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1;
+}
+
+/** Ultimo giorno di copertura dato il primo e i giorni inclusivi. */
+export function durataADaGiorni(durataDa: string, giorni: number): string {
+  const from = parseIsoDate(durataDa);
+  if (!from || !Number.isInteger(giorni) || giorni < 1) return "";
+  from.setUTCDate(from.getUTCDate() + giorni - 1);
+  return from.toISOString().slice(0, 10);
+}

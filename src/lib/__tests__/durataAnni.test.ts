@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addCalendarYearsISO, calcolaAnniDurata } from "@/lib/durataAnni";
+import { addCalendarYearsISO, calcolaAnniDurata, calcolaGiorniDurata, durataADaGiorni } from "@/lib/durataAnni";
 
 describe("calcolaAnniDurata", () => {
   it.each([
@@ -24,5 +24,25 @@ describe("calcolaAnniDurata", () => {
     ["2028-10-02", "2026-10-02"],
   ])("non sincronizza date mancanti, parziali o invalide (%s, %s)", (dal, al) => {
     expect(calcolaAnniDurata(dal, al)).toBeNull();
+  });
+});
+
+describe("calcolaGiorniDurata", () => {
+  it.each([
+    ["2026-03-01", "2026-03-01", 1],
+    ["2026-03-01", "2026-03-30", 30],
+    ["2026-02-01", "2026-03-02", 30],
+  ])("%s → %s = %i giorni", (dal, al, attesi) => {
+    expect(calcolaGiorniDurata(dal, al)).toBe(attesi);
+  });
+
+  it("non calcola date invertite o mancanti", () => {
+    expect(calcolaGiorniDurata("2026-03-30", "2026-03-01")).toBeNull();
+    expect(calcolaGiorniDurata(null, "2026-03-01")).toBeNull();
+  });
+
+  it("durataADaGiorni è l'inverso inclusivo", () => {
+    expect(durataADaGiorni("2026-03-01", 30)).toBe("2026-03-30");
+    expect(calcolaGiorniDurata("2026-03-01", durataADaGiorni("2026-03-01", 90))).toBe(90);
   });
 });

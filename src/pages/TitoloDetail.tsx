@@ -22,7 +22,7 @@ import {
 } from "@/lib/importoFirma";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
-import { addCalendarYearsISO, calcolaAnniDurata } from "@/lib/durataAnni";
+import { addCalendarYearsISO, calcolaAnniDurata, calcolaGiorniDurata, durataADaGiorni } from "@/lib/durataAnni";
 import { computeRegolazioneDatePresunte } from "@/lib/regolazioneDatePresunte";
 import {
   buildRegolazioneFattoriRows,
@@ -3424,7 +3424,10 @@ const TitoloDetail = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
             <FieldRow label="Durata Da" value={fmtDate(t.durata_da)} />
             <FieldRow label="Durata A" value={fmtDate(t.durata_a)} />
-            <FieldRow label="Anni Durata" value={fmt(t.anni_durata)} />
+            <FieldRow
+              label={t.polizza_temporanea ? "Giorni durata" : "Anni Durata"}
+              value={t.polizza_temporanea ? (calcolaGiorniDurata(t.durata_da, t.durata_a) ?? "—") : fmt(t.anni_durata)}
+            />
             <FieldRow label="Frazionamento" value={t.polizza_temporanea ? "—" : (t.frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata))} />
             <FieldRow label="Polizza temporanea" value={t.polizza_temporanea ? "Sì" : "No"} />
             <FieldRow label="Polizza rateo" value={t.polizza_rateo ? "Sì" : "No"} />
@@ -3527,28 +3530,47 @@ const TitoloDetail = () => {
             ))}
 
             <div>
-              <Label className="text-xs">Anni Durata</Label>
-              <Input
-                type="number"
-                min="1"
-                step="1"
-                value={periodoForm.anni_durata}
-                onChange={(e) => setPeriodoForm(p => {
-                  const anni_durata = e.target.value;
-                  const anni = Number(anni_durata);
-                  const durata_a =
-                    p.durata_da && Number.isInteger(anni) && anni >= 1
-                      ? addCalendarYearsISO(p.durata_da, anni)
-                      : p.durata_a;
-                  return { ...p, anni_durata, durata_a };
-                })}
-                disabled={periodoForm.polizza_temporanea}
-              />
-              {suggestedAnniDurata != null && (
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] text-muted-foreground">Suggerito: {suggestedAnniDurata}</span>
-                  {isPoliennaleEdit && <Badge variant="secondary" className="text-[10px]">Poliennale</Badge>}
-                </div>
+              {periodoForm.polizza_temporanea ? (
+                <>
+                  <Label className="text-xs">Giorni durata</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={calcolaGiorniDurata(periodoForm.durata_da, periodoForm.durata_a) ?? ""}
+                    onChange={(e) => setPeriodoForm(p => {
+                      const n = parseInt(e.target.value, 10);
+                      if (!p.durata_da || !Number.isInteger(n) || n < 1) return p;
+                      return { ...p, durata_a: durataADaGiorni(p.durata_da, n) };
+                    })}
+                    disabled={!periodoForm.durata_da}
+                  />
+                </>
+              ) : (
+                <>
+                  <Label className="text-xs">Anni Durata</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={periodoForm.anni_durata}
+                    onChange={(e) => setPeriodoForm(p => {
+                      const anni_durata = e.target.value;
+                      const anni = Number(anni_durata);
+                      const durata_a =
+                        p.durata_da && Number.isInteger(anni) && anni >= 1
+                          ? addCalendarYearsISO(p.durata_da, anni)
+                          : p.durata_a;
+                      return { ...p, anni_durata, durata_a };
+                    })}
+                  />
+                  {suggestedAnniDurata != null && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] text-muted-foreground">Suggerito: {suggestedAnniDurata}</span>
+                      {isPoliennaleEdit && <Badge variant="secondary" className="text-[10px]">Poliennale</Badge>}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

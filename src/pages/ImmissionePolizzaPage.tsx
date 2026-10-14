@@ -93,7 +93,7 @@ import {
 import { RegolazioneFattoriImportiGrid } from "@/components/polizze/RegolazioneFattoriImportiGrid";
 import { syncPeriodoTemporanea } from "@/lib/syncPeriodoTemporanea";
 import { syncPeriodoRateo } from "@/lib/syncPeriodoRateo";
-import { calcolaAnniDurata } from "@/lib/durataAnni";
+import { calcolaAnniDurata, calcolaGiorniDurata, durataADaGiorni } from "@/lib/durataAnni";
 import { CoassicurazioneContrattoPanel } from "@/components/polizze/CoassicurazioneContrattoPanel";
 import { CoassicurazioneImportiBreakdown } from "@/components/polizze/CoassicurazioneImportiBreakdown";
 import { RcaDatiVeicoloSection } from "@/components/polizze/RcaDatiVeicoloSection";
@@ -3182,19 +3182,40 @@ const ImmissionePolizzaPage = () => {
             )}
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Anni Durata</Label>
-            <Input
-              type="number"
-              min="1"
-              value={anniDurata}
-              onChange={(e) => {
-                const nextAnni = e.target.value;
-                setAnniDurata(nextAnni);
-                if (/^[1-9]\d*$/.test(nextAnni)) setDurataATouched(false);
-              }}
-              className="h-8 text-xs"
-              disabled={polizzaTemporanea}
-            />
+            {polizzaTemporanea ? (
+              <>
+                <Label className="text-xs">Giorni durata</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={calcolaGiorniDurata(durataDa, durataA) ?? ""}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    if (!durataDa || !Number.isInteger(n) || n < 1) return;
+                    setDurataA(durataADaGiorni(durataDa, n));
+                    setDurataATouched(true);
+                  }}
+                  className="h-8 text-xs"
+                  disabled={!durataDa}
+                />
+              </>
+            ) : (
+              <>
+                <Label className="text-xs">Anni Durata</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={anniDurata}
+                  onChange={(e) => {
+                    const nextAnni = e.target.value;
+                    setAnniDurata(nextAnni);
+                    if (/^[1-9]\d*$/.test(nextAnni)) setDurataATouched(false);
+                  }}
+                  className="h-8 text-xs"
+                />
+              </>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Frazionamento</Label>
