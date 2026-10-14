@@ -327,7 +327,15 @@ export default function SinistroDatiPraticaPanel({ sinistro, canEdit, onSaved }:
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border/60">
         <h2 className="text-sm font-semibold tracking-tight">Dati Pratica</h2>
         {allowEdit && !editing && (
-          <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              reset(sinistroRowToPraticaValues(sinistro as unknown as Record<string, unknown>));
+              setEditing(true);
+            }}
+          >
             <Pencil className="h-4 w-4 mr-1" /> Modifica
           </Button>
         )}

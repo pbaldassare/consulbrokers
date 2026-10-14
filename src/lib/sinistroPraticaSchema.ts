@@ -124,9 +124,42 @@ export const asOptionalNumber = (val?: number | string | null): number | undefin
   return Number.isFinite(n) ? n : undefined;
 };
 
+/**
+ * Normalizza una data DB/form in `yyyy-MM-dd` per DateInput.
+ * Accetta ISO (`2026-10-05`, anche con orario), italiano (`05/10/2026`) o Date.
+ * Valori vuoti/invalidi → stringa vuota (il picker non deve restare sporco).
+ */
+export const toDateInputValue = (raw: unknown): string => {
+  if (raw == null || raw === "") return "";
+  if (raw instanceof Date) {
+    if (Number.isNaN(raw.getTime())) return "";
+    const y = raw.getFullYear();
+    const m = String(raw.getMonth() + 1).padStart(2, "0");
+    const d = String(raw.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  const s = String(raw).trim();
+  if (!s) return "";
+
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  const it = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+  if (!it) return "";
+  const day = Number(it[1]);
+  const month = Number(it[2]);
+  const year = Number(it[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return "";
+  const dt = new Date(year, month - 1, day);
+  if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) {
+    return "";
+  }
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+};
+
 export const sinistroRowToPraticaValues = (s: Record<string, unknown>): SinistroPraticaValues => ({
-  data_evento: (s.data_evento as string) || "",
-  data_denuncia: (s.data_denuncia as string) || "",
+  data_evento: toDateInputValue(s.data_evento),
+  data_denuncia: toDateInputValue(s.data_denuncia),
   tipo_sinistro: (s.tipo_sinistro as string) || (s.tipo_sinistro_personalizzato ? "__custom__" : ""),
   tipo_sinistro_personalizzato: (s.tipo_sinistro_personalizzato as string) || "",
   numero_sinistro_compagnia: (s.numero_sinistro_compagnia as string) || "",

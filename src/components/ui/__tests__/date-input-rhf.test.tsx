@@ -95,6 +95,26 @@ describe("DateInput with react-hook-form register", () => {
     expect(getValuesFn!()).toBe("2026-07-01");
   });
 
+  it("mostra le date già presenti (Modifica pratica: value da RHF)", () => {
+    function EditForm() {
+      const { register, watch } = useForm({
+        defaultValues: { data_evento: "2026-10-05" },
+      });
+      return (
+        <Input
+          type="date"
+          id="data_evento"
+          {...register("data_evento")}
+          value={watch("data_evento") || ""}
+        />
+      );
+    }
+    render(<EditForm />);
+    expect((screen.getByPlaceholderText("gg/mm/aaaa") as HTMLInputElement).value).toBe(
+      "05/10/2026",
+    );
+  });
+
   it("commits digit-only typing with auto slashes as ISO", async () => {
     const onValid = vi.fn();
     render(<TestForm onValid={onValid} />);

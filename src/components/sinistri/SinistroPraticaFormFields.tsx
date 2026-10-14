@@ -67,13 +67,24 @@ export default function SinistroPraticaFormFields({
         {showDataEvento && (
           <div className="space-y-2">
             <Label htmlFor="data_evento">Data Accadimento *</Label>
-            <Input type="date" id="data_evento" {...register("data_evento")} />
+            {/* DateInput ignora register() senza value: senza watch le date in Modifica restano vuote. */}
+            <Input
+              type="date"
+              id="data_evento"
+              {...register("data_evento")}
+              value={watch("data_evento") ?? ""}
+            />
             {errors.data_evento && <p className="text-xs text-destructive">{errors.data_evento.message}</p>}
           </div>
         )}
         <div className="space-y-2">
           <Label htmlFor="data_denuncia">Data Denuncia *</Label>
-          <Input type="date" id="data_denuncia" {...register("data_denuncia")} />
+          <Input
+            type="date"
+            id="data_denuncia"
+            {...register("data_denuncia")}
+            value={watch("data_denuncia") ?? ""}
+          />
           {errors.data_denuncia && <p className="text-xs text-destructive">{errors.data_denuncia.message}</p>}
         </div>
       </div>
