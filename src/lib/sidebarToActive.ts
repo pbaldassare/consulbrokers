@@ -24,6 +24,10 @@ export function isSidebarToActive(
 
   if (wantedTab === "cb-bot" || wantedTab === "assistente-garanzie") return isCbBotTab;
   if (path === "/portafoglio/documentale") return !isCbBotTab;
+  if (path === "/sinistri") {
+    if (wantedTab === "report") return currentTab === "report";
+    return currentTab !== "report";
+  }
   if (wantedTab) return currentTab === wantedTab;
   return true;
 }

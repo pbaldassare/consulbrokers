@@ -23,6 +23,16 @@ describe("isSidebarToActive", () => {
     expect(isSidebarToActive({ pathname: "/portafoglio/documentale", search: "?tab=cb-bot" }, "/cb-bot")).toBe(false);
   });
 
+  it("accende Report grafico sinistri solo con tab=report", () => {
+    const report = "/sinistri?tab=report";
+    const lista = "/sinistri";
+    expect(isSidebarToActive({ pathname: "/sinistri", search: "?tab=report" }, report)).toBe(true);
+    expect(isSidebarToActive({ pathname: "/sinistri", search: "?tab=report" }, lista)).toBe(false);
+    expect(isSidebarToActive({ pathname: "/sinistri", search: "" }, lista)).toBe(true);
+    expect(isSidebarToActive({ pathname: "/sinistri", search: "?tab=ricerca" }, lista)).toBe(true);
+    expect(isSidebarToActive({ pathname: "/sinistri", search: "" }, report)).toBe(false);
+  });
+
   it("non accende Trattative su Storico Gare se end è true", () => {
     const loc = { pathname: "/trattative/storico-gare", search: "" };
     expect(isSidebarToActive(loc, "/trattative", true)).toBe(false);

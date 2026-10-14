@@ -9,11 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown, X, List, SlidersHorizontal, Archive } from "lucide-react";
+import { Plus, AlertTriangle, Search, ArrowUp, ArrowDown, ArrowUpDown, X, List, SlidersHorizontal, Archive, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { exportSinistriXlsx } from "@/lib/exportSinistriXlsx";
+import { exportSinistriReportXlsx, type SinistroReportRow } from "@/lib/sinistriReportGrafico";
 import { fetchTitoloIdsByTarga } from "@/lib/sinistriTargaLookup";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { SinistriReportGrafico } from "@/components/sinistri/SinistriReportGrafico";
 import ServerPagination from "@/components/ServerPagination";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { SinistriRicercaForm } from "@/components/sinistri/SinistriRicercaForm";
@@ -44,6 +46,16 @@ import {
 
 const NO_MATCH_ID = "00000000-0000-0000-0000-000000000000";
 const EXPORT_PAGE = 1000;
+const SINISTRI_TABS = ["elenco", "ricerca", "archiviati", "report"] as const;
+const REPORT_SELECT = `id, numero_sinistro, stato, tipo_sinistro, tipo_sinistro_personalizzato,
+  data_evento, data_apertura, data_denuncia, citta_sinistro, provincia_sinistro, luogo_sinistro,
+  indirizzo_sinistro, importo_riserva, importo_liquidato, compagnia_id, controparte, targa_veicolo,
+  numero_polizza, clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente),
+  compagnie(nome)`;
+
+function tabFromSearch(raw: string | null): string {
+  return SINISTRI_TABS.includes(raw as (typeof SINISTRI_TABS)[number]) ? (raw as string) : "elenco";
+}
 
 type RamoRicerca = { id: string; label: string; descrizione?: string | null; codice?: string | null; gruppo?: string | null };
 
@@ -195,7 +207,14 @@ function applySinistriListFilters<T>(
 
 export default function SinistriList() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState("elenco");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = tabFromSearch(searchParams.get("tab"));
+  const setTab = (next: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "elenco") params.delete("tab");
+    else params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  };
   const [filters, setFilters] = useState<SinistriListFilters>(EMPTY_SINISTRI_FILTERS);
   const [debounced, setDebounced] = useState<SinistriListFilters>(EMPTY_SINISTRI_FILTERS);
   const [clientiSearch, setClientiSearch] = useState("");
@@ -309,6 +328,7 @@ export default function SinistriList() {
 
   const { data: sinistriResult, isError: sinistriError, error: sinistriQueryError } = useQuery({
     queryKey: ["sinistri", tab, debounced, page, sortField, sortDirection],
+    enabled: tab !== "report",
     queryFn: async () => {
       const lookups = await loadSinistriFilterLookups(debounced);
       let q = supabase.from("sinistri").select(
@@ -332,6 +352,24 @@ export default function SinistriList() {
 
   const sinistri = sinistriResult?.data || [];
   const totalCount = sinistriResult?.count || 0;
+
+  const { data: reportRows = [], isFetching: reportLoading } = useQuery({
+    queryKey: ["sinistri-report", debounced],
+    enabled: tab === "report",
+    queryFn: async () => {
+      const lookups = await loadSinistriFilterLookups(debounced);
+      const rows: SinistroReportRow[] = [];
+      for (let from = 0; from < 20000; from += EXPORT_PAGE) {
+        let q = supabase.from("sinistri").select(REPORT_SELECT);
+        q = applySinistriListFilters(q, { tab: "report", filters: debounced, rami, lookups });
+        const { data, error } = await q.order("data_evento", { ascending: false }).range(from, from + EXPORT_PAGE - 1);
+        if (error) throw error;
+        rows.push(...((data || []) as SinistroReportRow[]));
+        if ((data || []).length < EXPORT_PAGE) break;
+      }
+      return rows;
+    },
+  });
 
   const handleExportRicerca = async () => {
     if (!totalCount) {
@@ -361,6 +399,22 @@ export default function SinistriList() {
       toast.success(`Esportati ${rows.length} sinistri`);
     } catch (e: any) {
       toast.error("Errore export: " + (e?.message || e));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportReport = () => {
+    if (!reportRows.length) {
+      toast.error("Nessun sinistro da esportare");
+      return;
+    }
+    setExporting(true);
+    try {
+      exportSinistriReportXlsx(reportRows);
+      toast.success(`Excel generato (${reportRows.length} sinistri)`);
+    } catch (e: any) {
+      toast.error("Errore Excel: " + (e?.message || e));
     } finally {
       setExporting(false);
     }
@@ -443,6 +497,9 @@ export default function SinistriList() {
           </TabsTrigger>
           <TabsTrigger value="ricerca" className="gap-1.5">
             <SlidersHorizontal className="h-4 w-4" /> Ricerca
+          </TabsTrigger>
+          <TabsTrigger value="report" className="gap-1.5">
+            <BarChart3 className="h-4 w-4" /> Report
           </TabsTrigger>
           <TabsTrigger value="archiviati" className="gap-1.5">
             <Archive className="h-4 w-4" /> Archiviati
@@ -534,6 +591,34 @@ export default function SinistriList() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="report" className="mt-0">
+          <SinistriReportGrafico
+            rows={reportRows}
+            loading={reportLoading}
+            exporting={exporting}
+            onExport={handleExportReport}
+            eventoDa={filters.eventoDa}
+            eventoA={filters.eventoA}
+            onEventoDa={(eventoDa) => patchFilters({ eventoDa })}
+            onEventoA={(eventoA) => patchFilters({ eventoA })}
+            compagniaId={filters.compagniaId}
+            compagnie={compagnie}
+            onCompagnia={(id) => patchFilters({
+              compagniaId: id,
+              compagniaLabel: compagnie.find((c) => c.id === id)?.nome || "",
+            })}
+            responsabileId={filters.responsabileId}
+            responsabili={responsabili}
+            onResponsabile={(id) => {
+              const r = responsabili.find((x) => x.id === id);
+              patchFilters({
+                responsabileId: id || "tutti",
+                responsabileLabel: r ? `${r.cognome || ""} ${r.nome || ""}`.trim() : "",
+              });
+            }}
+          />
+        </TabsContent>
+
         <TabsContent value="archiviati" className="mt-0">
           <div className="flex gap-3 flex-wrap items-center">
             <p className="text-sm text-muted-foreground w-full">
@@ -565,7 +650,7 @@ export default function SinistriList() {
         </TabsContent>
       </Tabs>
 
-      {chips.length > 0 && (
+      {tab !== "report" && chips.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           {chips.map((c) => (
             <Badge key={c.key} variant="secondary" className="gap-1 pr-1 font-normal">
@@ -588,7 +673,7 @@ export default function SinistriList() {
         </div>
       )}
 
-      <div className="border rounded-lg">
+      {tab !== "report" && <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
@@ -671,7 +756,7 @@ export default function SinistriList() {
         <div className="p-4">
           <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

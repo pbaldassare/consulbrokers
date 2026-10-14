@@ -194,6 +194,10 @@ describe("resolveStatoFiltroLista", () => {
       kind: "neq",
       value: "archiviato",
     });
+    expect(resolveStatoFiltroLista({ tab: "report" })).toEqual({
+      kind: "neq",
+      value: "archiviato",
+    });
   });
 
   it("tab archiviati forza solo archiviato", () => {

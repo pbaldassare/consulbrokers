@@ -229,6 +229,7 @@ const sidebarEntries: SidebarEntry[] = [
       permissionKey: "sinistri",
       children: [
         { label: "Ricerca", path: "/sinistri", icon: Search },
+        { label: "Report grafico", path: "/sinistri?tab=report", icon: BarChart3 },
         { label: "Apertura", path: "/sinistri/apertura", icon: FilePlus },
         { label: "Caricamento massivo", path: "/sinistri/caricamento", icon: FileSpreadsheet },
         { label: "Termini di prescrizione", path: "/sinistri/prescrizioni", icon: Clock },
@@ -549,13 +550,14 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
                       key={child.path}
                       to={child.path}
                       end
-                      className={({ isActive }) =>
-                        `flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-all duration-150 mb-0.5 ${
+                      className={() => {
+                        const isActive = isSidebarToActive(location, child.path, true);
+                        return `flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-all duration-150 mb-0.5 ${
                           isActive
                             ? "bg-white/15 text-white font-medium"
                             : "text-white/60 hover:bg-white/8 hover:text-white/80"
-                        }`
-                      }
+                        }`;
+                      }}
                     >
                       <child.icon className="w-4 h-4 shrink-0" />
                       <span>{child.label}</span>
