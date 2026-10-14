@@ -441,7 +441,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 sidebar-scrollbar">
+      <nav className="sidebar-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-3 px-2">
         {isAdmin && !collapsed && (
           <div className="relative mb-3 px-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
