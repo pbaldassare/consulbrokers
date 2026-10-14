@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import type { Components } from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -108,9 +109,44 @@ export default function ChangelogPopup() {
 const normalizzaMarkdown = (t: string) =>
   t.replace(/^(#{1,6})(?=[^#\s])/gm, "$1 ").replace(/^(\s*)-(?=[^\s-])/gm, "$1- ");
 
+/** Stili espliciti: Tailwind Preflight azzera heading/liste; `prose` da solo non basta se il plugin manca. */
+const md = (Tag: keyof JSX.IntrinsicElements, className: string) =>
+  ({ children, node: _node, ...props }: { children?: ReactNode; node?: unknown } & Record<string, unknown>) => (
+    <Tag className={className} {...props}>{children}</Tag>
+  );
+
+const markdownComponents: Components = {
+  h1: md("h1", "mb-2 mt-3 text-xl font-bold tracking-tight text-foreground first:mt-0"),
+  h2: md("h2", "mb-2 mt-3 text-lg font-semibold tracking-tight text-foreground first:mt-0"),
+  h3: md("h3", "mb-1.5 mt-2.5 text-base font-semibold text-foreground first:mt-0"),
+  h4: md("h4", "mb-1.5 mt-2 text-sm font-semibold text-foreground first:mt-0"),
+  p: md("p", "my-1.5 leading-relaxed text-foreground/90"),
+  ul: md("ul", "my-1.5 list-disc space-y-0.5 pl-5 text-foreground/90"),
+  ol: md("ol", "my-1.5 list-decimal space-y-0.5 pl-5 text-foreground/90"),
+  li: md("li", "my-0 leading-relaxed"),
+  strong: md("strong", "font-semibold text-foreground"),
+  em: md("em", "italic"),
+  code: md("code", "rounded bg-muted px-1 py-0.5 font-mono text-[13px]"),
+  pre: md("pre", "my-2 overflow-x-auto rounded-md bg-muted p-3 font-mono text-[13px]"),
+  blockquote: md("blockquote", "my-2 border-l-2 border-border pl-3 italic text-muted-foreground"),
+  hr: md("hr", "my-3 border-border"),
+  a: ({ children, href, node: _node, ...props }) => (
+    <a
+      {...props}
+      href={href}
+      className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {children}
+    </a>
+  ),
+};
+
 /**
  * Corpo del changelog (popup e anteprima nell'editor). Ogni categoria è testo markdown
  * (# titolo, ## sottotitolo, - elenco, **grassetto**); le categorie vuote non compaiono.
+ * react-markdown non esegue HTML raw (niente script); i link restano solo http/https/mailto.
  */
 export function ChangelogContenuto({ changelog }: { changelog: Pick<Changelog, "cambiamenti" | "bug_in_carico" | "problemi_noti"> }) {
   return (
@@ -121,7 +157,13 @@ export function ChangelogContenuto({ changelog }: { changelog: Pick<Changelog, "
           <section key={campo} className="space-y-2">
             {titolo && <h3 className="font-semibold text-foreground">{titolo}</h3>}
             <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:mb-2 prose-headings:mt-3 prose-p:my-1 prose-ul:my-1 prose-li:my-0">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizzaMarkdown(testo)}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                urlTransform={defaultUrlTransform}
+                components={markdownComponents}
+              >
+                {normalizzaMarkdown(testo)}
+              </ReactMarkdown>
             </div>
           </section>
         ) : null;
