@@ -419,6 +419,9 @@ function TicketDetail({
 
   useEffect(() => {
     if (ticket?.stato) setStatus(ticket.stato);
+    setReply("");
+    setReplyFiles([]);
+    setNote("");
   }, [ticket?.id, ticket?.stato]);
 
   const { data: events = [], refetch: refetchEvents } = useQuery({
