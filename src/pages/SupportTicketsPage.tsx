@@ -138,6 +138,62 @@ function displayDate(value: string | null): string {
   return value ? format(new Date(value), "dd MMM yyyy, HH:mm", { locale: it }) : "—";
 }
 
+async function uploadTicketAttachments(
+  ticketId: string,
+  userId: string,
+  files: File[],
+): Promise<string[]> {
+  const uploadedNames: string[] = [];
+  for (const file of files) {
+    const path = `${ticketId}/${crypto.randomUUID()}_${sanitizeStorageFileName(file.name)}`;
+    const { error: uploadError } = await supabase.storage
+      .from(SUPPORT_BUCKET)
+      .upload(path, file, { contentType: file.type || undefined, upsert: false });
+    if (uploadError) {
+      toast.warning(`${file.name} non è stato caricato`);
+      continue;
+    }
+    const { error: metadataError } = await db.from("support_ticket_allegati").insert({
+      ticket_id: ticketId,
+      nome_file: file.name,
+      path_storage: path,
+      bucket_name: SUPPORT_BUCKET,
+      mime_type: file.type || null,
+      dimensione_bytes: file.size,
+      caricato_da: userId,
+    });
+    if (metadataError) {
+      await supabase.storage.from(SUPPORT_BUCKET).remove([path]);
+      toast.warning(`${file.name} non è stato registrato`);
+      continue;
+    }
+    uploadedNames.push(file.name);
+  }
+  return uploadedNames;
+}
+
+function PendingTicketFiles({
+  files,
+  onRemove,
+}: {
+  files: File[];
+  onRemove: (index: number) => void;
+}) {
+  if (files.length === 0) return null;
+  return (
+    <div className="space-y-1 rounded-md border bg-background p-2">
+      {files.map((file, index) => (
+        <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 text-sm">
+          <span className="truncate">{file.name}</span>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onRemove(index)}>
+            Rimuovi
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function NewTicketDialog({
   open,
   onOpenChange,
@@ -407,6 +463,7 @@ function TicketDetail({
   const { isAdmin, user, profile } = useAuth();
   const [status, setStatus] = useState<SupportTicketStatus>(ticket?.stato || "aperto");
   const [note, setNote] = useState("");
+  const [adminFiles, setAdminFiles] = useState<File[]>([]);
   const [reply, setReply] = useState("");
   const [replyFiles, setReplyFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
@@ -419,6 +476,7 @@ function TicketDetail({
     setReply("");
     setReplyFiles([]);
     setNote("");
+    setAdminFiles([]);
   }, [ticket?.id, ticket?.stato]);
 
   const { data: events = [], refetch: refetchEvents } = useQuery({
@@ -460,12 +518,12 @@ function TicketDetail({
   });
   const authorLabel = [profile?.nome, profile?.cognome].filter(Boolean).join(" ") || profile?.email || user?.email || "Utente";
 
-  const addReplyFiles = (selected: File[]) => {
-    const { files: next, rejected } = mergeSupportTicketAttachmentFiles(replyFiles, selected);
+  const addPendingFiles = (current: File[], selected: File[], setFiles: (files: File[]) => void) => {
+    const { files: next, rejected } = mergeSupportTicketAttachmentFiles(current, selected);
     for (const file of rejected) {
       toast.error(`${file.name}: ${documentUploadTooLargeMessage()}`);
     }
-    setReplyFiles(next);
+    setFiles(next);
   };
 
   const downloadAttachment = async (attachment: TicketAttachment) => {
@@ -517,12 +575,13 @@ function TicketDetail({
     if (!isAdmin || !user?.id) return;
     const statusChanged = status !== ticket.stato;
     const cleanNote = note.trim();
-    if (!statusChanged && !cleanNote) {
+    if (!statusChanged && !cleanNote && adminFiles.length === 0) {
       toast.info("Nessuna modifica da salvare");
       return;
     }
     setSaving(true);
     try {
+      const uploadedNames = await uploadTicketAttachments(ticket.id, user.id, adminFiles);
       if (statusChanged) {
         const { error } = await db
           .from("support_tickets")
@@ -530,11 +589,13 @@ function TicketDetail({
           .eq("id", ticket.id);
         if (error) throw error;
       }
-      if (cleanNote) {
+      const eventNote = cleanNote
+        || (uploadedNames.length > 0 ? `Allegati del supporto: ${uploadedNames.join(", ")}` : "");
+      if (eventNote) {
         const { error } = await db.from("support_ticket_eventi").insert({
           ticket_id: ticket.id,
           tipo: "nota_admin",
-          nota: cleanNote,
+          nota: eventNote,
           autore_id: user.id,
           autore_nome: [profile?.nome, profile?.cognome].filter(Boolean).join(" ") || profile?.email || "Admin",
         });
@@ -554,6 +615,9 @@ function TicketDetail({
           <p><strong>${escapeSupportTicketHtml(ticket.titolo)}</strong></p>
           <p>Stato attuale: <strong>${SUPPORT_TICKET_STATUS_LABEL[finalStatus]}</strong></p>
           ${cleanNote ? `<p><strong>Nota del supporto:</strong></p><div style="white-space:pre-wrap">${escapeSupportTicketHtml(cleanNote)}</div>` : ""}
+          <p><strong>Allegati:</strong> ${uploadedNames.length
+            ? uploadedNames.map(escapeSupportTicketHtml).join(", ")
+            : "Nessuno"}</p>
           <p><a href="${window.location.origin}/ticket-supporto">Consulta il ticket in CBnet</a></p>
         `,
       });
@@ -565,6 +629,7 @@ function TicketDetail({
           stato_da: ticket.stato,
           stato_a: finalStatus,
           nota_inserita: !!cleanNote,
+          allegati: uploadedNames.length,
           destinatario: ticket.richiedente_email,
           email_id: emailResult.id || null,
           errore: emailResult.error || null,
@@ -574,7 +639,9 @@ function TicketDetail({
       });
 
       setNote("");
+      setAdminFiles([]);
       await refetchEvents();
+      await refetchAttachments();
       onUpdated();
       if (emailResult.success) {
         toast.success(
@@ -601,32 +668,7 @@ function TicketDetail({
     }
     setSaving(true);
     try {
-      const uploadedNames: string[] = [];
-      for (const file of replyFiles) {
-        const path = `${ticket.id}/${crypto.randomUUID()}_${sanitizeStorageFileName(file.name)}`;
-        const { error: uploadError } = await supabase.storage
-          .from(SUPPORT_BUCKET)
-          .upload(path, file, { contentType: file.type || undefined, upsert: false });
-        if (uploadError) {
-          toast.warning(`${file.name} non è stato caricato`);
-          continue;
-        }
-        const { error: metadataError } = await db.from("support_ticket_allegati").insert({
-          ticket_id: ticket.id,
-          nome_file: file.name,
-          path_storage: path,
-          bucket_name: SUPPORT_BUCKET,
-          mime_type: file.type || null,
-          dimensione_bytes: file.size,
-          caricato_da: user.id,
-        });
-        if (metadataError) {
-          await supabase.storage.from(SUPPORT_BUCKET).remove([path]);
-          toast.warning(`${file.name} non è stato registrato`);
-          continue;
-        }
-        uploadedNames.push(file.name);
-      }
+      const uploadedNames = await uploadTicketAttachments(ticket.id, user.id, replyFiles);
 
       const { error } = await db.from("support_ticket_eventi").insert({
         ticket_id: ticket.id,
@@ -781,6 +823,22 @@ function TicketDetail({
                       placeholder="Es. Problema risolto: abbiamo corretto il collegamento della polizza..."
                     />
                   </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="admin-reply-files">Allegati</Label>
+                    <FileDropzone
+                      inputId="admin-reply-files"
+                      multiple
+                      size="sm"
+                      icon={Paperclip}
+                      emptyLabel="Trascina qui o clicca per selezionare"
+                      hint={`Puoi selezionare più file — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
+                      onFilesSelected={(selected) => addPendingFiles(adminFiles, selected, setAdminFiles)}
+                    />
+                    <PendingTicketFiles
+                      files={adminFiles}
+                      onRemove={(index) => setAdminFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                    />
+                  </div>
                   <Button onClick={saveAdminUpdate} disabled={saving}>
                     {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isSupportTicketClosed(ticket.stato) && status !== "risolto"
@@ -870,25 +928,12 @@ function TicketDetail({
                         icon={Paperclip}
                         emptyLabel="Trascina qui o clicca per selezionare"
                         hint={`Puoi selezionare più file — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
-                        onFilesSelected={addReplyFiles}
+                        onFilesSelected={(selected) => addPendingFiles(replyFiles, selected, setReplyFiles)}
                       />
-                      {replyFiles.length > 0 && (
-                        <div className="space-y-1 rounded-md border bg-background p-2">
-                          {replyFiles.map((file, index) => (
-                            <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 text-sm">
-                              <span className="truncate">{file.name}</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setReplyFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                              >
-                                Rimuovi
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <PendingTicketFiles
+                        files={replyFiles}
+                        onRemove={(index) => setReplyFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                      />
                     </div>
                     <Button onClick={saveUserReply} disabled={saving}>
                       {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
