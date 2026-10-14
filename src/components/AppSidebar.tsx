@@ -77,6 +77,8 @@ interface SidebarItem {
   label: string;
   path: string;
   icon: LucideIcon;
+  /** Se assente, la voce eredita il permesso del gruppo. */
+  permissionKey?: string;
   adminOnly?: boolean;
   hideForRoles?: string[];
   showForRoles?: string[];
@@ -184,7 +186,6 @@ const sidebarEntries: SidebarEntry[] = [
       icon: Briefcase,
       permissionKey: "titoli",
       children: [
-        { label: "Clienti", path: "/clienti", icon: Users },
         { label: "Polizze Attive", path: "/portafoglio/attive", icon: Shield },
         { label: "Carico del mese", path: "/portafoglio/carico", icon: Clock },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
@@ -216,6 +217,7 @@ const sidebarEntries: SidebarEntry[] = [
       icon: Briefcase,
       permissionKey: "anagrafiche",
       children: [
+        { label: "Clienti", path: "/clienti", icon: Users, permissionKey: "titoli" },
         { label: "Centro Utenti & Privilegi", path: "/utenti-privilegi", icon: ShieldCheck, hideForRoles: ["ufficio"] },
         { label: "Anagrafiche Agenzie", path: "/anagrafiche-agenzie", icon: Scale },
         { label: "Anagrafiche Amministrative", path: "/anagrafiche-amministrative", icon: Briefcase },
@@ -310,6 +312,13 @@ const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Pubblicazioni Changelog", path: "/pubblicazioni-changelog", icon: Megaphone, permissionKey: "dashboard", adminOnly: true, rootOnly: true } },
   { type: "single", item: { label: "Ticket Supporto", path: "/ticket-supporto", icon: TicketCheck, permissionKey: "dashboard", ticketBadge: true } },
 ];
+
+/** Voci di un gruppo sidebar (path/label), per test e allineamento menu. */
+export function getSidebarGroupChildren(groupLabel: string): { label: string; path: string }[] {
+  const entry = sidebarEntries.find((e) => e.type === "group" && e.group.label === groupLabel);
+  if (!entry || entry.type !== "group") return [];
+  return entry.group.children.map((c) => ({ label: c.label, path: c.path }));
+}
 
 interface AppSidebarProps {
   collapsed: boolean;
@@ -525,13 +534,14 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
           const group = entry.group;
           if (isLegacyLabel(group.label)) return null;
-          if (!isVisible(group.permissionKey, group.adminOnly, group.hideForRoles, group.showForRoles)) return null;
-          const visibleChildren = group.children.filter(
-            (child) =>
-              !isLegacyPath(child.path) &&
-              !isLegacyLabel(child.label) &&
-              isVisible("dashboard", child.adminOnly, child.hideForRoles, child.showForRoles)
-          );
+          const groupVisible = isVisible(group.permissionKey, group.adminOnly, group.hideForRoles, group.showForRoles);
+          const visibleChildren = group.children.filter((child) => {
+            if (isLegacyPath(child.path) || isLegacyLabel(child.label)) return false;
+            if (child.permissionKey) {
+              return isVisible(child.permissionKey, child.adminOnly, child.hideForRoles, child.showForRoles);
+            }
+            return groupVisible && isVisible("dashboard", child.adminOnly, child.hideForRoles, child.showForRoles);
+          });
           if (visibleChildren.length === 0) return null;
           const isOpen = openGroups.has(group.label);
           const hasActiveChild = visibleChildren.some((child) => {

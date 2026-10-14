@@ -68,7 +68,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   { id: "go-rca-clientela", label: "Clientela RCA", icon: Users, link: "/rca/clientela", keywords: "rca progetto clientela auto autocarro targa" },
   { id: "go-rca-scadenze", label: "Scadenze RCA", icon: FileText, link: "/rca/scadenze", keywords: "rca scadenze rinnovi preventivazione" },
   { id: "go-rca-preventivi", label: "Preventivi RCA", icon: FileText, link: "/rca/preventivi", keywords: "rca preventivi quotazioni offerte" },
-  { id: "go-clienti", label: "Lista Clienti", icon: Users, link: "/clienti", keywords: "clienti anagrafica lista" },
+  { id: "go-clienti", label: "Lista Clienti", icon: Users, link: "/clienti", keywords: "clienti anagrafiche anagrafica lista" },
   { id: "go-sinistri", label: "Lista Sinistri", icon: AlertTriangle, link: "/sinistri", keywords: "sinistri lista" },
   { id: "go-nidificazione", label: "Nidificazione", icon: Users, link: "/portafoglio/estrazioni/nidificazione", keywords: "nidificazione clienti gruppo statistico famiglia sindaco" },
   { id: "go-restituzione-originali", label: "Restituzione originali", icon: FileText, link: "/portafoglio/estrazioni/restituzione-originali", keywords: "restituzione originali distinte spedizione compagnie agenzie documenti" },

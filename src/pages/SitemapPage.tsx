@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Shield, Users, Building2, Calculator, Briefcase, Headphones, UserCircle,
   ChevronDown, ChevronRight, LayoutDashboard, FileText, AlertTriangle,
-  BarChart3, Settings, Send, FolderOpen, Landmark, Bell, Package,
+  BarChart3, Settings, Send, Landmark, Bell, Package,
   ClipboardList, Clock, Lock, Map, Car
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -165,22 +165,16 @@ const sezioni = [
     ],
   },
   {
-    area: "Anagrafiche Utenti",
+    area: "Anagrafiche",
     icon: Users,
     pagine: [
+      { nome: "Clienti", desc: "Lista unificata di tutti i clienti (privati, aziende, enti) con ricerca avanzata multi-campo", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
+      { nome: "Dettaglio Cliente", desc: "Scheda completa del cliente con dati anagrafici, polizze, sinistri, documenti e timeline", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
       { nome: "Gestione Utenti", desc: "Anagrafica utenti interni con ruoli e assegnazioni", ruoli: ["admin", "ufficio"] },
       { nome: "Anagrafiche Professionali", desc: "Gestione periti, medici, legali, carrozzerie e altri professionisti collegati", ruoli: ["admin", "ufficio", "backoffice"] },
       { nome: "Crea Utente", desc: "Creazione nuovo utente con assegnazione ruolo e sede", ruoli: ["admin"] },
       { nome: "Utenti di Rete", desc: "Lista utenti con modifica ruoli, permessi e stato attivazione", ruoli: ["admin"] },
       { nome: "Gestione Sedi", desc: "Configurazione sedi operative dell'agenzia", ruoli: ["admin"] },
-    ],
-  },
-  {
-    area: "Archivi",
-    icon: FolderOpen,
-    pagine: [
-      { nome: "Clienti", desc: "Lista unificata di tutti i clienti (privati, aziende, enti) con ricerca avanzata multi-campo", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
-      { nome: "Dettaglio Cliente", desc: "Scheda completa del cliente con dati anagrafici, polizze, sinistri, documenti e timeline", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
     ],
   },
   {
