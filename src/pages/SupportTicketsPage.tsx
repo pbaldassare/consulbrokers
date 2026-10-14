@@ -76,6 +76,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 const SUPPORT_EMAIL = "support@cbnet.it";
+const SUPPORT_FROM = `CBnet Support <${SUPPORT_EMAIL}>`;
 const SUPPORT_BUCKET = "ticket-supporto";
 // Le tabelle entrano nei tipi generati Supabase dopo l'applicazione della migration.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -218,6 +219,7 @@ function NewTicketDialog({
       const ticketNumber = formatSupportTicketNumber(ticket.numero);
       const emailResult = await sendEmail({
         to: SUPPORT_EMAIL,
+        from: SUPPORT_FROM,
         reply_to: ticket.richiedente_email,
         subject: `[CBnet] Nuovo ticket ${ticketNumber} - ${ticket.titolo}`,
         apply_branding: true,
@@ -517,6 +519,8 @@ function TicketDetail({
       const finalStatus = statusChanged ? status : ticket.stato;
       const emailResult = await sendEmail({
         to: ticket.richiedente_email,
+        from: SUPPORT_FROM,
+        reply_to: SUPPORT_EMAIL,
         subject: `[CBnet] ${formatSupportTicketNumber(ticket.numero)} - ${SUPPORT_TICKET_STATUS_LABEL[finalStatus]}`,
         apply_branding: true,
         ufficio_id: ticket.ufficio_id,
