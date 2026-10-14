@@ -1,5 +1,5 @@
 import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -66,6 +66,7 @@ import {
   Megaphone,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSupportTicketUnread } from "@/hooks/useSupportTicketUnread";
 import { isSidebarToActive } from "@/lib/sidebarToActive";
 import { SISTEMA_SEDE_ALLOWED_ROLES } from "@/lib/sistemaSede";
 import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
@@ -98,6 +99,8 @@ interface SidebarSingleItem {
   permissionKey: string;
   adminOnly?: boolean;
   hasBadge?: boolean;
+  /** Badge grigio ticket nuovi (non la chat rossa). */
+  ticketBadge?: boolean;
   hideForRoles?: string[];
   showForRoles?: string[];
   /** Match esatto del path (non i sotto-path). */
@@ -305,7 +308,7 @@ const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Guida Operativa", path: "/guida-operativa", icon: BookOpen, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Pubblicazioni Changelog", path: "/pubblicazioni-changelog", icon: Megaphone, permissionKey: "dashboard", adminOnly: true, rootOnly: true } },
-  { type: "single", item: { label: "Ticket Supporto", path: "/ticket-supporto", icon: TicketCheck, permissionKey: "dashboard" } },
+  { type: "single", item: { label: "Ticket Supporto", path: "/ticket-supporto", icon: TicketCheck, permissionKey: "dashboard", ticketBadge: true } },
 ];
 
 interface AppSidebarProps {
@@ -320,6 +323,17 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const [cercaSezione, setCercaSezione] = useState("");
+
+  const { unreadCount: ticketUnreadCount, markAllRead: markTicketsRead } = useSupportTicketUnread();
+  const wasOnTicketsRef = useRef(false);
+
+  useEffect(() => {
+    const onTickets = location.pathname === "/ticket-supporto" || location.pathname.startsWith("/ticket-supporto/");
+    if (wasOnTicketsRef.current && !onTickets) {
+      markTicketsRead();
+    }
+    wasOnTicketsRef.current = onTickets;
+  }, [location.pathname, markTicketsRead]);
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["chat_unread_count", user?.id],
@@ -496,6 +510,13 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
                     collapsed ? "absolute top-0.5 right-0.5 w-4 h-4" : "ml-auto min-w-[18px] h-[18px] px-1"
                   }`}>
                     {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+                {item.ticketBadge && ticketUnreadCount > 0 && (
+                  <span className={`inline-flex items-center justify-center rounded-full bg-gray-500 text-white text-[10px] font-bold leading-none ${
+                    collapsed ? "absolute top-0.5 right-0.5 w-4 h-4" : "ml-auto min-w-[18px] h-[18px] px-1"
+                  }`}>
+                    {ticketUnreadCount > 99 ? "99+" : ticketUnreadCount}
                   </span>
                 )}
               </RouterNavLink>

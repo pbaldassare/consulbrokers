@@ -36,6 +36,7 @@ import {
   type SupportTicketStatus,
   validateSupportTicketDescription,
 } from "@/lib/supportTickets";
+import { useSupportTicketUnread } from "@/hooks/useSupportTicketUnread";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -737,10 +738,12 @@ function TicketDetail({
 function TicketsTable({
   tickets,
   isAdmin,
+  unreadIds,
   onSelect,
 }: {
   tickets: SupportTicket[];
   isAdmin: boolean;
+  unreadIds: Set<string>;
   onSelect: (ticket: SupportTicket) => void;
 }) {
   if (tickets.length === 0) {
@@ -772,7 +775,13 @@ function TicketsTable({
               onClick={() => onSelect(ticket)}
             >
               <TableCell className="font-mono text-xs font-semibold">
-                {formatSupportTicketNumber(ticket.numero)}
+                <span className="inline-flex items-center gap-2">
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${unreadIds.has(ticket.id) ? "bg-blue-500" : "bg-transparent"}`}
+                    aria-label={unreadIds.has(ticket.id) ? "Ticket nuovo" : undefined}
+                  />
+                  {formatSupportTicketNumber(ticket.numero)}
+                </span>
               </TableCell>
               <TableCell>
                 <p className="max-w-md truncate font-medium">{ticket.titolo}</p>
@@ -806,8 +815,15 @@ function TicketsTable({
 export default function SupportTicketsPage() {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const { unreadIds, markOpened, markAllRead } = useSupportTicketUnread();
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+
+  useEffect(() => {
+    const onRefresh = () => markAllRead();
+    window.addEventListener("pagehide", onRefresh);
+    return () => window.removeEventListener("pagehide", onRefresh);
+  }, [markAllRead]);
 
   const { data: tickets = [], isLoading, error } = useQuery({
     queryKey: ["support-tickets", user?.id, isAdmin],
@@ -900,10 +916,26 @@ export default function SupportTicketsPage() {
             <TabsTrigger value="storico">Storico ({resolvedTickets.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="aperti" className="mt-4">
-            <TicketsTable tickets={openTickets} isAdmin={isAdmin} onSelect={setSelectedTicket} />
+            <TicketsTable
+              tickets={openTickets}
+              isAdmin={isAdmin}
+              unreadIds={unreadIds}
+              onSelect={(ticket) => {
+                markOpened(ticket.id);
+                setSelectedTicket(ticket);
+              }}
+            />
           </TabsContent>
           <TabsContent value="storico" className="mt-4">
-            <TicketsTable tickets={resolvedTickets} isAdmin={isAdmin} onSelect={setSelectedTicket} />
+            <TicketsTable
+              tickets={resolvedTickets}
+              isAdmin={isAdmin}
+              unreadIds={unreadIds}
+              onSelect={(ticket) => {
+                markOpened(ticket.id);
+                setSelectedTicket(ticket);
+              }}
+            />
           </TabsContent>
         </Tabs>
       )}
@@ -912,6 +944,7 @@ export default function SupportTicketsPage() {
         open={newDialogOpen}
         onOpenChange={setNewDialogOpen}
         onCreated={(ticket) => {
+          markOpened(ticket.id);
           refresh();
           setSelectedTicket(ticket);
         }}
