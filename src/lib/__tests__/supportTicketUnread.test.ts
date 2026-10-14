@@ -172,22 +172,134 @@ describe("supportTicketUnread", () => {
     ).toBe(false);
   });
 
-  it("una risposta utente dopo lastSeenAt rimostra pallino e badge", () => {
+  it("una risposta utente dopo lastSeenAt rimostra pallino e badge all'admin, non all'utente", () => {
     const state = seen("2026-10-14T11:00:00.000Z");
     const ticket = {
       id: "t1",
       created_at: "2026-10-14T10:00:00.000Z",
       updated_at: "2026-10-14T12:00:00.000Z",
       aggiornato_da: "utente-1",
+      richiedente_id: "utente-1",
     };
     expect(isSupportTicketUnread(ticket, state, "admin-1")).toBe(true);
     expect(isSupportTicketUnread(ticket, state, "utente-1")).toBe(false);
+  });
+
+  it("una risposta admin dopo lastSeenAt rimostra pallino e badge all'utente, non all'admin", () => {
+    const state = seen("2026-10-14T11:00:00.000Z");
+    const ticket = {
+      id: "t1",
+      created_at: "2026-10-14T10:00:00.000Z",
+      updated_at: "2026-10-14T12:00:00.000Z",
+      aggiornato_da: "admin-1",
+      richiedente_id: "utente-1",
+    };
+    expect(isSupportTicketUnread(ticket, state, "utente-1")).toBe(true);
+    expect(isSupportTicketUnread(ticket, state, "admin-1")).toBe(false);
+  });
+
+  it("markOpened toglie il pallino; una nuova risposta dell'altra parte lo rialza", () => {
+    const state = seen("2026-10-14T11:00:00.000Z");
+    const ticket = {
+      id: "t1",
+      created_at: "2026-10-14T10:00:00.000Z",
+      updated_at: "2026-10-14T12:00:00.000Z",
+      aggiornato_da: "utente-1",
+      richiedente_id: "utente-1",
+    };
     const afterOpen = markSupportTicketOpened(state, "t1", "2026-10-14T12:30:00.000Z");
     expect(isSupportTicketUnread(ticket, afterOpen, "admin-1")).toBe(false);
     expect(
       isSupportTicketUnread(
-        { ...ticket, updated_at: "2026-10-14T13:00:00.000Z" },
+        { ...ticket, updated_at: "2026-10-14T13:00:00.000Z", aggiornato_da: "utente-1" },
         afterOpen,
+        "admin-1",
+      ),
+    ).toBe(true);
+    expect(
+      isSupportTicketUnread(
+        { ...ticket, updated_at: "2026-10-14T13:00:00.000Z", aggiornato_da: "utente-1" },
+        afterOpen,
+        "utente-1",
+      ),
+    ).toBe(false);
+  });
+
+  it("markAllRead azzera; una risposta successiva torna non letta per l'altra parte", () => {
+    const tickets = [
+      {
+        id: "t1",
+        created_at: "2026-10-14T10:00:00.000Z",
+        updated_at: "2026-10-14T10:30:00.000Z",
+        aggiornato_da: "utente-1",
+        richiedente_id: "utente-1",
+      },
+    ];
+    const afterVisit = markAllSupportTicketsRead("2026-10-14T11:00:00.000Z");
+    expect(countUnreadSupportTickets(tickets, afterVisit, "admin-1")).toBe(0);
+    expect(countUnreadSupportTickets(tickets, afterVisit, "utente-1")).toBe(0);
+    const afterReply = [
+      {
+        ...tickets[0],
+        updated_at: "2026-10-14T12:00:00.000Z",
+        aggiornato_da: "utente-1",
+      },
+    ];
+    expect(countUnreadSupportTickets(afterReply, afterVisit, "admin-1")).toBe(1);
+    expect(countUnreadSupportTickets(afterReply, afterVisit, "utente-1")).toBe(0);
+    const afterAdminReply = [
+      {
+        ...tickets[0],
+        updated_at: "2026-10-14T13:00:00.000Z",
+        aggiornato_da: "admin-1",
+      },
+    ];
+    expect(countUnreadSupportTickets(afterAdminReply, afterVisit, "utente-1")).toBe(1);
+    expect(countUnreadSupportTickets(afterAdminReply, afterVisit, "admin-1")).toBe(0);
+  });
+
+  it("ticket appena creato: unread per admin, non per il richiedente", () => {
+    const neverVisited = emptySupportTicketSeenState();
+    const ticket = {
+      id: "nuovo",
+      created_at: "2026-10-14T12:00:00.000Z",
+      updated_at: "2026-10-14T12:00:00.000Z",
+      aggiornato_da: "utente-1",
+      richiedente_id: "utente-1",
+    };
+    expect(isSupportTicketUnread(ticket, neverVisited, "admin-1")).toBe(true);
+    expect(isSupportTicketUnread(ticket, neverVisited, "utente-1")).toBe(false);
+    expect(
+      isSupportTicketUnread(
+        { id: "nuovo", created_at: "2026-10-14T12:00:00.000Z", richiedente_id: "utente-1" },
+        neverVisited,
+        "utente-1",
+      ),
+    ).toBe(false);
+    expect(
+      isSupportTicketUnread(
+        { id: "nuovo", created_at: "2026-10-14T12:00:00.000Z", richiedente_id: "utente-1" },
+        neverVisited,
+        "admin-1",
+      ),
+    ).toBe(true);
+  });
+
+  it("lastSeenAt più recente vince su un openedAt stantio dopo markAllRead", () => {
+    const staleOpen = seen("2026-10-14T11:00:00.000Z", ["t1"], {
+      t1: "2026-10-14T09:00:00.000Z",
+    });
+    const ticket = {
+      id: "t1",
+      created_at: "2026-10-14T08:00:00.000Z",
+      updated_at: "2026-10-14T10:00:00.000Z",
+      aggiornato_da: "utente-1",
+    };
+    expect(isSupportTicketUnread(ticket, staleOpen, "admin-1")).toBe(false);
+    expect(
+      isSupportTicketUnread(
+        { ...ticket, updated_at: "2026-10-14T12:00:00.000Z" },
+        staleOpen,
         "admin-1",
       ),
     ).toBe(true);

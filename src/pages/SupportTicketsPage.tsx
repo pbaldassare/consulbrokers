@@ -42,6 +42,7 @@ import {
   validateSupportTicketReply,
 } from "@/lib/supportTickets";
 import { useSupportTicketUnread } from "@/hooks/useSupportTicketUnread";
+import { SUPPORT_TICKET_UNREAD_QUERY_KEY } from "@/lib/supportTicketUnread";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -1075,6 +1076,7 @@ export default function SupportTicketsPage() {
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
+    await queryClient.invalidateQueries({ queryKey: [SUPPORT_TICKET_UNREAD_QUERY_KEY] });
     if (selectedTicket) {
       const { data } = await db.from("support_tickets").select("*").eq("id", selectedTicket.id).maybeSingle();
       if (data) setSelectedTicket(data as SupportTicket);
@@ -1184,6 +1186,7 @@ export default function SupportTicketsPage() {
         onDeleted={() => {
           setSelectedTicket(null);
           queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
+          queryClient.invalidateQueries({ queryKey: [SUPPORT_TICKET_UNREAD_QUERY_KEY] });
         }}
       />
     </div>

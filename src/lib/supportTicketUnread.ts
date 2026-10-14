@@ -27,6 +27,8 @@ export type SupportTicketUnreadRow = {
   data_apertura?: string | null;
   updated_at?: string | null;
   aggiornato_da?: string | null;
+  richiedente_id?: string | null;
+  ultimo_autore_id?: string | null;
 };
 
 export function supportTicketSeenStorageKey(userId: string): string {
@@ -147,8 +149,13 @@ function toMs(iso: string): number {
   return Number.isFinite(t) ? t : NaN;
 }
 
+function lastActivityAuthorId(ticket: SupportTicketUnreadRow): string | null {
+  return ticket.aggiornato_da || ticket.ultimo_autore_id || null;
+}
+
+/** Cutoff = il più recente tra visita globale e apertura di quella riga. */
 function cutoffForTicket(ticketId: string, state: SupportTicketSeenState): string | null {
-  return state.openedAt?.[ticketId] || state.lastSeenAt;
+  return laterIso(state.openedAt?.[ticketId] ?? null, state.lastSeenAt);
 }
 
 export function isSupportTicketUnread(
@@ -157,7 +164,9 @@ export function isSupportTicketUnread(
   currentUserId?: string | null,
 ): boolean {
   if (!ticket.id) return false;
-  if (currentUserId && ticket.aggiornato_da && ticket.aggiornato_da === currentUserId) return false;
+  const authorId = lastActivityAuthorId(ticket);
+  if (currentUserId && authorId && authorId === currentUserId) return false;
+  if (currentUserId && !authorId && ticket.richiedente_id === currentUserId) return false;
   const activity = toMs(ticketActivityAt(ticket));
   if (!Number.isFinite(activity)) return false;
   const cutoffIso = cutoffForTicket(ticket.id, state);

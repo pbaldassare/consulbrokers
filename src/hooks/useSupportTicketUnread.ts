@@ -44,30 +44,34 @@ async function loadSeenStateFromDb(userId: string): Promise<SupportTicketSeenSta
   return seenStateFromDbRow(row);
 }
 
-async function persistSeenState(userId: string, state: SupportTicketSeenState): Promise<SupportTicketSeenState> {
+async function persistSeenState(
+  userId: string,
+  state: SupportTicketSeenState,
+  mode: "merge" | "replace" = "merge",
+): Promise<SupportTicketSeenState> {
   let dbState = emptySupportTicketSeenState();
   try {
     dbState = await loadSeenStateFromDb(userId);
   } catch {
     /* se il SELECT fallisce, scriviamo comunque lo stato nuovo */
   }
-  const merged = mergeSupportTicketSeenState(dbState, state);
+  const next = mode === "replace" ? state : mergeSupportTicketSeenState(dbState, state);
   try {
-    saveSupportTicketSeenState(userId, merged);
+    saveSupportTicketSeenState(userId, next);
   } catch {
     /* cache locale opzionale */
   }
   const { error } = await db.from("support_ticket_letture").upsert(
     {
       user_id: userId,
-      visto_il: merged.lastSeenAt,
-      aperti_ids: merged.openedIds,
+      visto_il: next.lastSeenAt,
+      aperti_ids: next.openedIds,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" },
   );
   if (error) throw error;
-  return merged;
+  return next;
 }
 
 export function useSupportTicketUnread() {
@@ -98,7 +102,7 @@ export function useSupportTicketUnread() {
       }
       const { data: rows, error } = await db
         .from("support_tickets")
-        .select("id, created_at, data_apertura, updated_at, aggiornato_da");
+        .select("id, created_at, data_apertura, updated_at, aggiornato_da, richiedente_id");
       if (error) throw error;
       const tickets = (rows || []) as SupportTicketUnreadRow[];
       const unreadIds = unreadSupportTicketIds(tickets, state, userId);
@@ -121,6 +125,13 @@ export function useSupportTicketUnread() {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "support_tickets" },
+        () => {
+          qc.invalidateQueries({ queryKey: [SUPPORT_TICKET_UNREAD_QUERY_KEY, userId] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "support_ticket_eventi" },
         () => {
           qc.invalidateQueries({ queryKey: [SUPPORT_TICKET_UNREAD_QUERY_KEY, userId] });
         },
@@ -171,12 +182,12 @@ export function useSupportTicketUnread() {
     const next = markAllSupportTicketsRead();
     applyOptimisticRead(next);
     try {
-      await persistSeenState(userId, next);
+      await persistSeenState(userId, next, "replace");
     } catch (err) {
       console.error("[useSupportTicketUnread] markAllRead", err);
     }
     refresh();
   }, [applyOptimisticRead, refresh, userId]);
 
-  return { unreadCount, unreadIds, markOpened, markAllRead };
+  return { unreadCount, unreadIds, markOpened, markAllRead, refresh };
 }
