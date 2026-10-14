@@ -15,7 +15,11 @@ import {
   unreadSupportTicketIds,
 } from "../supportTicketUnread";
 
-const seen = (lastSeenAt: string | null, openedIds: string[] = []) => ({ lastSeenAt, openedIds });
+const seen = (lastSeenAt: string | null, openedIds: string[] = [], openedAt: Record<string, string> = {}) => ({
+  lastSeenAt,
+  openedIds,
+  openedAt,
+});
 
 describe("supportTicketUnread", () => {
   it("un ticket creato dopo lastSeenAt è nuovo", () => {
@@ -82,7 +86,7 @@ describe("supportTicketUnread", () => {
   });
 
   it("empty state ha openedIds vuoti e lastSeenAt null", () => {
-    expect(emptySupportTicketSeenState()).toEqual({ lastSeenAt: null, openedIds: [] });
+    expect(emptySupportTicketSeenState()).toEqual({ lastSeenAt: null, openedIds: [], openedAt: {} });
   });
 
   it("dopo markAllRead un refresh non fa tornare i ticket già visti", () => {
@@ -149,8 +153,8 @@ describe("supportTicketUnread", () => {
 
   it("merge tiene il lastSeenAt più recente e unisce gli aperti", () => {
     const merged = mergeSupportTicketSeenState(
-      { lastSeenAt: "2026-10-14T10:00:00.000Z", openedIds: ["a"] },
-      { lastSeenAt: "2026-10-14T11:00:00.000Z", openedIds: ["b"] },
+      { lastSeenAt: "2026-10-14T10:00:00.000Z", openedIds: ["a"], openedAt: { a: "2026-10-14T10:00:00.000Z" } },
+      { lastSeenAt: "2026-10-14T11:00:00.000Z", openedIds: ["b"], openedAt: { b: "2026-10-14T11:00:00.000Z" } },
     );
     expect(merged.lastSeenAt).toBe("2026-10-14T11:00:00.000Z");
     expect(merged.openedIds).toEqual(["a", "b"]);
@@ -166,6 +170,27 @@ describe("supportTicketUnread", () => {
         { lastSeenAt: "2026-10-14T11:00:00.000Z", openedIds: [] },
       ),
     ).toBe(false);
+  });
+
+  it("una risposta utente dopo lastSeenAt rimostra pallino e badge", () => {
+    const state = seen("2026-10-14T11:00:00.000Z");
+    const ticket = {
+      id: "t1",
+      created_at: "2026-10-14T10:00:00.000Z",
+      updated_at: "2026-10-14T12:00:00.000Z",
+      aggiornato_da: "utente-1",
+    };
+    expect(isSupportTicketUnread(ticket, state, "admin-1")).toBe(true);
+    expect(isSupportTicketUnread(ticket, state, "utente-1")).toBe(false);
+    const afterOpen = markSupportTicketOpened(state, "t1", "2026-10-14T12:30:00.000Z");
+    expect(isSupportTicketUnread(ticket, afterOpen, "admin-1")).toBe(false);
+    expect(
+      isSupportTicketUnread(
+        { ...ticket, updated_at: "2026-10-14T13:00:00.000Z" },
+        afterOpen,
+        "admin-1",
+      ),
+    ).toBe(true);
   });
 
   it("un markOpened senza lastSeenAt non deve vincere su un visto_il già in DB", () => {

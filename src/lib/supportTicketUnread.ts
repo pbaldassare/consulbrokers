@@ -12,6 +12,8 @@ export type SupportTicketSeenState = {
    */
   lastSeenAt: string | null;
   openedIds: string[];
+  /** Quando il ticket è stato aperto: una risposta successiva rimostra il pallino. */
+  openedAt: Record<string, string>;
 };
 
 export type SupportTicketLettureRow = {
@@ -23,6 +25,8 @@ export type SupportTicketUnreadRow = {
   id: string;
   created_at?: string | null;
   data_apertura?: string | null;
+  updated_at?: string | null;
+  aggiornato_da?: string | null;
 };
 
 export function supportTicketSeenStorageKey(userId: string): string {
@@ -30,12 +34,27 @@ export function supportTicketSeenStorageKey(userId: string): string {
 }
 
 export function emptySupportTicketSeenState(): SupportTicketSeenState {
-  return { lastSeenAt: null, openedIds: [] };
+  return { lastSeenAt: null, openedIds: [], openedAt: {} };
 }
 
 function normalizeOpenedIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((id): id is string => typeof id === "string" && id.length > 0);
+}
+
+function normalizeOpenedAt(value: unknown, fallbackIds: string[], fallbackAt: string | null): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    for (const [id, iso] of Object.entries(value as Record<string, unknown>)) {
+      if (id && typeof iso === "string" && iso) out[id] = iso;
+    }
+  }
+  if (fallbackAt) {
+    for (const id of fallbackIds) {
+      if (!out[id]) out[id] = fallbackAt;
+    }
+  }
+  return out;
 }
 
 function laterIso(a: string | null, b: string | null): string | null {
@@ -53,7 +72,10 @@ export function parseSupportTicketSeenState(raw: string | null): SupportTicketSe
   try {
     const parsed = JSON.parse(raw) as Partial<SupportTicketSeenState>;
     const lastSeenAt = typeof parsed.lastSeenAt === "string" && parsed.lastSeenAt ? parsed.lastSeenAt : null;
-    return { lastSeenAt, openedIds: normalizeOpenedIds(parsed.openedIds) };
+    const openedIds = normalizeOpenedIds(parsed.openedIds);
+    const openedAt = normalizeOpenedAt(parsed.openedAt, openedIds, lastSeenAt);
+    const ids = [...new Set([...openedIds, ...Object.keys(openedAt)])];
+    return { lastSeenAt, openedIds: ids, openedAt };
   } catch {
     return emptySupportTicketSeenState();
   }
@@ -62,7 +84,8 @@ export function parseSupportTicketSeenState(raw: string | null): SupportTicketSe
 export function seenStateFromDbRow(row: SupportTicketLettureRow | null | undefined): SupportTicketSeenState {
   if (!row) return emptySupportTicketSeenState();
   const lastSeenAt = typeof row.visto_il === "string" && row.visto_il ? row.visto_il : null;
-  return { lastSeenAt, openedIds: normalizeOpenedIds(row.aperti_ids) };
+  const openedIds = normalizeOpenedIds(row.aperti_ids);
+  return { lastSeenAt, openedIds, openedAt: normalizeOpenedAt(null, openedIds, lastSeenAt) };
 }
 
 /** Unisce cache locale e riga DB: lastSeenAt più recente + union openedIds. */
@@ -70,9 +93,15 @@ export function mergeSupportTicketSeenState(
   a: SupportTicketSeenState,
   b: SupportTicketSeenState,
 ): SupportTicketSeenState {
+  const openedAt: Record<string, string> = { ...a.openedAt };
+  for (const [id, iso] of Object.entries(b.openedAt || {})) {
+    openedAt[id] = laterIso(openedAt[id] ?? null, iso) || iso;
+  }
+  const openedIds = [...new Set([...a.openedIds, ...b.openedIds, ...Object.keys(openedAt)])];
   return {
     lastSeenAt: laterIso(a.lastSeenAt, b.lastSeenAt),
-    openedIds: [...new Set([...a.openedIds, ...b.openedIds])],
+    openedIds,
+    openedAt,
   };
 }
 
@@ -109,8 +138,8 @@ export function ensureSupportTicketSeenBaseline(
   return baseline;
 }
 
-function ticketCreatedAt(ticket: SupportTicketUnreadRow): string {
-  return ticket.created_at || ticket.data_apertura || "";
+function ticketActivityAt(ticket: SupportTicketUnreadRow): string {
+  return ticket.updated_at || ticket.created_at || ticket.data_apertura || "";
 }
 
 function toMs(iso: string): number {
@@ -118,38 +147,59 @@ function toMs(iso: string): number {
   return Number.isFinite(t) ? t : NaN;
 }
 
-export function isSupportTicketUnread(ticket: SupportTicketUnreadRow, state: SupportTicketSeenState): boolean {
-  if (!ticket.id || state.openedIds.includes(ticket.id)) return false;
-  const created = toMs(ticketCreatedAt(ticket));
-  if (!Number.isFinite(created)) return false;
-  if (!state.lastSeenAt) return true;
-  const seen = toMs(state.lastSeenAt);
-  if (!Number.isFinite(seen)) return true;
-  return created > seen;
+function cutoffForTicket(ticketId: string, state: SupportTicketSeenState): string | null {
+  return state.openedAt?.[ticketId] || state.lastSeenAt;
+}
+
+export function isSupportTicketUnread(
+  ticket: SupportTicketUnreadRow,
+  state: SupportTicketSeenState,
+  currentUserId?: string | null,
+): boolean {
+  if (!ticket.id) return false;
+  if (currentUserId && ticket.aggiornato_da && ticket.aggiornato_da === currentUserId) return false;
+  const activity = toMs(ticketActivityAt(ticket));
+  if (!Number.isFinite(activity)) return false;
+  const cutoffIso = cutoffForTicket(ticket.id, state);
+  if (!cutoffIso) return true;
+  const cutoff = toMs(cutoffIso);
+  if (!Number.isFinite(cutoff)) return true;
+  return activity > cutoff;
 }
 
 export function unreadSupportTicketIds(
   tickets: SupportTicketUnreadRow[],
   state: SupportTicketSeenState,
+  currentUserId?: string | null,
 ): string[] {
-  return tickets.filter((t) => isSupportTicketUnread(t, state)).map((t) => t.id);
+  return tickets.filter((t) => isSupportTicketUnread(t, state, currentUserId)).map((t) => t.id);
 }
 
 export function countUnreadSupportTickets(
   tickets: SupportTicketUnreadRow[],
   state: SupportTicketSeenState,
+  currentUserId?: string | null,
 ): number {
-  return unreadSupportTicketIds(tickets, state).length;
+  return unreadSupportTicketIds(tickets, state, currentUserId).length;
 }
 
-export function markSupportTicketOpened(state: SupportTicketSeenState, ticketId: string): SupportTicketSeenState {
-  if (!ticketId || state.openedIds.includes(ticketId)) return state;
-  return { ...state, openedIds: [...state.openedIds, ticketId] };
+export function markSupportTicketOpened(
+  state: SupportTicketSeenState,
+  ticketId: string,
+  now = new Date().toISOString(),
+): SupportTicketSeenState {
+  if (!ticketId) return state;
+  if (state.openedAt?.[ticketId] === now) return state;
+  return {
+    ...state,
+    openedIds: state.openedIds.includes(ticketId) ? state.openedIds : [...state.openedIds, ticketId],
+    openedAt: { ...state.openedAt, [ticketId]: now },
+  };
 }
 
 /** Persiste la visita: lastSeenAt=now. Usato al mount della pagina e in uscita. */
 export function markAllSupportTicketsRead(
   now = new Date().toISOString(),
 ): SupportTicketSeenState {
-  return { lastSeenAt: now, openedIds: [] };
+  return { lastSeenAt: now, openedIds: [], openedAt: {} };
 }

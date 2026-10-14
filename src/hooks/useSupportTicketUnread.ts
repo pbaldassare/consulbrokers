@@ -96,10 +96,12 @@ export function useSupportTicketUnread() {
           /* ignore */
         }
       }
-      const { data: rows, error } = await db.from("support_tickets").select("id, created_at, data_apertura");
+      const { data: rows, error } = await db
+        .from("support_tickets")
+        .select("id, created_at, data_apertura, updated_at, aggiornato_da");
       if (error) throw error;
       const tickets = (rows || []) as SupportTicketUnreadRow[];
-      const unreadIds = unreadSupportTicketIds(tickets, state);
+      const unreadIds = unreadSupportTicketIds(tickets, state, userId);
       return { tickets, unreadIds, unreadCount: unreadIds.length };
     },
     refetchInterval: 15_000,
@@ -112,6 +114,13 @@ export function useSupportTicketUnread() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "support_tickets" },
+        () => {
+          qc.invalidateQueries({ queryKey: [SUPPORT_TICKET_UNREAD_QUERY_KEY, userId] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "support_tickets" },
         () => {
           qc.invalidateQueries({ queryKey: [SUPPORT_TICKET_UNREAD_QUERY_KEY, userId] });
         },
@@ -135,7 +144,7 @@ export function useSupportTicketUnread() {
       if (!userId) return;
       qc.setQueryData([SUPPORT_TICKET_UNREAD_QUERY_KEY, userId], (prev: UnreadQueryData | undefined) => {
         if (!prev) return prev;
-        const unread = unreadSupportTicketIds(prev.tickets, next);
+        const unread = unreadSupportTicketIds(prev.tickets, next, userId);
         return { ...prev, unreadIds: unread, unreadCount: unread.length };
       });
     },
