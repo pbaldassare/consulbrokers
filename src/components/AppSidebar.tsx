@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard,
   Users,
+  UserRound,
   FileText,
   AlertTriangle,
   Calculator,
@@ -218,6 +219,12 @@ const sidebarEntries: SidebarEntry[] = [
       permissionKey: "anagrafiche",
       children: [
         { label: "Clienti", path: "/clienti", icon: Users, permissionKey: "titoli" },
+        {
+          label: "Controparti sinistri",
+          path: "/controparti-sinistri",
+          icon: UserRound,
+          permissionKey: "sinistri",
+        },
         { label: "Centro Utenti & Privilegi", path: "/utenti-privilegi", icon: ShieldCheck, hideForRoles: ["ufficio"] },
         { label: "Anagrafiche Agenzie", path: "/anagrafiche-agenzie", icon: Scale },
         { label: "Anagrafiche Amministrative", path: "/anagrafiche-amministrative", icon: Briefcase },

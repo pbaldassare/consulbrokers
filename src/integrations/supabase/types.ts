@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -3236,6 +3236,59 @@ export type Database = {
           },
         ]
       }
+      changelog: {
+        Row: {
+          bug_in_carico: string[]
+          cambiamenti: string[]
+          creato_at: string
+          id: string
+          problemi_noti: string[]
+          pubblicato_at: string | null
+        }
+        Insert: {
+          bug_in_carico?: string[]
+          cambiamenti?: string[]
+          creato_at?: string
+          id?: string
+          problemi_noti?: string[]
+          pubblicato_at?: string | null
+        }
+        Update: {
+          bug_in_carico?: string[]
+          cambiamenti?: string[]
+          creato_at?: string
+          id?: string
+          problemi_noti?: string[]
+          pubblicato_at?: string | null
+        }
+        Relationships: []
+      }
+      changelog_letture: {
+        Row: {
+          changelog_id: string
+          letto_at: string
+          user_id: string
+        }
+        Insert: {
+          changelog_id: string
+          letto_at?: string
+          user_id?: string
+        }
+        Update: {
+          changelog_id?: string
+          letto_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "changelog_letture_changelog_id_fkey"
+            columns: ["changelog_id"]
+            isOneToOne: false
+            referencedRelation: "changelog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_canali: {
         Row: {
           ambito: string
@@ -5308,6 +5361,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      controparti_sinistri: {
+        Row: {
+          attivo: boolean
+          codice: number
+          codice_fiscale: string | null
+          created_at: string
+          created_by: string | null
+          denominazione: string
+          email: string | null
+          id: string
+          note: string | null
+          partita_iva: string | null
+          telefono: string | null
+          updated_at: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice?: number
+          codice_fiscale?: string | null
+          created_at?: string
+          created_by?: string | null
+          denominazione: string
+          email?: string | null
+          id?: string
+          note?: string | null
+          partita_iva?: string | null
+          telefono?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: number
+          codice_fiscale?: string | null
+          created_at?: string
+          created_by?: string | null
+          denominazione?: string
+          email?: string | null
+          id?: string
+          note?: string | null
+          partita_iva?: string | null
+          telefono?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       dettaglio_riparto: {
         Row: {
@@ -13500,6 +13598,35 @@ export type Database = {
           },
         ]
       }
+      support_ticket_letture: {
+        Row: {
+          aperti_ids: Json
+          updated_at: string
+          user_id: string
+          visto_il: string | null
+        }
+        Insert: {
+          aperti_ids?: Json
+          updated_at?: string
+          user_id: string
+          visto_il?: string | null
+        }
+        Update: {
+          aperti_ids?: Json
+          updated_at?: string
+          user_id?: string
+          visto_il?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_letture_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_tickets: {
         Row: {
           aggiornato_da: string | null
@@ -13519,6 +13646,7 @@ export type Database = {
           titolo: string
           ufficio_id: string | null
           updated_at: string
+          utente_puo_rispondere: boolean
         }
         Insert: {
           aggiornato_da?: string | null
@@ -13538,6 +13666,7 @@ export type Database = {
           titolo: string
           ufficio_id?: string | null
           updated_at?: string
+          utente_puo_rispondere?: boolean
         }
         Update: {
           aggiornato_da?: string | null
@@ -13557,6 +13686,7 @@ export type Database = {
           titolo?: string
           ufficio_id?: string | null
           updated_at?: string
+          utente_puo_rispondere?: boolean
         }
         Relationships: [
           {
@@ -17044,6 +17174,7 @@ export type Database = {
       is_documentale_staff: { Args: never; Returns: boolean }
       is_global_viewer: { Args: never; Returns: boolean }
       is_root_admin: { Args: { p_uid: string }; Returns: boolean }
+      is_staff: { Args: never; Returns: boolean }
       log_consultazione_accesso: {
         Args: {
           p_disclaimer_version: string
@@ -17056,6 +17187,7 @@ export type Database = {
         Args: { p_email: string; p_percorso?: string; p_query: string }
         Returns: Json
       }
+      lookup_intermediari: { Args: never; Returns: Json }
       mark_canale_as_read: { Args: { _canale_id: string }; Returns: undefined }
       mark_canale_as_unread: { Args: { _canale_id: string }; Returns: boolean }
       merge_cliente_atomico: {
@@ -17158,6 +17290,10 @@ export type Database = {
         Returns: undefined
       }
       search_clienti_ranked: {
+        Args: { p_limit?: number; p_offset?: number; p_search: string }
+        Returns: Json
+      }
+      search_controparti_sinistri_ranked: {
         Args: { p_limit?: number; p_offset?: number; p_search: string }
         Returns: Json
       }

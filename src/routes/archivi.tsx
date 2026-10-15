@@ -8,6 +8,7 @@ import AnagraficheInternePage from "@/pages/AnagraficheInternePage";
 import TrattativeList from "@/pages/TrattativeList";
 import BandiPubbliciPage from "@/pages/BandiPubbliciPage";
 import ContiBancariPage from "@/pages/anagrafiche/ContiBancariPage";
+import ContropartiSinistriList from "@/pages/ContropartiSinistriList";
 
 
 const ARCHIVI_ALIAS: Record<string, string> = {
@@ -26,6 +27,7 @@ export const archiviRoutes = (
   <>
     <Route path="/prospect/:id" element={<ProspectDetail />} />
     <Route path="/clienti" element={<ClientiList />} />
+    <Route path="/controparti-sinistri" element={<ContropartiSinistriList />} />
     <Route path="/clienti/deduplica" element={<DeduplicaClientiPage />} />
     <Route path="/clienti/:id" element={<ClienteDetail />} />
     <Route path="/anagrafiche-agenzie" element={<AnagraficheCompagniePage />} />
