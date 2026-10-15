@@ -1018,8 +1018,8 @@ function TicketDetail({
 }
 
 const tipologiaBadgeClass: Record<SupportTicketTipologia, string> = {
-  richiesta_implementazione: "border-violet-300 bg-violet-50 text-violet-900 uppercase tracking-wide",
-  bug: "border-orange-300 bg-orange-50 text-orange-900 uppercase tracking-wide",
+  richiesta_implementazione: "border-violet-300 bg-violet-50 text-violet-900",
+  bug: "border-orange-300 bg-orange-50 text-orange-900",
 };
 
 function ticketTipologia(ticket: SupportTicket): SupportTicketTipologia {
