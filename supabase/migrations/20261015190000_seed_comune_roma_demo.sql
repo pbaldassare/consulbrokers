@@ -1,5 +1,5 @@
--- Demo ente pubblico — portale cliente area metropolitana Roma
--- Credenziali: demo.comune.roma@consulbrokers.it / Leone123! (edge seed-comune-roma-demo)
+-- Demo ente pubblico — portale cliente (dati fittizi)
+-- Credenziali: demo.ente@consulbrokers.it / Leone123! (edge seed-comune-roma-demo)
 -- Esclusione report: numero_titolo NOT LIKE 'DEMO-RM-%' AND numero_sinistro NOT LIKE 'SIN-RM-%'
 
 DO $$

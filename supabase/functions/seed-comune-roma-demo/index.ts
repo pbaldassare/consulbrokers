@@ -7,9 +7,11 @@ const corsHeaders = {
 };
 
 const CLIENTE_ID = "e8f4a2b0-7c3d-4e1f-9a6b-2d4e8f1c0b5a";
-const DEMO_EMAIL = "demo.comune.roma@consulbrokers.it";
+const DEMO_EMAIL = "demo.ente@consulbrokers.it";
+const LEGACY_DEMO_EMAIL = "demo.comune.roma@consulbrokers.it";
 const DEMO_PASSWORD = "Leone123!";
-const DEMO_RAGIONE = "Comune Demo Roma Capitale";
+const DEMO_RAGIONE = "Demo Ente Pubblico";
+const DEMO_STORAGE_PREFIX = "demo-ente";
 
 function minimalPdfBytes(title: string): Uint8Array {
   const safe = title.replace(/[()\\]/g, " ").slice(0, 80);
@@ -81,6 +83,18 @@ Deno.serve(async (req) => {
 
     let userId = cliente.user_id as string | null;
 
+    const findAuthUserByEmail = async (email: string) => {
+      const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+      return listData?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase()) ?? null;
+    };
+
+    if (!userId) {
+      const legacy = await findAuthUserByEmail(LEGACY_DEMO_EMAIL);
+      const current = await findAuthUserByEmail(DEMO_EMAIL);
+      if (legacy) userId = legacy.id;
+      else if (current) userId = current.id;
+    }
+
     if (!userId) {
       const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
         email: DEMO_EMAIL,
@@ -91,8 +105,7 @@ Deno.serve(async (req) => {
 
       if (authErr) {
         if (authErr.message?.includes("already been registered")) {
-          const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-          const existing = listData?.users?.find((u) => u.email?.toLowerCase() === DEMO_EMAIL);
+          const existing = await findAuthUserByEmail(DEMO_EMAIL);
           if (!existing) throw authErr;
           userId = existing.id;
           await supabase.auth.admin.updateUserById(userId, { password: DEMO_PASSWORD, email_confirm: true });
@@ -117,7 +130,12 @@ Deno.serve(async (req) => {
       await supabase.from("clienti").update({ user_id: userId, area_riservata_tipo: "completa" }).eq("id", CLIENTE_ID);
       (results.steps as unknown[]).push({ auth: "created", user_id: userId });
     } else {
-      await supabase.auth.admin.updateUserById(userId, { password: DEMO_PASSWORD, email_confirm: true });
+      await supabase.auth.admin.updateUserById(userId, {
+        email: DEMO_EMAIL,
+        password: DEMO_PASSWORD,
+        email_confirm: true,
+        user_metadata: { nome: DEMO_RAGIONE, cognome: "" },
+      });
       await supabase.from("profiles").upsert({
         id: userId,
         nome: DEMO_RAGIONE,
@@ -127,6 +145,7 @@ Deno.serve(async (req) => {
         attivo: true,
       }, { onConflict: "id" });
       await supabase.from("user_roles").upsert({ user_id: userId, role: "cliente" }, { onConflict: "user_id,role" });
+      await supabase.from("clienti").update({ user_id: userId, area_riservata_tipo: "completa", email: DEMO_EMAIL }).eq("id", CLIENTE_ID);
       (results.steps as unknown[]).push({ auth: "existing", user_id: userId });
     }
 
@@ -168,7 +187,7 @@ Deno.serve(async (req) => {
 
     const pdfCliente: unknown[] = [];
     for (const d of CLIENTE_DOCS) {
-      const storagePath = `${CLIENTE_ID}/demo-comune-roma/${d.path}`;
+      const storagePath = `${CLIENTE_ID}/${DEMO_STORAGE_PREFIX}/${d.path}`;
       const bytes = minimalPdfBytes(d.title);
       const { error: upErr } = await supabase.storage
         .from("documenti_clienti")
@@ -186,7 +205,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (!sin?.id) continue;
       const fname = `Denuncia_${num}.pdf`;
-      const storagePath = `${CLIENTE_ID}/demo-comune-roma/sinistri/${num}_denuncia.pdf`;
+      const storagePath = `${CLIENTE_ID}/${DEMO_STORAGE_PREFIX}/sinistri/${num}_denuncia.pdf`;
       const bytes = minimalPdfBytes(`Denuncia ${num}`);
       await supabase.storage.from("documenti_clienti").upload(storagePath, bytes, { contentType: "application/pdf", upsert: true });
       const { data: existingDoc } = await supabase
