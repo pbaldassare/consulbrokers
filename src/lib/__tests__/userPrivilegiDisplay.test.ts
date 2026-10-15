@@ -2,8 +2,25 @@ import { describe, expect, it } from "vitest";
 import { compareNomeCognome, formatNomeCognome, permissionSummary, sedeAssegnataLabel } from "../userPrivilegiDisplay";
 
 describe("sedeAssegnataLabel", () => {
-  it("per l'admin senza sede indica tutte le sedi", () => {
+  it("per l'admin indica tutte le sedi anche se resta ufficio_id legacy", () => {
     expect(sedeAssegnataLabel({ ruolo: "admin", uffici: null, profilo_sedi: [] })).toBe("Tutte le sedi");
+    expect(
+      sedeAssegnataLabel({
+        ruolo: "admin",
+        uffici: { nome_ufficio: "Ufficio di Napoli" },
+        profilo_sedi: [{ primaria: true, uffici: { nome_ufficio: "Ufficio di Napoli" } }],
+      }),
+    ).toBe("Tutte le sedi");
+  });
+
+  it("per il CFO indica tutte le sedi", () => {
+    expect(
+      sedeAssegnataLabel({
+        ruolo: "cfo",
+        uffici: { nome_ufficio: "Milano" },
+        profilo_sedi: [],
+      }),
+    ).toBe("Tutte le sedi");
   });
 
   it("mostra la sede diretta e quelle extra senza duplicare", () => {

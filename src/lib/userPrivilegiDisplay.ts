@@ -32,8 +32,17 @@ export function visibilityOf(user: PrivUserDisplay): VisibilityScope {
   return getLevelByRole(user.ruolo).defaultVisibility;
 }
 
+/** Admin/CFO (e visibilità «all») vedono tutte le sedi a livello piattaforma/RLS. */
+export function hasGlobalSedeAccess(user: PrivUserDisplay): boolean {
+  const role = (user.ruolo || "").trim().toLowerCase();
+  if (role === "admin" || role === "cfo") return true;
+  return visibilityOf(user) === "all";
+}
+
 /** Sede assegnata, oppure l'ambito se non c'è una sede nominata. */
 export function sedeAssegnataLabel(user: PrivUserDisplay): string {
+  if (hasGlobalSedeAccess(user)) return "Tutte le sedi";
+
   const names: string[] = [];
   const direct = nomeUfficio(user.uffici ?? null);
   if (direct) names.push(direct);
@@ -43,7 +52,6 @@ export function sedeAssegnataLabel(user: PrivUserDisplay): string {
     names.push(sede.primaria ? `${name} (primaria)` : name);
   }
   if (names.length > 0) return names.join(", ");
-  if (visibilityOf(user) === "all") return "Tutte le sedi";
   return "Nessuna sede";
 }
 

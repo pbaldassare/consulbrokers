@@ -94,10 +94,13 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
       return;
     }
     setSaving(true);
+    const globalSede = ruolo === "admin" || ruolo === "cfo";
     const newPermissions = {
-      ...permissions,
-      riceve_provvigioni: riceveProvvigioni,
-      _visibility: visibility,
+      ...(ruolo === "admin"
+        ? Object.fromEntries(ALL_PERMISSION_KEYS.map((key) => [key, true]))
+        : permissions),
+      riceve_provvigioni: ruolo === "admin" ? true : riceveProvvigioni,
+      _visibility: globalSede ? ("all" as VisibilityScope) : visibility,
     };
 
     const { error } = await supabase.from("profiles").update({
@@ -122,6 +125,13 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
         onSaved();
         setSaving(false);
         return;
+      }
+    }
+
+    if (globalSede) {
+      const { error: sedeErr } = await supabase.from("profilo_sedi").delete().eq("profilo_id", user.id);
+      if (sedeErr) {
+        toast.warning("Profilo aggiornato ma sedi aggiuntive non rimosse", { description: sedeErr.message });
       }
     }
 
