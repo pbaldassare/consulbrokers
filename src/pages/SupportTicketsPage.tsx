@@ -299,7 +299,7 @@ function NewTicketDialog({
           <h2>Nuovo ticket ${ticketNumber}</h2>
           <p><strong>Richiedente:</strong> ${escapeSupportTicketHtml(ticket.richiedente_nome)}
           &lt;${escapeSupportTicketHtml(ticket.richiedente_email)}&gt;</p>
-          <p><strong>Tipologia:</strong> ${escapeSupportTicketHtml(SUPPORT_TICKET_TIPOLOGIA_LABEL[ticket.tipologia_problema ?? "richiesta_implementazione"])}</p>
+          <p><strong>Tipologia:</strong> ${escapeSupportTicketHtml(SUPPORT_TICKET_TIPOLOGIA_LABEL[ticket.tipologia_problema ?? "bug"])}</p>
           <p><strong>Titolo:</strong> ${escapeSupportTicketHtml(ticket.titolo)}</p>
           <p><strong>Cliente:</strong> ${escapeSupportTicketHtml(ticket.cliente_riferimento || "Non indicato")}</p>
           <p><strong>Polizza:</strong> ${escapeSupportTicketHtml(ticket.polizza_riferimento || "Non indicata")}</p>
@@ -1018,12 +1018,12 @@ function TicketDetail({
 }
 
 const tipologiaBadgeClass: Record<SupportTicketTipologia, string> = {
-  richiesta_implementazione: "border-violet-300 bg-violet-50 text-violet-900",
-  bug: "border-rose-300 bg-rose-50 text-rose-900",
+  richiesta_implementazione: "border-violet-300 bg-violet-50 text-violet-900 uppercase tracking-wide",
+  bug: "border-orange-300 bg-orange-50 text-orange-900 uppercase tracking-wide",
 };
 
 function ticketTipologia(ticket: SupportTicket): SupportTicketTipologia {
-  return ticket.tipologia_problema ?? "richiesta_implementazione";
+  return ticket.tipologia_problema ?? "bug";
 }
 
 function TicketsTableBody({
@@ -1123,7 +1123,7 @@ function GroupedTicketsTable({
       {groups.map((group) => (
         <section key={group.tipologia} className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold tracking-tight">{group.label}</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide">{group.label}</h2>
             <Badge variant="outline" className={tipologiaBadgeClass[group.tipologia]}>
               {group.tickets.length}
             </Badge>

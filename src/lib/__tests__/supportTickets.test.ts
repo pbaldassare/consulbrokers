@@ -9,6 +9,7 @@ import {
   isSupportTicketClosed,
   mergeSupportTicketAttachmentFiles,
   groupSupportTicketsByTipologia,
+  SUPPORT_TICKET_TIPOLOGIA_LABEL,
   supportTicketUserLockedMessage,
   validateSupportTicketDescription,
   validateSupportTicketReply,
@@ -35,6 +36,11 @@ describe("supportTickets", () => {
     expect(grouped.map((g) => g.tipologia)).toEqual(["richiesta_implementazione", "bug"]);
     expect(grouped[0].tickets).toHaveLength(1);
     expect(grouped[1].tickets[0].id).toBe("1");
+  });
+
+  it("espone etichette tipologia in maiuscolo", () => {
+    expect(SUPPORT_TICKET_TIPOLOGIA_LABEL.bug).toBe("BUG");
+    expect(SUPPORT_TICKET_TIPOLOGIA_LABEL.richiesta_implementazione).toBe("RICHIESTA IMPLEMENTAZIONE");
   });
 
   it("separa i ticket operativi dallo storico", () => {

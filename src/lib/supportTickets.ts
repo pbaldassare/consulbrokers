@@ -5,13 +5,13 @@ export type SupportTicketStatus = "aperto" | "preso_in_carico" | "risolto";
 export type SupportTicketTipologia = "richiesta_implementazione" | "bug";
 
 export const SUPPORT_TICKET_TIPOLOGIE: { value: SupportTicketTipologia; label: string }[] = [
-  { value: "richiesta_implementazione", label: "Richiesta implementazione" },
-  { value: "bug", label: "Bug" },
+  { value: "richiesta_implementazione", label: "RICHIESTA IMPLEMENTAZIONE" },
+  { value: "bug", label: "BUG" },
 ];
 
 export const SUPPORT_TICKET_TIPOLOGIA_LABEL: Record<SupportTicketTipologia, string> = {
-  richiesta_implementazione: "Richiesta implementazione",
-  bug: "Bug",
+  richiesta_implementazione: "RICHIESTA IMPLEMENTAZIONE",
+  bug: "BUG",
 };
 
 /** Ordine fisso dei gruppi in elenco ticket. */
@@ -27,7 +27,7 @@ export function groupSupportTicketsByTipologia<T extends { tipologia_problema?: 
     tipologia,
     label: SUPPORT_TICKET_TIPOLOGIA_LABEL[tipologia],
     tickets: tickets.filter(
-      (t) => (t.tipologia_problema ?? "richiesta_implementazione") === tipologia,
+      (t) => (t.tipologia_problema ?? "bug") === tipologia,
     ),
   })).filter((g) => g.tickets.length > 0);
 }
