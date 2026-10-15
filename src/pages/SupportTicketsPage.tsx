@@ -40,6 +40,10 @@ import {
   type SupportTicketStatus,
   validateSupportTicketDescription,
   validateSupportTicketReply,
+  SUPPORT_TICKET_TIPOLOGIA_LABEL,
+  SUPPORT_TICKET_TIPOLOGIE,
+  groupSupportTicketsByTipologia,
+  type SupportTicketTipologia,
 } from "@/lib/supportTickets";
 import { useSupportTicketUnread } from "@/hooks/useSupportTicketUnread";
 import { SUPPORT_TICKET_UNREAD_QUERY_KEY } from "@/lib/supportTicketUnread";
@@ -97,6 +101,7 @@ interface SupportTicket {
   richiedente_email: string;
   ufficio_id: string | null;
   titolo: string;
+  tipologia_problema: SupportTicketTipologia;
   descrizione: string;
   cliente_riferimento: string | null;
   polizza_riferimento: string | null;
@@ -204,6 +209,7 @@ function NewTicketDialog({
   onCreated: (ticket: SupportTicket) => void;
 }) {
   const { user, profile } = useAuth();
+  const [tipologia, setTipologia] = useState<SupportTicketTipologia>("richiesta_implementazione");
   const [titolo, setTitolo] = useState("");
   const [descrizione, setDescrizione] = useState("");
   const [cliente, setCliente] = useState("");
@@ -212,6 +218,7 @@ function NewTicketDialog({
   const [saving, setSaving] = useState(false);
 
   const reset = () => {
+    setTipologia("richiesta_implementazione");
     setTitolo("");
     setDescrizione("");
     setCliente("");
@@ -242,6 +249,7 @@ function NewTicketDialog({
           richiedente_id: user.id,
           richiedente_nome: profile.email || "Utente CBnet",
           richiedente_email: profile.email || user.email || "",
+          tipologia_problema: tipologia,
           titolo: titolo.trim(),
           descrizione: descrizione.trim(),
           cliente_riferimento: cliente.trim() || null,
@@ -291,6 +299,7 @@ function NewTicketDialog({
           <h2>Nuovo ticket ${ticketNumber}</h2>
           <p><strong>Richiedente:</strong> ${escapeSupportTicketHtml(ticket.richiedente_nome)}
           &lt;${escapeSupportTicketHtml(ticket.richiedente_email)}&gt;</p>
+          <p><strong>Tipologia:</strong> ${escapeSupportTicketHtml(SUPPORT_TICKET_TIPOLOGIA_LABEL[ticket.tipologia_problema ?? "richiesta_implementazione"])}</p>
           <p><strong>Titolo:</strong> ${escapeSupportTicketHtml(ticket.titolo)}</p>
           <p><strong>Cliente:</strong> ${escapeSupportTicketHtml(ticket.cliente_riferimento || "Non indicato")}</p>
           <p><strong>Polizza:</strong> ${escapeSupportTicketHtml(ticket.polizza_riferimento || "Non indicata")}</p>
@@ -342,24 +351,44 @@ function NewTicketDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(90vh,52rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="shrink-0 space-y-1 px-6 pt-6 pb-2">
           <DialogTitle>Apri un nuovo ticket</DialogTitle>
           <DialogDescription>
             La richiesta sarà inviata automaticamente al supporto IT.
           </DialogDescription>
         </DialogHeader>
 
-        <Alert>
-          <FileWarning className="h-4 w-4" />
-          <AlertTitle>Aiutaci a risolvere più velocemente</AlertTitle>
-          <AlertDescription>
-            Descrivi passaggi, messaggi di errore e risultato atteso. Se il problema riguarda
-            un cliente o una polizza, indica tutti i riferimenti disponibili.
-          </AlertDescription>
-        </Alert>
+        <ScrollArea className="min-h-0 flex-1 px-6">
+          <div className="space-y-4 pb-4 pr-3">
+            <Alert>
+              <FileWarning className="h-4 w-4" />
+              <AlertTitle>Aiutaci a risolvere più velocemente</AlertTitle>
+              <AlertDescription>
+                Descrivi passaggi, messaggi di errore e risultato atteso. Se il problema riguarda
+                un cliente o una polizza, indica tutti i riferimenti disponibili.
+              </AlertDescription>
+            </Alert>
 
-        <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="ticket-tipologia">Tipologia del problema *</Label>
+              <Select
+                value={tipologia}
+                onValueChange={(value) => setTipologia(value as SupportTicketTipologia)}
+              >
+                <SelectTrigger id="ticket-tipologia">
+                  <SelectValue placeholder="Seleziona tipologia..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORT_TICKET_TIPOLOGIE.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
           <div className="grid gap-2">
             <Label htmlFor="ticket-title">Titolo *</Label>
             <Input
@@ -431,9 +460,10 @@ function NewTicketDialog({
               </div>
             )}
           </div>
-        </div>
+          </div>
+        </ScrollArea>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 gap-2 border-t bg-background px-6 py-4 sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Annulla
           </Button>
@@ -740,7 +770,12 @@ function TicketDetail({
               {SUPPORT_TICKET_STATUS_LABEL[ticket.stato]}
             </Badge>
           </div>
-          <SheetDescription>{ticket.titolo}</SheetDescription>
+          <SheetDescription className="space-y-1">
+            <span className="block">{ticket.titolo}</span>
+            <Badge variant="outline" className={tipologiaBadgeClass[ticketTipologia(ticket)]}>
+              {SUPPORT_TICKET_TIPOLOGIA_LABEL[ticketTipologia(ticket)]}
+            </Badge>
+          </SheetDescription>
         </SheetHeader>
 
         <ScrollArea className="mt-5 h-[calc(100vh-130px)] pr-4">
@@ -982,7 +1017,16 @@ function TicketDetail({
   );
 }
 
-function TicketsTable({
+const tipologiaBadgeClass: Record<SupportTicketTipologia, string> = {
+  richiesta_implementazione: "border-violet-300 bg-violet-50 text-violet-900",
+  bug: "border-rose-300 bg-rose-50 text-rose-900",
+};
+
+function ticketTipologia(ticket: SupportTicket): SupportTicketTipologia {
+  return ticket.tipologia_problema ?? "richiesta_implementazione";
+}
+
+function TicketsTableBody({
   tickets,
   isAdmin,
   currentUserId,
@@ -995,6 +1039,76 @@ function TicketsTable({
   unreadIds: Set<string>;
   onSelect: (ticket: SupportTicket) => void;
 }) {
+  return (
+    <>
+      {tickets.map((ticket) => (
+        <TableRow
+          key={ticket.id}
+          className="cursor-pointer"
+          onClick={() => onSelect(ticket)}
+        >
+          <TableCell className="font-mono text-xs font-semibold">
+            <span className="inline-flex items-center gap-2">
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${unreadIds.has(ticket.id) ? "bg-blue-500" : "bg-transparent"}`}
+                aria-label={unreadIds.has(ticket.id) ? "Ticket nuovo" : undefined}
+              />
+              {formatSupportTicketNumber(ticket.numero)}
+              {canUserReplyToSupportTicket({
+                stato: ticket.stato,
+                utentePuoRispondere: ticket.utente_puo_rispondere,
+                richiedenteId: ticket.richiedente_id,
+                userId: currentUserId,
+                isAdmin,
+              }) && (
+                <Badge variant="outline" className="border-blue-300 bg-blue-50 text-blue-800">
+                  Rispondi
+                </Badge>
+              )}
+            </span>
+          </TableCell>
+          <TableCell>
+            <p className="max-w-md truncate font-medium">{ticket.titolo}</p>
+            {(ticket.cliente_riferimento || ticket.polizza_riferimento) && (
+              <p className="max-w-md truncate text-xs text-muted-foreground">
+                {[ticket.cliente_riferimento, ticket.polizza_riferimento].filter(Boolean).join(" · ")}
+              </p>
+            )}
+          </TableCell>
+          {isAdmin && (
+            <TableCell>
+              <p className="font-medium">{ticket.richiedente_nome}</p>
+              <p className="text-xs text-muted-foreground">{ticket.richiedente_email}</p>
+            </TableCell>
+          )}
+          <TableCell>
+            <Badge variant="outline" className={statusClass[ticket.stato]}>
+              {SUPPORT_TICKET_STATUS_LABEL[ticket.stato]}
+            </Badge>
+          </TableCell>
+          <TableCell className="whitespace-nowrap text-sm">{displayDate(ticket.data_apertura)}</TableCell>
+          <TableCell className="whitespace-nowrap text-sm">{displayDate(ticket.updated_at)}</TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+}
+
+function GroupedTicketsTable({
+  tickets,
+  isAdmin,
+  currentUserId,
+  unreadIds,
+  onSelect,
+}: {
+  tickets: SupportTicket[];
+  isAdmin: boolean;
+  currentUserId?: string;
+  unreadIds: Set<string>;
+  onSelect: (ticket: SupportTicket) => void;
+}) {
+  const groups = useMemo(() => groupSupportTicketsByTipologia(tickets), [tickets]);
+
   if (tickets.length === 0) {
     return (
       <div className="py-14 text-center text-muted-foreground">
@@ -1003,71 +1117,42 @@ function TicketsTable({
       </div>
     );
   }
+
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Ticket</TableHead>
-            <TableHead>Richiesta</TableHead>
-            {isAdmin && <TableHead>Richiedente</TableHead>}
-            <TableHead>Stato</TableHead>
-            <TableHead>Apertura</TableHead>
-            <TableHead>Aggiornamento</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {tickets.map((ticket) => (
-            <TableRow
-              key={ticket.id}
-              className="cursor-pointer"
-              onClick={() => onSelect(ticket)}
-            >
-              <TableCell className="font-mono text-xs font-semibold">
-                <span className="inline-flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${unreadIds.has(ticket.id) ? "bg-blue-500" : "bg-transparent"}`}
-                    aria-label={unreadIds.has(ticket.id) ? "Ticket nuovo" : undefined}
-                  />
-                  {formatSupportTicketNumber(ticket.numero)}
-                  {canUserReplyToSupportTicket({
-                    stato: ticket.stato,
-                    utentePuoRispondere: ticket.utente_puo_rispondere,
-                    richiedenteId: ticket.richiedente_id,
-                    userId: currentUserId,
-                    isAdmin,
-                  }) && (
-                    <Badge variant="outline" className="border-blue-300 bg-blue-50 text-blue-800">
-                      Rispondi
-                    </Badge>
-                  )}
-                </span>
-              </TableCell>
-              <TableCell>
-                <p className="max-w-md truncate font-medium">{ticket.titolo}</p>
-                {(ticket.cliente_riferimento || ticket.polizza_riferimento) && (
-                  <p className="max-w-md truncate text-xs text-muted-foreground">
-                    {[ticket.cliente_riferimento, ticket.polizza_riferimento].filter(Boolean).join(" · ")}
-                  </p>
-                )}
-              </TableCell>
-              {isAdmin && (
-                <TableCell>
-                  <p className="font-medium">{ticket.richiedente_nome}</p>
-                  <p className="text-xs text-muted-foreground">{ticket.richiedente_email}</p>
-                </TableCell>
-              )}
-              <TableCell>
-                <Badge variant="outline" className={statusClass[ticket.stato]}>
-                  {SUPPORT_TICKET_STATUS_LABEL[ticket.stato]}
-                </Badge>
-              </TableCell>
-              <TableCell className="whitespace-nowrap text-sm">{displayDate(ticket.data_apertura)}</TableCell>
-              <TableCell className="whitespace-nowrap text-sm">{displayDate(ticket.updated_at)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <div className="space-y-8">
+      {groups.map((group) => (
+        <section key={group.tipologia} className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold tracking-tight">{group.label}</h2>
+            <Badge variant="outline" className={tipologiaBadgeClass[group.tipologia]}>
+              {group.tickets.length}
+            </Badge>
+          </div>
+          <div className="overflow-hidden rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ticket</TableHead>
+                  <TableHead>Richiesta</TableHead>
+                  {isAdmin && <TableHead>Richiedente</TableHead>}
+                  <TableHead>Stato</TableHead>
+                  <TableHead>Apertura</TableHead>
+                  <TableHead>Aggiornamento</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TicketsTableBody
+                  tickets={group.tickets}
+                  isAdmin={isAdmin}
+                  currentUserId={currentUserId}
+                  unreadIds={unreadIds}
+                  onSelect={onSelect}
+                />
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -1197,7 +1282,7 @@ export default function SupportTicketsPage() {
             <TabsTrigger value="storico">Storico ({resolvedTickets.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="aperti" className="mt-4">
-            <TicketsTable
+            <GroupedTicketsTable
               tickets={pendingTickets}
               isAdmin={isAdmin}
               currentUserId={user?.id}
@@ -1209,7 +1294,7 @@ export default function SupportTicketsPage() {
             />
           </TabsContent>
           <TabsContent value="presi_in_carico" className="mt-4">
-            <TicketsTable
+            <GroupedTicketsTable
               tickets={assignedTickets}
               isAdmin={isAdmin}
               currentUserId={user?.id}
@@ -1221,7 +1306,7 @@ export default function SupportTicketsPage() {
             />
           </TabsContent>
           <TabsContent value="storico" className="mt-4">
-            <TicketsTable
+            <GroupedTicketsTable
               tickets={resolvedTickets}
               isAdmin={isAdmin}
               currentUserId={user?.id}

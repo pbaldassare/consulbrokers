@@ -13647,6 +13647,7 @@ export type Database = {
           richiedente_id: string
           richiedente_nome: string
           stato: string
+          tipologia_problema: string
           titolo: string
           ufficio_id: string | null
           updated_at: string
@@ -13667,6 +13668,7 @@ export type Database = {
           richiedente_id: string
           richiedente_nome: string
           stato?: string
+          tipologia_problema?: string
           titolo: string
           ufficio_id?: string | null
           updated_at?: string
@@ -13687,6 +13689,7 @@ export type Database = {
           richiedente_id?: string
           richiedente_nome?: string
           stato?: string
+          tipologia_problema?: string
           titolo?: string
           ufficio_id?: string | null
           updated_at?: string

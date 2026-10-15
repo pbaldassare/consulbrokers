@@ -8,6 +8,7 @@ import {
   isOpenSupportTicket,
   isSupportTicketClosed,
   mergeSupportTicketAttachmentFiles,
+  groupSupportTicketsByTipologia,
   supportTicketUserLockedMessage,
   validateSupportTicketDescription,
   validateSupportTicketReply,
@@ -24,6 +25,16 @@ describe("supportTickets", () => {
 
   it("formatta il numero leggibile del ticket", () => {
     expect(formatSupportTicketNumber(42)).toBe("TCK-000042");
+  });
+
+  it("raggruppa i ticket per tipologia in ordine fisso", () => {
+    const grouped = groupSupportTicketsByTipologia([
+      { tipologia_problema: "bug", id: "1" },
+      { tipologia_problema: "richiesta_implementazione", id: "2" },
+    ]);
+    expect(grouped.map((g) => g.tipologia)).toEqual(["richiesta_implementazione", "bug"]);
+    expect(grouped[0].tickets).toHaveLength(1);
+    expect(grouped[1].tickets[0].id).toBe("1");
   });
 
   it("separa i ticket operativi dallo storico", () => {

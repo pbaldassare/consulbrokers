@@ -2,6 +2,36 @@ import { isDocumentUploadTooLarge } from "@/lib/uploadLimits";
 
 export type SupportTicketStatus = "aperto" | "preso_in_carico" | "risolto";
 
+export type SupportTicketTipologia = "richiesta_implementazione" | "bug";
+
+export const SUPPORT_TICKET_TIPOLOGIE: { value: SupportTicketTipologia; label: string }[] = [
+  { value: "richiesta_implementazione", label: "Richiesta implementazione" },
+  { value: "bug", label: "Bug" },
+];
+
+export const SUPPORT_TICKET_TIPOLOGIA_LABEL: Record<SupportTicketTipologia, string> = {
+  richiesta_implementazione: "Richiesta implementazione",
+  bug: "Bug",
+};
+
+/** Ordine fisso dei gruppi in elenco ticket. */
+export const SUPPORT_TICKET_TIPOLOGIA_ORDER: SupportTicketTipologia[] = [
+  "richiesta_implementazione",
+  "bug",
+];
+
+export function groupSupportTicketsByTipologia<T extends { tipologia_problema?: SupportTicketTipologia | null }>(
+  tickets: T[],
+): { tipologia: SupportTicketTipologia; label: string; tickets: T[] }[] {
+  return SUPPORT_TICKET_TIPOLOGIA_ORDER.map((tipologia) => ({
+    tipologia,
+    label: SUPPORT_TICKET_TIPOLOGIA_LABEL[tipologia],
+    tickets: tickets.filter(
+      (t) => (t.tipologia_problema ?? "richiesta_implementazione") === tipologia,
+    ),
+  })).filter((g) => g.tickets.length > 0);
+}
+
 export const SUPPORT_TICKET_STATUS: Array<{
   value: SupportTicketStatus;
   label: string;
