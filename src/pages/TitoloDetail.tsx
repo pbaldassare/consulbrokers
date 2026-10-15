@@ -8,6 +8,8 @@ import { handleNotificaMessaCassaOutcome, invokeNotificaMessaCassa, scheduleOrIn
 import { MessaCassaSeraleCheckbox } from "@/components/portafoglio/MessaCassaSeraleCheckbox";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { buildGarantitoPayload, buildIncassoDateFields, isInCoperturaGarantita, isGarantitoAperto } from "@/lib/garantitoTitolo";
+import { messaggioBloccoSequenza } from "@/lib/messaCassaSequenza";
+import { verificaSequenzaDistinta } from "@/lib/messaCassaSequenzaDb";
 import { annullaPolizza } from "@/lib/annullaPolizza";
 import { puoAprireIncasso, ripristinaPolizzaPerIncasso } from "@/lib/ripristinaPolizzaPerIncasso";
 import { resolveStatoContrattoTitolo } from "@/lib/statoContrattoTitolo";
@@ -1996,6 +1998,10 @@ const TitoloDetail = () => {
       const ente = isClienteEnte((titolo as any)?.cliente_anagrafica);
       if (ente && isCigFormatoInvalido(form.cig_rif, form.cig_temporaneo)) {
         throw new Error("CIG definitivo non valido: 10 caratteri alfanumerici, oppure spunta Temporaneo");
+      }
+      const blocchi = await verificaSequenzaDistinta(supabase, [id!]);
+      if (blocchi.length > 0) {
+        throw new Error(messaggioBloccoSequenza(blocchi[0]));
       }
       const payload = buildGarantitoPayload(form);
       if (ente) {

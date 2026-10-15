@@ -102,4 +102,12 @@ describe("verificaSequenzaIncasso", () => {
     );
     expect(blocchi).toHaveLength(0);
   });
+
+  it("madre legacy a premio 0 non blocca la quietanza con premio (Gramazio)", () => {
+    const madreZero = { ...polizza2026, id: "mad0", premio_lordo: 0, riga: 0 };
+    const quietanza = { ...quietanza2027, id: "q26", premio_lordo: 1553, garanzia_da: "2026-07-30" };
+    const blocchi = verificaSequenzaIncasso(["q26"], [madreZero, quietanza]);
+    expect(blocchi).toHaveLength(0);
+    expect(prossimoDaIncassare([madreZero, quietanza])?.id).toBe("q26");
+  });
 });

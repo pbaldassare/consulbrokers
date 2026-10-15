@@ -16,6 +16,7 @@ export type TitoloSequenza = {
   compagnia_id?: string | null;
   riga?: number | null;
   garanzia_da?: string | null;
+  premio_lordo?: number | null;
   stato?: string | null;
   data_messa_cassa?: string | null;
   conferimento_gestito?: boolean | null;
@@ -49,13 +50,37 @@ function ordineCatena(a: TitoloSequenza, b: TitoloSequenza): number {
   return Number(a.riga ?? 0) - Number(b.riga ?? 0);
 }
 
+/** Polizza madre import legacy (premio 0, mai a cassa): non blocca le quietanze con premio. */
+export function isMadreLegacyPremioZero(t: TitoloSequenza): boolean {
+  if (t.sostituisce_polizza) return false;
+  if (isAppendice(t)) return false;
+  if (t.data_messa_cassa) return false;
+  return Number(t.premio_lordo ?? 0) === 0;
+}
+
+function catenaHaQuietanzaConPremioAperto<T extends TitoloSequenza>(catena: T[]): boolean {
+  return catena.some(
+    (x) =>
+      !!x.sostituisce_polizza
+      && !isAppendice(x)
+      && !x.data_messa_cassa
+      && Number(x.premio_lordo ?? 0) > 0,
+  );
+}
+
+/** Esclude madri a premio 0 quando esiste una quietanza con premio da incassare. */
+export function catenaPerSequenzaIncasso<T extends TitoloSequenza>(catena: T[]): T[] {
+  if (!catenaHaQuietanzaConPremioAperto(catena)) return catena;
+  return catena.filter((t) => !isMadreLegacyPremioZero(t));
+}
+
 /**
  * Primo titolo della catena ancora da mettere a cassa (o null se tutto incassato).
  * Si parte dopo l'ultimo titolo già a cassa: titoli aperti rimasti indietro
  * (catene del modello precedente) non bloccano la catena.
  */
 export function prossimoDaIncassare<T extends TitoloSequenza>(catena: T[]): T | null {
-  const ordinata = [...catena].sort(ordineCatena);
+  const ordinata = [...catenaPerSequenzaIncasso(catena)].sort(ordineCatena);
   let start = 0;
   ordinata.forEach((t, i) => {
     if (t.data_messa_cassa) start = i + 1;

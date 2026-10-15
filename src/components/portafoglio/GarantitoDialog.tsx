@@ -13,6 +13,8 @@ import { handleNotificaMessaCassaOutcome, scheduleOrInvokeNotificaMessaCassa } f
 import { MessaCassaSeraleCheckbox } from "@/components/portafoglio/MessaCassaSeraleCheckbox";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { buildGarantitoPayload } from "@/lib/garantitoTitolo";
+import { messaggioBloccoSequenza } from "@/lib/messaCassaSequenza";
+import { verificaSequenzaDistinta } from "@/lib/messaCassaSequenzaDb";
 import { canHaveDataCopertura } from "@/lib/quietanze";
 
 export interface TitoloMin {
@@ -72,6 +74,13 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
     let ok = 0, ko = 0;
     const notificaTitoloIds: string[] = [];
 
+    const blocchi = await verificaSequenzaDistinta(supabase, titoli.map((t) => t.id));
+    if (blocchi.length > 0) {
+      setLoading(false);
+      toast.error(messaggioBloccoSequenza(blocchi[0]));
+      return;
+    }
+
     for (const t of titoli) {
       // Polizza, quietanza e appendice possono andare in copertura.
       let row = t;
@@ -92,7 +101,11 @@ export function GarantitoDialog({ open, onOpenChange, titoli, onSuccess }: Props
 
       const payload = buildGarantitoPayload({ dataCopertura, dataDecorrenza });
       const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
-      if (error) { ko++; continue; }
+      if (error) {
+        ko++;
+        toast.error(error.message || "Operazione fallita");
+        continue;
+      }
       await syncQuietanzaCopertura(t.id, dataCopertura);
       ok++;
       await logAttivita({

@@ -6,7 +6,7 @@ import {
 } from "@/lib/messaCassaSequenza";
 
 export const TITOLO_SEQUENZA_SELECT =
-  "id, numero_titolo, sostituisce_polizza, compagnia_id, riga, garanzia_da, stato, data_messa_cassa, conferimento_gestito, tipo_pagamento, data_copertura, is_appendice_modifica, is_proroga, is_regolazione";
+  "id, numero_titolo, sostituisce_polizza, compagnia_id, riga, garanzia_da, premio_lordo, stato, data_messa_cassa, conferimento_gestito, tipo_pagamento, data_copertura, is_appendice_modifica, is_proroga, is_regolazione";
 
 function numeriCatena(rows: TitoloSequenza[]): string[] {
   const set = new Set<string>();
