@@ -19,10 +19,10 @@ export type ControparteSinistroRow = {
   id: string;
   codice: number;
   denominazione: string;
-  codice_fiscale: string | null;
-  partita_iva: string | null;
   email: string | null;
+  pec: string | null;
   telefono: string | null;
+  cellulare: string | null;
   note: string | null;
   attivo: boolean;
 };
@@ -37,10 +37,10 @@ type Props = {
 
 const emptyForm = () => ({
   denominazione: "",
-  codice_fiscale: "",
-  partita_iva: "",
   email: "",
+  pec: "",
   telefono: "",
+  cellulare: "",
   note: "",
 });
 
@@ -64,10 +64,10 @@ export function NuovaControparteSinistroDialog({
       if (existing) {
         setForm({
           denominazione: existing.denominazione || "",
-          codice_fiscale: existing.codice_fiscale || "",
-          partita_iva: existing.partita_iva || "",
           email: existing.email || "",
+          pec: existing.pec || "",
           telefono: existing.telefono || "",
+          cellulare: existing.cellulare || "",
           note: existing.note || "",
         });
       } else {
@@ -80,14 +80,14 @@ export function NuovaControparteSinistroDialog({
   const saveMutation = useMutation({
     mutationFn: async () => {
       const denominazione = form.denominazione.trim();
-      if (!denominazione) throw new Error("Inserire la denominazione");
+      if (!denominazione) throw new Error("Inserire nome e cognome o ragione sociale");
 
       const payload = {
         denominazione,
-        codice_fiscale: form.codice_fiscale.trim() || null,
-        partita_iva: form.partita_iva.trim() || null,
         email: form.email.trim() || null,
+        pec: form.pec.trim() || null,
         telefono: form.telefono.trim() || null,
+        cellulare: form.cellulare.trim() || null,
         note: form.note.trim() || null,
         updated_at: new Date().toISOString(),
       };
@@ -120,7 +120,7 @@ export function NuovaControparteSinistroDialog({
     },
     onError: (err: Error) => {
       const msg = err.message.includes("controparti_sinistri_denominazione_norm")
-        ? "Esiste già una controparte con la stessa denominazione"
+        ? "Esiste già una controparte con lo stesso nome"
         : err.message;
       toast.error(msg);
     },
@@ -133,35 +133,17 @@ export function NuovaControparteSinistroDialog({
       </DialogHeader>
       <div className="grid gap-4 py-2">
         <div className="space-y-2">
-          <Label htmlFor="denominazione">Denominazione *</Label>
+          <Label htmlFor="denominazione">Nome e cognome / Ragione sociale *</Label>
           <Input
             id="denominazione"
             value={form.denominazione}
             onChange={(e) => setForm((f) => ({ ...f, denominazione: e.target.value }))}
-            placeholder="Nome controparte o veicolo coinvolto"
+            placeholder="Es. Mario Rossi oppure Acme S.r.l."
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="cf">Codice fiscale</Label>
-            <Input
-              id="cf"
-              value={form.codice_fiscale}
-              onChange={(e) => setForm((f) => ({ ...f, codice_fiscale: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="piva">P. IVA</Label>
-            <Input
-              id="piva"
-              value={form.partita_iva}
-              onChange={(e) => setForm((f) => ({ ...f, partita_iva: e.target.value }))}
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Indirizzo email</Label>
             <Input
               id="email"
               type="email"
@@ -170,6 +152,17 @@ export function NuovaControparteSinistroDialog({
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="pec">Indirizzo PEC</Label>
+            <Input
+              id="pec"
+              type="email"
+              value={form.pec}
+              onChange={(e) => setForm((f) => ({ ...f, pec: e.target.value }))}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
             <Label htmlFor="telefono">Telefono</Label>
             <Input
               id="telefono"
@@ -177,12 +170,20 @@ export function NuovaControparteSinistroDialog({
               onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="cellulare">Cellulare</Label>
+            <Input
+              id="cellulare"
+              value={form.cellulare}
+              onChange={(e) => setForm((f) => ({ ...f, cellulare: e.target.value }))}
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="note">Note</Label>
           <Textarea
             id="note"
-            rows={2}
+            rows={3}
             value={form.note}
             onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
           />

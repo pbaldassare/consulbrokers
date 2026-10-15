@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Plus, Search, UserRound } from "lucide-react";
 import ServerPagination from "@/components/ServerPagination";
 import {
@@ -59,7 +58,7 @@ const ContropartiSinistriList = () => {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Controparti sinistri</h1>
           <p className="text-muted-foreground">
-            Anagrafica controparti per l&apos;apertura e la gestione delle pratiche sinistro
+            Anagrafica leggera per controparti nelle pratiche sinistro (nome o azienda e recapiti)
           </p>
         </div>
         <NuovaControparteSinistroDialog
@@ -83,7 +82,7 @@ const ContropartiSinistriList = () => {
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Cerca per nome, CF, P.IVA..."
+                placeholder="Cerca per nome, email, telefono..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -107,35 +106,28 @@ const ContropartiSinistriList = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Codice</TableHead>
-                    <TableHead>Denominazione</TableHead>
-                    <TableHead>CF / P.IVA</TableHead>
+                    <TableHead>Nome / Azienda</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>PEC</TableHead>
                     <TableHead>Telefono</TableHead>
-                    <TableHead>Stato</TableHead>
+                    <TableHead>Cellulare</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((c) => {
-                    const cfPiva = c.codice_fiscale || c.partita_iva || "—";
-                    return (
-                      <TableRow
-                        key={c.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setEditRow(c)}
-                      >
-                        <TableCell className="font-mono text-xs">{c.codice ?? "—"}</TableCell>
-                        <TableCell className="font-medium">{c.denominazione}</TableCell>
-                        <TableCell className="font-mono text-xs">{cfPiva}</TableCell>
-                        <TableCell>{c.email || "—"}</TableCell>
-                        <TableCell>{c.telefono || "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={c.attivo ? "default" : "secondary"}>
-                            {c.attivo ? "Attivo" : "Disattivo"}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {rows.map((c) => (
+                    <TableRow
+                      key={c.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setEditRow(c)}
+                    >
+                      <TableCell className="font-mono text-xs">{c.codice ?? "—"}</TableCell>
+                      <TableCell className="font-medium">{c.denominazione}</TableCell>
+                      <TableCell>{c.email || "—"}</TableCell>
+                      <TableCell>{c.pec || "—"}</TableCell>
+                      <TableCell>{c.telefono || "—"}</TableCell>
+                      <TableCell>{c.cellulare || "—"}</TableCell>
+                    </TableRow>
+                  ))}
                   {rows.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground">
