@@ -19,6 +19,7 @@ const CITY_CENTERS: Record<string, { lat: number; lng: number }> = {
   varese: VARESE_CENTER,
   "reggio calabria": REGGIO_CALABRIA_CENTER,
   milano: { lat: 45.4642, lng: 9.19 },
+  roma: { lat: 41.9028, lng: 12.4964 },
   "san dona di piave": { lat: 45.6297, lng: 12.5644 },
   "san donà di piave": { lat: 45.6297, lng: 12.5644 },
 };
