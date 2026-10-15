@@ -239,7 +239,7 @@ export default function PolizzaDetail() {
                       const st = STATO_QUIETANZA[q.stato] || { label: q.stato, cls: "" };
                       const provv = Number(q.provvigioni_quietanza) || Number(q.provvigioni_firma) || 0;
                       return (
-                        <TableRow key={q.id} className="cursor-pointer hover:bg-muted/40 h-10" onClick={() => navigate(`/quietanze/${q.id}`)}>
+                        <TableRow key={q.id} className="cursor-pointer hover:bg-muted/40 h-10" onClick={() => navigate(q.titolo_id ? `/titoli/${q.titolo_id}` : `/quietanze/${q.id}`)}>
                           <TableCell className="py-1.5 font-medium font-mono">
                             {q.numero_rata}{q.numero_rate_totali ? `/${q.numero_rate_totali}` : ""}
                           </TableCell>

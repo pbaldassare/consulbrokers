@@ -3,12 +3,7 @@ import { useParams, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
-/**
- * Route alias `/quietanze/:id` → risolve la quietanza e reindirizza
- * al `titolo` legacy 1:1 (la rata vive come riga `titoli` per backward compat).
- *
- * In Fase 3 qui vivrà la vera vista "rata" autonoma.
- */
+/** Alias `/quietanze/:id` → unica vista staff `TitoloDetail` (`/titoli/:id`). */
 export default function QuietanzaDetailRedirect() {
   const { id } = useParams<{ id: string }>();
   const [titoloId, setTitoloId] = useState<string | null>(null);
@@ -21,13 +16,19 @@ export default function QuietanzaDetailRedirect() {
         setNotFound(true);
         return;
       }
+      const { data: titoloDirect } = await supabase.from("titoli").select("id").eq("id", id).maybeSingle();
+      if (cancelled) return;
+      if (titoloDirect?.id) {
+        setTitoloId(titoloDirect.id);
+        return;
+      }
       const { data, error } = await supabase
         .from("quietanze")
-        .select("titolo_id, polizza_id")
+        .select("titolo_id")
         .eq("id", id)
         .maybeSingle();
       if (cancelled) return;
-      if (error || !data || !data.titolo_id) {
+      if (error || !data?.titolo_id) {
         setNotFound(true);
         return;
       }

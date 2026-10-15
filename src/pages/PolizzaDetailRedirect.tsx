@@ -3,12 +3,7 @@ import { useParams, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
-/**
- * Route alias `/polizze/:id` → risolve la polizza-contratto e reindirizza
- * al `titolo` legacy collegato (vista TitoloDetail, modello sincronizzato).
- *
- * In Fase 3, quando `titoli` verrà ritirata, qui vivrà il vero dettaglio polizza.
- */
+/** Alias `/polizze/:id` → unica vista staff `TitoloDetail` (`/titoli/:id`). */
 export default function PolizzaDetailRedirect() {
   const { id } = useParams<{ id: string }>();
   const [titoloId, setTitoloId] = useState<string | null>(null);
@@ -21,8 +16,22 @@ export default function PolizzaDetailRedirect() {
         setNotFound(true);
         return;
       }
-      // Cerca il titolo madre collegato a questa polizza (numero_rata = 1 se passiamo via quietanze,
-      // ma è più affidabile prendere il titolo che ha polizza_id = :id e nessun sostituisce_polizza)
+      const { data: titoloDirect } = await supabase.from("titoli").select("id").eq("id", id).maybeSingle();
+      if (cancelled) return;
+      if (titoloDirect?.id) {
+        setTitoloId(titoloDirect.id);
+        return;
+      }
+      const { data: polizzaRow } = await supabase
+        .from("polizze")
+        .select("titolo_madre_id")
+        .eq("id", id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (polizzaRow?.titolo_madre_id) {
+        setTitoloId(polizzaRow.titolo_madre_id);
+        return;
+      }
       const { data, error } = await supabase
         .from("titoli")
         .select("id, sostituisce_polizza, created_at")

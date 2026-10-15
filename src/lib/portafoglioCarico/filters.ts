@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { PENDENTI_OR_GARANTITO_APERTO_FILTER } from "@/lib/garantitoTitolo";
 import { quietanzaSogliaGaranziaDa } from "@/lib/quietanzeClienteView";
+import { hrefPolizzaContratto, hrefQuietanzaDettaglio, hrefTitoloDettaglio } from "@/lib/polizzaNavigation";
 
 /**
  * Pendenti (filtro su inizio garanzia):
@@ -51,7 +52,7 @@ export const isAppendiceExpr = "is_appendice_modifica.eq.true,is_regolazione.eq.
 export const CARICO_SELECT_FIELDS =
   "id, quietanza_id, polizza_id, numero_titolo, titolo_derivato_numero, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, durata_da, durata_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, ufficio_id, data_messa_cassa, data_copertura, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, appendice_tipo, regolazione_quietanza_id, proroga_polizza_madre_id, numero_rata, numero_rate_totali";
 
-/** Da Incassi/Carico: la polizza si incassa sulla sua scheda titolo; le rate sulla quietanza. */
+/** Link riga portafoglio → sempre TitoloDetail quando c’è l’id titolo. */
 export const rowHref = (p: {
   quietanza_id?: string | null;
   is_appendice_modifica?: boolean | null;
@@ -61,14 +62,11 @@ export const rowHref = (p: {
   polizza_id?: string | null;
   sostituisce_polizza?: string | null;
 }): string | null => {
-  if (p?.id && !p.sostituisce_polizza) return `/titoli/${p.id}`;
-  if (p?.quietanza_id) return `/quietanze/${p.quietanza_id}`;
-  if (p?.is_appendice_modifica || p?.is_proroga || p?.is_regolazione) {
-    if (p?.id) return `/titoli/${p.id}`;
-  }
-  if (p?.id) return `/titoli/${p.id}`;
-  if (p?.polizza_id) return `/polizze/${p.polizza_id}`;
-  return null;
+  const titolo = hrefTitoloDettaglio(p?.id);
+  if (titolo) return titolo;
+  const quietanza = hrefQuietanzaDettaglio({ quietanzaId: p?.quietanza_id });
+  if (quietanza) return quietanza;
+  return hrefPolizzaContratto({ polizzaId: p?.polizza_id });
 };
 
 export const applyDateRange = (q: any, col: string, dateDa: string, dateA: string) => {
