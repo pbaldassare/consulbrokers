@@ -11,6 +11,7 @@ import {
   isTipoSinistroVeicolo,
   type SinistroPraticaValues,
 } from "@/lib/sinistroPraticaSchema";
+import ControparteSinistroSelect from "@/components/sinistri/ControparteSinistroSelect";
 
 interface LookupPerson {
   id: string;
@@ -163,8 +164,19 @@ export default function SinistroPraticaFormFields({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="controparte">Controparte (opzionale)</Label>
-          <Input id="controparte" placeholder="Nome controparte o veicolo coinvolto" {...register("controparte")} />
+          <Label>Controparte (opzionale)</Label>
+          <ControparteSinistroSelect
+            valueId={watch("controparte_sinistri_id") || ""}
+            valueLabel={watch("controparte") || ""}
+            onChange={({ id, denominazione }) => {
+              setValue("controparte_sinistri_id", id, { shouldValidate: true });
+              setValue("controparte", denominazione, { shouldValidate: true });
+            }}
+            onClear={() => {
+              setValue("controparte_sinistri_id", "", { shouldValidate: true });
+              setValue("controparte", "", { shouldValidate: true });
+            }}
+          />
         </div>
         {showTarga && (
           <div className="space-y-2">

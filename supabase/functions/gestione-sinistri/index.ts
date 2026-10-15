@@ -13,6 +13,7 @@ function sanitizeEdgePayload(body: unknown): unknown {
   const uuidKeys = [
     "titolo_id", "cliente_id", "compagnia_id", "responsabile_id", "liquidatore_id",
     "ufficio_id", "user_id", "cliente_anagrafica_id", "sinistro_id", "assegnato_a",
+    "controparte_sinistri_id",
   ];
   const numberKeys = [
     "importo_riserva", "costo_preventivato", "costo_effettivo", "franchigia", "importo_liquidato",
@@ -25,6 +26,30 @@ function sanitizeEdgePayload(body: unknown): unknown {
     if (o[k] === "") o[k] = undefined;
   }
   return o;
+}
+
+async function resolveControparteForDb(
+  supabase: ReturnType<typeof createClient>,
+  input: { controparte?: string | null; controparte_sinistri_id?: string | null },
+): Promise<{ controparte: string | null; controparte_sinistri_id: string | null }> {
+  const id = input.controparte_sinistri_id ?? null;
+  if (id) {
+    const { data, error } = await supabase
+      .from("controparti_sinistri")
+      .select("denominazione")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    const denominazione = (data?.denominazione as string | undefined)?.trim();
+    return {
+      controparte_sinistri_id: id,
+      controparte: denominazione || input.controparte?.trim() || null,
+    };
+  }
+  return {
+    controparte_sinistri_id: null,
+    controparte: input.controparte?.trim() || null,
+  };
 }
 
 /** Allineato a src/lib/sinistriStati.ts — slug persistiti in sinistri.stato. */
@@ -188,6 +213,7 @@ const payloadSchema = z.discriminatedUnion("azione", [
     numero_sinistro_compagnia: z.string().optional().nullable(),
     importo_riserva: z.number().nullable().optional(),
     controparte: z.string().optional().nullable(),
+    controparte_sinistri_id: z.string().uuid().nullable().optional(),
     targa_veicolo: z.string().optional().nullable(),
     dinamica: z.string().optional().nullable(),
     indirizzo_sinistro: z.string().optional().nullable(),
@@ -239,6 +265,7 @@ const payloadSchema = z.discriminatedUnion("azione", [
     cap_sinistro: z.string().optional().nullable(),
     provincia_sinistro: z.string().optional().nullable(),
     controparte: z.string().optional().nullable(),
+    controparte_sinistri_id: z.string().uuid().nullable().optional(),
     targa_veicolo: z.string().optional().nullable(),
     importo_riserva: z.number().nullable().optional(),
     costo_preventivato: z.number().nullable().optional(),
@@ -278,6 +305,7 @@ const payloadSchema = z.discriminatedUnion("azione", [
     numero_sinistro_compagnia: z.string().optional().nullable(),
     importo_riserva: z.number().nullable().optional(),
     controparte: z.string().optional().nullable(),
+    controparte_sinistri_id: z.string().uuid().nullable().optional(),
     targa_veicolo: z.string().optional().nullable(),
     dinamica: z.string().optional().nullable(),
     indirizzo_sinistro: z.string().optional().nullable(),
@@ -359,11 +387,16 @@ Deno.serve(async (req) => {
         ufficio_id, descrizione, user_id, numero_polizza, ramo_sinistro, prodotto_sinistro,
         cliente_anagrafica_id, tipo_sinistro, tipo_sinistro_personalizzato, luogo_sinistro, data_evento,
         data_denuncia, data_apertura, numero_sinistro_compagnia, importo_riserva,
-        controparte, targa_veicolo, dinamica, indirizzo_sinistro, citta_sinistro, cap_sinistro, provincia_sinistro,
+        controparte, controparte_sinistri_id, targa_veicolo, dinamica, indirizzo_sinistro, citta_sinistro, cap_sinistro, provincia_sinistro,
         costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
         stato_iniziale, priorita, note_interne, bozza_wizard_json,
         anni_prescrizione, prescrizioni_iniziali, reminder_iniziali,
       } = parsed.data;
+
+      const controparteResolved = await resolveControparteForDb(supabase, {
+        controparte,
+        controparte_sinistri_id,
+      });
 
       const isBozza = stato_iniziale === "bozza";
       const numero = numero_sinistro
@@ -397,7 +430,8 @@ Deno.serve(async (req) => {
         citta_sinistro: citta_sinistro ?? null,
         cap_sinistro: cap_sinistro ?? null,
         provincia_sinistro: provincia_sinistro ?? null,
-        controparte: controparte?.trim() || null,
+        controparte: controparteResolved.controparte,
+        controparte_sinistri_id: controparteResolved.controparte_sinistri_id,
         targa_veicolo: targa_veicolo?.trim() || null,
         data_evento: data_evento ?? null,
         data_denuncia: isBozza ? (data_denuncia ?? null) : (data_denuncia ?? oggi),
@@ -513,7 +547,7 @@ Deno.serve(async (req) => {
       const {
         sinistro_id, user_id, sinistro_terzi, titolo_id, data_evento, data_denuncia, tipo_sinistro, tipo_sinistro_personalizzato,
         numero_sinistro_compagnia, descrizione, dinamica, luogo_sinistro, indirizzo_sinistro,
-        citta_sinistro, cap_sinistro, provincia_sinistro, controparte, targa_veicolo,
+        citta_sinistro, cap_sinistro, provincia_sinistro, controparte, controparte_sinistri_id, targa_veicolo,
         importo_riserva, costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
         responsabile_id, liquidatore_id, note_interne, note_importanti, bozza_wizard_json,
         compagnia_id, compagnia_libera, ufficio_id, numero_polizza, ramo_sinistro, prodotto_sinistro,
@@ -552,7 +586,14 @@ Deno.serve(async (req) => {
       if (citta_sinistro !== undefined) updateData.citta_sinistro = citta_sinistro;
       if (cap_sinistro !== undefined) updateData.cap_sinistro = cap_sinistro;
       if (provincia_sinistro !== undefined) updateData.provincia_sinistro = provincia_sinistro;
-      if (controparte !== undefined) updateData.controparte = controparte?.trim() || null;
+      if (controparte_sinistri_id !== undefined || controparte !== undefined) {
+        const resolved = await resolveControparteForDb(supabase, {
+          controparte,
+          controparte_sinistri_id,
+        });
+        updateData.controparte = resolved.controparte;
+        updateData.controparte_sinistri_id = resolved.controparte_sinistri_id;
+      }
       if (targa_veicolo !== undefined) updateData.targa_veicolo = targa_veicolo?.trim() || null;
       if (importo_riserva !== undefined) updateData.importo_riserva = importo_riserva;
       if (costo_preventivato !== undefined) updateData.costo_preventivato = costo_preventivato;
@@ -638,12 +679,17 @@ Deno.serve(async (req) => {
         sinistro_id, user_id, sinistro_terzi, titolo_id, cliente_anagrafica_id, compagnia_id, ufficio_id,
         numero_polizza, ramo_sinistro, prodotto_sinistro,
         descrizione, tipo_sinistro, tipo_sinistro_personalizzato, luogo_sinistro, data_evento, data_denuncia,
-        numero_sinistro_compagnia, importo_riserva, controparte, targa_veicolo, dinamica,
+        numero_sinistro_compagnia, importo_riserva, controparte, controparte_sinistri_id, targa_veicolo, dinamica,
         indirizzo_sinistro, citta_sinistro, cap_sinistro, provincia_sinistro,
         costo_preventivato, costo_effettivo, franchigia, importo_liquidato,
         responsabile_id, liquidatore_id, note_interne, priorita,
         anni_prescrizione, prescrizioni_iniziali, reminder_iniziali,
       } = parsed.data;
+
+      const controparteResolvedFinalizza = await resolveControparteForDb(supabase, {
+        controparte,
+        controparte_sinistri_id,
+      });
 
       const { data: prev, error: prevErr } = await supabase
         .from("sinistri")
@@ -697,7 +743,8 @@ Deno.serve(async (req) => {
         citta_sinistro: citta_sinistro ?? null,
         cap_sinistro: cap_sinistro ?? null,
         provincia_sinistro: provincia_sinistro ?? null,
-        controparte: controparte?.trim() || null,
+        controparte: controparteResolvedFinalizza.controparte,
+        controparte_sinistri_id: controparteResolvedFinalizza.controparte_sinistri_id,
         targa_veicolo: targa_veicolo?.trim() || null,
         data_evento: data_evento ?? null,
         numero_sinistro_compagnia: numero_sinistro_compagnia ?? null,

@@ -5370,6 +5370,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           denominazione: string
+          denominazione_norm: string | null
           email: string | null
           id: string
           note: string | null
@@ -12713,6 +12714,7 @@ export type Database = {
           compagnia_id: string | null
           compagnia_libera: string | null
           controparte: string | null
+          controparte_sinistri_id: string | null
           costo_effettivo: number | null
           costo_preventivato: number | null
           created_at: string | null
@@ -12767,6 +12769,7 @@ export type Database = {
           compagnia_id?: string | null
           compagnia_libera?: string | null
           controparte?: string | null
+          controparte_sinistri_id?: string | null
           costo_effettivo?: number | null
           costo_preventivato?: number | null
           created_at?: string | null
@@ -12821,6 +12824,7 @@ export type Database = {
           compagnia_id?: string | null
           compagnia_libera?: string | null
           controparte?: string | null
+          controparte_sinistri_id?: string | null
           costo_effettivo?: number | null
           costo_preventivato?: number | null
           created_at?: string | null

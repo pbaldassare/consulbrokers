@@ -31,6 +31,7 @@ export const sinistroPraticaSchema = z.object({
   cap_sinistro: z.string().optional(),
   provincia_sinistro: z.string().optional(),
   controparte: z.string().optional(),
+  controparte_sinistri_id: z.string().optional(),
   targa_veicolo: z.string().optional(),
   importo_riserva: optionalNumber,
   responsabile_id: z.string().optional(),
@@ -58,6 +59,7 @@ export const sinistroPraticaDefaultValues: SinistroPraticaValues = {
   cap_sinistro: "",
   provincia_sinistro: "",
   controparte: "",
+  controparte_sinistri_id: "",
   targa_veicolo: "",
   importo_riserva: undefined,
   responsabile_id: "",
@@ -171,6 +173,7 @@ export const sinistroRowToPraticaValues = (s: Record<string, unknown>): Sinistro
   cap_sinistro: (s.cap_sinistro as string) || "",
   provincia_sinistro: (s.provincia_sinistro as string) || "",
   controparte: (s.controparte as string) || "",
+  controparte_sinistri_id: (s.controparte_sinistri_id as string) || "",
   targa_veicolo: (s.targa_veicolo as string) || "",
   importo_riserva: s.importo_riserva != null ? Number(s.importo_riserva) : undefined,
   responsabile_id: (s.responsabile_id as string) || "",
@@ -216,6 +219,9 @@ export const praticaValuesToDbPayload = (
     ...(values.provincia_sinistro?.trim()
       ? { provincia_sinistro: values.provincia_sinistro.trim() }
       : {}),
+    ...(asOptionalUuid(values.controparte_sinistri_id)
+      ? { controparte_sinistri_id: asOptionalUuid(values.controparte_sinistri_id) }
+      : { controparte_sinistri_id: null }),
     ...(values.controparte?.trim() ? { controparte: values.controparte.trim() } : {}),
     ...(showTarga && values.targa_veicolo?.trim()
       ? { targa_veicolo: values.targa_veicolo.trim() }

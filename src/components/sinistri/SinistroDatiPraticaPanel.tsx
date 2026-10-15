@@ -6,7 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Pencil, X, Save } from "lucide-react";
+import { ChevronRight, Pencil, X, Save } from "lucide-react";
+import { ControparteSinistroDetailDialog } from "@/components/sinistri/ControparteSinistroDetailDialog";
+import type { ControparteSinistroRow } from "@/components/sinistri/NuovaControparteSinistroDialog";
 import SinistroPraticaFormFields from "@/components/sinistri/SinistroPraticaFormFields";
 import SinistroAssegnazioniReminderSection from "@/components/sinistri/SinistroAssegnazioniReminderSection";
 import SinistroPolizzaSelector from "@/components/sinistri/SinistroPolizzaSelector";
@@ -44,6 +46,8 @@ interface SinistroRow {
   cap_sinistro?: string | null;
   provincia_sinistro?: string | null;
   controparte?: string | null;
+  controparte_sinistri_id?: string | null;
+  controparte_sinistri?: ControparteSinistroRow | null;
   targa_veicolo?: string | null;
   importo_riserva?: number | null;
   costo_preventivato?: number | null;
@@ -104,6 +108,23 @@ const fmtEuro = (n?: number | null) =>
 
 
 export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow }) {
+  const [controparteDialogOpen, setControparteDialogOpen] = useState(false);
+
+  const { data: controparteFetched } = useQuery({
+    queryKey: ["controparte-sinistro-detail", sinistro.controparte_sinistri_id],
+    enabled: Boolean(sinistro.controparte_sinistri_id) && !sinistro.controparte_sinistri,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("controparti_sinistri")
+        .select("*")
+        .eq("id", sinistro.controparte_sinistri_id!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as ControparteSinistroRow | null;
+    },
+  });
+
+  const controparteAnag = sinistro.controparte_sinistri ?? controparteFetched ?? null;
   const descrizione = sinistro.descrizione || sinistro.dinamica;
   const noteImportanti = sinistro.note_importanti;
   const luogo = sinistro.indirizzo_sinistro || sinistro.luogo_sinistro;
@@ -143,6 +164,12 @@ export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow })
 
   return (
     <div className="space-y-5 text-sm">
+      <ControparteSinistroDetailDialog
+        open={controparteDialogOpen}
+        onOpenChange={setControparteDialogOpen}
+        controparte={controparteAnag}
+        loading={Boolean(sinistro.controparte_sinistri_id) && !controparteAnag}
+      />
       <section className="space-y-3">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Identità</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -162,7 +189,24 @@ export function SinistroPraticaReadOnly({ sinistro }: { sinistro: SinistroRow })
             <p className="font-semibold">{telefonoIdentitaSinistro(sinistro) || "—"}</p>
           </div>
           <div><span className="text-muted-foreground">N. sinistro compagnia</span><p className="font-semibold">{sinistro.numero_sinistro_compagnia || "—"}</p></div>
-          <div><span className="text-muted-foreground">Controparte</span><p className="font-semibold">{sinistro.controparte || "—"}</p></div>
+          <div>
+            <span className="text-muted-foreground">Controparte</span>
+            <div className="flex items-center gap-1">
+              <p className="font-semibold">{sinistro.controparte || "—"}</p>
+              {sinistro.controparte_sinistri_id && sinistro.controparte ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  title="Dettaglio anagrafica controparte"
+                  onClick={() => setControparteDialogOpen(true)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </div>
+          </div>
           <div><span className="text-muted-foreground">Targa veicolo</span><p className="font-semibold">{sinistro.targa_veicolo || "—"}</p></div>
         </div>
       </section>
