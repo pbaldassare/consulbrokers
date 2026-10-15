@@ -66,8 +66,8 @@ export const rowHref = (p: {
   if (p?.is_appendice_modifica || p?.is_proroga || p?.is_regolazione) {
     if (p?.id) return `/titoli/${p.id}`;
   }
-  if (p?.polizza_id) return `/polizze/${p.polizza_id}`;
   if (p?.id) return `/titoli/${p.id}`;
+  if (p?.polizza_id) return `/polizze/${p.polizza_id}`;
   return null;
 };
 

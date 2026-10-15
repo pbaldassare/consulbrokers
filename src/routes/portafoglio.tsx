@@ -1,7 +1,7 @@
 import { Route, Navigate } from "react-router-dom";
 import TitoliList from "@/pages/TitoliList";
 import TitoloDetail from "@/pages/TitoloDetail";
-import PolizzaDetail from "@/pages/PolizzaDetail";
+import PolizzaDetailRedirect from "@/pages/PolizzaDetailRedirect";
 import QuietanzaDetail from "@/pages/QuietanzaDetail";
 
 import ImmissionePolizzaPage from "@/pages/ImmissionePolizzaPage";
@@ -43,7 +43,7 @@ export const portafoglioRoutes = (
   <>
     <Route path="/titoli" element={<TitoliList />} />
     <Route path="/titoli/:id" element={<TitoloDetail />} />
-    <Route path="/polizze/:id" element={<PolizzaDetail />} />
+    <Route path="/polizze/:id" element={<PolizzaDetailRedirect />} />
     <Route path="/quietanze/:id" element={<QuietanzaDetail />} />
     <Route path="/portafoglio" element={<Navigate to="/portafoglio/attive" replace />} />
     <Route path="/portafoglio/attive" element={<PortafoglioAttivePage />} />

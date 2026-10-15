@@ -21,11 +21,7 @@ import { TipoPolizzaBadge } from "@/components/polizze/TipoPolizzaBadge";
 import { SortableTableHead, nextSort } from "@/components/shared/SortableTableHead";
 import { applyPortafoglioTipoOrder, isTipoSortField, TIPO_SORT_FIELD } from "@/lib/portafoglioTipoSort";
 import { rowBorderClass, isQuietanzaRow, displayStatoPolizza, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
-
-const rowHref = (p: any) =>
-  p?.sostituisce_polizza
-    ? `/quietanze/${p.quietanza_id}`
-    : `/polizze/${p.polizza_id}`;
+import { rowHref } from "@/lib/portafoglioCarico/filters";
 
 const PortafoglioStoricoPage = () => {
   const navigate = useNavigate();
@@ -228,7 +224,10 @@ const PortafoglioStoricoPage = () => {
                   <TableRow
                     key={p.id}
                     className={`cursor-pointer ${rowBorderClass(p)} ${messaCassaRowBgClass(p)} ${!isMessaACassa(p) && isQ ? "hover:bg-muted/40" : ""} ${p.is_regolazione ? "bg-orange-50/40" : idx % 2 === 1 && !isMessaACassa(p) && !isQ ? "bg-muted/30" : ""}`}
-                    onClick={() => navigate(rowHref(p))}
+                    onClick={() => {
+                      const h = rowHref(p);
+                      if (h) navigate(h);
+                    }}
                   >
                     <TableCell className={`font-medium ${isQ ? "pl-8 font-normal text-muted-foreground" : ""}`}>
                       {isQ && <span className="mr-1 text-muted-foreground">└</span>}
@@ -272,7 +271,8 @@ const PortafoglioStoricoPage = () => {
                         title="Apri dettaglio (sola consultazione)"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(rowHref(p));
+                          const h = rowHref(p);
+                          if (h) navigate(h);
                         }}
                       >
                         <Eye className="h-4 w-4" />

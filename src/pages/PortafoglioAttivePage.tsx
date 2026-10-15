@@ -24,16 +24,13 @@ import { datePeriodoPolizzaGaranzia } from "@/lib/datePolizzaGaranzia";
 import { rowBorderClass, isQuietanzaRow, isPolizzaMadreRow, messaCassaRowBgClass, isMessaACassa } from "@/lib/polizzeDisplay";
 import { applyPortafoglioTipoOrder, isTipoSortField, TIPO_SORT_FIELD } from "@/lib/portafoglioTipoSort";
 import { cn } from "@/lib/utils";
+import { rowHref } from "@/lib/portafoglioCarico/filters";
+import { hrefPolizzaContratto } from "@/lib/polizzaNavigation";
 
 const ROW_SELECT =
   "id, quietanza_id, polizza_id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, cliente_anagrafica_id, stato, garanzia_da, garanzia_a, durata_da, durata_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, produttori_display, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza, is_regolazione, is_proroga, is_appendice_modifica, regolazione_quietanza_id, numero_rata, numero_rate_totali";
 
 type PortafoglioRow = Record<string, any>;
-
-const rowHref = (p: PortafoglioRow) =>
-  p?.sostituisce_polizza
-    ? `/quietanze/${p.quietanza_id}`
-    : `/polizze/${p.polizza_id}`;
 
 const PortafoglioAttivePage = () => {
   const navigate = useNavigate();
@@ -209,7 +206,10 @@ const PortafoglioAttivePage = () => {
           p.is_proroga && "bg-blue-50/40",
           p.is_appendice_modifica && "bg-primary/5",
         )}
-        onClick={() => navigate(rowHref(p))}
+        onClick={() => {
+          const h = rowHref(p);
+          if (h) navigate(h);
+        }}
         title="Apri titolo"
       >
         <TableCell className="font-mono text-xs">
@@ -231,7 +231,10 @@ const PortafoglioAttivePage = () => {
               type="button"
               variant="link"
               className="h-auto p-0 font-mono text-xs"
-              onClick={() => navigate(`/polizze/${p.polizza_id}`)}
+              onClick={() => {
+                const h = hrefPolizzaContratto({ polizzaId: p.polizza_id });
+                if (h) navigate(h);
+              }}
             >
               {p.numero_titolo || "—"}
             </Button>

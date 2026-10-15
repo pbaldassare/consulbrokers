@@ -19,6 +19,7 @@ import { useTitoloCommerciale } from "@/hooks/useTitoloCommerciale";
 import { SchedaCommercialeCard } from "@/components/titolo/SchedaCommercialeCard";
 import { CompactCard, Field } from "@/components/titolo/SchedaCompact";
 import { extraFirmaQuietanza, scalaRiparto, totProvvigioniRata } from "@/lib/schedaCommerciale";
+import { hrefPolizzaContratto } from "@/lib/polizzaNavigation";
 
 const fmtDate = (d: string | null | undefined) => (d ? format(new Date(d), "dd/MM/yyyy") : "—");
 
@@ -128,6 +129,9 @@ export default function QuietanzaDetail() {
 
   const clienteId = polizza?.cliente_anagrafica_id;
   const clienteHref = clienteId ? `/clienti/${clienteId}?tab=polizze` : null;
+  const polizzaContrattoHref = polizza
+    ? hrefPolizzaContratto({ titoloId: polizza.titolo_madre_id, polizzaId: polizza.id })
+    : null;
   const totLabel = q.numero_rate_totali ? `${q.numero_rata}/${q.numero_rate_totali}` : `${q.numero_rata}`;
 
   return (
@@ -149,12 +153,12 @@ export default function QuietanzaDetail() {
               </BreadcrumbItem>
             </>
           )}
-          {polizza && (
+          {polizza && polizzaContrattoHref && (
             <>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
                 <BreadcrumbLink asChild>
-                  <Link to={`/polizze/${polizza.id}`}>Polizza {polizza.numero_polizza}</Link>
+                  <Link to={polizzaContrattoHref}>Polizza {polizza.numero_polizza}</Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
             </>
@@ -174,7 +178,9 @@ export default function QuietanzaDetail() {
               variant="ghost"
               size="sm"
               className="h-7 px-2 -ml-2"
-              onClick={() => (polizza ? navigate(`/polizze/${polizza.id}`) : clienteHref ? navigate(clienteHref) : navigate(-1))}
+              onClick={() =>
+                polizzaContrattoHref ? navigate(polizzaContrattoHref) : clienteHref ? navigate(clienteHref) : navigate(-1)
+              }
             >
               <ArrowLeft className="h-3.5 w-3.5 mr-1" /> {polizza ? "Torna alla polizza" : "Indietro"}
             </Button>
@@ -187,8 +193,8 @@ export default function QuietanzaDetail() {
           </h1>
           <p className="text-muted-foreground text-sm">
             Polizza{" "}
-            {polizza ? (
-              <Link to={`/polizze/${polizza.id}`} className="text-primary hover:underline font-medium">
+            {polizza && polizzaContrattoHref ? (
+              <Link to={polizzaContrattoHref} className="text-primary hover:underline font-medium">
                 {numPol}
               </Link>
             ) : "—"}{" "}

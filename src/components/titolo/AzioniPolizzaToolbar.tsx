@@ -29,6 +29,7 @@ import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePoli
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
 import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
+import { hrefPolizzaContratto } from "@/lib/polizzaNavigation";
 
 const fmtDate = (d: string | null | undefined) =>
   d ? format(new Date(d), "dd/MM/yyyy") : "—";
@@ -339,7 +340,14 @@ export function AzioniPolizzaToolbar({
             </>
           )}
           {onQuietanza && polizzaId && (
-            <Button size="sm" variant="outline" onClick={() => navigate(`/polizze/${polizzaId}`)}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const h = hrefPolizzaContratto({ titoloId: titoloMadreId, polizzaId });
+                if (h) navigate(h);
+              }}
+            >
               <FileText className="h-4 w-4 mr-1" /> Apri polizza contratto
             </Button>
           )}
