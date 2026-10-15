@@ -5365,43 +5365,43 @@ export type Database = {
       controparti_sinistri: {
         Row: {
           attivo: boolean
+          cellulare: string | null
           codice: number
-          codice_fiscale: string | null
           created_at: string
           created_by: string | null
           denominazione: string
           email: string | null
           id: string
           note: string | null
-          partita_iva: string | null
+          pec: string | null
           telefono: string | null
           updated_at: string
         }
         Insert: {
           attivo?: boolean
+          cellulare?: string | null
           codice?: number
-          codice_fiscale?: string | null
           created_at?: string
           created_by?: string | null
           denominazione: string
           email?: string | null
           id?: string
           note?: string | null
-          partita_iva?: string | null
+          pec?: string | null
           telefono?: string | null
           updated_at?: string
         }
         Update: {
           attivo?: boolean
+          cellulare?: string | null
           codice?: number
-          codice_fiscale?: string | null
           created_at?: string
           created_by?: string | null
           denominazione?: string
           email?: string | null
           id?: string
           note?: string | null
-          partita_iva?: string | null
+          pec?: string | null
           telefono?: string | null
           updated_at?: string
         }
