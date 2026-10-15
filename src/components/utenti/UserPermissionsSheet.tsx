@@ -186,12 +186,6 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
               <div className="flex gap-1 mt-1 flex-wrap">
                 <Badge variant="outline" className="text-[10px]">{level.id}</Badge>
                 <Badge className="text-[10px]">Ruolo: {roleLabel(ruolo)}</Badge>
-                {(Array.isArray(user.ruoli_rls) ? user.ruoli_rls : []).map((role: string) => (
-                  <Badge key={role} variant="secondary" className="text-[10px]">Sistema: {roleLabel(role)}</Badge>
-                ))}
-                {Array.isArray(user.ruoli_rls) && user.ruoli_rls.length === 0 && (
-                  <Badge variant="destructive" className="text-[10px]">Ruolo di sistema assente</Badge>
-                )}
                 {!attivo && <Badge variant="destructive" className="text-[10px]">Sospeso</Badge>}
               </div>
             </div>
