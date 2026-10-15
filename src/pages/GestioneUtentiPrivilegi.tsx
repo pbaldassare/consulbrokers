@@ -292,12 +292,6 @@ const GestioneUtentiPrivilegi = () => {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm truncate">{formatNomeCognome(u)}</p>
                           <Badge variant="outline" className="text-[10px] h-4">Ruolo: {roleLabel(u.ruolo)}</Badge>
-                          {(u.ruoli_rls?.length ? u.ruoli_rls : []).map((role: string) => (
-                            <Badge key={role} variant="secondary" className="text-[10px] h-4">Sistema: {roleLabel(role)}</Badge>
-                          ))}
-                          {!u.ruoli_rls?.length && (
-                            <Badge variant="destructive" className="text-[10px] h-4">Ruolo di sistema assente</Badge>
-                          )}
                           {!u.attivo && <Badge variant="destructive" className="text-[10px] h-4">Sospeso</Badge>}
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{u.email || "Email assente"}</p>
