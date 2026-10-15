@@ -181,28 +181,25 @@ export function normalizzaNumeroAppendice(n: string | null | undefined): string 
   return (n || "").trim().toUpperCase();
 }
 
-/** Proposta per una nuova appendice: massimo numerico già usato dal cliente + 1. */
+/** Proposta per una nuova appendice: massimo numerico già usato sulla polizza + 1. */
 export function prossimoNumeroAppendice(numeri: string[]): string {
   return String(numeri.reduce((max, n) => Math.max(max, /^\d+$/.test(n.trim()) ? Number(n) : 0), 0) + 1);
 }
 
 /**
- * Numeri appendice già usati dal cliente del titolo (su tutte le sue polizze).
- * Il numero è libero ma univoco per cliente; clienti diversi possono riusarlo.
- * Lo stesso vincolo è garantito dal trigger `trg_numero_appendice_univoco_cliente`.
+ * Numeri appendice già usati sulla stessa polizza madre (`appendici_polizza.titolo_id`).
+ * Il numero è libero ma univoco per polizza; polizze diverse dello stesso cliente possono riusarlo.
+ * Lo stesso vincolo è garantito dal trigger `trg_numero_appendice_univoco_polizza`.
  */
-export async function fetchNumeriAppendiceCliente(
+export async function fetchNumeriAppendicePolizza(
   supabase: SupabaseClient,
-  cliente: { cliente_anagrafica_id?: string | null; cliente_id?: string | null },
+  madreTitoloId: string,
 ): Promise<string[]> {
-  const [col, id] = cliente.cliente_anagrafica_id
-    ? ["cliente_anagrafica_id", cliente.cliente_anagrafica_id]
-    : ["cliente_id", cliente.cliente_id];
-  if (!id) return [];
+  if (!madreTitoloId) return [];
   const { data, error } = await supabase
     .from("appendici_polizza")
-    .select("numero_appendice, titolo:titoli!appendici_polizza_titolo_id_fkey!inner(id)")
-    .eq(`titolo.${col}`, id);
+    .select("numero_appendice")
+    .eq("titolo_id", madreTitoloId);
   if (error) throw error;
   return (data || []).map((r: { numero_appendice: string | null }) => r.numero_appendice || "");
 }

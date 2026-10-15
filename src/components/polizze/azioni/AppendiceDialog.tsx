@@ -18,7 +18,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { logAttivita } from "@/lib/logAttivita";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
-import { fetchNumeriAppendiceCliente, normalizzaNumeroAppendice, prossimoNumeroAppendice } from "@/lib/appendiciPolizza";
+import { fetchNumeriAppendicePolizza, normalizzaNumeroAppendice, prossimoNumeroAppendice } from "@/lib/appendiciPolizza";
 import {
   labelTitoloRiferimento,
   numeroRataRiferimento,
@@ -166,11 +166,11 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     },
   });
 
-  // Numeri appendice già usati dal cliente (il numero è univoco per cliente, non per polizza)
-  const { data: numeriCliente } = useQuery({
-    queryKey: ["numeri-appendice-cliente", titoloInfo?.cliente_anagrafica_id ?? titoloInfo?.cliente_id],
-    enabled: open && !!titoloInfo,
-    queryFn: () => fetchNumeriAppendiceCliente(supabase, titoloInfo!),
+  // Numeri appendice già usati sulla stessa polizza madre
+  const { data: numeriPolizza } = useQuery({
+    queryKey: ["numeri-appendice-polizza", madreId],
+    enabled: open && !!madreId,
+    queryFn: () => fetchNumeriAppendicePolizza(supabase, madreId!),
   });
 
   // La catena non dipende solo dalla risoluzione di `titoloId`: se `titoloInfo`
@@ -231,18 +231,18 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
     }
   }, [open]);
 
-  // Numero appendice: libero; si propone il prossimo numero del cliente finché l'utente non lo cambia.
+  // Numero appendice: libero; si propone il prossimo numero della polizza finché l'utente non lo cambia.
   const numeroToccatoRef = useRef(false);
   useEffect(() => {
     if (!open) {
       numeroToccatoRef.current = false;
       return;
     }
-    if (numeriCliente && !numeroToccatoRef.current) setNumeroAppendice(prossimoNumeroAppendice(numeriCliente));
-  }, [open, numeriCliente]);
+    if (numeriPolizza && !numeroToccatoRef.current) setNumeroAppendice(prossimoNumeroAppendice(numeriPolizza));
+  }, [open, numeriPolizza]);
   const numeroDuplicato =
     !!numeroAppendice.trim() &&
-    (numeriCliente || []).some((n) => normalizzaNumeroAppendice(n) === normalizzaNumeroAppendice(numeroAppendice));
+    (numeriPolizza || []).some((n) => normalizzaNumeroAppendice(n) === normalizzaNumeroAppendice(numeroAppendice));
 
   // Inizializza il form una sola volta per apertura, quando i dati del titolo
   // sono risolti. I refetch di `existing`/`titoloInfo` non ripristinano più i
@@ -317,7 +317,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
     if (!numeroAppendice.trim()) e.numeroAppendice = "Numero appendice obbligatorio";
-    else if (numeroDuplicato) e.numeroAppendice = "Numero già usato per un'altra appendice di questo cliente";
+    else if (numeroDuplicato) e.numeroAppendice = "Numero già usato per un'altra appendice di questa polizza";
     if (!dataEffetto) e.dataEffetto = "Data effetto obbligatoria";
     // La scadenza è opzionale per tutte le tipologie (le appendici sono
     // titoli-incasso autonomi, non richiedono la scadenza della polizza).
@@ -414,7 +414,7 @@ export function AppendiceDialog({ open, onOpenChange, titoloId, numeroTitolo, in
           : undefined,
       });
       qc.invalidateQueries({ queryKey: ["appendici-polizza"] });
-      qc.invalidateQueries({ queryKey: ["numeri-appendice-cliente"] });
+      qc.invalidateQueries({ queryKey: ["numeri-appendice-polizza"] });
       qc.invalidateQueries({ queryKey: ["gestione-polizze"] });
       qc.invalidateQueries({ queryKey: ["titolo", titoloId] });
       onCreated?.();

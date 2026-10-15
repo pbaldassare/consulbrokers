@@ -96,7 +96,7 @@ describe("linkAppendiceAPolizzaBase / buildAppendiceBaseOverrides", () => {
 });
 
 describe("numero appendice libero", () => {
-  it("propone il massimo numerico del cliente + 1, ignorando i numeri alfanumerici", () => {
+  it("propone il massimo numerico della polizza + 1, ignorando i numeri alfanumerici", () => {
     expect(prossimoNumeroAppendice([])).toBe("1");
     expect(prossimoNumeroAppendice(["1", "3", "A7", " 2 "])).toBe("4");
   });
