@@ -351,7 +351,7 @@ function NewTicketDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[min(90vh,52rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl top-[5vh] translate-y-0">
+      <DialogContent className="flex max-h-[min(90vh,52rem)] w-[calc(100%-2rem)] max-w-[min(42rem,calc(100vw-2rem))] flex-col gap-0 overflow-x-hidden overflow-y-hidden p-0 sm:max-w-2xl top-[5vh] translate-y-0">
         <DialogHeader className="shrink-0 space-y-1 px-6 pt-6 pb-2">
           <DialogTitle>Apri un nuovo ticket</DialogTitle>
           <DialogDescription>
@@ -359,9 +359,9 @@ function NewTicketDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="min-h-0 flex-1 px-6">
-          <div className="space-y-4 pb-4 pr-3">
-            <Alert>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="box-border w-full min-w-0 max-w-full space-y-4 px-6 pb-4">
+            <Alert className="max-w-full">
               <FileWarning className="h-4 w-4" />
               <AlertTitle>Aiutaci a risolvere più velocemente</AlertTitle>
               <AlertDescription>
@@ -370,16 +370,16 @@ function NewTicketDialog({
               </AlertDescription>
             </Alert>
 
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <Label htmlFor="ticket-tipologia">Tipologia del problema *</Label>
               <Select
                 value={tipologia}
                 onValueChange={(value) => setTipologia(value as SupportTicketTipologia)}
               >
-                <SelectTrigger id="ticket-tipologia">
+                <SelectTrigger id="ticket-tipologia" className="w-full max-w-full focus:ring-offset-0">
                   <SelectValue placeholder="Seleziona tipologia..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="max-w-[var(--radix-select-trigger-width)]">
                   {SUPPORT_TICKET_TIPOLOGIE.map((item) => (
                     <SelectItem key={item.value} value={item.value}>
                       {item.label}
@@ -389,79 +389,79 @@ function NewTicketDialog({
               </Select>
             </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="ticket-title">Titolo *</Label>
-            <Input
-              id="ticket-title"
-              maxLength={160}
-              value={titolo}
-              onChange={(event) => setTitolo(event.target.value)}
-              placeholder="Es. Impossibile mettere a cassa una polizza"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="ticket-description">Descrizione dettagliata *</Label>
-            <Textarea
-              id="ticket-description"
-              className="min-h-36"
-              maxLength={10_000}
-              value={descrizione}
-              onChange={(event) => setDescrizione(event.target.value)}
-              placeholder="Indica cosa stavi facendo, cosa è successo e cosa ti aspettavi..."
-            />
-            <p className="text-xs text-muted-foreground">{descrizione.length}/10.000 caratteri</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="ticket-client">Cliente coinvolto</Label>
+            <div className="grid min-w-0 gap-2">
+              <Label htmlFor="ticket-title">Titolo *</Label>
               <Input
-                id="ticket-client"
-                value={cliente}
-                onChange={(event) => setCliente(event.target.value)}
-                placeholder="Nome, ragione sociale o codice"
+                id="ticket-title"
+                maxLength={160}
+                value={titolo}
+                onChange={(event) => setTitolo(event.target.value)}
+                placeholder="Es. Impossibile mettere a cassa una polizza"
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="ticket-policy">Polizza coinvolta</Label>
-              <Input
-                id="ticket-policy"
-                value={polizza}
-                onChange={(event) => setPolizza(event.target.value)}
-                placeholder="Numero polizza"
+            <div className="grid min-w-0 gap-2">
+              <Label htmlFor="ticket-description">Descrizione dettagliata *</Label>
+              <Textarea
+                id="ticket-description"
+                className="min-h-36 max-w-full"
+                maxLength={10_000}
+                value={descrizione}
+                onChange={(event) => setDescrizione(event.target.value)}
+                placeholder="Indica cosa stavi facendo, cosa è successo e cosa ti aspettavi..."
               />
+              <p className="text-xs text-muted-foreground">{descrizione.length}/10.000 caratteri</p>
             </div>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="ticket-files">Allegati</Label>
-            <FileDropzone
-              inputId="ticket-files"
-              multiple
-              size="sm"
-              icon={Paperclip}
-              emptyLabel="Trascina qui o clicca per selezionare"
-              hint={`Puoi selezionare più file — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
-              onFilesSelected={addFiles}
-            />
-            {files.length > 0 && (
-              <div className="space-y-1 rounded-md border p-2">
-                {files.map((file, index) => (
-                  <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 text-sm">
-                    <span className="truncate">{file.name}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                    >
-                      Rimuovi
-                    </Button>
-                  </div>
-                ))}
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-2">
+                <Label htmlFor="ticket-client">Cliente coinvolto</Label>
+                <Input
+                  id="ticket-client"
+                  value={cliente}
+                  onChange={(event) => setCliente(event.target.value)}
+                  placeholder="Nome, ragione sociale o codice"
+                />
               </div>
-            )}
+              <div className="grid min-w-0 gap-2">
+                <Label htmlFor="ticket-policy">Polizza coinvolta</Label>
+                <Input
+                  id="ticket-policy"
+                  value={polizza}
+                  onChange={(event) => setPolizza(event.target.value)}
+                  placeholder="Numero polizza"
+                />
+              </div>
+            </div>
+            <div className="grid min-w-0 gap-2">
+              <Label htmlFor="ticket-files">Allegati</Label>
+              <FileDropzone
+                inputId="ticket-files"
+                multiple
+                size="sm"
+                icon={Paperclip}
+                emptyLabel="Trascina qui o clicca per selezionare"
+                hint={`Puoi selezionare più file — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
+                onFilesSelected={addFiles}
+              />
+              {files.length > 0 && (
+                <div className="space-y-1 rounded-md border p-2">
+                  {files.map((file, index) => (
+                    <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="truncate">{file.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                      >
+                        Rimuovi
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="shrink-0 gap-2 border-t bg-background px-6 py-4 sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
