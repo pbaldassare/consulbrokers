@@ -69,6 +69,13 @@ interface Props {
 
 const AUTO_LORDO_KEYS = ["firma", "rata", "imposta_provinciale", "ssn"] as const;
 
+/** Larghezza minima per importi (premi anche > 100.000 €). */
+const importoInputClass = (compact: boolean) =>
+  cn(
+    "h-7 text-xs text-right tabular-nums shrink-0 max-w-none",
+    compact ? "min-w-[7.75rem] w-[8.5rem]" : "min-w-[8.5rem] w-[9.5rem]",
+  );
+
 const emptyOggettoExtra = (): OggettoExtraState => ({
   ubicazione_rischio: "",
   valore_assicurato: "",
@@ -591,11 +598,11 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
                 <thead className="text-muted-foreground">
                   <tr className="border-b">
                     <th className="text-left font-medium py-1 pr-2">Garanzia</th>
-                    <th className="text-right font-medium py-1 px-1">Netto</th>
-                    <th className="text-right font-medium py-1 px-1">Rata</th>
-                    <th className="text-right font-medium py-1 px-1">Tasse</th>
-                    <th className="text-right font-medium py-1 px-1">SSN</th>
-                    <th className="text-right font-medium py-1 px-1">Lordo</th>
+                    <th className={cn("text-right font-medium py-1 px-1", compact ? "min-w-[7.75rem]" : "min-w-[8.5rem]")}>Netto</th>
+                    <th className={cn("text-right font-medium py-1 px-1", compact ? "min-w-[7.75rem]" : "min-w-[8.5rem]")}>Rata</th>
+                    <th className={cn("text-right font-medium py-1 px-1", compact ? "min-w-[7.75rem]" : "min-w-[8.5rem]")}>Tasse</th>
+                    <th className={cn("text-right font-medium py-1 px-1", compact ? "min-w-[7.75rem]" : "min-w-[8.5rem]")}>SSN</th>
+                    <th className={cn("text-right font-medium py-1 px-1", compact ? "min-w-[7.75rem]" : "min-w-[8.5rem]")}>Lordo</th>
                     {!locked && <th className="w-16"></th>}
                   </tr>
                 </thead>
@@ -618,7 +625,7 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
                             value={g[k]}
                             disabled={locked}
                             onChange={(e) => updateGar(idx, { [k]: Number(e.target.value) || 0 })}
-                            className={cn("h-7 text-xs text-right tabular-nums", compact ? "w-[4.5rem]" : "w-24")}
+                            className={importoInputClass(compact)}
                           />
                         </td>
                       ))}
@@ -631,8 +638,7 @@ export const PolizzaEditorInline = forwardRef<PolizzaEditorHandle, Props>(
                           readOnly={!g.lordoManualOverride}
                           onChange={(e) => setLordoManuale(idx, Number(e.target.value) || 0)}
                           className={cn(
-                            "h-7 text-xs text-right tabular-nums",
-                            compact ? "w-[4.5rem]" : "w-24",
+                            importoInputClass(compact),
                             g.lordoManualOverride
                               ? "border-orange-400 focus-visible:ring-orange-400"
                               : "bg-muted/50",
