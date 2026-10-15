@@ -1113,11 +1113,19 @@ export default function SupportTicketsPage() {
     () => tickets.filter((ticket) => isOpenSupportTicket(ticket.stato)),
     [tickets],
   );
-  const resolvedTickets = useMemo(
-    () => tickets.filter((ticket) => !isOpenSupportTicket(ticket.stato)),
+  const pendingTickets = useMemo(
+    () => tickets.filter((ticket) => ticket.stato === "aperto"),
     [tickets],
   );
-  const assignedCount = tickets.filter((ticket) => ticket.stato === "preso_in_carico").length;
+  const assignedTickets = useMemo(
+    () => tickets.filter((ticket) => ticket.stato === "preso_in_carico"),
+    [tickets],
+  );
+  const resolvedTickets = useMemo(
+    () => tickets.filter((ticket) => ticket.stato === "risolto"),
+    [tickets],
+  );
+  const assignedCount = assignedTickets.length;
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
@@ -1184,12 +1192,25 @@ export default function SupportTicketsPage() {
       ) : (
         <Tabs defaultValue="aperti">
           <TabsList>
-            <TabsTrigger value="aperti">Aperti ({openTickets.length})</TabsTrigger>
+            <TabsTrigger value="aperti">Aperti ({pendingTickets.length})</TabsTrigger>
+            <TabsTrigger value="presi_in_carico">Presi in carico ({assignedTickets.length})</TabsTrigger>
             <TabsTrigger value="storico">Storico ({resolvedTickets.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="aperti" className="mt-4">
             <TicketsTable
-              tickets={openTickets}
+              tickets={pendingTickets}
+              isAdmin={isAdmin}
+              currentUserId={user?.id}
+              unreadIds={unreadIds}
+              onSelect={(ticket) => {
+                markOpened(ticket.id);
+                setSelectedTicket(ticket);
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="presi_in_carico" className="mt-4">
+            <TicketsTable
+              tickets={assignedTickets}
               isAdmin={isAdmin}
               currentUserId={user?.id}
               unreadIds={unreadIds}
