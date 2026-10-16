@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Loader2, MapPin } from "lucide-react";
 import { MAPS_SUGGESTION_ITEM_CLASS, MAPS_SUGGESTION_LIST_CLASS } from "@/lib/mapsTheme";
+import { parseAddressText } from "@/lib/parseAddressText";
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
@@ -17,10 +19,20 @@ interface AddressAutocompleteProps {
   onChange: (value: string) => void;
   onSelect?: (components: AddressComponents) => void;
   placeholder?: string;
+  /** Placeholder ricerca Google (se diverso da `placeholder` del campo via manuale) */
+  searchPlaceholder?: string;
   id?: string;
   className?: string;
   disabled?: boolean;
   helperText?: string;
+  /**
+   * Campo via/numero separato dalla ricerca Google (consigliato: compilazione manuale senza suggerimento).
+   * @default true
+   */
+  showManualStreet?: boolean;
+  manualStreetLabel?: string;
+  manualStreetPlaceholder?: string;
+  manualStreetId?: string;
 }
 
 interface GoogleAddressComponent {
@@ -220,37 +232,6 @@ function cleanProvinceName(name: string): string {
     .trim();
 }
 
-function parseAddressText(text: string): Partial<AddressComponents> {
-  const parts = text
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .filter((part) => !/^italia$/i.test(part));
-
-  const capMatch = text.match(/\b\d{5}\b/);
-  const cap = capMatch?.[0] || "";
-  const provinciaIndex = parts.findIndex((part) => /^\(?[A-Z]{2}\)?$/i.test(part));
-  const provinciaMatch = text.match(/\b([A-Z]{2})\b(?=\s*,\s*Italia\b|\s*$)/i);
-  const provincia = provinciaIndex >= 0
-    ? parts[provinciaIndex].replace(/[^A-Za-z]/g, "").toUpperCase()
-    : (provinciaMatch?.[1] || "").toUpperCase();
-
-  let citta = "";
-  if (cap) {
-    const capPart = parts.find((part) => part.includes(cap));
-    citta = capPart?.replace(cap, "").replace(new RegExp(`\\b${provincia}\\b`, "i"), "").trim() || "";
-  }
-  if (!citta && provinciaIndex > 0) citta = parts[provinciaIndex - 1];
-
-  const addressParts = provinciaIndex >= 0 ? parts.slice(0, Math.max(0, provinciaIndex - 1)) : parts.slice(0, 2);
-  let indirizzo = addressParts.join(", ").replace(cap, "").trim();
-  if (/^\d+[A-Za-z]?$/i.test(addressParts[0] || "") && addressParts[1]) {
-    indirizzo = `${addressParts[1]}, ${addressParts[0]}`;
-  }
-
-  return { indirizzo, cap, citta, provincia };
-}
-
 function mergeAddressComponents(primary: AddressComponents, fallback: Partial<AddressComponents>): AddressComponents {
   return {
     indirizzo: primary.indirizzo || fallback.indirizzo || "",
@@ -332,10 +313,15 @@ const AddressAutocomplete = ({
   onChange,
   onSelect,
   placeholder = "Cerca indirizzo...",
+  searchPlaceholder,
   id,
   className,
   disabled,
   helperText = "Seleziona un suggerimento Google oppure compila i campi qui sotto a mano",
+  showManualStreet = true,
+  manualStreetLabel = "Indirizzo (via e numero)",
+  manualStreetPlaceholder = "Es. Via Roma 12, Piazza del Duomo 3",
+  manualStreetId,
 }: AddressAutocompleteProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteServiceRef = useRef<AutocompleteServiceInstance | null>(null);
@@ -352,6 +338,7 @@ const AddressAutocomplete = ({
   const [loadingPredictions, setLoadingPredictions] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [selectionWarning, setSelectionWarning] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState("");
 
   const missingDetailsWarning = useMemo(
     () => "Google non ha restituito tutti i dettagli: verifica CAP, città e provincia.",
@@ -481,12 +468,14 @@ const AddressAutocomplete = ({
     );
   }, []);
 
+  const predictionSource = showManualStreet ? searchText : value;
+
   useEffect(() => {
     if (!ready || disabled) return;
     if (suppressPredictionsRef.current) return;
-    const timer = window.setTimeout(() => fetchPredictions(value), 350);
+    const timer = window.setTimeout(() => fetchPredictions(predictionSource), 350);
     return () => window.clearTimeout(timer);
-  }, [disabled, fetchPredictions, ready, value]);
+  }, [disabled, fetchPredictions, predictionSource, ready]);
 
   const handleSelectPrediction = useCallback(async (prediction: GoogleAutocompletePrediction) => {
     suppressPredictionsRef.current = true;
@@ -495,7 +484,7 @@ const AddressAutocomplete = ({
     setPredictions([]);
     setLoadingDetails(true);
     setSelectionWarning(null);
-    onChange(prediction.structured_formatting?.main_text || prediction.description);
+    if (showManualStreet) setSearchText("");
 
     const details = await fetchPlaceDetails(prediction);
     const geocoded = details?.address_components?.some((c) => c.types.includes("postal_code"))
@@ -515,10 +504,21 @@ const AddressAutocomplete = ({
     sessionTokenRef.current = window.google?.maps?.places?.AutocompleteSessionToken
       ? new window.google.maps.places.AutocompleteSessionToken()
       : undefined;
-  }, [fetchPlaceDetails, geocodePrediction, missingDetailsWarning, onChange, onSelect]);
+  }, [fetchPlaceDetails, geocodePrediction, missingDetailsWarning, onChange, onSelect, showManualStreet]);
+
+  const handleSearchChange = useCallback((nextValue: string) => {
+    suppressPredictionsRef.current = false;
+    setSelectionWarning(null);
+    setSearchText(nextValue);
+  }, []);
 
   const handleInputChange = useCallback((nextValue: string) => {
     suppressPredictionsRef.current = false;
+    setSelectionWarning(null);
+    onChange(nextValue);
+  }, [onChange]);
+
+  const handleManualStreetChange = useCallback((nextValue: string) => {
     setSelectionWarning(null);
     onChange(nextValue);
   }, [onChange]);
@@ -530,62 +530,88 @@ const AddressAutocomplete = ({
     };
   }, []);
 
+  const searchFieldPlaceholder = searchPlaceholder ?? (showManualStreet ? "Cerca su Google Maps..." : placeholder);
+
   return (
-    <div className="relative">
-      <Input
-        ref={inputRef}
-        id={id}
-        value={value}
-        onChange={(e) => handleInputChange(e.target.value)}
-        onFocus={() => { /* non riaprire automaticamente: l'utente deve digitare */ }}
-        onBlur={() => {
-          blurTimeoutRef.current = window.setTimeout(() => setOpen(false), 150);
-        }}
-        placeholder={placeholder}
-        className={className}
-        disabled={disabled}
-        autoComplete="off"
-      />
-      {(loadingPredictions || loadingDetails) && (
-        <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin pointer-events-none" />
-      )}
-      {ready && !error && !loadingPredictions && !loadingDetails && (
-        <MapPin className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-      )}
-      {open && predictions.length > 0 && !disabled && (
-        <div className={MAPS_SUGGESTION_LIST_CLASS}>
-          {predictions.map((prediction) => (
-            <button
-              key={prediction.place_id}
-              type="button"
-              className={MAPS_SUGGESTION_ITEM_CLASS}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
-              }}
-              onClick={() => handleSelectPrediction(prediction)}
-            >
-              <span className="block font-medium">
-                {prediction.structured_formatting?.main_text || prediction.description}
-              </span>
-              {prediction.structured_formatting?.secondary_text && (
-                <span className="block text-xs text-muted-foreground">
-                  {prediction.structured_formatting.secondary_text}
+    <div className="space-y-2">
+      <div>
+        {showManualStreet && (
+          <Label className="text-xs text-muted-foreground font-normal">Cerca su Google Maps</Label>
+        )}
+        <div className={`relative ${showManualStreet ? "mt-1" : ""}`}>
+        <Input
+          ref={inputRef}
+          id={showManualStreet ? undefined : id}
+          value={showManualStreet ? searchText : value}
+          onChange={(e) => (showManualStreet ? handleSearchChange(e.target.value) : handleInputChange(e.target.value))}
+          onFocus={() => { /* non riaprire automaticamente: l'utente deve digitare */ }}
+          onBlur={() => {
+            blurTimeoutRef.current = window.setTimeout(() => setOpen(false), 150);
+          }}
+          placeholder={searchFieldPlaceholder}
+          className={className}
+          disabled={disabled}
+          autoComplete="off"
+        />
+        {(loadingPredictions || loadingDetails) && (
+          <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin pointer-events-none" />
+        )}
+        {ready && !error && !loadingPredictions && !loadingDetails && (
+          <MapPin className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        )}
+        {open && predictions.length > 0 && !disabled && (
+          <div className={MAPS_SUGGESTION_LIST_CLASS}>
+            {predictions.map((prediction) => (
+              <button
+                key={prediction.place_id}
+                type="button"
+                className={MAPS_SUGGESTION_ITEM_CLASS}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
+                }}
+                onClick={() => handleSelectPrediction(prediction)}
+              >
+                <span className="block font-medium">
+                  {prediction.structured_formatting?.main_text || prediction.description}
                 </span>
-              )}
-            </button>
-          ))}
+                {prediction.structured_formatting?.secondary_text && (
+                  <span className="block text-xs text-muted-foreground">
+                    {prediction.structured_formatting.secondary_text}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+        {error ? (
+          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+            Suggerimenti Google non disponibili — compila i campi manualmente qui sotto.
+          </p>
+        ) : helperText ? (
+          <p className="text-xs text-muted-foreground mt-1">{helperText}</p>
+        ) : null}
+        {selectionWarning && !error && (
+          <p className="text-xs text-muted-foreground mt-1">{selectionWarning}</p>
+        )}
         </div>
-      )}
-      {error ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-          Suggerimenti Google non disponibili — compila i campi manualmente qui sotto.
-        </p>
-      ) : helperText ? (
-        <p className="text-xs text-muted-foreground mt-1">{helperText}</p>
-      ) : null}
-      {selectionWarning && !error && (
-        <p className="text-xs text-muted-foreground mt-1">{selectionWarning}</p>
+      </div>
+
+      {showManualStreet && (
+        <div className="space-y-1">
+          <Label htmlFor={manualStreetId || id} className="text-xs font-normal">
+            {manualStreetLabel}
+          </Label>
+          <Input
+            id={manualStreetId || id}
+            value={value}
+            onChange={(e) => handleManualStreetChange(e.target.value)}
+            placeholder={manualStreetPlaceholder}
+            className={className}
+            disabled={disabled}
+            autoComplete="street-address"
+          />
+        </div>
       )}
     </div>
   );

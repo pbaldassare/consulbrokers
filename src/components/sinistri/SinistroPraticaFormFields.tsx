@@ -156,9 +156,18 @@ export default function SinistroPraticaFormFields({
           placeholder="Inizia a digitare via, piazza, città..."
         />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <Input placeholder="CAP" {...register("cap_sinistro")} />
-          <Input placeholder="Città" {...register("citta_sinistro")} />
-          <Input placeholder="Prov." maxLength={2} {...register("provincia_sinistro")} />
+          <div className="space-y-1">
+            <Label className="text-xs font-normal text-muted-foreground">CAP</Label>
+            <Input placeholder="Es. 20100" {...register("cap_sinistro")} />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label className="text-xs font-normal text-muted-foreground">Città</Label>
+            <Input placeholder="Es. Milano" {...register("citta_sinistro")} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-normal text-muted-foreground">Provincia</Label>
+            <Input placeholder="Es. MI" maxLength={2} {...register("provincia_sinistro")} />
+          </div>
         </div>
       </div>
 

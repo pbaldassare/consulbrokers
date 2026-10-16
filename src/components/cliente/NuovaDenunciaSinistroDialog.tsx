@@ -10,12 +10,15 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Upload, X, MapPin, Building2 } from "lucide-react";
+import { Upload, MapPin, Building2 } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { TIPI_SINISTRO as TIPI_SINISTRO_LIB } from "@/lib/tipiSinistro";
 import { isClienteSanitario, REPARTI_OSPEDALE_STANDARD } from "@/lib/sinistriReparto";
-import { FileDropzone } from "@/components/shared/FileDropzone";
-import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
+import {
+  AttachmentStagingPanel,
+  type PendingDocumentFile,
+} from "@/components/shared/MultiDocumentUploadPanel";
+import { resolveUploadDisplayName, sanitizeStorageFileName } from "@/lib/sanitizeFileName";
 import { fetchPolizzeForClienti } from "@/lib/polizzeSearch";
 import { formatPolizzaProdotto } from "@/lib/titoliDisplay";
 
@@ -58,7 +61,7 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
   const [controparte, setControparte] = useState("");
   const [targa, setTarga] = useState("");
   const [reparto, setReparto] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<PendingDocumentFile[]>([]);
   const [clienteSanitario, setClienteSanitario] = useState(false);
 
   useEffect(() => {
@@ -105,9 +108,9 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
 
   const submit = async () => {
     if (!user) return;
-    const oversize = files.find((f) => isDocumentUploadTooLarge(f.size));
-    if (oversize) {
-      toast.error(`${oversize.name}: file troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
+    const emptyName = files.find((p) => !p.displayName.trim());
+    if (emptyName) {
+      toast.error("Inserisci un nome per ogni allegato");
       return;
     }
     setSaving(true);
@@ -154,19 +157,20 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
         .single();
       if (error) throw error;
 
-      for (const f of files) {
-        const path = `${sin.id}/${Date.now()}_${f.name}`;
+      for (const item of files) {
+        const nomeFile = resolveUploadDisplayName(item.displayName, item.file.name);
+        const path = `${sin.id}/${Date.now()}_${sanitizeStorageFileName(nomeFile)}`;
         const { error: uErr } = await supabase.storage
           .from("documenti_sinistri")
-          .upload(path, f);
+          .upload(path, item.file);
         if (uErr) {
-          toast.error(`Errore upload ${f.name}: ${uErr.message}`);
+          toast.error(`Errore upload ${nomeFile}: ${uErr.message}`);
           continue;
         }
         await supabase.from("documenti").insert({
           entita_tipo: "sinistro",
           entita_id: sin.id,
-          nome_file: f.name,
+          nome_file: nomeFile,
           path_storage: path,
           bucket_name: "documenti_sinistri",
           caricato_da: user.id,
@@ -299,7 +303,19 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
                     setProvincia(c.provincia);
                   }
                 }}
-                placeholder={clienteSanitario ? "Es. Padiglione A, Piano 3, corridoio..." : "Inizia a digitare via, piazza..."}
+                searchPlaceholder={
+                  clienteSanitario
+                    ? "Cerca su Google Maps (opzionale)..."
+                    : "Inizia a digitare via, piazza..."
+                }
+                manualStreetLabel={
+                  clienteSanitario ? "Dettaglio ubicazione" : "Indirizzo (via e numero)"
+                }
+                manualStreetPlaceholder={
+                  clienteSanitario
+                    ? "Es. Padiglione A, Piano 3, corridoio..."
+                    : "Es. Via Roma 12"
+                }
               />
             </div>
             {!clienteSanitario && (
@@ -343,31 +359,12 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
           {/* Allegati */}
           <div className="space-y-2">
             <Label>Allegati (foto, denuncia, perizia...)</Label>
-            <FileDropzone
-              multiple
-              selectedFiles={files.length > 0 ? files : undefined}
-              onFilesSelected={(selected) => {
-                const oversize = selected.find((f) => isDocumentUploadTooLarge(f.size));
-                if (oversize) {
-                  toast.error(`${oversize.name}: file troppo grande (max ${MAX_DOCUMENT_UPLOAD_MB} MB)`);
-                  return;
-                }
-                setFiles(selected);
-              }}
-              hint={`Max ${MAX_DOCUMENT_UPLOAD_MB} MB per file`}
+            <AttachmentStagingPanel
+              files={files}
+              onFilesChange={setFiles}
+              disabled={saving}
+              emptyLabel="Trascina qui o clicca per selezionare"
             />
-            {files.length > 0 && (
-              <ul className="text-sm space-y-1 bg-muted/50 rounded p-2">
-                {files.map((f, i) => (
-                  <li key={i} className="flex items-center justify-between">
-                    <span className="truncate">{f.name}</span>
-                    <button onClick={() => setFiles(files.filter((_, j) => j !== i))} className="text-destructive">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         </div>
 

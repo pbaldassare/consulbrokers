@@ -1097,7 +1097,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   />
                   {sedeIndirizzoFilled && (
                     <p className="text-xs text-muted-foreground">
-                      Indirizzo compilato: CAP, Città e Provincia sono obbligatori. Seleziona un suggerimento Google per compilarli automaticamente.
+                      Con indirizzo compilato, CAP, Città e Provincia sono obbligatori (da suggerimento Google o inserimento manuale).
                     </p>
                   )}
                   <div className="grid grid-cols-[110px_1fr_90px] gap-3">
