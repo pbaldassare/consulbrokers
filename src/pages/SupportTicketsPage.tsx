@@ -39,6 +39,9 @@ import {
   SUPPORT_TICKET_TIPOLOGIA_LABEL,
   SUPPORT_TICKET_TIPOLOGIE,
   groupSupportTicketsByTipologia,
+  SUPPORT_TICKET_PRESO_IN_CARICO_FASI,
+  SUPPORT_TICKET_PRESO_IN_CARICO_FASE_LABEL,
+  type SupportTicketPresoInCaricoFase,
   type SupportTicketTipologia,
 } from "@/lib/supportTickets";
 import { useSupportTicketUnread } from "@/hooks/useSupportTicketUnread";
@@ -105,6 +108,7 @@ interface SupportTicket {
   cliente_riferimento: string | null;
   polizza_riferimento: string | null;
   stato: SupportTicketStatus;
+  preso_in_carico_fase?: SupportTicketPresoInCaricoFase | null;
   data_apertura: string;
   data_presa_in_carico: string | null;
   data_risoluzione: string | null;
@@ -428,6 +432,9 @@ function TicketDetail({
   const [tipologia, setTipologia] = useState<SupportTicketTipologia>(
     ticket ? ticketTipologia(ticket) : "bug",
   );
+  const [presoInCaricoFase, setPresoInCaricoFase] = useState<SupportTicketPresoInCaricoFase | null>(
+    ticket?.preso_in_carico_fase ?? null,
+  );
   const [note, setNote] = useState("");
   const [adminFiles, setAdminFiles] = useState<PendingDocumentFile[]>([]);
   const [reply, setReply] = useState("");
@@ -440,11 +447,12 @@ function TicketDetail({
   useEffect(() => {
     if (ticket?.stato) setStatus(ticket.stato);
     if (ticket) setTipologia(ticketTipologia(ticket));
+    setPresoInCaricoFase(ticket?.preso_in_carico_fase ?? null);
     setReply("");
     setReplyFiles([]);
     setNote("");
     setAdminFiles([]);
-  }, [ticket?.id, ticket?.stato, ticket?.tipologia_problema]);
+  }, [ticket?.id, ticket?.stato, ticket?.tipologia_problema, ticket?.preso_in_carico_fase]);
 
   const { data: events = [], refetch: refetchEvents } = useQuery({
     queryKey: ["support-ticket-events", ticket?.id],
@@ -534,9 +542,14 @@ function TicketDetail({
     if (!isAdmin || !user?.id) return;
     const statusChanged = status !== ticket.stato;
     const tipologiaChanged = tipologia !== ticketTipologia(ticket);
+    const finalStatus = statusChanged ? status : ticket.stato;
+    const willBePresoInCarico = finalStatus === "preso_in_carico";
+    const faseChanged =
+      willBePresoInCarico
+      && (presoInCaricoFase ?? null) !== (ticket.preso_in_carico_fase ?? null);
     const cleanNote = note.trim();
     const notifyRequester = statusChanged || !!cleanNote || adminFiles.length > 0;
-    if (!statusChanged && !cleanNote && adminFiles.length === 0 && !tipologiaChanged) {
+    if (!statusChanged && !cleanNote && adminFiles.length === 0 && !tipologiaChanged && !faseChanged) {
       toast.info("Nessuna modifica da salvare");
       return;
     }
@@ -551,9 +564,14 @@ function TicketDetail({
         ? await uploadTicketAttachments(ticket.id, user.id, adminFiles)
         : [];
 
-      const ticketPatch: { stato?: SupportTicketStatus; tipologia_problema?: SupportTicketTipologia } = {};
+      const ticketPatch: {
+        stato?: SupportTicketStatus;
+        tipologia_problema?: SupportTicketTipologia;
+        preso_in_carico_fase?: SupportTicketPresoInCaricoFase | null;
+      } = {};
       if (statusChanged) ticketPatch.stato = status;
       if (tipologiaChanged) ticketPatch.tipologia_problema = tipologia;
+      if (faseChanged) ticketPatch.preso_in_carico_fase = presoInCaricoFase;
       if (Object.keys(ticketPatch).length > 0) {
         const { error } = await db.from("support_tickets").update(ticketPatch).eq("id", ticket.id);
         if (error) throw error;
@@ -574,6 +592,21 @@ function TicketDetail({
         });
       }
 
+      if (faseChanged) {
+        await logAttivita({
+          azione: "ticket_supporto_fase_preso_in_carico_modificata",
+          entita_tipo: "support_ticket",
+          entita_id: ticket.id,
+          dettagli_json: {
+            numero: formatSupportTicketNumber(ticket.numero),
+            fase_da: ticket.preso_in_carico_fase ?? null,
+            fase_a: presoInCaricoFase,
+          },
+          severity: "info",
+          ufficio_id: ticket.ufficio_id || undefined,
+        });
+      }
+
       const eventNote = cleanNote
         || (uploadedNames.length > 0 ? `Allegati del supporto: ${uploadedNames.join(", ")}` : "");
       if (eventNote) {
@@ -587,7 +620,6 @@ function TicketDetail({
         if (error) throw error;
       }
 
-      const finalStatus = statusChanged ? status : ticket.stato;
       if (notifyRequester) {
         const emailResult = await sendEmail({
           to: ticket.richiedente_email,
@@ -641,7 +673,7 @@ function TicketDetail({
       } else {
         await refetchEvents();
         onUpdated();
-        toast.success("Tipologia aggiornata (nessuna email inviata)");
+        toast.success("Aggiornamento interno salvato (nessuna email inviata)");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Errore durante l'aggiornamento");
@@ -806,7 +838,14 @@ function TicketDetail({
                   <div className="grid gap-2 sm:grid-cols-2">
                     <div className="grid gap-2">
                       <Label>Stato ticket</Label>
-                      <Select value={status} onValueChange={(value) => setStatus(value as SupportTicketStatus)}>
+                      <Select
+                        value={status}
+                        onValueChange={(value) => {
+                          const next = value as SupportTicketStatus;
+                          setStatus(next);
+                          if (next !== "preso_in_carico") setPresoInCaricoFase(null);
+                        }}
+                      >
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {SUPPORT_TICKET_STATUS.map((item) => (
@@ -832,6 +871,32 @@ function TicketDetail({
                         Modifica interna: non invia email al richiedente.
                       </p>
                     </div>
+                    {status === "preso_in_carico" && (
+                      <div className="grid gap-2 sm:col-span-2">
+                        <Label htmlFor="admin-preso-fase">Sotto-stato (preso in carico)</Label>
+                        <Select
+                          value={presoInCaricoFase ?? "__none__"}
+                          onValueChange={(value) =>
+                            setPresoInCaricoFase(
+                              value === "__none__" ? null : (value as SupportTicketPresoInCaricoFase),
+                            )
+                          }
+                        >
+                          <SelectTrigger id="admin-preso-fase">
+                            <SelectValue placeholder="Seleziona sotto-stato..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— Non impostato —</SelectItem>
+                            {SUPPORT_TICKET_PRESO_IN_CARICO_FASI.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[11px] text-muted-foreground">
+                          Categorizzazione interna per il team: attesa risposta utente vs lavorazione in corso. Non invia email.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="admin-note">Nota per il richiedente</Label>
@@ -858,12 +923,16 @@ function TicketDetail({
                   <Button onClick={saveAdminUpdate} disabled={saving}>
                     {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {(() => {
-                      const onlyTipologia =
-                        tipologia !== ticketTipologia(ticket)
-                        && status === ticket.stato
+                      const effectiveStatus = status;
+                      const presoFaseDirty =
+                        effectiveStatus === "preso_in_carico"
+                        && (presoInCaricoFase ?? null) !== (ticket.preso_in_carico_fase ?? null);
+                      const onlyInternal =
+                        status === ticket.stato
                         && !note.trim()
-                        && adminFiles.length === 0;
-                      if (onlyTipologia) return "Salva tipologia";
+                        && adminFiles.length === 0
+                        && (tipologia !== ticketTipologia(ticket) || presoFaseDirty);
+                      if (onlyInternal) return "Salva (solo interno)";
                       if (isSupportTicketClosed(ticket.stato) && status !== "risolto") {
                         return "Riapri e avvisa il richiedente";
                       }
@@ -1008,6 +1077,11 @@ const tipologiaBadgeClass: Record<SupportTicketTipologia, string> = {
   bug: "border-orange-300 bg-orange-50 text-orange-900",
 };
 
+const presoInCaricoFaseBadgeClass: Record<SupportTicketPresoInCaricoFase, string> = {
+  in_attesa_risposta: "border-amber-300 bg-amber-50 text-amber-900",
+  in_elaborazione: "border-indigo-300 bg-indigo-50 text-indigo-900",
+};
+
 function ticketTipologia(ticket: SupportTicket): SupportTicketTipologia {
   return ticket.tipologia_problema ?? "bug";
 }
@@ -1068,9 +1142,22 @@ function TicketsTableBody({
             </TableCell>
           )}
           <TableCell>
-            <Badge variant="outline" className={statusClass[ticket.stato]}>
-              {SUPPORT_TICKET_STATUS_LABEL[ticket.stato]}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant="outline" className={statusClass[ticket.stato]}>
+                {SUPPORT_TICKET_STATUS_LABEL[ticket.stato]}
+              </Badge>
+              {isAdmin
+                && ticket.stato === "preso_in_carico"
+                && ticket.preso_in_carico_fase
+                && (
+                  <Badge
+                    variant="outline"
+                    className={presoInCaricoFaseBadgeClass[ticket.preso_in_carico_fase]}
+                  >
+                    {SUPPORT_TICKET_PRESO_IN_CARICO_FASE_LABEL[ticket.preso_in_carico_fase]}
+                  </Badge>
+                )}
+            </div>
           </TableCell>
           <TableCell className="whitespace-nowrap text-sm">{displayDate(ticket.data_apertura)}</TableCell>
           <TableCell className="whitespace-nowrap text-sm">{displayDate(ticket.updated_at)}</TableCell>

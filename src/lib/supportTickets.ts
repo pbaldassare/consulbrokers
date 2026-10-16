@@ -4,6 +4,25 @@ export type SupportTicketStatus = "aperto" | "preso_in_carico" | "risolto";
 
 export type SupportTicketTipologia = "richiesta_implementazione" | "bug";
 
+/** Sotto-stato interno admin quando stato = preso_in_carico. */
+export type SupportTicketPresoInCaricoFase = "in_attesa_risposta" | "in_elaborazione";
+
+export const SUPPORT_TICKET_PRESO_IN_CARICO_FASI: {
+  value: SupportTicketPresoInCaricoFase;
+  label: string;
+}[] = [
+  { value: "in_attesa_risposta", label: "IN ATTESA DI RISPOSTA" },
+  { value: "in_elaborazione", label: "IN ELABORAZIONE" },
+];
+
+export const SUPPORT_TICKET_PRESO_IN_CARICO_FASE_LABEL: Record<
+  SupportTicketPresoInCaricoFase,
+  string
+> = {
+  in_attesa_risposta: "IN ATTESA DI RISPOSTA",
+  in_elaborazione: "IN ELABORAZIONE",
+};
+
 export const SUPPORT_TICKET_TIPOLOGIE: { value: SupportTicketTipologia; label: string }[] = [
   { value: "richiesta_implementazione", label: "RICHIESTA IMPLEMENTAZIONE" },
   { value: "bug", label: "BUG" },

@@ -13643,6 +13643,7 @@ export type Database = {
           id: string
           numero: number
           polizza_riferimento: string | null
+          preso_in_carico_fase: string | null
           richiedente_email: string
           richiedente_id: string
           richiedente_nome: string
@@ -13664,6 +13665,7 @@ export type Database = {
           id?: string
           numero?: never
           polizza_riferimento?: string | null
+          preso_in_carico_fase?: string | null
           richiedente_email: string
           richiedente_id: string
           richiedente_nome: string
@@ -13685,6 +13687,7 @@ export type Database = {
           id?: string
           numero?: never
           polizza_riferimento?: string | null
+          preso_in_carico_fase?: string | null
           richiedente_email?: string
           richiedente_id?: string
           richiedente_nome?: string
