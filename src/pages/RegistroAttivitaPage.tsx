@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format, endOfDay, startOfDay } from "date-fns";
+import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { ChevronDown, ChevronRight, ClipboardList, ExternalLink, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -32,6 +32,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/contabilita/DatePicker";
+import { combineRegistroDateTime } from "@/lib/registroAttivitaDateTime";
+
+type LogSeverity = "info" | "warning" | "critical";
 
 type LogRow = {
   id: string;
@@ -66,16 +69,23 @@ export default function RegistroAttivitaPage() {
   const [filtroUtente, setFiltroUtente] = useState<string>("all");
   const [filtroAzione, setFiltroAzione] = useState("");
   const [filtroStato, setFiltroStato] = useState<"all" | LogAttivitaStato>("all");
+  const [filtroGravita, setFiltroGravita] = useState<"all" | LogSeverity>("all");
   const [dataDa, setDataDa] = useState<Date | undefined>();
+  const [oraDa, setOraDa] = useState("");
   const [dataA, setDataA] = useState<Date | undefined>();
+  const [oraA, setOraA] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const tsDaIso = combineRegistroDateTime(dataDa, oraDa, "da");
+  const tsAIso = combineRegistroDateTime(dataA, oraA, "a");
 
   const { page, setPage, pageSize } = useServerPagination(50, [
     filtroUtente,
     filtroAzione,
     filtroStato,
-    dataDa?.toISOString(),
-    dataA?.toISOString(),
+    filtroGravita,
+    tsDaIso,
+    tsAIso,
   ]);
 
   const { data: utentiStaff = [] } = useQuery({
@@ -102,8 +112,9 @@ export default function RegistroAttivitaPage() {
       filtroUtente,
       filtroAzione,
       filtroStato,
-      dataDa?.toISOString(),
-      dataA?.toISOString(),
+      filtroGravita,
+      tsDaIso,
+      tsAIso,
     ],
     enabled: isRootAdminEmail(profile?.email),
     placeholderData: (prev) => prev,
@@ -114,9 +125,10 @@ export default function RegistroAttivitaPage() {
         p_page: page,
         p_user_id: filtroUtente === "all" ? null : filtroUtente,
         p_azione: az || null,
-        p_da: dataDa ? startOfDay(dataDa).toISOString() : null,
-        p_a: dataA ? endOfDay(dataA).toISOString() : null,
+        p_da: tsDaIso,
+        p_a: tsAIso,
         p_stato: filtroStato === "all" ? null : filtroStato,
+        p_gravita: filtroGravita === "all" ? null : filtroGravita,
       });
       if (error) throw error;
       const list = (rpcRows ?? []) as (LogRow & { total_count: number })[];
@@ -158,7 +170,7 @@ export default function RegistroAttivitaPage() {
         </div>
       </div>
 
-      <div className="mb-4 grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="mb-4 grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <div className="space-y-2">
           <Label>Utente</Label>
           <Select value={filtroUtente} onValueChange={setFiltroUtente}>
@@ -200,12 +212,65 @@ export default function RegistroAttivitaPage() {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Timestamp da</Label>
-          <DatePicker value={dataDa} onChange={setDataDa} placeholder="Data inizio" />
+          <Label>Gravità</Label>
+          <Select
+            value={filtroGravita}
+            onValueChange={(v) => setFiltroGravita(v as "all" | LogSeverity)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Tutte" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tutte</SelectItem>
+              <SelectItem value="info">info</SelectItem>
+              <SelectItem value="warning">warning</SelectItem>
+              <SelectItem value="critical">critical</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <div className="space-y-2">
-          <Label>Timestamp a</Label>
-          <DatePicker value={dataA} onChange={setDataA} placeholder="Data fine" />
+        <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+          <Label>Timestamp da (data e ora)</Label>
+          <div className="flex flex-wrap items-center gap-2">
+            <DatePicker
+              value={dataDa ?? null}
+              onChange={(d) => setDataDa(d ?? undefined)}
+              placeholder="Data"
+              className="w-[140px]"
+            />
+            <Input
+              type="time"
+              step={1}
+              value={oraDa}
+              onChange={(e) => setOraDa(e.target.value)}
+              className="w-[130px]"
+              aria-label="Ora inizio"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Se l&apos;ora è vuota: inizio giornata (00:00:00).
+          </p>
+        </div>
+        <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+          <Label>Timestamp a (data e ora)</Label>
+          <div className="flex flex-wrap items-center gap-2">
+            <DatePicker
+              value={dataA ?? null}
+              onChange={(d) => setDataA(d ?? undefined)}
+              placeholder="Data"
+              className="w-[140px]"
+            />
+            <Input
+              type="time"
+              step={1}
+              value={oraA}
+              onChange={(e) => setOraA(e.target.value)}
+              className="w-[130px]"
+              aria-label="Ora fine"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Se l&apos;ora è vuota: fine giornata (23:59:59).
+          </p>
         </div>
       </div>
 
