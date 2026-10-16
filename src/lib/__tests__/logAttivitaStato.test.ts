@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { labelOperazioneLog, statoLogAttivita } from "@/lib/logAttivitaStato";
+import { labelOperazioneLog, logAttivitaIsFallita, statoLogAttivita } from "@/lib/logAttivitaStato";
 
 describe("statoLogAttivita", () => {
   it("RIUSCITA di default e per audit info", () => {
@@ -8,7 +8,14 @@ describe("statoLogAttivita", () => {
     expect(statoLogAttivita({}, "critical")).toBe("RIUSCITA");
   });
 
+  it("usa esito_fallita da DB se presente", () => {
+    expect(statoLogAttivita({}, "info", false)).toBe("RIUSCITA");
+    expect(statoLogAttivita({ ok: false }, "info", false)).toBe("RIUSCITA");
+    expect(statoLogAttivita({}, "info", true)).toBe("FALLITA");
+  });
+
   it("FALLITA con ok/success false o campi errore", () => {
+    expect(logAttivitaIsFallita({ ok: false })).toBe(true);
     expect(statoLogAttivita({ ok: false })).toBe("FALLITA");
     expect(statoLogAttivita({ success: "false" })).toBe("FALLITA");
     expect(statoLogAttivita({ error: "Permesso negato" })).toBe("FALLITA");

@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { isRootAdminEmail } from "@/lib/adminAccountGuard";
-import { labelOperazioneLog, statoLogAttivita } from "@/lib/logAttivitaStato";
+import { labelOperazioneLog, statoLogAttivita, type LogAttivitaStato } from "@/lib/logAttivitaStato";
 import { registroEntitaLabel, registroEntitaPath } from "@/lib/registroAttivitaEntityLink";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { PageContainer } from "@/components/shared/PageContainer";
@@ -42,7 +42,10 @@ type LogRow = {
   entita_id: string | null;
   dettagli_json: unknown;
   user_id: string | null;
-  profiles: { nome: string | null; cognome: string | null; email: string | null } | null;
+  esito_fallita: boolean | null;
+  nome: string | null;
+  cognome: string | null;
+  email: string | null;
 };
 
 const SEVERITY_BADGE: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -52,12 +55,9 @@ const SEVERITY_BADGE: Record<string, "default" | "secondary" | "destructive" | "
 };
 
 function fmtUtente(row: LogRow): string {
-  const p = row.profiles;
-  if (p) {
-    const nome = `${p.nome ?? ""} ${p.cognome ?? ""}`.trim();
-    if (nome) return p.email ? `${nome} (${p.email})` : nome;
-    if (p.email) return p.email;
-  }
+  const nome = `${row.nome ?? ""} ${row.cognome ?? ""}`.trim();
+  if (nome) return row.email ? `${nome} (${row.email})` : nome;
+  if (row.email) return row.email;
   return row.user_id ? row.user_id.slice(0, 8) : "—";
 }
 
@@ -65,19 +65,22 @@ export default function RegistroAttivitaPage() {
   const { profile } = useAuth();
   const [filtroUtente, setFiltroUtente] = useState<string>("all");
   const [filtroAzione, setFiltroAzione] = useState("");
+  const [filtroStato, setFiltroStato] = useState<"all" | LogAttivitaStato>("all");
   const [dataDa, setDataDa] = useState<Date | undefined>();
   const [dataA, setDataA] = useState<Date | undefined>();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { page, setPage, pageSize, range } = useServerPagination(50, [
+  const { page, setPage, pageSize } = useServerPagination(50, [
     filtroUtente,
     filtroAzione,
+    filtroStato,
     dataDa?.toISOString(),
     dataA?.toISOString(),
   ]);
 
   const { data: utentiStaff = [] } = useQuery({
     queryKey: ["registro_attivita_utenti"],
+    staleTime: 5 * 60_000,
     enabled: isRootAdminEmail(profile?.email),
     queryFn: async () => {
       const { data, error } = await supabase
@@ -98,29 +101,27 @@ export default function RegistroAttivitaPage() {
       page,
       filtroUtente,
       filtroAzione,
+      filtroStato,
       dataDa?.toISOString(),
       dataA?.toISOString(),
     ],
     enabled: isRootAdminEmail(profile?.email),
+    placeholderData: (prev) => prev,
     queryFn: async () => {
-      let q = supabase
-        .from("log_attivita")
-        .select(
-          "id, created_at, azione, severity, entita_tipo, entita_id, dettagli_json, user_id, profiles:user_id(nome, cognome, email)",
-          { count: "exact" },
-        )
-        .order("created_at", { ascending: false })
-        .range(range.from, range.to);
-
-      if (filtroUtente !== "all") q = q.eq("user_id", filtroUtente);
       const az = filtroAzione.trim();
-      if (az) q = q.ilike("azione", `%${az}%`);
-      if (dataDa) q = q.gte("created_at", startOfDay(dataDa).toISOString());
-      if (dataA) q = q.lte("created_at", endOfDay(dataA).toISOString());
-
-      const { data: rows, error, count } = await q;
+      const { data: rpcRows, error } = await supabase.rpc("registro_log_attivita_page", {
+        p_page_size: pageSize,
+        p_page: page,
+        p_user_id: filtroUtente === "all" ? null : filtroUtente,
+        p_azione: az || null,
+        p_da: dataDa ? startOfDay(dataDa).toISOString() : null,
+        p_a: dataA ? endOfDay(dataA).toISOString() : null,
+        p_stato: filtroStato === "all" ? null : filtroStato,
+      });
       if (error) throw error;
-      return { rows: (rows ?? []) as LogRow[], count: count ?? 0 };
+      const list = (rpcRows ?? []) as (LogRow & { total_count: number })[];
+      const count = list[0]?.total_count ?? 0;
+      return { rows: list as LogRow[], count: Number(count) };
     },
   });
 
@@ -157,7 +158,7 @@ export default function RegistroAttivitaPage() {
         </div>
       </div>
 
-      <div className="mb-4 grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <div className="space-y-2">
           <Label>Utente</Label>
           <Select value={filtroUtente} onValueChange={setFiltroUtente}>
@@ -181,6 +182,22 @@ export default function RegistroAttivitaPage() {
             onChange={(e) => setFiltroAzione(e.target.value)}
             placeholder="Es. messa_cassa, titolo_modificato…"
           />
+        </div>
+        <div className="space-y-2">
+          <Label>Stato</Label>
+          <Select
+            value={filtroStato}
+            onValueChange={(v) => setFiltroStato(v as "all" | LogAttivitaStato)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Tutti" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tutti</SelectItem>
+              <SelectItem value="RIUSCITA">RIUSCITA</SelectItem>
+              <SelectItem value="FALLITA">FALLITA</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label>Timestamp da</Label>
@@ -221,7 +238,7 @@ export default function RegistroAttivitaPage() {
                   </TableRow>
                 ) : (
                   rows.map((row) => {
-                    const stato = statoLogAttivita(row.dettagli_json, row.severity);
+                    const stato = statoLogAttivita(row.dettagli_json, row.severity, row.esito_fallita);
                     const entPath = registroEntitaPath(row.entita_tipo, row.entita_id);
                     const open = expandedId === row.id;
                     return (

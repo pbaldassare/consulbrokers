@@ -20,15 +20,22 @@ function hasErrorField(d: Record<string, unknown>): boolean {
   return false;
 }
 
+/** Allineato a public.log_attivita_is_fallita (colonna esito_fallita). */
+export function logAttivitaIsFallita(dettagliJson: unknown): boolean {
+  const d = asRecord(dettagliJson);
+  if (!d) return false;
+  if (isExplicitFalse(d.ok) || isExplicitFalse(d.success)) return true;
+  return hasErrorField(d);
+}
+
 export function statoLogAttivita(
   dettagliJson: unknown,
   _severity?: string | null,
+  esitoFallita?: boolean | null,
 ): LogAttivitaStato {
-  const d = asRecord(dettagliJson);
-  if (!d) return "RIUSCITA";
-  if (isExplicitFalse(d.ok) || isExplicitFalse(d.success)) return "FALLITA";
-  if (hasErrorField(d)) return "FALLITA";
-  return "RIUSCITA";
+  if (esitoFallita === true) return "FALLITA";
+  if (esitoFallita === false) return "RIUSCITA";
+  return logAttivitaIsFallita(dettagliJson) ? "FALLITA" : "RIUSCITA";
 }
 
 export function labelOperazioneLog(azione: string | null, dettagliJson: unknown): string {
