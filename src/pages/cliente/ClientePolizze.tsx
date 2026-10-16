@@ -16,6 +16,8 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { fmtEuro as fmt } from "@/lib/formatCurrency";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { displayStatoPolizza } from "@/lib/polizzeDisplay";
+import { mergePolizze, applySoloMadriFilter, type TitoloRow } from "@/lib/polizzeSearch";
+import { normalizeNumeroPolizza } from "@/lib/clienteDashboard";
 
 const statoQuietanzaBadge: Record<string, string> = {
   da_incassare: "bg-amber-100 text-amber-800 border-amber-300",
@@ -50,12 +52,19 @@ const ClientePolizze = () => {
       if (!clienteIds?.length) { setLoading(false); return; }
       const ids = clienteIds.map((c: any) => c);
 
-      const [titoliRes, cgaRes] = await Promise.all([
+      const titoliQuery = applySoloMadriFilter(
         supabase
           .from("titoli")
-          .select("id, numero_titolo, stato, premio_lordo, premio_netto, cig_rif, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, compagnie(nome), rami(descrizione)")
+          .select(
+            "id, numero_titolo, stato, premio_lordo, premio_netto, cig_rif, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, sostituisce_polizza, created_at, compagnie(nome), rami(descrizione)",
+          )
           .in("cliente_anagrafica_id", ids)
           .order("created_at", { ascending: false }),
+        true,
+      );
+
+      const [titoliRes, cgaRes] = await Promise.all([
+        titoliQuery,
         supabase
           .from("polizza_cga")
           .select("id, numero_polizza, stato, data_decorrenza, data_scadenza, premio_lordo_totale, premio_imponibile_totale, frazionamento, prodotti_cga(nome_prodotto, compagnia, ramo)")
@@ -64,13 +73,22 @@ const ClientePolizze = () => {
           .order("created_at", { ascending: false }),
       ]);
 
-      const fromTitoli = (titoliRes.data ?? []).map((t: any) => ({
+      const dedupedTitoli = mergePolizze((titoliRes.data ?? []) as TitoloRow[], []);
+      const knownNumeri = new Set(
+        dedupedTitoli.map((t) => normalizeNumeroPolizza(t.numero_titolo)).filter(Boolean),
+      );
+
+      const fromTitoli = dedupedTitoli.map((t: any) => ({
         ...t,
         _source: "titoli" as const,
         _detailPath: `/cliente/polizze/${t.id}`,
       }));
 
-      const fromCga = (cgaRes.data ?? []).map((p: any) => ({
+      const fromCga = (cgaRes.data ?? [])
+        .filter(
+          (p: any) => !knownNumeri.has(normalizeNumeroPolizza(p.numero_polizza)),
+        )
+        .map((p: any) => ({
         id: p.id,
         _source: "cga" as const,
         _detailPath: `/cliente/assistente?polizza=${p.id}`,

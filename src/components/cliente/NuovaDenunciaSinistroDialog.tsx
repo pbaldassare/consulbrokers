@@ -16,6 +16,8 @@ import { TIPI_SINISTRO as TIPI_SINISTRO_LIB } from "@/lib/tipiSinistro";
 import { isClienteSanitario, REPARTI_OSPEDALE_STANDARD } from "@/lib/sinistriReparto";
 import { FileDropzone } from "@/components/shared/FileDropzone";
 import { isDocumentUploadTooLarge, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
+import { fetchPolizzeForClienti } from "@/lib/polizzeSearch";
+import { formatPolizzaProdotto } from "@/lib/titoliDisplay";
 
 interface Props {
   open: boolean;
@@ -26,6 +28,7 @@ interface Props {
 interface Polizza {
   id: string;
   numero_titolo: string | null;
+  prodotto_label?: string | null;
   ramo_descrizione?: string | null;
   ufficio_id?: string | null;
   cliente_anagrafica_id: string;
@@ -76,32 +79,17 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
         .limit(1)
         .maybeSingle();
       setClienteSanitario(isClienteSanitario(cli));
-      const [titRes, cgaRes] = await Promise.all([
-        supabase
-          .from("titoli")
-          .select("id, numero_titolo, ufficio_id, cliente_anagrafica_id, rami(descrizione)")
-          .in("cliente_anagrafica_id", ids),
-        supabase
-          .from("polizza_cga")
-          .select("id, numero_polizza, cliente_id, prodotti_cga(ramo)")
-          .in("cliente_id", ids)
-          .eq("stato", "approvato"),
-      ]);
-      const fromTitoli: Polizza[] = (titRes.data ?? []).map((t: any) => ({
-        id: t.id,
-        numero_titolo: t.numero_titolo,
-        ufficio_id: t.ufficio_id,
-        cliente_anagrafica_id: t.cliente_anagrafica_id,
-        ramo_descrizione: t.rami?.descrizione,
-      }));
-      const fromCga: Polizza[] = (cgaRes.data ?? []).map((c: any) => ({
-        id: `cga:${c.id}`,
-        numero_titolo: c.numero_polizza,
-        ufficio_id: null,
-        cliente_anagrafica_id: c.cliente_id,
-        ramo_descrizione: c.prodotti_cga?.ramo,
-      }));
-      setPolizze([...fromTitoli, ...fromCga]);
+      const merged = await fetchPolizzeForClienti(ids, { soloMadri: true });
+      setPolizze(
+        merged.map((p: any) => ({
+          id: p.id,
+          numero_titolo: p.numero_titolo,
+          ufficio_id: p.ufficio_id ?? null,
+          cliente_anagrafica_id: p.cliente_anagrafica_id ?? ids[0],
+          prodotto_label: formatPolizzaProdotto(p),
+          ramo_descrizione: p.ramo?.descrizione ?? p.prodotti_cga?.ramo ?? null,
+        })),
+      );
     })();
   }, [open]);
 
@@ -231,11 +219,14 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
               <Select value={titoloId} onValueChange={setTitoloId}>
                 <SelectTrigger><SelectValue placeholder="Seleziona polizza" /></SelectTrigger>
                 <SelectContent>
-                  {polizze.map(p => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.numero_titolo} {p.ramo_descrizione ? `— ${p.ramo_descrizione}` : ""}
-                    </SelectItem>
-                  ))}
+                  {polizze.map(p => {
+                    const extra = p.prodotto_label || p.ramo_descrizione;
+                    return (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.numero_titolo}{extra ? ` — ${extra}` : ""}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

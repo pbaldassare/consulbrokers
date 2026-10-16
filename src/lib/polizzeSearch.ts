@@ -89,27 +89,42 @@ const TITOLI_POLIZZE_SELECT = `id, numero_titolo, premio_lordo, stato, created_a
   premi_garanzia_polizza:premi_garanzia_polizza!premi_garanzia_polizza_titolo_id_fkey(garanzia),
   clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`;
 
-/** Carica polizze (titoli + CGA) per un cliente — riusabile in wizard e dettaglio sinistro. */
-export async function fetchPolizzeForCliente(clienteId: string, opts?: { soloMadri?: boolean }) {
+/** Carica polizze (titoli + CGA) per uno o più clienti — una riga per numero polizza. */
+export async function fetchPolizzeForClienti(
+  clienteIds: string[],
+  opts?: { soloMadri?: boolean },
+) {
+  const ids = [...new Set(clienteIds.filter(Boolean))];
+  if (!ids.length) return [];
+
   const onlyMothers = opts?.soloMadri ?? true;
-  const baseTitQuery = supabase.from("titoli")
+  const baseTitQuery = supabase
+    .from("titoli")
     .select(TITOLI_POLIZZE_SELECT)
-    .eq("cliente_anagrafica_id", clienteId)
+    .in("cliente_anagrafica_id", ids)
     .order("created_at", { ascending: false })
-    .limit(200);
+    .limit(Math.min(500, 200 * ids.length));
   const titQuery = applySoloMadriFilter(baseTitQuery as any, onlyMothers);
 
   const [titRes, cgaRes] = await Promise.all([
     titQuery,
-    supabase.from("polizza_cga")
-      .select(`id, numero_polizza, data_decorrenza, data_scadenza, premio_lordo_totale, cliente_id, prodotti_cga(nome_prodotto, compagnia, ramo)`)
+    supabase
+      .from("polizza_cga")
+      .select(
+        `id, numero_polizza, data_decorrenza, data_scadenza, premio_lordo_totale, cliente_id, created_at, prodotti_cga(nome_prodotto, compagnia, ramo)`,
+      )
       .eq("stato", "approvato")
-      .eq("cliente_id", clienteId)
-      .limit(200),
+      .in("cliente_id", ids)
+      .limit(Math.min(500, 200 * ids.length)),
   ]);
 
   if (titRes.error) throw titRes.error;
   if (cgaRes.error) throw cgaRes.error;
 
   return mergePolizze((titRes.data ?? []) as TitoloRow[], (cgaRes.data ?? []) as CgaRow[]);
+}
+
+/** Carica polizze (titoli + CGA) per un cliente — riusabile in wizard e dettaglio sinistro. */
+export async function fetchPolizzeForCliente(clienteId: string, opts?: { soloMadri?: boolean }) {
+  return fetchPolizzeForClienti([clienteId], opts);
 }

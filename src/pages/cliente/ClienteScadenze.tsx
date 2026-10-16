@@ -13,6 +13,8 @@ import { it } from "date-fns/locale";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { mergePolizze, applySoloMadriFilter, type TitoloRow } from "@/lib/polizzeSearch";
+import { normalizeNumeroPolizza } from "@/lib/clienteDashboard";
 
 type Finestra = "tutte" | "20" | "60" | "90" | "custom";
 
@@ -39,14 +41,21 @@ const ClienteScadenze = () => {
       if (!clienteIds?.length) { setLoading(false); return; }
       const ids = clienteIds.map((c: any) => c);
 
-      const [titoliRes, cgaRes] = await Promise.all([
+      const titoliQuery = applySoloMadriFilter(
         supabase
           .from("titoli")
-          .select("id, numero_titolo, stato, premio_lordo, data_scadenza, targa_telaio, compagnie(nome), rami(descrizione)")
+          .select(
+            "id, numero_titolo, stato, premio_lordo, data_scadenza, targa_telaio, sostituisce_polizza, created_at, compagnie(nome), rami(descrizione)",
+          )
           .in("cliente_anagrafica_id", ids)
           .eq("stato", "attivo")
           .not("data_scadenza", "is", null)
           .order("data_scadenza", { ascending: true }),
+        true,
+      );
+
+      const [titoliRes, cgaRes] = await Promise.all([
+        titoliQuery,
         supabase
           .from("polizza_cga")
           .select("id, numero_polizza, data_scadenza, premio_lordo_totale, prodotti_cga(nome_prodotto, compagnia, ramo)")
@@ -56,13 +65,22 @@ const ClienteScadenze = () => {
           .order("data_scadenza", { ascending: true }),
       ]);
 
-      const fromTitoli = (titoliRes.data ?? []).map((t: any) => ({
+      const dedupedTitoli = mergePolizze((titoliRes.data ?? []) as TitoloRow[], []);
+      const knownNumeri = new Set(
+        dedupedTitoli.map((t) => normalizeNumeroPolizza(t.numero_titolo)).filter(Boolean),
+      );
+
+      const fromTitoli = dedupedTitoli.map((t: any) => ({
         ...t,
         _source: "titoli" as const,
         _detailPath: `/cliente/polizze/${t.id}#scadenziario`,
       }));
 
-      const fromCga = (cgaRes.data ?? []).map((p: any) => ({
+      const fromCga = (cgaRes.data ?? [])
+        .filter(
+          (p: any) => !knownNumeri.has(normalizeNumeroPolizza(p.numero_polizza)),
+        )
+        .map((p: any) => ({
         id: p.id,
         _source: "cga" as const,
         _detailPath: `/cliente/assistente?polizza=${p.id}`,

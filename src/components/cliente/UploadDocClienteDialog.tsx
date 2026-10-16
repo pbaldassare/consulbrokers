@@ -15,6 +15,8 @@ import { ensureFileExtension } from "@/lib/sanitizeFileName";
 import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import { Loader2 } from "lucide-react";
 import { safeId } from "@/lib/safeId";
+import { fetchPolizzeForClienti } from "@/lib/polizzeSearch";
+import { buildPolizzaSelectOption } from "@/lib/titoliDisplay";
 
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
@@ -68,7 +70,9 @@ export default function UploadDocClienteDialog({ open, onOpenChange, fixedEntita
 
   useEffect(() => {
     if (!open || fixedEntita) return;
-    supabase.from("titoli").select("id, numero_titolo, compagnie(nome)").eq("cliente_anagrafica_id", clienteAnagraficaId).order("created_at", { ascending: false }).then(({ data }) => setPolizze(data ?? []));
+    fetchPolizzeForClienti([clienteAnagraficaId], { soloMadri: true })
+      .then((data) => setPolizze(data.filter((p: { _isCga?: boolean }) => !p._isCga)))
+      .catch(() => setPolizze([]));
     supabase.from("sinistri").select("id, numero_sinistro").eq("cliente_anagrafica_id", clienteAnagraficaId).neq("stato", "archiviato").order("created_at", { ascending: false }).then(({ data }) => setSinistri(data ?? []));
   }, [open, clienteAnagraficaId, fixedEntita]);
 
@@ -152,7 +156,7 @@ export default function UploadDocClienteDialog({ open, onOpenChange, fixedEntita
                 <div>
                   <Label>Polizza *</Label>
                   <SearchableSelect
-                    options={polizze.map(p => ({ value: p.id, label: `${p.numero_titolo ?? "—"} · ${(p.compagnie as any)?.nome ?? ""}` }))}
+                    options={polizze.map((p) => buildPolizzaSelectOption(p))}
                     value={entitaId}
                     onValueChange={setEntitaId}
                     placeholder="Seleziona polizza"
