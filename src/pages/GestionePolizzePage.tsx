@@ -60,6 +60,7 @@ import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
 import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
 import { DuplicaPolizzaDialog } from "@/components/polizze/azioni/DuplicaPolizzaDialog";
 import { isDuplicaSorgentePolizza } from "@/lib/duplicaTitolo";
+import { STATI_SOSTITUZIONE_GESTIONE } from "@/lib/gestionePolizzeStati";
 import { AppendiceDialog } from "@/components/polizze/azioni/AppendiceDialog";
 import { CaricaDocDialog } from "@/components/polizze/azioni/CaricaDocDialog";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/SearchableSelect";
@@ -111,7 +112,13 @@ const OPERAZIONI: Operazione[] = [
   { key: "storno", label: "Storno", icon: Ban, descrizione: "Storna premio e quietanze", statiFiltro: ["attivo"] },
   // { key: "rinnovo", ... } — nascosta su richiesta utente (i rinnovi si gestiscono da pagina dedicata)
   { key: "duplica", label: "Duplica", icon: Copy, descrizione: "Copia una polizza (non le quietanze)", statiFiltro: [] },
-  { key: "sostituzione", label: "Sostituzione", icon: Replace, descrizione: "Sostituisci polizza/numero", statiFiltro: ["attivo"] },
+  {
+    key: "sostituzione",
+    label: "Sostituzione",
+    icon: Replace,
+    descrizione: "Sostituisci polizza/numero",
+    statiFiltro: [...STATI_SOSTITUZIONE_GESTIONE],
+  },
   { key: "sospensione", label: "Sospensione", icon: PauseCircle, descrizione: "Sospendi temporaneamente", statiFiltro: ["attivo"] },
   { key: "riattivazione", label: "Riattivazione", icon: PlayCircle, descrizione: "Riattiva polizza sospesa", statiFiltro: ["sospeso"] },
   { key: "annulla", label: "Annulla", icon: XCircle, descrizione: "Annullamento totale", statiFiltro: [], adminOnly: true },
