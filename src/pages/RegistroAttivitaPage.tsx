@@ -157,7 +157,7 @@ export default function RegistroAttivitaPage() {
   }
 
   return (
-    <PageContainer>
+    <PageContainer variant="full" className="min-w-0">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
@@ -274,7 +274,7 @@ export default function RegistroAttivitaPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card">
+      <div className="w-full min-w-0 rounded-lg border bg-card">
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -282,16 +282,16 @@ export default function RegistroAttivitaPage() {
           </div>
         ) : (
           <>
-            <Table>
+            <Table className="min-w-0 table-fixed" containerClassName="w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8" />
-                  <TableHead>Timestamp</TableHead>
-                  <TableHead>Utente</TableHead>
-                  <TableHead>Operazione</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead>Gravità</TableHead>
-                  <TableHead>Entità</TableHead>
+                  <TableHead className="w-10 px-2" />
+                  <TableHead className="w-[12%]">Timestamp</TableHead>
+                  <TableHead className="w-[18%]">Utente</TableHead>
+                  <TableHead className="w-[32%]">Operazione</TableHead>
+                  <TableHead className="w-[9%]">Stato</TableHead>
+                  <TableHead className="w-[9%]">Gravità</TableHead>
+                  <TableHead className="w-[14%]">Entità</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -325,20 +325,25 @@ export default function RegistroAttivitaPage() {
                               )}
                             </Button>
                           </TableCell>
-                          <TableCell className="whitespace-nowrap text-sm">
+                          <TableCell className="whitespace-nowrap text-sm tabular-nums">
                             {row.created_at
                               ? format(new Date(row.created_at), "dd/MM/yyyy HH:mm:ss", { locale: it })
                               : "—"}
                           </TableCell>
-                          <TableCell className="max-w-[220px] truncate text-sm" title={fmtUtente(row)}>
+                          <TableCell className="min-w-0 truncate text-sm" title={fmtUtente(row)}>
                             {fmtUtente(row)}
                           </TableCell>
-                          <TableCell className="max-w-[280px]">
-                            <div className="truncate text-sm font-medium">
+                          <TableCell className="min-w-0">
+                            <div
+                              className="truncate text-sm font-medium"
+                              title={labelOperazioneLog(row.azione, row.dettagli_json)}
+                            >
                               {labelOperazioneLog(row.azione, row.dettagli_json)}
                             </div>
                             {row.azione && (
-                              <div className="truncate text-xs text-muted-foreground">{row.azione}</div>
+                              <div className="truncate text-xs text-muted-foreground" title={row.azione}>
+                                {row.azione}
+                              </div>
                             )}
                           </TableCell>
                           <TableCell>
