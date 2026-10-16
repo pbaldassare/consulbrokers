@@ -21,11 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { sendEmail } from "@/lib/sendEmail";
 import { logAttivita } from "@/lib/logAttivita";
-import { sanitizeStorageFileName } from "@/lib/sanitizeFileName";
-import {
-  documentUploadTooLargeMessage,
-  MAX_DOCUMENT_UPLOAD_MB,
-} from "@/lib/uploadLimits";
+import { resolveUploadDisplayName, sanitizeStorageFileName } from "@/lib/sanitizeFileName";
+import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
 import {
   canDeleteSupportTicket,
   canUserReplyToSupportTicket,
@@ -33,7 +30,6 @@ import {
   formatSupportTicketNumber,
   isOpenSupportTicket,
   isSupportTicketClosed,
-  mergeSupportTicketAttachmentFiles,
   SUPPORT_TICKET_STATUS,
   SUPPORT_TICKET_STATUS_LABEL,
   supportTicketUserLockedMessage,
@@ -84,7 +80,10 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { FileDropzone } from "@/components/shared/FileDropzone";
+import {
+  AttachmentStagingPanel,
+  type PendingDocumentFile,
+} from "@/components/shared/MultiDocumentUploadPanel";
 
 const SUPPORT_EMAIL = "support@cbnet.it";
 const SUPPORT_FROM = `CBnet Support <${SUPPORT_EMAIL}>`;
@@ -146,57 +145,36 @@ function displayDate(value: string | null): string {
 async function uploadTicketAttachments(
   ticketId: string,
   userId: string,
-  files: File[],
+  files: PendingDocumentFile[],
 ): Promise<string[]> {
   const uploadedNames: string[] = [];
-  for (const file of files) {
-    const path = `${ticketId}/${crypto.randomUUID()}_${sanitizeStorageFileName(file.name)}`;
+  for (const item of files) {
+    const nomeFile = resolveUploadDisplayName(item.displayName, item.file.name);
+    const path = `${ticketId}/${crypto.randomUUID()}_${sanitizeStorageFileName(nomeFile)}`;
     const { error: uploadError } = await supabase.storage
       .from(SUPPORT_BUCKET)
-      .upload(path, file, { contentType: file.type || undefined, upsert: false });
+      .upload(path, item.file, { contentType: item.file.type || undefined, upsert: false });
     if (uploadError) {
-      toast.warning(`${file.name} non è stato caricato`);
+      toast.warning(`${nomeFile} non è stato caricato`);
       continue;
     }
     const { error: metadataError } = await db.from("support_ticket_allegati").insert({
       ticket_id: ticketId,
-      nome_file: file.name,
+      nome_file: nomeFile,
       path_storage: path,
       bucket_name: SUPPORT_BUCKET,
-      mime_type: file.type || null,
-      dimensione_bytes: file.size,
+      mime_type: item.file.type || null,
+      dimensione_bytes: item.file.size,
       caricato_da: userId,
     });
     if (metadataError) {
       await supabase.storage.from(SUPPORT_BUCKET).remove([path]);
-      toast.warning(`${file.name} non è stato registrato`);
+      toast.warning(`${nomeFile} non è stato registrato`);
       continue;
     }
-    uploadedNames.push(file.name);
+    uploadedNames.push(nomeFile);
   }
   return uploadedNames;
-}
-
-function PendingTicketFiles({
-  files,
-  onRemove,
-}: {
-  files: File[];
-  onRemove: (index: number) => void;
-}) {
-  if (files.length === 0) return null;
-  return (
-    <div className="space-y-1 rounded-md border bg-background p-2">
-      {files.map((file, index) => (
-        <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 text-sm">
-          <span className="truncate">{file.name}</span>
-          <Button type="button" variant="ghost" size="sm" onClick={() => onRemove(index)}>
-            Rimuovi
-          </Button>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 function NewTicketDialog({
@@ -214,7 +192,7 @@ function NewTicketDialog({
   const [descrizione, setDescrizione] = useState("");
   const [cliente, setCliente] = useState("");
   const [polizza, setPolizza] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<PendingDocumentFile[]>([]);
   const [saving, setSaving] = useState(false);
 
   const reset = () => {
@@ -240,6 +218,11 @@ function NewTicketDialog({
       toast.error(descriptionError);
       return;
     }
+    const emptyName = files.find((p) => !p.displayName.trim());
+    if (emptyName) {
+      toast.error("Inserisci un nome per ogni allegato");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -260,32 +243,7 @@ function NewTicketDialog({
       if (error) throw error;
 
       const ticket = data as SupportTicket;
-      const uploadedNames: string[] = [];
-      for (const file of files) {
-        const path = `${ticket.id}/${crypto.randomUUID()}_${sanitizeStorageFileName(file.name)}`;
-        const { error: uploadError } = await supabase.storage
-          .from(SUPPORT_BUCKET)
-          .upload(path, file, { contentType: file.type || undefined, upsert: false });
-        if (uploadError) {
-          toast.warning(`Ticket creato, ma ${file.name} non è stato caricato`);
-          continue;
-        }
-        const { error: metadataError } = await db.from("support_ticket_allegati").insert({
-          ticket_id: ticket.id,
-          nome_file: file.name,
-          path_storage: path,
-          bucket_name: SUPPORT_BUCKET,
-          mime_type: file.type || null,
-          dimensione_bytes: file.size,
-          caricato_da: user.id,
-        });
-        if (metadataError) {
-          await supabase.storage.from(SUPPORT_BUCKET).remove([path]);
-          toast.warning(`Ticket creato, ma ${file.name} non è stato registrato`);
-          continue;
-        }
-        uploadedNames.push(file.name);
-      }
+      const uploadedNames = await uploadTicketAttachments(ticket.id, user.id, files);
 
       const ticketNumber = formatSupportTicketNumber(ticket.numero);
       const emailResult = await sendEmail({
@@ -339,14 +297,6 @@ function NewTicketDialog({
     } finally {
       setSaving(false);
     }
-  };
-
-  const addFiles = (selected: File[]) => {
-    const { files: next, rejected } = mergeSupportTicketAttachmentFiles(files, selected);
-    for (const file of rejected) {
-      toast.error(`${file.name}: ${documentUploadTooLargeMessage()}`);
-    }
-    setFiles(next);
   };
 
   return (
@@ -433,32 +383,15 @@ function NewTicketDialog({
             </div>
             <div className="grid min-w-0 gap-2">
               <Label htmlFor="ticket-files">Allegati</Label>
-              <FileDropzone
+              <AttachmentStagingPanel
                 inputId="ticket-files"
-                multiple
-                size="sm"
-                icon={Paperclip}
+                files={files}
+                onFilesChange={setFiles}
+                disabled={saving}
+                dropzoneClassName="p-4"
                 emptyLabel="Trascina qui o clicca per selezionare"
                 hint={`Puoi selezionare più file — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
-                onFilesSelected={addFiles}
               />
-              {files.length > 0 && (
-                <div className="space-y-1 rounded-md border p-2">
-                  {files.map((file, index) => (
-                    <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 text-sm">
-                      <span className="truncate">{file.name}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                      >
-                        Rimuovi
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -496,9 +429,9 @@ function TicketDetail({
     ticket ? ticketTipologia(ticket) : "bug",
   );
   const [note, setNote] = useState("");
-  const [adminFiles, setAdminFiles] = useState<File[]>([]);
+  const [adminFiles, setAdminFiles] = useState<PendingDocumentFile[]>([]);
   const [reply, setReply] = useState("");
-  const [replyFiles, setReplyFiles] = useState<File[]>([]);
+  const [replyFiles, setReplyFiles] = useState<PendingDocumentFile[]>([]);
   const [saving, setSaving] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -551,14 +484,6 @@ function TicketDetail({
     isAdmin,
   });
   const authorLabel = [profile?.nome, profile?.cognome].filter(Boolean).join(" ") || profile?.email || user?.email || "Utente";
-
-  const addPendingFiles = (current: File[], selected: File[], setFiles: (files: File[]) => void) => {
-    const { files: next, rejected } = mergeSupportTicketAttachmentFiles(current, selected);
-    for (const file of rejected) {
-      toast.error(`${file.name}: ${documentUploadTooLargeMessage()}`);
-    }
-    setFiles(next);
-  };
 
   const downloadAttachment = async (attachment: TicketAttachment) => {
     const { data, error } = await supabase.storage
@@ -613,6 +538,11 @@ function TicketDetail({
     const notifyRequester = statusChanged || !!cleanNote || adminFiles.length > 0;
     if (!statusChanged && !cleanNote && adminFiles.length === 0 && !tipologiaChanged) {
       toast.info("Nessuna modifica da salvare");
+      return;
+    }
+    const emptyAdminName = adminFiles.find((p) => !p.displayName.trim());
+    if (emptyAdminName) {
+      toast.error("Inserisci un nome per ogni allegato");
       return;
     }
     setSaving(true);
@@ -725,6 +655,11 @@ function TicketDetail({
     const replyError = validateSupportTicketReply(reply);
     if (replyError) {
       toast.error(replyError);
+      return;
+    }
+    const emptyReplyName = replyFiles.find((p) => !p.displayName.trim());
+    if (emptyReplyName) {
+      toast.error("Inserisci un nome per ogni allegato");
       return;
     }
     setSaving(true);
@@ -910,18 +845,14 @@ function TicketDetail({
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="admin-reply-files">Allegati</Label>
-                    <FileDropzone
+                    <AttachmentStagingPanel
                       inputId="admin-reply-files"
-                      multiple
-                      size="sm"
-                      icon={Paperclip}
+                      files={adminFiles}
+                      onFilesChange={setAdminFiles}
+                      disabled={saving}
+                      dropzoneClassName="p-4"
                       emptyLabel="Trascina qui o clicca per selezionare"
                       hint={`Puoi selezionare più file — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
-                      onFilesSelected={(selected) => addPendingFiles(adminFiles, selected, setAdminFiles)}
-                    />
-                    <PendingTicketFiles
-                      files={adminFiles}
-                      onRemove={(index) => setAdminFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
                     />
                   </div>
                   <Button onClick={saveAdminUpdate} disabled={saving}>
@@ -1015,18 +946,14 @@ function TicketDetail({
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="user-reply-files">Allegati</Label>
-                      <FileDropzone
+                      <AttachmentStagingPanel
                         inputId="user-reply-files"
-                        multiple
-                        size="sm"
-                        icon={Paperclip}
+                        files={replyFiles}
+                        onFilesChange={setReplyFiles}
+                        disabled={saving}
+                        dropzoneClassName="p-4"
                         emptyLabel="Trascina qui o clicca per selezionare"
                         hint={`Puoi selezionare più file — max ${MAX_DOCUMENT_UPLOAD_MB} MB ciascuno`}
-                        onFilesSelected={(selected) => addPendingFiles(replyFiles, selected, setReplyFiles)}
-                      />
-                      <PendingTicketFiles
-                        files={replyFiles}
-                        onRemove={(index) => setReplyFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
                       />
                     </div>
                     <Button onClick={saveUserReply} disabled={saving}>

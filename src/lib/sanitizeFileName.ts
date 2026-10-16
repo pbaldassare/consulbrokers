@@ -29,3 +29,10 @@ export function ensureFileExtension(displayName: string, originalName: string): 
   const lower = displayName.toLowerCase();
   return lower.endsWith("." + origExt) ? displayName : `${displayName}.${origExt}`;
 }
+
+/** Nome file finale per upload/DB a partire da etichetta modificata dall'utente. */
+export function resolveUploadDisplayName(displayName: string, originalFileName: string): string {
+  const trimmed = displayName.trim();
+  const base = trimmed || fileBaseNameWithoutExt(originalFileName);
+  return ensureFileExtension(base, originalFileName);
+}

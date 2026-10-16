@@ -18,6 +18,7 @@ export type WizardStep = 1 | 2 | 3 | 4 | 5;
 
 export type WizardDocumentEntry = {
   nome_file: string;
+  nome_file_originale?: string;
   path_temp?: string;
   categoria: string;
   descrizione?: string;

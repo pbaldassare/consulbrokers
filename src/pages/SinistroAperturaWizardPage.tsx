@@ -65,6 +65,11 @@ import {
   isDocumentUploadTooLarge,
   MAX_DOCUMENT_UPLOAD_MB,
 } from "@/lib/uploadLimits";
+import {
+  fileBaseNameWithoutExt,
+  resolveUploadDisplayName,
+  sanitizeStorageFileName,
+} from "@/lib/sanitizeFileName";
 
 const wizardSchema = sinistroPraticaSchema.extend({
   titolo_id: z.string().optional(),
@@ -77,6 +82,7 @@ const wizardSchema = sinistroPraticaSchema.extend({
   documenti: z.array(
     z.object({
       nome_file: z.string(),
+      nome_file_originale: z.string().optional(),
       path_temp: z.string().optional(),
       categoria: z.string().optional(),
       descrizione: z.string().optional(),
@@ -411,7 +417,8 @@ export default function SinistroAperturaWizardPage() {
       reader.onload = (event) => {
         const base64Content = event.target?.result as string;
         appendDoc({
-          nome_file: file.name,
+          nome_file: fileBaseNameWithoutExt(file.name),
+          nome_file_originale: file.name,
           path_temp: pathTemp,
           categoria: "",
           descrizione: "",
@@ -577,7 +584,9 @@ export default function SinistroAperturaWizardPage() {
         throw new Error(`File "${doc.nome_file}" non disponibile: ricaricalo nello step Documenti`);
       }
 
-      const storagePath = `sinistro/${sinistroId}/${Date.now()}_${doc.nome_file}`;
+      const originalName = doc.nome_file_originale ?? pendingFile?.name ?? doc.nome_file;
+      const nomeFile = resolveUploadDisplayName(doc.nome_file, originalName);
+      const storagePath = `sinistro/${sinistroId}/${Date.now()}_${sanitizeStorageFileName(nomeFile)}`;
       const { error: uploadErr } = await supabase.storage
         .from("documenti_sinistri")
         .upload(storagePath, blob, {
@@ -586,7 +595,7 @@ export default function SinistroAperturaWizardPage() {
       if (uploadErr) throw uploadErr;
 
       const { error: docDbErr } = await supabase.from("documenti").insert({
-        nome_file: doc.nome_file,
+        nome_file: nomeFile,
         path_storage: storagePath,
         bucket_name: "documenti_sinistri",
         entita_tipo: "sinistro",
@@ -1150,12 +1159,22 @@ export default function SinistroAperturaWizardPage() {
                     <div className="space-y-3">
                       {docFields.map((field, idx) => (
                         <div key={field.id} className="p-3 border rounded-lg flex flex-col md:flex-row gap-3 items-start md:items-center bg-card shadow-sm">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <FileText className="h-5 w-5 text-primary shrink-0" />
-                            <span className="text-xs font-semibold truncate" title={field.nome_file}>{field.nome_file}</span>
-                            {watch(`documenti.${idx}.saved`) && (
-                              <Badge variant="outline" className="text-[10px] px-1 py-0">Salvato</Badge>
-                            )}
+                          <div className="flex flex-col gap-1 flex-1 min-w-0 w-full md:max-w-[14rem]">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <FileText className="h-5 w-5 text-primary shrink-0" />
+                              {watch(`documenti.${idx}.saved`) && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">Salvato</Badge>
+                              )}
+                            </div>
+                            <Input
+                              placeholder="Nome documento..."
+                              className="h-8 text-xs"
+                              {...register(`documenti.${idx}.nome_file`)}
+                              disabled={watch(`documenti.${idx}.saved`) === true}
+                            />
+                            <p className="text-[10px] text-muted-foreground truncate" title={watch(`documenti.${idx}.nome_file_originale`) || field.nome_file}>
+                              File: {watch(`documenti.${idx}.nome_file_originale`) || field.nome_file}
+                            </p>
                           </div>
                           <div className="w-full md:flex-1">
                             <Input 

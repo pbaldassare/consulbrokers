@@ -302,3 +302,10 @@ export function patchPendingFile(
 ): PendingDocumentFile[] {
   return files.map((f) => (f.id === id ? { ...f, ...patch } : f));
 }
+
+/** Multi-allegati con rinomina prima dell'invio (senza opzioni documentale staff). */
+export function AttachmentStagingPanel(
+  props: Omit<MultiDocumentUploadPanelProps, "showVerificato" | "showVisibileAlCliente">,
+) {
+  return <MultiDocumentUploadPanel {...props} showVerificato={false} showVisibileAlCliente={false} />;
+}

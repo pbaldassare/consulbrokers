@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ensureFileExtension, fileBaseNameWithoutExt, sanitizeStorageFileName } from "@/lib/sanitizeFileName";
+import {
+  ensureFileExtension,
+  fileBaseNameWithoutExt,
+  resolveUploadDisplayName,
+  sanitizeStorageFileName,
+} from "@/lib/sanitizeFileName";
 
 describe("sanitizeStorageFileName", () => {
   it("normalizza spazi e accenti", () => {
@@ -25,5 +30,15 @@ describe("ensureFileExtension", () => {
 
   it("non duplica estensione già presente", () => {
     expect(ensureFileExtension("doc.pdf", "originale.pdf")).toBe("doc.pdf");
+  });
+});
+
+describe("resolveUploadDisplayName", () => {
+  it("usa displayName e conserva estensione originale", () => {
+    expect(resolveUploadDisplayName("Foto danno", "IMG_001.jpg")).toBe("Foto danno.jpg");
+  });
+
+  it("ricade sul nome file se displayName vuoto", () => {
+    expect(resolveUploadDisplayName("  ", "report_finale.pdf")).toBe("report_finale.pdf");
   });
 });

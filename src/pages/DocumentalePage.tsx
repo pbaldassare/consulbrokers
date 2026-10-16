@@ -26,6 +26,7 @@ import {
   parseDocumentaleTab,
   type DocumentaleTab,
 } from "@/lib/documentaleTab";
+import { resolveUploadDisplayName, sanitizeStorageFileName } from "@/lib/sanitizeFileName";
 
 interface Folder {
   id: string;
@@ -177,7 +178,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
   };
 
   const handleUpload = async (
-    files: Array<{ file: File; verificato: boolean }>,
+    files: Array<{ file: File; displayName: string; verificato: boolean }>,
     description: string,
     tags: string[],
   ) => {
@@ -186,11 +187,12 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
     setActionLoading(true);
     let ok = 0;
     let fail = 0;
-    for (const { file, verificato } of files) {
-      const path = `${currentFolderId}/${Date.now()}_${file.name}`;
+    for (const { file, displayName, verificato } of files) {
+      const fileName = resolveUploadDisplayName(displayName, file.name);
+      const path = `${currentFolderId}/${Date.now()}_${sanitizeStorageFileName(fileName)}`;
       const { error: uploadError } = await supabase.storage.from("document-library").upload(path, file);
       if (uploadError) {
-        toast.error(`${file.name}: ${uploadError.message}`);
+        toast.error(`${fileName}: ${uploadError.message}`);
         fail += 1;
         continue;
       }
@@ -199,7 +201,7 @@ export default function DocumentalePage({ consultazioneMode = false }: Documenta
 
       const { error: dbError } = await supabase.from("document_library").insert({
         folder_id: currentFolderId,
-        file_name: file.name,
+        file_name: fileName,
         file_url: urlData.publicUrl,
         file_type: file.type,
         file_size: file.size,

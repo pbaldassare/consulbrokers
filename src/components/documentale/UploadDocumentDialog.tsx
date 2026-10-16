@@ -9,13 +9,14 @@ import {
   type PendingDocumentFile,
 } from "@/components/shared/MultiDocumentUploadPanel";
 import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/uploadLimits";
+import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 interface UploadDocumentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpload: (
-    files: Array<{ file: File; verificato: boolean }>,
+    files: Array<{ file: File; displayName: string; verificato: boolean }>,
     description: string,
     tags: string[],
   ) => void | Promise<void>;
@@ -46,9 +47,18 @@ export default function UploadDocumentDialog({ open, onOpenChange, onUpload, loa
 
   const handleSubmit = async () => {
     if (pendingFiles.length === 0) return;
+    const emptyName = pendingFiles.find((p) => !p.displayName.trim());
+    if (emptyName) {
+      toast.error("Inserisci un nome per ogni documento");
+      return;
+    }
     const tags = tagsInput.split(",").map(t => t.trim()).filter(Boolean);
     await onUpload(
-      pendingFiles.map((p) => ({ file: p.file, verificato: p.verificato })),
+      pendingFiles.map((p) => ({
+        file: p.file,
+        displayName: p.displayName.trim(),
+        verificato: p.verificato,
+      })),
       description.trim(),
       tags,
     );
