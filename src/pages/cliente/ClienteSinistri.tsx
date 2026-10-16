@@ -558,6 +558,7 @@ export default function ClienteSinistri() {
                     </TableHead>
                     <TableHead className="w-8"></TableHead>
                     <TableHead>N. Sinistro</TableHead>
+                    <TableHead>Controparte</TableHead>
                     <TableHead>Garanzia</TableHead>
                     <TableHead>Polizza</TableHead>
                     <TableHead>Stato</TableHead>
@@ -582,6 +583,9 @@ export default function ClienteSinistri() {
                           {expandedId === s.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                         </TableCell>
                         <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
+                        <TableCell className="max-w-[12rem] truncate" title={s.controparte || undefined}>
+                          {s.controparte || "—"}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs font-normal">{s.ramo_sinistro || "—"}</Badge>
                         </TableCell>
@@ -604,7 +608,7 @@ export default function ClienteSinistri() {
                       {/* Expanded Detail Panel */}
                       {expandedId === s.id && (
                         <TableRow key={`${s.id}-detail`}>
-                          <TableCell colSpan={9} className="bg-muted/20 p-0">
+                          <TableCell colSpan={11} className="bg-muted/20 p-0">
                             <div className="p-4 space-y-4">
                               {/* Dinamica */}
                               {s.dinamica && (
