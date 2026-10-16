@@ -72,6 +72,12 @@ import { isSidebarToActive } from "@/lib/sidebarToActive";
 import { SISTEMA_SEDE_ALLOWED_ROLES } from "@/lib/sistemaSede";
 import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
 import { isRootAdminEmail } from "@/lib/adminAccountGuard";
+import {
+  sidebarReserveWrapClass,
+  sidebarReserveZoneClass,
+  splitSidebarReserveBlocks,
+} from "@/lib/sidebarReserveZones";
+import { cn } from "@/lib/utils";
 
 
 interface SidebarItem {
@@ -508,14 +514,14 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
             if (isLegacyPath(item.path) || isLegacyLabel(item.label)) return null;
             if (!isVisible(item.permissionKey, item.adminOnly, item.hideForRoles, item.showForRoles)) return null;
             if (item.rootOnly && !isRootAdminEmail(profile?.email)) return null;
-            return (
+            const reserveLevel = item.rootOnly ? "root" : item.adminOnly ? "admin" : null;
+            const link = (
               <RouterNavLink
-                key={item.path}
                 to={item.path}
                 end={item.end || item.path === "/"}
                 className={() => {
                   const isActive = isSidebarToActive(location, item.path, item.end || item.path === "/");
-                  return `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 mb-0.5 ${
+                  return `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
                     isActive
                       ? "bg-white/15 text-white shadow-sm backdrop-blur-sm"
                       : "text-white/70 hover:bg-white/8 hover:text-white/90"
@@ -541,6 +547,18 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
                   </span>
                 )}
               </RouterNavLink>
+            );
+            if (!reserveLevel) {
+              return (
+                <div key={item.path} className="mb-0.5">
+                  {link}
+                </div>
+              );
+            }
+            return (
+              <div key={item.path} className={sidebarReserveWrapClass(reserveLevel, collapsed ? "mx-0.5" : "mx-1")}>
+                {link}
+              </div>
             );
           }
 
@@ -589,24 +607,41 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
               {isOpen && !collapsed && (
                 <div className="ml-3 pl-3 border-l border-white/15">
-                  {visibleChildren.map((child) => (
-                    <RouterNavLink
-                      key={child.path}
-                      to={child.path}
-                      end
-                      className={() => {
-                        const isActive = isSidebarToActive(location, child.path, true);
-                        return `flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-all duration-150 mb-0.5 ${
-                          isActive
-                            ? "bg-white/15 text-white font-medium"
-                            : "text-white/60 hover:bg-white/8 hover:text-white/80"
-                        }`;
-                      }}
-                    >
-                      <child.icon className="w-4 h-4 shrink-0" />
-                      <span>{child.label}</span>
-                    </RouterNavLink>
-                  ))}
+                  {splitSidebarReserveBlocks(visibleChildren).map((block, blockIdx) => {
+                    const renderChild = (child: (typeof visibleChildren)[number]) => (
+                      <RouterNavLink
+                        key={child.path}
+                        to={child.path}
+                        end
+                        className={() => {
+                          const isActive = isSidebarToActive(location, child.path, true);
+                          return `flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-all duration-150 ${
+                            isActive
+                              ? "bg-white/15 text-white font-medium"
+                              : "text-white/60 hover:bg-white/8 hover:text-white/80"
+                          }`;
+                        }}
+                      >
+                        <child.icon className="w-4 h-4 shrink-0" />
+                        <span>{child.label}</span>
+                      </RouterNavLink>
+                    );
+                    if (block.level === null) {
+                      return (
+                        <div key={`g-${blockIdx}`} className="mb-0.5 space-y-0.5">
+                          {block.items.map(renderChild)}
+                        </div>
+                      );
+                    }
+                    return (
+                      <div
+                        key={`g-${block.level}-${blockIdx}`}
+                        className={cn(sidebarReserveZoneClass(block.level), "my-1 space-y-0.5 p-0.5")}
+                      >
+                        {block.items.map(renderChild)}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
