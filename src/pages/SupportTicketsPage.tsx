@@ -492,6 +492,9 @@ function TicketDetail({
 }) {
   const { isAdmin, user, profile } = useAuth();
   const [status, setStatus] = useState<SupportTicketStatus>(ticket?.stato || "aperto");
+  const [tipologia, setTipologia] = useState<SupportTicketTipologia>(
+    ticket ? ticketTipologia(ticket) : "bug",
+  );
   const [note, setNote] = useState("");
   const [adminFiles, setAdminFiles] = useState<File[]>([]);
   const [reply, setReply] = useState("");
@@ -503,11 +506,12 @@ function TicketDetail({
 
   useEffect(() => {
     if (ticket?.stato) setStatus(ticket.stato);
+    if (ticket) setTipologia(ticketTipologia(ticket));
     setReply("");
     setReplyFiles([]);
     setNote("");
     setAdminFiles([]);
-  }, [ticket?.id, ticket?.stato]);
+  }, [ticket?.id, ticket?.stato, ticket?.tipologia_problema]);
 
   const { data: events = [], refetch: refetchEvents } = useQuery({
     queryKey: ["support-ticket-events", ticket?.id],
@@ -604,21 +608,42 @@ function TicketDetail({
   const saveAdminUpdate = async () => {
     if (!isAdmin || !user?.id) return;
     const statusChanged = status !== ticket.stato;
+    const tipologiaChanged = tipologia !== ticketTipologia(ticket);
     const cleanNote = note.trim();
-    if (!statusChanged && !cleanNote && adminFiles.length === 0) {
+    const notifyRequester = statusChanged || !!cleanNote || adminFiles.length > 0;
+    if (!statusChanged && !cleanNote && adminFiles.length === 0 && !tipologiaChanged) {
       toast.info("Nessuna modifica da salvare");
       return;
     }
     setSaving(true);
     try {
-      const uploadedNames = await uploadTicketAttachments(ticket.id, user.id, adminFiles);
-      if (statusChanged) {
-        const { error } = await db
-          .from("support_tickets")
-          .update({ stato: status })
-          .eq("id", ticket.id);
+      const uploadedNames = notifyRequester
+        ? await uploadTicketAttachments(ticket.id, user.id, adminFiles)
+        : [];
+
+      const ticketPatch: { stato?: SupportTicketStatus; tipologia_problema?: SupportTicketTipologia } = {};
+      if (statusChanged) ticketPatch.stato = status;
+      if (tipologiaChanged) ticketPatch.tipologia_problema = tipologia;
+      if (Object.keys(ticketPatch).length > 0) {
+        const { error } = await db.from("support_tickets").update(ticketPatch).eq("id", ticket.id);
         if (error) throw error;
       }
+
+      if (tipologiaChanged) {
+        await logAttivita({
+          azione: "ticket_supporto_tipologia_modificata",
+          entita_tipo: "support_ticket",
+          entita_id: ticket.id,
+          dettagli_json: {
+            numero: formatSupportTicketNumber(ticket.numero),
+            tipologia_da: ticketTipologia(ticket),
+            tipologia_a: tipologia,
+          },
+          severity: "info",
+          ufficio_id: ticket.ufficio_id || undefined,
+        });
+      }
+
       const eventNote = cleanNote
         || (uploadedNames.length > 0 ? `Allegati del supporto: ${uploadedNames.join(", ")}` : "");
       if (eventNote) {
@@ -633,14 +658,15 @@ function TicketDetail({
       }
 
       const finalStatus = statusChanged ? status : ticket.stato;
-      const emailResult = await sendEmail({
-        to: ticket.richiedente_email,
-        from: SUPPORT_FROM,
-        reply_to: SUPPORT_EMAIL,
-        subject: `[CBnet] ${formatSupportTicketNumber(ticket.numero)} - ${SUPPORT_TICKET_STATUS_LABEL[finalStatus]}`,
-        apply_branding: true,
-        ufficio_id: ticket.ufficio_id,
-        html: `
+      if (notifyRequester) {
+        const emailResult = await sendEmail({
+          to: ticket.richiedente_email,
+          from: SUPPORT_FROM,
+          reply_to: SUPPORT_EMAIL,
+          subject: `[CBnet] ${formatSupportTicketNumber(ticket.numero)} - ${SUPPORT_TICKET_STATUS_LABEL[finalStatus]}`,
+          apply_branding: true,
+          ufficio_id: ticket.ufficio_id,
+          html: `
           <h2>Aggiornamento ticket ${formatSupportTicketNumber(ticket.numero)}</h2>
           <p><strong>${escapeSupportTicketHtml(ticket.titolo)}</strong></p>
           <p>Stato attuale: <strong>${SUPPORT_TICKET_STATUS_LABEL[finalStatus]}</strong></p>
@@ -650,37 +676,42 @@ function TicketDetail({
             : "Nessuno"}</p>
           <p><a href="${window.location.origin}/ticket-supporto">Consulta il ticket in CBnet</a></p>
         `,
-      });
-      await logAttivita({
-        azione: emailResult.success ? "ticket_supporto_aggiornato" : "ticket_supporto_email_errore",
-        entita_tipo: "support_ticket",
-        entita_id: ticket.id,
-        dettagli_json: {
-          stato_da: ticket.stato,
-          stato_a: finalStatus,
-          nota_inserita: !!cleanNote,
-          allegati: uploadedNames.length,
-          destinatario: ticket.richiedente_email,
-          email_id: emailResult.id || null,
-          errore: emailResult.error || null,
-        },
-        severity: emailResult.success ? "info" : "warning",
-        ufficio_id: ticket.ufficio_id || undefined,
-      });
+        });
+        await logAttivita({
+          azione: emailResult.success ? "ticket_supporto_aggiornato" : "ticket_supporto_email_errore",
+          entita_tipo: "support_ticket",
+          entita_id: ticket.id,
+          dettagli_json: {
+            stato_da: ticket.stato,
+            stato_a: finalStatus,
+            nota_inserita: !!cleanNote,
+            allegati: uploadedNames.length,
+            destinatario: ticket.richiedente_email,
+            email_id: emailResult.id || null,
+            errore: emailResult.error || null,
+          },
+          severity: emailResult.success ? "info" : "warning",
+          ufficio_id: ticket.ufficio_id || undefined,
+        });
 
-      setNote("");
-      setAdminFiles([]);
-      await refetchEvents();
-      await refetchAttachments();
-      onUpdated();
-      if (emailResult.success) {
-        toast.success(
-          finalStatus === "risolto"
-            ? "Ticket risolto e richiedente avvisato"
-            : "Ticket aggiornato e richiedente avvisato",
-        );
+        setNote("");
+        setAdminFiles([]);
+        await refetchEvents();
+        await refetchAttachments();
+        onUpdated();
+        if (emailResult.success) {
+          toast.success(
+            finalStatus === "risolto"
+              ? "Ticket risolto e richiedente avvisato"
+              : "Ticket aggiornato e richiedente avvisato",
+          );
+        } else {
+          toast.warning("Ticket aggiornato; notifica email non consegnata");
+        }
       } else {
-        toast.warning("Ticket aggiornato; notifica email non consegnata");
+        await refetchEvents();
+        onUpdated();
+        toast.success("Tipologia aggiornata (nessuna email inviata)");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Errore durante l'aggiornamento");
@@ -837,16 +868,35 @@ function TicketDetail({
                     <ShieldCheck className="h-4 w-4 text-primary" />
                     Gestione amministratore
                   </div>
-                  <div className="grid gap-2">
-                    <Label>Stato ticket</Label>
-                    <Select value={status} onValueChange={(value) => setStatus(value as SupportTicketStatus)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {SUPPORT_TICKET_STATUS.map((item) => (
-                          <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label>Stato ticket</Label>
+                      <Select value={status} onValueChange={(value) => setStatus(value as SupportTicketStatus)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {SUPPORT_TICKET_STATUS.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="admin-tipologia">Tipologia del problema</Label>
+                      <Select
+                        value={tipologia}
+                        onValueChange={(value) => setTipologia(value as SupportTicketTipologia)}
+                      >
+                        <SelectTrigger id="admin-tipologia"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {SUPPORT_TICKET_TIPOLOGIE.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[11px] text-muted-foreground">
+                        Modifica interna: non invia email al richiedente.
+                      </p>
+                    </div>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="admin-note">Nota per il richiedente</Label>
@@ -876,9 +926,18 @@ function TicketDetail({
                   </div>
                   <Button onClick={saveAdminUpdate} disabled={saving}>
                     {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isSupportTicketClosed(ticket.stato) && status !== "risolto"
-                      ? "Riapri e avvisa il richiedente"
-                      : "Salva e avvisa il richiedente"}
+                    {(() => {
+                      const onlyTipologia =
+                        tipologia !== ticketTipologia(ticket)
+                        && status === ticket.stato
+                        && !note.trim()
+                        && adminFiles.length === 0;
+                      if (onlyTipologia) return "Salva tipologia";
+                      if (isSupportTicketClosed(ticket.stato) && status !== "risolto") {
+                        return "Riapri e avvisa il richiedente";
+                      }
+                      return "Salva e avvisa il richiedente";
+                    })()}
                   </Button>
                   {isSupportTicketClosed(ticket.stato) && (
                     <p className="text-xs text-muted-foreground">
