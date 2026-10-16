@@ -282,16 +282,25 @@ export default function RegistroAttivitaPage() {
           </div>
         ) : (
           <>
-            <Table className="min-w-0 table-fixed" containerClassName="w-full">
+            <Table className="!min-w-0 w-full table-fixed" containerClassName="w-full">
+              <colgroup>
+                <col style={{ width: 40 }} />
+                <col style={{ width: 176 }} />
+                <col style={{ width: "20%" }} />
+                <col style={{ width: "34%" }} />
+                <col style={{ width: 88 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: "14%" }} />
+              </colgroup>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-10 px-2" />
-                  <TableHead className="w-[12%]">Timestamp</TableHead>
-                  <TableHead className="w-[18%]">Utente</TableHead>
-                  <TableHead className="w-[32%]">Operazione</TableHead>
-                  <TableHead className="w-[9%]">Stato</TableHead>
-                  <TableHead className="w-[9%]">Gravità</TableHead>
-                  <TableHead className="w-[14%]">Entità</TableHead>
+                  <TableHead className="px-2" />
+                  <TableHead className="whitespace-nowrap px-3">Timestamp</TableHead>
+                  <TableHead className="px-3">Utente</TableHead>
+                  <TableHead className="px-3">Operazione</TableHead>
+                  <TableHead className="px-3">Stato</TableHead>
+                  <TableHead className="px-3">Gravità</TableHead>
+                  <TableHead className="px-3">Entità</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -309,7 +318,7 @@ export default function RegistroAttivitaPage() {
                     return (
                       <Fragment key={row.id}>
                         <TableRow>
-                          <TableCell>
+                          <TableCell className="overflow-hidden px-2">
                             <Button
                               type="button"
                               variant="ghost"
@@ -325,15 +334,15 @@ export default function RegistroAttivitaPage() {
                               )}
                             </Button>
                           </TableCell>
-                          <TableCell className="whitespace-nowrap text-sm tabular-nums">
+                          <TableCell className="overflow-hidden whitespace-nowrap px-3 text-sm tabular-nums">
                             {row.created_at
                               ? format(new Date(row.created_at), "dd/MM/yyyy HH:mm:ss", { locale: it })
                               : "—"}
                           </TableCell>
-                          <TableCell className="min-w-0 truncate text-sm" title={fmtUtente(row)}>
-                            {fmtUtente(row)}
+                          <TableCell className="max-w-0 overflow-hidden px-3" title={fmtUtente(row)}>
+                            <span className="block truncate text-sm">{fmtUtente(row)}</span>
                           </TableCell>
-                          <TableCell className="min-w-0">
+                          <TableCell className="max-w-0 overflow-hidden px-3">
                             <div
                               className="truncate text-sm font-medium"
                               title={labelOperazioneLog(row.azione, row.dettagli_json)}
