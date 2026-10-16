@@ -35,6 +35,8 @@ import {
   buildMovimentoDedupKey,
   buildMovimentoContentDedupKey,
   buildMovimentoConstraintDedupKey,
+  buildMovimentoOrdinanteTripleDedupKey,
+  buildMovimentoIdBonificoDedupKey,
   isMovimentoDedupHit,
   fetchExistingMovimentoDedupKeys,
   insertMovimentiBancariSkippingDedup,
@@ -370,6 +372,10 @@ const Page = () => {
           existingKeys.add(buildMovimentoDedupKey(dedupPayload));
           const ck = buildMovimentoContentDedupKey(dedupPayload);
           if (ck) existingKeys.add(ck);
+          const ot = buildMovimentoOrdinanteTripleDedupKey(dedupPayload);
+          if (ot) existingKeys.add(ot);
+          const ib = buildMovimentoIdBonificoDedupKey(dedupPayload);
+          if (ib) existingKeys.add(ib);
         }
       }
 

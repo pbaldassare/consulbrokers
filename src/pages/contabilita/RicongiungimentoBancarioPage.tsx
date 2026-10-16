@@ -27,6 +27,7 @@ import { fmtEuro } from "@/lib/formatCurrency";
 import { formatDateIT } from "@/lib/formatDate";
 import * as XLSX from "xlsx";
 import {
+  dedupeMovimentiStessoBonificoFisico,
   extractOrdinanteFromDescrizione,
   fetchAllQueryPages,
   fetchContoIdsForUfficio,
@@ -268,10 +269,10 @@ export const DaRicongiungereTab = ({ profileUfficio, seeAll }: { profileUfficio:
   });
 
   // Importo filtrato client-side (match esatto con tolleranza o sottostringa formattata)
-  const movsFiltrati = useMemo(
-    () => filterMovimentiByOrdinanteImporto(movs, "", importo),
-    [movs, importo],
-  );
+  const movsFiltrati = useMemo(() => {
+    const filtered = filterMovimentiByOrdinanteImporto(movs, "", importo);
+    return dedupeMovimentiStessoBonificoFisico(filtered);
+  }, [movs, importo]);
 
   const [visibili, setVisibili] = useState(MOVIMENTI_CARD_STEP);
   useEffect(() => {

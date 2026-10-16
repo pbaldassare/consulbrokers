@@ -11,6 +11,8 @@ import {
   findHeaderRowEstratto,
   isDateHeaderEstratto,
   isMovimentoDedupHit,
+  buildMovimentoOrdinanteTripleDedupKey,
+  dedupeMovimentiStessoBonificoFisico,
   isMovimentiBancariDedupViolation,
   isPreambleEstrattoCell,
   normalizeDescrizioneDedup,
@@ -253,6 +255,35 @@ describe("estratto bancario CSV/Excel", () => {
     });
     expect(p.daImportare).toBe(0);
     expect(p.scartiByMotivo.duplicato).toBe(1);
+  });
+
+  it("ordinante-triple scarta re-import stesso bonifico con descrizione diversa (Potenza Calcio)", () => {
+    const conto = "dde8d5e9-cda9-493f-a44c-af554cc8a4a9";
+    const ord = "POTENZA CALCIO S R L 41299115BWQR617919125466450.0478160 PAG.";
+    const descBreve =
+      "Bonifico a vs favore *POTENZA CALCIO S R L 41299115BWQR617919125466450.0478160 PAG. POLIZZE N 774.036.0000900046, N 774.0";
+    const descLunga =
+      "Bonifico a vs favore *POTENZA CALCIO S R L 41299115BWQR617919125466450.0478160 PAG. POLIZZE N 774.036.0000900046, N 774.047.0000900016 E N 774.053.0000900050 Info aggiuntive: ID_BONIFICO: 0306926117448412480421404214IT";
+    const archivio = {
+      conto_bancario_id: conto,
+      data_movimento: "2026-10-15",
+      importo: 6937,
+      descrizione: descBreve,
+      ordinante: ord,
+    };
+    const existing = new Set([buildMovimentoOrdinanteTripleDedupKey(archivio)!]);
+    expect(
+      isMovimentoDedupHit(
+        { ...archivio, descrizione: descLunga },
+        existing,
+      ),
+    ).toBe(true);
+    const deduped = dedupeMovimentiStessoBonificoFisico([
+      { id: "vecchio", ...archivio },
+      { id: "nuovo", ...archivio, descrizione: descLunga },
+    ]);
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0]?.id).toBe("nuovo");
   });
 
   it("normalizza descrizione togliendo CRO/IBAN e spazi multipli", () => {

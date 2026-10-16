@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
   assegnaPagatoreMovimento,
+  dedupeMovimentiStessoBonificoFisico,
   fetchContoIdsForUfficio,
   finalizeMovimentoBancarioIncasso,
 } from "@/lib/movimentiBancari";
@@ -90,7 +91,9 @@ export async function fetchBonificiCandidatiPerIncasso(opts: {
   });
 
   rows.sort((a, b) => b.score - a.score || b.data_movimento.localeCompare(a.data_movimento));
-  return rows.slice(0, limit);
+  const deduped = dedupeMovimentiStessoBonificoFisico(rows);
+  deduped.sort((a, b) => b.score - a.score || b.data_movimento.localeCompare(a.data_movimento));
+  return deduped.slice(0, limit);
 }
 
 /**

@@ -657,6 +657,50 @@ export function buildMovimentoContentDedupKey(r: {
   return [r.conto_bancario_id || "", String(imp), fallback].join("|");
 }
 
+const ID_BONIFICO_RE = /\bID[\s_]?BONIFICO\s*[:\s]?\s*([A-Z0-9]{10,})\b/i;
+
+/** Codice banca (ID_BONIFICO) quando presente in descrizione estratto. */
+export function extractIdBonificoFromDescrizione(descrizione: string | null | undefined): string | null {
+  const m = String(descrizione ?? "").match(ID_BONIFICO_RE);
+  return m ? m[1].toUpperCase() : null;
+}
+
+/** Lunghezza minima nominativo per chiave conto+data+importo+ordinante (re-import stesso bonifico, descrizione diversa). */
+export const MIN_ORDINANTE_LEN_TRIPLE_DEDUP = 8;
+
+/**
+ * Stesso conto, data valuta, importo e pagatore (ordinante risolto): un solo bonifico fisico
+ * anche se la descrizione cambia tra un import e il successivo (troncata vs estesa).
+ */
+export function buildMovimentoOrdinanteTripleDedupKey(r: {
+  conto_bancario_id?: string | null;
+  data_movimento: string;
+  importo: number | null | undefined;
+  descrizione?: string | null;
+  ordinante?: string | null;
+}): string | null {
+  const ord = resolveOrdinanteImport(String(r.ordinante ?? ""), String(r.descrizione ?? ""));
+  const nome = sanitizeOrdinanteNome(ord).toUpperCase();
+  if (nome.length < MIN_ORDINANTE_LEN_TRIPLE_DEDUP) return null;
+  const imp = round2(Number(r.importo) || 0);
+  const data = String(r.data_movimento || "").slice(0, 10);
+  return ["ot", r.conto_bancario_id || "", data, String(imp), nome].join("\x1f");
+}
+
+/** Conto + data + importo + ID_BONIFICO (se in descrizione). */
+export function buildMovimentoIdBonificoDedupKey(r: {
+  conto_bancario_id?: string | null;
+  data_movimento: string;
+  importo: number | null | undefined;
+  descrizione?: string | null;
+}): string | null {
+  const id = extractIdBonificoFromDescrizione(r.descrizione);
+  if (!id) return null;
+  const imp = round2(Number(r.importo) || 0);
+  const data = String(r.data_movimento || "").slice(0, 10);
+  return ["ib", r.conto_bancario_id || "", data, String(imp), id].join("\x1f");
+}
+
 /** True se la riga matcha un movimento già in archivio (vincolo DB, soft-key o content-key). */
 export function isMovimentoDedupHit(
   r: {
@@ -671,7 +715,43 @@ export function isMovimentoDedupHit(
   if (existingDedupKeys.has(buildMovimentoConstraintDedupKey(r))) return true;
   if (existingDedupKeys.has(buildMovimentoDedupKey(r))) return true;
   const ck = buildMovimentoContentDedupKey(r);
-  return ck != null && existingDedupKeys.has(ck);
+  if (ck != null && existingDedupKeys.has(ck)) return true;
+  const ot = buildMovimentoOrdinanteTripleDedupKey(r);
+  if (ot != null && existingDedupKeys.has(ot)) return true;
+  const ib = buildMovimentoIdBonificoDedupKey(r);
+  return ib != null && existingDedupKeys.has(ib);
+}
+
+export type MovimentoDedupRow = {
+  id?: string;
+  conto_bancario_id?: string | null;
+  data_movimento: string;
+  importo: number | null | undefined;
+  descrizione?: string | null;
+  ordinante?: string | null;
+};
+
+/**
+ * Tra movimenti aperti, tieni un solo rappresentante per bonifico fisico (stesso conto/data/importo/pagatore).
+ * Preferisce la descrizione più completa (re-import con dettaglio esteso).
+ */
+export function dedupeMovimentiStessoBonificoFisico<T extends MovimentoDedupRow>(rows: T[]): T[] {
+  const byKey = new Map<string, T>();
+  for (const row of rows) {
+    const key =
+      buildMovimentoOrdinanteTripleDedupKey(row) ??
+      buildMovimentoIdBonificoDedupKey(row) ??
+      buildMovimentoConstraintDedupKey(row);
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, row);
+      continue;
+    }
+    const lenPrev = String(prev.descrizione ?? "").length;
+    const lenRow = String(row.descrizione ?? "").length;
+    if (lenRow > lenPrev) byKey.set(key, row);
+  }
+  return Array.from(byKey.values());
 }
 
 /** True se l'errore PostgREST/Postgres è violazione di `uq_movimenti_bancari_dedup`. */
@@ -759,10 +839,14 @@ export function buildPreviewEstratto(
     const dedupKey = buildMovimentoDedupKey(dedupPayload);
     const contentKey = buildMovimentoContentDedupKey(dedupPayload);
     const constraintKey = buildMovimentoConstraintDedupKey(dedupPayload);
+    const ordinanteTripleKey = buildMovimentoOrdinanteTripleDedupKey(dedupPayload);
+    const idBonificoKey = buildMovimentoIdBonificoDedupKey(dedupPayload);
     const dupInFile =
       seenInFile.has(dedupKey) ||
       seenInFile.has(constraintKey) ||
-      (contentKey != null && seenInFile.has(contentKey));
+      (contentKey != null && seenInFile.has(contentKey)) ||
+      (ordinanteTripleKey != null && seenInFile.has(ordinanteTripleKey)) ||
+      (idBonificoKey != null && seenInFile.has(idBonificoKey));
     const dupInArchive = existing ? isMovimentoDedupHit(dedupPayload, existing) : false;
     if (dupInArchive || dupInFile) {
       scartiByMotivo.duplicato = (scartiByMotivo.duplicato || 0) + 1;
@@ -782,6 +866,8 @@ export function buildPreviewEstratto(
     seenInFile.add(dedupKey);
     seenInFile.add(constraintKey);
     if (contentKey) seenInFile.add(contentKey);
+    if (ordinanteTripleKey) seenInFile.add(ordinanteTripleKey);
+    if (idBonificoKey) seenInFile.add(idBonificoKey);
 
     daImportare += 1;
     if (preview.length < 40) {
@@ -894,6 +980,10 @@ export async function fetchExistingMovimentoDedupKeys(
       keys.add(buildMovimentoDedupKey(payload));
       const ck = buildMovimentoContentDedupKey(payload);
       if (ck) keys.add(ck);
+      const ot = buildMovimentoOrdinanteTripleDedupKey(payload);
+      if (ot) keys.add(ot);
+      const ib = buildMovimentoIdBonificoDedupKey(payload);
+      if (ib) keys.add(ib);
     }
   };
 
