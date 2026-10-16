@@ -2,11 +2,11 @@ import { cn } from "@/lib/utils";
 
 /** Bordo soft per voci sidebar riservate agli admin. */
 export const SIDEBAR_ADMIN_ZONE =
-  "rounded-md border border-red-400/20 bg-red-950/[0.07] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.06)]";
+  "rounded-md border border-red-500/28 bg-red-950/[0.08]";
 
-/** Più evidente per voci solo admin@consul.it (root). */
+/** Root admin@consul.it: rosso più acceso (no bordo chiaro/bianco). */
 export const SIDEBAR_ROOT_ZONE =
-  "rounded-md border border-red-400/38 bg-red-950/[0.14] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.12)]";
+  "rounded-md border border-red-500/80 bg-red-950/30 ring-1 ring-red-400/50";
 
 export type SidebarReserveLevel = "admin" | "root" | null;
 
