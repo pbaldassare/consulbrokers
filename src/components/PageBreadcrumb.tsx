@@ -118,6 +118,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "manutenzione": "Manutenzione",
   "tabelle-base": "Tabelle di Base",
   "anomalie-sistema": "Anomalie Sistema",
+  "registro-attivita": "Registro attività",
   "login": "Login",
   "reset-password": "Reset Password",
 };

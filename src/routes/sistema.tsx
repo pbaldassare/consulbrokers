@@ -21,6 +21,7 @@ import NotaRestituzioneDetail from "@/pages/NotaRestituzioneDetail";
 import FlussiCompagnieList from "@/pages/FlussiCompagnieList";
 import FlussoCompagniaDetail from "@/pages/FlussoCompagniaDetail";
 import SitemapPage from "@/pages/SitemapPage";
+import RegistroAttivitaPage from "@/pages/RegistroAttivitaPage";
 import StoricoGarePage from "@/pages/StoricoGarePage";
 import { SISTEMA_SEDE_ALLOWED_ROLES } from "@/lib/sistemaSede";
 
@@ -41,6 +42,7 @@ export const sistemaRoutes = (
     <Route path="/gestione-uffici" element={<RoleGuard allowedRoles={["admin"]}><GestioneUfficiPage /></RoleGuard>} />
     <Route path="/template" element={<RoleGuard allowedRoles={sedeSistemaRoles}><TemplatePage /></RoleGuard>} />
     <Route path="/anomalie-sistema" element={<RoleGuard allowedRoles={["admin", "cfo", "ufficio"]}><AnomalieList /></RoleGuard>} />
+    <Route path="/registro-attivita" element={<RoleGuard allowedRoles={["admin"]}><RegistroAttivitaPage /></RoleGuard>} />
     <Route path="/sitemap" element={<RoleGuard allowedRoles={["admin"]}><SitemapPage /></RoleGuard>} />
 
     {/* STANDALONE */}

@@ -83,6 +83,8 @@ interface SidebarItem {
   adminOnly?: boolean;
   hideForRoles?: string[];
   showForRoles?: string[];
+  /** Solo admin@consul.it */
+  rootOnly?: boolean;
 }
 
 interface SidebarGroupDef {
@@ -307,6 +309,7 @@ const sidebarEntries: SidebarEntry[] = [
       showForRoles: [...SISTEMA_SEDE_ALLOWED_ROLES],
       children: [
         { label: "Anomalie Sistema", path: "/anomalie-sistema", icon: AlertTriangle, adminOnly: true },
+        { label: "Registro attività", path: "/registro-attivita", icon: ClipboardList, adminOnly: true, rootOnly: true },
         { label: "Backup & Export", path: "/backup-export", icon: HardDrive, adminOnly: true },
         { label: "Tabelle di Base", path: "/tabelle-base", icon: Database },
         { label: "Template Email", path: "/template", icon: Mail },
@@ -434,7 +437,9 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
         ? e.item.rootOnly && !isRootAdminEmail(profile?.email)
           ? []
           : [{ label: e.item.label, path: e.item.path, icon: e.item.icon, gruppo: "" }]
-        : e.group.children.map((c) => ({ label: c.label, path: c.path, icon: c.icon, gruppo: e.group.label })),
+        : e.group.children
+            .filter((c) => !(c.rootOnly && !isRootAdminEmail(profile?.email)))
+            .map((c) => ({ label: c.label, path: c.path, icon: c.icon, gruppo: e.group.label })),
     ).filter((x) => !isLegacyPath(x.path) && !isLegacyLabel(x.label));
     return tutte.filter((x) => normTesto(`${x.label} ${x.gruppo}`).includes(q)).slice(0, 15);
   }, [cercaSezione, profile?.email]);
@@ -544,6 +549,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
           const groupVisible = isVisible(group.permissionKey, group.adminOnly, group.hideForRoles, group.showForRoles);
           const visibleChildren = group.children.filter((child) => {
             if (isLegacyPath(child.path) || isLegacyLabel(child.label)) return false;
+            if (child.rootOnly && !isRootAdminEmail(profile?.email)) return false;
             if (child.permissionKey) {
               return isVisible(child.permissionKey, child.adminOnly, child.hideForRoles, child.showForRoles);
             }
