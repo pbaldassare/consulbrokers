@@ -1,4 +1,5 @@
 import { format, parseISO } from "date-fns";
+import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import type { PremiProvvigioniRow } from "./columns";
 
 export type PremiProvvigioniRaw = {
@@ -19,6 +20,7 @@ export type PremiProvvigioniRaw = {
   tasse?: number | null;
   provvigioni_quietanza?: number | null;
   provvigioni_firma?: number | null;
+  sostituisce_polizza?: string | null;
   provv_passive?: number | null;
   perc_provv?: number | null;
   provv_pagata?: boolean | null;
@@ -70,7 +72,11 @@ export function mapPremiProvvigioniRow(t: PremiProvvigioniRaw): PremiProvvigioni
     .filter(Boolean)
     .join(" — ") || "";
 
-  const attive = Number(t.provvigioni_quietanza ?? t.provvigioni_firma) || 0;
+  const attive = getProvvigioneEC({
+    sostituisce_polizza: t.sostituisce_polizza,
+    provvigioni_firma: t.provvigioni_firma,
+    provvigioni_quietanza: t.provvigioni_quietanza,
+  });
   const passive = Number(t.provv_passive) || 0;
 
   return {

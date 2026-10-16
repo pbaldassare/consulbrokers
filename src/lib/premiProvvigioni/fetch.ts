@@ -7,6 +7,7 @@ import {
   resolvePremiProvvigioniDateColumn,
   type PremiProvvigioniCriterioData,
 } from "./criterioData";
+import { isProvvPassiveDestinatario } from "./provvPassiveFromGenerate";
 
 export { periodoLabel };
 
@@ -22,7 +23,7 @@ export interface FetchPremiProvvigioniFilters {
 }
 
 const VIEW_SELECT =
-  "id, numero_titolo, appendice_corrente, descrizione_polizza, data_competenza, durata_da, durata_a, garanzia_da, garanzia_a, premio_lordo, premio_netto, tasse, provvigioni_quietanza, provvigioni_firma, produttore_nome, produttori_display, data_copertura, data_incasso, data_messa_cassa, importo_incassato, tipo_portafoglio, cliente_nome_display, ae_nome, specialist, compagnia_nome, compagnia_id, ramo_nome, ufficio_id, produttore_id, targa_telaio";
+  "id, numero_titolo, appendice_corrente, descrizione_polizza, data_competenza, durata_da, durata_a, garanzia_da, garanzia_a, premio_lordo, premio_netto, tasse, provvigioni_quietanza, provvigioni_firma, sostituisce_polizza, produttore_nome, produttori_display, data_copertura, data_incasso, data_messa_cassa, importo_incassato, tipo_portafoglio, cliente_nome_display, ae_nome, specialist, compagnia_nome, compagnia_id, ramo_nome, ufficio_id, produttore_id, targa_telaio";
 
 /** Titoli incassati nel periodo (per criterio data scelto) con dati provvigioni. */
 export async function fetchPremiProvvigioni(
@@ -150,11 +151,12 @@ async function loadProvvigioni(titoloIds: string[]): Promise<Map<string, ProvvAg
   for (const chunk of chunks) {
     const { data } = await supabase
       .from("provvigioni_generate")
-      .select("titolo_id, importo_provvigione, percentuale, pagata, solo_statistico")
+      .select("titolo_id, importo_provvigione, percentuale, pagata, solo_statistico, tipo_destinatario")
       .in("titolo_id", chunk)
       .eq("solo_statistico", false);
 
     for (const p of data || []) {
+      if (!isProvvPassiveDestinatario(p.tipo_destinatario)) continue;
       const cur = map.get(p.titolo_id) || { provv_passive: 0, perc_provv: null, provv_pagata: true };
       cur.provv_passive += Number(p.importo_provvigione) || 0;
       if (p.percentuale != null) cur.perc_provv = Number(p.percentuale);
