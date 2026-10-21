@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canModifyAccount, isAdminAccount, isRootAdminEmail } from "../adminAccountGuard";
+import { canEditUserEmail, canModifyAccount, isAdminAccount, isRootAdminEmail } from "../adminAccountGuard";
 
 describe("adminAccountGuard", () => {
   const root = { id: "root", email: "admin@consul.it" };
@@ -31,5 +31,14 @@ describe("adminAccountGuard", () => {
   it("lascia modificare il proprio account e gli account non admin", () => {
     expect(canModifyAccount(peer, peer)).toBe(true);
     expect(canModifyAccount(peer, staff)).toBe(true);
+  });
+
+  it("regola modifica email: sé, admin su staff, root su admin, no admin su admin", () => {
+    expect(canEditUserEmail(staff, staff)).toBe(true);
+    expect(canEditUserEmail(staff, peer)).toBe(false);
+    expect(canEditUserEmail(peer, staff)).toBe(true);
+    expect(canEditUserEmail(peer, peer)).toBe(true);
+    expect(canEditUserEmail(peer, { id: "x", ruolo: "admin", email: "due@consul.it" })).toBe(false);
+    expect(canEditUserEmail(root, peer)).toBe(true);
   });
 });

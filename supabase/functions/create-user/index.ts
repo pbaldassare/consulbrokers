@@ -84,26 +84,26 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Non autenticato" }, 401);
     }
 
-    const { data: roles } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", caller.id)
-      .eq("role", "admin");
-
-
-    if (!roles || roles.length === 0) {
-      return jsonResponse({ error: "Accesso non autorizzato" }, 403);
-    }
-
     const rootAdminEmail = "admin@consul.it";
     const lockedMessage = "Solo admin@consul.it può modificare un altro account amministratore";
     const assignMessage = "Solo admin@consul.it può assegnare il ruolo amministratore";
     const { data: callerProfile } = await adminClient
       .from("profiles")
-      .select("email")
+      .select("email, ruolo")
       .eq("id", caller.id)
       .maybeSingle();
     const callerIsRoot = (callerProfile?.email || caller.email || "").trim().toLowerCase() === rootAdminEmail;
+
+    const callerIsAdmin = async () => {
+      if ((callerProfile?.ruolo || "").trim().toLowerCase() === "admin") return true;
+      if (callerIsRoot) return true;
+      const { data: adminRoles } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", caller.id)
+        .eq("role", "admin");
+      return (adminRoles?.length || 0) > 0;
+    };
 
     const targetIsAdmin = async (userId: string) => {
       const { data: profile } = await adminClient
@@ -123,6 +123,60 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const action = body.action || "create";
+
+    // ---- Action: update-email (proprio account o regole admin/root) ----
+    if (action === "update-email") {
+      const { user_id, email } = body;
+      if (!user_id || !email || typeof email !== "string") {
+        return jsonResponse({ error: "user_id e email obbligatori" }, 400);
+      }
+      const normalized = email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+        return jsonResponse({ error: "Indirizzo email non valido" }, 400);
+      }
+      if (normalized === rootAdminEmail && !callerIsRoot) {
+        return jsonResponse({ error: "L'indirizzo admin@consul.it è riservato" }, 403);
+      }
+      const isSelf = user_id === caller.id;
+      if (!isSelf) {
+        if (!(await callerIsAdmin())) {
+          return jsonResponse({ error: "Non puoi modificare l'email di un altro utente" }, 403);
+        }
+        if (!callerIsRoot && await targetIsAdmin(user_id)) {
+          return jsonResponse({ error: lockedMessage }, 403);
+        }
+      }
+      const { error: updErr } = await adminClient.auth.admin.updateUserById(user_id, { email: normalized });
+      if (updErr) {
+        const dup = updErr.message?.toLowerCase().includes("already") || updErr.message?.toLowerCase().includes("registered");
+        return jsonResponse(
+          { error: dup ? "Email già registrata" : `Errore aggiornamento email: ${updErr.message}` },
+          dup ? 409 : 400,
+        );
+      }
+      const { error: profErr } = await adminClient.from("profiles").update({ email: normalized }).eq("id", user_id);
+      if (profErr) {
+        return jsonResponse({ error: `Email auth aggiornata ma profilo non allineato: ${profErr.message}` }, 400);
+      }
+      await adminClient.from("log_attivita").insert({
+        user_id: caller.id,
+        azione: "aggiornamento_email_utente",
+        entita_tipo: "profile",
+        entita_id: user_id,
+        dettagli_json: { updated_by: caller.email, new_email: normalized },
+      });
+      return jsonResponse({ success: true, email: normalized });
+    }
+
+    const { data: roles } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", caller.id)
+      .eq("role", "admin");
+
+    if (!roles || roles.length === 0) {
+      return jsonResponse({ error: "Accesso non autorizzato" }, 403);
+    }
 
     // ---- Action: reset-password ----
     if (action === "reset-password") {

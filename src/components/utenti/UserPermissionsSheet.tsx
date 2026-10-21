@@ -14,7 +14,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { readInvokeErrorMessage } from "@/lib/edgeFunctionError";
-import { canModifyAccount, isRootAdminEmail, OTHER_ADMIN_LOCKED_MESSAGE } from "@/lib/adminAccountGuard";
+import { canEditUserEmail, canModifyAccount, isAdminAccount, isRootAdminEmail, OTHER_ADMIN_LOCKED_MESSAGE } from "@/lib/adminAccountGuard";
 import { ALL_PERMISSION_KEYS, getLevelByRole, ROLE_LABELS, VISIBILITY_LABEL, VisibilityScope, LEVELS } from "@/lib/userLevels";
 import { formatNomeCognome, roleLabel, sedeAssegnataLabel } from "@/lib/userPrivilegiDisplay";
 import PermissionsMatrix from "./PermissionsMatrix";
@@ -42,6 +42,8 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
   const [riceveProvvigioni, setRiceveProvvigioni] = useState(false);
   const [saving, setSaving] = useState(false);
   const [resetPwd, setResetPwd] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
 
   const { data: uffici } = useQuery({
     queryKey: ["uffici-sheet"],
@@ -60,6 +62,7 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
       setAttivo(user.attivo !== false);
       setRiceveProvvigioni(!!p?.riceve_provvigioni);
       setResetPwd("");
+      setEmailDraft(user.email || "");
     }
   }, [user]);
 
@@ -68,7 +71,9 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
   const Icon = level.icon;
   const isSelf = authUser?.id === user.id;
   const actorIsRoot = isRootAdminEmail(authProfile?.email);
-  const locked = !canModifyAccount({ id: authUser?.id, email: authProfile?.email }, user);
+  const actor = { id: authUser?.id, email: authProfile?.email, ruolo: authProfile?.ruolo };
+  const locked = !canModifyAccount(actor, user);
+  const canEditEmail = canEditUserEmail(actor, user);
   // Il portale cliente/prospect ha un proprio provisioning; Admin lo assegna solo admin@consul.it (vincolo anche su DB)
   const livelliScelta = LEVELS.filter((l) => l.id !== "L6");
   const ruoloAmmesso = (r: string) => r !== "admin" || actorIsRoot || user.ruolo === "admin";
@@ -145,6 +150,42 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
     setPermissions(lvl.defaultPermissions);
     setVisibility(lvl.defaultVisibility);
     toast.success(`Template "${lvl.label}" applicato`);
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!canEditEmail) {
+      toast.error(isAdminAccount(user) && !isSelf ? OTHER_ADMIN_LOCKED_MESSAGE : "Non puoi modificare l'email di un altro utente");
+      return;
+    }
+    const normalized = emailDraft.trim().toLowerCase();
+    if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+      toast.error("Inserisci un indirizzo email valido");
+      return;
+    }
+    if (normalized === (user.email || "").trim().toLowerCase()) {
+      toast.info("Nessuna modifica all'email");
+      return;
+    }
+    setSavingEmail(true);
+    const { data: s } = await supabase.auth.getSession();
+    const token = s?.session?.access_token;
+    const res = await supabase.functions.invoke("create-user", {
+      body: { action: "update-email", user_id: user.id, email: normalized },
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (res.error || (res.data as { error?: string } | null)?.error) {
+      toast.error("Aggiornamento email non riuscito", {
+        description: await readInvokeErrorMessage(res.data, res.error),
+      });
+      setSavingEmail(false);
+      return;
+    }
+    const newEmail = (res.data as { email?: string } | null)?.email || normalized;
+    user.email = newEmail;
+    setEmailDraft(newEmail);
+    toast.success("Email aggiornata");
+    onSaved();
+    setSavingEmail(false);
   };
 
   const handleResetPassword = async () => {
@@ -240,7 +281,31 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
 
               <Sep2 />
 
-              <div><Label className="text-xs">Email</Label><Input value={user.email || ""} disabled /></div>
+              <div className="space-y-2">
+                <Label className="text-xs">Email</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    value={emailDraft}
+                    onChange={(e) => setEmailDraft(e.target.value)}
+                    disabled={!canEditEmail}
+                    placeholder="nome@dominio.it"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleUpdateEmail}
+                    disabled={!canEditEmail || savingEmail || emailDraft.trim().toLowerCase() === (user.email || "").trim().toLowerCase()}
+                  >
+                    {savingEmail ? "…" : "Aggiorna"}
+                  </Button>
+                </div>
+                {!canEditEmail && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {isSelf ? "" : isAdminAccount(user) ? OTHER_ADMIN_LOCKED_MESSAGE : "Non puoi modificare l'email di un altro utente"}
+                  </p>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Ruolo</Label>

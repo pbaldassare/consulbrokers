@@ -30,3 +30,14 @@ export function canModifyAccount(
   if (!isAdminAccount(target)) return true;
   return isRootAdminEmail(actor.email);
 }
+
+/** Email: proprio account sempre; admin su non-admin; root su tutti. */
+export function canEditUserEmail(
+  actor: { id?: string | null; email?: string | null; ruolo?: string | null; ruoli_rls?: string[] | null },
+  target: { id?: string | null; ruolo?: string | null; ruoli_rls?: string[] | null; email?: string | null },
+): boolean {
+  if (actor.id && target.id && actor.id === target.id) return true;
+  if (isRootAdminEmail(actor.email)) return true;
+  if (isAdminAccount(actor) && !isAdminAccount(target)) return true;
+  return false;
+}
