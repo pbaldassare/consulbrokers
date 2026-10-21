@@ -293,7 +293,7 @@ const ECAgenziaPdfPage = () => {
       agenziaProvincia: compagnia?.provincia || "",
       agenziaCF: compagnia?.codice_fiscale || "",
       agenziaPIVA: compagnia?.partita_iva || "",
-      iban: contoCompagnia?.iban || compagnia?.iban || "",
+      iban: (rapporto?.iban_dedicato || contoCompagnia?.iban || compagnia?.iban || "").trim(),
       intestatoA: contoCompagnia?.intestato_a || compagnia?.intestato_a || compagnia?.nome || "",
       titoli: rows,
       totalePremio,
@@ -349,6 +349,8 @@ const ECAgenziaPdfPage = () => {
         const { data: u } = await supabase.auth.getUser();
         await archiviaEcAgenziaPdf({
           compagniaId,
+          compagniaRapportoId: rapportoId || null,
+          mandataria: mandatariaLabel || ecData.compagniaCollegata || null,
           riferimento: rif,
           periodoTesto,
           dataDocumento,
@@ -373,6 +375,11 @@ const ECAgenziaPdfPage = () => {
     } finally { setBusy(false); }
   };
 
+  const mandatariaLabel = useMemo(
+    () => resolveEcAgenziaMandataria(rapporto, compagnia) || "",
+    [rapporto, compagnia],
+  );
+
   const conteggio = titoli?.length || 0;
   const cigMancanti = (titoli || [])
     .filter((t) => t._cigEc.mancante)
@@ -391,6 +398,10 @@ const ECAgenziaPdfPage = () => {
           <div className="space-y-1.5">
             <Label>Agenzia destinataria</Label>
             <Input value={compagnia?.nome || ""} disabled />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Mandataria (compagnia assicurativa)</Label>
+            <Input value={mandatariaLabel || "—"} disabled />
           </div>
           <div className="space-y-1.5">
             <Label>Titoli inclusi</Label>

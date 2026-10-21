@@ -260,6 +260,7 @@ const ECAgenzieStoricoPage = () => {
             <TableRow>
               <TableHead>Data</TableHead>
               <TableHead>Agenzia</TableHead>
+              <TableHead>Mandataria</TableHead>
               <TableHead>Riferimento</TableHead>
               <TableHead>Periodo</TableHead>
               <TableHead>Clienti (anteprima)</TableHead>
@@ -268,13 +269,16 @@ const ECAgenzieStoricoPage = () => {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
             ) : rows.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nessun E/C trovato</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun E/C trovato</TableCell></TableRow>
             ) : rows.map((d: any, i: number) => (
               <TableRow key={d.documento_id} className={i % 2 === 0 ? "bg-muted/20" : ""}>
                 <TableCell className="text-sm">{d.created_at ? format(new Date(d.created_at), "dd/MM/yyyy HH:mm") : "—"}</TableCell>
                 <TableCell className="font-medium">{d.agenzia_nome}</TableCell>
+                <TableCell className="text-sm max-w-[180px] truncate" title={d.mandataria || ""}>
+                  {d.mandataria || "—"}
+                </TableCell>
                 <TableCell className="text-sm font-mono">{d.riferimento || "—"}</TableCell>
                 <TableCell className="text-sm">{d.periodo_testo || "—"}</TableCell>
                 <TableCell className="text-sm max-w-[240px] truncate" title={formatClientiAnteprima(d.righe, 5)}>

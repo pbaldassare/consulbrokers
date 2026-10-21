@@ -21,9 +21,14 @@ export function righeFromEcAgenziaTitoli(titoli: ECAgenziaTitolo[]): EcAgenziaRi
   }));
 }
 
-export function buildTestoRicercaEcAgenzia(riferimento: string, righe: EcAgenziaRigaArchivio[]): string {
+export function buildTestoRicercaEcAgenzia(
+  riferimento: string,
+  righe: EcAgenziaRigaArchivio[],
+  mandataria?: string | null,
+): string {
   const tokens = [
     riferimento,
+    mandataria,
     ...righe.flatMap((r) => [r.polizza, r.cig, r.cliente, r.mi].filter(Boolean)),
   ];
   return tokens.join(" ").toLowerCase();
@@ -37,6 +42,8 @@ export function parseDataEstrattoContoIt(value: string): string | null {
 
 export async function archiviaEcAgenziaPdf(params: {
   compagniaId: string;
+  compagniaRapportoId?: string | null;
+  mandataria?: string | null;
   riferimento: string;
   periodoTesto: string;
   dataDocumento: string;
@@ -67,10 +74,12 @@ export async function archiviaEcAgenziaPdf(params: {
     .single();
   if (dbErr) throw dbErr;
 
-  const testoRicerca = buildTestoRicercaEcAgenzia(params.riferimento, params.righe);
+  const testoRicerca = buildTestoRicercaEcAgenzia(params.riferimento, params.righe, params.mandataria);
   const { error: archErr } = await supabase.from("ec_agenzia_archivio" as any).insert({
     documento_id: doc.id,
     compagnia_id: params.compagniaId,
+    compagnia_rapporto_id: params.compagniaRapportoId || null,
+    mandataria: params.mandataria?.trim() || null,
     riferimento: params.riferimento,
     periodo_testo: params.periodoTesto || null,
     data_estratto_conto: parseDataEstrattoContoIt(params.dataDocumento),
@@ -89,6 +98,8 @@ export type EcAgenziaStoricoRow = {
   bucket_name: string;
   created_at: string;
   compagnia_id: string;
+  compagnia_rapporto_id?: string | null;
+  mandataria?: string | null;
   riferimento: string | null;
   periodo_testo: string | null;
   data_estratto_conto: string | null;

@@ -30,20 +30,17 @@ import {
   resolvePeriodoDalAgenziaIso,
 } from "@/lib/contabilita/defaultDataLimiteIncasso";
 import { defaultDataEstrattoContoFormatted } from "@/lib/contabilita/defaultDataEstrattoConto";
-import { prossimoRiferimentoEc } from "@/lib/contabilita/ecProgressivo";
-import { archiviaEcAgenziaPdf, righeFromEcAgenziaTitoli } from "@/lib/contabilita/ecAgenziaArchivio";
+import {
+  generaEcAgenziaPdfPerGruppo,
+  pdfBytesToBase64,
+} from "@/lib/contabilita/generaEcAgenziaPdfPerGruppo";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildRimessaPdf, type RimessaPdfData } from "@/lib/rimessa-pdf";
-import {
-  buildECAgenziaPdf,
-  type ECAgenziaData,
-  type ECAgenziaTitolo,
-  type ECRiepilogoIncasso,
-} from "@/lib/ec-agenzia-pdf";
+import { type ECRiepilogoIncasso } from "@/lib/ec-agenzia-pdf";
 import { validateIban } from "@/lib/validateIban";
 import { filterContiBancariPerSede } from "@/lib/filterContiBancariPerSede";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
@@ -59,12 +56,7 @@ import {
   resolveTipoPagamentoLabelEcAgenzia,
   resolveMiCodiceEcAgenzia,
 } from "@/lib/ecAgenziaDisplay";
-import {
-  ecAgenziaCodiceProgressivo,
-  ecAgenziaGroupKey,
-  ecAgenziaProgressivoEntitaId,
-  resolveEcAgenziaMandataria,
-} from "@/lib/contabilita/ecAgenziaGruppo";
+import { ecAgenziaGroupKey, resolveEcAgenziaMandataria } from "@/lib/contabilita/ecAgenziaGruppo";
 
 const formatIbanMask = (s: string) =>
   (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})/g, "$1 ").trim();
@@ -246,16 +238,37 @@ const ECCompagniaContabPage = () => {
       const subject = cigCausale
         ? `Estratto Conto Agenzia — ${ragSoc} — CIG ${cigCausale}`
         : `Estratto Conto Agenzia — ${ragSoc} — ${oggi}`;
+      const dalIsoEmail = isAgenzia
+        ? resolvePeriodoDalAgenziaIso(
+            filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null,
+          )
+        : null;
+      const { data: authUser } = await supabase.auth.getUser();
+      const pdfRes = await generaEcAgenziaPdfPerGruppo(
+        {
+          compagnia_id: r.compagnia_id,
+          compagnia_rapporto_id: r.compagnia_rapporto_id,
+          compagniaCollegata: r.compagniaCollegata,
+          codice: r.codice,
+          titoli: r.titoli.map((t) => ({ id: t.id, cig_rif: t.cig_rif })),
+        },
+        {
+          periodoDalIso: dalIsoEmail,
+          cigByTitoloId: new Map(r.titoli.map((t) => [t.id, t.cig_rif] as const)),
+          incrementaProgressivo: true,
+          archivia: { userId: authUser?.user?.id ?? null },
+        },
+      );
+      if (!pdfRes) throw new Error("Nessun titolo nel periodo per generare il PDF");
+
       const body = `Spett.le ${ragSoc},
 
-trasmettiamo l'estratto conto relativo ai titoli in attesa di rimessa ${periodoTxt}.
+in allegato trasmettiamo l'estratto conto (riferimento ${pdfRes.riferimento}) relativo ai titoli in attesa di rimessa ${periodoTxt}.
 ${cigCausale ? `\nCausale: ${cigCausale}\n` : ""}
 Numero titoli: ${r.titoli.length}
 Totale lordo: ${fmtEuro(r.lordo)}
 Totale provvigioni: ${fmtEuro(r.provvigioni)}
 Totale da rimettere: ${fmtEuro(daRimettere)}
-
-Per il dettaglio analitico vi invieremo a breve il documento PDF.
 
 Restiamo a disposizione per ogni chiarimento.
 
@@ -263,7 +276,15 @@ Cordiali saluti,
 Consulbrokers`;
 
       const { error } = await supabase.functions.invoke("send-email", {
-        body: { to, subject, html: body, apply_branding: true },
+        body: {
+          to,
+          subject,
+          html: body,
+          apply_branding: true,
+          attachments: [
+            { filename: pdfRes.nomeFile, content: pdfBytesToBase64(pdfRes.pdfBytes) },
+          ],
+        },
       });
       if (error) throw error;
 
@@ -280,6 +301,8 @@ Consulbrokers`;
             totale_lordo: r.lordo,
             totale_provvigioni: r.provvigioni,
             da_rimettere: daRimettere,
+            riferimento_ec: pdfRes.riferimento,
+            compagnia_rapporto_id: r.compagnia_rapporto_id,
           },
         } as any);
       } catch {}
@@ -1031,165 +1054,65 @@ Consulbrokers`;
     if (!exportRows.length) return;
     setBulkEcLoading(true);
     try {
-      // 1. Sede mittente (Napoli o prima disponibile)
-      const { data: sedeNapoli } = await supabase
-        .from("uffici")
-        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
-        .or("nome_ufficio.ilike.%napoli%,citta.ilike.%napoli%")
-        .eq("attivo", true)
-        .limit(1)
-        .maybeSingle();
-
-      // 2. Compagnie in bulk
-      const agenzieIds = exportRows.map((r) => r.compagnia_id);
-      const { data: compagnieFull } = await supabase
-        .from("compagnie")
-        .select("id, nome, codice, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, iban, intestato_a, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione)")
-        .in("id", agenzieIds);
-
-      // 3. Titoli con dettagli in bulk
       const allTitoliIds = exportRows.flatMap((r) => r.titoli.map((t) => t.id));
-      const { data: titoliFull } = await supabase
-        .from("titoli")
-        .select("id, numero_titolo, riga, premio_lordo, pag_diretto_compagnia, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, cig_rif, compagnia_id, compagnia_rapporto_id, ramo_id, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra), rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
-        .in("id", allTitoliIds);
+      const agenzieIds = [...new Set(exportRows.map((r) => r.compagnia_id))];
+      const [{ data: compagnieFull }, { data: titoliFull }] = await Promise.all([
+        supabase
+          .from("compagnie")
+          .select("id, percentuale_ra")
+          .in("id", agenzieIds),
+        supabase
+          .from("titoli")
+          .select("id, premio_lordo, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, data_copertura, data_messa_cassa, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
+          .in("id", allTitoliIds),
+      ]);
 
-      const titoliByGroupKey = new Map<string, any[]>();
       const titoliFullById = new Map<string, any>();
-      const cigByTitoloId = new Map(exportRows.flatMap((r) => r.titoli.map((t) => [t.id, t.cig_rif] as const)));
-      for (const t of titoliFull || []) {
-        titoliFullById.set(t.id, t);
-        const gk = ecAgenziaGroupKey(t.compagnia_id, t.compagnia_rapporto_id);
-        const arr = titoliByGroupKey.get(gk) || [];
-        arr.push(t);
-        titoliByGroupKey.set(gk, arr);
-      }
+      for (const t of titoliFull || []) titoliFullById.set(t.id, t);
 
-      // 5. Merge PDF con pdf-lib
       const { PDFDocument: PDFLib } = await import("pdf-lib");
       const mergedPdf = await PDFLib.create();
       const dataEstrattoConto = defaultDataEstrattoContoFormatted();
-      const mesiIt = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+      const dalIsoBulk = isAgenzia
+        ? resolvePeriodoDalAgenziaIso(
+            filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null,
+          )
+        : null;
       const { data: authUser } = await supabase.auth.getUser();
       const bulkUserId = authUser?.user?.id ?? null;
+      let mergedCount = 0;
 
       for (const r of exportRows) {
         const comp = (compagnieFull || []).find((c: any) => c.id === r.compagnia_id);
-        if (!comp) continue;
-        const dalIsoBulk = isAgenzia
-          ? resolvePeriodoDalAgenziaIso(
-              filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null,
-            )
-          : null;
-        const titoliAgenzia = (titoliByGroupKey.get(r.groupKey) || []).filter((t: any) => {
-          if (!dalIsoBulk) return true;
-          return (
-            isIncassoNelPeriodoEcAgenzia(t.data_messa_cassa, dalIsoBulk) ||
-            (!t.data_messa_cassa && (t.data_copertura || "").slice(0, 10) >= dalIsoBulk)
-          );
-        });
-        if (!titoliAgenzia.length) continue;
+        const compagniaRA = Number((comp as any)?.percentuale_ra) || null;
+        const pdfRes = await generaEcAgenziaPdfPerGruppo(
+          {
+            compagnia_id: r.compagnia_id,
+            compagnia_rapporto_id: r.compagnia_rapporto_id,
+            compagniaCollegata: r.compagniaCollegata,
+            codice: r.codice,
+            titoli: r.titoli.map((t) => ({ id: t.id, cig_rif: t.cig_rif })),
+          },
+          {
+            periodoDalIso: dalIsoBulk,
+            cigByTitoloId: new Map(r.titoli.map((t) => [t.id, t.cig_rif] as const)),
+            riepilogoIncasso: computeRiepilogoIncassoBulk(r.titoli, titoliFullById, compagniaRA),
+            incrementaProgressivo: true,
+            archivia: { userId: bulkUserId },
+            dataDocumento: dataEstrattoConto,
+          },
+        );
+        if (!pdfRes) continue;
 
-        // Periodo testo dalla data più recente di messa a cassa
-        const dates = titoliAgenzia.map((t: any) => t.data_messa_cassa).filter(Boolean).sort();
-        const periodoTesto = dates.length
-          ? (() => { const d = new Date(dates[dates.length - 1]); return `${mesiIt[d.getMonth()]} ${d.getFullYear()}`; })()
-          : "";
-
-        const righe: ECAgenziaTitolo[] = titoliAgenzia.map((t: any) => {
-          const cli = t.clienti_anagrafica;
-          const cliente = cli?.ragione_sociale || `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() || "—";
-          const ramoR = t.rami;
-          const ramo = ramoR ? (ramoR.descrizione || ramoR.codice || "") : "";
-          const dFrom = t.garanzia_da || t.durata_da;
-          const dTo = t.garanzia_a || t.durata_a;
-          const periodo = (dFrom || dTo)
-            ? `${dFrom ? format(new Date(dFrom), "dd/MM/yyyy") : "—"} ${dTo ? format(new Date(dTo), "dd/MM/yyyy") : ""}`.trim()
-            : "";
-          const polizzaRiga = `${t.numero_titolo || ""}${t.riga ? " - " + t.riga : ""}`.trim();
-          const provv = getProvvigioneEC(t);
-          return {
-            polizza: polizzaRiga,
-            cig: cigByTitoloId.get(t.id) || undefined,
-            cliente,
-            ramo,
-            periodo,
-            tp: "AM",
-            premio: t.pag_diretto_compagnia ? 0 : Number(t.premio_lordo) || 0,
-            provvigioni: provv,
-            mi: resolveMiCodiceEcAgenzia(t.tipo_pagamento),
-          };
-        });
-
-        const totalePremio = righe.reduce((s, rr) => s + rr.premio, 0);
-        const totaleProvvigioni = righe.reduce((s, rr) => s + rr.provvigioni, 0);
-        const compagniaRA = Number((comp as any).percentuale_ra) || null;
-        const ritenutaAcconto = titoliAgenzia.reduce((sum: number, t: any) => {
-          const provv = getProvvigioneEC(t);
-          const raEffettiva = resolvePercentualeRA({
-            rapporto_percentuale_ra: t.compagnia_rapporti?.percentuale_ra,
-            compagnia_percentuale_ra: compagniaRA,
-          });
-          return sum + calcolaRitenutaAcconto(provv, raEffettiva);
-        }, 0);
-
-        const codiceProg = ecAgenziaCodiceProgressivo({
-          codiceRapporto: r.codice,
-          codiceGruppo: r.compagniaCollegata,
-          codiceCompagnia: (comp as any)?.codice,
-        });
-        const progEntita = ecAgenziaProgressivoEntitaId(r.compagnia_id, r.compagnia_rapporto_id);
-        const progRes = await prossimoRiferimentoEc("agenzia", progEntita, codiceProg);
-        if (!progRes.ok || !progRes.riferimento) {
-          throw new Error(progRes.error || `Riferimento progressivo non disponibile per ${codiceProg}`);
-        }
-
-        const ecData: ECAgenziaData = {
-          sedeNome: sedeNapoli?.nome_ufficio || "Sede di Napoli",
-          sedeIndirizzo: sedeNapoli?.indirizzo || "",
-          sedeCap: sedeNapoli?.cap || "",
-          sedeCitta: sedeNapoli?.citta || "",
-          sedeProvincia: sedeNapoli?.provincia || "",
-          sedeEmail: sedeNapoli?.email || "",
-          sedeTelefono: sedeNapoli?.telefono || "",
-          riferimento: progRes.riferimento,
-          dataDocumento: dataEstrattoConto,
-          periodoTesto,
-          modalitaPagamento: "Bonifico",
-          agenziaNome: (comp as any).nome || "",
-          compagniaCollegata: r.compagniaCollegata || resolveCompagniaCollegataNome(comp as any),
-          agenziaIndirizzo: (comp as any).indirizzo || "",
-          agenziaCap: (comp as any).cap || "",
-          agenziaCitta: (comp as any).comune || "",
-          agenziaProvincia: (comp as any).provincia || "",
-          agenziaCF: (comp as any).codice_fiscale || "",
-          agenziaPIVA: (comp as any).partita_iva || "",
-          iban: (comp as any).iban || "",
-          intestatoA: (comp as any).intestato_a || (comp as any).nome || "",
-          titoli: righe,
-          totalePremio,
-          totaleProvvigioni,
-          ritenutaAcconto,
-          riepilogoIncasso: computeRiepilogoIncassoBulk(r.titoli, titoliFullById, compagniaRA),
-        };
-
-        const pdfBytes = await buildECAgenziaPdf(ecData);
-        const agCodice = r.compagniaCollegata || r.codice || (comp as any).codice || (comp as any).nome || "agenzia";
-        const singleName = `EC_Agenzia_${String(agCodice).replace(/\s+/g, "_")}_${format(new Date(), "yyyy-MM-dd")}_${progRes.riferimento?.replace(/\//g, "-") || "ref"}.pdf`;
-        await archiviaEcAgenziaPdf({
-          compagniaId: r.compagnia_id,
-          riferimento: progRes.riferimento!,
-          periodoTesto,
-          dataDocumento: dataEstrattoConto,
-          righe: righeFromEcAgenziaTitoli(ecData.titoli),
-          pdfBlob: new Blob([pdfBytes as BlobPart], { type: "application/pdf" }),
-          nomeFile: singleName,
-          userId: bulkUserId,
-        });
-
-        const singlePdf = await PDFLib.load(pdfBytes);
+        const singlePdf = await PDFLib.load(pdfRes.pdfBytes);
         const copiedPages = await mergedPdf.copyPages(singlePdf, singlePdf.getPageIndices());
         copiedPages.forEach((page) => mergedPdf.addPage(page));
+        mergedCount++;
+      }
+
+      if (!mergedCount) {
+        toast.error("Nessun E/C generabile nel periodo selezionato");
+        return;
       }
 
       const mergedBytes = await mergedPdf.save();
@@ -1200,7 +1123,7 @@ Consulbrokers`;
       a.download = `EC_Agenzie_completo_${format(new Date(), "yyyyMMdd")}.pdf`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1500);
-      toast.success(`PDF E/C generato — ${exportRows.length} estratti`);
+      toast.success(`PDF E/C generato — ${mergedCount} estratti`);
     } catch (e: any) {
       toast.error("Errore generazione PDF E/C: " + (e?.message || e));
     } finally {
