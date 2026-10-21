@@ -281,11 +281,12 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
 
               <Sep2 />
 
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label className="text-xs">Email</Label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                   <Input
                     type="email"
+                    className="min-w-0 w-full"
                     value={emailDraft}
                     onChange={(e) => setEmailDraft(e.target.value)}
                     disabled={!canEditEmail}
@@ -294,6 +295,7 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
                   <Button
                     type="button"
                     variant="outline"
+                    className="w-full shrink-0 sm:w-auto"
                     onClick={handleUpdateEmail}
                     disabled={!canEditEmail || savingEmail || emailDraft.trim().toLowerCase() === (user.email || "").trim().toLowerCase()}
                   >
@@ -473,9 +475,9 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
             <TabsContent value="security" className="space-y-3 mt-0">
               <div className="rounded-lg border p-3 space-y-2">
                 <Label className="font-medium flex items-center gap-1.5"><KeyRound className="w-4 h-4" />Reset password</Label>
-                <div className="flex gap-2">
-                  <Input type="text" value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} placeholder="Nuova password" disabled={locked} />
-                  <Button onClick={handleResetPassword} variant="outline" disabled={locked}>Imposta</Button>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <Input type="text" className="min-w-0 w-full" value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} placeholder="Nuova password" disabled={locked} />
+                  <Button onClick={handleResetPassword} variant="outline" className="w-full shrink-0 sm:w-auto" disabled={locked}>Imposta</Button>
                 </div>
               </div>
               <div className="rounded-lg border p-3 bg-destructive/5">
