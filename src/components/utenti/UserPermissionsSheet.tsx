@@ -249,7 +249,7 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
           </TabsList>
 
           <ScrollArea className="flex-1 mt-3 pr-3">
-            <TabsContent value="anagrafica" className="min-w-0 space-y-4 mt-0 overflow-hidden">
+            <TabsContent value="anagrafica" className="min-w-0 space-y-4 mt-0">
               <div className="min-w-0 overflow-hidden rounded-lg border p-3">
                 <ProfileAvatarUpload
                   userId={user.id}
@@ -286,7 +286,7 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                   <Input
                     type="email"
-                    className="min-w-0 w-full"
+                    className="min-w-0 w-full focus-visible:ring-inset focus-visible:ring-offset-0"
                     value={emailDraft}
                     onChange={(e) => setEmailDraft(e.target.value)}
                     disabled={!canEditEmail}
@@ -476,7 +476,7 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
               <div className="rounded-lg border p-3 space-y-2">
                 <Label className="font-medium flex items-center gap-1.5"><KeyRound className="w-4 h-4" />Reset password</Label>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                  <Input type="text" className="min-w-0 w-full" value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} placeholder="Nuova password" disabled={locked} />
+                  <Input type="text" className="min-w-0 w-full focus-visible:ring-inset focus-visible:ring-offset-0" value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} placeholder="Nuova password" disabled={locked} />
                   <Button onClick={handleResetPassword} variant="outline" className="w-full shrink-0 sm:w-auto" disabled={locked}>Imposta</Button>
                 </div>
               </div>
