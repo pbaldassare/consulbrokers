@@ -59,6 +59,12 @@ import {
   resolveTipoPagamentoLabelEcAgenzia,
   resolveMiCodiceEcAgenzia,
 } from "@/lib/ecAgenziaDisplay";
+import {
+  ecAgenziaCodiceProgressivo,
+  ecAgenziaGroupKey,
+  ecAgenziaProgressivoEntitaId,
+  resolveEcAgenziaMandataria,
+} from "@/lib/contabilita/ecAgenziaGruppo";
 
 const formatIbanMask = (s: string) =>
   (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})/g, "$1 ").trim();
@@ -91,7 +97,9 @@ interface TitoloDetail {
 }
 
 interface GroupedRow {
+  groupKey: string;
   compagnia_id: string;
+  compagnia_rapporto_id: string | null;
   nome: string;
   compagniaCollegata: string;
   codice: string;
@@ -106,6 +114,7 @@ interface GroupedRow {
 
 interface PagaRimessaState {
   open: boolean;
+  groupKey: string;
   compagniaId: string;
   compagniaNome: string;
   iban: string; // IBAN destinazione (agenzia)
@@ -152,7 +161,7 @@ const ECCompagniaContabPage = () => {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [pagaDialog, setPagaDialog] = useState<PagaRimessaState>({
-    open: false, compagniaId: "", compagniaNome: "", iban: "", contoMittenteId: null, ibanMittente: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0, titoli: [],
+    open: false, groupKey: "", compagniaId: "", compagniaNome: "", iban: "", contoMittenteId: null, ibanMittente: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0, titoli: [],
   });
   const set = (partial: Partial<Filters>) => setFilters((f) => ({ ...f, ...partial }));
 
@@ -191,29 +200,42 @@ const ECCompagniaContabPage = () => {
 
   const handleInviaEmail = async (r: GroupedRow, daRimettere: number) => {
     try {
-      setSendingEmailId(r.compagnia_id);
-      // Risolvi destinatario: rapporto.email_messe_a_cassa → compagnie.email_messe_a_cassa → mail → fallback
+      setSendingEmailId(r.groupKey);
       const { data: comp } = await supabase
         .from("compagnie")
         .select("nome, email_messe_a_cassa, mail")
         .eq("id", r.compagnia_id)
         .maybeSingle();
-      const { data: rapp } = await supabase
-        .from("compagnia_rapporti")
-        .select("email_messe_a_cassa")
-        .eq("compagnia_id", r.compagnia_id)
-        .order("is_default", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      let rapp: { email_messe_a_cassa?: string | null; email_estratto_conto?: string | null } | null = null;
+      if (r.compagnia_rapporto_id) {
+        const { data } = await supabase
+          .from("compagnia_rapporti")
+          .select("email_messe_a_cassa, email_estratto_conto")
+          .eq("id", r.compagnia_rapporto_id)
+          .maybeSingle();
+        rapp = data;
+      } else {
+        const { data } = await supabase
+          .from("compagnia_rapporti")
+          .select("email_messe_a_cassa, email_estratto_conto")
+          .eq("compagnia_id", r.compagnia_id)
+          .order("is_default", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        rapp = data;
+      }
 
       const to =
+        (rapp as any)?.email_estratto_conto?.trim() ||
         (rapp as any)?.email_messe_a_cassa?.trim() ||
         (comp as any)?.email_messe_a_cassa?.trim() ||
         (comp as any)?.mail?.trim() ||
         r.mail?.trim() ||
         "pscarpelli@consulbrokers.it";
 
-      const ragSoc = (comp as any)?.nome || r.nome;
+      const ragSoc = r.compagniaCollegata
+        ? `${(comp as any)?.nome || r.nome} — ${r.compagniaCollegata}`
+        : (comp as any)?.nome || r.nome;
       const oggi = format(new Date(), "dd/MM/yyyy");
       const periodoTxt =
         filters.periodo_dal && filters.periodo_al
@@ -270,32 +292,32 @@ Consulbrokers`;
     }
   };
 
-  const toggleExpand = (compagniaId: string) => {
+  const toggleExpand = (groupKey: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
-      if (next.has(compagniaId)) next.delete(compagniaId);
-      else next.add(compagniaId);
+      if (next.has(groupKey)) next.delete(groupKey);
+      else next.add(groupKey);
       return next;
     });
   };
 
-  const toggleTitolo = (compagniaId: string, titoloId: string) => {
+  const toggleTitolo = (groupKey: string, titoloId: string) => {
     setSelectedTitoli((prev) => {
-      const current = new Set(prev[compagniaId] || []);
+      const current = new Set(prev[groupKey] || []);
       if (current.has(titoloId)) current.delete(titoloId);
       else current.add(titoloId);
-      return { ...prev, [compagniaId]: current };
+      return { ...prev, [groupKey]: current };
     });
   };
 
-  const toggleAllTitoli = (compagniaId: string, titoli: TitoloDetail[]) => {
+  const toggleAllTitoli = (groupKey: string, titoli: TitoloDetail[]) => {
     setSelectedTitoli((prev) => {
-      const current = prev[compagniaId] || new Set();
+      const current = prev[groupKey] || new Set();
       const allSelected = titoli.every((t) => current.has(t.id));
       if (allSelected) {
-        return { ...prev, [compagniaId]: new Set() };
+        return { ...prev, [groupKey]: new Set() };
       }
-      return { ...prev, [compagniaId]: new Set(titoli.map((t) => t.id)) };
+      return { ...prev, [groupKey]: new Set(titoli.map((t) => t.id)) };
     });
   };
 
@@ -326,7 +348,7 @@ Consulbrokers`;
       const buildQuery = () => {
         let query = supabase
           .from("titoli")
-          .select("id, numero_titolo, premio_lordo, importo_incassato, stato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, cig_rif, cig_temporaneo, cliente_anagrafica_id, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale, codice_cliente), compagnie(nome, codice, mail, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione)), compagnia_rapporti:compagnia_rapporto_id(percentuale_ra)")
+          .select("id, numero_titolo, premio_lordo, importo_incassato, stato, compagnia_id, compagnia_rapporto_id, ufficio_id, produttore_id, data_messa_cassa, data_copertura, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, pag_diretto_compagnia, coassicurazione, cig_rif, cig_temporaneo, cliente_anagrafica_id, clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale, codice_cliente), compagnie(nome, codice, mail, percentuale_ra, gruppo_compagnia, gruppi_compagnia(descrizione)), compagnia_rapporti:compagnia_rapporto_id(id, nome_rapporto, codice_rapporto, percentuale_ra, email_estratto_conto, email_messe_a_cassa, gruppi_compagnia:gruppo_compagnia_id(descrizione, codice))")
           .not("compagnia_id", "is", null);
 
         const incassateBase = ["stato.eq.incassato"];
@@ -375,7 +397,9 @@ Consulbrokers`;
       const grouped: Record<string, GroupedRow> = {};
 
       const pushTitoloToGroup = (
+        gKey: string,
         cId: string,
+        rapportoId: string | null,
         comp: {
           nome?: string | null;
           codice?: string | null;
@@ -384,6 +408,12 @@ Consulbrokers`;
           gruppo_compagnia?: string | null;
           gruppi_compagnia?: { descrizione?: string | null } | null;
         } | null,
+        rapporto: {
+          codice_rapporto?: string | null;
+          email_estratto_conto?: string | null;
+          email_messe_a_cassa?: string | null;
+          gruppi_compagnia?: { descrizione?: string | null; codice?: string | null } | null;
+        } | null,
         t: any,
         lordoShare: number,
         incassatoShare: number,
@@ -391,15 +421,18 @@ Consulbrokers`;
         dataEff: string | null,
         raShare: number,
       ) => {
-        if (!cId) return;
+        if (!cId || !gKey) return;
         if (filters.compagnia_id && cId !== filters.compagnia_id) return;
-        if (!grouped[cId]) {
-          grouped[cId] = {
+        if (!grouped[gKey]) {
+          grouped[gKey] = {
+            groupKey: gKey,
             compagnia_id: cId,
+            compagnia_rapporto_id: rapportoId,
             nome: comp?.nome || "N/D",
-            compagniaCollegata: resolveCompagniaCollegataNome(comp),
-            codice: comp?.codice || "",
-            mail: comp?.mail || "",
+            compagniaCollegata: resolveEcAgenziaMandataria(rapporto, comp),
+            codice: (rapporto?.codice_rapporto || comp?.codice || "").trim(),
+            mail:
+              (rapporto?.email_estratto_conto || rapporto?.email_messe_a_cassa || comp?.mail || "").trim(),
             lordo: 0,
             provvigioni: 0,
             ritenutaAcconto: 0,
@@ -408,12 +441,12 @@ Consulbrokers`;
             titoli: [],
           };
         }
-        grouped[cId].lordo += lordoShare;
-        grouped[cId].provvigioni += provvShare;
-        grouped[cId].ritenutaAcconto += raShare;
+        grouped[gKey].lordo += lordoShare;
+        grouped[gKey].provvigioni += provvShare;
+        grouped[gKey].ritenutaAcconto += raShare;
         const cliRaw = t.clienti_anagrafica;
         const cli = Array.isArray(cliRaw) ? cliRaw[0] : cliRaw;
-        grouped[cId].titoli.push({
+        grouped[gKey].titoli.push({
           id: t.id,
           numero_titolo: t.numero_titolo,
           cliente: formatClienteEc(cli),
@@ -435,8 +468,8 @@ Consulbrokers`;
           tipo_pagamento: t.tipo_pagamento || null,
         });
         if (dataEff) {
-          if (!grouped[cId].data_min || dataEff < grouped[cId].data_min!) grouped[cId].data_min = dataEff;
-          if (!grouped[cId].data_max || dataEff > grouped[cId].data_max!) grouped[cId].data_max = dataEff;
+          if (!grouped[gKey].data_min || dataEff < grouped[gKey].data_min!) grouped[gKey].data_min = dataEff;
+          if (!grouped[gKey].data_max || dataEff > grouped[gKey].data_max!) grouped[gKey].data_max = dataEff;
         }
       };
 
@@ -481,7 +514,7 @@ Consulbrokers`;
             const comp = (r as any).compagnie || t.compagnie;
             const raPerc = resolvePercentualeRA({ compagnia_percentuale_ra: comp?.percentuale_ra ?? null });
             const raShare = calcolaRitenutaAcconto(provvShare, raPerc);
-            pushTitoloToGroup(cId, comp, t, lordoShare, incassatoShare, provvShare, dataEff, raShare);
+            pushTitoloToGroup(ecAgenziaGroupKey(cId, null), cId, null, comp, null, t, lordoShare, incassatoShare, provvShare, dataEff, raShare);
           }
           continue;
         }
@@ -489,15 +522,21 @@ Consulbrokers`;
         const cId = t.compagnia_id as string;
         if (!cId) continue;
         const comp = t.compagnie;
+        const rapporto = t.compagnia_rapporti;
+        const rapportoId = (t.compagnia_rapporto_id as string | null) || null;
+        const gKey = ecAgenziaGroupKey(cId, rapportoId);
         const provvNorm = getProvvigioneEC(t);
         const raPercNorm = resolvePercentualeRA({
-          rapporto_percentuale_ra: t.compagnia_rapporti?.percentuale_ra ?? null,
+          rapporto_percentuale_ra: rapporto?.percentuale_ra ?? null,
           compagnia_percentuale_ra: comp?.percentuale_ra ?? null,
         });
         const raShareNorm = calcolaRitenutaAcconto(provvNorm, raPercNorm);
         pushTitoloToGroup(
+          gKey,
           cId,
+          rapportoId,
           comp,
+          rapporto,
           t,
           pagDiretto ? 0 : Number(t.premio_lordo) || 0,
           pagDiretto ? 0 : Number(t.importo_incassato) || 0,
@@ -608,7 +647,7 @@ Consulbrokers`;
   };
 
   const creaRimessaMutation = useMutation({
-    mutationFn: async ({ compagniaId, titoliIds, ibanMittente, contoMittenteId, importoPagato, note }: { compagniaId: string; titoliIds?: string[]; ibanMittente: string; contoMittenteId: string; importoPagato: number; note: string }) => {
+    mutationFn: async ({ groupKey, compagniaId, titoliIds, ibanMittente, contoMittenteId, importoPagato, note }: { groupKey: string; compagniaId: string; titoliIds?: string[]; ibanMittente: string; contoMittenteId: string; importoPagato: number; note: string }) => {
       const { data, error } = await supabase.functions.invoke("gestione-rimessa", {
         body: {
           action: "crea",
@@ -648,7 +687,7 @@ Consulbrokers`;
       queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
       queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
       queryClient.invalidateQueries({ queryKey: ["storico-rimesse"] });
-      setSelectedTitoli((prev) => ({ ...prev, [variables.compagniaId]: new Set() }));
+      setSelectedTitoli((prev) => ({ ...prev, [variables.groupKey]: new Set() }));
       setPagaDialog((prev) => ({ ...prev, open: false }));
       toast.success(`Rimessa pagata — ${data.titoli_count} titoli inclusi`);
       navigate("/contabilita/storico-rimesse");
@@ -657,7 +696,7 @@ Consulbrokers`;
   });
 
   const mettiInPagamentoMutation = useMutation({
-    mutationFn: async ({ compagniaId, titoliIds, note }: { compagniaId: string; titoliIds?: string[]; note: string }) => {
+    mutationFn: async ({ groupKey, compagniaId, titoliIds, note }: { groupKey: string; compagniaId: string; titoliIds?: string[]; note: string }) => {
       const { data, error } = await supabase.functions.invoke("gestione-rimessa", {
         body: {
           action: "metti_in_pagamento",
@@ -679,7 +718,7 @@ Consulbrokers`;
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
       queryClient.invalidateQueries({ queryKey: ["agenzie-in-pagamento"] });
-      setSelectedTitoli((prev) => ({ ...prev, [variables.compagniaId]: new Set() }));
+      setSelectedTitoli((prev) => ({ ...prev, [variables.groupKey]: new Set() }));
       setPagaDialog((prev) => ({ ...prev, open: false }));
       toast.success(`Rimessa preparata — ${data.titoli_count} titoli inclusi`);
       navigate("/contabilita/ec-agenzia/in-pagamento");
@@ -687,8 +726,8 @@ Consulbrokers`;
     onError: (e: any) => toast.error(e.message || "Errore"),
   });
 
-  const handleOpenPagaDialog = (compagniaId: string, daRimettere: number, titoli: TitoloDetail[]) => {
-    const selected = selectedTitoli[compagniaId];
+  const handleOpenPagaDialog = (groupKey: string, compagniaId: string, daRimettere: number, titoli: TitoloDetail[]) => {
+    const selected = selectedTitoli[groupKey];
     const titoliIds = selected && selected.size > 0 ? Array.from(selected) : undefined;
     const count = titoliIds ? titoliIds.length : titoli.length;
     const comp = compagnie?.find((c) => c.id === compagniaId);
@@ -698,6 +737,7 @@ Consulbrokers`;
 
     setPagaDialog({
       open: true,
+      groupKey,
       compagniaId,
       compagniaNome: comp?.nome || "N/D",
       iban: formatIbanMask(comp?.iban || ""),
@@ -716,6 +756,7 @@ Consulbrokers`;
     if (isAgenzia) {
       // Flusso a 3 stadi: solo crea bozza in_pagamento
       mettiInPagamentoMutation.mutate({
+        groupKey: pagaDialog.groupKey,
         compagniaId: pagaDialog.compagniaId,
         titoliIds: pagaDialog.titoliIds,
         note: pagaDialog.note,
@@ -732,6 +773,7 @@ Consulbrokers`;
     const ibanCheck = validateIban(pagaDialog.iban);
     if (!ibanCheck.valid) { toast.error(ibanCheck.error || "IBAN destinazione non valido"); return; }
     creaRimessaMutation.mutate({
+      groupKey: pagaDialog.groupKey,
       compagniaId: pagaDialog.compagniaId,
       titoliIds: pagaDialog.titoliIds,
       ibanMittente: pagaDialog.ibanMittente,
@@ -751,7 +793,11 @@ Consulbrokers`;
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => {
       const dir = sortDir === "asc" ? 1 : -1;
-      if (sortField === "nome") return dir * a.nome.localeCompare(b.nome, "it");
+      if (sortField === "nome") {
+        const la = `${a.compagniaCollegata || ""} ${a.nome}`.trim();
+        const lb = `${b.compagniaCollegata || ""} ${b.nome}`.trim();
+        return dir * la.localeCompare(lb, "it");
+      }
       if (sortField === "data") {
         const da = a.data_max || a.data_min || "";
         const db = b.data_max || b.data_min || "";
@@ -1008,15 +1054,15 @@ Consulbrokers`;
         .select("id, numero_titolo, riga, premio_lordo, pag_diretto_compagnia, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, cig_rif, compagnia_id, compagnia_rapporto_id, ramo_id, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra), rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
         .in("id", allTitoliIds);
 
-      // 4. Raggruppa titoli per compagnia_id
-      const titoliByCompagnia = new Map<string, any[]>();
+      const titoliByGroupKey = new Map<string, any[]>();
       const titoliFullById = new Map<string, any>();
       const cigByTitoloId = new Map(exportRows.flatMap((r) => r.titoli.map((t) => [t.id, t.cig_rif] as const)));
       for (const t of titoliFull || []) {
         titoliFullById.set(t.id, t);
-        const arr = titoliByCompagnia.get(t.compagnia_id) || [];
+        const gk = ecAgenziaGroupKey(t.compagnia_id, t.compagnia_rapporto_id);
+        const arr = titoliByGroupKey.get(gk) || [];
         arr.push(t);
-        titoliByCompagnia.set(t.compagnia_id, arr);
+        titoliByGroupKey.set(gk, arr);
       }
 
       // 5. Merge PDF con pdf-lib
@@ -1035,7 +1081,7 @@ Consulbrokers`;
               filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : null,
             )
           : null;
-        const titoliAgenzia = (titoliByCompagnia.get(r.compagnia_id) || []).filter((t: any) => {
+        const titoliAgenzia = (titoliByGroupKey.get(r.groupKey) || []).filter((t: any) => {
           if (!dalIsoBulk) return true;
           return (
             isIncassoNelPeriodoEcAgenzia(t.data_messa_cassa, dalIsoBulk) ||
@@ -1087,10 +1133,15 @@ Consulbrokers`;
           return sum + calcolaRitenutaAcconto(provv, raEffettiva);
         }, 0);
 
-        const codiceAgenzia = (comp as any).codice || (comp as any).nome || "AGZ";
-        const progRes = await prossimoRiferimentoEc("agenzia", r.compagnia_id, codiceAgenzia);
+        const codiceProg = ecAgenziaCodiceProgressivo({
+          codiceRapporto: r.codice,
+          codiceGruppo: r.compagniaCollegata,
+          codiceCompagnia: (comp as any)?.codice,
+        });
+        const progEntita = ecAgenziaProgressivoEntitaId(r.compagnia_id, r.compagnia_rapporto_id);
+        const progRes = await prossimoRiferimentoEc("agenzia", progEntita, codiceProg);
         if (!progRes.ok || !progRes.riferimento) {
-          throw new Error(progRes.error || `Riferimento progressivo non disponibile per ${codiceAgenzia}`);
+          throw new Error(progRes.error || `Riferimento progressivo non disponibile per ${codiceProg}`);
         }
 
         const ecData: ECAgenziaData = {
@@ -1106,7 +1157,7 @@ Consulbrokers`;
           periodoTesto,
           modalitaPagamento: "Bonifico",
           agenziaNome: (comp as any).nome || "",
-          compagniaCollegata: resolveCompagniaCollegataNome(comp as any),
+          compagniaCollegata: r.compagniaCollegata || resolveCompagniaCollegataNome(comp as any),
           agenziaIndirizzo: (comp as any).indirizzo || "",
           agenziaCap: (comp as any).cap || "",
           agenziaCitta: (comp as any).comune || "",
@@ -1123,7 +1174,7 @@ Consulbrokers`;
         };
 
         const pdfBytes = await buildECAgenziaPdf(ecData);
-        const agCodice = (comp as any).codice || (comp as any).nome || "agenzia";
+        const agCodice = r.compagniaCollegata || r.codice || (comp as any).codice || (comp as any).nome || "agenzia";
         const singleName = `EC_Agenzia_${String(agCodice).replace(/\s+/g, "_")}_${format(new Date(), "yyyy-MM-dd")}_${progRes.riferimento?.replace(/\//g, "-") || "ref"}.pdf`;
         await archiviaEcAgenziaPdf({
           compagniaId: r.compagnia_id,
@@ -1149,7 +1200,7 @@ Consulbrokers`;
       a.download = `EC_Agenzie_completo_${format(new Date(), "yyyyMMdd")}.pdf`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1500);
-      toast.success(`PDF E/C generato — ${exportRows.length} agenzie`);
+      toast.success(`PDF E/C generato — ${exportRows.length} estratti`);
     } catch (e: any) {
       toast.error("Errore generazione PDF E/C: " + (e?.message || e));
     } finally {
@@ -1158,7 +1209,7 @@ Consulbrokers`;
   };
 
   const kpiCards = [
-    { label: "N. Agenzie", value: rows.length.toString(), icon: Building2, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
+    { label: "N. E/C", value: rows.length.toString(), icon: Building2, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
     { label: "Totale Lordo", value: fmt(totLordo), icon: TrendingUp, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
     { label: "Totale Provvigioni", value: fmt(totProvv), icon: Percent, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
     { label: "Da Rimettere", value: fmt(totDaRimettere), icon: Scale, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
@@ -1224,7 +1275,7 @@ Consulbrokers`;
                 {bulkEcLoading
                   ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   : <FileText className="mr-2 h-4 w-4 text-blue-600" />}
-                PDF E/C completi (una per agenzia)
+                PDF E/C completi (uno per mandato)
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={exportCSV}>
@@ -1367,20 +1418,24 @@ Consulbrokers`;
               <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessun titolo da rimettere</TableCell></TableRow>
             ) : sortedRows.map((r) => {
               const daRimettere = r.lordo - r.provvigioni + r.ritenutaAcconto;
-              const isExpanded = expandedRows.has(r.compagnia_id);
-              const selected = selectedTitoli[r.compagnia_id] || new Set();
+              const isExpanded = expandedRows.has(r.groupKey);
+              const selected = selectedTitoli[r.groupKey] || new Set();
               const selectedCount = selected.size;
               return (
                 <>
-                  <TableRow key={r.compagnia_id} className="cursor-pointer" onClick={() => toggleExpand(r.compagnia_id)}>
+                  <TableRow key={r.groupKey} className="cursor-pointer" onClick={() => toggleExpand(r.groupKey)}>
                     <TableCell className="px-2">
                       {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                     </TableCell>
                     <TableCell className="font-medium">
-                      <div>{r.nome}</div>
                       {r.compagniaCollegata ? (
-                        <div className="text-xs text-muted-foreground font-normal">{r.compagniaCollegata}</div>
-                      ) : null}
+                        <>
+                          <div>{r.compagniaCollegata}</div>
+                          <div className="text-xs text-muted-foreground font-normal">{r.nome}</div>
+                        </>
+                      ) : (
+                        <div>{r.nome}</div>
+                      )}
                     </TableCell>
                     <TableCell>{r.codice}</TableCell>
                     <TableCell className="text-sm">{formatDateRange(r.data_min, r.data_max)}</TableCell>
@@ -1395,9 +1450,10 @@ Consulbrokers`;
                           className="h-7 text-xs gap-1"
                           title="Stampa Estratto Conto Agenzia"
                           onClick={() => {
-                            const sel = selectedTitoli[r.compagnia_id];
+                            const sel = selectedTitoli[r.groupKey];
                             const ids = sel && sel.size > 0 ? Array.from(sel).join(",") : "";
                             const qs = new URLSearchParams({ compagniaId: r.compagnia_id });
+                            if (r.compagnia_rapporto_id) qs.set("rapportoId", r.compagnia_rapporto_id);
                             if (ids) qs.set("titoliIds", ids);
                             if (isAgenzia) {
                               qs.set(
@@ -1421,10 +1477,10 @@ Consulbrokers`;
                             variant="outline"
                             className="h-7 text-xs gap-1"
                             title="Invia Estratto Conto via email all'agenzia"
-                            disabled={sendingEmailId === r.compagnia_id}
+                            disabled={sendingEmailId === r.groupKey}
                             onClick={() => handleInviaEmail(r, daRimettere)}
                           >
-                            {sendingEmailId === r.compagnia_id ? (
+                            {sendingEmailId === r.groupKey ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
                             ) : (
                               <Mail className="h-3 w-3" />
@@ -1438,7 +1494,7 @@ Consulbrokers`;
                             variant="outline"
                             className="h-7 text-xs gap-1"
                             disabled={creaRimessaMutation.isPending || mettiInPagamentoMutation.isPending}
-                            onClick={() => handleOpenPagaDialog(r.compagnia_id, daRimettere, r.titoli)}
+                            onClick={() => handleOpenPagaDialog(r.groupKey, r.compagnia_id, daRimettere, r.titoli)}
                           >
                             {isAgenzia ? <Send className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
                             {isAgenzia
@@ -1450,14 +1506,14 @@ Consulbrokers`;
                     </TableCell>
                   </TableRow>
                   {isExpanded && (
-                    <TableRow key={`${r.compagnia_id}-header`} className="bg-muted/30 hover:bg-muted/30">
+                    <TableRow key={`${r.groupKey}-header`} className="bg-muted/30 hover:bg-muted/30">
                       <TableCell></TableCell>
                       <TableCell colSpan={7}>
                         <div className="py-2">
                           <div className="flex items-center gap-2 mb-2">
                             <Checkbox
                               checked={r.titoli.length > 0 && r.titoli.every((t) => selected.has(t.id))}
-                              onCheckedChange={() => toggleAllTitoli(r.compagnia_id, r.titoli)}
+                              onCheckedChange={() => toggleAllTitoli(r.groupKey, r.titoli)}
                             />
                             <span className="text-xs font-medium text-muted-foreground">Seleziona tutti ({r.titoli.length} titoli)</span>
                           </div>
@@ -1485,7 +1541,7 @@ Consulbrokers`;
                                   <TableCell className="py-1 px-2">
                                     <Checkbox
                                       checked={selected.has(t.id)}
-                                      onCheckedChange={() => toggleTitolo(r.compagnia_id, t.id)}
+                                      onCheckedChange={() => toggleTitolo(r.groupKey, t.id)}
                                     />
                                   </TableCell>
                                   <TableCell className="py-1 text-sm font-mono">

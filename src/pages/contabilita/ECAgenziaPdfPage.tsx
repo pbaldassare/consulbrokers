@@ -15,7 +15,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { getProvvigioneEC } from "@/lib/getProvvigioneEC";
 import { calcolaRitenutaAcconto, resolvePercentualeRA } from "@/lib/resolvePercentualeRA";
-import { resolveCompagniaCollegataNome, resolveMiCodiceEcAgenzia } from "@/lib/ecAgenziaDisplay";
+import { resolveMiCodiceEcAgenzia } from "@/lib/ecAgenziaDisplay";
+import {
+  ecAgenziaCodiceProgressivo,
+  ecAgenziaProgressivoEntitaId,
+  resolveEcAgenziaMandataria,
+} from "@/lib/contabilita/ecAgenziaGruppo";
 import { defaultDataEstrattoContoFormatted } from "@/lib/contabilita/defaultDataEstrattoConto";
 import {
   isIncassoNelPeriodoEcAgenzia,
@@ -31,6 +36,7 @@ const ECAgenziaPdfPage = () => {
   const [params] = useSearchParams();
   const { profile } = useAuth();
   const compagniaId = params.get("compagniaId") || "";
+  const rapportoId = params.get("rapportoId") || "";
   const titoliIdsParam = params.get("titoliIds") || "";
   const periodoDal = params.get("periodoDal") || "";
   const periodoAl = params.get("periodoAl") || "";
@@ -103,16 +109,32 @@ const ECAgenziaPdfPage = () => {
     },
   });
 
+  const { data: rapporto } = useQuery({
+    queryKey: ["ec-pdf-rapporto", rapportoId],
+    enabled: !!rapportoId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporti")
+        .select("id, codice_rapporto, percentuale_ra, iban_dedicato, gruppi_compagnia:gruppo_compagnia_id(descrizione, codice)")
+        .eq("id", rapportoId)
+        .maybeSingle();
+      return data as any;
+    },
+  });
+
   // Titoli — se titoliIds presenti li usa, altrimenti tutti gli incassati dell'agenzia (filtrati per periodo se passato), escludendo quelli già in rimessa
   const { data: titoli } = useQuery({
-    queryKey: ["ec-pdf-titoli", compagniaId, titoliIds.join(","), periodoDal, periodoAl],
+    queryKey: ["ec-pdf-titoli", compagniaId, rapportoId, titoliIds.join(","), periodoDal, periodoAl],
     enabled: !!compagniaId,
     queryFn: async () => {
       let q = supabase
         .from("titoli")
-        .select("id, numero_titolo, riga, premio_lordo, pag_diretto_compagnia, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cig_temporaneo, compagnia_id, cliente_anagrafica_id, ramo_id, ufficio_id, compagnia_rapporto_id, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra), rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
+        .select("id, numero_titolo, riga, premio_lordo, pag_diretto_compagnia, provvigioni_firma, provvigioni_quietanza, sostituisce_polizza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cig_temporaneo, compagnia_id, cliente_anagrafica_id, ramo_id, ufficio_id, compagnia_rapporto_id, compagnia_rapporti:compagnia_rapporto_id(percentuale_ra, codice_rapporto, gruppi_compagnia:gruppo_compagnia_id(descrizione, codice)), rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
         .eq("compagnia_id", compagniaId)
         .eq("stato", "incassato");
+      if (rapportoId && titoliIds.length === 0) {
+        q = q.eq("compagnia_rapporto_id", rapportoId);
+      }
       const dalIso = resolvePeriodoDalAgenziaIso(periodoDal || null);
       q = q.gte("data_messa_cassa", dalIso);
       if (titoliIds.length > 0) {
@@ -185,21 +207,27 @@ const ECAgenziaPdfPage = () => {
     setSedeTelefono(u.telefono || "");
   }, [titoli, tutteSedi]); // eslint-disable-line
 
+  const progressivoEntitaId = ecAgenziaProgressivoEntitaId(compagniaId, rapportoId || null);
+  const progressivoCodice = ecAgenziaCodiceProgressivo({
+    codiceRapporto: rapporto?.codice_rapporto,
+    codiceGruppo: rapporto?.gruppi_compagnia?.codice,
+    codiceCompagnia: compagnia?.codice,
+  });
+
   useEffect(() => {
-    if (!compagniaId || !compagnia?.codice || riferimentoManuale.current) return;
+    if (!compagniaId || riferimentoManuale.current) return;
     let cancelled = false;
     (async () => {
-      const res = await anteprimaRiferimentoEc("agenzia", compagniaId, compagnia.codice);
+      const res = await anteprimaRiferimentoEc("agenzia", progressivoEntitaId, progressivoCodice);
       if (!cancelled && res.ok && res.riferimento) setRiferimento(res.riferimento);
     })();
     return () => { cancelled = true; };
-  }, [compagniaId, compagnia?.codice]); // eslint-disable-line
+  }, [compagniaId, progressivoEntitaId, progressivoCodice]); // eslint-disable-line
 
   const allocaRiferimento = async (): Promise<string> => {
     if (riferimentoManuale.current) return riferimento;
     if (!compagniaId) return riferimento;
-    const codice = compagnia?.codice || "REF";
-    const res = await prossimoRiferimentoEc("agenzia", compagniaId, codice);
+    const res = await prossimoRiferimentoEc("agenzia", progressivoEntitaId, progressivoCodice);
     if (!res.ok || !res.riferimento) throw new Error(res.error || "Impossibile generare il riferimento progressivo");
     setRiferimento(res.riferimento);
     return res.riferimento;
@@ -258,7 +286,7 @@ const ECAgenziaPdfPage = () => {
       periodoTesto,
       modalitaPagamento,
       agenziaNome: compagnia?.nome || "",
-      compagniaCollegata: resolveCompagniaCollegataNome(compagnia),
+      compagniaCollegata: resolveEcAgenziaMandataria(rapporto, compagnia),
       agenziaIndirizzo: compagnia?.indirizzo || "",
       agenziaCap: compagnia?.cap || "",
       agenziaCitta: compagnia?.comune || "",
@@ -276,7 +304,13 @@ const ECAgenziaPdfPage = () => {
   };
 
   const fileName = () => {
-    const ag = (compagnia?.codice || compagnia?.nome || "agenzia").replace(/\s+/g, "_");
+    const mand =
+      resolveEcAgenziaMandataria(rapporto, compagnia) ||
+      progressivoCodice ||
+      compagnia?.codice ||
+      compagnia?.nome ||
+      "agenzia";
+    const ag = String(mand).replace(/\s+/g, "_");
     return `EC_Agenzia_${ag}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
   };
 
