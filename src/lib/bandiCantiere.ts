@@ -16,7 +16,6 @@ export const FILTRI_CANTIERE = [
   { value: "in_monitoraggio", label: "In monitoraggio" },
   { value: "pronto_trattativa", label: "Pronto trattativa" },
   { value: "in_trattativa", label: "In trattativa" },
-  { value: "archiviato_storico", label: "In storico" },
   { value: "tutti", label: "Tutti" },
 ] as const;
 
@@ -51,7 +50,7 @@ export function labelCantiereStato(stato: string | null | undefined): string {
     case "in_trattativa":
       return "In trattativa";
     case "archiviato_storico":
-      return "In storico";
+      return "Storico Gare";
     case "abbandonato":
       return "Abbandonato";
     default:
@@ -63,10 +62,16 @@ export function isBandoInCantiere(
   esito: BandoEsito | null | undefined,
   cantiere: string | null | undefined,
   trattativeCount?: number | null,
+  storicoGaraId?: string | null,
 ): boolean {
-  if (cantiere === "archiviato_storico") return true;
+  if (cantiere === "archiviato_storico" || cantiere === "abbandonato" || storicoGaraId) return false;
   if ((trattativeCount || 0) > 0) return true;
   return esito === "voglio_partecipare" || esito === "in_trattativa";
+}
+
+export function storicoGarePath(storicoId?: string | null): string {
+  if (storicoId) return `/trattative/storico-gare?id=${encodeURIComponent(storicoId)}`;
+  return "/trattative/storico-gare";
 }
 
 export function effectiveCantiereStato(opts: {
