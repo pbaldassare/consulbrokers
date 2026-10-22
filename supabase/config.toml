@@ -78,6 +78,9 @@ verify_jwt = false
 [functions.send-email]
 verify_jwt = false
 
+[functions.request-password-reset]
+verify_jwt = false
+
 [functions.check-resend-domain]
 verify_jwt = true
 

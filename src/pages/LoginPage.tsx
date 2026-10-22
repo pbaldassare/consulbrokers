@@ -88,14 +88,22 @@ const LoginPage = () => {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+    const redirectTo = `${window.location.origin}/reset-password`;
+    const res = await supabase.functions.invoke("request-password-reset", {
+      body: { email: email.trim(), redirect_to: redirectTo },
     });
     setLoading(false);
-    if (error) {
-      toast.error("Errore", { description: error.message });
+    const payload = res.data as { ok?: boolean; error?: string; message?: string } | null;
+    if (res.error || payload?.error) {
+      toast.error("Recupero password non riuscito", {
+        description: payload?.error || res.error?.message || "Errore di rete",
+      });
     } else {
-      toast.success("Email inviata", { description: "Controlla la tua casella per il link di reset." });
+      toast.success("Email inviata", {
+        description:
+          payload?.message ||
+          "Se l'indirizzo è registrato, controlla la casella (anche spam) per il link di reset.",
+      });
       setResetMode(false);
     }
   };
