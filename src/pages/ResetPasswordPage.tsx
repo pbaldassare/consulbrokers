@@ -5,28 +5,70 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Lock, Eye, EyeOff } from "lucide-react";
+import { Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+import { recoveryCodeFromUrl, urlLooksLikePasswordRecovery } from "@/lib/authPasswordRecovery";
 
 const ResetPasswordPage = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(true);
   const [isRecovery, setIsRecovery] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && hash.includes("type=recovery")) {
-      setIsRecovery(true);
-    }
+    let cancelled = false;
+    const href = window.location.href;
+    const hadRecoveryUrl = urlLooksLikePasswordRecovery(href);
+
+    const finishBootstrap = () => {
+      if (!cancelled) setBootstrapping(false);
+    };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
         setIsRecovery(true);
+        setBootstrapError(null);
+        finishBootstrap();
       }
     });
-    return () => subscription.unsubscribe();
+
+    (async () => {
+      if (hadRecoveryUrl) setIsRecovery(true);
+
+      const code = recoveryCodeFromUrl(href);
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          setBootstrapError(error.message);
+          setIsRecovery(false);
+        } else {
+          setIsRecovery(true);
+          window.history.replaceState({}, "", `${window.location.pathname}${window.location.hash}`);
+        }
+      }
+
+      // Attende il parse automatico del token in hash (flow legacy).
+      await new Promise((r) => setTimeout(r, hadRecoveryUrl ? 400 : 0));
+      const { data: { session }, error: sessErr } = await supabase.auth.getSession();
+      if (sessErr) setBootstrapError(sessErr.message);
+
+      if (session && hadRecoveryUrl) setIsRecovery(true);
+
+      if (!code && hadRecoveryUrl && !session) {
+        setBootstrapError((prev) => prev || "Sessione di recupero non avviata. Richiedi un nuovo link.");
+        setIsRecovery(false);
+      }
+
+      finishBootstrap();
+    })();
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,18 +85,28 @@ const ResetPasswordPage = () => {
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {
-      toast.error("Errore");
+      toast.error("Impossibile aggiornare la password", { description: error.message });
     } else {
       toast.success("Password aggiornata", { description: "Ora puoi accedere con la nuova password." });
-      navigate("/", { replace: true });
+      navigate("/login", { replace: true });
     }
   };
+
+  if (bootstrapping) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   if (!isRecovery) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="bg-card border border-border rounded-xl p-8 shadow-sm max-w-sm w-full text-center">
-          <p className="text-muted-foreground">Link di recupero non valido o scaduto.</p>
+          <p className="text-muted-foreground">
+            {bootstrapError || "Link di recupero non valido o scaduto."}
+          </p>
           <Button className="mt-4" onClick={() => navigate("/login")}>Torna al login</Button>
         </div>
       </div>
