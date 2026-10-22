@@ -3,6 +3,7 @@ import {
   infordatSchedaId,
   isBrokeraggioInfordat,
   isInfordatUrl,
+  matchesInfordatKeywordMode,
   parseInfordatHtml,
 } from "@/lib/infordatBandi";
 
@@ -42,5 +43,15 @@ describe("isBrokeraggioInfordat", () => {
   it("riconosce le gare assicurative", () => {
     expect(isBrokeraggioInfordat("Servizio di brokeraggio assicurativo")).toBe(true);
     expect(isBrokeraggioInfordat("Lavori stradali")).toBe(false);
+  });
+});
+
+describe("matchesInfordatKeywordMode", () => {
+  it("default brokeraggio, oppure servizi, oppure entrambe", () => {
+    expect(matchesInfordatKeywordMode("Brokeraggio assicurativo Comune", "brokeraggio")).toBe(true);
+    expect(matchesInfordatKeywordMode("Servizi assicurativi RCA", "brokeraggio")).toBe(false);
+    expect(matchesInfordatKeywordMode("Servizi assicurativi RCA", "servizi")).toBe(true);
+    expect(matchesInfordatKeywordMode("Brokeraggio assicurativo Comune", "entrambe")).toBe(true);
+    expect(matchesInfordatKeywordMode("Servizi assicurativi RCA", "entrambe")).toBe(true);
   });
 });
