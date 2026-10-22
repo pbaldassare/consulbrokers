@@ -14,13 +14,36 @@ const OK_BODY = {
   message: "Se l'indirizzo è registrato in CBnet, riceverai a breve un'email con il link per reimpostare la password.",
 };
 
+const CBNET_PUBLIC_ORIGIN = Deno.env.get("CBNET_APP_URL")?.replace(/\/$/, "") || "https://cbnet.it";
+const RESET_URL = `${CBNET_PUBLIC_ORIGIN}/reset-password`;
+
+/** I link recovery non devono mai puntare a localhost (Site URL Supabase spesso è dev). */
+function resolveResetRedirect(_requested?: string): string {
+  return RESET_URL;
+}
+
+function sanitizeRecoveryActionLink(link: string): string {
+  try {
+    const u = new URL(link);
+    u.searchParams.set("redirect_to", RESET_URL);
+    let out = u.toString();
+    out = out.replace(/https?:\/\/localhost(?::\d+)?/gi, CBNET_PUBLIC_ORIGIN);
+    out = out.replace(/https?:\/\/127\.0\.0\.1(?::\d+)?/gi, CBNET_PUBLIC_ORIGIN);
+    return out;
+  } catch {
+    return link
+      .replace(/https?:\/\/localhost(?::\d+)?/gi, CBNET_PUBLIC_ORIGIN)
+      .replace(/https?:\/\/127\.0\.0\.1(?::\d+)?/gi, CBNET_PUBLIC_ORIGIN);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email || "").trim().toLowerCase();
-    const redirectTo = String(body?.redirect_to || "https://cbnet.it/reset-password").trim();
+    const redirectTo = resolveResetRedirect(String(body?.redirect_to || ""));
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return json({ ok: false, error: "Indirizzo email non valido" }, 400);
@@ -41,7 +64,7 @@ Deno.serve(async (req) => {
       return json(OK_BODY);
     }
 
-    const actionLink = linkData.properties.action_link;
+    const actionLink = sanitizeRecoveryActionLink(linkData.properties.action_link);
     const html = `
 <p>Hai richiesto il recupero password per CBnet.</p>
 <p>Clicca il pulsante qui sotto per scegliere una nuova password. Il link scade dopo un breve periodo.</p>

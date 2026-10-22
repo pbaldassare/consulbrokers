@@ -15,6 +15,7 @@ import {
   isConsultazioneEmailAllowed,
 } from "@/lib/consultazioneSession";
 import { cn } from "@/lib/utils";
+import { passwordResetRedirectUrl } from "@/lib/publicAppUrl";
 import logoCbnet from "@/assets/logo-cbnet-transparent.png.asset.json";
 
 type LoginMode = "gestionale" | "consultazione";
@@ -88,7 +89,7 @@ const LoginPage = () => {
       return;
     }
     setLoading(true);
-    const redirectTo = `${window.location.origin}/reset-password`;
+    const redirectTo = passwordResetRedirectUrl(window.location.origin);
     const res = await supabase.functions.invoke("request-password-reset", {
       body: { email: email.trim(), redirect_to: redirectTo },
     });
