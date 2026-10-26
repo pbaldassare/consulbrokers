@@ -17,24 +17,12 @@ const OK_BODY = {
 const CBNET_PUBLIC_ORIGIN = Deno.env.get("CBNET_APP_URL")?.replace(/\/$/, "") || "https://cbnet.it";
 const RESET_URL = `${CBNET_PUBLIC_ORIGIN}/reset-password`;
 
-/** I link recovery non devono mai puntare a localhost (Site URL Supabase spesso è dev). */
-function resolveResetRedirect(_requested?: string): string {
-  return RESET_URL;
-}
-
-function sanitizeRecoveryActionLink(link: string): string {
-  try {
-    const u = new URL(link);
-    u.searchParams.set("redirect_to", RESET_URL);
-    let out = u.toString();
-    out = out.replace(/https?:\/\/localhost(?::\d+)?/gi, CBNET_PUBLIC_ORIGIN);
-    out = out.replace(/https?:\/\/127\.0\.0\.1(?::\d+)?/gi, CBNET_PUBLIC_ORIGIN);
-    return out;
-  } catch {
-    return link
-      .replace(/https?:\/\/localhost(?::\d+)?/gi, CBNET_PUBLIC_ORIGIN)
-      .replace(/https?:\/\/127\.0\.0\.1(?::\d+)?/gi, CBNET_PUBLIC_ORIGIN);
-  }
+/** Link diretto su cbnet.it: evita /auth/v1/verify e il Site URL localhost in dashboard. */
+function buildRecoveryLink(hashedToken: string): string {
+  const u = new URL(RESET_URL);
+  u.searchParams.set("token_hash", hashedToken);
+  u.searchParams.set("type", "recovery");
+  return u.toString();
 }
 
 Deno.serve(async (req) => {
@@ -43,8 +31,6 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email || "").trim().toLowerCase();
-    const redirectTo = resolveResetRedirect(String(body?.redirect_to || ""));
-
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return json({ ok: false, error: "Indirizzo email non valido" }, 400);
     }
@@ -56,15 +42,16 @@ Deno.serve(async (req) => {
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
       type: "recovery",
       email,
-      options: { redirectTo },
+      options: { redirectTo: RESET_URL },
     });
 
-    if (linkErr || !linkData?.properties?.action_link) {
-      console.warn("[request-password-reset] generateLink:", linkErr?.message || "no action_link");
+    const hashedToken = linkData?.properties?.hashed_token;
+    if (linkErr || !hashedToken) {
+      console.warn("[request-password-reset] generateLink:", linkErr?.message || "no hashed_token");
       return json(OK_BODY);
     }
 
-    const actionLink = sanitizeRecoveryActionLink(linkData.properties.action_link);
+    const actionLink = buildRecoveryLink(hashedToken);
     const html = `
 <p>Hai richiesto il recupero password per CBnet.</p>
 <p>Clicca il pulsante qui sotto per scegliere una nuova password. Il link scade dopo un breve periodo.</p>

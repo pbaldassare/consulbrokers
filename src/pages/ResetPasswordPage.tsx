@@ -6,7 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Lock, Eye, EyeOff, Loader2 } from "lucide-react";
-import { recoveryCodeFromUrl, urlLooksLikePasswordRecovery } from "@/lib/authPasswordRecovery";
+import {
+  recoveryCodeFromUrl,
+  recoveryTokenHashFromUrl,
+  urlLooksLikePasswordRecovery,
+} from "@/lib/authPasswordRecovery";
 
 const ResetPasswordPage = () => {
   const [password, setPassword] = useState("");
@@ -38,8 +42,20 @@ const ResetPasswordPage = () => {
     (async () => {
       if (hadRecoveryUrl) setIsRecovery(true);
 
+      const tokenHash = recoveryTokenHashFromUrl(href);
+      if (tokenHash) {
+        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+        if (error) {
+          setBootstrapError(error.message);
+          setIsRecovery(false);
+        } else {
+          setIsRecovery(true);
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      }
+
       const code = recoveryCodeFromUrl(href);
-      if (code) {
+      if (!tokenHash && code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
           setBootstrapError(error.message);
@@ -51,13 +67,13 @@ const ResetPasswordPage = () => {
       }
 
       // Attende il parse automatico del token in hash (flow legacy).
-      await new Promise((r) => setTimeout(r, hadRecoveryUrl ? 400 : 0));
+      await new Promise((r) => setTimeout(r, hadRecoveryUrl && !tokenHash ? 400 : 0));
       const { data: { session }, error: sessErr } = await supabase.auth.getSession();
       if (sessErr) setBootstrapError(sessErr.message);
 
       if (session && hadRecoveryUrl) setIsRecovery(true);
 
-      if (!code && hadRecoveryUrl && !session) {
+      if (!tokenHash && !code && hadRecoveryUrl && !session) {
         setBootstrapError((prev) => prev || "Sessione di recupero non avviata. Richiedi un nuovo link.");
         setIsRecovery(false);
       }

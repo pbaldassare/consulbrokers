@@ -5,6 +5,7 @@ export function urlLooksLikePasswordRecovery(href: string): boolean {
     const hash = u.hash || "";
     if (hash.includes("type=recovery") || hash.includes("access_token")) return true;
     if (u.searchParams.get("type") === "recovery") return true;
+    if (u.searchParams.get("token_hash") && u.searchParams.get("type") === "recovery") return true;
     if (u.searchParams.has("code")) return true;
     return false;
   } catch {
@@ -15,6 +16,16 @@ export function urlLooksLikePasswordRecovery(href: string): boolean {
 export function recoveryCodeFromUrl(href: string): string | null {
   try {
     return new URL(href).searchParams.get("code");
+  } catch {
+    return null;
+  }
+}
+
+export function recoveryTokenHashFromUrl(href: string): string | null {
+  try {
+    const u = new URL(href);
+    if (u.searchParams.get("type") !== "recovery") return null;
+    return u.searchParams.get("token_hash");
   } catch {
     return null;
   }
