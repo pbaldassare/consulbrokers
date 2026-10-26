@@ -1,2 +1,2 @@
-export const APP_RELEASE_VERSION = "2026-10-26T09:40:00.000Z";
-export const APP_RELEASE_LABEL = "Specialist stessi privilegi Resp. Sede 2026-10-26";
+export const APP_RELEASE_VERSION = "2026-10-26T09:51:00.000Z";
+export const APP_RELEASE_LABEL = "Ticket supporto ordine data decrescente 2026-10-26";

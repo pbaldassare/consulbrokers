@@ -38,7 +38,7 @@ import {
   validateSupportTicketReply,
   SUPPORT_TICKET_TIPOLOGIA_LABEL,
   SUPPORT_TICKET_TIPOLOGIE,
-  groupSupportTicketsByTipologia,
+  sortSupportTicketsByDateDesc,
   SUPPORT_TICKET_PRESO_IN_CARICO_FASI,
   SUPPORT_TICKET_PRESO_IN_CARICO_FASE_LABEL,
   type SupportTicketPresoInCaricoFase,
@@ -1142,6 +1142,11 @@ function TicketsTableBody({
             </TableCell>
           )}
           <TableCell>
+            <Badge variant="outline" className={tipologiaBadgeClass[ticketTipologia(ticket)]}>
+              {SUPPORT_TICKET_TIPOLOGIA_LABEL[ticketTipologia(ticket)]}
+            </Badge>
+          </TableCell>
+          <TableCell>
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge variant="outline" className={statusClass[ticket.stato]}>
                 {SUPPORT_TICKET_STATUS_LABEL[ticket.stato]}
@@ -1167,7 +1172,7 @@ function TicketsTableBody({
   );
 }
 
-function GroupedTicketsTable({
+function TicketsListTable({
   tickets,
   isAdmin,
   currentUserId,
@@ -1180,9 +1185,9 @@ function GroupedTicketsTable({
   unreadIds: Set<string>;
   onSelect: (ticket: SupportTicket) => void;
 }) {
-  const groups = useMemo(() => groupSupportTicketsByTipologia(tickets), [tickets]);
+  const sorted = useMemo(() => sortSupportTicketsByDateDesc(tickets), [tickets]);
 
-  if (tickets.length === 0) {
+  if (sorted.length === 0) {
     return (
       <div className="py-14 text-center text-muted-foreground">
         <TicketCheck className="mx-auto mb-3 h-11 w-11 opacity-30" />
@@ -1192,40 +1197,29 @@ function GroupedTicketsTable({
   }
 
   return (
-    <div className="space-y-8">
-      {groups.map((group) => (
-        <section key={group.tipologia} className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide">{group.label}</h2>
-            <Badge variant="outline" className={tipologiaBadgeClass[group.tipologia]}>
-              {group.tickets.length}
-            </Badge>
-          </div>
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ticket</TableHead>
-                  <TableHead>Richiesta</TableHead>
-                  {isAdmin && <TableHead>Richiedente</TableHead>}
-                  <TableHead>Stato</TableHead>
-                  <TableHead>Apertura</TableHead>
-                  <TableHead>Aggiornamento</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TicketsTableBody
-                  tickets={group.tickets}
-                  isAdmin={isAdmin}
-                  currentUserId={currentUserId}
-                  unreadIds={unreadIds}
-                  onSelect={onSelect}
-                />
-              </TableBody>
-            </Table>
-          </div>
-        </section>
-      ))}
+    <div className="overflow-hidden rounded-lg border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Ticket</TableHead>
+            <TableHead>Richiesta</TableHead>
+            {isAdmin && <TableHead>Richiedente</TableHead>}
+            <TableHead>Tipologia</TableHead>
+            <TableHead>Stato</TableHead>
+            <TableHead>Apertura</TableHead>
+            <TableHead>Aggiornamento</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TicketsTableBody
+            tickets={sorted}
+            isAdmin={isAdmin}
+            currentUserId={currentUserId}
+            unreadIds={unreadIds}
+            onSelect={onSelect}
+          />
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -1355,7 +1349,7 @@ export default function SupportTicketsPage() {
             <TabsTrigger value="storico">Storico ({resolvedTickets.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="aperti" className="mt-4">
-            <GroupedTicketsTable
+            <TicketsListTable
               tickets={pendingTickets}
               isAdmin={isAdmin}
               currentUserId={user?.id}
@@ -1367,7 +1361,7 @@ export default function SupportTicketsPage() {
             />
           </TabsContent>
           <TabsContent value="presi_in_carico" className="mt-4">
-            <GroupedTicketsTable
+            <TicketsListTable
               tickets={assignedTickets}
               isAdmin={isAdmin}
               currentUserId={user?.id}
@@ -1379,7 +1373,7 @@ export default function SupportTicketsPage() {
             />
           </TabsContent>
           <TabsContent value="storico" className="mt-4">
-            <GroupedTicketsTable
+            <TicketsListTable
               tickets={resolvedTickets}
               isAdmin={isAdmin}
               currentUserId={user?.id}

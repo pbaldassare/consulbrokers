@@ -45,10 +45,32 @@ export function groupSupportTicketsByTipologia<T extends { tipologia_problema?: 
   return SUPPORT_TICKET_TIPOLOGIA_ORDER.map((tipologia) => ({
     tipologia,
     label: SUPPORT_TICKET_TIPOLOGIA_LABEL[tipologia],
-    tickets: tickets.filter(
-      (t) => (t.tipologia_problema ?? "bug") === tipologia,
+    tickets: sortSupportTicketsByDateDesc(
+      tickets.filter((t) => (t.tipologia_problema ?? "bug") === tipologia),
     ),
   })).filter((g) => g.tickets.length > 0);
+}
+
+type SupportTicketSortable = {
+  updated_at?: string | null;
+  data_apertura?: string | null;
+  created_at?: string | null;
+  numero?: number | null;
+};
+
+function supportTicketSortTimestamp(t: SupportTicketSortable): number {
+  const raw = t.updated_at || t.data_apertura || t.created_at || "";
+  const ms = Date.parse(raw);
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
+/** Elenco ticket: più recenti in alto (aggiornamento, poi apertura). */
+export function sortSupportTicketsByDateDesc<T extends SupportTicketSortable>(tickets: T[]): T[] {
+  return [...tickets].sort((a, b) => {
+    const diff = supportTicketSortTimestamp(b) - supportTicketSortTimestamp(a);
+    if (diff !== 0) return diff;
+    return (b.numero ?? 0) - (a.numero ?? 0);
+  });
 }
 
 export const SUPPORT_TICKET_STATUS: Array<{

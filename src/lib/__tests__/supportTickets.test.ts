@@ -9,6 +9,7 @@ import {
   isSupportTicketClosed,
   mergeSupportTicketAttachmentFiles,
   groupSupportTicketsByTipologia,
+  sortSupportTicketsByDateDesc,
   SUPPORT_TICKET_TIPOLOGIA_LABEL,
   supportTicketUserLockedMessage,
   validateSupportTicketDescription,
@@ -26,6 +27,14 @@ describe("supportTickets", () => {
 
   it("formatta il numero leggibile del ticket", () => {
     expect(formatSupportTicketNumber(42)).toBe("TCK-000042");
+  });
+
+  it("ordina i ticket per data decrescente", () => {
+    const sorted = sortSupportTicketsByDateDesc([
+      { id: "old", updated_at: "2026-01-01T10:00:00Z", numero: 1 },
+      { id: "new", updated_at: "2026-03-01T10:00:00Z", numero: 2 },
+    ]);
+    expect(sorted.map((t) => t.id)).toEqual(["new", "old"]);
   });
 
   it("raggruppa i ticket per tipologia in ordine fisso", () => {
