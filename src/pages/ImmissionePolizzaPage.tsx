@@ -1155,10 +1155,11 @@ const ImmissionePolizzaPage = () => {
   });
 
 
-  const { data: gruppiCompagniaList } = useQuery({
+  const { data: gruppiCompagniaList, isLoading: gruppiCompagniaLoading, isError: gruppiCompagniaError } = useQuery({
     queryKey: ["gruppi-compagnia-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("gruppi_compagnia").select("id, codice, descrizione").eq("attivo", true).order("descrizione");
+      const { data, error } = await supabase.from("gruppi_compagnia").select("id, codice, descrizione").eq("attivo", true).order("descrizione");
+      if (error) throw error;
       return ((data) || []).map((g: any) => ({ id: g.id, codice: g.codice, nome: `${g.codice ? g.codice + " - " : ""}${g.descrizione || ""}` }));
     },
   });
@@ -2803,9 +2804,13 @@ const ImmissionePolizzaPage = () => {
                 }
               }}
               placeholder={
-                (gruppiCompagniaList || []).length === 0
+                gruppiCompagniaLoading
                   ? "Caricamento compagnie…"
-                  : "— Seleziona compagnia —"
+                  : gruppiCompagniaError
+                    ? "Errore elenco compagnie"
+                    : (gruppiCompagniaList || []).length === 0
+                      ? "Nessuna compagnia disponibile"
+                      : "— Seleziona compagnia —"
               }
               options={(() => {
                 // Se è già selezionata un'agenzia broker/pluri con più gruppi, restringi alle sole compagnie compatibili
