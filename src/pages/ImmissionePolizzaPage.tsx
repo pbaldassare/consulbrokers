@@ -1168,7 +1168,12 @@ const ImmissionePolizzaPage = () => {
   const { data: ramiList } = useQuery({
     queryKey: ["rami-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id, ssn_attivo, aliquota_ssn, aliquota_tasse_ramo, escludi_provvigioni, diritti_agenzia").eq("attivo", true).order("codice");
+      const { data, error } = await supabase
+        .from("rami")
+        .select("id, codice, descrizione, gruppo_ramo_id, ssn_attivo, aliquota_ssn, aliquota_tasse_ramo, escludi_provvigioni, diritti_agenzia")
+        .eq("attivo", true)
+        .order("codice");
+      if (error) throw error;
       return data || [];
     },
   });
@@ -1176,7 +1181,8 @@ const ImmissionePolizzaPage = () => {
   const { data: gruppiRamo } = useQuery({
     queryKey: ["gruppi-ramo-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("gruppi_ramo").select("id, codice, descrizione").eq("attivo", true);
+      const { data, error } = await supabase.from("gruppi_ramo").select("id, codice, descrizione").eq("attivo", true);
+      if (error) throw error;
       return data || [];
     },
   });

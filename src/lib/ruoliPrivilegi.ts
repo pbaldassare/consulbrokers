@@ -1,7 +1,7 @@
 /** Ruolo profilo Specialist in Centro Utenti (tendine: lookup `specialist` → backoffice). */
 export const RUOLO_SPECIALIST = "backoffice" as const;
 
-/** Stessi privilegi applicativi del Resp. Sede; restano distinti etichetta e selezione tendine. */
+/** Stessi privilegi applicativi del Resp. Sede (L3, visibilità sede); in DB ruolo `backoffice`, RLS via is_staff / is_sede_operativo. */
 export const RUOLI_EQUIVALENTI_RESPONSABILE_SEDE = [
   "responsabile_sede",
   RUOLO_SPECIALIST,
