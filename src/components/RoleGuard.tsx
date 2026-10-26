@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { getDefaultRoute } from "@/lib/getDefaultRoute";
+import { ruoloConsentito } from "@/lib/ruoliPrivilegi";
 
 interface RoleGuardProps {
   children: ReactNode;
@@ -21,7 +22,7 @@ const RoleGuard = ({ children, allowedRoles, permissionKey }: RoleGuardProps) =>
   const roleOk =
     !!profile &&
     !isClienteOrProspect &&
-    (ruolo === "admin" || allowedRoles.includes(ruolo));
+    ruoloConsentito(ruolo, allowedRoles);
 
   const permOk = !permissionKey || hasPermission(permissionKey);
   const isAllowed = roleOk && permOk;

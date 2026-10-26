@@ -193,7 +193,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Carico del mese", path: "/portafoglio/carico", icon: Clock },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
         { label: "Gestione Polizze", path: "/portafoglio/gestione", icon: Wand2 },
-        { label: "Rettifica Provvigioni", path: "/portafoglio/rettifica-provvigioni", icon: Percent, hideForRoles: ["manager", "produttore", "corrispondente", "backoffice", "cliente", "prospect", "executive"] },
+        { label: "Rettifica Provvigioni", path: "/portafoglio/rettifica-provvigioni", icon: Percent, hideForRoles: ["manager", "produttore", "corrispondente", "cliente", "prospect", "executive"] },
         
         { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer },
       ],

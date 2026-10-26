@@ -150,7 +150,7 @@ const PortafoglioRettificaProvvigioniPage = () => {
   };
 
   return (
-    <RoleGuard allowedRoles={["admin", "ufficio", "contabilita", "cfo"]} permissionKey="contabilita">
+    <RoleGuard allowedRoles={["admin", "ufficio", "contabilita", "cfo", "responsabile_sede", "backoffice"]} permissionKey="contabilita">
       <div className="space-y-6 max-w-4xl">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
