@@ -52,7 +52,7 @@ export async function fetchBonificiCandidatiPerIncasso(opts: {
       "id, data_movimento, importo, ordinante, descrizione, stato, cliente_id, ufficio_id, conto_bancario_id",
     )
     .eq("conto_bancario_id", opts.contoBancarioId)
-    .in("stato", ["importato", "matchato", "assegnato"])
+    .in("stato", ["importato", "matchato", "assegnato", "ricongiunti"])
     .order("data_movimento", { ascending: false })
     .limit(FETCH_PAGE);
   if (error) throw error;
@@ -156,7 +156,7 @@ export async function fetchBonificiApertiPerIncassi(opts: {
       .select(
         "id, data_movimento, importo, ordinante, descrizione, stato, cliente_id, ufficio_id, conto_bancario_id, conto:conti_bancari(etichetta)",
       )
-      .in("stato", ["importato", "matchato", "assegnato"])
+      .in("stato", ["importato", "matchato", "assegnato", "ricongiunti"])
       .order("data_movimento", { ascending: false })
       .range(from, from + take - 1);
 

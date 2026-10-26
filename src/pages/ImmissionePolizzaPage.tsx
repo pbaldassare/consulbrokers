@@ -1115,7 +1115,8 @@ const ImmissionePolizzaPage = () => {
   const { data: compagnieList } = useQuery({
     queryKey: ["agenzie-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id, tipo").eq("attiva", true).order("nome");
+      const { data, error } = await supabase.from("compagnie").select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id, tipo").eq("attiva", true).order("nome");
+      if (error) throw error;
       return data || [];
     },
   });
