@@ -38,10 +38,14 @@ const SEDE_ONLY_EMAIL: Record<string, string> = {
   RM: "gestionerm@consulbrokers.it",
 };
 
-/** Excel → auth legacy (solo eccezioni documentate). */
-const EMAIL_ALIASES: Record<string, string> = {
-  "segreteria@consulbrokers.it": "segreteria@consubrokers.it",
-};
+/** Sempre @consulbrokers.it (Excel a volte ha @consulbroker.it). */
+function normalizeEmail(raw: string): string {
+  let email = raw.trim().toLowerCase();
+  if (!email) return email;
+  email = email.replace(/@consulbroker\.it$/i, "@consulbrokers.it");
+  email = email.replace(/@consulbrokers\.local$/i, "@consulbrokers.it");
+  return email;
+}
 
 /** Sede fallback se l'Excel non indica ufficio (trigger backoffice richiede ufficio_id). */
 const DEFAULT_UFFICIO_ID = "cdb3a9e1-2603-4147-819e-2bf5729c6731"; // Roma uno
@@ -144,10 +148,9 @@ function loadRows(): Row[] {
     if (String(r["A=Ann"] || "").trim().toUpperCase() === "A") continue;
     const cod = String(r["Codice Specialist"] || "").trim();
     const desc = String(r["Descrizione Specialist"] || "").trim();
-    let email = String(r["E-Mail"] || "").trim().toLowerCase();
+    let email = normalizeEmail(String(r["E-Mail"] || ""));
     const sedeOnly = !!SEDE_ONLY_EMAIL[cod];
-    if (EMAIL_ALIASES[email]) email = EMAIL_ALIASES[email];
-    if (!email && SEDE_ONLY_EMAIL[cod]) email = SEDE_ONLY_EMAIL[cod].toLowerCase();
+    if (!email && SEDE_ONLY_EMAIL[cod]) email = normalizeEmail(SEDE_ONLY_EMAIL[cod]);
     if (!email) email = `specialist.${cod.toLowerCase()}@consulbrokers.it`;
     const { nome, cognome } = parseName(desc);
     out.push({
