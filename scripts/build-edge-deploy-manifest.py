@@ -50,8 +50,10 @@ def collect_files(fn_dir: Path) -> dict[str, str]:
             imp = m.group(1)
             if imp.startswith("../_shared/"):
                 pending.append(FUN / "_shared" / imp.removeprefix("../_shared/"))
-            elif imp.startswith("./"):
+            elif imp.startswith("./") and p.parent == fn_dir:
                 pending.append(fn_dir / imp[2:])
+            elif imp.startswith("./") and p.parent == FUN / "_shared":
+                pending.append(FUN / "_shared" / imp[2:])
     return files
 
 
