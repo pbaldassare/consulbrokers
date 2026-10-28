@@ -23,6 +23,7 @@ import ProvvigioniCompagniaDialog from "@/components/compagnie/ProvvigioniCompag
 
 
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
+import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import {
@@ -1403,18 +1404,35 @@ const CompagnieList = () => {
   const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
   const [provvigioniTarget, setProvvigioniTarget] = useState<{ id: string; nome: string } | null>(null);
   const [deleteCompagnia, setDeleteCompagnia] = useState<{ id: string; nome: string; attiva: boolean } | null>(null);
+  const [listPage, setListPage] = useState(0);
+  const LIST_PAGE_SIZE = 50;
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(search), 350);
     return () => window.clearTimeout(t);
   }, [search]);
 
+  useEffect(() => {
+    setListPage(0);
+  }, [debouncedSearch, filterTipo, onlyPluri]);
+
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["agenzie"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("compagnie").select("*").order("nome");
-      if (error) throw error;
-      return data;
+      // PostgREST taglia a 1000 righe: senza il giro la lista mente e si ferma a 1000.
+      const pageSize = 1000;
+      const all: any[] = [];
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from("compagnie")
+          .select("*")
+          .order("nome")
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        all.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+      }
+      return all;
     },
   });
 
@@ -1566,6 +1584,9 @@ const CompagnieList = () => {
   );
 
   const pluriCount = compagnie.filter((c: any) => gruppiMap[c.gruppo_compagnia_id]?.is_pluri).length;
+  const agenzieAttive = compagnie.filter((c: any) => c.attiva !== false).length;
+  const listFrom = listPage * LIST_PAGE_SIZE;
+  const agenziePagina = filteredAnagrafica.slice(listFrom, listFrom + LIST_PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -1574,7 +1595,7 @@ const CompagnieList = () => {
           <h1 className="text-2xl font-bold text-foreground">Compagnie Assicurative / Agenzie</h1>
           <p className="text-muted-foreground">
             Gestione compagnie assicurative, agenzie e provvigioni —{" "}
-            <span className="font-semibold">{compagnie.filter((c: any) => c.attiva !== false).length}</span> agenzie ·{" "}
+            <span className="font-semibold">{agenzieAttive}</span> agenzie attive su {compagnie.length} ·{" "}
             <span className="font-semibold">{Object.keys(gruppiMap).length}</span> compagnie assicurative
           </p>
         </div>
@@ -1687,7 +1708,7 @@ const CompagnieList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAnagrafica.map((c: any) => {
+                    {agenziePagina.map((c: any) => {
                       const grp = c.gruppo_compagnia_id ? gruppiMap[c.gruppo_compagnia_id] : null;
                       const rc = rapportiCounts[c.id] || { tot: 0, attivi: 0 };
                       const isAttiva = c.attiva !== false;
@@ -1763,6 +1784,12 @@ const CompagnieList = () => {
                   </TableBody>
                 </Table>
               )}
+              <ServerPagination
+                page={listPage}
+                pageSize={LIST_PAGE_SIZE}
+                totalCount={filteredAnagrafica.length}
+                onPageChange={setListPage}
+              />
             </CardContent>
           </Card>
         </TabsContent>
