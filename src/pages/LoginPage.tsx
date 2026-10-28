@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import logoCbnet from "@/assets/logo-cbnet-transparent.png.asset.json";
 type LoginMode = "gestionale" | "consultazione";
 
 const LoginPage = () => {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, profileMissing, loading: authLoading } = useAuth();
   const { session: consultazioneSession, login: loginConsultazione } = useConsultazione();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -37,6 +37,17 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [resetMode, setResetMode] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+
+  // Utente auth senza riga profiles (es. portale-only) o sessione sporca → non restare in spinner.
+  useEffect(() => {
+    if (mode !== "gestionale" || authLoading) return;
+    if (user && profileMissing) {
+      toast.error("Sessione non valida", {
+        description: "Profilo utente assente su questo ambiente. Accedi con un account gestionale.",
+      });
+      void supabase.auth.signOut();
+    }
+  }, [mode, authLoading, user, profileMissing]);
 
   const setMode = (next: LoginMode) => {
     setResetMode(false);
@@ -59,8 +70,8 @@ const LoginPage = () => {
     return <Navigate to={route === "/login" ? "/" : route} replace />;
   }
 
-  // Bootstrap auth gestionale in corso
-  if (mode === "gestionale" && (authLoading || (user && !profile))) {
+  // Bootstrap auth / caricamento profilo (non bloccarsi se profiles manca davvero)
+  if (mode === "gestionale" && (authLoading || (user && !profile && !profileMissing))) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
