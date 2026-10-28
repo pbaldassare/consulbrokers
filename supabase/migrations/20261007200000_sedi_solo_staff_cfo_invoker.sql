@@ -76,13 +76,25 @@ ALTER POLICY "Staff select titoli_proroghe" ON public.titoli_proroghe USING ((SE
 ALTER POLICY "Staff insert titoli_proroghe" ON public.titoli_proroghe WITH CHECK ((SELECT public.is_staff()));
 ALTER POLICY "Eventi snapshot leggibili agli autenticati" ON public.titoli_eventi_snapshot USING ((SELECT public.is_staff()));
 ALTER POLICY "Eventi snapshot insertabili agli autenticati" ON public.titoli_eventi_snapshot WITH CHECK ((SELECT public.is_staff()));
-ALTER POLICY "Auth select polizze terzi" ON public.polizze_terzi USING ((SELECT public.is_staff()));
+-- polizze_terzi non ha una CREATE TABLE in questa storia di migrazioni.
+DO $$
+BEGIN
+  IF to_regclass('public.polizze_terzi') IS NOT NULL THEN
+    EXECUTE 'ALTER POLICY "Auth select polizze terzi" ON public.polizze_terzi USING ((SELECT public.is_staff()))';
+  END IF;
+END $$;
 ALTER POLICY "Authenticated can read clienti_intermediari_default" ON public.clienti_intermediari_default USING ((SELECT public.is_staff()));
 ALTER POLICY "roma_exe_clienti_map_select" ON public.roma_exe_clienti_map USING ((SELECT public.is_staff()));
 ALTER POLICY "roma_exe_compagnie_map_select" ON public.roma_exe_compagnie_map USING ((SELECT public.is_staff()));
 ALTER POLICY "roma_exe_polizze_map_select" ON public.roma_exe_polizze_map USING ((SELECT public.is_staff()));
 ALTER POLICY "roma_exe_rischi_map_select" ON public.roma_exe_rischi_map USING ((SELECT public.is_staff()));
-ALTER POLICY "roma_uno_clienti_map_select" ON public.roma_uno_clienti_map USING ((SELECT public.is_staff()));
+-- roma_uno_clienti_map non ha una CREATE TABLE in questa storia di migrazioni.
+DO $$
+BEGIN
+  IF to_regclass('public.roma_uno_clienti_map') IS NOT NULL THEN
+    EXECUTE 'ALTER POLICY "roma_uno_clienti_map_select" ON public.roma_uno_clienti_map USING ((SELECT public.is_staff()))';
+  END IF;
+END $$;
 -- Parco veicoli: il cliente vede i mezzi delle polizze che già vede (RLS di titoli).
 ALTER POLICY "lmm_select_auth" ON public.libro_matricola_mezzi
   USING ((SELECT public.is_staff()) OR EXISTS (SELECT 1 FROM public.titoli t WHERE t.id = libro_matricola_mezzi.titolo_id));

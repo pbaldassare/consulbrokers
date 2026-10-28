@@ -13,8 +13,8 @@ Guida operativa per agenti AI esterni (Cursor, Claude Code, ecc.) che devono lav
 **Origine:** Progetto Lovable (Project ID: `a3b1457e-dbbe-41da-866b-8411e8cba913`).  
 **URL produzione:** https://cbnet.it · https://consulnet.iaconnect.it  
 **URL preview:** https://id-preview--a3b1457e-dbbe-41da-866b-8411e8cba913.lovable.app  
-**Supabase Ref:** `zbjmnnlojxprlogbnxef`  
-**Database:** Postgres 15+ su Supabase, ~130 tabelle, RLS abilitata su tutte.
+**Supabase Ref:** `ehvmsdvjqvjulcrmzwzm` (progetto `cbnet`, eu-west-2, https://ehvmsdvjqvjulcrmzwzm.supabase.co)  
+**Database:** Postgres 17. Il 27/10/2026 sono state applicate tutte le 610 migrazioni in `supabase/migrations/` (211 tabelle in `public`). I seed demo con id del vecchio database non sono stati caricati.
 
 ---
 

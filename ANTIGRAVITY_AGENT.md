@@ -10,7 +10,7 @@
 **Project**: Consulnet / CBnet — Gestionale assicurativo per il mercato italiano (Consulbrokers)
 **Stack**: React 18.3 + TypeScript 5 + Vite 5 + shadcn/ui + TanStack Query v5 + Supabase + Resend
 **Lovable Project ID**: `a3b1457e-dbbe-41da-866b-8411e8cba913`
-**Supabase Ref**: `zbjmnnlojxprlogbnxef`
+**Supabase Ref**: `ehvmsdvjqvjulcrmzwzm` (progetto `cbnet`, schema delle 610 migrazioni applicato il 27/10/2026)
 **Production URLs**: https://cbnet.it · https://consulnet.iaconnect.it
 
 Your job is to:
