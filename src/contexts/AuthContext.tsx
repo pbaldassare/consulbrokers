@@ -49,19 +49,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const userIdRef = useRef<string | null>(null);
 
   const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, nome, cognome, email, ruolo, ufficio_id, permessi_json, attivo, telefono, avatar_url, note")
-      .eq("id", userId)
-      .maybeSingle();
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome, email, ruolo, ufficio_id, permessi_json, attivo, telefono, avatar_url, note")
+        .eq("id", userId)
+        .maybeSingle();
 
-    if (error) console.error("[AuthContext] fetchProfile error:", error);
-    setProfile((current) => {
-      const next = resolveProfileAfterFetch(current, data as UserProfile | null, error);
-      setProfileMissing(next.confirmedMissing);
-      return next.profile;
-    });
-    setLoading(false);
+      if (error) console.error("[AuthContext] fetchProfile error:", error);
+      setProfile((current) => {
+        const next = resolveProfileAfterFetch(current, data as UserProfile | null, error);
+        setProfileMissing(next.confirmedMissing);
+        return next.profile;
+      });
+    } catch (err) {
+      console.error("[AuthContext] fetchProfile exception:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -93,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // TOKEN_REFRESHED (anche da getUser/upload) non deve rifetchare il profilo:
         // un errore transitorio azzerava profile e AuthGuard faceva signOut.
         if (!shouldRefetchProfileOnAuthEvent(_event)) return;
-        setTimeout(() => fetchProfile(currentUser.id), 0);
+        void fetchProfile(currentUser.id);
       }
     );
 

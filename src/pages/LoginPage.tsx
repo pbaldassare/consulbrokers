@@ -38,16 +38,20 @@ const LoginPage = () => {
   const [resetMode, setResetMode] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
 
-  // Utente auth senza riga profiles (es. portale-only) o sessione sporca → non restare in spinner.
+  // Sessione senza profilo caricabile → esci dallo spinner (profilo assente, RLS, progetto Supabase errato).
   useEffect(() => {
-    if (mode !== "gestionale" || authLoading) return;
-    if (user && profileMissing) {
+    if (mode !== "gestionale" || authLoading || !user || profile) return;
+    if (profileMissing) {
       toast.error("Sessione non valida", {
         description: "Profilo utente assente su questo ambiente. Accedi con un account gestionale.",
       });
-      void supabase.auth.signOut();
+    } else {
+      toast.error("Impossibile caricare il profilo", {
+        description: "Controlla che l'app punti al progetto Supabase cbnet e riprova.",
+      });
     }
-  }, [mode, authLoading, user, profileMissing]);
+    void supabase.auth.signOut();
+  }, [mode, authLoading, user, profile, profileMissing]);
 
   const setMode = (next: LoginMode) => {
     setResetMode(false);
@@ -70,8 +74,7 @@ const LoginPage = () => {
     return <Navigate to={route === "/login" ? "/" : route} replace />;
   }
 
-  // Bootstrap auth / caricamento profilo (non bloccarsi se profiles manca davvero)
-  if (mode === "gestionale" && (authLoading || (user && !profile && !profileMissing))) {
+  if (mode === "gestionale" && authLoading) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
