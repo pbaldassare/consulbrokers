@@ -38,10 +38,8 @@ const SEDE_ONLY_EMAIL: Record<string, string> = {
   RM: "gestionerm@consulbrokers.it",
 };
 
+/** Excel → auth legacy (solo eccezioni documentate). */
 const EMAIL_ALIASES: Record<string, string> = {
-  "fgpaparella@consulbrokers.it": "fpaparella@consulbrokers.it",
-  "gestionemilano@consulbrokers.it": "gestione.milano@consulbrokers.local",
-  // Profilo backoffice Ghiglieri (typo auth legacy)
   "segreteria@consulbrokers.it": "segreteria@consubrokers.it",
 };
 
@@ -150,7 +148,7 @@ function loadRows(): Row[] {
     const sedeOnly = !!SEDE_ONLY_EMAIL[cod];
     if (EMAIL_ALIASES[email]) email = EMAIL_ALIASES[email];
     if (!email && SEDE_ONLY_EMAIL[cod]) email = SEDE_ONLY_EMAIL[cod].toLowerCase();
-    if (!email) email = `specialist.${cod.toLowerCase()}@consulbrokers.local`;
+    if (!email) email = `specialist.${cod.toLowerCase()}@consulbrokers.it`;
     const { nome, cognome } = parseName(desc);
     out.push({
       cod,

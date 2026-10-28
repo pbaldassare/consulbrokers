@@ -38,7 +38,7 @@ const PERMESSI: Record<string, boolean> = {
 };
 
 const SPECIALIST: { nome: string; cognome: string; email: string }[] = [
-  { nome: "Francesco", cognome: "Paparella", email: "fpaparella@consulbrokers.it" },
+  { nome: "Francesco", cognome: "Paparella", email: "fgpaparella@consulbrokers.it" },
   { nome: "Antonino", cognome: "Guglielmini", email: "aguglielmini@consulbrokers.it" },
   { nome: "Federico", cognome: "Bartocci", email: "fbartocci@consulbrokers.it" },
   { nome: "Manuela", cognome: "Magalli", email: "mmagalli@consulbrokers.it" },
