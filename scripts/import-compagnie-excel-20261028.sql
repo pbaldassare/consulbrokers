@@ -8,6 +8,10 @@
 -- Le nuove righe entrano come plurimandataria, cosi il trigger di auto-rapporto non duplica il mandato.
 -- Prova senza scrivere: sostituire l'ultimo COMMIT con ROLLBACK.
 -- Unico gruppo nuovo: Plurimandatario. Gli altri nomi Excel puntano a gruppi gia in tabella.
+-- conti_bancari e' la tabella madre dell'IBAN. compagnie.conto_bancario_id e
+-- compagnia_rapporti.conto_bancario_id sono FK verso conti_bancari(id) ON DELETE SET NULL.
+-- In database ci sono puntatori a conti gia cancellati: il trigger che copia il conto
+-- dell'agenzia sul mandato principale rivalida la FK e fallisce. Lo script li azzera prima.
 BEGIN;
 CREATE TEMP TABLE imp_comp_xlsx (
   codice text PRIMARY KEY,
@@ -1451,6 +1455,16 @@ INSERT INTO imp_comp_xlsx (codice, nome, nome_segue, indirizzo, cap, comune, pro
 ('ZUR001', 'ZURICH INSURANCE PLC PROMAFIN SRL', 'PROMAFIN SRL', 'C.SO V. EMANUELE, 104', '84100', 'SALERNO', 'SA', NULL, NULL, '03459190652', NULL, NULL, true, '2011-06-30', 'ZURICH F.S.', 'GC133', 'ZURICH F.S.', NULL, 'Gruppo ZURICH F.S.', NULL, NULL, NULL, NULL, 4.6, NULL, 'ZURICH INSURANCE PLC'),
 ('ZURCAS', 'ZURICH INVESTMENTS LIFE', NULL, 'VIA BENIGNO CRESPI,23', '20159', 'MILANO', 'MI', '0259662357', NULL, '08921640150', NULL, NULL, true, '2023-08-03', 'ZURICH F.S.', 'GC133', 'ZURICH F.S.', NULL, 'Gruppo ZURICH F.S.', 'contabilita.broker@it.zurich.com', NULL, NULL, NULL, 4.6, 'IT60B0623001627000001774007', 'CASSA DI RISPARMIO DI PARMA E PIACENZA');
 
+-- Prima di toccare anagrafica e mandati: stacca i conto_bancario_id che non hanno riga in conti_bancari.
+-- Sulle agenzie/direzioni il trigger ricopia NULL anche sul mandato principale.
+UPDATE public.compagnie c SET conto_bancario_id = NULL
+WHERE c.conto_bancario_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM public.conti_bancari b WHERE b.id = c.conto_bancario_id);
+
+UPDATE public.compagnia_rapporti r SET conto_bancario_id = NULL
+WHERE r.conto_bancario_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM public.conti_bancari b WHERE b.id = r.conto_bancario_id);
+
 INSERT INTO public.gruppi_compagnia (codice, descrizione, attivo)
 SELECT s.gruppo_codice, s.gruppo_descrizione, true
 FROM (
@@ -1508,7 +1522,18 @@ UPDATE public.compagnie c SET
   email_messe_a_cassa = s.mail_avvisi,
   percentuale_ra = s.percentuale_ra,
   iban = s.iban,
-  intestato_a = COALESCE(s.intestato_a, c.intestato_a, s.nome)
+  intestato_a = COALESCE(s.intestato_a, c.intestato_a, s.nome),
+  conto_bancario_id = CASE
+    WHEN s.iban IS NOT NULL AND EXISTS (
+      SELECT 1 FROM public.conti_bancari b
+      WHERE b.id = c.conto_bancario_id
+        AND replace(upper(b.iban), ' ', '') = s.iban
+    ) THEN c.conto_bancario_id
+    WHEN s.iban IS NULL AND EXISTS (
+      SELECT 1 FROM public.conti_bancari b WHERE b.id = c.conto_bancario_id
+    ) THEN c.conto_bancario_id
+    ELSE NULL
+  END
 FROM imp_comp_xlsx s
 JOIN public.gruppi_compagnia g ON upper(trim(g.descrizione)) = upper(trim(s.gruppo_descrizione))
 WHERE lower(c.codice) = lower(s.codice);
@@ -1617,7 +1642,8 @@ JOIN imp_comp_xlsx s ON lower(s.codice) = lower(c.codice)
 WHERE r.compagnia_id = c.id
   AND (r.is_principale OR lower(r.codice_rapporto) = lower(c.codice))
   AND c.conto_bancario_id IS NOT NULL
-  AND r.conto_bancario_id IS DISTINCT FROM c.conto_bancario_id;
+  AND r.conto_bancario_id IS DISTINCT FROM c.conto_bancario_id
+  AND EXISTS (SELECT 1 FROM public.conti_bancari b WHERE b.id = c.conto_bancario_id);
 
 SELECT
   (SELECT count(*) FROM public.compagnie c JOIN imp_comp_xlsx s ON lower(s.codice) = lower(c.codice)) AS agenzie_excel_in_db,
