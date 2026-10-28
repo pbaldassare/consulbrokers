@@ -129,6 +129,7 @@ function normalizeRow(row, source, rigaExcel) {
 
   const ibanInfo = normalizeIban(get("IBAN"));
   const stato = get("Stato");
+  // Excel legacy: Nome = compagnia assicuratrice; Nome_segue = agenzia (se presente)
   const nome = get("Nome");
   const nomeSegue = get("Nome_segue", "Nome segue");
 
@@ -383,9 +384,10 @@ async function buildPdf(report) {
   drawText(`File principale: ${report.source_files.main}`, { size: 9 });
   drawText(`File intermedia: ${report.source_files.intermedia}`, { size: 9 });
   drawText(`Data/ora: ${report.generated_at}`, { size: 9 });
-  drawText("Modalità: import incrementale (tipo=plurimandataria, rapporti su gruppi assicurativi)", {
-    size: 9,
-  });
+  drawText(
+    "Modalità: Nome=compagnia assicuratrice, Nome_segue=agenzia; tipo=plurimandataria + rapporto/gruppo",
+    { size: 9 },
+  );
   drawLine();
 
   drawText("RIEPILOGO", { size: 12, bold: true });
