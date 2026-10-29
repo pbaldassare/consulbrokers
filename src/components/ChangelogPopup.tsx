@@ -115,7 +115,7 @@ const md = (Tag: keyof JSX.IntrinsicElements, className: string) =>
     <Tag className={className} {...props}>{children}</Tag>
   );
 
-const markdownComponents: Components = {
+const markdownComponents = {
   h1: md("h1", "mb-2 mt-3 text-xl font-bold tracking-tight text-foreground first:mt-0"),
   h2: md("h2", "mb-2 mt-3 text-lg font-semibold tracking-tight text-foreground first:mt-0"),
   h3: md("h3", "mb-1.5 mt-2.5 text-base font-semibold text-foreground first:mt-0"),
@@ -141,7 +141,7 @@ const markdownComponents: Components = {
       {children}
     </a>
   ),
-};
+} as unknown as Components;
 
 /**
  * Corpo del changelog (popup e anteprima nell'editor). Ogni categoria è testo markdown
