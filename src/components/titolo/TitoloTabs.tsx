@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
+import { supabase } from "@/integrations/supabase/client";
 import { fmtEuro } from "@/lib/formatCurrency";
 import type { AppendicePolizzaRow } from "@/lib/appendiciPolizza";
 
