@@ -88,6 +88,7 @@ type Bando = {
   dataPublicazione: string;
   link: string | null;
   categoria: string | null;
+  keyword?: string | null;
   scheda_id: string | null;
   cig: string | null;
   localita: string | null;
@@ -331,6 +332,7 @@ function mapNotice(n: Record<string, unknown>, opts?: { force?: boolean; keyword
   const servizioDa = toIsoDate(firstString(n["contract-duration-start-date-lot"])) || periodoTitolo.servizio_da;
   const servizioA = toIsoDate(firstString(n["contract-duration-end-date-lot"])) || periodoTitolo.servizio_a;
   const stato = isEsito || (deadlineIso && deadlineIso < oggi) ? "scaduto" : "aperto";
+  const categoria = categoriaDaKeyword(`${titolo} ${titleRaw}`, cpvs);
 
   return {
     id: pub,
@@ -342,7 +344,8 @@ function mapNotice(n: Record<string, unknown>, opts?: { force?: boolean; keyword
     stato,
     dataPublicazione: pubIso,
     link: html,
-    categoria: categoriaDaKeyword(`${titolo} ${titleRaw}`, cpvs),
+    categoria,
+    keyword: categoria,
     scheda_id: pub,
     cig: null,
     localita,
@@ -418,6 +421,7 @@ function regioneFromText(text: string, regioni: string[]): string | null {
 function hitToBando(hit: WebHit, i: number, regioni: string[]): Bando {
   const id = schedaIdFromUrl(hit.url) || `mondo-${i}`;
   const titolo = (hit.title || "Titolo non disponibile").slice(0, 300);
+  const categoria = categoriaDaKeyword(`${titolo} ${hit.snippet || ""}`, []);
   return {
     id,
     titolo,
@@ -428,7 +432,8 @@ function hitToBando(hit: WebHit, i: number, regioni: string[]): Bando {
     stato: "aperto",
     dataPublicazione: "",
     link: hit.url,
-    categoria: categoriaDaKeyword(`${titolo} ${hit.snippet || ""}`, []),
+    categoria,
+    keyword: categoria,
     scheda_id: id,
     cig: null,
     localita: null,
@@ -543,6 +548,7 @@ async function extractMondoBandi(hits: WebHit[], filtri: Filtri): Promise<Bando[
   return raw.map((b, i) => {
     const link = String(b.link || hits[i]?.url || "");
     const id = String(b.scheda_id || schedaIdFromUrl(link) || `mondo-${i}`);
+    const categoria = categoriaDaKeyword(String(b.oggetto || b.titolo || ""), []);
     return {
       id,
       titolo: String(b.oggetto || b.titolo || hits[i]?.title || "Titolo non disponibile").slice(0, 300),
@@ -553,7 +559,8 @@ async function extractMondoBandi(hits: WebHit[], filtri: Filtri): Promise<Bando[
       stato: "aperto",
       dataPublicazione: "",
       link: link || null,
-      categoria: categoriaDaKeyword(String(b.oggetto || b.titolo || ""), []),
+      categoria,
+      keyword: categoria,
       scheda_id: id,
       cig: typeof b.cig === "string" ? b.cig : null,
       localita: typeof b.localita === "string" ? b.localita : null,
@@ -609,10 +616,13 @@ async function searchInfordatFonte(filtri: Filtri): Promise<Bando[]> {
   const { searchInfordat } = await import("../_shared/infordatBandi.ts");
   const mapped = await searchInfordat({
     regioni: filtri.regioni,
-    keyword: frasiKeyword(filtri.keyword).join(" "),
+    keywords: frasiKeyword(filtri.keyword),
     mode: filtri.keyword,
   });
-  return applyFiltri(mapped, filtri).slice(0, 30);
+  return applyFiltri(
+    mapped.map((b) => ({ ...b, keyword: b.categoria })),
+    filtri,
+  ).slice(0, 30);
 }
 
 async function searchTed(filtri: Filtri): Promise<Bando[]> {
