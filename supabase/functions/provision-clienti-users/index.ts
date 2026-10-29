@@ -1,4 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  emailConflittoPortaleGestionale,
+  messaggioConflittoEmail,
+  MESSAGGIO_EMAIL_MISTA,
+} from "../_shared/emailPortaleGestionale.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -70,6 +75,13 @@ Deno.serve(async (req) => {
       }
 
       try {
+        const conflitto = await messaggioConflittoEmail(supabaseAdmin, authEmail, "cliente");
+        if (conflitto) {
+          errori++;
+          errors.push({ id: cliente.id, email: rawEmail, error: conflitto });
+          continue;
+        }
+
         // Create auth user
         const { data: authData, error: authError } =
           await supabaseAdmin.auth.admin.createUser({
@@ -91,14 +103,17 @@ Deno.serve(async (req) => {
               (u) => u.email === authEmail
             );
             if (existing) {
-              // Link existing user
-              await supabaseAdmin
-                .from("clienti")
-                .update({ user_id: existing.id })
-                .eq("id", cliente.id);
-              
-              // Ensure profile exists
-              await supabaseAdmin.from("profiles").upsert({
+              const { data: profiloEsistente } = await supabaseAdmin
+                .from("profiles")
+                .select("ruolo")
+                .eq("id", existing.id)
+                .maybeSingle();
+              if (profiloEsistente && emailConflittoPortaleGestionale(profiloEsistente.ruolo, "cliente")) {
+                errori++;
+                errors.push({ id: cliente.id, email: rawEmail, error: MESSAGGIO_EMAIL_MISTA });
+                continue;
+              }
+              const { error: profileErr } = await supabaseAdmin.from("profiles").upsert({
                 id: existing.id,
                 nome: cliente.nome || cliente.ragione_sociale || "",
                 cognome: cliente.cognome || "",
@@ -106,6 +121,12 @@ Deno.serve(async (req) => {
                 ruolo: "cliente",
                 attivo: true,
               }, { onConflict: "id" });
+              if (profileErr) throw profileErr;
+
+              await supabaseAdmin
+                .from("clienti")
+                .update({ user_id: existing.id })
+                .eq("id", cliente.id);
 
               // Ensure user_roles exists
               await supabaseAdmin.from("user_roles").upsert({
@@ -122,8 +143,7 @@ Deno.serve(async (req) => {
 
         const userId = authData.user.id;
 
-        // Create profile
-        await supabaseAdmin.from("profiles").upsert({
+        const { error: profileErr } = await supabaseAdmin.from("profiles").upsert({
           id: userId,
           nome: cliente.nome || cliente.ragione_sociale || "",
           cognome: cliente.cognome || "",
@@ -131,6 +151,7 @@ Deno.serve(async (req) => {
           ruolo: "cliente",
           attivo: true,
         }, { onConflict: "id" });
+        if (profileErr) throw profileErr;
 
         // Create user_roles
         await supabaseAdmin.from("user_roles").upsert({

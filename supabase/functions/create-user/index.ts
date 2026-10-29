@@ -1,4 +1,5 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { messaggioConflittoEmail } from "../_shared/emailPortaleGestionale.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -137,6 +138,18 @@ Deno.serve(async (req) => {
       if (normalized === rootAdminEmail && !callerIsRoot) {
         return jsonResponse({ error: "L'indirizzo admin@consul.it è riservato" }, 403);
       }
+      const { data: targetProfile } = await adminClient
+        .from("profiles")
+        .select("ruolo")
+        .eq("id", user_id)
+        .maybeSingle();
+      const conflittoEmail = await messaggioConflittoEmail(
+        adminClient,
+        normalized,
+        targetProfile?.ruolo || "ufficio",
+        user_id,
+      );
+      if (conflittoEmail) return jsonResponse({ error: conflittoEmail }, 409);
       const isSelf = user_id === caller.id;
       if (!isSelf) {
         if (!(await callerIsAdmin())) {
@@ -221,6 +234,9 @@ Deno.serve(async (req) => {
     }
 
     const userPassword = password || "Temp123!";
+    const emailNorm = String(email).trim().toLowerCase();
+    const conflittoEmail = await messaggioConflittoEmail(adminClient, emailNorm, String(ruolo));
+    if (conflittoEmail) return jsonResponse({ error: conflittoEmail }, 409);
 
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,

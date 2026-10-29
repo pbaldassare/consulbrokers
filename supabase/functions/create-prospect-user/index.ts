@@ -1,4 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  emailConflittoPortaleGestionale,
+  messaggioConflittoEmail,
+} from "../_shared/emailPortaleGestionale.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,6 +59,14 @@ Deno.serve(async (req) => {
 
     const email = prospect.email.toLowerCase().trim();
 
+    const conflitto = await messaggioConflittoEmail(supabaseAdmin, email, "prospect");
+    if (conflitto) {
+      return new Response(
+        JSON.stringify({ error: conflitto }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
         email,
@@ -78,6 +90,17 @@ Deno.serve(async (req) => {
             { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+        const { data: profiloEsistente } = await supabaseAdmin
+          .from("profiles")
+          .select("ruolo")
+          .eq("id", existing.id)
+          .maybeSingle();
+        if (profiloEsistente && emailConflittoPortaleGestionale(profiloEsistente.ruolo, "prospect")) {
+          return new Response(
+            JSON.stringify({ error: "Questa mail è già usata da un account cliente o del gestionale. I due tipi non possono avere la stessa posta." }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         userId = existing.id;
       } else {
         throw authError;
@@ -86,7 +109,7 @@ Deno.serve(async (req) => {
       userId = authData.user.id;
     }
 
-    await supabaseAdmin.from("profiles").upsert({
+    const { error: profileErr } = await supabaseAdmin.from("profiles").upsert({
       id: userId,
       nome: prospect.nome || "",
       cognome: prospect.cognome || "",
@@ -94,6 +117,7 @@ Deno.serve(async (req) => {
       ruolo: "prospect",
       attivo: true,
     }, { onConflict: "id" });
+    if (profileErr) throw profileErr;
 
     await supabaseAdmin.from("user_roles").upsert({
       user_id: userId,

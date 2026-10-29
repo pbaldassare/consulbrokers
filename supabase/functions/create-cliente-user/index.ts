@@ -1,4 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  emailConflittoPortaleGestionale,
+  messaggioConflittoEmail,
+} from "../_shared/emailPortaleGestionale.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,6 +61,14 @@ Deno.serve(async (req) => {
 
     const email = cliente.email.toLowerCase().trim();
 
+    const conflitto = await messaggioConflittoEmail(supabaseAdmin, email, "cliente");
+    if (conflitto) {
+      return new Response(
+        JSON.stringify({ error: conflitto }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Create auth user
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
@@ -82,6 +94,17 @@ Deno.serve(async (req) => {
             { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+        const { data: profiloEsistente } = await supabaseAdmin
+          .from("profiles")
+          .select("ruolo")
+          .eq("id", existing.id)
+          .maybeSingle();
+        if (profiloEsistente && emailConflittoPortaleGestionale(profiloEsistente.ruolo, "cliente")) {
+          return new Response(
+            JSON.stringify({ error: "Questa mail è già usata da un account cliente o del gestionale. I due tipi non possono avere la stessa posta." }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         userId = existing.id;
       } else {
         throw authError;
@@ -90,8 +113,7 @@ Deno.serve(async (req) => {
       userId = authData.user.id;
     }
 
-    // Upsert profile
-    await supabaseAdmin.from("profiles").upsert({
+    const { error: profileErr } = await supabaseAdmin.from("profiles").upsert({
       id: userId,
       nome: cliente.nome || cliente.ragione_sociale || "",
       cognome: cliente.cognome || "",
@@ -99,6 +121,7 @@ Deno.serve(async (req) => {
       ruolo: "cliente",
       attivo: true,
     }, { onConflict: "id" });
+    if (profileErr) throw profileErr;
 
     // Upsert user_roles
     await supabaseAdmin.from("user_roles").upsert({
