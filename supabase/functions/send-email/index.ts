@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resendAddressList } from "./resendAddressList.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -243,20 +244,34 @@ serve(async (req) => {
       sandbox_redirect: sandboxRedirect,
     });
 
+    const toList = resendAddressList(finalTo);
+    if (toList.length === 0) {
+      return new Response(JSON.stringify({ error: "Nessun destinatario valido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const payload: Record<string, unknown> = {
       from: finalFrom,
-      to: Array.isArray(finalTo) ? finalTo : [finalTo],
+      to: toList,
       subject: finalSubject,
       html: finalHtml,
     };
     if (finalReplyTo) payload.reply_to = finalReplyTo;
-    if (cc && !sandboxRedirect) payload.cc = Array.isArray(cc) ? cc : [cc];
-    if (bcc && !sandboxRedirect) payload.bcc = Array.isArray(bcc) ? bcc : [bcc];
+    if (cc && !sandboxRedirect) {
+      const ccList = resendAddressList(cc);
+      if (ccList.length) payload.cc = ccList;
+    }
+    if (bcc && !sandboxRedirect) {
+      const bccList = resendAddressList(bcc);
+      if (bccList.length) payload.bcc = bccList;
+    }
     if (attachments && attachments.length > 0) payload.attachments = attachments;
 
     console.log("[send-email] Sending via Resend:", {
       from: finalFrom,
-      to: finalTo,
+      to: toList,
       subject: finalSubject,
       sandbox_redirect: sandboxRedirect,
     });
