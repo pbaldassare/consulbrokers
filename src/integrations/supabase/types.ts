@@ -254,6 +254,36 @@ export type Database = {
         }
         Relationships: []
       }
+      _mig_b64: {
+        Row: {
+          chunk: string
+          seq: number
+        }
+        Insert: {
+          chunk: string
+          seq: number
+        }
+        Update: {
+          chunk?: string
+          seq?: number
+        }
+        Relationships: []
+      }
+      _mig_q_staging: {
+        Row: {
+          part: number
+          txt: string | null
+        }
+        Insert: {
+          part: number
+          txt?: string | null
+        }
+        Update: {
+          part?: number
+          txt?: string | null
+        }
+        Relationships: []
+      }
       _snapshot_campobasso_titoli: {
         Row: {
           addizionali: number | null
@@ -5385,6 +5415,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           denominazione: string
+          denominazione_norm?: string | null
           email?: string | null
           id?: string
           note?: string | null
@@ -5399,6 +5430,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           denominazione?: string
+          denominazione_norm?: string | null
           email?: string | null
           id?: string
           note?: string | null
@@ -6042,10 +6074,12 @@ export type Database = {
       ec_agenzia_archivio: {
         Row: {
           compagnia_id: string
+          compagnia_rapporto_id: string | null
           created_at: string
           data_estratto_conto: string | null
           documento_id: string
           id: string
+          mandataria: string | null
           periodo_testo: string | null
           riferimento: string
           righe: Json
@@ -6053,10 +6087,12 @@ export type Database = {
         }
         Insert: {
           compagnia_id: string
+          compagnia_rapporto_id?: string | null
           created_at?: string
           data_estratto_conto?: string | null
           documento_id: string
           id?: string
+          mandataria?: string | null
           periodo_testo?: string | null
           riferimento: string
           righe?: Json
@@ -6064,10 +6100,12 @@ export type Database = {
         }
         Update: {
           compagnia_id?: string
+          compagnia_rapporto_id?: string | null
           created_at?: string
           data_estratto_conto?: string | null
           documento_id?: string
           id?: string
+          mandataria?: string | null
           periodo_testo?: string | null
           riferimento?: string
           righe?: Json
@@ -6079,6 +6117,13 @@ export type Database = {
             columns: ["compagnia_id"]
             isOneToOne: false
             referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ec_agenzia_archivio_compagnia_rapporto_id_fkey"
+            columns: ["compagnia_rapporto_id"]
+            isOneToOne: false
+            referencedRelation: "compagnia_rapporti"
             referencedColumns: ["id"]
           },
           {
@@ -7459,6 +7504,7 @@ export type Database = {
           dettagli_json: Json | null
           entita_id: string | null
           entita_tipo: string | null
+          esito_fallita: boolean | null
           id: string
           is_duplicate: boolean
           severity: string
@@ -7471,6 +7517,7 @@ export type Database = {
           dettagli_json?: Json | null
           entita_id?: string | null
           entita_tipo?: string | null
+          esito_fallita?: boolean | null
           id?: string
           is_duplicate?: boolean
           severity?: string
@@ -7483,6 +7530,7 @@ export type Database = {
           dettagli_json?: Json | null
           entita_id?: string | null
           entita_tipo?: string | null
+          esito_fallita?: boolean | null
           id?: string
           is_duplicate?: boolean
           severity?: string
@@ -12891,6 +12939,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sinistri_controparte_sinistri_id_fkey"
+            columns: ["controparte_sinistri_id"]
+            isOneToOne: false
+            referencedRelation: "controparti_sinistri"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sinistri_liquidatore_id_fkey"
             columns: ["liquidatore_id"]
             isOneToOne: false
@@ -16897,6 +16952,10 @@ export type Database = {
         Returns: undefined
       }
       conferma_messa_cassa: { Args: { p: Json }; Returns: Json }
+      controparte_denominazione_norm_key: {
+        Args: { p: string }
+        Returns: string
+      }
       copy_titoli_split_commerciali: {
         Args: { p_source: string; p_target: string }
         Returns: undefined
@@ -17172,6 +17231,7 @@ export type Database = {
       invoke_bandi_cron_mattina: { Args: never; Returns: number }
       invoke_flush_messa_cassa_serale: { Args: never; Returns: number }
       is_admin_account: { Args: { p_uid: string }; Returns: boolean }
+      is_admin_or_responsabile_sede: { Args: never; Returns: boolean }
       is_authenticated: { Args: never; Returns: boolean }
       is_channel_member: {
         Args: { _canale_id: string; _user_id: string }
@@ -17184,7 +17244,9 @@ export type Database = {
       is_documentale_staff: { Args: never; Returns: boolean }
       is_global_viewer: { Args: never; Returns: boolean }
       is_root_admin: { Args: { p_uid: string }; Returns: boolean }
+      is_sede_operativo: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
+      log_attivita_is_fallita: { Args: { p_dettagli: Json }; Returns: boolean }
       log_consultazione_accesso: {
         Args: {
           p_disclaimer_version: string
@@ -17218,6 +17280,33 @@ export type Database = {
       }
       refresh_cfo_kpi: { Args: never; Returns: undefined }
       refresh_cfo_kpi_mensili: { Args: never; Returns: undefined }
+      registro_log_attivita_page: {
+        Args: {
+          p_a?: string
+          p_azione?: string
+          p_da?: string
+          p_gravita?: string
+          p_page?: number
+          p_page_size?: number
+          p_stato?: string
+          p_user_id?: string
+        }
+        Returns: {
+          azione: string
+          cognome: string
+          created_at: string
+          dettagli_json: Json
+          email: string
+          entita_id: string
+          entita_tipo: string
+          esito_fallita: boolean
+          id: string
+          nome: string
+          severity: string
+          total_count: number
+          user_id: string
+        }[]
+      }
       report_banca_ko: { Args: { _ufficio_id?: string }; Returns: Json }
       report_contabilita: {
         Args: {
