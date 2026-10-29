@@ -26,6 +26,7 @@ import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import {
   filterAgenzieList,
   filterCompagnieAssicurativeList,
@@ -866,14 +867,10 @@ function AgenzieCollegateDialog({
     queryKey: ["agenzie-collegate", gruppoId],
     queryFn: async () => {
       if (!gruppoId) return [];
-      const { data, error } = await supabase
-        .from("compagnie")
-        .select("id, codice, nome, nome_sede, comune, provincia, stato, attiva")
-        .eq("gruppo_compagnia_id", gruppoId)
-        .eq("attiva", true)
-        .order("nome");
-      if (error) throw error;
-      return data || [];
+      return fetchAllCompagnie("id, codice, nome, nome_sede, comune, provincia, stato, attiva", {
+        attiva: true,
+        apply: (q) => q.eq("gruppo_compagnia_id", gruppoId),
+      });
     },
     enabled: !!gruppoId && open,
   });
@@ -1088,14 +1085,13 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       if (error) throw error;
 
       // Conteggio relazioni 1:N (agenzie con gruppo principale)
-      const { data: countsData } = await supabase
-        .from("compagnie")
-        .select("gruppo_compagnia_id")
-        .not("gruppo_compagnia_id", "is", null)
-        .eq("attiva", true);
+      const countsData = await fetchAllCompagnie<{ gruppo_compagnia_id: string | null }>("gruppo_compagnia_id", {
+        attiva: true,
+        apply: (q) => q.not("gruppo_compagnia_id", "is", null),
+      });
 
       const counts1n: Record<string, number> = {};
-      (countsData || []).forEach((row: any) => {
+      countsData.forEach((row: any) => {
         if (row.gruppo_compagnia_id) {
           counts1n[row.gruppo_compagnia_id] = (counts1n[row.gruppo_compagnia_id] || 0) + 1;
         }
@@ -1418,22 +1414,7 @@ const CompagnieList = () => {
 
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["agenzie"],
-    queryFn: async () => {
-      // PostgREST taglia a 1000 righe: senza il giro la lista mente e si ferma a 1000.
-      const pageSize = 1000;
-      const all: any[] = [];
-      for (let from = 0; ; from += pageSize) {
-        const { data, error } = await supabase
-          .from("compagnie")
-          .select("*")
-          .order("nome")
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        all.push(...(data || []));
-        if (!data || data.length < pageSize) break;
-      }
-      return all;
-    },
+    queryFn: () => fetchAllCompagnie("*"),
   });
 
   // Lookup map id → { descrizione, codice } per arricchire la lista Agenzie

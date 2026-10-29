@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -95,8 +96,8 @@ const ECAgenzieStoricoPage = () => {
   const { data: agenzieOpts = [] } = useQuery({
     queryKey: ["ec-agenzie-storico-agenzie"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").order("nome");
-      return (data || []).map((c: any) => ({ value: c.id, label: c.nome }));
+      const data = await fetchAllCompagnie<{ id: string; nome: string }>("id, nome");
+      return data.map((c) => ({ value: c.id, label: c.nome }));
     },
   });
 

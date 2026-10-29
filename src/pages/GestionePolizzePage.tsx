@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -251,13 +252,8 @@ const GestionePolizzePage = ({ forcedOp }: { forcedOp?: GestioneForcedOp } = {})
   const { data: compagnieOpts = [] } = useQuery({
     queryKey: ["gestione-polizze-compagnie-opts"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("compagnie")
-        .select("id, nome")
-        .eq("attiva", true)
-        .order("nome", { ascending: true })
-        .limit(500);
-      return ((data || []) as any[]).map<SearchableSelectOption>((c) => ({
+      const data = await fetchAllCompagnie<{ id: string; nome: string }>("id, nome", { attiva: true });
+      return data.map<SearchableSelectOption>((c) => ({
         value: c.id,
         label: c.nome,
       }));

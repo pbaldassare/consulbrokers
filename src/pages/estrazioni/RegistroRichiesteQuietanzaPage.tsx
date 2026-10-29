@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Mail, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import ServerPagination from "@/components/ServerPagination";
 import { Button } from "@/components/ui/button";
@@ -83,13 +84,7 @@ const RegistroRichiesteQuietanzaPage = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie-attive-registro-rq"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("compagnie")
-        .select("id, nome, codice")
-        .eq("attiva", true)
-        .order("nome");
-      if (error) throw error;
-      return data || [];
+      return fetchAllCompagnie("id, nome, codice", { attiva: true });
     },
     staleTime: 300_000,
   });

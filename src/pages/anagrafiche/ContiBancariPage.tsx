@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { toast } from "sonner";
 import { Banknote, Plus, Pencil, Star, Trash2, Search, Building2, Briefcase, Landmark, List, Network, ShieldCheck, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -199,13 +200,10 @@ export default function ContiBancariPage() {
     queryKey: ["compagnie_for_conto", form.tipo],
     enabled: isEntityTipo(form.tipo),
     queryFn: async () => {
-      const { data } = await supabase
-        .from("compagnie")
-        .select("id, nome, codice")
-        .eq("tipo", form.tipo!)
-        .eq("attiva", true)
-        .order("nome");
-      return ((data || []) as unknown) as Array<{ id: string; nome: string; codice: string | null }>;
+      return fetchAllCompagnie<{ id: string; nome: string; codice: string | null }>("id, nome, codice", {
+        attiva: true,
+        apply: (q) => q.eq("tipo", form.tipo!),
+      });
     },
   });
 

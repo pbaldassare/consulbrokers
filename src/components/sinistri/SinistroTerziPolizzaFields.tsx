@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { formatPolizzaRamo } from "@/lib/titoliDisplay";
 
 type Props = {
@@ -33,14 +34,7 @@ export default function SinistroTerziPolizzaFields({
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie-attive-sinistro-terzi"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("compagnie")
-        .select("id, nome, codice")
-        .eq("attiva", true)
-        .order("nome")
-        .limit(1000);
-      if (error) throw error;
-      return data || [];
+      return fetchAllCompagnie("id, nome, codice", { attiva: true });
     },
   });
 

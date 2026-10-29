@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { verificaNumeroPolizzaDuplicato } from "@/lib/clientiDuplicate";
 import { erroreGaranziaPrimaRata } from "@/lib/garanziaPrimaRata";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1115,9 +1116,7 @@ const ImmissionePolizzaPage = () => {
   const { data: compagnieList } = useQuery({
     queryKey: ["agenzie-list-immissione"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("compagnie").select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id, tipo").eq("attiva", true).order("nome");
-      if (error) throw error;
-      return data || [];
+      return fetchAllCompagnie("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id, tipo", { attiva: true });
     },
   });
 

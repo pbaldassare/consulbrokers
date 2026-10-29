@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { Button } from "@/components/ui/button";
@@ -74,8 +75,7 @@ const TitoliList = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_select"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_statistico").eq("attiva", true).order("nome");
-      return data || [];
+      return fetchAllCompagnie("id, nome, codice, gruppo_statistico", { attiva: true });
     },
   });
 

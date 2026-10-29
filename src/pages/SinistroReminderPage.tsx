@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import * as XLSX from "xlsx";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -108,8 +109,7 @@ export default function SinistroReminderPage() {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie-reminder"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      return data || [];
+      return fetchAllCompagnie("id, nome", { attiva: true });
     },
   });
 

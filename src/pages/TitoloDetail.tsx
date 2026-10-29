@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
@@ -325,11 +326,7 @@ const TitoloDetail = () => {
   const { data: coassCompagnie = [] } = useQuery<any[]>({
     queryKey: ["coass-compagnie-labels"],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("compagnie")
-        .select("id, nome, codice, tipo, gruppo_compagnia_id")
-        .eq("attivo", true);
-      return (data || []) as any[];
+      return fetchAllCompagnie("id, nome, codice, tipo, gruppo_compagnia_id", { attiva: true }) as Promise<any[]>;
     },
     staleTime: 60_000,
   });
@@ -993,12 +990,7 @@ const TitoloDetail = () => {
     queryKey: ["agenzie-attive-titolo"],
     enabled: editingContratto,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("compagnie")
-        .select("id, nome, codice, tipo, gruppo_compagnia, gruppo_compagnia_id")
-        .eq("attiva", true)
-        .order("nome");
-      return data || [];
+      return fetchAllCompagnie("id, nome, codice, tipo, gruppo_compagnia, gruppo_compagnia_id", { attiva: true });
     },
   });
 

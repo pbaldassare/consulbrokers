@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen, FileSpreadsheet, Loader2, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { useAuth } from "@/contexts/AuthContext";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import ServerPagination from "@/components/ServerPagination";
@@ -165,13 +166,7 @@ const PrimaNotaPage = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie-attive-prima-nota"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("compagnie")
-        .select("id, nome, codice")
-        .eq("attiva", true)
-        .order("nome");
-      if (error) throw error;
-      return data || [];
+      return fetchAllCompagnie("id, nome, codice", { attiva: true });
     },
     staleTime: 300_000,
   });

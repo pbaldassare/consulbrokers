@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Button } from "@/components/ui/button";
@@ -24,14 +25,7 @@ export function CfoGlobalFilters() {
 
   const { data: compagnie = [] } = useQuery({
     queryKey: ["cfo-compagnie"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("compagnie")
-        .select("id, nome")
-        .eq("attiva", true)
-        .order("nome");
-      return data ?? [];
-    },
+    queryFn: () => fetchAllCompagnie("id, nome", { attiva: true }),
   });
 
   return (

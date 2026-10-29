@@ -10,6 +10,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useTabParam } from "@/hooks/useTabParam";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { useAccountExecutivesLookup, useSpecialistsLookup } from "@/hooks/useAccountExecutivesLookup";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -879,8 +880,8 @@ function TrattativeClienteSection({ clienteId }: { clienteId: string }) {
   const { data: compagnieOpts = [] } = useQuery({
     queryKey: ["compagnie_lookup"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      return (data || []).map((c) => ({ value: c.id, label: c.nome }));
+      const data = await fetchAllCompagnie<{ id: string; nome: string }>("id, nome", { attiva: true });
+      return data.map((c) => ({ value: c.id, label: c.nome }));
     },
   });
 

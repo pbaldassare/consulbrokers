@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -271,8 +272,7 @@ export default function SinistriList() {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["agenzie"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      return data || [];
+      return fetchAllCompagnie("id, nome", { attiva: true });
     },
   });
 

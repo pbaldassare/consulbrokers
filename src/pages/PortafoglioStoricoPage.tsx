@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -41,8 +42,7 @@ const PortafoglioStoricoPage = () => {
   const { data: compagnie } = useQuery({
     queryKey: ["agenzie-lookup"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      return data || [];
+      return fetchAllCompagnie("id, nome", { attiva: true });
     },
   });
 
