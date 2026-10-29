@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -49,8 +50,7 @@ export function CfoExplorer() {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["cfo-compagnie-map"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome");
-      return data ?? [];
+      return fetchAllCompagnie("id, nome");
     },
   });
 

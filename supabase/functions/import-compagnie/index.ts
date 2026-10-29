@@ -134,18 +134,64 @@ async function loadGruppiMap(supabase: ReturnType<typeof createClient>) {
   return { rows, byDescrizione, byNorm };
 }
 
-function mapCompagniaRecord(r: any) {
-  const nomeBase = (r.nome || "").trim().replace(/^\*/, "");
-  const nomeSegue = (r.nome_segue || "").trim();
-  const nome = nomeSegue || nomeBase || r.codice;
+/** Excel: Nome = compagnia assicuratrice; Nome_segue (se valorizzato) = agenzia. */
+function stripLeadingStar(s: string) {
+  return String(s || "").trim().replace(/^\*/, "");
+}
+
+function excelNomeCompagnia(r: { nome?: string }) {
+  return stripLeadingStar(r.nome || "");
+}
+
+function excelNomeAgenzia(r: { nome?: string; nome_segue?: string; codice?: string }) {
+  const segue = String(r.nome_segue || "").trim();
+  if (segue) return segue;
+  return excelNomeCompagnia(r) || String(r.codice || "").trim();
+}
+
+function resolveGruppoForExcelRow(
+  r: {
+    nome?: string;
+    gruppo_compagnia_excel?: string;
+    gruppo_compagnia_label?: string;
+    gruppo_compagnia_id?: string;
+  },
+  gruppi: Awaited<ReturnType<typeof loadGruppiMap>>,
+) {
+  if (r.gruppo_compagnia_id) {
+    return {
+      id: r.gruppo_compagnia_id,
+      label: r.gruppo_compagnia_label || null,
+      motivo: null as string | null,
+    };
+  }
+  const fromNome = resolveGruppoId(
+    excelNomeCompagnia(r),
+    gruppi.byDescrizione,
+    gruppi.byNorm,
+    gruppi.rows,
+  );
+  if (fromNome.id) return fromNome;
+
+  return resolveGruppoId(
+    r.gruppo_compagnia_excel || r.gruppo_compagnia_label || "",
+    gruppi.byDescrizione,
+    gruppi.byNorm,
+    gruppi.rows,
+  );
+}
+
+function mapCompagniaRecord(r: any, gruppoCompagniaId: string | null) {
+  const nomeSegue = String(r.nome_segue || "").trim();
+  const nomeAgenzia = excelNomeAgenzia(r);
 
   return {
     codice: r.codice,
-    nome,
+    nome: nomeAgenzia,
     nome_segue: nomeSegue || null,
     nome_sede: nomeSegue || null,
     tipo: "plurimandataria",
-    gruppo_compagnia_id: null,
+    gruppo_compagnia_id: gruppoCompagniaId,
     indirizzo: r.indirizzo || null,
     cap: r.cap || null,
     comune: r.comune || null,
@@ -183,6 +229,7 @@ Deno.serve(async (req) => {
     if (action === "import_batch") {
       if (!records || !Array.isArray(records)) throw new Error("Missing records array");
       const skipExisting = options?.skip_existing !== false;
+      const realignOnSkip = options?.realign_on_skip !== false;
       const gruppi = await loadGruppiMap(supabase);
 
       const codici = records.map((r: any) => r.codice).filter(Boolean);
@@ -216,19 +263,31 @@ Deno.serve(async (req) => {
         let compagniaId = existingMap[codice];
         let wasSkipped = false;
 
+        const gruppoResolved = resolveGruppoForExcelRow(r, gruppi);
+        const gruppoId = gruppoResolved.id;
+        const mapped = mapCompagniaRecord(r, gruppoId);
+
         if (compagniaId && skipExisting) {
           wasSkipped = true;
+          if (realignOnSkip) {
+            const patch: Record<string, unknown> = {
+              nome: mapped.nome,
+              nome_segue: mapped.nome_segue,
+              nome_sede: mapped.nome_sede,
+            };
+            if (gruppoId) patch.gruppo_compagnia_id = gruppoId;
+            await supabase.from("compagnie").update(patch).eq("id", compagniaId);
+          }
           skipped.push({
             codice,
-            nome: r.nome,
+            nome: mapped.nome,
             compagnia_id: compagniaId,
             motivo: "Codice già presente",
           });
         } else if (!compagniaId) {
-          const record = mapCompagniaRecord(r);
           const { data, error } = await supabase
             .from("compagnie")
-            .insert(record)
+            .insert(mapped)
             .select("id, codice, nome")
             .single();
 
@@ -242,19 +301,9 @@ Deno.serve(async (req) => {
             codice: data.codice,
             id: data.id,
             nome: data.nome,
-            gruppo_label: r.gruppo_compagnia_label || null,
+            gruppo_label: gruppoResolved.label,
           });
         }
-
-        const gruppoResolved = r.gruppo_compagnia_id
-          ? { id: r.gruppo_compagnia_id, label: r.gruppo_compagnia_label || null, motivo: null }
-          : resolveGruppoId(
-            r.gruppo_compagnia_excel || r.gruppo_compagnia_label || "",
-            gruppi.byDescrizione,
-            gruppi.byNorm,
-            gruppi.rows,
-          );
-        const gruppoId = gruppoResolved.id;
         if (!gruppoId) {
           non_congiunte.push({
             codice,
@@ -278,7 +327,7 @@ Deno.serve(async (req) => {
             const rapportPayload: Record<string, unknown> = {
               compagnia_id: compagniaId,
               gruppo_compagnia_id: gruppoId,
-              nome_rapporto: `${gruppoResolved.label || "Rapporto"} — ${r.nome_segue || r.nome || codice}`,
+              nome_rapporto: `${gruppoResolved.label || "Rapporto"} — ${excelNomeAgenzia(r)}`,
               tipo_rapporto: "Mandato diretto",
               codice_rapporto: codice,
               attivo: r.attiva !== false,

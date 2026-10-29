@@ -5,6 +5,7 @@ import { useTabParam } from "@/hooks/useTabParam";
 const PROSPECT_TABS = ["documenti", "chat"] as const;
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { logAttivita } from "@/lib/logAttivita";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -107,8 +108,8 @@ const ProspectDetail = () => {
   const { data: compagnieOptions = [] } = useQuery({
     queryKey: ["compagnie_lookup"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      return (data || []).map((c) => ({ value: c.id, label: c.nome }));
+      const data = await fetchAllCompagnie<{ id: string; nome: string }>("id, nome", { attiva: true });
+      return data.map((c) => ({ value: c.id, label: c.nome }));
     },
   });
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { useAuth } from "@/contexts/AuthContext";
 import RoleGuard from "@/components/RoleGuard";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -170,13 +171,11 @@ function SinistriCaricamentoPageInner() {
     if (!selectedCliente) return;
     setMatching(true);
     try {
-      const [polizzeRes, compagnieRes] = await Promise.all([
+      const [polizzeRes, compagnieList] = await Promise.all([
         fetchPolizzeForCliente(selectedCliente.id, { soloMadri: false }),
-        supabase.from("compagnie").select("id, nome, codice, tipo").order("nome").limit(1000),
+        fetchAllCompagnie<CompagniaImportMatch>("id, nome, codice, tipo"),
       ]);
       const polizzeList = (polizzeRes || []) as PolizzaImportMatch[];
-      const compagnieList = (compagnieRes.data || []) as CompagniaImportMatch[];
-      if (compagnieRes.error) throw compagnieRes.error;
       setPolizze(polizzeList);
       setCompagnie(compagnieList);
       setPreviewRows(buildPreviewRows(rawRows, {

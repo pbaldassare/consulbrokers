@@ -35,7 +35,7 @@ BEGIN
 
     IF ABS(v_sum - 100) > 0.01 THEN
       RAISE EXCEPTION
-        'Somma quote coassicurazione per titolo % deve essere 100%% (attuale: %%)',
+        'Somma quote coassicurazione per titolo % deve essere 100%% (attuale: %)',
         v_titolo_id,
         v_sum;
     END IF;

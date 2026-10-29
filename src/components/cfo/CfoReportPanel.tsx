@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { logAttivita } from "@/lib/logAttivita";
 import { REPORT_CONFIGS, type ReportConfig } from "@/lib/reportConfigs";
 import { Button } from "@/components/ui/button";
@@ -50,8 +51,7 @@ export function CfoReportPanel({ embedded = true, initialFiltri }: CfoReportPane
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_report"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      return data || [];
+      return fetchAllCompagnie("id, nome", { attiva: true });
     },
   });
 

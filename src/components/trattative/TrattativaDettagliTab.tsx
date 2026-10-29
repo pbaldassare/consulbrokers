@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
@@ -65,8 +66,8 @@ export const TrattativaDettagliTab = ({ trattativa, onSaved, onEvento }: Props) 
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_lookup"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      return (data || []).map((c) => ({ value: c.id, label: c.nome }));
+      const data = await fetchAllCompagnie<{ id: string; nome: string }>("id, nome", { attiva: true });
+      return data.map((c) => ({ value: c.id, label: c.nome }));
     },
   });
 

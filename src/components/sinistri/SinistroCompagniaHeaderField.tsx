@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { formatEdgeFunctionError } from "@/lib/edgeFunctionError";
 import {
   buildSinistroCompagniaHeaderOptions,
@@ -50,14 +51,7 @@ export default function SinistroCompagniaHeaderField({
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie-attive-sinistro-header"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("compagnie")
-        .select("id, nome, codice")
-        .eq("attiva", true)
-        .order("nome")
-        .limit(1000);
-      if (error) throw error;
-      return (data || []) as CompagniaCatalogoOption[];
+      return fetchAllCompagnie<CompagniaCatalogoOption>("id, nome, codice", { attiva: true });
     },
   });
 

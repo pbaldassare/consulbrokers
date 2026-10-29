@@ -16,6 +16,7 @@ import {
   Search,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { useAuth } from "@/contexts/AuthContext";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useDebouncedClienteSearch } from "@/hooks/useClienteSearch";
@@ -198,9 +199,7 @@ const ContabilitaUfficio = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["agenzie-lookup"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      if (error) throw error;
-      return (data || []) as Array<{ id: string; nome: string }>;
+      return fetchAllCompagnie<{ id: string; nome: string }>("id, nome", { attiva: true });
     },
     staleTime: 60_000,
   });

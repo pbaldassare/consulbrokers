@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,8 +47,7 @@ const ImportProvvigioniTab = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["agenzie-select"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").order("nome");
-      return data || [];
+      return fetchAllCompagnie("id, nome");
     },
   });
 

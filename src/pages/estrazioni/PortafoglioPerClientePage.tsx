@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -88,13 +89,7 @@ const PortafoglioPerClientePage = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie-attive-portafoglio-cliente"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("compagnie")
-        .select("id, nome, codice")
-        .eq("attiva", true)
-        .order("nome");
-      if (error) throw error;
-      return data || [];
+      return fetchAllCompagnie("id, nome, codice", { attiva: true });
     },
     staleTime: 300_000,
   });
