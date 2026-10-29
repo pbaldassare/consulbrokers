@@ -1414,26 +1414,7 @@ const CompagnieList = () => {
 
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["agenzie"],
-<<<<<<< HEAD
-    queryFn: async () => {
-      // PostgREST taglia a 1000 righe: senza il giro la lista mente e si ferma a 1000.
-      const pageSize = 1000;
-      const all: any[] = [];
-      for (let from = 0; ; from += pageSize) {
-        const { data, error } = await supabase
-          .from("compagnie")
-          .select("*")
-          .order("nome")
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        all.push(...(data || []));
-        if (!data || data.length < pageSize) break;
-      }
-      return all;
-    },
-=======
     queryFn: () => fetchAllCompagnie("*"),
->>>>>>> cursor/compagnie-pagination-c52b
   });
 
   // Lookup map id → { descrizione, codice } per arricchire la lista Agenzie
