@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,6 +56,8 @@ export default function StoricoGarePage() {
   const { profile } = useAuth();
   const isAdmin = !!profile && profile.ruolo !== "cliente" && profile.ruolo !== "prospect";
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusId = searchParams.get("id") || searchParams.get("storico");
 
   const [search, setSearch] = useState("");
   const [filtroAnno, setFiltroAnno] = useState("tutti");
@@ -76,7 +79,7 @@ export default function StoricoGarePage() {
   const [importResult, setImportResult] = useState<any>(null);
 
   // Carica valori distinti per dropdown
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroAnno, filtroProvincia, filtroTipologia, filtroEsito, filtroBroker, filtroCategoria, filtroStatoMandato, filtroSoloIntermedia, flagCauzione, flagReferenze, flagAccesso, flagOfferta]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroAnno, filtroProvincia, filtroTipologia, filtroEsito, filtroBroker, filtroCategoria, filtroStatoMandato, filtroSoloIntermedia, flagCauzione, flagReferenze, flagAccesso, flagOfferta, focusId]);
 
   const { data: lookupData } = useQuery({
     queryKey: ["storico_gare_lookups"],
@@ -103,9 +106,10 @@ export default function StoricoGarePage() {
   });
 
   // Lista paginata
-  const filtersKey = [search, filtroAnno, filtroProvincia, filtroTipologia, filtroEsito, filtroBroker, filtroCategoria, filtroStatoMandato, filtroSoloIntermedia, flagCauzione, flagReferenze, flagAccesso, flagOfferta] as const;
+  const filtersKey = [search, filtroAnno, filtroProvincia, filtroTipologia, filtroEsito, filtroBroker, filtroCategoria, filtroStatoMandato, filtroSoloIntermedia, flagCauzione, flagReferenze, flagAccesso, flagOfferta, focusId] as const;
 
   const applyFilters = (q: any) => {
+    if (focusId) return q.eq("id", focusId);
     if (search.trim()) q = q.ilike("ente_nome", `%${search.trim().toUpperCase()}%`);
     if (filtroAnno !== "tutti") q = q.eq("anno_riferimento", parseInt(filtroAnno));
     if (filtroProvincia !== "tutti") q = q.eq("provincia", filtroProvincia);
@@ -220,6 +224,24 @@ export default function StoricoGarePage() {
           <p className="text-sm text-muted-foreground">
             Intelligence di mercato: gare e manifestazioni d'interesse storiche
           </p>
+          {focusId && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+              <span>Gara appena archiviata dal cantiere Bandi partecipati.</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  const next = new URLSearchParams(searchParams);
+                  next.delete("id");
+                  next.delete("storico");
+                  setSearchParams(next, { replace: true });
+                }}
+              >
+                Mostra tutto lo storico
+              </Button>
+            </div>
+          )}
         </div>
         {isAdmin && (
           <Button onClick={() => setImportDialogOpen(true)}>
@@ -421,7 +443,7 @@ export default function StoricoGarePage() {
                 const sm = STATI_MANDATO.find(s => s.value === r.stato_mandato);
                 const cat = CATEGORIE_ENTE.find(c => c.value === r.categoria_ente);
                 return (
-                  <TableRow key={r.id} className="hover:bg-muted/30">
+                  <TableRow key={r.id} className={r.id === focusId ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-muted/30"}>
                     <TableCell className="font-mono text-xs">{r.anno_riferimento}</TableCell>
                     <TableCell className="font-medium max-w-xs truncate" title={r.ente_nome}>{r.ente_nome}</TableCell>
                     <TableCell>{r.provincia ?? "—"}</TableCell>
