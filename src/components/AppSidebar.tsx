@@ -231,7 +231,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Anagrafiche Agenzie", path: "/anagrafiche-agenzie", icon: Scale },
         { label: "Anagrafiche Amministrative", path: "/anagrafiche-amministrative", icon: Briefcase },
         { label: "Conti Bancari", path: "/conti-bancari", icon: Banknote, hideForRoles: ["ufficio"] },
-        { label: "Compagnie / Agenzie", path: "/compagnie", icon: Building2, hideForRoles: ["ufficio"] },
+        { label: "Compagnie / Agenzie", path: "/compagnie", icon: Building2 },
       ],
     },
   },
