@@ -12,6 +12,7 @@ import { fmtEuro } from "@/lib/formatCurrency";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { shouldScopeClientiPerSede } from "@/lib/filterContiBancariPerSede";
+import { limitaClientiAllaSede } from "@/lib/clientiSedeExtra";
 
 export interface PolizzaAggiunta {
   titoloId: string;
@@ -65,7 +66,7 @@ export function AggiungiPolizzaAltroClienteDialog({ open, onOpenChange, excludeT
         .select("id, ragione_sociale, nome, cognome, codice_fiscale, partita_iva")
         .or(`ragione_sociale.ilike.%${q}%,cognome.ilike.%${q}%,nome.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
         .limit(25);
-      if (scopeUfficioId) query = query.eq("ufficio_id", scopeUfficioId);
+      query = await limitaClientiAllaSede(query, scopeUfficioId);
       const { data } = await query;
       if (!cancel) setClienti(data ?? []);
     })();

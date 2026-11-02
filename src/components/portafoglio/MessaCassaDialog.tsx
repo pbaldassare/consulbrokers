@@ -19,6 +19,7 @@ import { formatDateIT } from "@/lib/formatDate";
 import { useAuth } from "@/contexts/AuthContext";
 import { safeId } from "@/lib/safeId";
 import { filterContiBancariPerSede, shouldScopeClientiPerSede } from "@/lib/filterContiBancariPerSede";
+import { limitaClientiAllaSede } from "@/lib/clientiSedeExtra";
 import { resolveTitoloMadreId } from "@/lib/sospensioneQuietanze";
 import CigRifField from "@/components/shared/CigRifField";
 import { formatCigBadge, isCigFormatoInvalido, isClienteEnte } from "@/lib/cigEnte";
@@ -393,7 +394,7 @@ export const MessaCassaDialog = ({
         .or(`ragione_sociale.ilike.%${q}%,cognome.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
         .eq("attivo", true)
         .limit(20);
-      if (scopeUfficioId) query = query.eq("ufficio_id", scopeUfficioId);
+      query = await limitaClientiAllaSede(query, scopeUfficioId);
       const { data } = await query;
       return (data as any[]) || [];
     },
@@ -424,7 +425,7 @@ export const MessaCassaDialog = ({
         .or(`ragione_sociale.ilike.%${q}%,cognome.ilike.%${q}%,nome.ilike.%${q}%`)
         .eq("attivo", true)
         .limit(20);
-      if (scopeUfficioId) clientiQ = clientiQ.eq("ufficio_id", scopeUfficioId);
+      clientiQ = await limitaClientiAllaSede(clientiQ, scopeUfficioId);
       const { data: clientiMatch } = await clientiQ;
       const clienteIds = (clientiMatch as any[] || []).map((c: any) => c.id);
 
@@ -463,7 +464,7 @@ export const MessaCassaDialog = ({
         .or(`ragione_sociale.ilike.%${q}%,cognome.ilike.%${q}%,codice_fiscale.ilike.%${q}%,partita_iva.ilike.%${q}%`)
         .eq("attivo", true)
         .limit(20);
-      if (scopeUfficioId) query = query.eq("ufficio_id", scopeUfficioId);
+      query = await limitaClientiAllaSede(query, scopeUfficioId);
       const { data } = await query;
       return (data as any[]) || [];
     },
