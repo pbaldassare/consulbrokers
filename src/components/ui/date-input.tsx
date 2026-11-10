@@ -222,7 +222,10 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
     };
 
     return (
-      <div className="relative w-full">
+      <div
+        data-testid="date-input-wrap"
+        className={cn("relative h-10 w-[11rem] max-w-full text-sm", className)}
+      >
         <input
           ref={inputRef}
           type="text"
@@ -252,10 +255,7 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
               e.currentTarget.blur();
             }
           }}
-          className={cn(
-            "flex h-10 w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-            className,
-          )}
+          className="flex h-full w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-inherit ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         />
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
@@ -266,7 +266,7 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
               disabled={disabled}
               tabIndex={-1}
               aria-label="Apri calendario"
-              className="absolute right-0 top-0 h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground"
+              className="absolute right-0 top-0 h-full w-10 shrink-0 text-muted-foreground hover:text-foreground"
             >
               <CalendarIcon className="h-4 w-4 opacity-70" />
             </Button>
