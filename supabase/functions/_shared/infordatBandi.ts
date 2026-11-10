@@ -3,7 +3,25 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 const BASE = "https://infordat.it";
+const BROKER_ONLY_RE = /brokeraggio|broker assicur|intermediazione assicur/i;
+const SERVIZI_RE = /servizi assicurativ|servizi di assicurazione|polizze assicur|coperture assicur|assicurativ/i;
 const BROKER_RE = /brokeraggio|broker assicur|intermediazione assicur|polizza|assicurativ/i;
+
+function categoriaDaTitolo(text: string): "Brokeraggio assicurativo" | "Servizi assicurativi" {
+  return BROKER_ONLY_RE.test(text) ? "Brokeraggio assicurativo" : "Servizi assicurativi";
+}
+
+export function matchesInfordatKeywordMode(
+  text: string,
+  mode?: "brokeraggio" | "servizi" | "entrambe",
+): boolean {
+  const broker = BROKER_ONLY_RE.test(text);
+  const servizi = SERVIZI_RE.test(text) || broker;
+  if (mode === "brokeraggio") return broker;
+  if (mode === "servizi") return servizi;
+  if (mode === "entrambe") return broker || servizi;
+  return BROKER_RE.test(text);
+}
 
 export type InfordatBando = {
   id: string;
@@ -171,7 +189,7 @@ export function parseInfordatHtml(html: string, regioni: string[] = []): Inforda
       stato: "aperto",
       dataPublicazione: "",
       link: normalizeHref(href || "/account/listaemail"),
-      categoria: "Brokeraggio assicurativo",
+      categoria: categoriaDaTitolo(text),
       scheda_id: id,
       cig: parseCig(text),
       localita: null,
@@ -200,7 +218,7 @@ export function parseInfordatHtml(html: string, regioni: string[] = []): Inforda
       stato: "aperto",
       dataPublicazione: "",
       link: normalizeHref(href || "/account/listaemail"),
-      categoria: "Brokeraggio assicurativo",
+      categoria: categoriaDaTitolo(text),
       scheda_id: id,
       cig: parseCig(text),
       localita: null,
@@ -274,6 +292,7 @@ function findSearchAction(html: string): { action: string; fields: Record<string
 export async function searchInfordat(filtri: {
   regioni: string[];
   keyword?: string;
+  keywords?: string[];
   mode?: "brokeraggio" | "servizi" | "entrambe";
 }): Promise<InfordatBando[]> {
   const { user, pass } = await loadInfordatCredentials();
@@ -283,26 +302,32 @@ export async function searchInfordat(filtri: {
   pages.push(await request(jar, `${BASE}/account`));
   pages.push(await request(jar, `${BASE}/account/listaemail?tutte=true&gare=true`));
 
-  const keyword = (filtri.keyword || "brokeraggio assicurativo").trim();
+  const phrases = (filtri.keywords?.length
+    ? filtri.keywords
+    : [(filtri.keyword || "brokeraggio assicurativo").trim()]
+  ).map((p) => p.trim()).filter(Boolean);
+
   for (const html of [...pages]) {
     const search = findSearchAction(html);
     if (!search) continue;
-    const body = new URLSearchParams(search.fields);
-    for (const [k] of body.entries()) {
-      if (/oggetto|testo|keyword|chiave|descrizione|query|q$/i.test(k)) body.set(k, keyword);
-    }
-    try {
-      pages.push(await request(jar, search.action, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Origin: BASE,
-          Referer: `${BASE}/account`,
-        },
-        body,
-      }));
-    } catch (e) {
-      console.warn("infordat search form", e);
+    for (const phrase of phrases) {
+      const body = new URLSearchParams(search.fields);
+      for (const [k] of body.entries()) {
+        if (/oggetto|testo|keyword|chiave|descrizione|query|q$/i.test(k)) body.set(k, phrase);
+      }
+      try {
+        pages.push(await request(jar, search.action, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Origin: BASE,
+            Referer: `${BASE}/account`,
+          },
+          body,
+        }));
+      } catch (e) {
+        console.warn("infordat search form", e);
+      }
     }
   }
 
@@ -316,11 +341,8 @@ export async function searchInfordat(filtri: {
     }
   }
 
-  const BROKER_ONLY = /brokeraggio|broker assicur|intermediazione assicur/i;
-  const filtered = mapped.filter((b) => {
-    const hay = `${b.titolo} ${b.ente} ${b.categoria}`;
-    if (filtri.mode === "brokeraggio") return BROKER_ONLY.test(hay);
-    return BROKER_RE.test(hay);
-  });
+  const filtered = mapped.filter((b) =>
+    matchesInfordatKeywordMode(`${b.titolo} ${b.ente} ${b.categoria}`, filtri.mode),
+  );
   return (filtered.length ? filtered : mapped).slice(0, 40);
 }
