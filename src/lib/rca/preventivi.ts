@@ -1,4 +1,5 @@
 import { resolveClienteIndirizzo, resolveClienteNome, type ClienteEcAnagrafica } from "@/lib/ecClienteAnagrafica";
+import type { AtrRca } from "@/lib/rca/datiEsterni";
 import { genderFromCf } from "@/lib/rca/assicurapp";
 import {
   danniPacchettoFromGaranzie,
@@ -78,6 +79,10 @@ export type RcaPreventivoForm = {
   bersaniCf: string;
   currentProvider: string;
   insuranceExpire: string;
+  cu: string;
+  atr: AtrRca | null;
+  fonteDati: string;
+  datiEsterniIl: string;
   garanzie: CodiceGaranziaAssicurapp[];
   quoteKind: RcaQuoteKind;
   cvtPacchetto: CvtPacchettoValue;
@@ -179,6 +184,10 @@ export function emptyPreventivoForm(): RcaPreventivoForm {
     bersaniCf: "",
     currentProvider: "",
     insuranceExpire: "",
+    cu: "",
+    atr: null,
+    fonteDati: "",
+    datiEsterniIl: "",
     garanzie: [],
     quoteKind: "rca",
     cvtPacchetto: "",
@@ -233,6 +242,7 @@ export function applyVeicoloEGaranzie(opts: {
   veicoloId?: string | null;
   compagnia?: string | null;
   scadenzaIso?: string | null;
+  classeBm?: string | null;
   garanzie?: VoceGaranziaPolizza[];
 }): RcaPreventivoForm {
   return {
@@ -245,6 +255,7 @@ export function applyVeicoloEGaranzie(opts: {
     model: (opts.modello || opts.form.model || "").toUpperCase(),
     currentProvider: opts.compagnia || opts.form.currentProvider,
     insuranceExpire: isoToGgMmAaaa(opts.scadenzaIso) || opts.form.insuranceExpire,
+    cu: opts.classeBm || opts.form.cu,
     garanzie: opts.garanzie ? mapGaranziePolizzaToAssicurapp(opts.garanzie) : opts.form.garanzie,
     cvtPacchetto: opts.garanzie
       ? danniPacchettoFromGaranzie(mapGaranziePolizzaToAssicurapp(opts.garanzie))
@@ -296,7 +307,12 @@ export function snapshotsFromForm(form: RcaPreventivoForm) {
     insurance: {
       current_insurance_provider: form.currentProvider,
       insurance_expire: form.insuranceExpire,
+      cu: form.cu,
+      atr: form.atr || {},
     },
+    dati_esterni: form.fonteDati
+      ? { fonte: form.fonteDati, interrogato_il: form.datiEsterniIl }
+      : undefined,
     note: form.note,
   };
   return { client_snapshot, vehicle_snapshot, quote_snapshot };
@@ -335,6 +351,10 @@ export function formFromPreventivoRow(row: RcaPreventivoRow): RcaPreventivoForm 
     bersaniCf: row.bersani_cf || q.bersani?.bersani_cf || "",
     currentProvider: q.insurance?.current_insurance_provider || "",
     insuranceExpire: q.insurance?.insurance_expire || "",
+    cu: q.insurance?.cu || "",
+    atr: q.insurance?.atr || null,
+    fonteDati: q.dati_esterni?.fonte || "",
+    datiEsterniIl: q.dati_esterni?.interrogato_il || "",
     garanzie: (row.garanzie_richieste || []) as CodiceGaranziaAssicurapp[],
     quoteKind: q.quote_kind === "cvt" ? "cvt" : "rca",
     cvtPacchetto: (q.cvt_pacchetto as CvtPacchettoValue) || danniPacchettoFromGaranzie(row.garanzie_richieste),
