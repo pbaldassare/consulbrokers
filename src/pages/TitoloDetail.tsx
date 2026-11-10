@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
+import { fetchAllCompagnie, fetchMappaGruppiRapporti } from "@/lib/fetchAllCompagnie";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
@@ -1010,20 +1010,7 @@ const TitoloDetail = () => {
   const { data: rapportiMap } = useQuery({
     queryKey: ["compagnia-rapporti-map-titolo"],
     enabled: editingContratto,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("compagnia_rapporti")
-        .select("compagnia_id, gruppo_compagnia_id")
-        .eq("attivo", true);
-      const m = new Map<string, string[]>();
-      (data || []).forEach((r: any) => {
-        if (!r.compagnia_id || !r.gruppo_compagnia_id) return;
-        const arr = m.get(r.compagnia_id) || [];
-        if (!arr.includes(r.gruppo_compagnia_id)) arr.push(r.gruppo_compagnia_id);
-        m.set(r.compagnia_id, arr);
-      });
-      return m;
-    },
+    queryFn: async () => new Map(Object.entries(await fetchMappaGruppiRapporti())),
   });
 
   // Lista agenzie filtrate per gruppo compagnia selezionato (logica identica a Immissione)

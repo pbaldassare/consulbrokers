@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllCompagnie } from "@/lib/fetchAllCompagnie";
+import { fetchAllCompagnie, fetchMappaGruppiRapporti } from "@/lib/fetchAllCompagnie";
 import { verificaNumeroPolizzaDuplicato } from "@/lib/clientiDuplicate";
 import { erroreGaranziaPrimaRata } from "@/lib/garanziaPrimaRata";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1120,39 +1120,21 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
-  // Broker/Plurimandatarie che hanno un rapporto attivo con la compagnia (gruppo) scelta
-  const { data: brokerPluriPerGruppo } = useQuery({
-    queryKey: ["broker_pluri_per_gruppo", selectedGruppoCompagniaId],
-    enabled: !!selectedGruppoCompagniaId,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("compagnia_rapporti")
-        .select("compagnia_id")
-        .eq("gruppo_compagnia_id", selectedGruppoCompagniaId)
-        .eq("attivo", true);
-      const ids = Array.from(new Set(((data) || []).map((r) => r.compagnia_id).filter(Boolean)));
-      return ids as string[];
-    },
-  });
-
-  // Mappa completa compagnia (broker/pluri) → gruppi_compagnia coperti (per ricerca inversa)
+  // Mappa completa broker/pluri → gruppi coperti. Senza pagine PostgREST tiene solo 1000 rapporti
+  // e un broker con più mandati (es. Etisicura) risulta avere una sola compagnia.
   const { data: rapportiMap } = useQuery({
     queryKey: ["compagnia_rapporti_map_all"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("compagnia_rapporti")
-        .select("compagnia_id, gruppo_compagnia_id")
-        .eq("attivo", true);
-      const map: Record<string, string[]> = {};
-      for (const r of (data || []) as any[]) {
-        if (!r.compagnia_id || !r.gruppo_compagnia_id) continue;
-        const arr = map[r.compagnia_id] || [];
-        if (!arr.includes(r.gruppo_compagnia_id)) arr.push(r.gruppo_compagnia_id);
-        map[r.compagnia_id] = arr;
-      }
-      return map;
-    },
+    queryFn: fetchMappaGruppiRapporti,
   });
+
+  const brokerPluriPerGruppo = useMemo(() => {
+    if (!selectedGruppoCompagniaId || !rapportiMap) return [] as string[];
+    const out: string[] = [];
+    for (const [agId, gruppi] of Object.entries(rapportiMap)) {
+      if (gruppi.includes(selectedGruppoCompagniaId)) out.push(agId);
+    }
+    return out;
+  }, [rapportiMap, selectedGruppoCompagniaId]);
 
 
   const { data: gruppiCompagniaList, isLoading: gruppiCompagniaLoading, isError: gruppiCompagniaError } = useQuery({
